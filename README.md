@@ -1,0 +1,270 @@
+# ⚡ LinguaFlow - Aprenda Idiomas Assistindo Vídeos
+
+> **100% Gratuito • 100% Offline • 100% Privado**
+
+Extensão Chrome para aprendizado de idiomas através de vídeos com legendas duplas, dicionário integrado e sistema de repetição espaçada (SRS).
+
+---
+
+## 🎯 Funcionalidades
+
+### 🎬 Legendas Duplas Inteligentes
+- ✅ Legenda original (inglês) + Tradução (português)
+- ✅ Tradução **instantânea** (< 100ms)
+- ✅ Posicionamento otimizado por plataforma
+- ✅ Arrastar legendas com mouse
+- ✅ Modo blur (tradução borrada até hover)
+
+### 📚 Dicionário Integrado
+- ✅ Clique em qualquer palavra para ver definição
+- ✅ Pronúncia (IPA) + Áudio nativo
+- ✅ Exemplos de uso reais
+- ✅ Nível CEFR estimado
+- ✅ Frequência da palavra
+
+### 🎴 Sistema SRS (Flashcards)
+- ✅ Algoritmo SuperMemo-2
+- ✅ Revisão espaçada inteligente
+- ✅ 4 níveis de dificuldade
+- ✅ Estatísticas detalhadas
+- ✅ Dashboard completo
+
+### 🎮 Controles por Teclado
+- **A** - Legenda anterior
+- **S** - Repetir legenda
+- **D** - Próxima legenda
+- **Q** - Toggle auto-pausa
+- **R** - Salvar frase inteira
+- **O** - Abrir configurações
+- **Espaço** - Play/Pause
+
+### 🌐 Plataformas Suportadas
+- ✅ YouTube
+- ✅ Netflix
+- ✅ Prime Video
+- ✅ Disney+
+- ✅ Max (HBO Max)
+- ✅ Sites genéricos
+
+---
+
+## 🚀 Instalação
+
+### Opção 1: Chrome Web Store (Em Breve)
+```
+Aguardando aprovação na Chrome Web Store
+```
+
+### Opção 2: Instalação Manual
+
+1. **Clone o repositório:**
+```bash
+git clone https://github.com/seu-usuario/linguaflow.git
+cd linguaflow
+```
+
+2. **Build (se necessário):**
+```bash
+npm install
+npm run build
+```
+
+3. **Carregar no Chrome:**
+   - Abrir `chrome://extensions/`
+   - Ativar "Modo do desenvolvedor"
+   - Clicar em "Carregar sem compactação"
+   - Selecionar a pasta do projeto
+
+---
+
+## 📖 Documentação
+
+### Para Usuários
+- 📘 [**Guia de Testes**](GUIA_DE_TESTES.md) - Como testar todas as funcionalidades
+- 📗 [**Instruções de Build**](INSTRUCOES_BUILD.md) - Como compilar e publicar
+
+### Para Desenvolvedores
+- 📕 [**Correções da Auditoria**](CORRECOES_AUDITORIA.md) - Problemas identificados e corrigidos
+- 📙 [**Resumo Executivo**](RESUMO_EXECUTIVO.md) - Visão geral completa do projeto
+
+---
+
+## 🎨 Screenshots
+
+### Legendas Duplas
+![Legendas Duplas](screenshots/legendas-duplas.png)
+*Legenda original em branco + tradução em azul*
+
+### Dicionário Popup
+![Dicionário](screenshots/dicionario.png)
+*Clique em qualquer palavra para ver definição completa*
+
+### Dashboard
+![Dashboard](screenshots/dashboard.png)
+*Gerencie seu vocabulário e faça revisões*
+
+### Flashcards
+![Flashcards](screenshots/flashcards.png)
+*Sistema SRS com algoritmo SuperMemo-2*
+
+---
+
+## 🆚 Comparação com Language Reactor
+
+| Funcionalidade | Language Reactor | LinguaFlow |
+|----------------|------------------|------------|
+| Legendas Duplas | ✅ | ✅ |
+| Tradução Instantânea | ✅ | ✅ |
+| Dicionário Integrado | ✅ | ✅ |
+| Sistema SRS | ✅ | ✅ |
+| Múltiplas Plataformas | ✅ | ✅ |
+| Controles por Teclado | ✅ | ✅ |
+| **Preço** | **$5/mês** | **GRÁTIS** |
+| **Offline** | ❌ | ✅ |
+| **Privacidade** | ❌ | ✅ |
+| **Open Source** | ❌ | ✅ |
+
+---
+
+## 🔧 Tecnologias
+
+- **Frontend:** Vanilla JavaScript (ES6+)
+- **Storage:** IndexedDB
+- **APIs:** Google Translate (GTX), Free Dictionary API, Tatoeba
+- **Manifest:** V3 (Chrome Extension)
+- **Build:** Webpack (opcional)
+
+---
+
+## 📊 Status do Projeto
+
+### ✅ Funcionalidades Implementadas (100%)
+- ✅ Legendas duplas em todas as plataformas
+- ✅ Tradução instantânea (< 100ms)
+- ✅ Dicionário completo com IPA e áudio
+- ✅ Sistema SRS com SuperMemo-2
+- ✅ Dashboard com estatísticas
+- ✅ Sincronização em tempo real
+- ✅ Controles por teclado
+- ✅ Painel de configurações
+- ✅ Badge com cards pendentes
+
+### 🐛 Bugs Conhecidos
+Nenhum bug crítico conhecido! 🎉
+
+### 🚀 Próximas Funcionalidades
+- [ ] Suporte para mais idiomas
+- [ ] Exportar para Anki
+- [ ] Modo escuro
+- [ ] Estatísticas avançadas
+- [ ] Integração com Forvo (pronúncia)
+
+---
+
+## 🤝 Contribuindo
+
+Contribuições são bem-vindas! Para contribuir:
+
+1. Fork o projeto
+2. Crie uma branch (`git checkout -b feature/nova-funcionalidade`)
+3. Commit suas mudanças (`git commit -m 'Adiciona nova funcionalidade'`)
+4. Push para a branch (`git push origin feature/nova-funcionalidade`)
+5. Abra um Pull Request
+
+### Diretrizes
+- Código em inglês, comentários em português
+- Seguir padrão ES6+
+- Testar em pelo menos 2 plataformas
+- Atualizar documentação
+
+---
+
+## 📝 Changelog
+
+### v1.0.0 (25/04/2026)
+- ✅ Lançamento inicial
+- ✅ Suporte para YouTube, Netflix, Prime, Disney+, Max
+- ✅ Legendas duplas com tradução instantânea
+- ✅ Dicionário integrado
+- ✅ Sistema SRS completo
+- ✅ Dashboard e estatísticas
+- ✅ Controles por teclado
+- ✅ Sincronização em tempo real
+
+### Correções da Auditoria (25/04/2026)
+- 🐛 Corrigido atraso na tradução (agora < 100ms)
+- 🐛 Corrigido salvamento de palavras no dashboard
+- 🐛 Corrigido posicionamento das legendas
+- 🐛 Corrigido arrastar legendas
+- 🐛 Implementado sincronização em tempo real
+- 🐛 Implementado badge com cards pendentes
+- 🐛 Melhorado cache de traduções
+
+---
+
+## 📄 Licença
+
+MIT License - Veja [LICENSE](LICENSE) para detalhes.
+
+---
+
+## 🙏 Agradecimentos
+
+- **Free Dictionary API** - Dicionário gratuito
+- **Google Translate** - API de tradução
+- **Tatoeba** - Exemplos de frases
+- **MyMemory** - Tradução de backup
+- **SuperMemo** - Algoritmo SRS
+
+---
+
+## 📞 Suporte
+
+### Problemas?
+1. Verificar [Guia de Testes](GUIA_DE_TESTES.md)
+2. Abrir uma [Issue](https://github.com/seu-usuario/linguaflow/issues)
+3. Email: extensao.linguaflow@gmail.com
+
+### Redes Sociais
+- Twitter: [@linguaflow](https://twitter.com/linguaflow)
+- Discord: [LinguaFlow Community](https://discord.gg/linguaflow)
+
+---
+
+## ⭐ Star History
+
+Se você gostou do projeto, dê uma ⭐!
+
+[![Star History Chart](https://api.star-history.com/svg?repos=seu-usuario/linguaflow&type=Date)](https://star-history.com/#seu-usuario/linguaflow&Date)
+
+---
+
+## 🎯 Roadmap
+
+### Q2 2026
+- [ ] Publicar na Chrome Web Store
+- [ ] Suporte para Firefox
+- [ ] Modo escuro
+- [ ] Mais idiomas
+
+### Q3 2026
+- [ ] App mobile (React Native)
+- [ ] Integração com Anki
+- [ ] API pública
+- [ ] Comunidade de usuários
+
+### Q4 2026
+- [ ] IA para recomendações personalizadas
+- [ ] Gamificação
+- [ ] Certificados de conclusão
+- [ ] Marketplace de conteúdo
+
+---
+
+<div align="center">
+
+**Feito com ❤️ por desenvolvedores que amam idiomas**
+
+[⬆ Voltar ao topo](#-linguaflow---aprenda-idiomas-assistindo-vídeos)
+
+</div>

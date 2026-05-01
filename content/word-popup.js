@@ -1,0 +1,673 @@
+// LinguaFlow Pro — Word Popup v5 (unified storage, bilingual examples, full grammar)
+
+export class WordPopup {
+  constructor(engine, platform) {
+    this.engine=engine; this.platform=platform;
+    this.popup=null; this.word=''; this.context='';
+    this.cache={}; this.activeDeck='Default'; this.decks=['Default'];
+    this._gramBuilt=false; this._exBuilt=false;
+  }
+
+  init() { this._build(); this._loadDecks(); }
+  destroy() { this.popup?.remove(); }
+
+  _build() {
+    document.getElementById('lfp')?.remove();
+    if (!document.getElementById('lfp-k')) {
+      const s=document.createElement('style');s.id='lfp-k';
+      s.textContent=`@keyframes lfpIn{from{opacity:0;transform:translateY(10px) scale(0.93)}to{opacity:1;transform:translateY(0) scale(1)}}#lfp *{box-sizing:border-box;margin:0;padding:0}#lfp button,#lfp select,#lfp input{font-family:'Outfit','Segoe UI',sans-serif}.lfp-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:3px 10px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .12s;display:inline-block}.lfp-chip:hover{color:#7dd3fc;border-color:rgba(125,209,252,.35)}.lfp-chip.red{background:rgba(248,113,113,.06);border-color:rgba(248,113,113,.15);color:#f87171}.lfp-panels::-webkit-scrollbar{width:3px}.lfp-panels::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}.lfp-ph{background:rgba(244,114,182,.06);border:1px solid rgba(244,114,182,.15);border-radius:9px;padding:9px 12px;margin-bottom:7px}.lfp-ex{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 13px;margin-bottom:8px}`;
+      document.head.appendChild(s);
+    }
+    this.popup=document.createElement('div');
+    this.popup.id='lfp';
+    Object.assign(this.popup.style,{position:'absolute',zIndex:'2147483645',background:'rgba(7,11,26,0.98)',backdropFilter:'blur(24px) saturate(180%)',border:'1px solid rgba(125,209,252,0.18)',borderRadius:'22px',width:'400px',boxShadow:'0 28px 80px rgba(0,0,0,.85)',fontFamily:"'Outfit','Segoe UI',sans-serif",color:'#e2e8f0',display:'none',overflow:'hidden',animation:'lfpIn .2s cubic-bezier(.175,.885,.32,1.275)'});
+    this.popup.innerHTML=`
+<div style="padding:16px 18px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div style="flex:1;min-width:0;">
+    <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
+      <span id="fw" style="font-size:28px;font-weight:800;color:#f8fafc;letter-spacing:-.03em;line-height:1;"></span>
+      <span id="fpos" style="display:none;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;background:rgba(125,209,252,.1);color:#7dd3fc;padding:2px 7px;border-radius:20px;"></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:5px;flex-wrap:wrap;">
+      <span id="fipa" style="font-size:13px;color:#64748b;font-family:monospace;"></span>
+    </div>
+  </div>
+  <div style="display:flex;gap:6px;flex-shrink:0;margin-top:2px;">
+    <button id="ftts" title="🔊 Ouvir" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#7dd3fc;cursor:pointer;padding:6px 9px;font-size:16px;line-height:1;transition:all .15s;">🔊</button>
+    <button id="fx" style="background:none;border:none;color:#475569;font-size:18px;cursor:pointer;padding:4px 7px;border-radius:6px;line-height:1;">✕</button>
+  </div>
+</div>
+<div style="display:flex;border-bottom:1px solid rgba(255,255,255,.07);margin-top:12px;padding:0 4px;">
+  ${['Tradução','Gramática','Exemplos','Linguee','YouGlish'].map((l,i)=>`<button class="ftab" data-i="${i}" style="flex:1;padding:9px 2px;font-size:11px;font-weight:700;color:${i===0?'#7dd3fc':'#475569'};background:none;border:none;border-bottom:2px solid ${i===0?'#7dd3fc':'transparent'};cursor:pointer;letter-spacing:.03em;white-space:nowrap;transition:all .15s;">${l}</button>`).join('')}
+</div>
+<div class="lfp-panels" style="padding:14px 18px 18px;max-height:400px;overflow-y:auto;">
+
+  <div class="fp" data-p="0">
+    <div id="ft" style="font-size:26px;font-weight:800;color:#4ade80;margin-bottom:5px;line-height:1.2;">…</div>
+    <div id="fd" style="font-size:13px;color:#94a3b8;line-height:1.6;font-style:italic;margin-bottom:10px;"></div>
+    <div id="fctx" style="display:none;background:rgba(139,92,246,.06);border:1px solid rgba(139,92,246,.18);border-radius:10px;padding:10px 13px;margin-bottom:12px;"><div style="font-size:10px;color:#a78bfa;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;display:flex;align-items:center;gap:5px;"><span>💡</span><span>Contexto nesta frase</span></div><div id="fctxt" style="font-size:12px;color:#e2e8f0;line-height:1.7;"></div></div>
+    <div id="fc" style="display:none;background:rgba(125,209,252,.04);border-left:3px solid rgba(125,209,252,.3);padding:8px 12px;border-radius:0 8px 8px 0;font-size:12px;color:#cbd5e1;line-height:1.6;margin-bottom:12px;"></div>
+    <div id="fsyn" style="display:none;margin-bottom:10px;"><div style="font-size:10px;color:#475569;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px;">Sinônimos</div><div id="fsyns" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
+    <div id="fant" style="display:none;margin-bottom:12px;"><div style="font-size:10px;color:#475569;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px;">Antônimos</div><div id="fants" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
+    <div style="height:1px;background:rgba(255,255,255,.06);margin-bottom:12px;"></div>
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;">
+      <span style="font-size:11px;color:#475569;font-weight:600;white-space:nowrap;">Deck:</span>
+      <select id="fdeck" style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#94a3b8;font-size:12px;padding:5px 8px;outline:none;cursor:pointer;"></select>
+      <button id="fnewdeck" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#64748b;padding:5px 9px;cursor:pointer;font-size:14px;font-weight:700;transition:all .15s;" title="Novo deck">+</button>
+    </div>
+    <button id="fsave" style="display:block;width:100%;padding:11px;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;transition:all .15s;margin-bottom:8px;letter-spacing:.01em;">+ Salvar nos Flashcards</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+      <button id="fknown" style="padding:9px;background:rgba(74,222,128,.08);color:#4ade80;border:1px solid rgba(74,222,128,.25);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;">✓ Já Conheço</button>
+      <button id="fai" style="padding:9px;background:rgba(139,92,246,.08);color:#a78bfa;border:1px solid rgba(139,92,246,.22);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;">✦ Explicar Palavra</button>
+    </div>
+    <button id="faisent" style="display:block;width:100%;padding:9px;background:rgba(251,191,36,.08);color:#fbbf24;border:1px solid rgba(251,191,36,.22);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;margin-bottom:10px;">🔍 Analisar Frase Completa</button>
+    <div id="fair" style="display:none;background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:12px;font-size:12px;color:#c4b5fd;line-height:1.7;"></div>
+  </div>
+
+  <div class="fp" data-p="1" style="display:none;">
+    <div id="fgb"><div style="text-align:center;color:#475569;font-size:13px;padding:16px;">Clique "Analisar" para análise completa com IA.</div></div>
+    <button id="fgbtn" style="display:block;width:100%;margin-top:12px;padding:10px;background:rgba(139,92,246,.1);color:#a78bfa;border:1px solid rgba(139,92,246,.25);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;">✦ Analisar com IA</button>
+  </div>
+
+  <div class="fp" data-p="2" style="display:none;">
+    <div id="fexb"><div style="text-align:center;color:#475569;font-size:13px;padding:20px;">Carregando exemplos…</div></div>
+    <div style="margin:12px 0;height:1px;background:rgba(255,255,255,.06);"></div>
+    <div style="font-size:10px;color:#475569;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:7px;">Frase do vídeo</div>
+    <div id="fvctx" style="background:rgba(125,209,252,.04);border-left:3px solid rgba(125,209,252,.3);padding:8px 12px;border-radius:0 8px 8px 0;font-size:12px;color:#94a3b8;font-style:italic;line-height:1.6;"></div>
+    <div id="fvctxtr" style="font-size:11px;color:rgba(125,209,252,.5);font-style:italic;margin-top:5px;line-height:1.5;"></div>
+  </div>
+
+  <div class="fp" data-p="3" style="display:none;padding-top:8px;">
+    <div style="font-size:13px;color:#64748b;line-height:1.8;margin-bottom:14px;text-align:center;">Traduções em contexto real de textos bilíngues — ideal para ver uso nativo.</div>
+    <div id="frev" style="display:none;margin-bottom:14px;max-height:280px;overflow-y:auto;"></div>
+    <button id="frevbtn" style="display:block;width:100%;padding:11px;background:linear-gradient(135deg,#0c4a6e,#0369a1);color:#7dd3fc;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;">🔄 Reverso Context — Exemplos Reais</button>
+    <button id="fl1" style="display:block;width:100%;padding:10px;background:rgba(74,222,128,.08);color:#4ade80;border:1px solid rgba(74,222,128,.25);border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;">🔗 Linguee — EN ↔ PT</button>
+    <button id="fl2" style="display:block;width:100%;padding:9px;background:rgba(74,222,128,.05);color:#4ade80;border:1px solid rgba(74,222,128,.15);border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;">🇬🇧 Linguee — EN definitions</button>
+    <button id="fl3" style="display:block;width:100%;padding:9px;background:rgba(74,222,128,.03);color:#4ade80;border:1px solid rgba(74,222,128,.1);border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;">🌐 Google Translate</button>
+  </div>
+
+  <div class="fp" data-p="4" style="display:none;text-align:center;padding-top:8px;">
+    <div style="font-size:13px;color:#64748b;line-height:1.8;margin-bottom:14px;">Ouça como nativos pronunciam em vídeos reais do YouTube.</div>
+    <button id="fy1" style="display:block;width:100%;padding:12px;background:linear-gradient(135deg,#7c1010,#b91c1c);color:#f87171;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;">🎬 YouGlish — Qualquer sotaque</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+      <button id="fy2" style="padding:10px;background:rgba(248,113,113,.07);color:#f87171;border:1px solid rgba(248,113,113,.2);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🇺🇸 American</button>
+      <button id="fy3" style="padding:10px;background:rgba(248,113,113,.07);color:#f87171;border:1px solid rgba(248,113,113,.2);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🇬🇧 British</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button id="fy4" style="padding:10px;background:rgba(248,113,113,.04);color:#f87171;border:1px solid rgba(248,113,113,.12);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🇦🇺 Australian</button>
+      <button id="fy5" style="padding:10px;background:rgba(248,113,113,.04);color:#f87171;border:1px solid rgba(248,113,113,.12);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🎓 Academic</button>
+    </div>
+  </div>
+
+</div>`;
+    document.body.appendChild(this.popup);
+    window.__lfpopup = this;
+    this._bind();
+  }
+
+  _q(s) { return this.popup.querySelector(s); }
+
+  _bind() {
+    const q = s => this._q(s);
+    q('#fx').onclick = () => this.hide();
+    document.addEventListener('mousedown', e => {
+      if (this.popup.style.display!=='none' && !this.popup.contains(e.target) && !e.target.classList?.contains('w'))
+        this.hide();
+    });
+    // Tabs
+    this.popup.querySelectorAll('.ftab').forEach(t => {
+      t.onclick = () => {
+        const i = parseInt(t.dataset.i);
+        this.popup.querySelectorAll('.ftab').forEach((x,j)=>{ x.style.color=j===i?'#7dd3fc':'#475569'; x.style.borderBottomColor=j===i?'#7dd3fc':'transparent'; });
+        this.popup.querySelectorAll('.fp').forEach((p,j)=>p.style.display=j===i?'':'none');
+        if (i===1 && !this._gramBuilt) this._buildGrammar();
+        if (i===2 && !this._exBuilt)  this._buildExamples();
+      };
+    });
+    q('#ftts').onclick = async () => { 
+      const BASE = chrome.runtime.getURL('utils/');
+      try {
+        const { tts } = await import(BASE + 'tts.js');
+        // Pass audioUrl from dictionary (priority 1: native MP3)
+        await tts.play(this.word, 'en-US', this._currentAudioUrl || null);
+      } catch (e) {
+        console.error('[WordPopup] Erro ao reproduzir áudio:', e);
+      }
+    };
+    q('#fsave').onclick = () => this._save();
+    q('#fknown').onclick = () => this._toggleKnown();
+    q('#fai').onclick = () => this._ai();
+    q('#faisent').onclick = () => this._aiSentence();
+    q('#fgbtn').onclick = () => this._aiGrammar();
+    q('#frevbtn').onclick = () => this._loadReverso();
+    q('#fnewdeck').onclick = async() => {
+      const n=prompt('Nome do deck:');
+      if(!n?.trim()) return;
+      const BASE=chrome.runtime.getURL('utils/');
+      const {db}=await import(BASE+'db.js');
+      const decks=[...this.decks,n.trim()];
+      await db.setSetting('decks',decks);
+      this.decks=decks;
+      this._renderDecks();
+      q('#fdeck').value=n.trim();
+      this.activeDeck=n.trim();
+    };
+    q('#fdeck').onchange = e => this.activeDeck=e.target.value;
+    // Linguee
+    q('#fl1').onclick = () => window.open(`https://www.linguee.com/english-portuguese/search?source=auto&query=${encodeURIComponent(this.word)}`,'_blank');
+    q('#fl2').onclick = () => window.open(`https://www.linguee.com/english-portuguese/search?source=english&query=${encodeURIComponent(this.word)}`,'_blank');
+    q('#fl3').onclick = () => window.open(`https://translate.google.com/?sl=${this.engine?.cfg?.sourceLang||'en'}&tl=${this.engine?.cfg?.targetLang||'pt'}&text=${encodeURIComponent(this.word)}`,'_blank');
+    // YouGlish
+    q('#fy1').onclick = () => window.open(`https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english`,'_blank');
+    q('#fy2').onclick = () => window.open(`https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english/us`,'_blank');
+    q('#fy3').onclick = () => window.open(`https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english/uk`,'_blank');
+    q('#fy4').onclick = () => window.open(`https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english/aus`,'_blank');
+    q('#fy5').onclick = () => window.open(`https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english/academic`,'_blank');
+  }
+
+  _findPlayerContainer() {
+    const selectors = {
+      'youtube': ['#movie_player', '.html5-video-player'],
+      'netflix': ['.watch-video', '.NFPlayer'],
+      'max': ['[data-testid="player-container"]', '[class*="PlayerContainer"]'],
+      'disney': ['.btm-media-clients'],
+      'prime': ['.rendererContainer']
+    };
+    
+    const platformSelectors = selectors[this.platform] || [];
+    for (const sel of platformSelectors) {
+      const el = document.querySelector(sel);
+      if (el) {
+        const pos = window.getComputedStyle(el).position;
+        if (pos === 'static') el.style.position = 'relative';
+        return el;
+      }
+    }
+    
+    // Fallback: procura por video e pega o pai
+    const video = document.querySelector('video');
+    if (video) {
+      let parent = video.parentElement;
+      let attempts = 0;
+      while (parent && attempts < 5) {
+        const rect = parent.getBoundingClientRect();
+        if (rect.width > 400 && rect.height > 300) {
+          const pos = window.getComputedStyle(parent).position;
+          if (pos === 'static') parent.style.position = 'relative';
+          return parent;
+        }
+        parent = parent.parentElement;
+        attempts++;
+      }
+    }
+    return null;
+  }
+
+  async showForWord(word, context, rect) {
+    if (!word) return;
+    this.word=word; this.context=context||'';
+    this._gramBuilt=false; this._exBuilt=false;
+    
+    // Encontra o player container
+    const playerContainer = this._findPlayerContainer();
+    if (playerContainer && this.popup.parentElement !== playerContainer) {
+      playerContainer.appendChild(this.popup);
+      console.log('[WordPopup] Popup movido para dentro do player');
+    } else if (!playerContainer && this.popup.parentElement !== document.body) {
+      document.body.appendChild(this.popup);
+    }
+    // Reset tabs
+    this.popup.querySelectorAll('.ftab').forEach((t,i)=>{ t.style.color=i===0?'#7dd3fc':'#475569'; t.style.borderBottomColor=i===0?'#7dd3fc':'transparent'; });
+    this.popup.querySelectorAll('.fp').forEach((p,i)=>p.style.display=i===0?'':'none');
+    const q=s=>this._q(s);
+    q('#fw').textContent=word; q('#fipa').textContent=''; q('#fpos').style.display='none';
+    q('#ft').textContent='…'; q('#fd').textContent=''; q('#fc').style.display='none'; q('#fctx').style.display='none';
+    q('#fsyn').style.display='none'; q('#fant').style.display='none'; q('#fair').style.display='none';
+    // Context
+    if (context) { q('#fc').innerHTML=context.replace(new RegExp(`\\b(${word})\\b`,'gi'),'<b style="color:#7dd3fc">$1</b>'); q('#fc').style.display=''; }
+    // Buttons state
+    (async()=>{
+      const BASE=chrome.runtime.getURL('utils/');
+      const {db}=await import(BASE+'db.js');
+      const lang=this.engine?.cfg?.sourceLang||'en';
+      const saved=await db.getWord(word,lang);
+      const known=await db.isKnown(word,lang);
+      q('#fsave').textContent=saved?'✅ Salvo nos Flashcards':'+ Salvar nos Flashcards';
+      q('#fsave').style.background=saved?'linear-gradient(135deg,#15803d,#16a34a)':'linear-gradient(135deg,#1d4ed8,#2563eb)';
+      q('#fknown').textContent=known?'✅ Conhecida':'✓ Já Conheço';
+      q('#fknown').style.background=known?'rgba(74,222,128,.18)':'rgba(74,222,128,.08)';
+    })();
+    // Grammar reset
+    q('#fgb').innerHTML='<div style="text-align:center;color:#475569;font-size:13px;padding:16px;">Clique "Analisar" para análise completa com IA.</div>';
+    q('#fexb').innerHTML='<div style="text-align:center;color:#475569;font-size:13px;padding:20px;">Carregando exemplos…</div>';
+    q('#fvctx').textContent=context||'(sem contexto)';
+    q('#fvctxtr').textContent='';
+    this._position(rect);
+    this.popup.style.display='block';
+    this.popup.style.animation='none';
+    requestAnimationFrame(()=>{ this.popup.style.animation=''; });
+    this._loadData(word);
+    // Translate context
+    if (context) { const tr=await this._translate(context); if(tr) q('#fvctxtr').textContent='→ '+tr; }
+    // Gera explicação contextual automática
+    if (context) this._explainContext(word, context);
+  }
+
+  async _loadData(word) {
+    if (this.cache[word]) { this._render(this.cache[word]); return; }
+    const [tr, di] = await Promise.all([this._translate(word), this._dict(word)]);
+    const d = { translation:tr, ...di };
+    this.cache[word]=d;
+    this._render(d);
+  }
+
+  _render(d) {
+    const q=s=>this._q(s);
+    q('#ft').textContent=d.translation||'—';
+    if(d.phonetic) q('#fipa').textContent=d.phonetic;
+    if(d.partOfSpeech){q('#fpos').textContent=d.partOfSpeech;q('#fpos').style.display='';}
+    if(d.definition) q('#fd').textContent=d.definition;
+    if(d.synonyms?.length){
+      q('#fsyns').innerHTML=d.synonyms.slice(0,6).map(s=>`<span class="lfp-chip" onclick="window.__lfpopup?.showForWord('${s}','',null)">${s}</span>`).join('');
+      q('#fsyn').style.display='';
+    }
+    if(d.antonyms?.length){
+      q('#fants').innerHTML=d.antonyms.slice(0,4).map(s=>`<span class="lfp-chip red" onclick="window.__lfpopup?.showForWord('${s}','',null)">${s}</span>`).join('');
+      q('#fant').style.display='';
+    }
+    
+    // Store audioUrl for TTS button
+    this._currentAudioUrl = d.audioUrl || null;
+  }
+
+  _buildGrammar() {
+    this._gramBuilt=true;
+    const q=s=>this._q(s);
+    const d=this.cache[this.word]||{};
+    const phs=this._phrasals(this.word);
+    let h=`<div style="margin-bottom:14px;"><div style="font-size:10px;color:#7dd3fc;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Classe Gramatical</div><div style="font-size:13px;color:#e2e8f0;line-height:1.7;">${this._posDetail(d.partOfSpeech,this.word)}</div></div>`;
+    if(phs.length){
+      h+=`<div style="margin-bottom:14px;"><div style="font-size:10px;color:#f472b6;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Phrasal Verbs com "${this.word}"</div>`;
+      h+=phs.map(p=>`<div class="lfp-ph"><div style="font-size:13px;font-weight:700;color:#f472b6;margin-bottom:2px;">${p.phrase}</div><div style="font-size:12px;color:#94a3b8;margin-bottom:2px;">${p.meaning}</div><div style="font-size:11px;color:#64748b;font-style:italic;">"${p.example}"</div></div>`).join('');
+      h+=`</div>`;
+    }
+    h+=`<div><div style="font-size:10px;color:#fbbf24;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Padrões Gramaticais</div><div style="font-size:13px;color:#94a3b8;line-height:1.8;">${this._patterns(d.partOfSpeech,this.word)}</div></div>`;
+    h+=`<div id="fgai" style="display:none;margin-top:12px;background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:12px;font-size:12px;color:#c4b5fd;line-height:1.7;"></div>`;
+    q('#fgb').innerHTML=h;
+  }
+
+  async _buildExamples() {
+    this._exBuilt=true;
+    const q=s=>this._q(s);
+    const d=this.cache[this.word]||{};
+    const exs=[];
+    if(d.example) exs.push({en:d.example,src:'Dicionário Oxford'});
+    // Fetch more
+    try {
+      const res=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(this.word)}`);
+      if(res.ok){
+        const arr=await res.json();
+        arr[0]?.meanings?.forEach(m=>m.definitions?.forEach(def=>{
+          if(def.example&&exs.length<8) exs.push({en:def.example,src:m.partOfSpeech});
+        }));
+      }
+    } catch {}
+    if(!exs.length){q('#fexb').innerHTML='<div style="color:#475569;font-size:13px;text-align:center;padding:16px 0;">Nenhum exemplo no dicionário.<br>Use "Analisar com IA" na aba Gramática para gerar exemplos personalizados.</div>';return;}
+    // Translate all examples
+    const hl=(t,w)=>t.replace(new RegExp(`\\b(${w})\\b`,'gi'),'<b style="color:#7dd3fc">$1</b>');
+    q('#fexb').innerHTML='<div style="color:#475569;font-size:12px;text-align:center;padding:8px;">Traduzindo exemplos…</div>';
+    const translated=await Promise.all(exs.map(e=>this._translate(e.en)));
+    q('#fexb').innerHTML=exs.map((e,i)=>`
+      <div class="lfp-ex">
+        <div style="margin-bottom:5px;">${hl(e.en,this.word)}</div>
+        <div style="font-size:12px;color:#7dd3fc;font-style:italic;line-height:1.5;">→ ${translated[i]||'…'}</div>
+        <div style="font-size:10px;color:#334155;text-transform:uppercase;letter-spacing:.07em;margin-top:5px;">${e.src}</div>
+      </div>`).join('');
+  }
+
+  async _ai() {
+    const q=s=>this._q(s);
+    const el=q('#fair');
+    el.style.display=''; el.textContent='Consultando IA…';
+    const videoData={videoTitle:document.title,videoUrl:location.href,timestamp:this.engine?.video?.currentTime||0};
+    return new Promise(res=>{
+      chrome.runtime.sendMessage({action:'ai_explain_word',word:this.word,context:this.context,...videoData},r=>{
+        el.innerHTML=r?.explanation?r.explanation.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b style="color:#e2e8f0">$1</b>'):'<span style="color:#475569">✦ Explicação com IA (Grok)</span>';
+        res();
+      });
+    });
+  }
+
+  async _aiSentence() {
+    const q=s=>this._q(s);
+    const el=q('#fair');
+    if (!this.context) {
+      el.style.display=''; 
+      el.innerHTML='<span style="color:#f87171">⚠️ Nenhuma frase disponível para analisar. Clique em uma palavra dentro de uma legenda.</span>';
+      return;
+    }
+    el.style.display=''; el.textContent='Analisando frase completa…';
+    const videoData={videoTitle:document.title,videoUrl:location.href,timestamp:this.engine?.video?.currentTime||0};
+    return new Promise(res=>{
+      chrome.runtime.sendMessage({action:'ai_analyze_sentence',sentence:this.context,...videoData},r=>{
+        el.innerHTML=r?.analysis?r.analysis.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b style="color:#e2e8f0">$1</b>'):'<span style="color:#475569">🔍 Análise com IA (Grok)</span>';
+        res();
+      });
+    });
+  }
+
+  async _aiGrammar() {
+    const q=s=>this._q(s);
+    this._buildGrammar();
+    const btn=q('#fgbtn');
+    btn.textContent='✦ Analisando…'; btn.disabled=true;
+    const el=q('#fgai');
+    if(el){
+      el.style.display=''; el.textContent='Consultando IA…';
+      const videoData={videoTitle:document.title,videoUrl:location.href,timestamp:this.engine?.video?.currentTime||0};
+      await new Promise(res=>{
+        chrome.runtime.sendMessage({action:'ai_analyze_sentence',sentence:this.context||`The word "${this.word}" in English`,...videoData},r=>{
+          el.innerHTML=r?.analysis?r.analysis.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b style="color:#e2e8f0">$1</b>'):'<span style="color:#475569">✦ Análise com IA (Grok)</span>';
+          res();
+        });
+      });
+    }
+    btn.textContent='✦ Analisar com IA'; btn.disabled=false;
+  }
+
+    async _save() {
+    const q=s=>this._q(s);
+    const btn=q('#fsave');
+    
+    // Check if already saving (prevent double-click)
+    if (btn.disabled) return;
+    
+    const originalText = btn.textContent;
+    btn.textContent='⏳ Salvando...';
+    btn.disabled = true;
+    
+    const d=this.cache[this.word]||{};
+    const BASE=chrome.runtime.getURL('utils/');
+    
+    try {
+      const {db}=await import(BASE+'db.js');
+      
+      const result = await db.saveWord({
+        word:this.word, 
+        lang:this.engine?.cfg?.sourceLang||'en',
+        translation:d.translation||'', 
+        phonetic:d.phonetic||'',
+        definition:d.definition||'', 
+        context_sentence:this.context||'',
+        video_url:location.href, 
+        video_title:document.title,
+        platform:this.platform||'youtube', 
+        deck_id:1,
+        synonyms:(d.synonyms||[]).join(','), 
+        antonyms:(d.antonyms||[]).join(','),
+      });
+      
+      console.log('[WordPopup] ✅ Palavra salva:', result);
+      
+      btn.textContent='✅ Salvo!';
+      btn.style.background='linear-gradient(135deg,#15803d,#16a34a)';
+      
+      // ← FIX: Reset button after 2 seconds
+      setTimeout(() => {
+        btn.textContent='+ Salvar nos Flashcards';
+        btn.style.background='linear-gradient(135deg,#1d4ed8,#2563eb)';
+        btn.disabled = false;
+      }, 2000);
+      
+      // Mostra toast de confirmação
+      this._showSaveToast();
+      
+      // Notifica service worker para broadcast
+      chrome.runtime.sendMessage({
+        type: 'WORD_SAVED',
+        word: this.word
+      }).catch(() => {});
+      
+      // Notifica dashboard diretamente
+      chrome.runtime.sendMessage({
+        type: 'REFRESH_DASHBOARD',
+        word: this.word
+      }).catch(() => {});
+      
+      // Dispara evento customizado no DOM
+      window.dispatchEvent(new CustomEvent('LF_WORD_SAVED', {
+        detail: { word: this.word, result }
+      }));
+      
+      console.log('[WordPopup] 📢 Notificações enviadas');
+      
+    } catch(e) {
+      console.error('[WordPopup] ❌ Erro ao salvar:',e);
+      btn.textContent='❌ Erro';
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }, 2000);
+    }
+  }
+
+  _showSaveToast() {
+    let toast = document.getElementById('lf-save-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'lf-save-toast';
+      toast.style.cssText = `
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        background: rgba(16, 185, 129, 0.95);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 10px;
+        font-family: 'Inter', sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        z-index: 2147483647;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+        animation: slideInRight 0.3s ease-out;
+      `;
+      document.body.appendChild(toast);
+      
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes slideInRight {
+          from { opacity: 0; transform: translateX(100px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes slideOutRight {
+          from { opacity: 1; transform: translateX(0); }
+          to { opacity: 0; transform: translateX(100px); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    toast.textContent = `✅ "${this.word}" salvo no dashboard!`;
+    toast.style.display = 'block';
+    toast.style.animation = 'slideInRight 0.3s ease-out';
+    
+    setTimeout(() => {
+      toast.style.animation = 'slideOutRight 0.3s ease-out';
+      setTimeout(() => toast.style.display = 'none', 300);
+    }, 3000);
+  }
+
+  async _toggleKnown() {
+    const q=s=>this._q(s);
+    const btn=q('#fknown');
+    const BASE=chrome.runtime.getURL('utils/');
+    const {db}=await import(BASE+'db.js');
+    const lang=this.engine?.cfg?.sourceLang||'en';
+    const isKnown=await db.isKnown(this.word,lang);
+    if(!isKnown){
+      await db.markAsKnown(this.word,lang);
+      this.engine?.markWordKnown(this.word);
+      btn.textContent='✅ Conhecida!';
+      btn.style.background='rgba(74,222,128,.18)';
+    } else {
+      this.engine?.knownWords?.delete(this.word.toLowerCase());
+      btn.textContent='✓ Já Conheço';
+      btn.style.background='rgba(74,222,128,.08)';
+    }
+  }
+
+  async _loadDecks(){
+    const BASE=chrome.runtime.getURL('utils/');
+    const {db}=await import(BASE+'db.js');
+    const decks=await db.getSetting('decks')||['Default'];
+    this.decks=decks;
+    this._renderDecks();
+  }
+  _renderDecks(){const s=this._q('#fdeck');if(!s)return;s.innerHTML=this.decks.map(d=>`<option value="${d}">${d==='Default'?'📚 Default':d}</option>`).join('');s.value=this.activeDeck;}
+
+  _translate(t){return new Promise(res=>{chrome.runtime.sendMessage({action:'translate',text:t,from:this.engine?.cfg?.sourceLang||'en',to:this.engine?.cfg?.targetLang||'pt'},r=>{if(chrome.runtime.lastError){res(null);return;}res(r?.translation||null);});});}
+  _dict(w){return new Promise(res=>{chrome.runtime.sendMessage({action:'dictionary',word:w},r=>{if(chrome.runtime.lastError||!r?.ok){res({});return;}res(r.data||{});});});}
+
+  async _explainContext(word, sentence) {
+    const q=s=>this._q(s);
+    const el=q('#fctxt');
+    const container=q('#fctx');
+    
+    // Gera explicação contextual rápida
+    el.textContent='Analisando contexto…';
+    container.style.display='';
+    
+    try {
+      const prompt = `Palavra: "${word}"\nFrase: "${sentence}"\n\nEm 1-2 linhas curtas, explique o que "${word}" significa NESTA frase específica. Seja direto e prático.`;
+      
+      const response = await new Promise(resolve => {
+        chrome.runtime.sendMessage({
+          action: 'ai_quick_context',
+          word: word,
+          sentence: sentence
+        }, resolve);
+      });
+      
+      if (response?.explanation) {
+        el.innerHTML = response.explanation.replace(/\n/g, '<br>');
+      } else {
+        // Fallback: explicação simples baseada na tradução
+        const translation = await this._translate(word);
+        const sentenceTranslation = await this._translate(sentence);
+        el.innerHTML = `A palavra <b style="color:#7dd3fc">"${word}"</b> nesta frase significa <b style="color:#4ade80">"${translation}"</b>.<br><br><span style="color:#64748b;font-size:11px;font-style:italic;">→ ${sentenceTranslation}</span>`;
+      }
+    } catch (e) {
+      console.error('[WordPopup] Erro ao gerar contexto:', e);
+      container.style.display='none';
+    }
+  }
+
+  async _loadReverso() {
+    const q=s=>this._q(s);
+    const btn=q('#frevbtn');
+    const container=q('#frev');
+    
+    btn.textContent='🔄 Carregando…';
+    btn.disabled=true;
+    
+    try {
+      const response = await new Promise(resolve => {
+        chrome.runtime.sendMessage({
+          type: 'FETCH_REVERSO',
+          word: this.word,
+          srcLang: 'en',
+          dstLang: 'pt'
+        }, resolve);
+      });
+      
+      if (response?.success && response.list?.length > 0) {
+        const examples = response.list.slice(0, 10);
+        const hl = (text, word) => text.replace(new RegExp(`\\b(${word})\\b`, 'gi'), '<b style="color:#7dd3fc">$1</b>');
+        
+        container.innerHTML = examples.map(ex => `
+          <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+            <div style="font-size:12px;color:#e2e8f0;line-height:1.6;margin-bottom:4px;">${hl(ex.en, this.word)}</div>
+            <div style="font-size:11px;color:#7dd3fc;font-style:italic;line-height:1.5;">→ ${ex.pt}</div>
+          </div>
+        `).join('');
+        container.style.display='';
+        btn.textContent='✓ Exemplos Carregados';
+        btn.style.background='rgba(16,185,129,.15)';
+        btn.style.color='#4ade80';
+      } else {
+        container.innerHTML='<div style="text-align:center;color:#475569;font-size:12px;padding:12px;">Nenhum exemplo encontrado no Reverso.</div>';
+        container.style.display='';
+        btn.textContent='🔄 Reverso Context';
+        btn.disabled=false;
+      }
+    } catch (e) {
+      console.error('[WordPopup] Erro ao carregar Reverso:', e);
+      container.innerHTML='<div style="text-align:center;color:#f87171;font-size:12px;padding:12px;">⚠️ Erro ao carregar exemplos.</div>';
+      container.style.display='';
+      btn.textContent='🔄 Reverso Context';
+      btn.disabled=false;
+    }
+  }
+
+  _phrasals(word){const DB={get:[{phrase:'get up',meaning:'Levantar-se',example:"I get up at 7am."},{phrase:'get over',meaning:'Superar',example:"She got over her fear."},{phrase:'get along',meaning:'Dar-se bem',example:"We get along very well."},{phrase:'get through',meaning:'Passar por / Conseguir',example:"We'll get through this together."},{phrase:'get out',meaning:'Sair / Escapar',example:"Let's get out of here!"},{phrase:'get away',meaning:'Escapar / Viajar',example:"I need to get away for a while."}],put:[{phrase:'put off',meaning:'Adiar / Desanimar',example:"Don't put off what you can do today."},{phrase:'put up with',meaning:'Suportar',example:"I can't put up with this anymore."},{phrase:'put on',meaning:'Vestir / Fingir / Colocar',example:"She put on her coat."},{phrase:'put out',meaning:'Apagar / Lançar',example:"Put out the fire immediately."}],take:[{phrase:'take off',meaning:'Decolar / Remover / Ter sucesso',example:"The business really took off."},{phrase:'take over',meaning:'Assumir controle',example:"She took over as CEO."},{phrase:'take up',meaning:'Começar hobby / Ocupar',example:"I took up painting last year."},{phrase:'take in',meaning:'Absorver / Enganar',example:"Take in the beautiful view."}],give:[{phrase:'give up',meaning:'Desistir',example:"Never give up on your dreams."},{phrase:'give in',meaning:'Ceder',example:"He finally gave in."},{phrase:'give away',meaning:'Dar de graça / Revelar',example:"Don't give away the surprise!"}],come:[{phrase:'come up with',meaning:'Ter uma ideia',example:"She came up with a brilliant plan."},{phrase:'come across',meaning:'Encontrar por acaso',example:"I came across this old photo."},{phrase:'come down to',meaning:'Se resumir a',example:"It all comes down to trust."}],look:[{phrase:'look up',meaning:'Buscar informação / Melhorar',example:"Look it up in the dictionary."},{phrase:'look out',meaning:'Cuidado!',example:"Look out! There's a car!"},{phrase:'look forward to',meaning:'Estar ansioso por',example:"I look forward to meeting you."}],make:[{phrase:'make up',meaning:'Inventar / Reconciliar / Maquiar',example:"He made up a story."},{phrase:'make out',meaning:'Entender / Ver à distância',example:"I can barely make out the sign."},{phrase:'make it',meaning:'Conseguir / Chegar',example:"Can you make it to the party?"}],run:[{phrase:'run out of',meaning:'Ficar sem',example:"We ran out of time."},{phrase:'run into',meaning:'Encontrar por acaso',example:"I ran into my old friend."},{phrase:'run away',meaning:'Fugir',example:"Don't run away from problems."}],turn:[{phrase:'turn up',meaning:'Aparecer / Aumentar volume',example:"He turned up late again."},{phrase:'turn down',meaning:'Recusar / Diminuir',example:"She turned down the offer."},{phrase:'turn off',meaning:'Desligar',example:"Turn off the lights, please."}],break:[{phrase:'break up',meaning:'Terminar relacionamento',example:"They broke up last month."},{phrase:'break down',meaning:'Quebrar / Colapso emocional',example:"The car broke down on the highway."},{phrase:'break out',meaning:'Escapar / Surgir repentinamente',example:"A fire broke out."}],bring:[{phrase:'bring up',meaning:'Criar filho / Mencionar',example:"He was brought up in Brazil."},{phrase:'bring out',meaning:'Revelar / Lançar',example:"Hard times bring out the best in people."}],fall:[{phrase:'fall apart',meaning:'Desmoronar',example:"Their relationship fell apart."},{phrase:'fall behind',meaning:'Ficar para trás',example:"Don't fall behind in class."},{phrase:'fall for',meaning:'Se apaixonar / Cair num truque',example:"I completely fell for her."}],hold:[{phrase:'hold on',meaning:'Esperar / Segurar',example:"Hold on, I'll be right back."},{phrase:'hold back',meaning:'Conter / Segurar',example:"She held back her tears."}],keep:[{phrase:'keep up',meaning:'Acompanhar / Manter',example:"Keep up the great work!"},{phrase:'keep on',meaning:'Continuar',example:"Keep on practicing!"},{phrase:'keep out',meaning:'Ficar de fora',example:"Keep out of trouble."}],go:[{phrase:'go on',meaning:'Continuar / Acontecer',example:"What's going on here?"},{phrase:'go through',meaning:'Passar por dificuldade',example:"She went through a lot."},{phrase:'go out',meaning:'Sair / Apagar',example:"The lights went out."}],work:[{phrase:'work out',meaning:'Malhar / Funcionar / Resolver',example:"It all worked out in the end."},{phrase:'work on',meaning:'Trabalhar em',example:"I'm working on a new project."}],set:[{phrase:'set up',meaning:'Montar / Criar',example:"Let's set up a meeting."},{phrase:'set off',meaning:'Partir / Detonar',example:"They set off at dawn."}],show:[{phrase:'show up',meaning:'Aparecer',example:"He always shows up late."},{phrase:'show off',meaning:'Se exibir',example:"Stop showing off!"}],think:[{phrase:'think over',meaning:'Refletir sobre',example:"Let me think it over first."},{phrase:'think up',meaning:'Inventar / Criar',example:"She thought up a great solution."}],call:[{phrase:'call off',meaning:'Cancelar',example:"They called off the game."},{phrase:'call out',meaning:'Chamar / Criticar',example:"He called her out on the mistake."}],find:[{phrase:'find out',meaning:'Descobrir',example:"I need to find out what happened."},{phrase:'find out about',meaning:'Saber sobre algo',example:"How did you find out about this?"}],cut:[{phrase:'cut off',meaning:'Cortar / Interromper',example:"He was cut off mid-sentence."},{phrase:'cut down on',meaning:'Reduzir',example:"I'm cutting down on sugar."}],hang:[{phrase:'hang out',meaning:'Passar tempo com amigos',example:"Let's hang out this weekend."},{phrase:'hang on',meaning:'Esperar',example:"Hang on a second, please."}],let:[{phrase:'let down',meaning:'Decepcionar',example:"Please don't let me down."},{phrase:'let go',meaning:'Soltar / Deixar ir',example:"Just let it go."}],pick:[{phrase:'pick up',meaning:'Buscar / Pegar / Aprender',example:"Can you pick me up at 5?"},{phrase:'pick out',meaning:'Escolher / Identificar',example:"Pick out the one you like."}],carry:[{phrase:'carry on',meaning:'Continuar',example:"Carry on with your work."},{phrase:'carry out',meaning:'Executar / Realizar',example:"They carried out the plan."}],fill:[{phrase:'fill in',meaning:'Preencher / Substituir',example:"Fill in the blanks."},{phrase:'fill out',meaning:'Preencher formulário',example:"Please fill out this form."}],back:[{phrase:'back up',meaning:'Apoiar / Fazer backup',example:"Back up your files!"},{phrase:'back down',meaning:'Recuar',example:"He backed down from the argument."}],blow:[{phrase:'blow up',meaning:'Explodir / Enraivecer',example:"He blew up when he heard the news."},{phrase:'blow away',meaning:'Impressionar muito',example:"Her performance blew me away."}],pass:[{phrase:'pass out',meaning:'Desmaiar',example:"She passed out from exhaustion."},{phrase:'pass on',meaning:'Transmitir / Repassar',example:"Pass on my regards."}],};return DB[word.toLowerCase()]||[];}
+
+  _posDetail(pos,w){const m={noun:`<b style="color:#7dd3fc">Substantivo</b> — Pessoa, lugar, coisa ou ideia.<br>• Artigo: <span style="color:#7dd3fc">a/an/the ${w}</span><br>• Plural: <span style="color:#7dd3fc">${w}s</span> • Possessivo: <span style="color:#7dd3fc">${w}'s</span>`,verb:`<b style="color:#4ade80">Verbo</b> — Ação ou estado.<br>• Base: <span style="color:#4ade80">${w}</span> • 3ª pessoa: <span style="color:#4ade80">${w}s</span><br>• Gerúndio: <span style="color:#4ade80">${w}ing</span> • Passado: <span style="color:#4ade80">${w}ed</span><br>• Passiva: <span style="color:#4ade80">be/was ${w}ed</span>`,adjective:`<b style="color:#fbbf24">Adjetivo</b> — Descreve substantivos.<br>• Antes do noun: <span style="color:#fbbf24">${w} + noun</span><br>• Após linking verb: <span style="color:#fbbf24">be/seem/look + ${w}</span><br>• Comparativo: <span style="color:#fbbf24">more ${w}</span> • Superlativo: <span style="color:#fbbf24">most ${w}</span>`,adverb:`<b style="color:#f472b6">Advérbio</b> — Modifica verbos, adjetivos ou advérbios.<br>• Geralmente termina em <b>-ly</b><br>• Ex: very, quite, rather, too + <span style="color:#f472b6">${w}</span>`,preposition:`<b style="color:#a78bfa">Preposição</b> — Relação entre elementos.<br>• Lugar: in, on, at, under, over<br>• Tempo: at, on, in, before, after<br>• Movimento: to, from, into, through`};return m[pos?.toLowerCase()]||`<span style="color:#64748b">Clique "Analisar com IA" para análise detalhada da classe gramatical desta palavra.</span>`;}
+
+  _patterns(pos,w){const m={verb:`• <b>S + ${w} + O</b> (transitivo)<br>• <b>S + ${w} + to-inf.</b> (ex: want to ${w})<br>• <b>S + ${w} + -ing</b> (ex: enjoy ${w}ing)<br>• <b>S + ${w} + that clause</b>`,noun:`• <b>the/a/an + ${w}</b><br>• <b>adj + ${w}</b> (ex: big/small ${w})<br>• <b>${w} + of + sth</b><br>• <b>compound: ${w}+noun</b>`,adjective:`• <b>${w} + noun</b> (atributivo)<br>• <b>be/seem/look/feel/sound + ${w}</b><br>• <b>too + ${w} / ${w} + enough</b><br>• <b>very/quite/rather/extremely + ${w}</b>`};return m[pos?.toLowerCase()]||`<span style="color:#64748b">Use "Analisar com IA" para ver padrões específicos desta palavra.</span>`;}
+
+  _position(rect) {
+    const W=400, H=560;
+    const playerContainer = this._findPlayerContainer();
+    
+    if (playerContainer) {
+      // Popup dentro do player - usa coordenadas relativas
+      const playerRect = playerContainer.getBoundingClientRect();
+      let l, t;
+      
+      if (rect) {
+        // Posiciona ACIMA da palavra clicada (relativo ao player)
+        l = rect.left - playerRect.left;
+        t = rect.top - playerRect.top - H - 20; // 20px de margem acima da palavra
+        
+        // Se não couber acima, posiciona no topo do player
+        if (t < 20) {
+          t = 20; // Margem do topo
+        }
+        
+        // Centraliza horizontalmente se possível
+        l = l - (W / 2) + (rect.width / 2);
+        
+        // Ajusta se sair pela direita
+        if (l + W > playerRect.width - 20) {
+          l = playerRect.width - W - 20;
+        }
+        
+        // Ajusta se sair pela esquerda
+        if (l < 20) {
+          l = 20;
+        }
+        
+        // Garante que não invade a área da legenda (parte inferior)
+        const maxTop = playerRect.height - H - 150; // 150px reservados para legendas
+        if (t > maxTop) {
+          t = maxTop;
+        }
+      } else {
+        // Centro do player, mas mais acima
+        l = Math.round((playerRect.width - W) / 2);
+        t = Math.round((playerRect.height - H) / 2) - 100; // 100px mais acima
+        if (t < 20) t = 20;
+      }
+      
+      this.popup.style.left = l + 'px';
+      this.popup.style.top = t + 'px';
+      this.popup.style.transform = 'none';
+    } else {
+      // Fallback: fixed no centro da tela
+      this.popup.style.left = '50%';
+      this.popup.style.top = '50%';
+      this.popup.style.transform = 'translate(-50%, -50%)';
+    }
+  }
+  hide(){this.popup.style.display='none';}
+}

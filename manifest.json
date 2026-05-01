@@ -1,0 +1,92 @@
+{
+  "manifest_version": 3,
+  "name": "LinguaFlow",
+  "version": "1.0.0",
+  "description": "Aprenda idiomas assistindo vídeos. Legendas duplas, dicionário, SRS Anki — 100% gratuito e offline.",
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "alarms",
+    "scripting",
+    "contextMenus",
+    "tabs",
+    "identity"
+  ],
+  "host_permissions": [
+    "*://api.mymemory.translated.net/*",
+    "*://translate.googleapis.com/*",
+    "*://api.dictionaryapi.dev/*",
+    "*://api.groq.com/*",
+    "*://www.linguee.com.br/*",
+    "*://context.reverso.net/*",
+    "*://*.youtube.com/*",
+    "*://*.netflix.com/*",
+    "*://*.hbomax.com/*",
+    "*://*.max.com/*",
+    "*://*.hbo.com/*",
+    "*://*.disneyplus.com/*",
+    "*://*.primevideo.com/*",
+    "*://*.amazon.com/*",
+    "https://www.googleapis.com/*"
+  ],
+  "oauth2": {
+    "client_id": "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
+    "scopes": ["https://www.googleapis.com/auth/drive.appdata"]
+  },
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.hbomax.com/*",
+        "*://*.max.com/*",
+        "*://*.hbo.com/*"
+      ],
+      "js": ["content/hbo-inject.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "*://*.youtube.com/*",
+        "*://*.netflix.com/*",
+        "*://*.hbomax.com/*",
+        "*://*.max.com/*",
+        "*://*.hbo.com/*",
+        "*://*.disneyplus.com/*",
+        "*://*.primevideo.com/*",
+        "*://*.amazon.com/*/video/*"
+      ],
+      "js": ["content/boot.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    },
+    "default_title": "LinguaFlow"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "dashboard/*",
+        "content/*",
+        "utils/*",
+        "icon.png",
+        "icon16.png",
+        "icon48.png",
+        "icon128.png"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

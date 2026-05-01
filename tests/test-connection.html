@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>LinguaFlow - Teste de Conexão</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 { color: #38bdf8; }
+        .test-section {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        button {
+            background: linear-gradient(135deg, #1d4ed8, #2563eb);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin: 5px;
+        }
+        button:hover { opacity: 0.9; }
+        .result {
+            background: rgba(16,185,129,0.1);
+            border: 1px solid rgba(16,185,129,0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .error {
+            background: rgba(239,68,68,0.1);
+            border-color: rgba(239,68,68,0.3);
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 LinguaFlow - Teste de Conexão</h1>
+    
+    <div class="test-section">
+        <h2>1. Teste de IndexedDB</h2>
+        <button onclick="testDB()">Testar Banco de Dados</button>
+        <div id="db-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Salvar Palavra de Teste</h2>
+        <button onclick="saveTestWord()">Salvar "hello"</button>
+        <div id="save-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Listar Todas as Palavras</h2>
+        <button onclick="listWords()">Listar Palavras</button>
+        <div id="list-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Criar Deck de Teste</h2>
+        <button onclick="createTestDeck()">Criar "Meu Deck"</button>
+        <div id="deck-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. Listar Todos os Decks</h2>
+        <button onclick="listDecks()">Listar Decks</button>
+        <div id="decks-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>6. Salvar Frase de Teste</h2>
+        <button onclick="saveTestSentence()">Salvar Frase</button>
+        <div id="sentence-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>7. Listar Todas as Frases</h2>
+        <button onclick="listSentences()">Listar Frases</button>
+        <div id="sentences-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>8. Teste de Comunicação com Background</h2>
+        <button onclick="testBackground()">Testar Background</button>
+        <div id="bg-result"></div>
+    </div>
+
+    <script type="module">
+        import { db } from '../utils/db.js';
+
+        window.testDB = async function() {
+            const result = document.getElementById('db-result');
+            try {
+                await db.initPromise;
+                result.className = 'result';
+                result.textContent = '✅ IndexedDB conectado com sucesso!\nDB Name: LinguaFlowFreeDB\nVersion: 4';
+            } catch (e) {
+                result.className = 'result error';
+                result.textContent = '❌ Erro: ' + e.message;
+            }
+        };
+
+        window.saveTestWord = async function() {
+            const result = document.getElementById('save-result');
+            try {
+                const res = await db.saveWord({
+                    word: 'hello',
+                    lang: 'en',
+                    translation: 'olá',
+                    phonetic: '/həˈloʊ/',
+                    definition: 'Used as a greeting',
+                    context_sentence: 'Hello, how are you?',
+                    video_url: 'https://youtube.com/test',
+                    video_title: 'Test Video',
+                    platform: 'youtube',
+                    deck_id: 1,
+                });
+                result.className = 'result';
+                result.textContent = '✅ Palavra salva com sucesso!\n' + JSON.stringify(res, null, 2);
+            } catch (e) {
+                result.className = 'result error';
+                result.textContent = '❌ Erro: ' + e.message;
+            }
+        };
+
+        window.listWords = async function() {
+            const result = document.getElementById('list-result');
+            try {
+                const words = await db.getAllWords();
+                result.className = 'result';
+                result.textContent = `✅ Total de palavras: ${words.length}\n\n` + 
+                    words.slice(0, 5).map(w => `- ${w.word} (${w.translation})`).join('\n') +
+                    (words.length > 5 ? `\n... e mais ${words.length - 5} palavras` : '');
+            } catch (e) {
+                result.className = 'result error';
+                result.textContent = '❌ Erro: ' + e.message;
+            }
+        };
+
+        window.createTestDeck = async function() {
+            const result = document.getElementById('deck-result');
+            try {
+                const res = await db.createDeck('Meu Deck de Teste');
+                result.className = 'result';
+                result.textContent = '✅ Deck criado com sucesso!\n' + JSON.stringify(res, null, 2);
+            } catch (e) {
+                result.className = 'result error';
+                result.textContent = '❌ Erro: ' + e.message;
+            }
+        };
+
+        window.listDecks = async function() {
+            const result = document.getElementById('decks-result');
+            try {
+                const decks = await db.getAllDecks();
+                result.className = 'result';
+                result.textContent = `✅ Total de decks: ${decks.length}\n\n` + 
+                    decks.map(d => `- ID ${d.id}: ${d.name}`).join('\n');
+            } catch (e) {
+                result.className = 'result error';
+                result.textContent = '❌ Erro: ' + e.message;
+            }
+        };
+
+        window.saveTestSentence = async function() {
+            const result = document.getElementById('sentence-result');
+            try {
+                const res = await db.saveSentence({
+                    original: 'This is a test sentence',
+                    translation: 'Esta é uma frase de teste',
+                    videoUrl: 'https://youtube.com/test',
+                    videoTitle: 'Test Video',
+                    platform: 'youtube',
+                    timestamp: 120,
+                });
+                result.className = 'result';
+                result.textContent = '✅ Frase salva com sucesso!\n' + JSON.stringify(res, null, 2);
+            } catch (e) {
+                result.className = 'result error';
+                result.textContent = '❌ Erro: ' + e.message;
+            }
+        };
+
+        window.listSentences = async function() {
+            const result = document.getElementById('sentences-result');
+            try {
+                const sentences = await db.getAllSentences();
+                result.className = 'result';
+                result.textContent = `✅ Total de frases: ${sentences.length}\n\n` + 
+                    sentences.slice(0, 3).map(s => `- ${s.original}\n  → ${s.translation}`).join('\n\n') +
+                    (sentences.length > 3 ? `\n\n... e mais ${sentences.length - 3} frases` : '');
+            } catch (e) {
+                result.className = 'result error';
+                result.textContent = '❌ Erro: ' + e.message;
+            }
+        };
+
+        window.testBackground = async function() {
+            const result = document.getElementById('bg-result');
+            try {
+                const response = await chrome.runtime.sendMessage({
+                    type: 'SAVE_WORD',
+                    data: {
+                        word: 'test',
+                        lang: 'en',
+                        translation: 'teste',
+                        deck_id: 1,
+                    }
+                });
+                result.className = 'result';
+                result.textContent = '✅ Background respondeu!\n' + JSON.stringify(response, null, 2);
+            } catch (e) {
+                result.className = 'result error';
+                result.textContent = '❌ Erro: ' + e.message;
+            }
+        };
+
+        // Auto-teste ao carregar
+        window.addEventListener('load', () => {
+            console.log('[LinguaFlow Test] Página carregada. Execute os testes manualmente.');
+        });
+    </script>
+</body>
+</html>

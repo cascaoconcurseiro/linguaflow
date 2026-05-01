@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinguaFlow - Teste de Salvamento de Palavras (DEBUG)</title>
+    <style>
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            background: linear-gradient(135deg, #0F172A, #1E293B);
+            color: #F1F5F9;
+            padding: 40px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 { color: #38BDF8; margin-bottom: 10px; }
+        .subtitle { color: #94A3B8; margin-bottom: 30px; }
+        .test-section {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .test-section h2 {
+            color: #38BDF8;
+            font-size: 18px;
+            margin-top: 0;
+        }
+        button {
+            background: #38BDF8;
+            color: #0F172A;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover { background: #0EA5E9; }
+        button.secondary {
+            background: rgba(255,255,255,0.1);
+            color: #F1F5F9;
+        }
+        button.danger {
+            background: #EF4444;
+            color: #FFF;
+        }
+        #log {
+            background: #0A0F1E;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .log-success { color: #10B981; }
+        .log-error { color: #EF4444; }
+        .log-info { color: #38BDF8; }
+        .log-warn { color: #F59E0B; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
+        .stat-card {
+            background: rgba(56,189,248,0.1);
+            border: 1px solid rgba(56,189,248,0.3);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #38BDF8;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #94A3B8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 LinguaFlow - Teste de Salvamento (DEBUG)</h1>
+    <p class="subtitle">Teste completo do sistema de salvamento de palavras com logs detalhados</p>
+
+    <div class="test-section">
+        <h2>📊 Estatísticas do Banco de Dados</h2>
+        <div class="stats" id="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="stat-words">-</div>
+                <div class="stat-label">Palavras Salvas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-cards">-</div>
+                <div class="stat-label">Cards SRS</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-known">-</div>
+                <div class="stat-label">Palavras Conhecidas</div>
+            </div>
+        </div>
+        <button onclick="loadStats()" class="secondary">🔄 Atualizar Stats</button>
+    </div>
+
+    <div class="test-section">
+        <h2>💾 Testes de Salvamento</h2>
+        <button onclick="testSaveWord()">1️⃣ Salvar Palavra de Teste</button>
+        <button onclick="testSaveMultiple()">2️⃣ Salvar 5 Palavras</button>
+        <button onclick="testDuplicateSave()">3️⃣ Testar Duplicata</button>
+        <button onclick="listAllWords()">📋 Listar Todas as Palavras</button>
+    </div>
+
+    <div class="test-section">
+        <h2>🗑️ Limpeza</h2>
+        <button onclick="clearAllWords()" class="danger">⚠️ Limpar Todas as Palavras</button>
+        <button onclick="clearDatabase()" class="danger">⚠️ Resetar Banco Completo</button>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 Log de Execução</h2>
+        <button onclick="clearLog()" class="secondary">🧹 Limpar Log</button>
+        <div id="log"></div>
+    </div>
+
+    <script type="module">
+        const DB_NAME = 'LinguaFlowFreeDB';
+        const DB_VERSION = 3;
+
+        let db = null;
+
+        // Inicializa o DB
+        async function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    
+                    if (!db.objectStoreNames.contains('words')) {
+                        const store = db.createObjectStore('words', { keyPath: 'id', autoIncrement: true });
+                        store.createIndex('word_lang', ['word', 'lang'], { unique: true });
+                        store.createIndex('deck_id', 'deck_id', { unique: false });
+                        log('✅ Object store "words" criado', 'success');
+                    }
+
+                    if (!db.objectStoreNames.contains('cards')) {
+                        const store = db.createObjectStore('cards', { keyPath: 'id', autoIncrement: true });
+                        store.createIndex('word_id', 'word_id', { unique: true });
+                        store.createIndex('due_date', 'due_date', { unique: false });
+                        store.createIndex('status', 'status', { unique: false });
+                        log('✅ Object store "cards" criado', 'success');
+                    }
+
+                    if (!db.objectStoreNames.contains('decks')) {
+                        db.createObjectStore('decks', { keyPath: 'id', autoIncrement: true });
+                        log('✅ Object store "decks" criado', 'success');
+                    }
+
+                    if (!db.objectStoreNames.contains('known_words')) {
+                        db.createObjectStore('known_words', { keyPath: ['word', 'lang'] });
+                        log('✅ Object store "known_words" criado', 'success');
+                    }
+
+                    if (!db.objectStoreNames.contains('sessions')) {
+                        db.createObjectStore('sessions', { keyPath: 'date' });
+                        log('✅ Object store "sessions" criado', 'success');
+                    }
+
+                    if (!db.objectStoreNames.contains('settings')) {
+                        db.createObjectStore('settings', { keyPath: 'key' });
+                        log('✅ Object store "settings" criado', 'success');
+                    }
+                };
+
+                request.onsuccess = (e) => {
+                    db = e.target.result;
+                    log('✅ Banco de dados aberto com sucesso', 'success');
+                    log(`📊 Versão: ${db.version}`, 'info');
+                    log(`📦 Object Stores: ${Array.from(db.objectStoreNames).join(', ')}`, 'info');
+                    resolve(db);
+                };
+
+                request.onerror = (e) => {
+                    log(`❌ Erro ao abrir banco: ${e.target.error}`, 'error');
+                    reject(e.target.error);
+                };
+            });
+        }
+
+        // Salva uma palavra
+        async function saveWord(wordData) {
+            return new Promise((resolve, reject) => {
+                log(`💾 Salvando palavra: ${wordData.word}`, 'info');
+                log(`📝 Dados: ${JSON.stringify(wordData, null, 2)}`, 'info');
+                
+                const tx = db.transaction(['words', 'cards', 'decks'], 'readwrite');
+                const wordsStore = tx.objectStore('words');
+                const cardsStore = tx.objectStore('cards');
+                const decksStore = tx.objectStore('decks');
+                
+                // Garantir que o deck default exista
+                const deckId = wordData.deck_id || 1;
+                const deckReq = decksStore.get(deckId);
+                deckReq.onsuccess = () => {
+                    if (!deckReq.result) {
+                        log(`📦 Criando deck default (ID: ${deckId})`, 'info');
+                        decksStore.put({ id: deckId, name: "Default Deck", created_at: Date.now() });
+                    }
+                };
+                
+                const index = wordsStore.index('word_lang');
+                const checkReq = index.get([wordData.word, wordData.lang]);
+                
+                checkReq.onsuccess = () => {
+                    if (checkReq.result) {
+                        log(`⚠️ Palavra já existe (ID: ${checkReq.result.id}), atualizando`, 'warn');
+                        wordData.id = checkReq.result.id;
+                        wordData.added_at = checkReq.result.added_at;
+                    } else {
+                        log(`✨ Nova palavra, criando registro`, 'info');
+                        wordData.added_at = Date.now();
+                    }
+                    
+                    const wordReq = wordsStore.put(wordData);
+                    wordReq.onsuccess = (e) => {
+                        const wordId = e.target.result;
+                        log(`✅ Palavra salva com ID: ${wordId}`, 'success');
+                        
+                        if (!checkReq.result) {
+                            const card = {
+                                word_id: wordId,
+                                interval: 0,
+                                ease_factor: 2.5,
+                                due_date: Date.now(),
+                                reps: 0,
+                                lapses: 0,
+                                status: "new"
+                            };
+                            log(`🃏 Criando card SRS: ${JSON.stringify(card)}`, 'info');
+                            cardsStore.put(card);
+                        }
+                    };
+                    
+                    wordReq.onerror = (e) => {
+                        log(`❌ Erro ao salvar palavra: ${e.target.error}`, 'error');
+                    };
+                };
+                
+                checkReq.onerror = (e) => {
+                    log(`❌ Erro ao verificar palavra: ${e.target.error}`, 'error');
+                };
+                
+                tx.oncomplete = () => {
+                    log(`✅ Transação completa!`, 'success');
+                    resolve(true);
+                    loadStats();
+                };
+                tx.onerror = () => {
+                    log(`❌ Erro na transação: ${tx.error}`, 'error');
+                    reject(tx.error);
+                };
+            });
+        }
+
+        // Funções de teste
+        window.testSaveWord = async function() {
+            log('🧪 === TESTE 1: Salvar Palavra Única ===', 'info');
+            const wordData = {
+                word: 'test',
+                lang: 'en',
+                translation: 'teste',
+                ipa: 'test',
+                audio_url: '',
+                part_of_speech: 'noun',
+                cefr_guess: 'A1',
+                frequency_rank: '1000',
+                context_sentence: 'This is a test sentence.',
+                deck_id: 1,
+                video_url: 'https://youtube.com/watch?v=test',
+                timestamp: 120,
+                platform: 'youtube'
+            };
+            
+            try {
+                await saveWord(wordData);
+                log('✅ Teste 1 concluído com sucesso!', 'success');
+            } catch(e) {
+                log(`❌ Teste 1 falhou: ${e}`, 'error');
+            }
+        };
+
+        window.testSaveMultiple = async function() {
+            log('🧪 === TESTE 2: Salvar Múltiplas Palavras ===', 'info');
+            const words = ['hello', 'world', 'language', 'learning', 'flow'];
+            
+            for (let i = 0; i < words.length; i++) {
+                const wordData = {
+                    word: words[i],
+                    lang: 'en',
+                    translation: `tradução_${words[i]}`,
+                    ipa: `/${words[i]}/`,
+                    audio_url: '',
+                    part_of_speech: 'noun',
+                    cefr_guess: 'A1',
+                    frequency_rank: `${1000 + i}`,
+                    context_sentence: `Example sentence with ${words[i]}.`,
+                    deck_id: 1,
+                    video_url: 'https://youtube.com/watch?v=test',
+                    timestamp: 120 + i * 10,
+                    platform: 'youtube'
+                };
+                
+                try {
+                    await saveWord(wordData);
+                } catch(e) {
+                    log(`❌ Erro ao salvar "${words[i]}": ${e}`, 'error');
+                }
+            }
+            
+            log('✅ Teste 2 concluído!', 'success');
+        };
+
+        window.testDuplicateSave = async function() {
+            log('🧪 === TESTE 3: Testar Salvamento Duplicado ===', 'info');
+            const wordData = {
+                word: 'duplicate',
+                lang: 'en',
+                translation: 'duplicado',
+                ipa: '/ˈduːplɪkət/',
+                audio_url: '',
+                part_of_speech: 'noun',
+                cefr_guess: 'B1',
+                frequency_rank: '2000',
+                context_sentence: 'This is a duplicate test.',
+                deck_id: 1,
+                video_url: 'https://youtube.com/watch?v=test',
+                timestamp: 200,
+                platform: 'youtube'
+            };
+            
+            try {
+                log('📝 Salvando primeira vez...', 'info');
+                await saveWord(wordData);
+                
+                log('📝 Salvando segunda vez (deve atualizar)...', 'info');
+                wordData.translation = 'duplicado_atualizado';
+                await saveWord(wordData);
+                
+                log('✅ Teste 3 concluído!', 'success');
+            } catch(e) {
+                log(`❌ Teste 3 falhou: ${e}`, 'error');
+            }
+        };
+
+        window.listAllWords = async function() {
+            log('📋 === Listando Todas as Palavras ===', 'info');
+            const tx = db.transaction('words', 'readonly');
+            const req = tx.objectStore('words').getAll();
+            
+            req.onsuccess = () => {
+                const words = req.result;
+                log(`📊 Total de palavras: ${words.length}`, 'info');
+                words.forEach((w, i) => {
+                    log(`${i + 1}. ${w.word} (${w.lang}) - ${w.translation} [ID: ${w.id}]`, 'info');
+                });
+            };
+        };
+
+        window.loadStats = async function() {
+            const tx = db.transaction(['words', 'cards', 'known_words'], 'readonly');
+            
+            const wordsReq = tx.objectStore('words').count();
+            const cardsReq = tx.objectStore('cards').count();
+            const knownReq = tx.objectStore('known_words').count();
+            
+            wordsReq.onsuccess = () => {
+                document.getElementById('stat-words').textContent = wordsReq.result;
+            };
+            
+            cardsReq.onsuccess = () => {
+                document.getElementById('stat-cards').textContent = cardsReq.result;
+            };
+            
+            knownReq.onsuccess = () => {
+                document.getElementById('stat-known').textContent = knownReq.result;
+            };
+        };
+
+        window.clearAllWords = async function() {
+            if (!confirm('⚠️ Tem certeza que deseja limpar TODAS as palavras?')) return;
+            
+            log('🗑️ Limpando todas as palavras...', 'warn');
+            const tx = db.transaction(['words', 'cards'], 'readwrite');
+            tx.objectStore('words').clear();
+            tx.objectStore('cards').clear();
+            
+            tx.oncomplete = () => {
+                log('✅ Todas as palavras foram removidas', 'success');
+                loadStats();
+            };
+        };
+
+        window.clearDatabase = async function() {
+            if (!confirm('⚠️⚠️⚠️ ATENÇÃO! Isso vai DELETAR TODO O BANCO DE DADOS. Tem certeza?')) return;
+            
+            log('💣 Deletando banco de dados completo...', 'error');
+            db.close();
+            
+            const req = indexedDB.deleteDatabase(DB_NAME);
+            req.onsuccess = () => {
+                log('✅ Banco de dados deletado. Recarregue a página.', 'success');
+                setTimeout(() => location.reload(), 2000);
+            };
+        };
+
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString('pt-BR');
+            const className = `log-${type}`;
+            logEl.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        window.clearLog = function() {
+            document.getElementById('log').innerHTML = '';
+        };
+
+        // Inicializa ao carregar
+        window.addEventListener('DOMContentLoaded', async () => {
+            log('🚀 Inicializando teste de salvamento...', 'info');
+            try {
+                await initDB();
+                await loadStats();
+                log('✅ Sistema pronto para testes!', 'success');
+            } catch(e) {
+                log(`❌ Erro na inicialização: ${e}`, 'error');
+            }
+        });
+    </script>
+</body>
+</html>

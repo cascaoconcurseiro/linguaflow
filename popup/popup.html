@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { width: 320px; background: #0F172A; color: #F8FAFC; font-family: 'Inter', sans-serif; padding: 20px; }
+
+        .header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+        .header img { width: 36px; height: 36px; border-radius: 8px; }
+        .header h1 { font-size: 20px; font-weight: 800; color: #38BDF8; }
+        .header small { font-size: 10px; background: #10B981; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: 700; }
+
+        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+        .stat { background: #1E293B; padding: 14px; border-radius: 10px; text-align: center; }
+        .stat .val { font-size: 28px; font-weight: 800; display: block; }
+        .stat .lbl { font-size: 11px; color: #64748B; font-weight: 600; text-transform: uppercase; margin-top: 2px; display: block; }
+        .val-yellow { color: #F59E0B; }
+        .val-blue { color: #38BDF8; }
+        .val-green { color: #10B981; }
+        .val-white { color: #FFF; }
+
+        hr { border: none; height: 1px; background: rgba(255,255,255,0.07); margin: 16px 0; }
+
+        .btn { width: 100%; padding: 13px; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; transition: 0.2s; }
+        .btn-primary { background: linear-gradient(135deg, #38BDF8, #0EA5E9); color: #0F172A; margin-bottom: 8px; }
+        .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn-secondary { background: rgba(255,255,255,0.05); color: #94A3B8; border: 1px solid rgba(255,255,255,0.1); }
+        .btn-secondary:hover { background: rgba(255,255,255,0.1); color: #FFF; }
+
+        .tip { font-size: 11px; color: #475569; text-align: center; margin-top: 12px; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="../icon.png" alt="LinguaFlow">
+        <div>
+            <h1>LinguaFlow <small>FREE</small></h1>
+        </div>
+    </div>
+
+    <div class="stats">
+        <div class="stat">
+            <span class="val val-yellow" id="stat-due">...</span>
+            <span class="lbl">Revisões Hoje</span>
+        </div>
+        <div class="stat">
+            <span class="val val-white" id="stat-total">...</span>
+            <span class="lbl">Palavras Salvas</span>
+        </div>
+        <div class="stat">
+            <span class="val val-blue" id="stat-new">...</span>
+            <span class="lbl">Novas</span>
+        </div>
+        <div class="stat">
+            <span class="val val-green" id="stat-learned">...</span>
+            <span class="lbl">Dominadas</span>
+        </div>
+    </div>
+
+    <div id="word-of-day" style="display:none;background:linear-gradient(135deg,#1E293B,#334155);padding:16px;border-radius:12px;margin-bottom:16px;border:1px solid rgba(56,189,248,0.2);">
+        <div style="font-size:11px;color:#38BDF8;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">🌟 Palavra do Dia</div>
+        <div style="font-size:22px;font-weight:800;color:#F8FAFC;margin-bottom:4px;" id="wod-word">...</div>
+        <div style="font-size:13px;color:#94A3B8;margin-bottom:8px;" id="wod-translation">...</div>
+        <div style="font-size:11px;color:#64748B;font-style:italic;line-height:1.5;margin-bottom:10px;" id="wod-context">...</div>
+        <button class="btn btn-primary" id="btn-review-wod" style="padding:10px;font-size:13px;">📚 Revisar Agora</button>
+    </div>
+
+    <hr>
+
+    <button class="btn btn-primary" id="btn-dash">🃏 Abrir Dashboard / Revisão →</button>
+    <button class="btn btn-secondary" id="btn-settings">⚙️ Configurações do Player</button>
+
+    <p class="tip">Pressione <strong>O</strong> no player para abrir as configurações em tempo real.</p>
+
+    <script src="popup.js"></script>
+</body>
+</html>

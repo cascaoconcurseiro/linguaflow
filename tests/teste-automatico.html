@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Teste Automático - LinguaFlow</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(15, 23, 42, 0.9);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #38bdf8, #7dd3fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+        }
+        .subtitle {
+            color: #94a3b8;
+            margin-bottom: 30px;
+            font-size: 14px;
+            text-align: center;
+        }
+        .status {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: 700;
+        }
+        .status.running {
+            border-color: #fbbf24;
+            color: #fbbf24;
+        }
+        .status.success {
+            border-color: #4ade80;
+            color: #4ade80;
+        }
+        .status.error {
+            border-color: #f87171;
+            color: #f87171;
+        }
+        .result {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .result-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #7dd3fc;
+        }
+        .result-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 3px solid transparent;
+        }
+        .result-item.success {
+            border-left-color: #4ade80;
+            background: rgba(74, 222, 128, 0.05);
+        }
+        .result-item.error {
+            border-left-color: #f87171;
+            background: rgba(248, 113, 113, 0.05);
+        }
+        .icon {
+            font-size: 24px;
+            min-width: 30px;
+        }
+        .content {
+            flex: 1;
+        }
+        .label {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .detail {
+            font-size: 12px;
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+        .summary {
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+        }
+        .summary-title {
+            font-size: 28px;
+            font-weight: 800;
+            margin-bottom: 20px;
+        }
+        .summary-stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 20px;
+        }
+        .stat {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 48px;
+            font-weight: 800;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 8px;
+        }
+        .code {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 12px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: #7dd3fc;
+            margin-top: 8px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid #fbbf24;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Teste Automático</h1>
+        <p class="subtitle">Testando TODA a cadeia: Popup → DB → Dashboard</p>
+
+        <div class="status running" id="status">
+            <div class="spinner"></div>
+            <div style="margin-top: 15px;">⏳ Executando testes...</div>
+        </div>
+
+        <div id="results"></div>
+
+        <div class="summary" id="summary" style="display: none;">
+            <div class="summary-title">📊 Resultado Final</div>
+            <div class="summary-stats">
+                <div class="stat">
+                    <div class="stat-value" style="color: #4ade80;" id="passCount">0</div>
+                    <div class="stat-label">✅ Passou</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" style="color: #f87171;" id="failCount">0</div>
+                    <div class="stat-label">❌ Falhou</div>
+                </div>
+            </div>
+            <div style="margin-top: 30px; font-size: 16px; color: #94a3b8;" id="diagnosis"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { db } from '../utils/db.js';
+
+        const results = [];
+        let passCount = 0;
+        let failCount = 0;
+
+        function addResult(title, success, detail) {
+            results.push({ title, success, detail });
+            if (success) passCount++;
+            else failCount++;
+        }
+
+        function renderResults() {
+            const container = document.getElementById('results');
+            container.innerHTML = '';
+
+            const sections = {
+                'Salvamento': [],
+                'Leitura': [],
+                'Comunicação': [],
+                'Frases': []
+            };
+
+            results.forEach((r, i) => {
+                if (i < 4) sections['Salvamento'].push(r);
+                else if (i < 7) sections['Leitura'].push(r);
+                else if (i < 9) sections['Comunicação'].push(r);
+                else sections['Frases'].push(r);
+            });
+
+            Object.entries(sections).forEach(([section, items]) => {
+                if (items.length === 0) return;
+
+                const div = document.createElement('div');
+                div.className = 'result';
+                div.innerHTML = `<div class="result-title">${section}</div>`;
+
+                items.forEach(item => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = `result-item ${item.success ? 'success' : 'error'}`;
+                    itemDiv.innerHTML = `
+                        <div class="icon">${item.success ? '✅' : '❌'}</div>
+                        <div class="content">
+                            <div class="label">${item.title}</div>
+                            <div class="detail">${item.detail}</div>
+                        </div>
+                    `;
+                    div.appendChild(itemDiv);
+                });
+
+                container.appendChild(div);
+            });
+        }
+
+        async function runTests() {
+            try {
+                // ═══════════════════════════════════════════════════════
+                // TESTE 1: Salvar palavra
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const result = await db.saveWord({
+                        word: 'connection_test',
+                        lang: 'en',
+                        translation: 'teste de conexão',
+                        phonetic: '/test/',
+                        definition: 'A test word for connection',
+                        context_sentence: 'This is a connection test.',
+                        video_url: 'https://youtube.com/test',
+                        video_title: 'Test Video',
+                        platform: 'youtube',
+                        deck_id: 1,
+                        added_at: Date.now()
+                    });
+                    addResult(
+                        'Salvar palavra no DB',
+                        true,
+                        `✅ Palavra salva com sucesso! ID: ${result.id} | Nova: ${result.isNew}`
+                    );
+                } catch (e) {
+                    addResult(
+                        'Salvar palavra no DB',
+                        false,
+                        `❌ ERRO: ${e.message}\n\nStack: ${e.stack}`
+                    );
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // TESTE 2: Verificar se palavra foi salva
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const word = await db.getWord('connection_test', 'en');
+                    if (word) {
+                        addResult(
+                            'Verificar palavra salva',
+                            true,
+                            `✅ Palavra encontrada: "${word.word}" = "${word.translation}"`
+                        );
+                    } else {
+                        addResult(
+                            'Verificar palavra salva',
+                            false,
+                            '❌ Palavra NÃO encontrada no DB após salvar'
+                        );
+                    }
+                } catch (e) {
+                    addResult(
+                        'Verificar palavra salva',
+                        false,
+                        `❌ ERRO ao buscar: ${e.message}`
+                    );
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // TESTE 3: Criar deck
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const result = await db.createDeck('Connection Test Deck');
+                    addResult(
+                        'Criar deck',
+                        true,
+                        `✅ Deck criado com ID: ${result.id}`
+                    );
+                } catch (e) {
+                    addResult(
+                        'Criar deck',
+                        false,
+                        `❌ ERRO: ${e.message}`
+                    );
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // TESTE 4: Verificar deck criado
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const decks = await db.getAllDecks();
+                    const testDeck = decks.find(d => d.name === 'Connection Test Deck');
+                    if (testDeck) {
+                        addResult(
+                            'Verificar deck criado',
+                            true,
+                            `✅ Deck encontrado: "${testDeck.name}" (ID: ${testDeck.id})`
+                        );
+                    } else {
+                        addResult(
+                            'Verificar deck criado',
+                            false,
+                            `❌ Deck NÃO encontrado. Decks existentes: ${decks.map(d => d.name).join(', ')}`
+                        );
+                    }
+                } catch (e) {
+                    addResult(
+                        'Verificar deck criado',
+                        false,
+                        `❌ ERRO: ${e.message}`
+                    );
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // TESTE 5: Ler todas as palavras
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const words = await db.getAllWords();
+                    addResult(
+                        'Ler todas as palavras',
+                        true,
+                        `✅ ${words.length} palavras encontradas no DB`
+                    );
+                } catch (e) {
+                    addResult(
+                        'Ler todas as palavras',
+                        false,
+                        `❌ ERRO: ${e.message}`
+                    );
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // TESTE 6: Ler todos os decks
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const decks = await db.getAllDecks();
+                    addResult(
+                        'Ler todos os decks',
+                        true,
+                        `✅ ${decks.length} decks: ${decks.map(d => d.name).join(', ')}`
+                    );
+                } catch (e) {
+                    addResult(
+                        'Ler todos os decks',
+                        false,
+                        `❌ ERRO: ${e.message}`
+                    );
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // TESTE 7: Ler cards SRS
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const cards = await db.getCardsDue(100);
+                    addResult(
+                        'Ler cards SRS',
+                        true,
+                        `✅ ${cards.length} cards devidos para revisão`
+                    );
+                } catch (e) {
+                    addResult(
+                        'Ler cards SRS',
+                        false,
+                        `❌ ERRO: ${e.message}`
+                    );
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // TESTE 8: Enviar mensagem REFRESH_DASHBOARD
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const response = await new Promise((resolve, reject) => {
+                        chrome.runtime.sendMessage({
+                            type: 'REFRESH_DASHBOARD',
+                            word: 'connection_test'
+                        }, (response) => {
+                            if (chrome.runtime.lastError) {
+                                reject(new Error(chrome.runtime.lastError.message));
+                            } else {
+                                resolve(response);
+                            }
+                        });
+                    });
+                    
+                    addResult(
+                        'Enviar REFRESH_DASHBOARD',
+                        true,
+                        `✅ Mensagem enviada com sucesso. Resposta: ${JSON.stringify(response)}`
+                    );
+                } catch (e) {
+                    addResult(
+                        'Enviar REFRESH_DASHBOARD',
+                        false,
+                        `❌ ERRO: ${e.message}`
+                    );
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // TESTE 9: Verificar resposta do background
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const response = await new Promise((resolve, reject) => {
+                        chrome.runtime.sendMessage({
+                            type: 'PING'
+                        }, (response) => {
+                            if (chrome.runtime.lastError) {
+                                reject(new Error(chrome.runtime.lastError.message));
+                            } else {
+                                resolve(response);
+                            }
+                        });
+                    });
+                    
+                    if (response) {
+                        addResult(
+                            'Background responde',
+                            true,
+                            `✅ Background respondeu: ${JSON.stringify(response)}`
+                        );
+                    } else {
+                        addResult(
+                            'Background responde',
+                            false,
+                            '❌ Background não respondeu (response = null)'
+                        );
+                    }
+                } catch (e) {
+                    addResult(
+                        'Background responde',
+                        false,
+                        `❌ ERRO: ${e.message}`
+                    );
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // TESTE 10: Salvar frase
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const result = await db.saveSentence({
+                        sentence: 'This is a connection test sentence',
+                        translation: 'Esta é uma frase de teste de conexão',
+                        video_url: 'https://youtube.com/test',
+                        video_title: 'Test Video',
+                        platform: 'youtube',
+                        timestamp: 123,
+                        saved_at: Date.now()
+                    });
+                    addResult(
+                        'Salvar frase',
+                        true,
+                        `✅ Frase salva com ID: ${result.id}`
+                    );
+                } catch (e) {
+                    addResult(
+                        'Salvar frase',
+                        false,
+                        `❌ ERRO: ${e.message}`
+                    );
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // TESTE 11: Verificar frase salva
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const sentences = await db.getAllSentences();
+                    const testSentence = sentences.find(s => s.sentence === 'This is a connection test sentence');
+                    if (testSentence) {
+                        addResult(
+                            'Verificar frase salva',
+                            true,
+                            `✅ Frase encontrada: "${testSentence.sentence}"`
+                        );
+                    } else {
+                        addResult(
+                            'Verificar frase salva',
+                            false,
+                            `❌ Frase NÃO encontrada. Total de frases: ${sentences.length}`
+                        );
+                    }
+                } catch (e) {
+                    addResult(
+                        'Verificar frase salva',
+                        false,
+                        `❌ ERRO: ${e.message}`
+                    );
+                }
+
+            } catch (e) {
+                console.error('Erro geral:', e);
+            }
+
+            // Renderiza resultados
+            renderResults();
+
+            // Atualiza status
+            const statusEl = document.getElementById('status');
+            if (failCount === 0) {
+                statusEl.className = 'status success';
+                statusEl.innerHTML = '✅ TODOS OS TESTES PASSARAM!';
+            } else {
+                statusEl.className = 'status error';
+                statusEl.innerHTML = `❌ ${failCount} TESTE(S) FALHARAM`;
+            }
+
+            // Mostra resumo
+            document.getElementById('summary').style.display = 'block';
+            document.getElementById('passCount').textContent = passCount;
+            document.getElementById('failCount').textContent = failCount;
+
+            // Diagnóstico
+            const diagnosis = document.getElementById('diagnosis');
+            if (failCount === 0) {
+                diagnosis.innerHTML = '🎉 <strong>Sistema funcionando perfeitamente!</strong><br>Todas as palavras, decks e frases estão sendo salvos e lidos corretamente.';
+            } else {
+                const problems = [];
+                if (results[0] && !results[0].success) problems.push('❌ <strong>Problema ao SALVAR palavras</strong>');
+                if (results[1] && !results[1].success) problems.push('❌ <strong>Problema ao LER palavras salvas</strong>');
+                if (results[2] && !results[2].success) problems.push('❌ <strong>Problema ao CRIAR decks</strong>');
+                if (results[3] && !results[3].success) problems.push('❌ <strong>Problema ao LER decks criados</strong>');
+                if (results[7] && !results[7].success) problems.push('❌ <strong>Problema na COMUNICAÇÃO com background</strong>');
+                if (results[9] && !results[9].success) problems.push('❌ <strong>Problema ao SALVAR frases</strong>');
+                
+                diagnosis.innerHTML = '<strong>Problemas encontrados:</strong><br><br>' + problems.join('<br>');
+            }
+        }
+
+        // Executa automaticamente ao carregar
+        window.addEventListener('load', () => {
+            setTimeout(runTests, 500);
+        });
+    </script>
+</body>
+</html>

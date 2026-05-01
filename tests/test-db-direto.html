@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Teste Direto do Banco de Dados</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0F172A;
+            color: #F8FAFC;
+            padding: 40px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #38BDF8;
+            margin-bottom: 20px;
+            font-size: 32px;
+        }
+        .section {
+            background: #1E293B;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .section h2 {
+            color: #10B981;
+            margin-bottom: 16px;
+            font-size: 20px;
+        }
+        button {
+            background: linear-gradient(135deg, #38BDF8, #0EA5E9);
+            color: #0F172A;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            transition: 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.4);
+        }
+        .btn-danger {
+            background: #EF4444;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #DC2626;
+        }
+        pre {
+            background: #000;
+            color: #10B981;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 13px;
+            margin-top: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error {
+            color: #EF4444;
+        }
+        .success {
+            color: #10B981;
+        }
+        .warning {
+            color: #F59E0B;
+        }
+        .info {
+            color: #38BDF8;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .stat-box {
+            background: rgba(56, 189, 248, 0.1);
+            border: 2px solid #38BDF8;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 36px;
+            font-weight: 800;
+            color: #38BDF8;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #94A3B8;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Teste Direto do Banco de Dados LinguaFlow</h1>
+        
+        <div class="section">
+            <h2>📊 Estatísticas Rápidas</h2>
+            <div class="stats" id="stats-container">
+                <div class="stat-box">
+                    <div class="stat-number" id="stat-words">-</div>
+                    <div class="stat-label">Palavras</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number" id="stat-cards">-</div>
+                    <div class="stat-label">Cards</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number" id="stat-known">-</div>
+                    <div class="stat-label">Conhecidas</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number" id="stat-decks">-</div>
+                    <div class="stat-label">Decks</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>🧪 Testes Disponíveis</h2>
+            <button onclick="testDBConnection()">1. Testar Conexão com DB</button>
+            <button onclick="listAllWords()">2. Listar Todas as Palavras</button>
+            <button onclick="listAllCards()">3. Listar Todos os Cards</button>
+            <button onclick="testSaveWord()">4. Testar Salvar Palavra</button>
+            <button onclick="checkDBStructure()">5. Verificar Estrutura do DB</button>
+            <button onclick="clearLogs()">🗑️ Limpar Logs</button>
+            <button class="btn-danger" onclick="deleteDatabase()">⚠️ DELETAR BANCO</button>
+        </div>
+        
+        <div class="section">
+            <h2>📋 Logs de Execução</h2>
+            <pre id="logs">Aguardando comandos...</pre>
+        </div>
+    </div>
+
+    <script>
+        const DB_NAME = 'LinguaFlowFreeDB';
+        const DB_VERSION = 3;
+        let db = null;
+        let logs = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString('pt-BR');
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'info';
+            logs.push(`<span class="${className}">[${timestamp}] ${message}</span>`);
+            updateLogs();
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function updateLogs() {
+            document.getElementById('logs').innerHTML = logs.join('\n');
+            document.getElementById('logs').scrollTop = document.getElementById('logs').scrollHeight;
+        }
+
+        function clearLogs() {
+            logs = [];
+            updateLogs();
+        }
+
+        async function openDB() {
+            if (db) return db;
+            
+            return new Promise((resolve, reject) => {
+                log('🔌 Tentando abrir banco de dados...', 'info');
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                
+                request.onupgradeneeded = (e) => {
+                    log('⚠️ onupgradeneeded disparado - criando/atualizando estrutura', 'warning');
+                    const db = e.target.result;
+                    
+                    if (!db.objectStoreNames.contains('words')) {
+                        log('📦 Criando object store: words', 'info');
+                        const store = db.createObjectStore('words', { keyPath: 'id', autoIncrement: true });
+                        store.createIndex('word_lang', ['word', 'lang'], { unique: true });
+                        store.createIndex('deck_id', 'deck_id', { unique: false });
+                    }
+                    
+                    if (!db.objectStoreNames.contains('cards')) {
+                        log('📦 Criando object store: cards', 'info');
+                        const store = db.createObjectStore('cards', { keyPath: 'id', autoIncrement: true });
+                        store.createIndex('word_id', 'word_id', { unique: true });
+                        store.createIndex('due_date', 'due_date', { unique: false });
+                        store.createIndex('status', 'status', { unique: false });
+                    }
+                    
+                    if (!db.objectStoreNames.contains('decks')) {
+                        log('📦 Criando object store: decks', 'info');
+                        db.createObjectStore('decks', { keyPath: 'id', autoIncrement: true });
+                    }
+                    
+                    if (!db.objectStoreNames.contains('known_words')) {
+                        log('📦 Criando object store: known_words', 'info');
+                        db.createObjectStore('known_words', { keyPath: ['word', 'lang'] });
+                    }
+                    
+                    if (!db.objectStoreNames.contains('sessions')) {
+                        log('📦 Criando object store: sessions', 'info');
+                        db.createObjectStore('sessions', { keyPath: 'date' });
+                    }
+                    
+                    if (!db.objectStoreNames.contains('settings')) {
+                        log('📦 Criando object store: settings', 'info');
+                        db.createObjectStore('settings', { keyPath: 'key' });
+                    }
+                };
+                
+                request.onsuccess = (e) => {
+                    db = e.target.result;
+                    log('✅ Banco de dados aberto com sucesso!', 'success');
+                    log(`📊 Nome: ${db.name}, Versão: ${db.version}`, 'info');
+                    log(`📦 Object Stores: ${Array.from(db.objectStoreNames).join(', ')}`, 'info');
+                    resolve(db);
+                    updateStats();
+                };
+                
+                request.onerror = (e) => {
+                    log(`❌ ERRO ao abrir banco de dados: ${e.target.error}`, 'error');
+                    reject(e.target.error);
+                };
+                
+                request.onblocked = () => {
+                    log('⚠️ Banco de dados bloqueado! Feche outras abas do LinguaFlow.', 'warning');
+                };
+            });
+        }
+
+        async function testDBConnection() {
+            try {
+                await openDB();
+                log('✅ Conexão com banco de dados OK!', 'success');
+            } catch (error) {
+                log(`❌ Falha na conexão: ${error.message}`, 'error');
+            }
+        }
+
+        async function updateStats() {
+            try {
+                await openDB();
+                const tx = db.transaction(['words', 'cards', 'known_words', 'decks'], 'readonly');
+                
+                const wordsReq = tx.objectStore('words').count();
+                const cardsReq = tx.objectStore('cards').count();
+                const knownReq = tx.objectStore('known_words').count();
+                const decksReq = tx.objectStore('decks').count();
+                
+                wordsReq.onsuccess = () => {
+                    document.getElementById('stat-words').textContent = wordsReq.result;
+                };
+                
+                cardsReq.onsuccess = () => {
+                    document.getElementById('stat-cards').textContent = cardsReq.result;
+                };
+                
+                knownReq.onsuccess = () => {
+                    document.getElementById('stat-known').textContent = knownReq.result;
+                };
+                
+                decksReq.onsuccess = () => {
+                    document.getElementById('stat-decks').textContent = decksReq.result;
+                };
+                
+            } catch (error) {
+                log(`❌ Erro ao atualizar estatísticas: ${error.message}`, 'error');
+            }
+        }
+
+        async function listAllWords() {
+            try {
+                await openDB();
+                log('📚 Listando todas as palavras...', 'info');
+                
+                const tx = db.transaction('words', 'readonly');
+                const store = tx.objectStore('words');
+                const request = store.getAll();
+                
+                request.onsuccess = () => {
+                    const words = request.result || [];
+                    log(`✅ Encontradas ${words.length} palavras`, 'success');
+                    
+                    if (words.length === 0) {
+                        log('⚠️ Nenhuma palavra no banco de dados!', 'warning');
+                        log('💡 Vá para o YouTube e salve algumas palavras primeiro.', 'info');
+                    } else {
+                        words.forEach((w, i) => {
+                            log(`\n📖 Palavra ${i + 1}:`, 'info');
+                            log(`   ID: ${w.id}`, 'info');
+                            log(`   Word: ${w.word}`, 'info');
+                            log(`   Translation: ${w.translation || 'N/A'}`, 'info');
+                            log(`   Lang: ${w.lang}`, 'info');
+                            log(`   Context: ${w.context_sentence || 'N/A'}`, 'info');
+                            log(`   Video URL: ${w.video_url || 'N/A'}`, 'info');
+                            log(`   Timestamp: ${w.timestamp || 0}s`, 'info');
+                            log(`   Added: ${w.added_at ? new Date(w.added_at).toLocaleString('pt-BR') : 'N/A'}`, 'info');
+                            log(`   Deck ID: ${w.deck_id}`, 'info');
+                        });
+                    }
+                };
+                
+                request.onerror = () => {
+                    log(`❌ Erro ao listar palavras: ${request.error}`, 'error');
+                };
+                
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function listAllCards() {
+            try {
+                await openDB();
+                log('🎯 Listando todos os cards...', 'info');
+                
+                const tx = db.transaction('cards', 'readonly');
+                const store = tx.objectStore('cards');
+                const request = store.getAll();
+                
+                request.onsuccess = () => {
+                    const cards = request.result || [];
+                    log(`✅ Encontrados ${cards.length} cards`, 'success');
+                    
+                    if (cards.length === 0) {
+                        log('⚠️ Nenhum card no banco de dados!', 'warning');
+                    } else {
+                        cards.forEach((c, i) => {
+                            log(`\n🎴 Card ${i + 1}:`, 'info');
+                            log(`   ID: ${c.id}`, 'info');
+                            log(`   Word ID: ${c.word_id}`, 'info');
+                            log(`   Status: ${c.status}`, 'info');
+                            log(`   Interval: ${c.interval} dias`, 'info');
+                            log(`   Reps: ${c.reps}`, 'info');
+                            log(`   Ease Factor: ${c.ease_factor}`, 'info');
+                            log(`   Due Date: ${new Date(c.due_date).toLocaleString('pt-BR')}`, 'info');
+                        });
+                    }
+                };
+                
+                request.onerror = () => {
+                    log(`❌ Erro ao listar cards: ${request.error}`, 'error');
+                };
+                
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function testSaveWord() {
+            try {
+                await openDB();
+                log('💾 Testando salvamento de palavra...', 'info');
+                
+                const testWord = {
+                    word: 'test',
+                    lang: 'en',
+                    translation: 'teste',
+                    ipa: '/test/',
+                    audio_url: '',
+                    part_of_speech: 'noun',
+                    cefr_guess: 'A1',
+                    frequency_rank: '1000',
+                    context_sentence: 'This is a test sentence.',
+                    deck_id: 1,
+                    video_url: 'https://www.youtube.com/watch?v=test',
+                    timestamp: 42,
+                    platform: 'youtube',
+                    added_at: Date.now()
+                };
+                
+                log(`📝 Dados da palavra de teste: ${JSON.stringify(testWord, null, 2)}`, 'info');
+                
+                const tx = db.transaction(['words', 'cards', 'decks'], 'readwrite');
+                const wordsStore = tx.objectStore('words');
+                const cardsStore = tx.objectStore('cards');
+                const decksStore = tx.objectStore('decks');
+                
+                // Garantir deck existe
+                const deckReq = decksStore.get(1);
+                deckReq.onsuccess = () => {
+                    if (!deckReq.result) {
+                        log('📦 Criando deck default...', 'info');
+                        decksStore.put({ id: 1, name: "Default Deck", created_at: Date.now() });
+                    }
+                };
+                
+                // Verificar se palavra já existe
+                const index = wordsStore.index('word_lang');
+                const checkReq = index.get([testWord.word, testWord.lang]);
+                
+                checkReq.onsuccess = () => {
+                    if (checkReq.result) {
+                        log('⚠️ Palavra "test" já existe no banco!', 'warning');
+                        log(`   ID existente: ${checkReq.result.id}`, 'info');
+                    } else {
+                        log('✅ Palavra "test" não existe, salvando...', 'success');
+                        
+                        const wordReq = wordsStore.put(testWord);
+                        wordReq.onsuccess = (e) => {
+                            const wordId = e.target.result;
+                            log(`✅ Palavra salva com ID: ${wordId}`, 'success');
+                            
+                            // Criar card
+                            const card = {
+                                word_id: wordId,
+                                interval: 0,
+                                ease_factor: 2.5,
+                                due_date: Date.now(),
+                                reps: 0,
+                                lapses: 0,
+                                status: "new"
+                            };
+                            
+                            cardsStore.put(card);
+                            log(`✅ Card criado para palavra ID ${wordId}`, 'success');
+                        };
+                        
+                        wordReq.onerror = () => {
+                            log(`❌ Erro ao salvar palavra: ${wordReq.error}`, 'error');
+                        };
+                    }
+                };
+                
+                tx.oncomplete = () => {
+                    log('✅ Transação completa!', 'success');
+                    updateStats();
+                };
+                
+                tx.onerror = () => {
+                    log(`❌ Erro na transação: ${tx.error}`, 'error');
+                };
+                
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkDBStructure() {
+            try {
+                await openDB();
+                log('🔍 Verificando estrutura do banco de dados...', 'info');
+                log(`\n📊 Nome do DB: ${db.name}`, 'info');
+                log(`📊 Versão: ${db.version}`, 'info');
+                log(`\n📦 Object Stores (${db.objectStoreNames.length}):`, 'info');
+                
+                Array.from(db.objectStoreNames).forEach(storeName => {
+                    log(`   - ${storeName}`, 'info');
+                });
+                
+                // Verificar índices de cada store
+                const tx = db.transaction(Array.from(db.objectStoreNames), 'readonly');
+                
+                Array.from(db.objectStoreNames).forEach(storeName => {
+                    const store = tx.objectStore(storeName);
+                    log(`\n📦 ${storeName}:`, 'info');
+                    log(`   KeyPath: ${JSON.stringify(store.keyPath)}`, 'info');
+                    log(`   AutoIncrement: ${store.autoIncrement}`, 'info');
+                    
+                    if (store.indexNames.length > 0) {
+                        log(`   Índices (${store.indexNames.length}):`, 'info');
+                        Array.from(store.indexNames).forEach(indexName => {
+                            const index = store.index(indexName);
+                            log(`      - ${indexName}: keyPath=${JSON.stringify(index.keyPath)}, unique=${index.unique}`, 'info');
+                        });
+                    } else {
+                        log(`   Sem índices`, 'info');
+                    }
+                });
+                
+                log('\n✅ Estrutura verificada!', 'success');
+                
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteDatabase() {
+            if (!confirm('⚠️ ATENÇÃO: Isso vai DELETAR TODO O BANCO DE DADOS!\n\nTodas as palavras, cards e progresso serão perdidos.\n\nTem certeza?')) {
+                return;
+            }
+            
+            if (!confirm('ÚLTIMA CHANCE!\n\nIsso é IRREVERSÍVEL. Confirma?')) {
+                return;
+            }
+            
+            try {
+                if (db) {
+                    db.close();
+                    db = null;
+                }
+                
+                log('🗑️ Deletando banco de dados...', 'warning');
+                
+                const request = indexedDB.deleteDatabase(DB_NAME);
+                
+                request.onsuccess = () => {
+                    log('✅ Banco de dados deletado com sucesso!', 'success');
+                    log('🔄 Recarregue a página para criar um novo banco.', 'info');
+                    updateStats();
+                };
+                
+                request.onerror = () => {
+                    log(`❌ Erro ao deletar banco: ${request.error}`, 'error');
+                };
+                
+                request.onblocked = () => {
+                    log('⚠️ Deleção bloqueada! Feche todas as abas do LinguaFlow e tente novamente.', 'warning');
+                };
+                
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        // Inicialização
+        window.addEventListener('load', async () => {
+            log('🚀 Teste Direto do Banco de Dados iniciado', 'success');
+            log('💡 Clique nos botões acima para executar testes', 'info');
+            await testDBConnection();
+        });
+    </script>
+</body>
+</html>

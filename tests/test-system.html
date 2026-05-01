@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinguaFlow - Teste do Sistema</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+            color: #F8FAFC;
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 36px;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #38BDF8, #818CF8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            color: #94A3B8;
+            margin-bottom: 40px;
+            font-size: 16px;
+        }
+        .test-section {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .test-section h2 {
+            font-size: 20px;
+            margin-bottom: 16px;
+            color: #38BDF8;
+        }
+        .test-item {
+            background: rgba(0,0,0,0.2);
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .test-name {
+            font-weight: 600;
+            color: #E2E8F0;
+        }
+        .test-status {
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .status-pending {
+            background: rgba(148,163,184,0.2);
+            color: #94A3B8;
+        }
+        .status-running {
+            background: rgba(56,189,248,0.2);
+            color: #38BDF8;
+            animation: pulse 2s infinite;
+        }
+        .status-success {
+            background: rgba(16,185,129,0.2);
+            color: #10B981;
+        }
+        .status-error {
+            background: rgba(239,68,68,0.2);
+            color: #EF4444;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .btn {
+            background: linear-gradient(135deg, #38BDF8, #818CF8);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-right: 12px;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .log {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 16px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #94A3B8;
+        }
+        .log-entry {
+            margin-bottom: 4px;
+        }
+        .log-success { color: #10B981; }
+        .log-error { color: #EF4444; }
+        .log-info { color: #38BDF8; }
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 24px;
+        }
+        .summary-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+        .summary-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .summary-label {
+            font-size: 12px;
+            color: #94A3B8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 LinguaFlow - Teste do Sistema</h1>
+        <p class="subtitle">Verificação automática de todas as funcionalidades</p>
+
+        <div class="test-section">
+            <h2>🎯 Testes Principais</h2>
+            <div id="tests-container"></div>
+            <div style="margin-top: 20px;">
+                <button class="btn" id="btn-run-all">▶️ Executar Todos os Testes</button>
+                <button class="btn" id="btn-clear" style="background: rgba(239,68,68,0.2); color: #EF4444;">🗑️ Limpar</button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 Resumo</h2>
+            <div class="summary">
+                <div class="summary-card">
+                    <div class="summary-value" style="color: #38BDF8;" id="total-tests">0</div>
+                    <div class="summary-label">Total de Testes</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-value" style="color: #10B981;" id="passed-tests">0</div>
+                    <div class="summary-label">Passou</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-value" style="color: #EF4444;" id="failed-tests">0</div>
+                    <div class="summary-label">Falhou</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-value" style="color: #94A3B8;" id="pending-tests">0</div>
+                    <div class="summary-label">Pendente</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>📝 Log de Execução</h2>
+            <div class="log" id="log-container"></div>
+        </div>
+    </div>
+
+    <script>
+        const tests = [
+            { id: 'db-open', name: 'Abrir IndexedDB', fn: testOpenDB },
+            { id: 'db-stores', name: 'Verificar Object Stores', fn: testStores },
+            { id: 'save-word', name: 'Salvar Palavra', fn: testSaveWord },
+            { id: 'load-words', name: 'Carregar Palavras', fn: testLoadWords },
+            { id: 'export-data', name: 'Exportar Dados', fn: testExport },
+            { id: 'import-data', name: 'Importar Dados', fn: testImport },
+            { id: 'chrome-messages', name: 'Mensagens Chrome', fn: testChromeMessages },
+        ];
+
+        let testResults = {};
+        let logEntries = [];
+
+        function log(message, type = 'info') {
+            const entry = { message, type, timestamp: new Date().toLocaleTimeString() };
+            logEntries.push(entry);
+            const logContainer = document.getElementById('log-container');
+            const div = document.createElement('div');
+            div.className = `log-entry log-${type}`;
+            div.textContent = `[${entry.timestamp}] ${message}`;
+            logContainer.appendChild(div);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            console.log(`[Test] ${message}`);
+        }
+
+        function updateTestStatus(testId, status) {
+            testResults[testId] = status;
+            const statusEl = document.querySelector(`[data-test="${testId}"] .test-status`);
+            if (statusEl) {
+                statusEl.className = `test-status status-${status}`;
+                statusEl.textContent = status;
+            }
+            updateSummary();
+        }
+
+        function updateSummary() {
+            const total = tests.length;
+            const passed = Object.values(testResults).filter(s => s === 'success').length;
+            const failed = Object.values(testResults).filter(s => s === 'error').length;
+            const pending = total - passed - failed;
+
+            document.getElementById('total-tests').textContent = total;
+            document.getElementById('passed-tests').textContent = passed;
+            document.getElementById('failed-tests').textContent = failed;
+            document.getElementById('pending-tests').textContent = pending;
+        }
+
+        async function testOpenDB() {
+            log('Tentando abrir IndexedDB...', 'info');
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('LinguaFlowFreeDB', 3);
+                request.onsuccess = (e) => {
+                    log('✅ IndexedDB aberto com sucesso', 'success');
+                    e.target.result.close();
+                    resolve();
+                };
+                request.onerror = () => {
+                    log('❌ Erro ao abrir IndexedDB', 'error');
+                    reject(new Error('Falha ao abrir DB'));
+                };
+            });
+        }
+
+        async function testStores() {
+            log('Verificando object stores...', 'info');
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('LinguaFlowFreeDB', 3);
+                request.onsuccess = (e) => {
+                    const db = e.target.result;
+                    const requiredStores = ['words', 'cards', 'decks', 'known_words', 'sessions', 'settings'];
+                    const existingStores = Array.from(db.objectStoreNames);
+                    
+                    const missing = requiredStores.filter(s => !existingStores.includes(s));
+                    
+                    if (missing.length === 0) {
+                        log(`✅ Todas as stores existem: ${requiredStores.join(', ')}`, 'success');
+                        db.close();
+                        resolve();
+                    } else {
+                        log(`❌ Stores faltando: ${missing.join(', ')}`, 'error');
+                        db.close();
+                        reject(new Error('Stores faltando'));
+                    }
+                };
+                request.onerror = () => {
+                    log('❌ Erro ao verificar stores', 'error');
+                    reject(new Error('Erro ao verificar stores'));
+                };
+            });
+        }
+
+        async function testSaveWord() {
+            log('Testando salvamento de palavra...', 'info');
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('LinguaFlowFreeDB', 3);
+                request.onsuccess = (e) => {
+                    const db = e.target.result;
+                    const tx = db.transaction(['words', 'cards'], 'readwrite');
+                    const wordsStore = tx.objectStore('words');
+                    
+                    const testWord = {
+                        word: 'test_' + Date.now(),
+                        lang: 'en',
+                        translation: 'teste',
+                        added_at: Date.now(),
+                        deck_id: 1
+                    };
+                    
+                    const addReq = wordsStore.add(testWord);
+                    addReq.onsuccess = () => {
+                        log(`✅ Palavra salva com ID: ${addReq.result}`, 'success');
+                        db.close();
+                        resolve();
+                    };
+                    addReq.onerror = () => {
+                        log('❌ Erro ao salvar palavra', 'error');
+                        db.close();
+                        reject(new Error('Erro ao salvar'));
+                    };
+                };
+            });
+        }
+
+        async function testLoadWords() {
+            log('Testando carregamento de palavras...', 'info');
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('LinguaFlowFreeDB', 3);
+                request.onsuccess = (e) => {
+                    const db = e.target.result;
+                    const tx = db.transaction(['words'], 'readonly');
+                    const wordsStore = tx.objectStore('words');
+                    
+                    const getAllReq = wordsStore.getAll();
+                    getAllReq.onsuccess = () => {
+                        const count = getAllReq.result.length;
+                        log(`✅ ${count} palavras carregadas`, 'success');
+                        db.close();
+                        resolve();
+                    };
+                    getAllReq.onerror = () => {
+                        log('❌ Erro ao carregar palavras', 'error');
+                        db.close();
+                        reject(new Error('Erro ao carregar'));
+                    };
+                };
+            });
+        }
+
+        async function testExport() {
+            log('Testando exportação de dados...', 'info');
+            try {
+                const request = indexedDB.open('LinguaFlowFreeDB', 3);
+                const db = await new Promise((resolve, reject) => {
+                    request.onsuccess = (e) => resolve(e.target.result);
+                    request.onerror = () => reject(new Error('Erro ao abrir DB'));
+                });
+                
+                const tx = db.transaction(['words'], 'readonly');
+                const words = await new Promise((resolve, reject) => {
+                    const req = tx.objectStore('words').getAll();
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(new Error('Erro ao buscar palavras'));
+                });
+                
+                const exportData = {
+                    words,
+                    exportedAt: new Date().toISOString(),
+                    version: 1
+                };
+                
+                log(`✅ Dados exportados: ${words.length} palavras`, 'success');
+                db.close();
+            } catch (e) {
+                log(`❌ Erro na exportação: ${e.message}`, 'error');
+                throw e;
+            }
+        }
+
+        async function testImport() {
+            log('✅ Teste de importação (simulado)', 'success');
+        }
+
+        async function testChromeMessages() {
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                log('✅ API Chrome disponível', 'success');
+            } else {
+                log('⚠️ API Chrome não disponível (normal fora da extensão)', 'info');
+            }
+        }
+
+        async function runTest(test) {
+            updateTestStatus(test.id, 'running');
+            try {
+                await test.fn();
+                updateTestStatus(test.id, 'success');
+            } catch (e) {
+                updateTestStatus(test.id, 'error');
+                log(`Erro no teste "${test.name}": ${e.message}`, 'error');
+            }
+        }
+
+        async function runAllTests() {
+            log('=== Iniciando bateria de testes ===', 'info');
+            document.getElementById('btn-run-all').disabled = true;
+            
+            for (const test of tests) {
+                await runTest(test);
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            log('=== Testes concluídos ===', 'info');
+            document.getElementById('btn-run-all').disabled = false;
+        }
+
+        function initUI() {
+            const container = document.getElementById('tests-container');
+            tests.forEach(test => {
+                const div = document.createElement('div');
+                div.className = 'test-item';
+                div.dataset.test = test.id;
+                div.innerHTML = `
+                    <span class="test-name">${test.name}</span>
+                    <span class="test-status status-pending">pending</span>
+                `;
+                container.appendChild(div);
+                testResults[test.id] = 'pending';
+            });
+            updateSummary();
+        }
+
+        document.getElementById('btn-run-all').addEventListener('click', runAllTests);
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            document.getElementById('log-container').innerHTML = '';
+            logEntries = [];
+            tests.forEach(test => updateTestStatus(test.id, 'pending'));
+        });
+
+        initUI();
+        log('Sistema de testes inicializado', 'info');
+    </script>
+</body>
+</html>

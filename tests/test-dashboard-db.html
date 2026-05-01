@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Dashboard - Verificação de Banco de Dados</title>
+    <style>
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            background: linear-gradient(135deg, #0F172A, #1E293B);
+            color: #F1F5F9;
+            padding: 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 { color: #38BDF8; margin-bottom: 10px; }
+        .subtitle { color: #94A3B8; margin-bottom: 30px; }
+        .test-section {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .test-section h2 {
+            color: #38BDF8;
+            font-size: 18px;
+            margin-top: 0;
+        }
+        button {
+            background: #38BDF8;
+            color: #0F172A;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover { background: #0EA5E9; }
+        button.secondary {
+            background: rgba(255,255,255,0.1);
+            color: #F1F5F9;
+        }
+        #log {
+            background: #0A0F1E;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .log-success { color: #10B981; }
+        .log-error { color: #EF4444; }
+        .log-info { color: #38BDF8; }
+        .log-warn { color: #F59E0B; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        th {
+            background: rgba(56,189,248,0.1);
+            color: #38BDF8;
+            font-weight: 600;
+        }
+        tr:hover {
+            background: rgba(255,255,255,0.05);
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste Dashboard - Verificação de Banco de Dados</h1>
+    <p class="subtitle">Verifica se as palavras estão realmente salvas no IndexedDB</p>
+
+    <div class="test-section">
+        <h2>🔍 Verificação do Banco de Dados</h2>
+        <button onclick="checkDB()">1️⃣ Verificar Banco de Dados</button>
+        <button onclick="listAllWords()">2️⃣ Listar Todas as Palavras</button>
+        <button onclick="listAllCards()">3️⃣ Listar Todos os Cards</button>
+        <button onclick="openDashboard()" class="secondary">📊 Abrir Dashboard</button>
+    </div>
+
+    <div class="test-section">
+        <h2>📋 Palavras Encontradas</h2>
+        <div id="words-count" style="font-size: 24px; font-weight: 700; color: #38BDF8; margin-bottom: 10px;">-</div>
+        <table id="words-table" style="display: none;">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Palavra</th>
+                    <th>Tradução</th>
+                    <th>Idioma</th>
+                    <th>Data</th>
+                    <th>Vídeo</th>
+                </tr>
+            </thead>
+            <tbody id="words-tbody"></tbody>
+        </table>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 Log de Execução</h2>
+        <button onclick="clearLog()" class="secondary">🧹 Limpar Log</button>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        const DB_NAME = 'LinguaFlowFreeDB';
+        const DB_VERSION = 3;
+        let db = null;
+
+        // Inicializa o DB
+        async function initDB() {
+            return new Promise((resolve, reject) => {
+                log('🔌 Abrindo banco de dados...', 'info');
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+                request.onsuccess = (e) => {
+                    db = e.target.result;
+                    log(`✅ Banco aberto: ${DB_NAME} v${db.version}`, 'success');
+                    log(`📦 Object Stores: ${Array.from(db.objectStoreNames).join(', ')}`, 'info');
+                    resolve(db);
+                };
+
+                request.onerror = (e) => {
+                    log(`❌ Erro ao abrir banco: ${e.target.error}`, 'error');
+                    reject(e.target.error);
+                };
+            });
+        }
+
+        async function checkDB() {
+            log('🔍 === VERIFICANDO BANCO DE DADOS ===', 'info');
+            
+            try {
+                if (!db) await initDB();
+                
+                // Verifica object stores
+                const stores = Array.from(db.objectStoreNames);
+                log(`📦 Object Stores encontrados: ${stores.length}`, 'info');
+                stores.forEach(store => log(`   - ${store}`, 'info'));
+                
+                // Conta registros em cada store
+                const tx = db.transaction(stores, 'readonly');
+                
+                for (const storeName of stores) {
+                    const store = tx.objectStore(storeName);
+                    const countReq = store.count();
+                    
+                    countReq.onsuccess = () => {
+                        log(`📊 ${storeName}: ${countReq.result} registros`, 'info');
+                    };
+                }
+                
+                await new Promise(resolve => tx.oncomplete = resolve);
+                log('✅ Verificação completa!', 'success');
+                
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function listAllWords() {
+            log('📋 === LISTANDO TODAS AS PALAVRAS ===', 'info');
+            
+            try {
+                if (!db) await initDB();
+                
+                const tx = db.transaction('words', 'readonly');
+                const store = tx.objectStore('words');
+                const req = store.getAll();
+                
+                req.onsuccess = () => {
+                    const words = req.result || [];
+                    log(`📊 Total de palavras: ${words.length}`, 'info');
+                    
+                    document.getElementById('words-count').textContent = `${words.length} palavras encontradas`;
+                    
+                    if (words.length === 0) {
+                        log('⚠️ Nenhuma palavra encontrada no banco!', 'warn');
+                        document.getElementById('words-table').style.display = 'none';
+                        return;
+                    }
+                    
+                    // Mostra tabela
+                    document.getElementById('words-table').style.display = 'table';
+                    const tbody = document.getElementById('words-tbody');
+                    tbody.innerHTML = '';
+                    
+                    words.forEach((w, i) => {
+                        log(`${i + 1}. [ID: ${w.id}] ${w.word} (${w.lang}) = ${w.translation}`, 'info');
+                        log(`   Adicionada: ${w.added_at ? new Date(w.added_at).toLocaleString('pt-BR') : 'N/A'}`, 'info');
+                        log(`   Vídeo: ${w.video_url || 'N/A'}`, 'info');
+                        
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${w.id}</td>
+                            <td style="font-weight: 700; color: #FFF;">${w.word}</td>
+                            <td style="color: #10B981;">${w.translation || '-'}</td>
+                            <td>${w.lang || '-'}</td>
+                            <td style="font-size: 11px;">${w.added_at ? new Date(w.added_at).toLocaleString('pt-BR') : '-'}</td>
+                            <td style="font-size: 11px;">${w.platform || '-'}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                    
+                    log('✅ Listagem completa!', 'success');
+                };
+                
+                req.onerror = () => {
+                    log(`❌ Erro ao listar palavras: ${req.error}`, 'error');
+                };
+                
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function listAllCards() {
+            log('🃏 === LISTANDO TODOS OS CARDS ===', 'info');
+            
+            try {
+                if (!db) await initDB();
+                
+                const tx = db.transaction('cards', 'readonly');
+                const store = tx.objectStore('cards');
+                const req = store.getAll();
+                
+                req.onsuccess = () => {
+                    const cards = req.result || [];
+                    log(`📊 Total de cards: ${cards.length}`, 'info');
+                    
+                    if (cards.length === 0) {
+                        log('⚠️ Nenhum card encontrado no banco!', 'warn');
+                        return;
+                    }
+                    
+                    cards.forEach((c, i) => {
+                        log(`${i + 1}. [ID: ${c.id}] Word ID: ${c.word_id} | Status: ${c.status} | Reps: ${c.reps}`, 'info');
+                    });
+                    
+                    log('✅ Listagem completa!', 'success');
+                };
+                
+                req.onerror = () => {
+                    log(`❌ Erro ao listar cards: ${req.error}`, 'error');
+                };
+                
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        function openDashboard() {
+            const dashboardUrl = chrome.runtime.getURL('dashboard/dashboard.html');
+            window.open(dashboardUrl, '_blank');
+            log('📊 Abrindo Dashboard...', 'info');
+        }
+
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString('pt-BR');
+            const className = `log-${type}`;
+            logEl.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        // Inicializa ao carregar
+        window.addEventListener('DOMContentLoaded', async () => {
+            log('🚀 Teste de Dashboard iniciado', 'info');
+            try {
+                await initDB();
+                await checkDB();
+                log('✅ Sistema pronto para testes!', 'success');
+            } catch(e) {
+                log(`❌ Erro na inicialização: ${e}`, 'error');
+            }
+        });
+    </script>
+</body>
+</html>

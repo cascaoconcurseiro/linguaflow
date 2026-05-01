@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinguaFlow - Dashboard Anki</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: 'Poppins', sans-serif;
+            background: #0a0e1a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        /* Animated Background */
+        .bg-animated {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0a0e1a 0%, #1a1f35 50%, #0a0e1a 100%);
+            z-index: -1;
+        }
+        
+        .bg-animated::before {
+            content: '';
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(56,189,248,0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: moveGrid 20s linear infinite;
+        }
+        
+        @keyframes moveGrid {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+        
+        .container { 
+            max-width: 1600px; 
+            margin: 0 auto; 
+            padding: 30px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Top Bar */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(20px);
+            padding: 20px 30px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .logo-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            box-shadow: 0 5px 15px rgba(56, 189, 248, 0.4);
+        }
+        
+        .logo-text h1 {
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .logo-text p {
+            font-size: 12px;
+            color: #64748b;
+            font-weight: 600;
+        }
+        
+        .top-stats {
+            display: flex;
+            gap: 30px;
+        }
+        
+        .top-stat {
+            text-align: center;
+        }
+        
+        .top-stat-value {
+            font-size: 32px;
+            font-weight: 800;
+            display: block;
+            background: linear-gradient(135deg, #4ade80, #22c55e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .top-stat-label {
+            font-size: 11px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+        
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 10px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .nav-tab {
+            flex: 1;
+            padding: 18px;
+            background: transparent;
+            border: 2px solid transparent;
+            color: #64748b;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            border-radius: 12px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .nav-tab:hover {
+            background: rgba(56, 189, 248, 0.1);
+            color: #38bdf8;
+            transform: translateY(-2px);
+        }
+        
+        .nav-tab.active {
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            color: white;
+            border-color: #60a5fa;
+            box-shadow: 0 5px 20px rgba(59, 130, 246, 0.4);
+        }
+        
+        /* Content Sections */
+        .content-section {
+            display: none;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        .content-section.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Study Mode - Flashcard */
+        .study-wrapper {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .study-progress {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 18px;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+        
+        .flashcard-container {
+            perspective: 1000px;
+            margin-bottom: 40px;
+        }
+        
+        .flashcard {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border: 3px solid #38bdf8;
+            border-radius: 25px;
+            padding: 80px 50px;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .flashcard::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(56,189,248,0.1) 0%, transparent 70%);
+            animation: pulse 3s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+        
+        .flashcard:hover {
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: 0 30px 80px rgba(56, 189, 248, 0.3);
+        }
+        
+        .flashcard-word {
+            font-size: 56px;
+            font-weight: 800;
+            color: #38bdf8;
+            margin-bottom: 25px;
+            text-shadow: 0 5px 20px rgba(56, 189, 248, 0.5);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .flashcard-translation {
+            font-size: 38px;
+            font-weight: 700;
+            color: #4ade80;
+            margin-bottom: 25px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .flashcard-context {
+            font-size: 18px;
+            color: #94a3b8;
+            font-style: italic;
+            text-align: center;
+            max-width: 700px;
+            line-height: 1.8;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .flashcard-hint {
+            margin-top: 30px;
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 600;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Study Buttons */
+        .study-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+        
+        .study-btn {
+            padding: 20px 35px;
+            border: none;
+            border-radius: 15px;
+            font-size: 17px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .study-btn:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        
+        .study-btn.again { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+        .study-btn.hard { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; }
+        .study-btn.good { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+        .study-btn.easy { background: linear-gradient(135deg, #06b6d4, #0891b2); color: white; }
+        
+        .study-btn-label { font-size: 18px; }
+        .study-btn-time { font-size: 13px; opacity: 0.9; }
+        
+        /* Cards Grid */
+        .cards-toolbar {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+        
+        .search-box {
+            flex: 1;
+            min-width: 300px;
+            padding: 15px 20px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 2px solid rgba(56, 189, 248, 0.3);
+            border-radius: 12px;
+            color: #e2e8f0;
+            font-size: 15px;
+            font-family: 'Poppins', sans-serif;
+            transition: all 0.3s;
+        }
+        
+        .search-box:focus {
+            outline: none;
+            border-color: #38bdf8;
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.3);
+        }
+        
+        .filter-select {
+            padding: 15px 20px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 2px solid rgba(56, 189, 248, 0.3);
+            border-radius: 12px;
+            color: #e2e8f0;
+            font-size: 15px;
+            font-family: 'Poppins', sans-serif;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 25px;
+        }
+        
+        .word-card {
+            background: rgba(15, 23, 42, 0.9);
+            border: 2px solid rgba(56, 189, 248, 0.2);
+            border-radius: 18px;
+            padding: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .word-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, #38bdf8, #818cf8);
+        }
+        
+        .word-card:hover {
+            transform: translateY(-8px);
+            border-color: #38bdf8;
+            box-shadow: 0 15px 40px rgba(56, 189, 248, 0.3);
+        }
+        
+        .word-card-word {
+            font-size: 26px;
+            font-weight: 800;
+            color: #38bdf8;
+            margin-bottom: 12px;
+        }
+        
+        .word-card-translation {
+            font-size: 19px;
+            color: #4ade80;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .word-card-context {
+            font-size: 14px;
+            color: #94a3b8;
+            font-style: italic;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        
+        .word-card-meta {
+            display: flex;
+            justify-content: space-between;
+            padding-top: 15px;
+            border-top: 1px solid rgba(148, 163, 184, 0.2);
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        
+        .status-new { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
+        .status-learning { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
+        .status-review { background: rgba(56, 189, 248, 0.2); color: #38bdf8; }
+        .status-mature { background: rgba(74, 222, 128, 0.2); color: #4ade80; }
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 100px 40px;
+        }
+        
+        .empty-icon {
+            font-size: 80px;
+            margin-bottom: 25px;
+            opacity: 0.5;
+        }
+        
+        .empty-text {
+            font-size: 20px;
+            color: #64748b;
+            font-weight: 600;
+        }
+        
+        /* Phrases */
+        .phrase-item {
+            background: rgba(15, 23, 42, 0.9);
+            border: 2px solid rgba(56, 189, 248, 0.2);
+            border-radius: 18px;
+            padding: 25px;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+        
+        .phrase-item:hover {
+            border-color: #38bdf8;
+            transform: translateX(5px);
+        }
+        
+        .phrase-original {
+            font-size: 19px;
+            color: #e2e8f0;
+            margin-bottom: 12px;
+            font-weight: 600;
+            line-height: 1.6;
+        }
+        
+        .phrase-translation {
+            font-size: 17px;
+            color: #38bdf8;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+        
+        .phrase-meta {
+            font-size: 13px;
+            color: #64748b;
+            font-weight: 600;
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            color: white;
+            box-shadow: 0 5px 20px rgba(59, 130, 246, 0.4);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(59, 130, 246, 0.6);
+        }
+        
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+        
+        .stat-card {
+            background: rgba(15, 23, 42, 0.9);
+            border: 2px solid rgba(56, 189, 248, 0.2);
+            border-radius: 18px;
+            padding: 35px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: #38bdf8;
+        }
+        
+        .stat-card-value {
+            font-size: 48px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 12px;
+        }
+        
+        .stat-card-label {
+            font-size: 14px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-animated"></div>
+    
+    <div class="container">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <div class="logo">
+                <div class="logo-icon">⚡</div>
+                <div class="logo-text">
+                    <h1>LinguaFlow</h1>
+                    <p>Sistema Anki de Aprendizado</p>
+                </div>
+            </div>
+            <div class="top-stats">
+                <div class="top-stat">
+                    <span class="top-stat-value" id="headerTotal">0</span>
+                    <span class="top-stat-label">Palavras</span>
+                </div>
+                <div class="top-stat">
+                    <span class="top-stat-value" id="headerDue">0</span>
+                    <span class="top-stat-label">Para Revisar</span>
+                </div>
+                <div class="top-stat">
+                    <span class="top-stat-value" id="headerStreak">0</span>
+                    <span class="top-stat-label">Dias Seguidos</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Navigation -->
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="switchTab('study')">
+                <span>🎯</span> Estudar
+            </button>
+            <button class="nav-tab" onclick="switchTab('cards')">
+                <span>🎴</span> Cards
+            </button>
+            <button class="nav-tab" onclick="switchTab('phrases')">
+                <span>💬</span> Frases
+            </button>
+            <button class="nav-tab" onclick="switchTab('decks')">
+                <span>📚</span> Decks
+            </button>
+            <button class="nav-tab" onclick="switchTab('listening')">
+                <span>🎧</span> Listening
+            </button>
+            <button class="nav-tab" onclick="switchTab('stats')">
+                <span>📊</span> Estatísticas
+            </button>
+        </div>
+        
+        <!-- Study Section -->
+        <div id="study-section" class="content-section active">
+            <div class="study-wrapper">
+                <div class="study-progress" id="studyProgress"></div>
+                <div id="studyContent"></div>
+            </div>
+        </div>
+        
+        <!-- Cards Section -->
+        <div id="cards-section" class="content-section">
+            <div class="cards-toolbar">
+                <input type="text" class="search-box" id="searchCards" placeholder="🔍 Buscar palavras...">
+                <select class="filter-select" id="filterStatus">
+                    <option value="all">Todos os Status</option>
+                    <option value="new">Novos</option>
+                    <option value="learning">Aprendendo</option>
+                    <option value="review">Revisão</option>
+                    <option value="mature">Dominados</option>
+                </select>
+            </div>
+            <div class="cards-grid" id="cardsGrid"></div>
+        </div>
+        
+        <!-- Phrases Section -->
+        <div id="phrases-section" class="content-section">
+            <div class="cards-toolbar">
+                <input type="text" class="search-box" id="searchPhrases" placeholder="🔍 Buscar frases...">
+                <button class="btn btn-primary" onclick="exportPhrases()">📥 Exportar Frases</button>
+            </div>
+            <div id="phrasesList"></div>
+        </div>
+        
+        <!-- Decks Section -->
+        <div id="decks-section" class="content-section">
+            <div class="cards-toolbar">
+                <button class="btn btn-primary" onclick="createDeck()">➕ Criar Novo Deck</button>
+            </div>
+            <div id="decksList"></div>
+        </div>
+        
+        <!-- Listening Section -->
+        <div id="listening-section" class="content-section">
+            <div class="study-wrapper">
+                <div id="listeningContent"></div>
+            </div>
+        </div>
+        
+        <!-- Stats Section -->
+        <div id="stats-section" class="content-section">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-card-value" id="statTotal">0</div>
+                    <div class="stat-card-label">Total de Palavras</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-value" id="statNew">0</div>
+                    <div class="stat-card-label">Novas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-value" id="statLearning">0</div>
+                    <div class="stat-card-label">Aprendendo</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-value" id="statMature">0</div>
+                    <div class="stat-card-label">Dominadas</div>
+                </div>
+            </div>
+            
+            <div style="background: rgba(15, 23, 42, 0.9); border: 2px solid rgba(56, 189, 248, 0.2); border-radius: 18px; padding: 40px; text-align: center;">
+                <h2 style="color: #38bdf8; margin-bottom: 20px; font-size: 24px;">🎯 Taxa de Retenção</h2>
+                <div id="retentionRate" style="font-size: 72px; font-weight: 800; background: linear-gradient(135deg, #4ade80, #22c55e); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">0%</div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Diagnóstico de Conexão - LinguaFlow</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #38bdf8, #7dd3fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            color: #94a3b8;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .test-section {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .test-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #7dd3fc;
+        }
+        .test-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 3px solid transparent;
+        }
+        .test-item.pending {
+            border-left-color: #fbbf24;
+        }
+        .test-item.success {
+            border-left-color: #4ade80;
+            background: rgba(74, 222, 128, 0.05);
+        }
+        .test-item.error {
+            border-left-color: #f87171;
+            background: rgba(248, 113, 113, 0.05);
+        }
+        .status {
+            font-size: 24px;
+            min-width: 30px;
+        }
+        .test-name {
+            flex: 1;
+            font-weight: 600;
+        }
+        .test-result {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        .btn {
+            background: linear-gradient(135deg, #1d4ed8, #2563eb);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .summary {
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        .summary-title {
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+        .summary-stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 15px;
+        }
+        .stat {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 36px;
+            font-weight: 800;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 12px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #7dd3fc;
+            margin-top: 8px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Diagnóstico de Conexão</h1>
+        <p class="subtitle">Testando comunicação entre Popup → DB → Dashboard</p>
+
+        <button class="btn" id="btnRun">▶️ EXECUTAR DIAGNÓSTICO COMPLETO</button>
+
+        <div class="test-section">
+            <div class="test-title">1️⃣ Teste de Salvamento (Popup → DB)</div>
+            <div class="test-item pending" id="test1">
+                <span class="status">⏳</span>
+                <span class="test-name">Salvar palavra "test" no DB</span>
+                <span class="test-result"></span>
+            </div>
+            <div class="test-item pending" id="test2">
+                <span class="status">⏳</span>
+                <span class="test-name">Verificar se palavra foi salva</span>
+                <span class="test-result"></span>
+            </div>
+            <div class="test-item pending" id="test3">
+                <span class="status">⏳</span>
+                <span class="test-name">Criar deck "Test Deck"</span>
+                <span class="test-result"></span>
+            </div>
+            <div class="test-item pending" id="test4">
+                <span class="status">⏳</span>
+                <span class="test-name">Verificar se deck foi criado</span>
+                <span class="test-result"></span>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">2️⃣ Teste de Leitura (DB → Dashboard)</div>
+            <div class="test-item pending" id="test5">
+                <span class="status">⏳</span>
+                <span class="test-name">Ler todas as palavras do DB</span>
+                <span class="test-result"></span>
+            </div>
+            <div class="test-item pending" id="test6">
+                <span class="status">⏳</span>
+                <span class="test-name">Ler todos os decks do DB</span>
+                <span class="test-result"></span>
+            </div>
+            <div class="test-item pending" id="test7">
+                <span class="status">⏳</span>
+                <span class="test-name">Ler cards SRS do DB</span>
+                <span class="test-result"></span>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">3️⃣ Teste de Comunicação (Background)</div>
+            <div class="test-item pending" id="test8">
+                <span class="status">⏳</span>
+                <span class="test-name">Enviar mensagem REFRESH_DASHBOARD</span>
+                <span class="test-result"></span>
+            </div>
+            <div class="test-item pending" id="test9">
+                <span class="status">⏳</span>
+                <span class="test-name">Verificar resposta do background</span>
+                <span class="test-result"></span>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">4️⃣ Teste de Frases</div>
+            <div class="test-item pending" id="test10">
+                <span class="status">⏳</span>
+                <span class="test-name">Salvar frase "This is a test"</span>
+                <span class="test-result"></span>
+            </div>
+            <div class="test-item pending" id="test11">
+                <span class="status">⏳</span>
+                <span class="test-name">Verificar se frase foi salva</span>
+                <span class="test-result"></span>
+            </div>
+        </div>
+
+        <div class="summary" id="summary" style="display: none;">
+            <div class="summary-title">📊 Resultado Final</div>
+            <div class="summary-stats">
+                <div class="stat">
+                    <div class="stat-value" style="color: #4ade80;" id="passCount">0</div>
+                    <div class="stat-label">Passou</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" style="color: #f87171;" id="failCount">0</div>
+                    <div class="stat-label">Falhou</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" style="color: #7dd3fc;" id="totalCount">11</div>
+                    <div class="stat-label">Total</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { db } from '../utils/db.js';
+
+        let passCount = 0;
+        let failCount = 0;
+
+        function updateTest(id, status, message) {
+            const el = document.getElementById(id);
+            el.className = `test-item ${status}`;
+            
+            const statusIcon = status === 'success' ? '✅' : status === 'error' ? '❌' : '⏳';
+            el.querySelector('.status').textContent = statusIcon;
+            el.querySelector('.test-result').textContent = message;
+
+            if (status === 'success') passCount++;
+            if (status === 'error') failCount++;
+        }
+
+        async function runTests() {
+            const btn = document.getElementById('btnRun');
+            btn.disabled = true;
+            btn.textContent = '⏳ Executando testes...';
+
+            passCount = 0;
+            failCount = 0;
+
+            try {
+                // ═══════════════════════════════════════════════════════
+                // TESTE 1: Salvar palavra
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const result = await db.saveWord({
+                        word: 'test',
+                        lang: 'en',
+                        translation: 'teste',
+                        phonetic: '/test/',
+                        definition: 'A test word',
+                        context_sentence: 'This is a test sentence.',
+                        video_url: 'https://youtube.com/test',
+                        video_title: 'Test Video',
+                        platform: 'youtube',
+                        deck_id: 1,
+                        added_at: Date.now()
+                    });
+                    updateTest('test1', 'success', `ID: ${result.id} | isNew: ${result.isNew}`);
+                } catch (e) {
+                    updateTest('test1', 'error', e.message);
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // TESTE 2: Verificar se palavra foi salva
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const word = await db.getWord('test', 'en');
+                    if (word) {
+                        updateTest('test2', 'success', `Palavra encontrada: "${word.word}" = "${word.translation}"`);
+                    } else {
+                        updateTest('test2', 'error', 'Palavra NÃO encontrada no DB');
+                    }
+                } catch (e) {
+                    updateTest('test2', 'error', e.message);
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // TESTE 3: Criar deck
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const result = await db.createDeck('Test Deck');
+                    updateTest('test3', 'success', `Deck criado com ID: ${result.id}`);
+                } catch (e) {
+                    updateTest('test3', 'error', e.message);
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // TESTE 4: Verificar se deck foi criado
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const decks = await db.getAllDecks();
+                    const testDeck = decks.find(d => d.name === 'Test Deck');
+                    if (testDeck) {
+                        updateTest('test4', 'success', `Deck encontrado: "${testDeck.name}" (ID: ${testDeck.id})`);
+                    } else {
+                        updateTest('test4', 'error', `Deck NÃO encontrado. Total de decks: ${decks.length}`);
+                    }
+                } catch (e) {
+                    updateTest('test4', 'error', e.message);
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // TESTE 5: Ler todas as palavras
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const words = await db.getAllWords();
+                    updateTest('test5', 'success', `${words.length} palavras no DB`);
+                } catch (e) {
+                    updateTest('test5', 'error', e.message);
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // TESTE 6: Ler todos os decks
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const decks = await db.getAllDecks();
+                    updateTest('test6', 'success', `${decks.length} decks no DB: ${decks.map(d => d.name).join(', ')}`);
+                } catch (e) {
+                    updateTest('test6', 'error', e.message);
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // TESTE 7: Ler cards SRS
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const cards = await db.getCardsDue(100);
+                    updateTest('test7', 'success', `${cards.length} cards devidos para revisão`);
+                } catch (e) {
+                    updateTest('test7', 'error', e.message);
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // TESTE 8: Enviar mensagem REFRESH_DASHBOARD
+                // ═══════════════════════════════════════════════════════
+                try {
+                    chrome.runtime.sendMessage({
+                        type: 'REFRESH_DASHBOARD',
+                        word: 'test'
+                    }, (response) => {
+                        if (chrome.runtime.lastError) {
+                            updateTest('test8', 'error', chrome.runtime.lastError.message);
+                        } else {
+                            updateTest('test8', 'success', 'Mensagem enviada com sucesso');
+                        }
+                    });
+                    // Aguarda 500ms para a mensagem ser processada
+                    await new Promise(r => setTimeout(r, 500));
+                } catch (e) {
+                    updateTest('test8', 'error', e.message);
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // TESTE 9: Verificar resposta do background
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const response = await new Promise((resolve) => {
+                        chrome.runtime.sendMessage({
+                            type: 'PING'
+                        }, resolve);
+                    });
+                    
+                    if (response) {
+                        updateTest('test9', 'success', 'Background respondeu');
+                    } else {
+                        updateTest('test9', 'error', 'Background não respondeu');
+                    }
+                } catch (e) {
+                    updateTest('test9', 'error', e.message);
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // TESTE 10: Salvar frase
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const result = await db.saveSentence({
+                        sentence: 'This is a test sentence',
+                        translation: 'Esta é uma frase de teste',
+                        video_url: 'https://youtube.com/test',
+                        video_title: 'Test Video',
+                        platform: 'youtube',
+                        timestamp: 123,
+                        saved_at: Date.now()
+                    });
+                    updateTest('test10', 'success', `Frase salva com ID: ${result.id}`);
+                } catch (e) {
+                    updateTest('test10', 'error', e.message);
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // TESTE 11: Verificar se frase foi salva
+                // ═══════════════════════════════════════════════════════
+                try {
+                    const sentences = await db.getAllSentences();
+                    const testSentence = sentences.find(s => s.sentence === 'This is a test sentence');
+                    if (testSentence) {
+                        updateTest('test11', 'success', `Frase encontrada: "${testSentence.sentence}"`);
+                    } else {
+                        updateTest('test11', 'error', `Frase NÃO encontrada. Total: ${sentences.length}`);
+                    }
+                } catch (e) {
+                    updateTest('test11', 'error', e.message);
+                }
+
+            } catch (e) {
+                console.error('Erro geral:', e);
+            }
+
+            // Mostra resumo
+            document.getElementById('summary').style.display = 'block';
+            document.getElementById('passCount').textContent = passCount;
+            document.getElementById('failCount').textContent = failCount;
+
+            btn.disabled = false;
+            btn.textContent = '🔄 EXECUTAR NOVAMENTE';
+        }
+
+        document.getElementById('btnRun').addEventListener('click', runTests);
+    </script>
+</body>
+</html>

@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Salvamento - LinguaFlow</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1000px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #0F172A;
+            color: #F1F5F9;
+        }
+        h1 { color: #38BDF8; }
+        button {
+            background: #38BDF8;
+            color: #0F172A;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin: 5px;
+        }
+        button:hover { background: #0EA5E9; }
+        button:disabled { background: #64748B; cursor: not-allowed; }
+        #log {
+            background: #1E293B;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .success { color: #10B981; }
+        .error { color: #EF4444; }
+        .info { color: #38BDF8; }
+        .warning { color: #FBBF24; }
+        #stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: #1E293B;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #38BDF8;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #94A3B8;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste Completo de Salvamento - LinguaFlow</h1>
+    <p>Este teste verifica TODO o fluxo de salvamento de palavras.</p>
+    
+    <div id="stats">
+        <div class="stat-card">
+            <div class="stat-value" id="stat-words">0</div>
+            <div class="stat-label">Palavras</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="stat-cards">0</div>
+            <div class="stat-label">Cards</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="stat-decks">0</div>
+            <div class="stat-label">Decks</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="stat-known">0</div>
+            <div class="stat-label">Conhecidas</div>
+        </div>
+    </div>
+    
+    <div>
+        <button onclick="testInit()">1. Inicializar DB</button>
+        <button onclick="testSaveWord()" id="btn-save" disabled>2. Salvar Palavra</button>
+        <button onclick="testGetWords()" id="btn-get" disabled>3. Listar Palavras</button>
+        <button onclick="testGetCards()" id="btn-cards" disabled>4. Listar Cards</button>
+        <button onclick="testDashboard()" id="btn-dash" disabled>5. Testar Dashboard</button>
+        <button onclick="clearDB()">🗑️ Limpar DB</button>
+        <button onclick="clearLog()">Limpar Log</button>
+    </div>
+    
+    <div id="log"></div>
+
+    <script type="module">
+        const DB_NAME = 'LinguaFlowFreeDB';
+        const DB_VERSION = 3;
+        let db = null;
+
+        window.log = function(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div class="${type}">[${time}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[${type.toUpperCase()}]`, message);
+        }
+
+        window.clearLog = function() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        async function updateStats() {
+            if (!db) return;
+            
+            try {
+                const words = await new Promise((resolve, reject) => {
+                    const req = db.transaction('words', 'readonly').objectStore('words').count();
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error);
+                });
+                
+                const cards = await new Promise((resolve, reject) => {
+                    const req = db.transaction('cards', 'readonly').objectStore('cards').count();
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error);
+                });
+                
+                const decks = await new Promise((resolve, reject) => {
+                    const req = db.transaction('decks', 'readonly').objectStore('decks').count();
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error);
+                });
+                
+                const known = await new Promise((resolve, reject) => {
+                    const req = db.transaction('known_words', 'readonly').objectStore('known_words').count();
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error);
+                });
+                
+                document.getElementById('stat-words').textContent = words;
+                document.getElementById('stat-cards').textContent = cards;
+                document.getElementById('stat-decks').textContent = decks;
+                document.getElementById('stat-known').textContent = known;
+            } catch(e) {
+                log('Erro ao atualizar stats: ' + e.message, 'error');
+            }
+        }
+
+        window.testInit = async function() {
+            log('═══════════════════════════════════════', 'info');
+            log('TESTE 1: INICIALIZAÇÃO DO BANCO', 'info');
+            log('═══════════════════════════════════════', 'info');
+            
+            try {
+                db = await new Promise((resolve, reject) => {
+                    const request = indexedDB.open(DB_NAME, DB_VERSION);
+                    
+                    request.onupgradeneeded = (e) => {
+                        log('📦 Criando/atualizando estrutura do banco...', 'info');
+                        const db = e.target.result;
+                        
+                        if (!db.objectStoreNames.contains('words')) {
+                            const store = db.createObjectStore('words', { keyPath: 'id', autoIncrement: true });
+                            store.createIndex('word_lang', ['word', 'lang'], { unique: true });
+                            store.createIndex('deck_id', 'deck_id', { unique: false });
+                            log('✓ Store "words" criado', 'success');
+                        }
+                        
+                        if (!db.objectStoreNames.contains('cards')) {
+                            const store = db.createObjectStore('cards', { keyPath: 'id', autoIncrement: true });
+                            store.createIndex('word_id', 'word_id', { unique: true });
+                            store.createIndex('due_date', 'due_date', { unique: false });
+                            store.createIndex('status', 'status', { unique: false });
+                            log('✓ Store "cards" criado', 'success');
+                        }
+                        
+                        if (!db.objectStoreNames.contains('decks')) {
+                            db.createObjectStore('decks', { keyPath: 'id', autoIncrement: true });
+                            log('✓ Store "decks" criado', 'success');
+                        }
+                        
+                        if (!db.objectStoreNames.contains('known_words')) {
+                            db.createObjectStore('known_words', { keyPath: ['word', 'lang'] });
+                            log('✓ Store "known_words" criado', 'success');
+                        }
+                        
+                        if (!db.objectStoreNames.contains('sessions')) {
+                            db.createObjectStore('sessions', { keyPath: 'date' });
+                            log('✓ Store "sessions" criado', 'success');
+                        }
+                        
+                        if (!db.objectStoreNames.contains('settings')) {
+                            db.createObjectStore('settings', { keyPath: 'key' });
+                            log('✓ Store "settings" criado', 'success');
+                        }
+                    };
+                    
+                    request.onsuccess = (e) => {
+                        log('✓ Banco de dados aberto com sucesso!', 'success');
+                        resolve(e.target.result);
+                    };
+                    
+                    request.onerror = (e) => {
+                        log('✗ Erro ao abrir banco: ' + e.target.error, 'error');
+                        reject(e.target.error);
+                    };
+                });
+                
+                log(`✓ DB Version: ${db.version}`, 'success');
+                log(`✓ Stores: ${Array.from(db.objectStoreNames).join(', ')}`, 'success');
+                
+                // Habilita outros botões
+                document.getElementById('btn-save').disabled = false;
+                document.getElementById('btn-get').disabled = false;
+                document.getElementById('btn-cards').disabled = false;
+                document.getElementById('btn-dash').disabled = false;
+                
+                await updateStats();
+                log('✓ TESTE 1 COMPLETO!', 'success');
+                
+            } catch(e) {
+                log('✗ TESTE 1 FALHOU: ' + e.message, 'error');
+            }
+        }
+
+        window.testSaveWord = async function() {
+            if (!db) {
+                log('✗ Banco não inicializado! Execute teste 1 primeiro.', 'error');
+                return;
+            }
+            
+            log('═══════════════════════════════════════', 'info');
+            log('TESTE 2: SALVAMENTO DE PALAVRA', 'info');
+            log('═══════════════════════════════════════', 'info');
+            
+            try {
+                const wordData = {
+                    word: 'test_' + Date.now(),
+                    lang: 'en',
+                    translation: 'teste',
+                    ipa: '/test/',
+                    audio_url: '',
+                    part_of_speech: 'noun',
+                    cefr_guess: 'A1',
+                    frequency_rank: 'top-1k',
+                    context_sentence: 'This is a test sentence.',
+                    deck_id: 1,
+                    video_url: 'https://youtube.com/test',
+                    timestamp: 0,
+                    platform: 'youtube',
+                    added_at: Date.now()
+                };
+                
+                log(`📝 Salvando palavra: ${wordData.word}`, 'info');
+                
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction(['words', 'cards', 'decks'], 'readwrite');
+                    
+                    // Criar deck default
+                    const deckReq = tx.objectStore('decks').get(1);
+                    deckReq.onsuccess = () => {
+                        if (!deckReq.result) {
+                            tx.objectStore('decks').put({ id: 1, name: 'Default Deck', created_at: Date.now() });
+                            log('✓ Deck default criado', 'success');
+                        } else {
+                            log('✓ Deck default já existe', 'info');
+                        }
+                    };
+                    
+                    // Salvar palavra
+                    const wordReq = tx.objectStore('words').put(wordData);
+                    wordReq.onsuccess = (e) => {
+                        const wordId = e.target.result;
+                        log(`✓ Palavra salva com ID: ${wordId}`, 'success');
+                        
+                        // Criar card
+                        const card = {
+                            word_id: wordId,
+                            interval: 0,
+                            ease_factor: 2.5,
+                            due_date: Date.now(),
+                            reps: 0,
+                            lapses: 0,
+                            status: 'new'
+                        };
+                        
+                        const cardReq = tx.objectStore('cards').put(card);
+                        cardReq.onsuccess = (e) => {
+                            log(`✓ Card criado com ID: ${e.target.result}`, 'success');
+                        };
+                        cardReq.onerror = (e) => {
+                            log(`✗ Erro ao criar card: ${e.target.error}`, 'error');
+                        };
+                    };
+                    
+                    wordReq.onerror = (e) => {
+                        log(`✗ Erro ao salvar palavra: ${e.target.error}`, 'error');
+                    };
+                    
+                    tx.oncomplete = () => {
+                        log('✓ Transação completa!', 'success');
+                        resolve();
+                    };
+                    
+                    tx.onerror = () => {
+                        log('✗ Erro na transação: ' + tx.error, 'error');
+                        reject(tx.error);
+                    };
+                });
+                
+                await updateStats();
+                log('✓ TESTE 2 COMPLETO!', 'success');
+                
+            } catch(e) {
+                log('✗ TESTE 2 FALHOU: ' + e.message, 'error');
+            }
+        }
+
+        window.testGetWords = async function() {
+            if (!db) {
+                log('✗ Banco não inicializado!', 'error');
+                return;
+            }
+            
+            log('═══════════════════════════════════════', 'info');
+            log('TESTE 3: LISTAGEM DE PALAVRAS', 'info');
+            log('═══════════════════════════════════════', 'info');
+            
+            try {
+                const words = await new Promise((resolve, reject) => {
+                    const tx = db.transaction('words', 'readonly');
+                    const req = tx.objectStore('words').getAll();
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error);
+                });
+                
+                log(`✓ Total de palavras: ${words.length}`, 'success');
+                words.forEach((w, i) => {
+                    log(`  ${i+1}. [ID:${w.id}] ${w.word} (${w.lang}) = ${w.translation}`, 'info');
+                });
+                
+                if (words.length === 0) {
+                    log('⚠️  Nenhuma palavra encontrada. Execute o teste 2 primeiro.', 'warning');
+                }
+                
+                log('✓ TESTE 3 COMPLETO!', 'success');
+                
+            } catch(e) {
+                log('✗ TESTE 3 FALHOU: ' + e.message, 'error');
+            }
+        }
+
+        window.testGetCards = async function() {
+            if (!db) {
+                log('✗ Banco não inicializado!', 'error');
+                return;
+            }
+            
+            log('═══════════════════════════════════════', 'info');
+            log('TESTE 4: LISTAGEM DE CARDS', 'info');
+            log('═══════════════════════════════════════', 'info');
+            
+            try {
+                const cards = await new Promise((resolve, reject) => {
+                    const tx = db.transaction('cards', 'readonly');
+                    const req = tx.objectStore('cards').getAll();
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error);
+                });
+                
+                log(`✓ Total de cards: ${cards.length}`, 'success');
+                cards.forEach((c, i) => {
+                    log(`  ${i+1}. [ID:${c.id}] Word ID: ${c.word_id} | Status: ${c.status} | Interval: ${c.interval}d`, 'info');
+                });
+                
+                if (cards.length === 0) {
+                    log('⚠️  Nenhum card encontrado. Execute o teste 2 primeiro.', 'warning');
+                }
+                
+                log('✓ TESTE 4 COMPLETO!', 'success');
+                
+            } catch(e) {
+                log('✗ TESTE 4 FALHOU: ' + e.message, 'error');
+            }
+        }
+
+        window.testDashboard = async function() {
+            log('═══════════════════════════════════════', 'info');
+            log('TESTE 5: SIMULAÇÃO DO DASHBOARD', 'info');
+            log('═══════════════════════════════════════', 'info');
+            
+            log('📊 Abrindo dashboard em nova aba...', 'info');
+            const dashUrl = chrome?.runtime?.getURL('dashboard/dashboard.html') || 'dashboard/dashboard.html';
+            window.open(dashUrl, '_blank');
+            log('✓ Dashboard aberto! Verifique se as palavras aparecem.', 'success');
+        }
+
+        window.clearDB = async function() {
+            if (!confirm('Tem certeza que deseja limpar TODOS os dados?')) return;
+            
+            log('🗑️  Limpando banco de dados...', 'warning');
+            
+            try {
+                if (db) db.close();
+                
+                await new Promise((resolve, reject) => {
+                    const req = indexedDB.deleteDatabase(DB_NAME);
+                    req.onsuccess = () => resolve();
+                    req.onerror = () => reject(req.error);
+                });
+                
+                db = null;
+                document.getElementById('btn-save').disabled = true;
+                document.getElementById('btn-get').disabled = true;
+                document.getElementById('btn-cards').disabled = true;
+                document.getElementById('btn-dash').disabled = true;
+                
+                await updateStats();
+                log('✓ Banco de dados limpo!', 'success');
+                log('Execute o teste 1 novamente para reinicializar.', 'info');
+                
+            } catch(e) {
+                log('✗ Erro ao limpar banco: ' + e.message, 'error');
+            }
+        }
+
+        // Auto-inicializar
+        window.onload = () => {
+            log('🚀 Teste de Salvamento Carregado', 'info');
+            log('Clique em "1. Inicializar DB" para começar.', 'info');
+            log('', 'info');
+        };
+    </script>
+</body>
+</html>

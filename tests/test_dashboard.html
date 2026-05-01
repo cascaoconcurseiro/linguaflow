@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { margin: 10px; padding: 10px 20px; }
+        #logs { background: #f0f0f0; padding: 10px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Test Dashboard Connection</h1>
+    
+    <button onclick="testEvent()">Testar Evento LF_WORD_SAVED</button>
+    <button onclick="testIndexedDB()">Testar IndexedDB</button>
+    <button onclick="testChromeRuntime()">Testar Chrome Runtime</button>
+    
+    <div id="logs"></div>
+    
+    <script>
+        function log(msg) {
+            const logs = document.getElementById('logs');
+            logs.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${msg}</div>`;
+            console.log(msg);
+        }
+        
+        function testEvent() {
+            log('Disparando evento LF_WORD_SAVED...');
+            const event = new CustomEvent('LF_WORD_SAVED', { 
+                detail: { word: 'test', lang: 'en', id: 999, timestamp: Date.now() }
+            });
+            window.dispatchEvent(event);
+            log('Evento disparado');
+        }
+        
+        function testIndexedDB() {
+            log('Testando IndexedDB...');
+            const request = indexedDB.open('LinguaFlowFreeDB', 3);
+            
+            request.onsuccess = (e) => {
+                const db = e.target.result;
+                log('✅ IndexedDB aberto com sucesso');
+                
+                const tx = db.transaction(['words'], 'readonly');
+                const store = tx.objectStore('words');
+                const countReq = store.count();
+                
+                countReq.onsuccess = () => {
+                    log(`📊 Total de palavras no banco: ${countReq.result}`);
+                };
+                
+                countReq.onerror = (err) => {
+                    log(`❌ Erro ao contar palavras: ${err.target.error}`);
+                };
+            };
+            
+            request.onerror = (e) => {
+                log(`❌ Erro ao abrir IndexedDB: ${e.target.error}`);
+            };
+        }
+        
+        function testChromeRuntime() {
+            log('Testando Chrome Runtime...');
+            if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
+                log(`✅ Chrome Runtime disponível (ID: ${chrome.runtime.id})`);
+                
+                // Testar mensagem
+                chrome.runtime.sendMessage({ type: 'TEST' }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        log(`⚠️ Erro ao enviar mensagem: ${chrome.runtime.lastError.message}`);
+                    } else {
+                        log(`✅ Resposta do background: ${JSON.stringify(response)}`);
+                    }
+                });
+            } else {
+                log('❌ Chrome Runtime não disponível');
+            }
+        }
+        
+        // Escutar evento
+        window.addEventListener('LF_WORD_SAVED', (e) => {
+            log(`📢 Evento LF_WORD_SAVED recebido: ${JSON.stringify(e.detail)}`);
+        });
+        
+        log('Script de teste carregado');
+    </script>
+</body>
+</html>

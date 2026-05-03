@@ -15,7 +15,7 @@ export class WordPopup {
     document.getElementById('lfp')?.remove();
     if (!document.getElementById('lfp-k')) {
       const s=document.createElement('style');s.id='lfp-k';
-      s.textContent=`@keyframes lfpIn{from{opacity:0;transform:translateY(10px) scale(0.93)}to{opacity:1;transform:translateY(0) scale(1)}}#lfp *{box-sizing:border-box;margin:0;padding:0}#lfp button,#lfp select,#lfp input{font-family:'Outfit','Segoe UI',sans-serif}.lfp-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:3px 10px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .12s;display:inline-block}.lfp-chip:hover{color:#7dd3fc;border-color:rgba(125,209,252,.35)}.lfp-chip.red{background:rgba(248,113,113,.06);border-color:rgba(248,113,113,.15);color:#f87171}.lfp-panels::-webkit-scrollbar{width:3px}.lfp-panels::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}.lfp-ph{background:rgba(244,114,182,.06);border:1px solid rgba(244,114,182,.15);border-radius:9px;padding:9px 12px;margin-bottom:7px}.lfp-ex{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 13px;margin-bottom:8px}`;
+      s.textContent=`@keyframes lfpIn{from{opacity:0;transform:translateY(10px) scale(0.93)}to{opacity:1;transform:translateY(0) scale(1)}}#lfp *{box-sizing:border-box;margin:0;padding:0}#lfp button,#lfp select,#lfp input{font-family:'Outfit','Segoe UI',sans-serif}.lfp-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:3px 10px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .12s;display:inline-block}.lfp-chip:hover{color:#7dd3fc;border-color:rgba(125,209,252,.35)}.lfp-chip.red{background:rgba(248,113,113,.06);border-color:rgba(248,113,113,.15);color:#f87171}.lfp-panels::-webkit-scrollbar{width:3px}.lfp-panels::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}.lfp-ph{background:rgba(244,114,182,.06);border:1px solid rgba(244,114,182,.15);border-radius:9px;padding:9px 12px;margin-bottom:7px}.lfp-ex{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 13px;margin-bottom:8px}.ai-res{white-space:pre-wrap;word-break:break-word}`;
       document.head.appendChild(s);
     }
     this.popup=document.createElement('div');
@@ -60,8 +60,11 @@ export class WordPopup {
       <button id="fknown" style="padding:9px;background:rgba(74,222,128,.08);color:#4ade80;border:1px solid rgba(74,222,128,.25);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;">✓ Já Conheço</button>
       <button id="fai" style="padding:9px;background:rgba(139,92,246,.08);color:#a78bfa;border:1px solid rgba(139,92,246,.22);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;">✦ Explicar Palavra</button>
     </div>
-    <button id="faisent" style="display:block;width:100%;padding:9px;background:rgba(251,191,36,.08);color:#fbbf24;border:1px solid rgba(251,191,36,.22);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;margin-bottom:10px;">🔍 Analisar Frase Completa</button>
-    <div id="fair" style="display:none;background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:12px;font-size:12px;color:#c4b5fd;line-height:1.7;"></div>
+    <button id="faisent" style="display:none;width:100%;padding:9px;background:rgba(251,191,36,.08);color:#fbbf24;border:1px solid rgba(251,191,36,.22);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;margin-bottom:10px;">🔍 Analisar Frase Completa</button>
+    <div id="fair-container" style="display:none;position:relative;">
+      <div id="fair" class="ai-res" style="background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:12px;font-size:12px;color:#c4b5fd;line-height:1.7;"></div>
+      <button id="fcopy-ai" style="position:absolute;top:8px;right:8px;background:rgba(255,255,255,.1);border:none;border-radius:6px;color:#fff;padding:4px 8px;font-size:10px;cursor:pointer;opacity:0.6;">📋 Copiar</button>
+    </div>
   </div>
 
   <div class="fp" data-p="1" style="display:none;">
@@ -140,6 +143,13 @@ export class WordPopup {
     q('#faisent').onclick = () => this._aiSentence();
     q('#fgbtn').onclick = () => this._aiGrammar();
     q('#frevbtn').onclick = () => this._loadReverso();
+    q('#fcopy-ai').onclick = () => {
+      const text = q('#fair').textContent;
+      navigator.clipboard.writeText(text);
+      const btn = q('#fcopy-ai');
+      btn.textContent = '✅ Copiado!';
+      setTimeout(() => btn.textContent = '📋 Copiar', 2000);
+    };
     q('#fnewdeck').onclick = async() => {
       const n=prompt('Nome do deck:');
       if(!n?.trim()) return;
@@ -222,7 +232,8 @@ export class WordPopup {
     const q=s=>this._q(s);
     q('#fw').textContent=word; q('#fipa').textContent=''; q('#fpos').style.display='none';
     q('#ft').textContent='…'; q('#fd').textContent=''; q('#fc').style.display='none'; q('#fctx').style.display='none';
-    q('#fsyn').style.display='none'; q('#fant').style.display='none'; q('#fair').style.display='none';
+    q('#fsyn').style.display='none'; q('#fant').style.display='none';
+    q('#fair-container').style.display='none';
     // Context
     if (context) { q('#fc').innerHTML=context.replace(new RegExp(`\\b(${word})\\b`,'gi'),'<b style="color:#7dd3fc">$1</b>'); q('#fc').style.display=''; }
     // Buttons state
@@ -321,59 +332,42 @@ export class WordPopup {
       <div class="lfp-ex">
         <div style="margin-bottom:5px;">${hl(e.en,this.word)}</div>
         <div style="font-size:12px;color:#7dd3fc;font-style:italic;line-height:1.5;">→ ${translated[i]||'…'}</div>
-        <div style="font-size:10px;color:#334155;text-transform:uppercase;letter-spacing:.07em;margin-top:5px;">${e.src}</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+          <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:.07em;">${e.src}</div>
+          <button class="lfp-shadow-btn" data-text="${e.en.replace(/"/g,'&quot;')}" style="background:rgba(56,189,248,0.1); border:none; border-radius:6px; color:#38bdf8; padding:3px 8px; font-size:11px; cursor:pointer; font-weight:700;">🎧 Shadowing</button>
+        </div>
       </div>`).join('');
-  }
 
-  async _ai() {
-    const q=s=>this._q(s);
-    const el=q('#fair');
-    el.style.display=''; el.textContent='Consultando IA…';
-    const videoData={videoTitle:document.title,videoUrl:location.href,timestamp:this.engine?.video?.currentTime||0};
-    return new Promise(res=>{
-      chrome.runtime.sendMessage({action:'ai_explain_word',word:this.word,context:this.context,...videoData},r=>{
-        el.innerHTML=r?.explanation?r.explanation.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b style="color:#e2e8f0">$1</b>'):'<span style="color:#475569">✦ Explicação com IA (Grok)</span>';
-        res();
-      });
+    // Bind shadowing buttons
+    q('#fexb').querySelectorAll('.lfp-shadow-btn').forEach(btn => {
+      btn.onclick = async () => {
+        const text = btn.dataset.text;
+        const BASE = chrome.runtime.getURL('utils/');
+        const { tts } = await import(BASE + 'tts.js');
+        
+        btn.textContent = '🔊 Ouvindo...';
+        await tts.play(text, 'en-US');
+        
+        btn.textContent = '🎙️ Sua vez!';
+        btn.style.background = 'rgba(74,222,128,0.1)';
+        btn.style.color = '#4ade80';
+        
+        setTimeout(() => {
+          btn.textContent = '🎧 Shadowing';
+          btn.style.background = 'rgba(56,189,248,0.1)';
+          btn.style.color = '#38bdf8';
+        }, 3000);
+      };
     });
   }
 
-  async _aiSentence() {
-    const q=s=>this._q(s);
-    const el=q('#fair');
-    if (!this.context) {
-      el.style.display=''; 
-      el.innerHTML='<span style="color:#f87171">⚠️ Nenhuma frase disponível para analisar. Clique em uma palavra dentro de uma legenda.</span>';
-      return;
-    }
-    el.style.display=''; el.textContent='Analisando frase completa…';
-    const videoData={videoTitle:document.title,videoUrl:location.href,timestamp:this.engine?.video?.currentTime||0};
-    return new Promise(res=>{
-      chrome.runtime.sendMessage({action:'ai_analyze_sentence',sentence:this.context,...videoData},r=>{
-        el.innerHTML=r?.analysis?r.analysis.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b style="color:#e2e8f0">$1</b>'):'<span style="color:#475569">🔍 Análise com IA (Grok)</span>';
-        res();
-      });
-    });
-  }
+  // Os métodos _ai, _aiSentence e _aiGrammar foram movidos para o final do arquivo para melhor organização.
 
-  async _aiGrammar() {
-    const q=s=>this._q(s);
-    this._buildGrammar();
-    const btn=q('#fgbtn');
-    btn.textContent='✦ Analisando…'; btn.disabled=true;
-    const el=q('#fgai');
-    if(el){
-      el.style.display=''; el.textContent='Consultando IA…';
-      const videoData={videoTitle:document.title,videoUrl:location.href,timestamp:this.engine?.video?.currentTime||0};
-      await new Promise(res=>{
-        chrome.runtime.sendMessage({action:'ai_analyze_sentence',sentence:this.context||`The word "${this.word}" in English`,...videoData},r=>{
-          el.innerHTML=r?.analysis?r.analysis.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b style="color:#e2e8f0">$1</b>'):'<span style="color:#475569">✦ Análise com IA (Grok)</span>';
-          res();
-        });
-      });
+    async _getVideoUrlWithTimestamp() {
+      const BASE = chrome.runtime.getURL('utils/');
+      const { videoUtils } = await import(BASE + 'video-utils.js');
+      return videoUtils.getVideoUrlWithTimestamp();
     }
-    btn.textContent='✦ Analisar com IA'; btn.disabled=false;
-  }
 
     async _save() {
     const q=s=>this._q(s);
@@ -391,18 +385,44 @@ export class WordPopup {
     
     try {
       const {db}=await import(BASE+'db.js');
+      const lang = this.engine?.cfg?.sourceLang||'en';
       
+      // Verifica se já existe
+      const existing = await db.getWord(this.word, lang);
+      if (existing) {
+          const res = confirm(`A palavra "${this.word}" já está nos seus flashcards.\n\nDeseja salvá-la novamente para atualizar com esta nova frase de contexto?`);
+          if (!res) {
+              btn.textContent='✅ Já está Salvo';
+              btn.style.background='linear-gradient(135deg,#059669,#10b981)';
+              setTimeout(() => {
+                  btn.textContent='+ Salvar nos Flashcards';
+                  btn.style.background='linear-gradient(135deg,#1d4ed8,#2563eb)';
+                  btn.disabled = false;
+              }, 2000);
+              return;
+          }
+      }
+
+      let translation = d.translation || '';
+      if (!translation) {
+        // Tentativa de tradução de última hora se o cache estiver vazio
+        translation = await this._translate(this.word) || '';
+      }
+
+      const deckId = await db.getOrCreateDeck(document.title, window.location.href);
+
       const result = await db.saveWord({
         word:this.word, 
         lang:this.engine?.cfg?.sourceLang||'en',
-        translation:d.translation||'', 
+        translation: translation, 
         phonetic:d.phonetic||'',
         definition:d.definition||'', 
         context_sentence:this.context||'',
-        video_url:location.href, 
+        video_url:await this._getVideoUrlWithTimestamp(), 
         video_title:document.title,
         platform:this.platform||'youtube', 
-        deck_id:1,
+        level: this.activeLevel || '',
+        deck_id: deckId,
         synonyms:(d.synonyms||[]).join(','), 
         antonyms:(d.antonyms||[]).join(','),
       });
@@ -669,5 +689,149 @@ export class WordPopup {
       this.popup.style.transform = 'translate(-50%, -50%)';
     }
   }
+  async _ai() {
+    const q=s=>this._q(s);
+    const btn=q('#fai');
+    const resEl=q('#fair');
+    if (btn.disabled) return;
+    btn.textContent='✦ Analisando…';
+    btn.disabled=true;
+    resEl.style.display='block';
+    resEl.textContent='Consultando IA para análise profunda…';
+    try {
+      const response = await new Promise(resolve => {
+        chrome.runtime.sendMessage({
+          action: 'ai_explain_word',
+          word: this.word,
+          context: this.context
+        }, resolve);
+      });
+      if (response?.explanation) {
+        q('#fair-container').style.display = 'block';
+        resEl.textContent = response.explanation;
+
+        // Tenta extrair o nível CEFR (A1-C2)
+        const cefrMatch = response.explanation.match(/Nível Sugerido \(CEFR\):\s*(A1|A2|B1|B2|C1|C2)/i);
+        if (cefrMatch) {
+            const level = cefrMatch[1].toUpperCase();
+            this.activeLevel = level;
+            // Se já estiver salva, atualiza o nível no banco
+            const BASE=chrome.runtime.getURL('utils/');
+            const {db}=await import(BASE+'db.js');
+            db.getWord(this.word, this.engine?.cfg?.sourceLang||'en').then(saved => {
+                if (saved) {
+                    saved.level = level;
+                    db.saveWord(saved);
+                }
+            });
+        }
+      } else {
+        resEl.textContent='Não foi possível obter resposta da IA.';
+      }
+    } catch (e) {
+      resEl.textContent='Erro ao consultar IA.';
+    } finally {
+      btn.textContent='✦ Explicar Palavra';
+      btn.disabled=false;
+    }
+
+    // Logic for Copy Popup
+    q('#fcopy-ai').onclick = () => {
+        const text = resEl.textContent;
+        navigator.clipboard.writeText(text);
+        const copyBtn = q('#fcopy-ai');
+        copyBtn.textContent = '✅ Copiado';
+        setTimeout(() => copyBtn.textContent = '📋 Copiar', 2000);
+    };
+  }
+
+  async _aiSentence() {
+    const q=s=>this._q(s);
+    const btn=q('#faisent');
+    const resEl=q('#fair');
+    if (!this.context) return alert('Frase de contexto não encontrada.');
+    if (btn.disabled) return;
+    btn.textContent='🔍 Analisando frase…';
+    btn.disabled=true;
+    q('#fair-container').style.display='block';
+    resEl.textContent='Aguarde, a IA está analisando a estrutura da frase…';
+    try {
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          action: 'ai_explain_sentence',
+          sentence: this.context
+        }, (res) => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+          } else {
+            resolve(res);
+          }
+        });
+      });
+      
+      if (response?.analysis) {
+        resEl.textContent = response.analysis;
+      } else if (response?.error) {
+        resEl.textContent = 'Erro na IA: ' + response.error;
+      } else {
+        resEl.textContent = 'A IA não conseguiu analisar esta frase no momento.';
+      }
+    } catch (e) {
+      console.error('[LinguaFlow] Erro ao analisar frase:', e);
+      resEl.textContent = 'Erro na comunicação. Verifique sua conexão.';
+    } finally {
+      btn.textContent = '🔍 Analisar Frase Completa';
+      btn.disabled = false;
+    }
+
+    q('#fcopy-ai').onclick = () => {
+        const text = resEl.textContent;
+        navigator.clipboard.writeText(text);
+        const copyBtn = q('#fcopy-ai');
+        copyBtn.textContent = '✅ Copiado';
+        setTimeout(() => copyBtn.textContent = '📋 Copiar', 2000);
+    };
+  }
+
+  async _aiGrammar() {
+    const q=s=>this._q(s);
+    const btn=q('#fgbtn');
+    const resEl=q('#fgb');
+    if (btn.disabled) return;
+    btn.textContent='✦ Analisando…';
+    btn.disabled=true;
+    resEl.innerHTML='<div style="text-align:center;padding:20px;color:#a78bfa;">A IA está processando os elementos gramaticais…</div>';
+    try {
+      const response = await new Promise(resolve => {
+        chrome.runtime.sendMessage({
+          action: 'ai_analyze_sentence',
+          sentence: this.context || this.word
+        }, resolve);
+      });
+      if (response?.analysis) {
+        resEl.className = 'ai-res';
+        resEl.style.cssText = 'font-size:13px;color:#e2e8f0;line-height:1.6;padding:10px;background:rgba(255,255,255,0.03);border-radius:10px;position:relative;';
+        resEl.innerHTML = `
+          <div id="fgb-text">${response.analysis}</div>
+          <button id="fcopy-gram" style="position:absolute;top:5px;right:5px;background:rgba(255,255,255,0.1);border:none;border-radius:6px;color:#fff;padding:3px 6px;font-size:9px;cursor:pointer;">📋 Copiar</button>
+        `;
+        
+        q('#fcopy-gram').onclick = (e) => {
+            e.stopPropagation();
+            navigator.clipboard.writeText(response.analysis);
+            q('#fcopy-gram').textContent = '✅';
+            setTimeout(() => q('#fcopy-gram').textContent = '📋', 2000);
+        };
+      } else {
+        resEl.innerHTML='<div style="color:#f87171;">Não foi possível gerar análise.</div>';
+      }
+    } catch (e) {
+      resEl.innerHTML='<div style="color:#f87171;">Erro na consulta.</div>';
+    } finally {
+      btn.textContent='✦ Analisar com IA';
+      btn.disabled=false;
+    }
+  }
+  
   hide(){this.popup.style.display='none';}
 }

@@ -143,21 +143,22 @@ npm run build
 - ✅ Tradução instantânea (< 100ms)
 - ✅ Dicionário completo com IPA e áudio
 - ✅ Sistema SRS com SuperMemo-2
-- ✅ Dashboard com estatísticas
+- ✅ Dashboard com estatísticas e Heatmap
+- ✅ Exportação para Anki (CSV) ⭐ **NOVO**
+- ✅ Modo Shadowing (Treino de Pronúncia) ⭐ **NOVO**
+- ✅ Gamificação de Decks (Níveis Bronze/Prata/Ouro) ⭐ **NOVO**
 - ✅ Sincronização em tempo real
-- ✅ Controles por teclado
-- ✅ Painel de configurações
-- ✅ Badge com cards pendentes
+- ✅ Controles por teclado unificados
+- ✅ Painel de configurações profissional
 
 ### 🐛 Bugs Conhecidos
-Nenhum bug crítico conhecido! 🎉
+Nenhum bug crítico conhecido! 🎉 (Sincronização CC YouTube corrigida).
 
 ### 🚀 Próximas Funcionalidades
-- [ ] Suporte para mais idiomas
-- [ ] Exportar para Anki
-- [ ] Modo escuro
-- [ ] Estatísticas avançadas
-- [ ] Integração com Forvo (pronúncia)
+- [ ] Suporte para mais idiomas (Chinês, Japonês, Coreano)
+- [ ] Modo escuro (Dark Mode)
+- [ ] Estatísticas avançadas de progresso
+- [ ] Integração com Forvo (pronúncia humana)
 
 ---
 
@@ -172,14 +173,21 @@ Contribuições são bem-vindas! Para contribuir:
 5. Abra um Pull Request
 
 ### Diretrizes
-- Código em inglês, comentários em português
+- Código modular (ESM)
 - Seguir padrão ES6+
-- Testar em pelo menos 2 plataformas
+- Testar em YouTube e HBO Max (Max)
 - Atualizar documentação
 
 ---
 
 ## 📝 Changelog
+
+### v1.1.0 (02/05/2026)
+- ✅ **Exportação para Anki:** Botão dedicado no dashboard para exportar vocabulário.
+- ✅ **Gamificação:** Sistema de níveis para decks baseado em palavras maduras.
+- ✅ **Shadowing Mode:** Prática de repetição ativa no popup de dicionário.
+- ✅ **Consolidação Técnica:** Remoção de módulos redundantes e unificação de atalhos.
+- ✅ **Sync CC:** Sincronização automática entre botão LinguaFlow e CC nativo do YouTube.
 
 ### v1.0.0 (25/04/2026)
 - ✅ Lançamento inicial
@@ -188,17 +196,6 @@ Contribuições são bem-vindas! Para contribuir:
 - ✅ Dicionário integrado
 - ✅ Sistema SRS completo
 - ✅ Dashboard e estatísticas
-- ✅ Controles por teclado
-- ✅ Sincronização em tempo real
-
-### Correções da Auditoria (25/04/2026)
-- 🐛 Corrigido atraso na tradução (agora < 100ms)
-- 🐛 Corrigido salvamento de palavras no dashboard
-- 🐛 Corrigido posicionamento das legendas
-- 🐛 Corrigido arrastar legendas
-- 🐛 Implementado sincronização em tempo real
-- 🐛 Implementado badge com cards pendentes
-- 🐛 Melhorado cache de traduções
 
 ---
 

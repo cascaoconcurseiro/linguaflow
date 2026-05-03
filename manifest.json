@@ -38,7 +38,8 @@
     "scopes": ["https://www.googleapis.com/auth/drive.appdata"]
   },
   "background": {
-    "service_worker": "background/service-worker.js"
+    "service_worker": "background/service-worker.js",
+    "type": "module"
   },
   "content_scripts": [
     {
@@ -48,6 +49,12 @@
         "*://*.hbo.com/*"
       ],
       "js": ["content/hbo-inject.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["content/youtube-hook.js"],
       "run_at": "document_start",
       "world": "MAIN"
     },

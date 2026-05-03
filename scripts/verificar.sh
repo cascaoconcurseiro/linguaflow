@@ -59,11 +59,11 @@ test_content "manifest.json" "manifest_version.*3"
 
 echo ""
 echo "3. Verificando DB version..."
-test_content "utils/db.js" "DB_VERSION = 3"
+test_content "utils/db.js" "DB_VERSION = 10"
 
 echo ""
 echo "4. Verificando logs de debug..."
-test_content "content/word-popup.js" "\[LinguaFlow\]"
+test_content "content/word-popup.js" "\[WordPopup\]"
 test_content "utils/db.js" "\[LinguaFlow DB\]"
 
 echo ""

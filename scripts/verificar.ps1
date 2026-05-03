@@ -57,11 +57,11 @@ Test-Content "manifest.json" "manifest_version.*3"
 
 Write-Host ""
 Write-Host "3. Verificando DB version..." -ForegroundColor Yellow
-Test-Content "utils/db.js" "DB_VERSION = 3"
+Test-Content "utils/db.js" "DB_VERSION = 10"
 
 Write-Host ""
 Write-Host "4. Verificando logs de debug..." -ForegroundColor Yellow
-Test-Content "content/word-popup.js" "\[LinguaFlow\]"
+Test-Content "content/word-popup.js" "\[WordPopup\]"
 Test-Content "utils/db.js" "\[LinguaFlow DB\]"
 
 Write-Host ""

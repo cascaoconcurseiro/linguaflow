@@ -1,4 +1,4 @@
-﻿// content/subtitle-engine.js
+// content/subtitle-engine.js
 import { subtitleParsers } from '../utils/subtitle-parsers.js';
 
 
@@ -47,6 +47,7 @@ export class SubtitleEngine {
         this.translationAnticipation = 0; // Antecipação desabilitada (não usamos mais)
         this.autoPause = false; // Pausa automática ao fim de cada fala
         this.currentSubtitleTimestamp = 0; // Timestamp da legenda atual (para salvar palavras)
+        this.translationDelay = 0;
 
         this.flashDuration = 4; // segundos do flash de traducao (configuravel)
 
@@ -96,6 +97,70 @@ export class SubtitleEngine {
                 this._currentHorizontal = e.detail;
             }
         });
+
+        // Inicia log de imersão
+        this._startImmersionLog();
+
+        // Sincronização global de vocabulário
+        chrome.runtime.onMessage.addListener(request => {
+            if (request.type === 'REFRESH_VOCAB') {
+                console.log('[LinguaFlow] Sincronizando vocabulário...');
+                this._loadSavedWords();
+            }
+        });
+    }
+
+    _startImmersionLog() {
+        setInterval(async () => {
+            if (this.videoElement && !this.videoElement.paused) {
+                try {
+                    const { db } = await import('../utils/db.js');
+                    await db.logSession(10, this.platform);
+                } catch (e) {}
+            }
+        }, 10000);
+    }
+
+    async _loadSavedWords() {
+        try {
+            const { db } = await import('../utils/db.js');
+            const words = await db.getAllWords();
+            const known = await db.getAllKnownWords();
+            
+            this.savedWords.clear();
+            words.forEach(w => this.savedWords.set(w.word.toLowerCase(), w.status || 'new'));
+            
+            this.knownWords.clear();
+            known.forEach(w => this.knownWords.add(w.word.toLowerCase()));
+            
+            console.log(`[LinguaFlow] Vocabulário carregado: ${this.savedWords.size} salvas, ${this.knownWords.size} conhecidas.`);
+            
+            // Recolore as legendas se elas já estiverem na tela
+            this._updateSubtitleColors();
+        } catch (e) {
+            console.error('[LinguaFlow] Erro ao carregar vocabulário:', e);
+        }
+    }
+
+    _updateSubtitleColors() {
+        if (this.shadowContainer) {
+            const words = this.shadowContainer.querySelectorAll('.lf-word');
+            words.forEach(el => {
+                const w = el.dataset.word?.toLowerCase();
+                if (!w) return;
+                
+                el.classList.remove('lf-new', 'lf-learning', 'lf-review', 'lf-mature', 'lf-known', 'lf-saved');
+                if (this.knownWords.has(w)) {
+                    el.classList.add('lf-known');
+                } else if (this.savedWords.has(w)) {
+                    const status = this.savedWords.get(w);
+                    const classMap = { 'new': 'lf-saved', 'learning': 'lf-learning', 'review': 'lf-review', 'mature': 'lf-mature' };
+                    el.classList.add(classMap[status] || 'lf-saved');
+                } else {
+                    el.classList.add('lf-new');
+                }
+            });
+        }
     }
 
     _detectPlatform() {
@@ -186,11 +251,43 @@ export class SubtitleEngine {
     }
 
     async init() {
-        console.log(`[LinguaFlow] Plataforma: ${this.platform}`);
+        console.log(`[LinguaFlow] 🚀 Inicializando Engine... Plataforma: ${this.platform}`);
         
-        // Carrega configurações salvas do banco
-        await this._loadSettings();
+        // Carrega configurações salvas do banco (não bloqueante para evitar travamentos do SW)
+        console.log('[LinguaFlow] Carregando configurações em background...');
+        this._loadSettings().then(() => {
+            console.log('[LinguaFlow] Configurações aplicadas.');
+            if (this.shadowContainer) this._updateSubtitleColors();
+        }).catch(e => console.warn('[LinguaFlow] Falha ao carregar settings:', e));
+
+        // Detecção de mudança de URL (SPA navigation)
+        let lastUrl = location.href;
+        setInterval(() => {
+            if (location.href !== lastUrl) {
+                lastUrl = location.href;
+                this._onUrlChange();
+            }
+        }, 1000);
+
+        // Observer para esconder legenda nativa (YouTube altera o DOM frequentemente)
+        if (this.platform === 'youtube') {
+            const ytObserver = new MutationObserver(() => {
+                const nativeWindow = document.querySelector('.ytp-caption-window-container');
+                if (nativeWindow && nativeWindow.style.display !== 'none') {
+                    nativeWindow.style.display = 'none';
+                    console.log('[LinguaFlow] Legenda nativa detectada e ocultada novamente');
+                }
+            });
+            ytObserver.observe(document.body, { childList: true, subtree: true });
+        }
         
+        document.addEventListener('yt-navigate-finish', () => {
+            console.log('[LinguaFlow] YouTube SPA Navigation detectada');
+            this._waitForVideo();
+            // Re-checa legendas após navegação
+            setTimeout(() => this._fetchYoutubeSubtitles(), 1000);
+        });
+
         // ── YouTube: método EXATO do V5 (fetch de legendas via storage) ──────
         if (this.platform === 'youtube') {
             this._ytXhrListener = async (e) => {
@@ -201,21 +298,32 @@ export class SubtitleEngine {
             setTimeout(() => this._fetchYoutubeSubtitles(), 500);
         }
         
-        // ── HBO Max / Max.com — método exato da Pro V5 ──────────────────────
-        this._hboListener = (e) => {
-            if (!e.detail?.response) return;
-            let resp = e.detail.response;
-            if (resp instanceof ArrayBuffer) resp = new TextDecoder('utf-8').decode(resp);
-            else if (typeof resp !== 'string') { try { resp = JSON.stringify(resp); } catch {} }
-            const cues = this._parseVTT(resp);
-            if (cues.length > 0) {
-                this.xhrCues = cues;
-                this.usingXhr = true;
-                console.log('[LinguaFlow] HBO Max: ' + cues.length + ' cues carregados do VTT');
+        // ── Receptor de mensagens postMessage (HBO Max / Max.com / Netflix) ────
+        window.addEventListener('message', (e) => {
+            if (e.source !== window || !e.data?.type) return;
+            
+            if (e.data.type === 'LF_HBO_SUB' || e.data.type === 'LF_SUBTITLE_HOOK') {
+                let resp = e.data.response || e.data.data;
+                if (!resp) return;
+
+                if (resp instanceof ArrayBuffer) resp = new TextDecoder('utf-8').decode(resp);
+                else if (typeof resp !== 'string') { try { resp = JSON.stringify(resp); } catch {} }
+                
+                const cues = this._parseVTT(resp);
+                if (cues.length > 0) {
+                    this.xhrCues = cues;
+                    this.cues = cues; // Unifica para o Sidebar
+                    this.usingXhr = true;
+                    console.log('[LinguaFlow] Legendas unificadas via postMessage (' + cues.length + ' frases)');
+                    
+                    // Se o painel lateral já estiver aberto, solicita reconstrução
+                    const panel = document.getElementById('lf-subtitle-panel');
+                    if (panel && panel.style.display !== 'none') {
+                        this._rebuildSubtitleList();
+                    }
+                }
             }
-        };
-        document.addEventListener('LF_HBO_SUB', this._hboListener);
-        document.addEventListener('hboSubtitleHttpEvent', this._hboListener);
+        });
 
         if (this.platform === 'max') {
             console.log('[LinguaFlow] HBO Max: aguardando VTT via XHR intercept');
@@ -410,8 +518,6 @@ export class SubtitleEngine {
             }
         }
         
-        // HBO/Max: sempre usa position:fixed (igual à Pro V5) — evita conflito com a barra de controles
-        // YouTube: usa position:absolute dentro do player
         if (this.platform === 'max') {
             const effectiveBottom = userSavedBottom ? bottomPos : 120;
             this._currentBottom = effectiveBottom;
@@ -620,7 +726,7 @@ export class SubtitleEngine {
             </style>
             <div class="lf-wrap" id="lf-wrap">
                 <div class="lf-orig-row">
-                    <button class="lf-save-btn" id="lf-save-btn" title="Salvar frase">+ Salvar frase</button>
+                    <button class="lf-save-btn" id="lf-save-btn" style="display:none;" title="Salvar frase">+ Salvar frase</button>
                     <div class="lf-orig" id="lf-orig" style="display:none;"></div>
                     <button class="lf-translate-btn" id="lf-translate-btn" style="display:none;" title="Traduzir frase">🌐 Traduzir</button>
                 </div>
@@ -629,6 +735,9 @@ export class SubtitleEngine {
                 </div>
             </div>
         `;
+        
+        // Ativa o observer para esconder/mostrar botão de salvar frase conforme o texto
+        this._setupSaveButtonObserver();
 
         // Auto-pause video on hover (Language Reactor feature) e Arrastar Legenda
         const wrap = this.shadowContainer.getElementById('lf-wrap');
@@ -724,34 +833,111 @@ export class SubtitleEngine {
             const rightCtrl = document.querySelector('.ytp-right-controls');
             if (!rightCtrl || document.getElementById('lf-yt-btn')) return false;
 
-            const btn = document.createElement('button');
-            btn.id        = 'lf-yt-btn';
-            btn.className = 'ytp-button';
-            btn.title     = 'LinguaFlow — Configurações (O)';
-            btn.style.cssText = `
-                width: 44px; height: 44px;
-                display: inline-flex; align-items: center; justify-content: center;
-                background: transparent; border: none; cursor: pointer;
-                vertical-align: top; opacity: 0.92;
-                transition: opacity 0.2s, transform 0.15s;
-                padding: 0;
-            `;
-            btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none">
-  <defs>
-    <linearGradient id="lf-bolt-grad" x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#FFD700"/>
-      <stop offset="50%" stop-color="#FF8C00"/>
-      <stop offset="100%" stop-color="#FF3D3D"/>
-    </linearGradient>
-  </defs>
-  <path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z" fill="url(#lf-bolt-grad)" stroke="rgba(0,0,0,0.25)" stroke-width="0.5"/>
-</svg>`;
-            btn.onmouseenter = () => { btn.style.opacity = '1'; btn.style.transform = 'scale(1.12)'; };
-            btn.onmouseleave = () => { btn.style.opacity = '0.92'; btn.style.transform = 'scale(1)'; };
-            btn.onclick = () => window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
+            // Injeta CSS para os botões e switch (apenas uma vez)
+            if (!document.getElementById('lf-yt-styles')) {
+                const style = document.createElement('style');
+                style.id = 'lf-yt-styles';
+                style.textContent = `
+                    .lf-yt-btn {
+                        width: 44px; height: 44px;
+                        display: inline-flex; align-items: center; justify-content: center;
+                        background: transparent; border: none; cursor: pointer;
+                        vertical-align: top; opacity: 0.9;
+                        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                        position: relative;
+                    }
+                    .lf-yt-btn:hover { opacity: 1; transform: scale(1.1); }
+                    .lf-yt-btn svg { width: 22px; height: 22px; fill: #64748B; transition: fill 0.3s; }
+                    .lf-yt-btn.active svg { fill: #38BDF8; filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.5)); }
+                    
+                    .lf-switch-wrapper {
+                        display: inline-flex; align-items: center; justify-content: center;
+                        width: 50px; height: 44px; vertical-align: top; cursor: pointer;
+                        opacity: 0.9; transition: opacity 0.2s;
+                    }
+                    .lf-switch-wrapper:hover { opacity: 1; }
+                    .lf-switch {
+                        width: 34px; height: 18px;
+                        background: rgba(100, 116, 139, 0.3);
+                        border-radius: 20px; position: relative;
+                        transition: background 0.3s;
+                    }
+                    .lf-switch.active { background: rgba(56, 189, 248, 0.4); }
+                    .lf-switch-slider {
+                        width: 12px; height: 12px;
+                        background: #64748B; border-radius: 50%;
+                        position: absolute; top: 3px; left: 3px;
+                        transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+                    }
+                    .lf-switch.active .lf-switch-slider {
+                        left: 19px; background: #38BDF8;
+                        box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
+                    }
+                `;
+                document.head.appendChild(style);
+            }
 
-            // Insere antes do primeiro botão
-            rightCtrl.insertBefore(btn, rightCtrl.firstChild);
+            // Wrapper do Switch
+            const isSubVisible = localStorage.getItem('lf_sub_visible') === 'true';
+            const switchWrapper = document.createElement('div');
+            switchWrapper.id = 'lf-yt-toggle-wrapper';
+            switchWrapper.className = 'lf-switch-wrapper';
+            switchWrapper.title = isSubVisible ? 'Desativar LinguaFlow (C)' : 'Ativar LinguaFlow (C)';
+            switchWrapper.innerHTML = `
+                <div class="lf-switch ${isSubVisible ? 'active' : ''}" id="lf-yt-switch">
+                    <div class="lf-switch-slider"></div>
+                </div>
+            `;
+            
+            switchWrapper.onclick = () => {
+                const sw = document.getElementById('lf-yt-switch');
+                if (!sw) return;
+                
+                const nowVisible = !sw.classList.contains('active');
+                localStorage.setItem('lf_sub_visible', nowVisible);
+                switchWrapper.title = nowVisible ? 'Desativar LinguaFlow (C)' : 'Ativar LinguaFlow (C)';
+                
+                // toggleSubtitles agora gerencia a sincronia global e com o botão nativo do YouTube
+                this.toggleSubtitles(nowVisible);
+            };
+
+            // Botão de Configurações (Bolt Premium)
+            const btnSettings = document.createElement('button');
+            btnSettings.id        = 'lf-yt-btn';
+            btnSettings.className = 'lf-yt-btn';
+            btnSettings.title     = 'Configurações LinguaFlow (O)';
+            btnSettings.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" fill="url(#boltGrad)" stroke="#38BDF8" stroke-width="1.2" stroke-linejoin="round"/>
+                    <defs>
+                        <linearGradient id="boltGrad" x1="13" y1="2" x2="11" y2="22" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#38BDF8"/>
+                            <stop offset="1" stop-color="#818CF8"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+            `;
+            
+            btnSettings.onclick = () => {
+                window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
+            };
+
+            // Insere no player
+            rightCtrl.insertBefore(btnSettings, rightCtrl.firstChild);
+            rightCtrl.insertBefore(switchWrapper, btnSettings);
+            
+            // Atalhos de teclado (apenas se ainda não houver)
+            if (!this._kbAttached) {
+                document.addEventListener('keydown', e => {
+                    if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+                    if (e.key.toLowerCase() === 'c') switchWrapper.click();
+                    if (e.key.toLowerCase() === 'o') btnSettings.click();
+                });
+                this._kbAttached = true;
+            }
+
+            // Aplica estado inicial
+            this.toggleSubtitles();
             return true;
         };
 
@@ -814,37 +1000,68 @@ export class SubtitleEngine {
             document.body.appendChild(btn);
         }
 
-        // Botão de ativar/desativar legendas (HBO/Max)
+        // Switch de Ativar/Desativar legendas (HBO/Max)
         if (this.platform === 'max') {
-            const btnToggle = document.createElement('button');
-            btnToggle.id = 'lf-hbo-toggle-btn';
-            btnToggle.title = 'LinguaFlow — Ativar Legendas';
-            btnToggle.style.cssText = `
-                position: fixed;
-                top: 132px;
-                right: 16px;
-                width: 44px;
-                height: 44px;
-                border-radius: 50%;
-                border: 2px solid rgba(56,189,248,0.5);
-                background: rgba(15,23,42,0.9);
-                backdrop-filter: blur(8px);
-                box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-                cursor: pointer;
-                z-index: 2147483646;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 20px;
-                transition: all 0.2s;
-                opacity: 0.8;
+            const isSubVisible = localStorage.getItem('lf_sub_visible') === 'true';
+            
+            // Injeta CSS se necessário
+            if (!document.getElementById('lf-hbo-styles')) {
+                const style = document.createElement('style');
+                style.id = 'lf-hbo-styles';
+                style.textContent = `
+                    .lf-hbo-switch-wrapper {
+                        position: fixed; top: 132px; right: 16px;
+                        width: 44px; height: 44px; z-index: 2147483646;
+                        display: flex; align-items: center; justify-content: center;
+                        cursor: pointer; opacity: 0.8; transition: opacity 0.2s;
+                    }
+                    .lf-hbo-switch-wrapper:hover { opacity: 1; }
+                    .lf-hbo-switch {
+                        width: 38px; height: 20px;
+                        background: rgba(100, 116, 139, 0.3);
+                        border-radius: 20px; position: relative;
+                        transition: background 0.3s;
+                        border: 1px solid rgba(255,255,255,0.1);
+                    }
+                    .lf-hbo-switch.active { background: rgba(56, 189, 248, 0.4); border-color: rgba(56, 189, 248, 0.5); }
+                    .lf-hbo-slider {
+                        width: 14px; height: 14px;
+                        background: #64748B; border-radius: 50%;
+                        position: absolute; top: 2px; left: 2px;
+                        transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+                    }
+                    .lf-hbo-switch.active .lf-hbo-slider {
+                        left: 20px; background: #38BDF8;
+                        box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const switchWrapper = document.createElement('div');
+            switchWrapper.id = 'lf-hbo-toggle-wrapper';
+            switchWrapper.className = 'lf-hbo-switch-wrapper';
+            switchWrapper.title = isSubVisible ? 'Desativar LinguaFlow (C)' : 'Ativar LinguaFlow (C)';
+            switchWrapper.innerHTML = `
+                <div class="lf-hbo-switch ${isSubVisible ? 'active' : ''}" id="lf-hbo-switch">
+                    <div class="lf-hbo-slider"></div>
+                </div>
             `;
-            btnToggle.textContent = '👁️';
-            btnToggle.onmouseenter = () => { btnToggle.style.opacity = '1'; btnToggle.style.transform = 'scale(1.1)'; btnToggle.style.borderColor = '#38BDF8'; };
-            btnToggle.onmouseleave = () => { btnToggle.style.opacity = '0.8'; btnToggle.style.transform = 'scale(1)'; btnToggle.style.borderColor = 'rgba(56,189,248,0.5)'; };
-            btnToggle.onclick = () => this.toggleSubtitles();
-            document.body.appendChild(btnToggle);
-            console.log('[LinguaFlow] Botão de toggle HBO/Max criado');
+            
+            switchWrapper.onclick = () => {
+                const sw = document.getElementById('lf-hbo-switch');
+                const nowVisible = !sw.classList.contains('active');
+                sw.classList.toggle('active', nowVisible);
+                localStorage.setItem('lf_sub_visible', nowVisible);
+                this.toggleSubtitles(nowVisible);
+            };
+            document.body.appendChild(switchWrapper);
+            
+            // Atalho de teclado para HBO
+            document.addEventListener('keydown', e => {
+                if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+                if (e.key.toLowerCase() === 'c') switchWrapper.click();
+            });
         }
 
         // Botão do painel de legendas (todos os sites exceto YouTube)
@@ -932,12 +1149,23 @@ export class SubtitleEngine {
                 } else if (e.key.toLowerCase() === 'd') {
                     e.preventDefault();
                     this.gotoNextCue();
+                } else if (e.key.toLowerCase() === 's') {
+                    e.preventDefault();
+                    this.video.currentTime = (this.cues[this.currentCueIndex].start / 1000) + 0.01;
+                    this.video.play();
                 } else if (e.key.toLowerCase() === 'r') {
                     e.preventDefault();
                     this.toggleLoop();
                 } else if (e.key.toLowerCase() === 'l') {
                     e.preventDefault();
                     this.toggleSubtitlePanel();
+                } else if (e.key.toLowerCase() === 'o') {
+                    e.preventDefault();
+                    window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
+                } else if (e.key.toLowerCase() === ' ') {
+                    e.preventDefault();
+                    if (this.video.paused) this.video.play();
+                    else this.video.pause();
                 } else if (e.key.toLowerCase() === 'q') {
                     e.preventDefault();
                     this.autoPause = !this.autoPause;
@@ -1123,29 +1351,6 @@ export class SubtitleEngine {
         this._createSubtitlePanel();
     }
     
-    toggleSubtitles() {
-        const host = document.getElementById('linguaflow-subtitle-host');
-        if (!host) return;
-        
-        const shadow = host.shadowRoot;
-        const wrap = shadow ? shadow.getElementById('lf-wrap') : null;
-        
-        const isHidden = host.style.display === 'none';
-        
-        if (isHidden) {
-            host.style.display = '';
-            if (wrap) wrap.style.display = 'inline-flex';
-            document.getElementById('lf-hbo-toggle-btn').textContent = '👁️';
-            document.getElementById('lf-hbo-toggle-btn').title = 'LinguaFlow — Desativar Legendas';
-            console.log('[LinguaFlow] Legendas HBO/Max ATIVADAS');
-        } else {
-            host.style.display = 'none';
-            if (wrap) wrap.style.display = 'none';
-            document.getElementById('lf-hbo-toggle-btn').textContent = '🚫';
-            document.getElementById('lf-hbo-toggle-btn').title = 'LinguaFlow — Ativar Legendas';
-            console.log('[LinguaFlow] Legendas HBO/Max DESATIVADAS');
-        }
-    }
     
     _createSubtitlePanel() {
         const panel = document.createElement('div');
@@ -1229,33 +1434,10 @@ export class SubtitleEngine {
             _scrollTimer = setTimeout(() => { list._userScrolling = false; }, 3000);
         }, { passive: true });
 
-        this.cues.forEach((cue, idx) => {
-            const item = document.createElement('div');
-            item.className = 'lf-subtitle-item';
-            item.dataset.index = idx;
-            item.style.cssText = 'padding:9px 11px;margin-bottom:5px;background:rgba(255,255,255,0.03);border-radius:8px;cursor:pointer;transition:all 0.2s;border-left:3px solid transparent;';
-            const time = this._formatTime(cue.start / 1000);
-            item.innerHTML = `
-                <div style="font-size:10px;color:#64748B;margin-bottom:2px;font-weight:600;">${time}</div>
-                <div style="font-size:13px;color:#E2E8F0;line-height:1.4;">${escapeHTML(cue.text)}</div>
-                <div class="lf-translation-text" style="font-size:12px;color:#38BDF8;margin-top:3px;min-height:15px;">${cue.translatedText || '<span style="color:#475569;font-style:italic;">traduzindo...</span>'}</div>
-                <button class="lf-save-line" style="margin-top:6px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.3);color:#C4B5FD;border-radius:6px;padding:3px 7px;font-size:11px;cursor:pointer;">Salvar frase</button>
-            `;
-            if (!cue.translatedText) {
-                import('../utils/translator.js').then(({ translator }) => {
-                    translator.translate(cue.text, 'auto', this.targetLang).then(res => {
-                        cue.translatedText = res.translation;
-                        const el = item.querySelector('.lf-translation-text');
-                        if (el) el.textContent = res.translation;
-                    }).catch(() => {});
-                });
-            }
-            item.onmouseenter = () => { item.style.background = 'rgba(255,255,255,0.08)'; item.style.borderLeftColor = '#38BDF8'; };
-            item.onmouseleave = () => { if (idx !== this.currentCueIndex) { item.style.background = 'rgba(255,255,255,0.03)'; item.style.borderLeftColor = 'transparent'; } };
-            item.onclick = () => { if (this.videoElement) this.videoElement.currentTime = cue.start / 1000; };
-            item.querySelector('.lf-save-line')?.addEventListener('click', ev => { ev.stopPropagation(); this._saveCueAsPhrase(cue, item); });
-            list.appendChild(item);
-        });
+        this._rebuildSubtitleList();
+
+        subtitlePane.appendChild(toolbar);
+        subtitlePane.appendChild(list);
 
         subtitlePane.appendChild(toolbar);
         subtitlePane.appendChild(list);
@@ -1672,14 +1854,12 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
         });
     }
 
-    async _saveCueAsPhrase(cue, itemEl) {
-        const btn = itemEl?.querySelector('.lf-save-line');
-        if (!cue?.text || !chrome?.runtime) return;
-        if (btn) {
-            btn.disabled = true;
-            btn.textContent = 'Salvando...';
-        }
+    async _saveCueAsPhrase(cue, item) {
+        const btn = item.querySelector('.lf-save-line');
+        if (btn) btn.disabled = true;
+        
         try {
+            const { db } = await import('../utils/db.js');
             if (!cue.translatedText) {
                 const { translator } = await import('../utils/translator.js');
                 const result = await translator.translate(cue.text, 'auto', this.targetLang);
@@ -1694,13 +1874,13 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
                 phrase_translation: cue.translatedText || '',
                 context_sentence: cue.text,
                 deck_id: 1,
-                video_url: window.location.href,
+                video_url: await this._getVideoUrlWithTimestamp(),
                 timestamp: cue.start / 1000,
                 platform: this.platform,
                 tags: ['phrase']
             };
-            const response = await chrome.runtime.sendMessage({ type: 'SAVE_WORD', data });
-            if (!response?.success) throw new Error(response?.error || 'Falha ao salvar frase');
+            const saveRes = await db.saveSentence(data);
+            if (!saveRes || !saveRes.ok) throw new Error('Falha ao salvar frase');
             if (btn) {
                 btn.textContent = 'Salva';
                 btn.style.background = 'rgba(16,185,129,0.18)';
@@ -1715,10 +1895,10 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
         }
     }
     
-    _formatTime(seconds) {
-        const mins = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    async _formatTime(seconds) {
+        const BASE = chrome.runtime.getURL('utils/');
+        const { videoUtils } = await import(BASE + 'video-utils.js');
+        return videoUtils.formatTime(seconds);
     }
 
     // ── VTT Parser (HBO Max) — V5 version ────────────────────────────────────
@@ -1774,9 +1954,11 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
             const cues = this._processYtSub(data);
             console.log('[LinguaFlow] Loaded', cues.length, 'cues');
             if (cues.length > 0) {
+                this.cues = cues; // Sincroniza para o Sync Loop do YouTube
                 this.xhrCues = cues;
                 this.usingXhr = true;
                 window.dispatchEvent(new CustomEvent('LF_CUES_LOADED', { detail: cues }));
+                console.log('[LinguaFlow] Legendas carregadas e sincronizadas.');
             }
         } catch (e) {
             console.error('[LinguaFlow] Fetch error', e);
@@ -1952,7 +2134,7 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
             if (!vid) return;
             this.videoElement = vid;
             clearInterval(iv);
-            if (this.platform === 'youtube') this._startSyncLoop();
+            if (this.platform === 'youtube' || this.platform === 'max') this._startSyncLoop();
 
             // Reinjecta botão caso o YT tenha remontado o player
             vid.addEventListener('play', () => this._injectYouTubeControls());
@@ -1994,14 +2176,53 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
         if (this.platform === 'youtube') {
             this._injectYouTubeHook();
         }
-        // V5: Inicia o sync loop para todas as plataformas
-        this._ready = true;
-        this._syncLoop = () => {
-            this._syncXhrCues();
-            if (this._ready) this._syncTimer = requestAnimationFrame(this._syncLoop);
-        };
-        this._syncTimer = requestAnimationFrame(this._syncLoop);
-        console.log('[LinguaFlow] Sync loop iniciado');
+        // V5: Inicia o sync loop para todas as plataformas (exceto YouTube/Max que usam o novo motor)
+        if (this.platform !== 'youtube' && this.platform !== 'max') {
+            this._ready = true;
+            this._syncLoop = () => {
+                this._syncXhrCues();
+                if (this._ready) this._syncTimer = requestAnimationFrame(this._syncLoop);
+            };
+            this._syncTimer = requestAnimationFrame(this._syncLoop);
+            console.log('[LinguaFlow] Sync loop legado iniciado');
+        } else {
+            console.log('[LinguaFlow] Utilizando novo motor de sincronização');
+        }
+    }
+
+    // ── Recupera legendas do YouTube do storage local (Persistência F5) ────────
+    async _fetchYoutubeSubtitles() {
+        if (this.cues.length > 0) return;
+        
+        chrome.storage.local.get('lastYoutubeSubtitleUrls', async (res) => {
+            const urls = res.lastYoutubeSubtitleUrls || [];
+            if (urls.length === 0) return;
+            
+            console.log('[LinguaFlow] Tentando recuperar legendas de URLs salvas:', urls.length);
+            
+            // Tenta a URL mais recente que combine com o vídeo atual
+            // No YouTube, as URLs de legenda contêm o v=VIDEO_ID
+            const videoId = new URLSearchParams(window.location.search).get('v');
+            if (!videoId) return;
+            
+            const matchingUrls = urls.filter(u => u.includes(videoId)).reverse();
+            
+            for (const url of matchingUrls) {
+                try {
+                    const resp = await fetch(url);
+                    if (resp.ok) {
+                        const text = await resp.text();
+                        this._processYouTubeRawSubtitles(url, text);
+                        if (this.cues.length > 0) {
+                            console.log('[LinguaFlow] Legendas recuperadas com sucesso via F5 Cache');
+                            break;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[LinguaFlow] Falha ao fetch subtitle cache:', e);
+                }
+            }
+        });
     }
 
     _injectYouTubeHook() {
@@ -2033,6 +2254,17 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
         if (cues.length > 0) {
             this.cues = cues;
             this._renderVideoWordPrep();
+            
+            // Persistência para F5
+            chrome.storage.local.get('lastYoutubeSubtitleUrls', (res) => {
+                let urls = res.lastYoutubeSubtitleUrls || [];
+                if (!urls.includes(url)) {
+                    urls.push(url);
+                    if (urls.length > 10) urls.shift();
+                    chrome.storage.local.set({ 'lastYoutubeSubtitleUrls': urls });
+                }
+            });
+
             // Esconde legenda nativa do YouTube
             const ytWrap = document.querySelector('.ytp-caption-window-container');
             if (ytWrap) {
@@ -2127,7 +2359,8 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
                 const t = v.currentTime;
                 
                 // Encontra TODAS as cues ativas no tempo atual
-                const activeCues = this.xhrCues.filter(c => t >= c.start && t <= c.end);
+                const cuesToSearch = (this.xhrCues && this.xhrCues.length > 0) ? this.xhrCues : this.cues;
+                const activeCues = cuesToSearch.filter(c => t >= c.start && t <= c.end);
                 
                 // Se houver múltiplas cues ativas (overlap), pega a mais longa
                 let cue = null;
@@ -2150,13 +2383,27 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
                 return;
             }
             
-            // YouTube: usa cues normais
-            if (this.videoElement && this.cues.length > 0) {
+            // YouTube: respeita o botão de legendas nativo
+            if (this.platform === 'youtube') {
+                const subBtn = document.querySelector('.ytp-subtitles-button');
+                if (subBtn && subBtn.getAttribute('aria-pressed') === 'false') {
+                    if (this.lastText !== '') {
+                        this.lastText = '';
+                        this.renderDual('', '');
+                    }
+                    this.syncInterval = requestAnimationFrame(loop);
+                    return;
+                }
+            }
+            
+            // YouTube: usa cues normais (ou fallback para xhrCues se populado por fetch direto)
+            const activeCuesList = this.cues.length > 0 ? this.cues : (this.platform === 'youtube' ? this.xhrCues : []);
+            if (this.videoElement && activeCuesList.length > 0) {
                 const currentTimeMs = this.videoElement.currentTime * 1000;
                 const t = currentTimeMs / 1000; // Converte para segundos
                 
                 // Encontra TODAS as cues ativas no tempo atual
-                const activeCues = this.cues.filter(c => t >= c.start/1000 && t <= c.end/1000);
+                const activeCues = activeCuesList.filter(c => t >= c.start/1000 && t <= c.end/1000);
                 
                 // Se houver múltiplas cues ativas (overlap), pega a mais longa
                 let idx = -1;
@@ -2164,18 +2411,18 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
                     const longestCue = activeCues.reduce((prev, current) => 
                         (prev.text.length > current.text.length) ? prev : current
                     );
-                    idx = this.cues.indexOf(longestCue);
+                    idx = activeCuesList.indexOf(longestCue);
                 }
 
                 if (idx !== this.currentCueIndex) {
                     this.currentCueIndex = idx;
                     if (idx !== -1) {
-                        const currentCue = this.cues[idx];
+                        const currentCue = activeCuesList[idx];
                         this.onSubtitle(currentCue);
                         lastCueEndTime = currentCue.end;
                         
                         // SAFE LOOKAHEAD: pre-translate next 3 cues sequentially to avoid rate-limits
-                        const nextCues = this.cues.slice(idx + 1, idx + 4).filter(c => !c.translatedText && !c.isTranslating);
+                        const nextCues = activeCuesList.slice(idx + 1, idx + 4).filter(c => !c.translatedText && !c.isTranslating);
                         if (nextCues.length > 0) {
                             nextCues.forEach(c => c.isTranslating = true);
                             import('../utils/translator.js').then(({ translator }) => {
@@ -2342,42 +2589,44 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
     }
 
     // ── Salvar Frase (Pro V5 Style) ──────────────────────────────────────────
+    async _getVideoUrlWithTimestamp() {
+        const BASE = chrome.runtime.getURL('utils/');
+        const { videoUtils } = await import(BASE + 'video-utils.js');
+        return videoUtils.getVideoUrlWithTimestamp();
+    }
+
     async _saveSentence() {
         const saveBtn = this.shadowContainer?.getElementById('lf-save-btn');
         const cue = this._currentCue || this.cues[this.currentCueIndex];
         
         if (!cue || !cue.text) return;
 
-        // Prepara dados da frase
-        const sentenceData = {
-            id: Date.now(),
-            original: cue.text,
-            translation: cue.translatedText || '',
-            videoUrl: window.location.href,
-            videoTitle: document.title,
-            platform: this.platform,
-            timestamp: this.videoElement?.currentTime || 0,
-            addedAt: new Date().toISOString()
-        };
+        try {
+            const { db } = await import('../utils/db.js');
+            const sentenceData = {
+                original: cue.text,
+                translation: cue.translatedText || '',
+                videoUrl: await this._getVideoUrlWithTimestamp(),
+                videoTitle: document.title,
+                platform: this.platform,
+                timestamp: this.videoElement?.currentTime || 0
+            };
 
-        // Salva no Chrome storage
-        chrome.storage.local.get('lf_sents', (data) => {
-            const sents = data.lf_sents || [];
-            sents.push(sentenceData);
-            chrome.storage.local.set({ lf_sents: sents });
-        });
+            const res = await db.saveSentence(sentenceData);
 
-        // Feedback visual
-        if (saveBtn) {
-            saveBtn.textContent = '✅ Salva!';
-            saveBtn.classList.add('ok');
-            setTimeout(() => {
-                saveBtn.textContent = '+ Salvar frase';
-                saveBtn.classList.remove('ok');
-            }, 2000);
+            // Feedback visual
+            if (res.ok && saveBtn) {
+                saveBtn.textContent = '✅ Salva!';
+                saveBtn.classList.add('ok');
+                setTimeout(() => {
+                    saveBtn.textContent = '+ Salvar frase';
+                    saveBtn.classList.remove('ok');
+                }, 2000);
+            }
+            console.log('[LinguaFlow] 📌 Frase salva via DB Proxy:', sentenceData.original);
+        } catch (e) {
+            console.error('[LinguaFlow] Erro ao salvar frase:', e);
         }
-
-        console.log('[LinguaFlow] 📌 Frase salva:', sentenceData.original);
     }
 
     renderDual(orig, trans) {
@@ -2394,7 +2643,10 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
         if (!hasValidSubtitle) {
             origDiv.style.display  = 'none';
             transDiv.style.display = 'none';
-            if (saveBtn) saveBtn.style.display = 'none';
+            if (saveBtn) {
+                saveBtn.style.display = 'none';
+                saveBtn.textContent = '+ Salvar frase'; // Reseta texto se estava "Salvo"
+            }
             return;
         }
         
@@ -2500,39 +2752,6 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
         return frag;
     }
 
-    async _loadSavedWords() {
-        try {
-            const { db } = await import('../utils/db.js');
-            await db.initPromise;
-            // Carrega palavras com seus cards para saber o status
-            const tx = db.db.transaction(['words', 'cards'], 'readonly');
-            const words = await new Promise(r => {
-                const req = tx.objectStore('words').getAll();
-                req.onsuccess = () => r(req.result || []);
-                req.onerror = () => r([]);
-            });
-            const cards = await new Promise(r => {
-                const req = tx.objectStore('cards').getAll();
-                req.onsuccess = () => r(req.result || []);
-                req.onerror = () => r([]);
-            });
-
-            // Mapeia word_id -> status (apenas palavras que TÊM card)
-            const cardStatus = {};
-            cards.forEach(c => { cardStatus[c.word_id] = c.status; });
-
-            // Popula savedWords APENAS com palavras que têm card real no DB
-            // Palavras sem card são ignoradas — não devem aparecer como "Salvas"
-            words.forEach(w => {
-                const status = cardStatus[w.id];
-                if (status) this.savedWords.set(w.word.toLowerCase(), status);
-            });
-
-            console.log(`[LinguaFlow] ${this.savedWords.size} palavras carregadas para colorir legendas`);
-        } catch (e) {
-            console.warn('[LinguaFlow] Não foi possível carregar palavras salvas:', e.message);
-        }
-    }
 
     _wordClass(word) {
         // Normaliza contracoes: i'm -> i'm, don't -> don't (apostrofo simples)
@@ -2560,6 +2779,7 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
             const isVisible = origDiv.style.display !== 'none';
             
             saveBtn.style.display = (hasText && isVisible) ? 'inline-block' : 'none';
+            if (!hasText || !isVisible) saveBtn.textContent = '+ Salvar frase';
         });
 
         observer.observe(origDiv, {
@@ -2583,6 +2803,42 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
             attributes: true,
             attributeFilter: ['style']
         });
+    }
+
+    toggleSubtitles(forceState = null) {
+        const host = document.getElementById('linguaflow-subtitle-host');
+        if (!host) return;
+        
+        let isVisible;
+        if (forceState !== null) {
+            isVisible = forceState;
+        } else {
+            // Se for chamado sem argumentos, alterna o estado
+            isVisible = localStorage.getItem('lf_sub_visible') === 'true';
+        }
+        
+        host.style.visibility = isVisible ? 'visible' : 'hidden';
+        host.style.opacity = isVisible ? '1' : '0';
+        host.style.transition = 'opacity 0.2s ease, visibility 0.2s';
+        
+        // Sincroniza os switches visuais da interface
+        const swYt = document.getElementById('lf-yt-switch');
+        if (swYt) swYt.classList.toggle('active', isVisible);
+        
+        const swHbo = document.getElementById('lf-hbo-switch');
+        if (swHbo) swHbo.classList.toggle('active', isVisible);
+
+        // Sincronização Automática com o botão de Legendas Ocultas (CC) do YouTube
+        if (this.platform === 'youtube') {
+            const ytSubBtn = document.querySelector('.ytp-subtitles-button');
+            if (ytSubBtn) {
+                const isYtSubActive = ytSubBtn.getAttribute('aria-pressed') === 'true';
+                if (isVisible !== isYtSubActive) {
+                    ytSubBtn.click();
+                    console.log(`[LinguaFlow] Legenda nativa do YouTube sincronizada para: ${isVisible ? 'LIGADA' : 'DESLIGADA'}`);
+                }
+            }
+        }
     }
 
     _fixEncoding(text) {
@@ -2654,6 +2910,49 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
             // Fallback: pelo menos remove os losangos e caracteres de substituição
             return text.replace(/[◆�]/g, '');
         }
+    }
+    _rebuildSubtitleList() {
+        const list = document.getElementById('lf-subtitle-list');
+        if (!list) return;
+        list.innerHTML = '';
+        
+        this.cues.forEach((cue, idx) => {
+            const item = document.createElement('div');
+            item.className = 'lf-subtitle-item';
+            item.dataset.index = idx;
+            item.style.cssText = 'padding:9px 11px;margin-bottom:5px;background:rgba(255,255,255,0.03);border-radius:8px;cursor:pointer;transition:all 0.2s;border-left:3px solid transparent;';
+            const time = this._formatTime(cue.start / 1000 || cue.start);
+            item.innerHTML = `
+                <div style="font-size:10px;color:#64748B;margin-bottom:2px;font-weight:600;">${time}</div>
+                <div style="font-size:13px;color:#E2E8F0;line-height:1.4;">${escapeHTML(cue.text)}</div>
+                <div class="lf-translation-text" style="font-size:12px;color:#38BDF8;margin-top:3px;min-height:15px;">${cue.translatedText || '<span style="color:#475569;font-style:italic;">traduzindo...</span>'}</div>
+                <button class="lf-save-line" style="margin-top:6px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.3);color:#C4B5FD;border-radius:6px;padding:3px 7px;font-size:11px;cursor:pointer;">Salvar frase</button>
+            `;
+            
+            if (!cue.translatedText) {
+                import('../utils/translator.js').then(({ translator }) => {
+                    translator.translate(cue.text, 'auto', this.targetLang).then(res => {
+                        cue.translatedText = res.translation;
+                        const el = item.querySelector('.lf-translation-text');
+                        if (el) el.textContent = res.translation;
+                    }).catch(() => {});
+                });
+            }
+            
+            item.onmouseenter = () => { item.style.background = 'rgba(255,255,255,0.08)'; item.style.borderLeftColor = '#38BDF8'; };
+            item.onmouseleave = () => { if (idx !== this.currentCueIndex) { item.style.background = 'rgba(255,255,255,0.03)'; item.style.borderLeftColor = 'transparent'; } };
+            item.onclick = () => { if (this.videoElement) this.videoElement.currentTime = (cue.start / 1000) || cue.start; };
+            item.querySelector('.lf-save-line')?.addEventListener('click', ev => { ev.stopPropagation(); this._saveCueAsPhrase(cue, item); });
+            list.appendChild(item);
+        });
+    }
+
+    _formatTime(seconds) {
+        if (isNaN(seconds)) return '00:00';
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        return (h > 0 ? h + ':' : '') + (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
     }
 
     destroy() {

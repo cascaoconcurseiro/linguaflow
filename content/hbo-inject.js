@@ -1,10 +1,13 @@
 // content/hbo-inject.js
 // Injetado via manifest world:MAIN + document_start
-// Intercepta XHR para capturar VTT de legendas do HBO/Max
+// Intercepta XHR e Fetch para capturar VTT de legendas do HBO/Max/Netflix
 (function () {
     if (window.__lf_hbo_injected) return;
     window.__lf_hbo_injected = true;
 
+    console.log('[LF-inject] HBO/Max intercept instalado (XHR + Fetch)');
+
+    // ── Intercepta XMLHttpRequest ───────────────────────────────────────────
     var _open = XMLHttpRequest.prototype.open;
     var _send = XMLHttpRequest.prototype.send;
 
@@ -17,31 +20,42 @@
         var self = this;
         this.addEventListener('load', function () {
             var url = self._lf_url || '';
-            if (!url.includes('.vtt')) return;
-            if (url.includes('empty-dash-subs')) return;
-
-            // Usa this.response — funciona com qualquer responseType
-            var raw = self.response;
-            var text = '';
-
-            if (typeof raw === 'string') {
-                text = raw;
-            } else if (raw instanceof ArrayBuffer) {
-                try { text = new TextDecoder('utf-8').decode(raw); } catch (e) {}
-            } else {
-                // responseType não é string nem arraybuffer — tenta responseText com try/catch
-                try { text = self.responseText || ''; } catch (e) {}
-            }
-
-            if (text && (text.includes('WEBVTT') || text.includes('-->'))) {
-                console.log('[LF-inject] VTT interceptado:', url.substring(0, 80));
-                document.dispatchEvent(new CustomEvent('LF_HBO_SUB', {
-                    detail: { url: url, response: text }
-                }));
-            }
+            handleSubtitleData(url, self.response || self.responseText);
         });
         return _send.apply(this, arguments);
     };
 
-    console.log('[LF-inject] HBO intercept instalado');
+    // ── Intercepta Fetch API ────────────────────────────────────────────────
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+        const response = await originalFetch(...args);
+        const url = args[0] instanceof Request ? args[0].url : args[0];
+        
+        if (typeof url === 'string' && (url.includes('.vtt') || url.includes('subtitle') || url.includes('caption'))) {
+            const clone = response.clone();
+            clone.text().then(text => {
+                handleSubtitleData(url, text);
+            }).catch(() => {});
+        }
+        return response;
+    };
+
+    // ── Processamento de Dados de Legenda ───────────────────────────────────
+    function handleSubtitleData(url, content) {
+        if (!url || !content) return;
+        if (url.includes('empty-dash-subs')) return;
+
+        // Filtro agressivo para VTT ou conteúdo que pareça legenda
+        const isVtt = url.includes('.vtt') || url.includes('.webvtt');
+        const hasVttHeader = typeof content === 'string' && (content.includes('WEBVTT') || content.includes('-->'));
+
+        if (isVtt || hasVttHeader) {
+            console.log('[LF-inject] Legenda detectada, enviando via postMessage');
+            window.postMessage({
+                type: 'LF_HBO_SUB',
+                url: url,
+                response: content
+            }, '*');
+        }
+    }
 })();

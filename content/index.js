@@ -1,5 +1,4 @@
 import { SubtitleEngine } from './subtitle-engine.js';
-import { VideoControls } from './video-controls.js';
 import { ImmersionMode } from './immersion-mode.js';
 import { SettingsPanel } from './settings-panel.js';
 
@@ -27,14 +26,12 @@ if (!isSupported) {
         const engine = new SubtitleEngine();
         engine.init();
         
-        // Panel de configurações globais
-        const settingsPanel = new SettingsPanel(engine);
+        // Painel de configurações globais
+        new SettingsPanel(engine);
         
         // Roteamento inteligente de domínios
-        if (engine.platform !== 'generic') {
-            new VideoControls(engine);
-        } else {
-            // Sites genéricos de leitura (Wikipedia, Notícias): Módulo 11 (Imersão)
+        if (engine.platform === 'generic') {
+            // Sites genéricos de leitura (Wikipedia, Notícias)
             const immersion = new ImmersionMode();
             immersion.activate('en', 30);
         }

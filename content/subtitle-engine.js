@@ -30,6 +30,7 @@ export class SubtitleEngine {
         this._lastFoundIdx      = -1; // Índice otimizado para busca de legendas
         this._lastAutoPausedEndTime = -1; 
         this._wasPausedByHover  = false;
+        this.isActivated        = false; // Estado de ativação do engine (botão liga/desliga)
 
         // Settings (defaults) — serão sobrescritos pelo SettingsPanel
         this.displayMode  = 'bilingual'; // Padrão Seguro: Bilíngue
@@ -530,12 +531,10 @@ export class SubtitleEngine {
         // Remove painel de legendas se aberto
         document.getElementById('lf-subtitle-panel')?.remove();
         
-        // Re-inicializa a UI para o novo player
-        this._injectSubtitleUI();
-        
         // Inicia sempre DESLIGADO por padrão (conforme pedido do usuário)
-        setTimeout(() => this.toggleSubtitles(false), 500);
-        
+        await this._injectSubtitleUI();
+        this.toggleSubtitles(false);
+
         // Re-inicializa captura específica da plataforma
         if (this.platform === 'youtube') {
             setTimeout(() => this._fetchYoutubeSubtitles(), 1000);
@@ -2902,9 +2901,9 @@ export class SubtitleEngine {
             this._lastOrig = orig;
         }
 
-        // Mostra botão salvar APENAS quando há legenda ativa e válida
+        // Mostra botão salvar APENAS quando há legenda ativa, válida e engine ligado
         if (saveBtn) {
-            saveBtn.style.display = 'inline-block';
+            saveBtn.style.display = (hasValidSubtitle && this.isActivated) ? 'inline-block' : 'none';
         }
 
 
@@ -2926,19 +2925,26 @@ export class SubtitleEngine {
         if (transSpan) transSpan.textContent = decodedTrans;
         else { const s = transDiv.querySelector('#lf-trans-txt'); if(s) s.textContent = decodedTrans; }
 
-        // Aplica o modo de exibição
+        // Aplica o modo de exibição e visibilidade real baseada em conteúdo
         const mode = this.displayMode || 'bilingual';
         if (wrap) wrap.setAttribute('data-subtitle-mode', mode);
 
-        origDiv.style.display  = (mode === 'translated') ? 'none' : 'block';
-        transDiv.style.display = (mode === 'native')     ? 'none' : 'block';
+        const hasTrans = decodedTrans && decodedTrans.trim().length > 0;
+
+        origDiv.style.display  = (mode === 'translated' || !orig) ? 'none' : 'block';
+        transDiv.style.display = (mode === 'native' || !hasTrans) ? 'none' : 'block';
+
+        // Esconde o container principal se não houver nada para mostrar
+        if (wrap) {
+            wrap.style.display = (origDiv.style.display === 'none' && transDiv.style.display === 'none') ? 'none' : 'inline-flex';
+        }
 
         console.log(`[LinguaFlow] Render: mode=${mode}, origDisplay=${origDiv.style.display}, transDisplay=${transDiv.style.display}`);
 
-        // Mostra botão de tradução rápida apenas quando tradução está oculta
+        // Mostra botão de tradução rápida apenas quando tradução está oculta e engine ligado
         const translateBtn = this.shadowContainer.getElementById('lf-translate-btn');
         if (translateBtn) {
-            const showBtn = orig && (mode === 'native');
+            const showBtn = orig && (mode === 'native') && this.isActivated;
             translateBtn.style.display = showBtn ? 'block' : 'none';
             if (showBtn) translateBtn.textContent = '🌐 Traduzir';
         }
@@ -3087,8 +3093,8 @@ export class SubtitleEngine {
             const hasText = origDiv.textContent && origDiv.textContent.trim().length > 0;
             const isVisible = origDiv.style.display !== 'none';
             
-            saveBtn.style.display = (hasText && isVisible) ? 'inline-block' : 'none';
-            if (!hasText || !isVisible) saveBtn.textContent = '+ Salvar frase';
+            saveBtn.style.display = (hasText && isVisible && this.isActivated) ? 'inline-block' : 'none';
+            if (!hasText || !isVisible || !this.isActivated) saveBtn.textContent = '+ Salvar frase';
         });
 
         observer.observe(origDiv, {
@@ -3105,7 +3111,7 @@ export class SubtitleEngine {
             const hasText = origDiv.textContent && origDiv.textContent.trim().length > 0;
             const isVisible = origDiv.style.display !== 'none';
             
-            saveBtn.style.display = (hasText && isVisible) ? 'inline-block' : 'none';
+            saveBtn.style.display = (hasText && isVisible && this.isActivated) ? 'inline-block' : 'none';
         });
 
         styleObserver.observe(origDiv, {
@@ -3131,6 +3137,7 @@ export class SubtitleEngine {
         host.style.visibility = isVisible ? 'visible' : 'hidden';
         host.style.opacity = isVisible ? '1' : '0';
         host.style.transition = 'opacity 0.2s ease, visibility 0.2s';
+        this.isActivated = isVisible;
         
         // Sincroniza os switches visuais da interface
         const swYt = document.getElementById('lf-yt-switch');

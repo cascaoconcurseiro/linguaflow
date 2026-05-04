@@ -499,7 +499,7 @@ export class SubtitleEngine {
     }
 
     // ── Limpeza de estado para troca de vídeo ────────────────────────────────
-    _onUrlChange() {
+    async _onUrlChange() {
         console.log('[LinguaFlow] URL alterada, resetando motor de legendas...');
         this.cues = [];
         this.xhrCues = [];

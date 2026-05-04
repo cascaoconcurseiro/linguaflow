@@ -533,8 +533,8 @@ export class SubtitleEngine {
         // Re-inicializa a UI para o novo player
         this._injectSubtitleUI();
         
-        // Inicia respeitando a preferência do usuário
-        setTimeout(() => this.toggleSubtitles(), 500);
+        // Inicia sempre DESLIGADO por padrão (conforme pedido do usuário)
+        setTimeout(() => this.toggleSubtitles(false), 500);
         
         // Re-inicializa captura específica da plataforma
         if (this.platform === 'youtube') {
@@ -1299,6 +1299,9 @@ export class SubtitleEngine {
                 if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
                 if (e.key.toLowerCase() === 'c') switchWrapper.click();
             });
+
+            // Inicia sempre DESLIGADO (OFF by default)
+            this.toggleSubtitles(false);
         }
 
         // Botão do painel de legendas (todos os sites exceto YouTube)
@@ -3119,9 +3122,10 @@ export class SubtitleEngine {
         if (forceState !== null) {
             isVisible = forceState;
         } else {
-            // Se for chamado sem argumentos, alterna o estado. Padrão: LIGADO (true) se não houver registro.
+            // Se for chamado sem argumentos, alterna o estado. 
+            // NOVO PADRÃO: Sempre começa DESLIGADO (false) se não houver registro explícito de 'true'.
             const stored = localStorage.getItem('lf_sub_visible');
-            isVisible = stored !== 'false'; 
+            isVisible = stored === 'true'; 
         }
         
         host.style.visibility = isVisible ? 'visible' : 'hidden';

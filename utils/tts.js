@@ -103,15 +103,25 @@ class TTS {
     async _playWebSpeech(text, lang) {
         if (!this.synth) return false;
 
-        // Aguarda vozes carregarem
+        // Aguarda vozes carregarem (sem setTimeout fixo de 1s)
         if (this.voices.length === 0) {
             this.voices = this.synth.getVoices();
             if (this.voices.length === 0) {
-                await new Promise(r => {
-                    this.synth.onvoiceschanged = r;
-                    setTimeout(r, 1000);
+                await new Promise(resolve => {
+                    const checkVoices = () => {
+                        const v = this.synth.getVoices();
+                        if (v.length > 0) {
+                            this.voices = v;
+                            this.synth.onvoiceschanged = null;
+                            resolve();
+                        }
+                    };
+                    this.synth.onvoiceschanged = checkVoices;
+                    // Timeout de segurança menor (200ms) caso o evento não dispare mas as vozes apareçam
+                    setTimeout(checkVoices, 200);
+                    // Timeout de desistência (2s) para não travar a UI
+                    setTimeout(resolve, 2000);
                 });
-                this.voices = this.synth.getVoices();
             }
         }
 

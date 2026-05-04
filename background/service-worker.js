@@ -1,5 +1,6 @@
 // background/service-worker.js
 import { db } from '../utils/db.js';
+import { translator } from '../utils/translator.js';
 
 console.log('LinguaFlow: Service Worker inicializado.');
 
@@ -42,11 +43,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (typeof db[method] === 'function') {
             db[method](...(args || []))
                 .then(result => {
-                    if (['saveWord', 'updateCard', 'logReview', 'createDeck', 'saveSentence', 'getWordById', 'getSentenceById'].includes(method)) {
-                        if (!['getWordById', 'getSentenceById'].includes(method)) {
-                             notifyDashboards(args[0]?.word || null);
-                             updateBadge();
-                        }
+                    // Notificações automáticas para métodos de escrita
+                    const writeMethods = ['saveWord', 'updateCard', 'logReview', 'createDeck', 'saveSentence', 'deleteWord', 'deleteDeck', 'markAsKnown'];
+                    if (writeMethods.includes(method)) {
+                        notifyDashboards(args[0]?.word || null);
+                        updateBadge();
                     }
                     sendResponse({ result });
                 })
@@ -58,11 +59,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
     }
 
-    // Tradução de texto (Google Translate GTX)
+    // Tradução de texto (Usando utilitário Translator com Cache multinível)
     if (request.action === 'translate') {
         const { text, from, to } = request;
-        translateText(text, from, to)
-            .then(translation => sendResponse({ translation }))
+        translator.translate(text, from, to)
+            .then(result => sendResponse({ translation: result.translation, source: result.source }))
             .catch(err => sendResponse({ translation: null, error: err.message }));
         return true;
     }
@@ -78,7 +79,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     // Explicação com IA (Grok)
     if (request.action === 'ai_explain_word') {
-        const prompt = `Analise a palavra "${request.word}" no contexto: "${request.context || ''}".
+        const { fullContext } = request;
+        const contextStr = fullContext 
+            ? `ANTERIOR: "${fullContext.prev}" | ATUAL: "${fullContext.current}" | PRÓXIMA: "${fullContext.next}"`
+            : request.context;
+
+        const prompt = `Analise a palavra "${request.word}" no diálogo: "${contextStr}".
         Forneça uma resposta rica com:
         1. Nível Sugerido (CEFR)
         2. O que significa na prática
@@ -87,7 +93,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         5. Exemplos Reais (2 frases)
         6. Associação Mental`;
         
-        explainWordWithAI(request.word, request.context, prompt)
+        explainWordWithAI(request.word, contextStr, prompt)
             .then(explanation => sendResponse({ explanation }))
             .catch(err => sendResponse({ explanation: null, error: err.message }));
         return true;
@@ -102,10 +108,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
-    // Explicação de frase com IA (Foco em intenção)
+    // Explicação de frase com IA (Foco em intenção e fluxo)
     if (request.action === 'ai_explain_sentence') {
-        const { sentence } = request;
-        explainSentenceWithAI(sentence)
+        const { sentence, fullContext } = request;
+        explainSentenceWithAI(sentence, fullContext)
             .then(analysis => sendResponse({ analysis }))
             .catch(err => sendResponse({ analysis: null, error: err.message }));
         return true;
@@ -120,16 +126,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
-    if (request.type === 'SAVE_WORD') {
-        db.saveWord(request.data)
-            .then(res => {
-                sendResponse({ success: true, id: res.id });
-                notifyDashboards(request.data.word);
-                updateBadge();
-            })
-            .catch(err => sendResponse({ success: false, error: err.message }));
-        return true;
-    }
 
     if (request.type === 'FETCH_LINGUEE') {
         const word = request.word;
@@ -225,25 +221,34 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // ── Funções Auxiliares ────────────────────────────────────────────────────────
 
 async function translateText(text, from = 'en', to = 'pt') {
-    try {
-        const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(text)}`);
-        const data = await res.json();
-        return data?.[0]?.[0]?.[0] || text;
-    } catch (err) {
-        console.error('[LinguaFlow SW] Tradução falhou:', err);
-        return text;
-    }
+    // Redireciona para o utilitário que tem cache e fallback
+    const res = await translator.translate(text, from, to);
+    return res.translation || text;
 }
 
 async function fetchDictionary(word) {
+    const emptyResult = {
+        word: word,
+        phonetic: '',
+        audioUrl: '',
+        partOfSpeech: '',
+        definition: '',
+        example: '',
+        synonyms: [],
+        antonyms: []
+    };
     try {
         const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
-        if (!res.ok) return {};
+        if (!res.ok) return emptyResult;
         const data = await res.json();
+        if (!Array.isArray(data) || !data.length) return emptyResult;
+        
         const entry = data[0];
         let audioUrl = entry.phonetics?.find(p => p.audio)?.audio || '';
+        if (audioUrl && audioUrl.startsWith('//')) audioUrl = 'https:' + audioUrl;
+        
         return {
-            word: entry.word,
+            word: entry.word || word,
             phonetic: entry.phonetic || '',
             audioUrl,
             partOfSpeech: entry.meanings?.[0]?.partOfSpeech || '',
@@ -252,7 +257,10 @@ async function fetchDictionary(word) {
             synonyms: entry.meanings?.[0]?.synonyms || [],
             antonyms: entry.meanings?.[0]?.antonyms || []
         };
-    } catch (err) { return {}; }
+    } catch (err) { 
+        console.error('[LinguaFlow] Dictionary Fetch Error:', err);
+        return emptyResult; 
+    }
 }
 
 // ── Funções de IA (Grok) ──────────────────────────────────────────────────────
@@ -260,22 +268,38 @@ async function getApiConfig() {
     const defaultKey = '';
     const groqUrl = 'https://api.groq.com/openai/v1/chat/completions';
     const xAiUrl = 'https://api.x.ai/v1/chat/completions';
+    const geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+    
     const groqModel = 'llama-3.1-8b-instant';
     const xAiModel = 'grok-beta';
+    const geminiModel = 'gemini-1.5-flash';
 
     try {
         const userKey = await db.getSetting('grok_api_key');
         if (userKey && userKey.trim() !== '') {
-            const isXAi = userKey.startsWith('xai-');
+            const trimmedKey = userKey.trim();
+            
+            // Detecção de Provedor por prefixo
+            if (trimmedKey.startsWith('AIza')) {
+                return {
+                    provider: 'gemini',
+                    apiKey: trimmedKey,
+                    apiUrl: `${geminiUrl}?key=${trimmedKey}`,
+                    model: geminiModel
+                };
+            }
+            
+            const isXAi = trimmedKey.startsWith('xai-');
             return {
-                apiKey: userKey,
+                provider: isXAi ? 'xai' : 'groq',
+                apiKey: trimmedKey,
                 apiUrl: isXAi ? xAiUrl : groqUrl,
                 model: isXAi ? xAiModel : groqModel
             };
         }
     } catch (e) {}
 
-    return { apiKey: defaultKey, apiUrl: groqUrl, model: groqModel };
+    return { provider: 'groq', apiKey: defaultKey, apiUrl: groqUrl, model: groqModel };
 }
 
 const BASE_PERSONA = `Atue como um Professor de Inglês Nativo e Mentor Linguístico, extremamente didático e nada robótico. 
@@ -308,67 +332,181 @@ async function explainWordWithAI(word, context, customPrompt = null) {
         const prompt = customPrompt || `Explique a palavra: "${word}" (vista na frase: "${context || 'sem contexto'}")`;
         
         const config = await getApiConfig();
-        const response = await fetch(config.apiUrl, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: config.model,
-                messages: [
-                    { role: 'system', content: BASE_PERSONA + "\nFOCO: Na alma da palavra específica e sua personalidade." },
-                    { role: 'user', content: prompt }
-                ],
-                temperature: 0.7,
-                max_tokens: 800
-            })
-        });
-        if (!response.ok) throw new Error(`Erro API: ${response.status}`);
+        if (!config.apiKey && config.provider !== 'gemini') return 'Por favor, configure sua chave de API no Dashboard para usar recursos de IA.';
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+        let response;
+        if (config.provider === 'gemini') {
+            response = await fetch(config.apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                signal: controller.signal,
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: BASE_PERSONA + "\n\n" + prompt }] }],
+                    generationConfig: { temperature: 0.7, maxOutputTokens: 800 }
+                })
+            });
+        } else {
+            response = await fetch(config.apiUrl, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
+                signal: controller.signal,
+                body: JSON.stringify({
+                    model: config.model,
+                    messages: [
+                        { role: 'system', content: BASE_PERSONA + "\nFOCO: Na alma da palavra específica e sua personalidade." },
+                        { role: 'user', content: prompt }
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 800
+                })
+            });
+        }
+
+        clearTimeout(timeoutId);
+        if (!response.ok) {
+            const errBody = await response.text().catch(() => '');
+            throw new Error(`Erro API (${response.status}): ${errBody}`);
+        }
+        
         const data = await response.json();
+        
+        if (config.provider === 'gemini') {
+            return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Não foi possível gerar explicação com Gemini.';
+        }
         return data.choices?.[0]?.message?.content || 'Não foi possível gerar explicação.';
-    } catch (err) { throw err; }
+    } catch (err) {
+        console.error('[LinguaFlow IA] Erro:', err);
+        throw err;
+    }
 }
 
 async function analyzeGrammarWithAI(sentence) {
     try {
         if (!sentence) return 'Frase vazia.';
         const config = await getApiConfig();
-        const response = await fetch(config.apiUrl, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: config.model,
-                messages: [
-                    { role: 'system', content: BASE_PERSONA + "\nFOCO: Na mecânica da estrutura e por que as palavras estão nessa ordem." },
-                    { role: 'user', content: `Explique a estrutura desta frase: "${sentence}"` }
-                ],
-                temperature: 0.7,
-                max_tokens: 800
-            })
-        });
+        if (!config.apiKey && config.provider !== 'gemini') return 'Configure sua API Key.';
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        const grammarPersona = `Você é um Linguista Especialista em Gramática Comparada (EN-PT). 
+Sua missão é desconstruir a mecânica da frase de forma ultra-didática para um brasileiro.
+
+ESTRUTURA DE RESPOSTA OBRIGATÓRIA:
+1. 🧩 O Esqueleto: Identifique Sujeito, Verbo e Objeto.
+2. ⏳ Tempo & Aspecto: Qual o tempo verbal? (Ex: Present Perfect) Por que foi usado aqui?
+3. 🔬 Partículas & Conectores: Explique preposições ou phrasal verbs presentes.
+4. ⚠️ O Pulo do Gato: Uma regra de ouro ou erro comum de brasileiros nessa estrutura.
+5. 💡 Expressão Similar: Como um nativo diria isso de forma informal (se aplicável).
+
+REGRAS:
+- Use emojis para facilitar a leitura.
+- Responda em Português Brasileiro.
+- Seja direto, sem introduções vazias.`;
+
+        const userPrompt = `Analise detalhadamente a gramática desta frase: "${sentence}"`;
+
+        let response;
+        if (config.provider === 'gemini') {
+            response = await fetch(config.apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                signal: controller.signal,
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: grammarPersona + "\n\n" + userPrompt }] }],
+                    generationConfig: { temperature: 0.7, maxOutputTokens: 1000 }
+                })
+            });
+        } else {
+            response = await fetch(config.apiUrl, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
+                signal: controller.signal,
+                body: JSON.stringify({
+                    model: config.model,
+                    messages: [
+                        { role: 'system', content: grammarPersona },
+                        { role: 'user', content: userPrompt }
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 1000
+                })
+            });
+        }
+
+        clearTimeout(timeoutId);
         if (!response.ok) throw new Error(`Erro API: ${response.status}`);
         const data = await response.json();
+
+        if (config.provider === 'gemini') {
+            return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Não foi possível gerar análise.';
+        }
         return data.choices?.[0]?.message?.content || 'Não foi possível gerar análise.';
     } catch (err) { throw err; }
 }
 
-async function explainSentenceWithAI(sentence) {
+async function explainSentenceWithAI(sentence, fullContext = null) {
     try {
         if (!sentence) return 'Frase vazia.';
         const config = await getApiConfig();
-        const response = await fetch(config.apiUrl, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: config.model,
-                messages: [
-                    { role: 'system', content: BASE_PERSONA + "\nFOCO: Na intenção real, emoção e como um dublador diria isso." },
-                    { role: 'user', content: `Explique a intenção desta frase: "${sentence}"` }
-                ],
-                temperature: 0.7,
-                max_tokens: 800
-            })
-        });
+        if (!config.apiKey && config.provider !== 'gemini') return 'Configure sua API Key.';
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        let contextInfo = "";
+        if (fullContext) {
+            contextInfo = `
+            DIÁLOGO AO REDOR:
+            Frase Anterior: "${fullContext.prev}"
+            Frase Atual (em foco): "${fullContext.current}"
+            Próxima Frase: "${fullContext.next}"
+            
+            ⚠️ IMPORTANTE: Explique a "Frase Atual" considerando o fluxo do diálogo. 
+            Se houver pronomes (it, that, they) ou referências, aponte a quem se referem no diálogo acima.`;
+        }
+
+        const systemPrompt = BASE_PERSONA + "\nFOCO: Na intenção real, emoção, referências contextuais e fluxo do diálogo.";
+        const userPrompt = contextInfo || `Explique a intenção desta frase: "${sentence}"`;
+
+        let response;
+        if (config.provider === 'gemini') {
+            response = await fetch(config.apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                signal: controller.signal,
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }],
+                    generationConfig: { temperature: 0.7, maxOutputTokens: 800 }
+                })
+            });
+        } else {
+            response = await fetch(config.apiUrl, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
+                signal: controller.signal,
+                body: JSON.stringify({
+                    model: config.model,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt }
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 800
+                })
+            });
+        }
+
+        clearTimeout(timeoutId);
         if (!response.ok) throw new Error(`Erro API: ${response.status}`);
         const data = await response.json();
+
+        if (config.provider === 'gemini') {
+            return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Não foi possível gerar análise.';
+        }
         return data.choices?.[0]?.message?.content || 'Não foi possível gerar análise.';
     } catch (err) { throw err; }
 }
@@ -376,22 +514,53 @@ async function explainSentenceWithAI(sentence) {
 async function explainQuickContext(word, sentence) {
     try {
         const config = await getApiConfig();
-        const response = await fetch(config.apiUrl, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: config.model,
-                messages: [
-                    { role: 'system', content: 'Você é um professor particular de inglês focado em insights rápidos. Responda em português brasileiro de forma ultra-direta e didática.' },
-                    { role: 'user', content: `O que "${word}" significa EXATAMENTE nesta situação: "${sentence}"? Me dê um insight rápido de 1 linha.` }
-                ],
-                temperature: 0.5,
-                max_tokens: 150
-            })
-        });
+        if (!config.apiKey && config.provider !== 'gemini') return null;
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s para contexto rápido
+
+        const systemPrompt = 'Você é um professor particular de inglês focado em insights rápidos. Responda em português brasileiro de forma ultra-direta e didática.';
+        const userPrompt = `O que "${word}" significa EXATAMENTE nesta situação: "${sentence}"? Me dê um insight rápido de 1 linha.`;
+
+        let response;
+        if (config.provider === 'gemini') {
+            response = await fetch(config.apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                signal: controller.signal,
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }],
+                    generationConfig: { temperature: 0.5, maxOutputTokens: 150 }
+                })
+            });
+        } else {
+            response = await fetch(config.apiUrl, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
+                signal: controller.signal,
+                body: JSON.stringify({
+                    model: config.model,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt }
+                    ],
+                    temperature: 0.5,
+                    max_tokens: 150
+                })
+            });
+        }
+
+        clearTimeout(timeoutId);
         const data = await response.json();
+        
+        if (config.provider === 'gemini') {
+            return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+        }
         return data.choices?.[0]?.message?.content || null;
-    } catch (err) { return null; }
+    } catch (err) {
+        console.warn('[LinguaFlow IA] Quick Context falhou:', err);
+        return null; 
+    }
 }
 
 function notifyDashboards(word) {

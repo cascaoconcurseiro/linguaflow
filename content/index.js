@@ -37,9 +37,14 @@ if (!isSupported) {
         }
     };
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', bootstrap);
+    if (window.__LF_INITIALIZED__) {
+        console.log('[LinguaFlow] Engine já inicializada nesta aba.');
     } else {
-        bootstrap();
+        window.__LF_INITIALIZED__ = true;
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', bootstrap);
+        } else {
+            bootstrap();
+        }
     }
 }

@@ -354,8 +354,9 @@ class Database {
             req.onerror = () => r(0);
         });
 
-        const [totalWords, dueCount, log, sessions] = await Promise.all([
+        const [totalWords, totalSentences, dueCount, log, sessions] = await Promise.all([
             getCount('words'),
+            getCount('sentences'),
             new Promise(r => {
                 const req = idb.transaction('cards', 'readonly').objectStore('cards').index('due_date').count(IDBKeyRange.upperBound(Date.now()));
                 req.onsuccess = () => r(req.result);
@@ -387,18 +388,23 @@ class Database {
         const byCEFR = { A1: 0, A2: 0, B1: 0, B2: 0, C1: 0, C2: 0 };
         const words = await this.getAllWords();
         words.forEach(w => {
-            if (w.word.length <= 3) byCEFR.A1++;
-            else if (w.word.length <= 5) byCEFR.A2++;
-            else if (w.word.length <= 7) byCEFR.B1++;
-            else if (w.word.length <= 9) byCEFR.B2++;
-            else if (w.word.length <= 11) byCEFR.C1++;
-            else byCEFR.C2++;
+            if (w.level && byCEFR[w.level] !== undefined) {
+                byCEFR[w.level]++;
+            } else {
+                // Heurística de fallback (Baseada em complexidade silábica estimada por tamanho)
+                if (w.word.length <= 3) byCEFR.A1++;
+                else if (w.word.length <= 5) byCEFR.A2++;
+                else if (w.word.length <= 7) byCEFR.B1++;
+                else if (w.word.length <= 9) byCEFR.B2++;
+                else if (w.word.length <= 11) byCEFR.C1++;
+                else byCEFR.C2++;
+            }
         });
 
         const goodRevs = log.filter(r => r.quality >= 3).length;
         const retention = log.length > 0 ? Math.round((goodRevs / log.length) * 100) : 0;
         
-        return { totalWords, dueCards: dueCount, streak: this._calculateStreak(log), retention, byStatus, todaySecs, totalSecs, byCEFR };
+        return { totalWords, totalSentences, dueCards: dueCount, streak: this._calculateStreak(log), retention, byStatus, todaySecs, totalSecs, byCEFR };
     }
 
     _calculateStreak(logs) {
@@ -603,6 +609,16 @@ class Database {
         return new Promise((resolve, reject) => {
             const req = idb.transaction('sentences', 'readonly').objectStore('sentences').get(Number(id));
             req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    async deleteSentence(id) {
+        if (this.isProxyMode) return this._proxy('deleteSentence', [id]);
+        const idb = await this.initPromise;
+        return new Promise((resolve, reject) => {
+            const req = idb.transaction('sentences', 'readwrite').objectStore('sentences').delete(Number(id));
+            req.onsuccess = () => resolve(true);
             req.onerror = () => reject(req.error);
         });
     }

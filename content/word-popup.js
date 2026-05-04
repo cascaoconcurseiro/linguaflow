@@ -15,12 +15,30 @@ export class WordPopup {
     document.getElementById('lfp')?.remove();
     if (!document.getElementById('lfp-k')) {
       const s=document.createElement('style');s.id='lfp-k';
-      s.textContent=`@keyframes lfpIn{from{opacity:0;transform:translateY(10px) scale(0.93)}to{opacity:1;transform:translateY(0) scale(1)}}#lfp *{box-sizing:border-box;margin:0;padding:0}#lfp button,#lfp select,#lfp input{font-family:'Outfit','Segoe UI',sans-serif}.lfp-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:3px 10px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .12s;display:inline-block}.lfp-chip:hover{color:#7dd3fc;border-color:rgba(125,209,252,.35)}.lfp-chip.red{background:rgba(248,113,113,.06);border-color:rgba(248,113,113,.15);color:#f87171}.lfp-panels::-webkit-scrollbar{width:3px}.lfp-panels::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}.lfp-ph{background:rgba(244,114,182,.06);border:1px solid rgba(244,114,182,.15);border-radius:9px;padding:9px 12px;margin-bottom:7px}.lfp-ex{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 13px;margin-bottom:8px}.ai-res{white-space:pre-wrap;word-break:break-word}`;
+      s.textContent=`@keyframes lfpIn{from{opacity:0;transform:translateY(10px) scale(0.93)}to{opacity:1;transform:translateY(0) scale(1)}}@keyframes lfpSpin{to{transform:rotate(360deg)}}.lfp-spin{width:18px;height:18px;border:2px solid rgba(255,255,255,.1);border-top-color:#a78bfa;border-radius:50%;animation:lfpSpin .6s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px}#lfp *{box-sizing:border-box;margin:0;padding:0}#lfp button,#lfp select,#lfp input{font-family:'Outfit','Segoe UI',sans-serif}.lfp-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:3px 10px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .12s;display:inline-block}.lfp-chip:hover{color:#7dd3fc;border-color:rgba(125,209,252,.35)}.lfp-chip.red{background:rgba(248,113,113,.06);border-color:rgba(248,113,113,.15);color:#f87171}.lfp-panels::-webkit-scrollbar{width:3px}.lfp-panels::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}.lfp-ph{background:rgba(244,114,182,.06);border:1px solid rgba(244,114,182,.15);border-radius:9px;padding:9px 12px;margin-bottom:7px}.lfp-ex{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 13px;margin-bottom:8px}.ai-res{white-space:pre-wrap;word-break:break-word}`;
       document.head.appendChild(s);
     }
     this.popup=document.createElement('div');
     this.popup.id='lfp';
-    Object.assign(this.popup.style,{position:'absolute',zIndex:'2147483645',background:'rgba(7,11,26,0.98)',backdropFilter:'blur(24px) saturate(180%)',border:'1px solid rgba(125,209,252,0.18)',borderRadius:'22px',width:'400px',boxShadow:'0 28px 80px rgba(0,0,0,.85)',fontFamily:"'Outfit','Segoe UI',sans-serif",color:'#e2e8f0',display:'none',overflow:'hidden',animation:'lfpIn .2s cubic-bezier(.175,.885,.32,1.275)'});
+    Object.assign(this.popup.style, {
+      position: 'absolute',
+      zIndex: '2147483645',
+      background: 'rgba(13, 17, 28, 0.85)',
+      backdropFilter: 'blur(20px) saturate(160%)',
+      WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      borderRadius: '24px',
+      width: '400px',
+      maxWidth: '95vw',
+      boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+      fontFamily: "'Outfit', 'Inter', system-ui, -apple-system, sans-serif",
+      color: '#F8FAFC',
+      display: 'none',
+      overflow: 'hidden',
+      transition: 'opacity 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+      opacity: '0',
+      transform: 'translateY(10px) scale(0.95)'
+    });
     this.popup.innerHTML=`
 <div style="padding:16px 18px 0;display:flex;align-items:flex-start;justify-content:space-between;">
   <div style="flex:1;min-width:0;">
@@ -112,18 +130,23 @@ export class WordPopup {
 
   _bind() {
     const q = s => this._q(s);
-    q('#fx').onclick = () => this.hide();
-    document.addEventListener('mousedown', e => {
-      if (this.popup.style.display!=='none' && !this.popup.contains(e.target) && !e.target.classList?.contains('w'))
-        this.hide();
-    });
+    q('#fx').onclick = () => this.hide(true);
+    
+    if (!this._mousedownAttached) {
+      document.addEventListener('mousedown', e => {
+        if (this.popup && this.popup.style.display !== 'none' && !this.popup.contains(e.target) && !e.target.classList?.contains('w')) {
+          this.hide(true); // true = resume video
+        }
+      });
+      this._mousedownAttached = true;
+    }
     // Tabs
     this.popup.querySelectorAll('.ftab').forEach(t => {
       t.onclick = () => {
         const i = parseInt(t.dataset.i);
         this.popup.querySelectorAll('.ftab').forEach((x,j)=>{ x.style.color=j===i?'#7dd3fc':'#475569'; x.style.borderBottomColor=j===i?'#7dd3fc':'transparent'; });
         this.popup.querySelectorAll('.fp').forEach((p,j)=>p.style.display=j===i?'':'none');
-        if (i===1 && !this._gramBuilt) this._buildGrammar();
+        if (i===1 && !this._gramBuilt) this._aiGrammar();
         if (i===2 && !this._exBuilt)  this._buildExamples();
       };
     });
@@ -166,7 +189,7 @@ export class WordPopup {
     // Linguee
     q('#fl1').onclick = () => window.open(`https://www.linguee.com/english-portuguese/search?source=auto&query=${encodeURIComponent(this.word)}`,'_blank');
     q('#fl2').onclick = () => window.open(`https://www.linguee.com/english-portuguese/search?source=english&query=${encodeURIComponent(this.word)}`,'_blank');
-    q('#fl3').onclick = () => window.open(`https://translate.google.com/?sl=${this.engine?.cfg?.sourceLang||'en'}&tl=${this.engine?.cfg?.targetLang||'pt'}&text=${encodeURIComponent(this.word)}`,'_blank');
+    q('#fl3').onclick = () => window.open(`https://translate.google.com/?sl=${this.engine?.sourceLang||'en'}&tl=${this.engine?.targetLang||'pt'}&text=${encodeURIComponent(this.word)}`,'_blank');
     // YouGlish
     q('#fy1').onclick = () => window.open(`https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english`,'_blank');
     q('#fy2').onclick = () => window.open(`https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english/us`,'_blank');
@@ -175,47 +198,12 @@ export class WordPopup {
     q('#fy5').onclick = () => window.open(`https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english/academic`,'_blank');
   }
 
-  _findPlayerContainer() {
-    const selectors = {
-      'youtube': ['#movie_player', '.html5-video-player'],
-      'netflix': ['.watch-video', '.NFPlayer'],
-      'max': ['[data-testid="player-container"]', '[class*="PlayerContainer"]'],
-      'disney': ['.btm-media-clients'],
-      'prime': ['.rendererContainer']
-    };
-    
-    const platformSelectors = selectors[this.platform] || [];
-    for (const sel of platformSelectors) {
-      const el = document.querySelector(sel);
-      if (el) {
-        const pos = window.getComputedStyle(el).position;
-        if (pos === 'static') el.style.position = 'relative';
-        return el;
-      }
-    }
-    
-    // Fallback: procura por video e pega o pai
-    const video = document.querySelector('video');
-    if (video) {
-      let parent = video.parentElement;
-      let attempts = 0;
-      while (parent && attempts < 5) {
-        const rect = parent.getBoundingClientRect();
-        if (rect.width > 400 && rect.height > 300) {
-          const pos = window.getComputedStyle(parent).position;
-          if (pos === 'static') parent.style.position = 'relative';
-          return parent;
-        }
-        parent = parent.parentElement;
-        attempts++;
-      }
-    }
-    return null;
-  }
+  // _findPlayerContainer movido para baixo para evitar duplicidade
 
-  async showForWord(word, context, rect) {
+  async showForWord(word, context, rect, cue) {
     if (!word) return;
     this.word=word; this.context=context||'';
+    this.currentCue = cue; // Armazena a cue completa com contexto expandido
     this._gramBuilt=false; this._exBuilt=false;
     
     // Encontra o player container
@@ -240,7 +228,7 @@ export class WordPopup {
     (async()=>{
       const BASE=chrome.runtime.getURL('utils/');
       const {db}=await import(BASE+'db.js');
-      const lang=this.engine?.cfg?.sourceLang||'en';
+      const lang=this.engine?.sourceLang||'en';
       const saved=await db.getWord(word,lang);
       const known=await db.isKnown(word,lang);
       q('#fsave').textContent=saved?'✅ Salvo nos Flashcards':'+ Salvar nos Flashcards';
@@ -254,14 +242,29 @@ export class WordPopup {
     q('#fvctx').textContent=context||'(sem contexto)';
     q('#fvctxtr').textContent='';
     this._position(rect);
-    this.popup.style.display='block';
-    this.popup.style.animation='none';
-    requestAnimationFrame(()=>{ this.popup.style.animation=''; });
+    this.popup.style.display = 'block';
+    
+    // Trigger animation
+    requestAnimationFrame(() => {
+      this.popup.style.opacity = '1';
+      this.popup.style.transform = 'translateY(0) scale(1)';
+    });
+
     this._loadData(word);
-    // Translate context
-    if (context) { const tr=await this._translate(context); if(tr) q('#fvctxtr').textContent='→ '+tr; }
-    // Gera explicação contextual automática
-    if (context) this._explainContext(word, context);
+    
+    // Se o vídeo estava tocando, pausamos e marcamos que fomos nós
+    if (this.engine?.videoElement && !this.engine.videoElement.paused) {
+        this.engine.videoElement.pause();
+        this._wasPlayingBefore = true;
+    }
+
+    // Tradução do contexto em segundo plano
+    if (context) {
+        this._translate(context).then(tr => {
+            if (tr) q('#fvctxtr').textContent = '→ ' + tr;
+        });
+        // A explicação contextual agora é disparada apenas se o usuário clicar em "IA" ou após o dicionário carregar
+    }
   }
 
   async _loadData(word) {
@@ -289,20 +292,50 @@ export class WordPopup {
     
     // Store audioUrl for TTS button
     this._currentAudioUrl = d.audioUrl || null;
+    
+    // Auto-carrega contexto se disponível
+    if (this.context && !this._contextExplained) {
+        this._explainContext(this.word, this.context);
+    }
   }
 
-  _buildGrammar() {
+  async _buildGrammar() {
     this._gramBuilt=true;
     const q=s=>this._q(s);
     const d=this.cache[this.word]||{};
-    const phs=this._phrasals(this.word);
-    let h=`<div style="margin-bottom:14px;"><div style="font-size:10px;color:#7dd3fc;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Classe Gramatical</div><div style="font-size:13px;color:#e2e8f0;line-height:1.7;">${this._posDetail(d.partOfSpeech,this.word)}</div></div>`;
+    
+    // Carrega DB de phrasal verbs
+    const BASE=chrome.runtime.getURL('utils/');
+    const { phrasalVerbsDB } = await import(BASE + 'phrasal-verbs.js');
+    
+    // Verifica se a palavra atual já é uma expressão (contém espaço)
+    const isExpr = this.word.includes(' ');
+    const phs = isExpr ? [] : (phrasalVerbsDB[this.word.toLowerCase()] || []);
+
+    let h = '';
+    
+    if (isExpr) {
+      h += `<div style="margin-bottom:14px;background:rgba(244,114,182,0.1);padding:12px;border-radius:12px;border:1px solid rgba(244,114,182,0.2);">
+             <div style="font-size:10px;color:#f472b6;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Tipo de Termo</div>
+             <div style="font-size:14px;color:#f8fafc;font-weight:700;">Expressão / Phrasal Verb</div>
+             <div style="font-size:12px;color:#94a3b8;margin-top:4px;line-height:1.5;">Este é um termo composto que possui um significado único quando as palavras são usadas juntas.</div>
+            </div>`;
+    } else {
+      h += `<div style="margin-bottom:14px;"><div style="font-size:10px;color:#7dd3fc;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Classe Gramatical</div><div style="font-size:13px;color:#e2e8f0;line-height:1.7;">${this._posDetail(d.partOfSpeech,this.word)}</div></div>`;
+    }
+
     if(phs.length){
       h+=`<div style="margin-bottom:14px;"><div style="font-size:10px;color:#f472b6;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Phrasal Verbs com "${this.word}"</div>`;
       h+=phs.map(p=>`<div class="lfp-ph"><div style="font-size:13px;font-weight:700;color:#f472b6;margin-bottom:2px;">${p.phrase}</div><div style="font-size:12px;color:#94a3b8;margin-bottom:2px;">${p.meaning}</div><div style="font-size:11px;color:#64748b;font-style:italic;">"${p.example}"</div></div>`).join('');
       h+=`</div>`;
     }
-    h+=`<div><div style="font-size:10px;color:#fbbf24;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Padrões Gramaticais</div><div style="font-size:13px;color:#94a3b8;line-height:1.8;">${this._patterns(d.partOfSpeech,this.word)}</div></div>`;
+
+    if (!isExpr) {
+      h+=`<div><div style="font-size:10px;color:#fbbf24;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Padrões Gramaticais</div><div style="font-size:13px;color:#94a3b8;line-height:1.8;">${this._patterns(d.partOfSpeech,this.word)}</div></div>`;
+    } else {
+      h+=`<div><div style="font-size:10px;color:#fbbf24;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Análise Sugerida</div><div style="font-size:13px;color:#94a3b8;line-height:1.8;">Clique em <b>"Analisar com IA"</b> abaixo para entender como as palavras se combinam nesta expressão específica.</div></div>`;
+    }
+
     h+=`<div id="fgai" style="display:none;margin-top:12px;background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:12px;font-size:12px;color:#c4b5fd;line-height:1.7;"></div>`;
     q('#fgb').innerHTML=h;
   }
@@ -327,7 +360,14 @@ export class WordPopup {
     // Translate all examples
     const hl=(t,w)=>t.replace(new RegExp(`\\b(${w})\\b`,'gi'),'<b style="color:#7dd3fc">$1</b>');
     q('#fexb').innerHTML='<div style="color:#475569;font-size:12px;text-align:center;padding:8px;">Traduzindo exemplos…</div>';
-    const translated=await Promise.all(exs.map(e=>this._translate(e.en)));
+    
+    // Tradução sequencial para não sobrecarregar o canal de mensagens
+    const translated = [];
+    for (const e of exs) {
+        const tr = await this._translate(e.en);
+        translated.push(tr);
+    }
+
     q('#fexb').innerHTML=exs.map((e,i)=>`
       <div class="lfp-ex">
         <div style="margin-bottom:5px;">${hl(e.en,this.word)}</div>
@@ -385,7 +425,7 @@ export class WordPopup {
     
     try {
       const {db}=await import(BASE+'db.js');
-      const lang = this.engine?.cfg?.sourceLang||'en';
+      const lang = this.engine?.sourceLang||'en';
       
       // Verifica se já existe
       const existing = await db.getWord(this.word, lang);
@@ -413,7 +453,7 @@ export class WordPopup {
 
       const result = await db.saveWord({
         word:this.word, 
-        lang:this.engine?.cfg?.sourceLang||'en',
+        lang:this.engine?.sourceLang||'en',
         translation: translation, 
         phonetic:d.phonetic||'',
         definition:d.definition||'', 
@@ -522,7 +562,7 @@ export class WordPopup {
     const btn=q('#fknown');
     const BASE=chrome.runtime.getURL('utils/');
     const {db}=await import(BASE+'db.js');
-    const lang=this.engine?.cfg?.sourceLang||'en';
+    const lang=this.engine?.sourceLang||'en';
     const isKnown=await db.isKnown(this.word,lang);
     if(!isKnown){
       await db.markAsKnown(this.word,lang);
@@ -545,7 +585,7 @@ export class WordPopup {
   }
   _renderDecks(){const s=this._q('#fdeck');if(!s)return;s.innerHTML=this.decks.map(d=>`<option value="${d}">${d==='Default'?'📚 Default':d}</option>`).join('');s.value=this.activeDeck;}
 
-  _translate(t){return new Promise(res=>{chrome.runtime.sendMessage({action:'translate',text:t,from:this.engine?.cfg?.sourceLang||'en',to:this.engine?.cfg?.targetLang||'pt'},r=>{if(chrome.runtime.lastError){res(null);return;}res(r?.translation||null);});});}
+  _translate(t){return new Promise(res=>{chrome.runtime.sendMessage({action:'translate',text:t,from:this.engine?.sourceLang||'en',to:this.engine?.targetLang||'pt'},r=>{if(chrome.runtime.lastError){res(null);return;}res(r?.translation||null);});});}
   _dict(w){return new Promise(res=>{chrome.runtime.sendMessage({action:'dictionary',word:w},r=>{if(chrome.runtime.lastError||!r?.ok){res({});return;}res(r.data||{});});});}
 
   async _explainContext(word, sentence) {
@@ -629,86 +669,125 @@ export class WordPopup {
     }
   }
 
-  _phrasals(word){const DB={get:[{phrase:'get up',meaning:'Levantar-se',example:"I get up at 7am."},{phrase:'get over',meaning:'Superar',example:"She got over her fear."},{phrase:'get along',meaning:'Dar-se bem',example:"We get along very well."},{phrase:'get through',meaning:'Passar por / Conseguir',example:"We'll get through this together."},{phrase:'get out',meaning:'Sair / Escapar',example:"Let's get out of here!"},{phrase:'get away',meaning:'Escapar / Viajar',example:"I need to get away for a while."}],put:[{phrase:'put off',meaning:'Adiar / Desanimar',example:"Don't put off what you can do today."},{phrase:'put up with',meaning:'Suportar',example:"I can't put up with this anymore."},{phrase:'put on',meaning:'Vestir / Fingir / Colocar',example:"She put on her coat."},{phrase:'put out',meaning:'Apagar / Lançar',example:"Put out the fire immediately."}],take:[{phrase:'take off',meaning:'Decolar / Remover / Ter sucesso',example:"The business really took off."},{phrase:'take over',meaning:'Assumir controle',example:"She took over as CEO."},{phrase:'take up',meaning:'Começar hobby / Ocupar',example:"I took up painting last year."},{phrase:'take in',meaning:'Absorver / Enganar',example:"Take in the beautiful view."}],give:[{phrase:'give up',meaning:'Desistir',example:"Never give up on your dreams."},{phrase:'give in',meaning:'Ceder',example:"He finally gave in."},{phrase:'give away',meaning:'Dar de graça / Revelar',example:"Don't give away the surprise!"}],come:[{phrase:'come up with',meaning:'Ter uma ideia',example:"She came up with a brilliant plan."},{phrase:'come across',meaning:'Encontrar por acaso',example:"I came across this old photo."},{phrase:'come down to',meaning:'Se resumir a',example:"It all comes down to trust."}],look:[{phrase:'look up',meaning:'Buscar informação / Melhorar',example:"Look it up in the dictionary."},{phrase:'look out',meaning:'Cuidado!',example:"Look out! There's a car!"},{phrase:'look forward to',meaning:'Estar ansioso por',example:"I look forward to meeting you."}],make:[{phrase:'make up',meaning:'Inventar / Reconciliar / Maquiar',example:"He made up a story."},{phrase:'make out',meaning:'Entender / Ver à distância',example:"I can barely make out the sign."},{phrase:'make it',meaning:'Conseguir / Chegar',example:"Can you make it to the party?"}],run:[{phrase:'run out of',meaning:'Ficar sem',example:"We ran out of time."},{phrase:'run into',meaning:'Encontrar por acaso',example:"I ran into my old friend."},{phrase:'run away',meaning:'Fugir',example:"Don't run away from problems."}],turn:[{phrase:'turn up',meaning:'Aparecer / Aumentar volume',example:"He turned up late again."},{phrase:'turn down',meaning:'Recusar / Diminuir',example:"She turned down the offer."},{phrase:'turn off',meaning:'Desligar',example:"Turn off the lights, please."}],break:[{phrase:'break up',meaning:'Terminar relacionamento',example:"They broke up last month."},{phrase:'break down',meaning:'Quebrar / Colapso emocional',example:"The car broke down on the highway."},{phrase:'break out',meaning:'Escapar / Surgir repentinamente',example:"A fire broke out."}],bring:[{phrase:'bring up',meaning:'Criar filho / Mencionar',example:"He was brought up in Brazil."},{phrase:'bring out',meaning:'Revelar / Lançar',example:"Hard times bring out the best in people."}],fall:[{phrase:'fall apart',meaning:'Desmoronar',example:"Their relationship fell apart."},{phrase:'fall behind',meaning:'Ficar para trás',example:"Don't fall behind in class."},{phrase:'fall for',meaning:'Se apaixonar / Cair num truque',example:"I completely fell for her."}],hold:[{phrase:'hold on',meaning:'Esperar / Segurar',example:"Hold on, I'll be right back."},{phrase:'hold back',meaning:'Conter / Segurar',example:"She held back her tears."}],keep:[{phrase:'keep up',meaning:'Acompanhar / Manter',example:"Keep up the great work!"},{phrase:'keep on',meaning:'Continuar',example:"Keep on practicing!"},{phrase:'keep out',meaning:'Ficar de fora',example:"Keep out of trouble."}],go:[{phrase:'go on',meaning:'Continuar / Acontecer',example:"What's going on here?"},{phrase:'go through',meaning:'Passar por dificuldade',example:"She went through a lot."},{phrase:'go out',meaning:'Sair / Apagar',example:"The lights went out."}],work:[{phrase:'work out',meaning:'Malhar / Funcionar / Resolver',example:"It all worked out in the end."},{phrase:'work on',meaning:'Trabalhar em',example:"I'm working on a new project."}],set:[{phrase:'set up',meaning:'Montar / Criar',example:"Let's set up a meeting."},{phrase:'set off',meaning:'Partir / Detonar',example:"They set off at dawn."}],show:[{phrase:'show up',meaning:'Aparecer',example:"He always shows up late."},{phrase:'show off',meaning:'Se exibir',example:"Stop showing off!"}],think:[{phrase:'think over',meaning:'Refletir sobre',example:"Let me think it over first."},{phrase:'think up',meaning:'Inventar / Criar',example:"She thought up a great solution."}],call:[{phrase:'call off',meaning:'Cancelar',example:"They called off the game."},{phrase:'call out',meaning:'Chamar / Criticar',example:"He called her out on the mistake."}],find:[{phrase:'find out',meaning:'Descobrir',example:"I need to find out what happened."},{phrase:'find out about',meaning:'Saber sobre algo',example:"How did you find out about this?"}],cut:[{phrase:'cut off',meaning:'Cortar / Interromper',example:"He was cut off mid-sentence."},{phrase:'cut down on',meaning:'Reduzir',example:"I'm cutting down on sugar."}],hang:[{phrase:'hang out',meaning:'Passar tempo com amigos',example:"Let's hang out this weekend."},{phrase:'hang on',meaning:'Esperar',example:"Hang on a second, please."}],let:[{phrase:'let down',meaning:'Decepcionar',example:"Please don't let me down."},{phrase:'let go',meaning:'Soltar / Deixar ir',example:"Just let it go."}],pick:[{phrase:'pick up',meaning:'Buscar / Pegar / Aprender',example:"Can you pick me up at 5?"},{phrase:'pick out',meaning:'Escolher / Identificar',example:"Pick out the one you like."}],carry:[{phrase:'carry on',meaning:'Continuar',example:"Carry on with your work."},{phrase:'carry out',meaning:'Executar / Realizar',example:"They carried out the plan."}],fill:[{phrase:'fill in',meaning:'Preencher / Substituir',example:"Fill in the blanks."},{phrase:'fill out',meaning:'Preencher formulário',example:"Please fill out this form."}],back:[{phrase:'back up',meaning:'Apoiar / Fazer backup',example:"Back up your files!"},{phrase:'back down',meaning:'Recuar',example:"He backed down from the argument."}],blow:[{phrase:'blow up',meaning:'Explodir / Enraivecer',example:"He blew up when he heard the news."},{phrase:'blow away',meaning:'Impressionar muito',example:"Her performance blew me away."}],pass:[{phrase:'pass out',meaning:'Desmaiar',example:"She passed out from exhaustion."},{phrase:'pass on',meaning:'Transmitir / Repassar',example:"Pass on my regards."}],};return DB[word.toLowerCase()]||[];}
+  _phrasals(word) {
+    // Agora carregado dinamicamente no _buildGrammar para manter o arquivo principal leve.
+    return [];
+  }
 
   _posDetail(pos,w){const m={noun:`<b style="color:#7dd3fc">Substantivo</b> — Pessoa, lugar, coisa ou ideia.<br>• Artigo: <span style="color:#7dd3fc">a/an/the ${w}</span><br>• Plural: <span style="color:#7dd3fc">${w}s</span> • Possessivo: <span style="color:#7dd3fc">${w}'s</span>`,verb:`<b style="color:#4ade80">Verbo</b> — Ação ou estado.<br>• Base: <span style="color:#4ade80">${w}</span> • 3ª pessoa: <span style="color:#4ade80">${w}s</span><br>• Gerúndio: <span style="color:#4ade80">${w}ing</span> • Passado: <span style="color:#4ade80">${w}ed</span><br>• Passiva: <span style="color:#4ade80">be/was ${w}ed</span>`,adjective:`<b style="color:#fbbf24">Adjetivo</b> — Descreve substantivos.<br>• Antes do noun: <span style="color:#fbbf24">${w} + noun</span><br>• Após linking verb: <span style="color:#fbbf24">be/seem/look + ${w}</span><br>• Comparativo: <span style="color:#fbbf24">more ${w}</span> • Superlativo: <span style="color:#fbbf24">most ${w}</span>`,adverb:`<b style="color:#f472b6">Advérbio</b> — Modifica verbos, adjetivos ou advérbios.<br>• Geralmente termina em <b>-ly</b><br>• Ex: very, quite, rather, too + <span style="color:#f472b6">${w}</span>`,preposition:`<b style="color:#a78bfa">Preposição</b> — Relação entre elementos.<br>• Lugar: in, on, at, under, over<br>• Tempo: at, on, in, before, after<br>• Movimento: to, from, into, through`};return m[pos?.toLowerCase()]||`<span style="color:#64748b">Clique "Analisar com IA" para análise detalhada da classe gramatical desta palavra.</span>`;}
 
   _patterns(pos,w){const m={verb:`• <b>S + ${w} + O</b> (transitivo)<br>• <b>S + ${w} + to-inf.</b> (ex: want to ${w})<br>• <b>S + ${w} + -ing</b> (ex: enjoy ${w}ing)<br>• <b>S + ${w} + that clause</b>`,noun:`• <b>the/a/an + ${w}</b><br>• <b>adj + ${w}</b> (ex: big/small ${w})<br>• <b>${w} + of + sth</b><br>• <b>compound: ${w}+noun</b>`,adjective:`• <b>${w} + noun</b> (atributivo)<br>• <b>be/seem/look/feel/sound + ${w}</b><br>• <b>too + ${w} / ${w} + enough</b><br>• <b>very/quite/rather/extremely + ${w}</b>`};return m[pos?.toLowerCase()]||`<span style="color:#64748b">Use "Analisar com IA" para ver padrões específicos desta palavra.</span>`;}
 
+  _findPlayerContainer() {
+    const selectors = {
+      'youtube': ['#movie_player', '.html5-video-player', '#ytd-player'],
+      'netflix': ['.watch-video', '.NFPlayer', '#netflix-player'],
+      'max': ['[data-testid="player-container"]', '[class*="PlayerContainer"]', '#hbo-max-player-container'],
+      'disney': ['.btm-media-clients', '#disney-player-container'],
+      'prime': ['.rendererContainer', '#dv-web-player']
+    };
+    const platformSelectors = selectors[this.platform] || [];
+    for (const sel of platformSelectors) {
+      const el = document.querySelector(sel);
+      if (el && el.offsetHeight > 100) {
+        const pos = window.getComputedStyle(el).position;
+        if (pos === 'static') el.style.position = 'relative';
+        return el;
+      }
+    }
+    const video = document.querySelector('video');
+    if (video) {
+      let parent = video.parentElement;
+      let attempts = 0;
+      while (parent && attempts < 8) {
+        const rect = parent.getBoundingClientRect();
+        const style = window.getComputedStyle(parent);
+        if (rect.width > 400 && rect.height > 300 && style.display !== 'contents') {
+          if (style.position === 'static') parent.style.position = 'relative';
+          return parent;
+        }
+        parent = parent.parentElement;
+        attempts++;
+      }
+    }
+    return null;
+  }
+
   _position(rect) {
-    const W=400, H=560;
-    const playerContainer = this._findPlayerContainer();
+    const player = this._findPlayerContainer();
+    const isFixed = player === document.body;
+    const playerRect = player.getBoundingClientRect();
     
-    if (playerContainer) {
-      // Popup dentro do player - usa coordenadas relativas
-      const playerRect = playerContainer.getBoundingClientRect();
-      let l, t;
+    const W = Math.min(400, playerRect.width * 0.95);
+    const H = 540;
+    
+    this.popup.style.width = W + 'px';
+    this.popup.style.height = H + 'px';
+    this.popup.style.position = isFixed ? 'fixed' : 'absolute';
+
+    let left, top;
+    
+    if (rect) {
+      // Posiciona relativo ao clique
+      const scrollX = isFixed ? 0 : player.scrollLeft;
+      const scrollY = isFixed ? 0 : player.scrollTop;
       
-      if (rect) {
-        // Posiciona ACIMA da palavra clicada (relativo ao player)
-        l = rect.left - playerRect.left;
-        t = rect.top - playerRect.top - H - 20; // 20px de margem acima da palavra
-        
-        // Se não couber acima, posiciona no topo do player
-        if (t < 20) {
-          t = 20; // Margem do topo
-        }
-        
-        // Centraliza horizontalmente se possível
-        l = l - (W / 2) + (rect.width / 2);
-        
-        // Ajusta se sair pela direita
-        if (l + W > playerRect.width - 20) {
-          l = playerRect.width - W - 20;
-        }
-        
-        // Ajusta se sair pela esquerda
-        if (l < 20) {
-          l = 20;
-        }
-        
-        // Garante que não invade a área da legenda (parte inferior)
-        const maxTop = playerRect.height - H - 150; // 150px reservados para legendas
-        if (t > maxTop) {
-          t = maxTop;
-        }
-      } else {
-        // Centro do player, mas mais acima
-        l = Math.round((playerRect.width - W) / 2);
-        t = Math.round((playerRect.height - H) / 2) - 100; // 100px mais acima
-        if (t < 20) t = 20;
+      left = (rect.left - playerRect.left) + scrollX + (rect.width / 2) - (W / 2);
+      top = (rect.top - playerRect.top) + scrollY - H - 15;
+
+      // Se estourar para cima, coloca embaixo
+      if (top < scrollY + 10) {
+        top = (rect.bottom - playerRect.top) + scrollY + 15;
       }
       
-      this.popup.style.left = l + 'px';
-      this.popup.style.top = t + 'px';
-      this.popup.style.transform = 'none';
+      // Ajuste horizontal para não sair do player
+      left = Math.max(10, Math.min(left, playerRect.width - W - 10));
     } else {
-      // Fallback: fixed no centro da tela
-      this.popup.style.left = '50%';
-      this.popup.style.top = '50%';
-      this.popup.style.transform = 'translate(-50%, -50%)';
+      // Centraliza no player
+      left = (playerRect.width - W) / 2;
+      top = (playerRect.height - H) / 2;
     }
+
+    this.popup.style.left = left + 'px';
+    this.popup.style.top = top + 'px';
+  }
+
+  hide(resumeVideo = false) {
+    if (!this.popup || this.popup.style.display === 'none') return;
+    
+    this.popup.style.opacity = '0';
+    this.popup.style.transform = 'translateY(10px) scale(0.95)';
+    
+    if (resumeVideo && this._wasPlayingBefore && this.engine?.videoElement) {
+        this.engine.videoElement.play();
+        this._wasPlayingBefore = false;
+    }
+
+    setTimeout(() => {
+      this.popup.style.display = 'none';
+    }, 200);
   }
   async _ai() {
     const q=s=>this._q(s);
     const btn=q('#fai');
     const resEl=q('#fair');
     if (btn.disabled) return;
-    btn.textContent='✦ Analisando…';
+    btn.innerHTML='<span class="lfp-spin"></span> Analisando…';
     btn.disabled=true;
     resEl.style.display='block';
-    resEl.textContent='Consultando IA para análise profunda…';
+    resEl.innerHTML='<div style="padding:10px;text-align:center;"><span class="lfp-spin"></span> A IA está processando uma explicação detalhada...</div>';
     try {
       const response = await new Promise(resolve => {
         chrome.runtime.sendMessage({
           action: 'ai_explain_word',
           word: this.word,
-          context: this.context
+          context: this.context,
+          fullContext: this.currentCue?.fullContext || null
         }, resolve);
       });
       if (response?.explanation) {
         q('#fair-container').style.display = 'block';
-        resEl.textContent = response.explanation;
+        resEl.innerHTML = this._formatAI(response.explanation);
 
         // Tenta extrair o nível CEFR (A1-C2)
         const cefrMatch = response.explanation.match(/Nível Sugerido \(CEFR\):\s*(A1|A2|B1|B2|C1|C2)/i);
@@ -718,7 +797,7 @@ export class WordPopup {
             // Se já estiver salva, atualiza o nível no banco
             const BASE=chrome.runtime.getURL('utils/');
             const {db}=await import(BASE+'db.js');
-            db.getWord(this.word, this.engine?.cfg?.sourceLang||'en').then(saved => {
+            db.getWord(this.word, this.engine?.sourceLang||'en').then(saved => {
                 if (saved) {
                     saved.level = level;
                     db.saveWord(saved);
@@ -726,10 +805,10 @@ export class WordPopup {
             });
         }
       } else {
-        resEl.textContent='Não foi possível obter resposta da IA.';
+        resEl.innerHTML = `<div style="color:#f87171;padding:10px;">⚠️ <b>Falha na IA</b><br>${response?.error || 'Não foi possível obter resposta. Verifique sua chave API no Dashboard.'}</div>`;
       }
     } catch (e) {
-      resEl.textContent='Erro ao consultar IA.';
+      resEl.innerHTML='<div style="color:#f87171;padding:10px;">⚠️ Erro de conexão com o servidor de IA.</div>';
     } finally {
       btn.textContent='✦ Explicar Palavra';
       btn.disabled=false;
@@ -751,15 +830,16 @@ export class WordPopup {
     const resEl=q('#fair');
     if (!this.context) return alert('Frase de contexto não encontrada.');
     if (btn.disabled) return;
-    btn.textContent='🔍 Analisando frase…';
+    btn.innerHTML='<span class="lfp-spin" style="border-top-color:#fbbf24"></span> Analisando frase…';
     btn.disabled=true;
     q('#fair-container').style.display='block';
-    resEl.textContent='Aguarde, a IA está analisando a estrutura da frase…';
+    resEl.innerHTML='<div style="padding:10px;text-align:center;"><span class="lfp-spin" style="border-top-color:#fbbf24"></span> Desconstruindo a frase com IA...</div>';
     try {
       const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           action: 'ai_explain_sentence',
-          sentence: this.context
+          sentence: this.context,
+          fullContext: this.currentCue?.fullContext || null // Passa o diálogo ao redor
         }, (res) => {
           if (chrome.runtime.lastError) {
             reject(chrome.runtime.lastError);
@@ -770,15 +850,13 @@ export class WordPopup {
       });
       
       if (response?.analysis) {
-        resEl.textContent = response.analysis;
-      } else if (response?.error) {
-        resEl.textContent = 'Erro na IA: ' + response.error;
+        resEl.innerHTML = this._formatAI(response.analysis);
       } else {
-        resEl.textContent = 'A IA não conseguiu analisar esta frase no momento.';
+        resEl.innerHTML = `<div style="color:#f87171;padding:10px;">⚠️ <b>Erro na Análise</b><br>${response?.error || 'A IA não conseguiu processar esta frase.'}</div>`;
       }
     } catch (e) {
       console.error('[LinguaFlow] Erro ao analisar frase:', e);
-      resEl.textContent = 'Erro na comunicação. Verifique sua conexão.';
+      resEl.innerHTML = '<div style="color:#f87171;padding:10px;">⚠️ Falha na comunicação com o Service Worker.</div>';
     } finally {
       btn.textContent = '🔍 Analisar Frase Completa';
       btn.disabled = false;
@@ -798,9 +876,11 @@ export class WordPopup {
     const btn=q('#fgbtn');
     const resEl=q('#fgb');
     if (btn.disabled) return;
-    btn.textContent='✦ Analisando…';
+    btn.innerHTML='<span class="lfp-spin"></span> Analisando…';
     btn.disabled=true;
-    resEl.innerHTML='<div style="text-align:center;padding:20px;color:#a78bfa;">A IA está processando os elementos gramaticais…</div>';
+    resEl.innerHTML='<div style="text-align:center;padding:20px;color:#a78bfa;"><span class="lfp-spin"></span> Mapeando estruturas gramaticais...</div>';
+    
+
     try {
       const response = await new Promise(resolve => {
         chrome.runtime.sendMessage({
@@ -811,9 +891,10 @@ export class WordPopup {
       if (response?.analysis) {
         resEl.className = 'ai-res';
         resEl.style.cssText = 'font-size:13px;color:#e2e8f0;line-height:1.6;padding:10px;background:rgba(255,255,255,0.03);border-radius:10px;position:relative;';
+        const formatted = this._formatAI(response.analysis);
         resEl.innerHTML = `
-          <div id="fgb-text">${response.analysis}</div>
-          <button id="fcopy-gram" style="position:absolute;top:5px;right:5px;background:rgba(255,255,255,0.1);border:none;border-radius:6px;color:#fff;padding:3px 6px;font-size:9px;cursor:pointer;">📋 Copiar</button>
+          <div id="fgb-text" style="max-height:300px;overflow-y:auto;padding-right:5px;">${formatted}</div>
+          <button id="fcopy-gram" style="position:absolute;top:5px;right:5px;background:rgba(255,255,255,0.1);border:none;border-radius:6px;color:#fff;padding:3px 6px;font-size:9px;cursor:pointer;z-index:10;">📋 Copiar</button>
         `;
         
         q('#fcopy-gram').onclick = (e) => {
@@ -823,15 +904,23 @@ export class WordPopup {
             setTimeout(() => q('#fcopy-gram').textContent = '📋', 2000);
         };
       } else {
-        resEl.innerHTML='<div style="color:#f87171;">Não foi possível gerar análise.</div>';
+        resEl.innerHTML=`<div style="color:#f87171;padding:10px;">⚠️ <b>Falha na Gramática</b><br>${response?.error || 'Não foi possível gerar análise.'}</div>`;
       }
     } catch (e) {
-      resEl.innerHTML='<div style="color:#f87171;">Erro na consulta.</div>';
+      resEl.innerHTML='<div style="color:#f87171;padding:10px;">⚠️ Erro na consulta de gramática.</div>';
     } finally {
       btn.textContent='✦ Analisar com IA';
       btn.disabled=false;
     }
   }
+
+  _formatAI(text) {
+    if (!text) return '';
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<b style="color:#7dd3fc">$1</b>') // Negrito
+      .replace(/\*(.*?)\*/g, '<i style="color:#94a3b8">$1</i>')      // Itálico
+      .replace(/\n/g, '<br>');                                      // Quebras de linha
+  }
   
-  hide(){this.popup.style.display='none';}
+  // O hide original com animação está na linha ~734
 }

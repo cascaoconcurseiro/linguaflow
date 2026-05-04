@@ -2,37 +2,19 @@
 const DB_NAME = 'LinguaFlowFreeDB';
 
 async function readAllSettings() {
-    return new Promise(resolve => {
-        const req = indexedDB.open(DB_NAME);
-        req.onsuccess = () => {
-            const db = req.result;
-            if (!db.objectStoreNames.contains('settings')) { resolve({}); return; }
-            const tx = db.transaction('settings', 'readonly');
-            const allReq = tx.objectStore('settings').getAll();
-            allReq.onsuccess = () => {
-                const obj = {};
-                (allReq.result || []).forEach(r => { obj[r.key] = r.value; });
-                resolve(obj);
-            };
-            allReq.onerror = () => resolve({});
-        };
-        req.onerror = () => resolve({});
-    });
+    const { db } = await import('../utils/db.js');
+    const settings = ['targetLang', 'subtitleMode', 'bgOpacity', 'fontSize', 'fontSizeTrans', 'autoPause', 'showOriginal', 'showTranslation', 'subtitleBottom', 'subtitleHorizontal', 'translationDelay', 'translationAnticipation', 'flashDuration', 'wordColorKnown', 'wordColorSaved'];
+    const obj = {};
+    for (const key of settings) {
+        const val = await db.getSetting(key);
+        if (val !== undefined) obj[key] = val;
+    }
+    return obj;
 }
 
 async function writeSetting(key, value) {
-    return new Promise(resolve => {
-        const req = indexedDB.open(DB_NAME);
-        req.onsuccess = () => {
-            const db = req.result;
-            if (!db.objectStoreNames.contains('settings')) { resolve(); return; }
-            const tx = db.transaction('settings', 'readwrite');
-            tx.objectStore('settings').put({ key, value });
-            tx.oncomplete = () => resolve();
-            tx.onerror    = () => resolve();
-        };
-        req.onerror = () => resolve();
-    });
+    const { db } = await import('../utils/db.js');
+    return db.setSetting(key, value);
 }
 
 export class SettingsPanel {
@@ -50,7 +32,7 @@ export class SettingsPanel {
             fontSizeTrans:           18,       // tamanho legenda tradução (NOVO)
             wordColorKnown:          '#86EFAC',
             wordColorSaved:          '#93C5FD',
-            autoPause:               true,
+            autoPause:               false,
             showOriginal:            true,
             showTranslation:         true,
             subtitleBottom:          84,
@@ -101,7 +83,7 @@ export class SettingsPanel {
         s.getElementById('rng-horizontal').value    = this.cfg.subtitleHorizontal;
         s.getElementById('rng-delay').value         = this.cfg.translationDelay;
         // No YouTube, slider de antecipação sempre 0
-        s.getElementById('rng-anticipation').value  = (this.engine && this.engine.platform === 'youtube') ? 0 : this.cfg.translationAnticipation;
+        s.getElementById('rng-anticipation').value  = this.cfg.translationAnticipation;
         s.getElementById('rng-flash').value         = this.cfg.flashDuration;
         s.getElementById('col-known').value         = this.cfg.wordColorKnown;
         s.getElementById('col-saved').value         = this.cfg.wordColorSaved;
@@ -113,8 +95,7 @@ export class SettingsPanel {
         s.getElementById('val-horizontal').textContent  = `${this.cfg.subtitleHorizontal}%`;
         s.getElementById('val-delay').textContent       = `${this.cfg.translationDelay}s`;
         // No YouTube, sempre mostra 0s no slider de antecipação
-        const anticipationDisplay = (this.engine && this.engine.platform === 'youtube') ? '0s' : `${this.cfg.translationAnticipation}s`;
-        s.getElementById('val-anticipation').textContent = anticipationDisplay;
+        s.getElementById('val-anticipation').textContent = `${this.cfg.translationAnticipation}s`;
         s.getElementById('val-flash').textContent       = `${this.cfg.flashDuration}s`;
 
         // Handlers
@@ -413,21 +394,21 @@ export class SettingsPanel {
                         <p class="section-title">⏱️ Velocidade da Tradução</p>
 
                         <div class="group">
-                            <label>Antecipação da Tradução</label>
+                            <label>⏱️ Sincronia das Legendas (Offset)</label>
                             <div class="slider-row">
-                                <input type="range" id="rng-anticipation" min="0" max="3" step="0.1" value="0">
+                                <input type="range" id="rng-anticipation" min="-2" max="2" step="0.1" value="0">
                                 <span class="slider-val" id="val-anticipation">0s</span>
                             </div>
-                            <small>0s = Sincronizado com YouTube | 1s = Rápido | 2.5s = Muito Rápido</small>
+                            <small>-2s = Atrasar Legendas | 0s = Padrão | +2s = Antecipar Legendas</small>
                         </div>
 
                         <div class="group">
-                            <label>Delay da Tradução</label>
+                            <label>Delay da Tradução (Linha Azul)</label>
                             <div class="slider-row">
                                 <input type="range" id="rng-delay" min="0" max="5" step="0.1" value="0">
                                 <span class="slider-val" id="val-delay">0s</span>
                             </div>
-                            <small>0s = Instantâneo | 1s = Normal | 2s+ = Lento</small>
+                            <small>Apenas atrasa a exibição da tradução (bom para testar a si mesmo).</small>
                         </div>
 
                         <div class="group">
@@ -525,7 +506,7 @@ export class SettingsPanel {
         this.engine.targetLang               = this.cfg.targetLang;
         this.engine.translationDelay         = this.cfg.translationDelay;
         // No YouTube, antecipação deve ser sempre 0 para sincronização perfeita
-        this.engine.translationAnticipation  = (this.engine.platform === 'youtube') ? 0 : this.cfg.translationAnticipation;
+        this.engine.translationAnticipation  = this.cfg.translationAnticipation;
         this.engine.autoPause                = this.cfg.autoPause;
         this.engine.flashDuration            = this.cfg.flashDuration;
 

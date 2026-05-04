@@ -719,14 +719,20 @@ async function loadPhrases() {
             return;
         }
         list.innerHTML = filtered.map(s => `
-            <div class="phrase-item" style="cursor:pointer;" data-id="${s.id}" data-text="${s.original || s.phrase_text}">
+            <div class="phrase-item" style="cursor:pointer; position:relative;" data-id="${s.id}" data-text="${s.original || s.phrase_text}">
                 <div style="display:flex; justify-content:space-between; align-items:start;">
                     <div style="flex:1;" class="phrase-click-area">
                         <div class="phrase-original">${s.original || s.phrase_text || ''}</div>
                         <div class="phrase-translation">${s.translation || s.phrase_translation || ''}</div>
-                        <div class="phrase-meta">${s.platform || ''} • ${new Date(s.saved_at || s.added_at).toLocaleDateString('pt-BR')}</div>
+                        <div class="phrase-meta">
+                            <span style="background:rgba(56,189,248,0.1); color:#38bdf8; padding:2px 8px; border-radius:4px; margin-right:8px;">${s.platform || 'Streaming'}</span>
+                            ${new Date(s.saved_at || s.added_at).toLocaleDateString('pt-BR')}
+                        </div>
                     </div>
-                    <button class="audio-btn play-phrase-btn" style="background:transparent; font-size:20px;">🔊</button>
+                    <div style="display:flex; gap:10px;">
+                        <button class="audio-btn play-phrase-btn" style="background:rgba(255,255,255,0.05); border-radius:10px; width:40px; height:40px; display:flex; align-items:center; justify-content:center; border:none; color:white;">🔊</button>
+                        <button class="delete-phrase-btn" style="background:rgba(239,68,68,0.05); border-radius:10px; width:40px; height:40px; display:flex; align-items:center; justify-content:center; border:none; color:#ef4444;" title="Excluir frase">🗑️</button>
+                    </div>
                 </div>
             </div>
         `).join('');
@@ -739,6 +745,15 @@ async function loadPhrases() {
             item.querySelector('.play-phrase-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 tts.play(item.dataset.text, 'en-US');
+            });
+
+            item.querySelector('.delete-phrase-btn').addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (confirm('Deseja excluir esta frase?')) {
+                    await lfDb.deleteSentence(item.dataset.id);
+                    loadPhrases();
+                    updateHeader();
+                }
             });
         });
 
@@ -1267,44 +1282,60 @@ async function loadHome() {
     try {
         const stats = await lfDb.getStats();
         const words = await lfDb.getAllWords();
+        const sentences = await lfDb.getAllSentences();
         const dueCount = words.filter(w => (w.due_date || 0) <= Date.now()).length;
         
-        // Update Home UI
+        // Update Header
+        if (document.getElementById('headerDue')) document.getElementById('headerDue').textContent = dueCount;
+        if (document.getElementById('headerSentences')) document.getElementById('headerSentences').textContent = stats.totalSentences || 0;
+
+        // IA Config Check
+        const apiKey = await lfDb.getSetting('grok_api_key');
+        const iaBadge = document.getElementById('home-ia-status');
+        if (iaBadge) {
+            if (apiKey) {
+                iaBadge.innerHTML = '<span style="color:#10b981;">●</span> IA Conectada';
+                iaBadge.style.background = 'rgba(16,185,129,0.1)';
+            } else {
+                iaBadge.innerHTML = '<span style="color:#ef4444;">●</span> IA Desconectada';
+                iaBadge.style.background = 'rgba(239,68,68,0.1)';
+            }
+        }
+
+        // Home Stats
         const studyDesc = document.getElementById('home-study-desc');
         if (dueCount > 0) {
             studyDesc.innerHTML = `Você tem <b style="color:#38bdf8;">${dueCount} revisões</b> pendentes para hoje.`;
         } else {
-            studyDesc.textContent = "Tudo em dia por aqui! Que tal salvar novas palavras?";
+            studyDesc.textContent = "Tudo em dia por aqui! Que tal salvar novas frases?";
         }
 
-        // Streak & Goals
-        const reviews = await lfDb.getReviewLog(365);
-        const reviewDates = [...new Set(reviews.map(r => r.date))].sort((a, b) => b.localeCompare(a));
-        let streak = 0;
-        let todayStr = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0];
+        const newTodayWords = words.filter(w => new Date(w.added_at).toISOString().split('T')[0] === today).length;
+        const newTodayPhrases = sentences.filter(s => new Date(s.added_at || s.saved_at).toISOString().split('T')[0] === today).length;
+
+        if (document.getElementById('home-goal-val')) document.getElementById('home-goal-val').textContent = `${newTodayWords}/20`;
+        if (document.getElementById('home-phrase-count')) document.getElementById('home-phrase-count').textContent = stats.totalSentences || 0;
         
-        if (reviewDates.length > 0) {
-            let lastDate = reviewDates[0];
-            const diffDays = Math.floor((new Date(todayStr) - new Date(lastDate)) / (1000 * 60 * 60 * 24));
-            
-            if (diffDays <= 1) { // Se revisou hoje ou ontem
-                streak = 1;
-                for (let i = 1; i < reviewDates.length; i++) {
-                    const d1 = new Date(reviewDates[i-1]);
-                    const d2 = new Date(reviewDates[i]);
-                    const diff = Math.floor((d1 - d2) / (1000 * 60 * 60 * 24));
-                    if (diff === 1) streak++;
-                    else break;
-                }
+        // Render Recent Phrases on Home
+        const recentPhrasesList = document.getElementById('home-recent-phrases');
+        if (recentPhrasesList) {
+            const recent = sentences.slice(-5).reverse();
+            if (recent.length === 0) {
+                recentPhrasesList.innerHTML = `<div style="color:#64748b; font-size:13px; font-style:italic; padding:20px; text-align:center;">Nenhuma frase salva ainda. Comece a assistir vídeos para salvar expressões!</div>`;
+            } else {
+                recentPhrasesList.innerHTML = recent.map(s => `
+                    <div class="phrase-card-mini" onclick="window.openSentenceDetails(${s.id})">
+                        <div style="flex:1;">
+                            <div class="p-mini-orig">${s.original || s.phrase_text}</div>
+                            <div class="p-mini-trans">${s.translation || s.phrase_translation}</div>
+                        </div>
+                        <div class="p-mini-meta">${s.platform || 'Video'}</div>
+                    </div>
+                `).join('');
             }
         }
-        
-        const today = new Date().toISOString().split('T')[0];
-        const newToday = words.filter(w => new Date(w.added_at).toISOString().split('T')[0] === today).length;
 
-        if (document.getElementById('home-streak-val')) document.getElementById('home-streak-val').textContent = streak;
-        if (document.getElementById('home-goal-val')) document.getElementById('home-goal-val').textContent = `${newToday}/20`;
-        
         renderHeatmap('home-heatmap');
         loadHomeDecks();
     } catch (e) { console.error('Erro ao carregar home:', e); }
@@ -1595,6 +1626,8 @@ async function init() {
             }
         });
 
+        document.getElementById('test-ai-key')?.addEventListener('click', testAiConnection);
+
         document.getElementById('how-to-api')?.addEventListener('click', (e) => {
             e.preventDefault();
             const modal = document.getElementById('modalDetails');
@@ -1644,6 +1677,49 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
     init();
+}
+
+async function testAiConnection() {
+    const key = document.getElementById('cfg-grok-key').value;
+    const resEl = document.getElementById('test-ai-result');
+    const btn = document.getElementById('test-ai-key');
+    
+    if (!key) {
+        resEl.style.display = 'block';
+        resEl.style.background = 'rgba(239,68,68,0.1)';
+        resEl.style.color = '#ef4444';
+        resEl.innerHTML = '⚠️ Por favor, insira uma chave de API primeiro.';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Testando...';
+    resEl.style.display = 'block';
+    resEl.style.background = 'rgba(255,255,255,0.05)';
+    resEl.style.color = '#94a3b8';
+    resEl.innerHTML = 'Conectando aos servidores de IA...';
+
+    // Salva temporariamente para que o SW possa ler
+    await lfDb.setSetting('grok_api_key', key);
+
+    chrome.runtime.sendMessage({
+        action: 'ai_explain_word',
+        word: 'Hello',
+        context: 'Hello, world!'
+    }, response => {
+        btn.disabled = false;
+        btn.textContent = 'Testar Conexão';
+        
+        if (response && response.explanation && !response.explanation.includes('Erro')) {
+            resEl.style.background = 'rgba(16,185,129,0.1)';
+            resEl.style.color = '#10b981';
+            resEl.innerHTML = `✅ <b>Conexão Estabelecida!</b><br>A IA respondeu corretamente: "${response.explanation.substring(0, 60)}..."`;
+        } else {
+            resEl.style.background = 'rgba(239,68,68,0.1)';
+            resEl.style.color = '#ef4444';
+            resEl.innerHTML = `❌ <b>Falha na Conexão</b><br>${response?.error || 'Verifique se a chave está correta e se você tem saldo/quota no provedor.'}`;
+        }
+    });
 }
 
 chrome.runtime.onMessage.addListener((request) => {

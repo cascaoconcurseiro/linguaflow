@@ -600,6 +600,40 @@
             color: #64748b;
             font-weight: 600;
         }
+
+        /* Phrase Card Mini (Home) */
+        .phrase-card-mini {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 14px;
+            padding: 15px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .phrase-card-mini:hover {
+            background: rgba(255, 255, 255, 0.06);
+            transform: scale(1.02);
+            border-color: rgba(56, 189, 248, 0.3);
+        }
+        .p-mini-orig { font-size: 15px; color: white; font-weight: 600; margin-bottom: 4px; }
+        .p-mini-trans { font-size: 13px; color: #4ade80; font-weight: 500; }
+        .p-mini-meta { font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 800; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 6px; }
+
+        .ia-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            margin-top: 10px;
+        }
         
         /* Buttons */
         .btn {
@@ -992,6 +1026,10 @@
                         <span class="top-stat-label">Ofensiva</span>
                     </div>
                     <div class="top-stat" style="border-left:1px solid rgba(255,255,255,0.05); padding-left:30px;">
+                        <span class="top-stat-value" id="headerSentences" style="color:#4ade80;">0</span>
+                        <span class="top-stat-label">Frases</span>
+                    </div>
+                    <div class="top-stat" style="border-left:1px solid rgba(255,255,255,0.05); padding-left:30px;">
                         <span class="top-stat-value" id="headerLevel" style="background: linear-gradient(135deg, #fbbf24, #f59e0b); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">A1</span>
                         <span class="top-stat-label">Nível Atual</span>
                     </div>
@@ -1037,11 +1075,30 @@
                             </div>
                             <div class="action-card" style="display:flex; align-items:center; gap:20px;">
                                 <div style="font-size:40px;">🎯</div>
-                                <div>
+                                <div style="flex:1;">
                                     <div style="font-size:24px; font-weight:800; color:white;" id="home-goal-val">0/20</div>
                                     <div style="font-size:12px; color:#64748b; text-transform:uppercase; font-weight:700;">Palavras Hoje</div>
                                 </div>
                             </div>
+                            <div class="action-card" style="display:flex; align-items:center; gap:20px;">
+                                <div style="font-size:40px;">💬</div>
+                                <div style="flex:1;">
+                                    <div style="font-size:24px; font-weight:800; color:white;" id="home-phrase-count">0</div>
+                                    <div style="font-size:12px; color:#64748b; text-transform:uppercase; font-weight:700;">Frases Salvas</div>
+                                </div>
+                            </div>
+                            <div id="home-ia-status" class="ia-status-badge">
+                                <span style="color:#ef4444;">●</span> IA Desconectada
+                            </div>
+                        </div>
+
+                        <!-- Recent Phrases Card -->
+                        <div class="action-card" style="cursor: default;">
+                            <h3 style="color:white; margin-bottom:15px; font-size:14px; text-transform:uppercase; letter-spacing:1px; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:10px;">💬 Frases Recentes</h3>
+                            <div id="home-recent-phrases" style="max-height:250px; overflow-y:auto;">
+                                <div style="color:#64748b; font-size:13px; font-style:italic; padding:10px;">Carregando frases...</div>
+                            </div>
+                            <button class="btn" style="width:100%; margin-top:10px; font-size:11px; background:rgba(255,255,255,0.05);" onclick="switchTab('library'); document.getElementById('lib-tab-phrases').click();">Ver Todas as Frases</button>
                         </div>
 
                         <div class="action-card" style="grid-column: 1 / -1; cursor: default;">
@@ -1298,27 +1355,27 @@
                             </div>
 
                             <!-- Inteligência Artificial (Groq Cloud) -->
-                            <div class="action-card" style="grid-column: 1 / -1; cursor:default; background:rgba(56,189,248,0.05); border:2px solid rgba(56,189,248,0.2); margin-top:10px;">
+                            <!-- Inteligência Artificial (Groq / Gemini) -->
+                            <div class="action-card" style="grid-column: 1 / -1; cursor:default; background:rgba(139,92,246,0.03); border:2px solid rgba(139,92,246,0.15); margin-top:10px;">
                                 <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:15px;">
                                     <div>
-                                        <h3 style="color:#38bdf8; font-size:18px; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">🤖 Motor de Inteligência Artificial</h3>
-                                        <p style="color:#94a3b8; font-size:13px;">O LinguaFlow usa o Groq Cloud para explicar palavras e analisar frases instantaneamente.</p>
+                                        <h3 style="color:#a78bfa; font-size:18px; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">✦ Motor de Inteligência Artificial</h3>
+                                        <p style="color:#94a3b8; font-size:13px;">Configure sua chave para habilitar explicações e análises profundas. Suporta <b>Groq (gsk_...)</b> e <b>Google Gemini (AIza...)</b>.</p>
                                     </div>
                                     <div style="text-align:right;">
-                                        <a href="https://console.groq.com/keys" target="_blank" style="color:#38bdf8; font-size:12px; font-weight:700; text-decoration:none; display:block; margin-bottom:5px;">🔗 Obter Chave API Groq →</a>
-                                        <a href="#" id="how-to-api" style="color:#64748b; font-size:11px; text-decoration:underline;">Como configurar?</a>
+                                        <a href="https://console.groq.com/keys" target="_blank" style="color:#a78bfa; font-size:12px; font-weight:700; text-decoration:none; display:block; margin-bottom:5px;">🔗 API Groq</a>
+                                        <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:#a78bfa; font-size:12px; font-weight:700; text-decoration:none; display:block;">🔗 API Gemini (Flash)</a>
                                     </div>
                                 </div>
 
                                 <div class="detail-row">
-                                    <span class="detail-label">Chave de API do Groq Cloud</span>
+                                    <span class="detail-label">Sua API Key (Groq ou Gemini)</span>
                                     <div style="display:flex; gap:10px; margin-top:10px;">
-                                        <input type="password" id="cfg-grok-key" class="search-box" style="flex:1; background:rgba(0,0,0,0.3); letter-spacing:2px;" placeholder="gsk_xxxxxxxxxxxxxxxxxxxxxxxx">
+                                        <input type="password" id="cfg-grok-key" class="search-box" style="flex:1; background:rgba(0,0,0,0.3); letter-spacing:2px;" placeholder="Insira sua gsk_ ou AIza...">
                                         <button class="btn" id="toggle-key-visibility" style="background:rgba(255,255,255,0.05); padding:10px 15px; font-size:12px;">👁️</button>
+                                        <button class="btn" id="test-ai-key" style="background:rgba(139,92,246,0.2); border:1px solid rgba(139,92,246,0.3); color:#a78bfa; font-weight:700; padding:10px 20px;">Testar Conexão</button>
                                     </div>
-                                    <p style="color:#64748b; font-size:12px; margin-top:12px; line-height:1.5;">
-                                        <span style="color:#fbbf24;">💡 Dica:</span> Usar sua própria chave do Groq garante que as traduções e explicações nunca falhem por excesso de uso global.
-                                    </p>
+                                    <div id="test-ai-result" style="margin-top:12px; font-size:12px; display:none; padding:12px; border-radius:10px; line-height:1.5; animation: fadeIn 0.3s ease-out;"></div>
                                 </div>
                             </div>
                         </div>

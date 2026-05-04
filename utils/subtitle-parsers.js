@@ -9,9 +9,9 @@
 export class SubtitleParsers {
     
     /**
-     * Converte strings de tempo diversas para milissegundos matematicamente puros.
+     * Converte strings de tempo diversas para segundos decimais.
      */
-    timeToMs(timeStr) {
+    timeToSeconds(timeStr) {
         if (!timeStr) return 0;
         
         // Normaliza as vírgulas do formato europeu/SRT
@@ -26,7 +26,7 @@ export class SubtitleParsers {
             sec = parseFloat(parts[0]);
         }
         
-        return Math.round(sec * 1000);
+        return Number(sec.toFixed(3));
     }
 
     parseSRT(text) {
@@ -39,8 +39,8 @@ export class SubtitleParsers {
                 const timeLine = lines[1];
                 const match = timeLine.match(/(\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2},\d{3})/);
                 if (match) {
-                    const start = this.timeToMs(match[1]);
-                    const end = this.timeToMs(match[2]);
+                    const start = this.timeToSeconds(match[1]);
+                    const end = this.timeToSeconds(match[2]);
                     const textContent = lines.slice(2).join(' ').replace(/<[^>]+>/g, '').trim();
                     cues.push({ start, end, text: textContent });
                 }
@@ -62,8 +62,8 @@ export class SubtitleParsers {
             if (timeLineIdx !== -1) {
                 const match = lines[timeLineIdx].match(/([\d:.]+)\s*-->\s*([\d:.]+)/);
                 if (match) {
-                    const start = this.timeToMs(match[1]);
-                    const end = this.timeToMs(match[2]);
+                    const start = this.timeToSeconds(match[1]);
+                    const end = this.timeToSeconds(match[2]);
                     // Limpa tags de estilo do VTT (<c>, <b>) preservando o texto
                     const textContent = lines.slice(timeLineIdx + 1).join(' ').replace(/<[^>]+>/g, '').trim();
                     cues.push({ start, end, text: textContent });
@@ -97,8 +97,8 @@ export class SubtitleParsers {
                     const textContent = p.textContent.replace(/[\n\r]+/g, ' ').trim();
                     if (textContent) {
                         cues.push({ 
-                            start: this.timeToMs(startStr), 
-                            end: this.timeToMs(endStr), 
+                            start: this.timeToSeconds(startStr), 
+                            end: this.timeToSeconds(endStr), 
                             text: textContent 
                         });
                     }
@@ -115,8 +115,8 @@ export class SubtitleParsers {
         if (jsonObj.events) {
             jsonObj.events.forEach(event => {
                 if (event.segs && event.tStartMs !== undefined) {
-                    const start = event.tStartMs;
-                    const duration = event.dDurationMs || 0;
+                    const start = event.tStartMs / 1000;
+                    const duration = (event.dDurationMs || 0) / 1000;
                     // Limpa caracteres invisíveis
                     const text = event.segs.map(seg => seg.utf8).join('').replace(/\n/g, ' ').trim();
                     if (text) {

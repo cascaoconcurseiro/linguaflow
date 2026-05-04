@@ -1,18 +1,7 @@
-// content/subtitle-engine.js
-import { subtitleParsers } from '../utils/subtitle-parsers.js';
+import { videoUtils } from '../utils/video-utils.js';
+import { expressionsDB } from '../utils/expressions-db.js';
 
 
-function fixUtf8(text) {
-    if (!text) return text;
-    try {
-        const bytes = new Uint8Array([...text].map(c => c.charCodeAt(0) & 0xFF));
-        const decoded = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
-        const hasBad = (decoded.match(/\uFFFD/g) || []).length;
-        const hasCtrl = (text.match(/[\x80-\x9F]/g) || []).length;
-        if (hasBad === 0 && hasCtrl > 0) return decoded;
-    } catch {}
-    return text;
-}
 
 function escapeHTML(value) {
     return String(value ?? '').replace(/[&<>"']/g, ch => ({
@@ -36,17 +25,20 @@ export class SubtitleEngine {
         this.shadowContainer    = null;
         this.videoElement       = null;
         this.syncInterval       = null;
-        this._isTranslatingBg   = false;
         this.lastText           = ''; // Última legenda mostrada
         this._ready             = false; // Flag para o sync loop V5
+        this._lastFoundIdx      = -1; // Índice otimizado para busca de legendas
+        this._lastAutoPausedEndTime = -1; 
+        this._wasPausedByHover  = false;
 
         // Settings (defaults) — serão sobrescritos pelo SettingsPanel
-        this.displayMode  = 'bilingual'; // bilingual | native | translated | blur
+        this.displayMode  = 'bilingual'; // Padrão Seguro: Bilíngue
         this.targetLang   = 'pt';
+        this.sourceLang   = 'en';
         this.translationSpeed = 100; // Número de legendas traduzidas em paralelo (10-200)
-        this.translationAnticipation = 0; // Antecipação desabilitada (não usamos mais)
-        this.autoPause = false; // Pausa automática ao fim de cada fala
-        this.currentSubtitleTimestamp = 0; // Timestamp da legenda atual (para salvar palavras)
+        this.translationAnticipation = 0; // Baseline Zero
+        this.autoPause = false; 
+        this.currentSubtitleTimestamp = 0; 
         this.translationDelay = 0;
 
         this.flashDuration = 4; // segundos do flash de traducao (configuravel)
@@ -114,6 +106,12 @@ export class SubtitleEngine {
         setInterval(async () => {
             if (this.videoElement && !this.videoElement.paused) {
                 try {
+                    // Prevenção de contagem dupla (Múltiplas abas abertas)
+                    const { last_lf_immersion } = await chrome.storage.local.get('last_lf_immersion');
+                    const now = Date.now();
+                    if (last_lf_immersion && (now - last_lf_immersion < 9000)) return;
+                    
+                    await chrome.storage.local.set({ 'last_lf_immersion': now });
                     const { db } = await import('../utils/db.js');
                     await db.logSession(10, this.platform);
                 } catch (e) {}
@@ -173,81 +171,72 @@ export class SubtitleEngine {
         return 'generic';
     }
 
-    _findPlayerContainer() {
-        // Seletores de container do player por plataforma
-        const selectors = {
-            'youtube': [
-                '#movie_player',
-                '.html5-video-player',
-                '#player-container',
-                '#player'
-            ],
-            'netflix': [
-                '.watch-video',
-                '.NFPlayer',
-                '[data-uia="player"]',
-                '.PlayerControlsNeo__layout'
-            ],
-            'max': [
-                '[data-testid="player-container"]',
-                '[data-testid="video-player"]',
-                '[class*="PlayerContainer"]',
-                '[class*="player-container"]',
-                '[class*="VideoPlayer"]',
-                '[class*="Player__"]',
-                '[class*="Player"]',
-                '[class*="player"]'
-            ],
-            'disney': [
-                '.btm-media-clients',
-                '[class*="player"]',
-                '[data-testid="player"]'
-            ],
-            'prime': [
-                '.rendererContainer',
-                '[class*="player"]',
-                '.webPlayerContainer'
-            ]
-        };
-
-        const platformSelectors = selectors[this.platform] || [];
+    // ── Busca otimizada de Cue (O(1) no caso comum, O(log N) no pior caso) ──
+    _binarySearchCue(list, time) {
+        if (!list || list.length === 0) return -1;
         
-        for (const selector of platformSelectors) {
-            const container = document.querySelector(selector);
-            if (container) {
-                // Garante que o container tem position relative ou absolute
-                const position = window.getComputedStyle(container).position;
-                if (position === 'static') {
-                    container.style.position = 'relative';
+        // 1. Otimização de Cache (Caso comum: vídeo rolando pra frente)
+        const lastIdx = this._lastFoundIdx || 0;
+        if (lastIdx >= 0 && lastIdx < list.length) {
+            const current = list[lastIdx];
+            if (time >= current.start && time <= current.end) return lastIdx;
+            
+            if (lastIdx + 1 < list.length) {
+                const next = list[lastIdx + 1];
+                if (time >= next.start && time <= next.end) {
+                    this._lastFoundIdx = lastIdx + 1;
+                    return lastIdx + 1;
                 }
-                console.log(`[LinguaFlow] Player container encontrado: ${selector}`);
-                return container;
+            }
+        }
+
+        // 2. Busca Binária de Elite (O(log N)) para saltos (seek)
+        let low = 0;
+        let high = list.length - 1;
+        while (low <= high) {
+            let mid = (low + high) >>> 1;
+            const c = list[mid];
+            if (time >= c.start && time <= c.end) {
+                this._lastFoundIdx = mid;
+                return mid;
+            }
+            if (time < c.start) high = mid - 1;
+            else low = mid + 1;
+        }
+        return -1;
+    }
+
+    _findPlayerContainer() {
+        const selectors = [
+            '#movie_player', '.html5-video-player', 
+            '.watch-video', '.NFPlayer', 
+            '[data-testid="player-container"]', '[data-testid="video-player"]', 
+            '[class*="PlayerContainer"]', '[class*="VideoPlayer"]',
+            '.btm-media-clients', '.rendererContainer', '.webPlayerContainer'
+        ];
+        
+        for (const sel of selectors) {
+            const el = document.querySelector(sel);
+            if (el && el.offsetHeight > 100) {
+                const style = window.getComputedStyle(el);
+                if (style.position === 'static') el.style.position = 'relative';
+                return el;
             }
         }
         
-        // Última tentativa: procurar por elemento video e pegar o pai
         const video = document.querySelector('video');
         if (video) {
             let parent = video.parentElement;
-            let attempts = 0;
-            while (parent && attempts < 5) {
+            for (let i = 0; i < 8 && parent; i++) {
                 const rect = parent.getBoundingClientRect();
-                // Se o pai tem tamanho razoável, provavelmente é o player
                 if (rect.width > 400 && rect.height > 300) {
-                    const position = window.getComputedStyle(parent).position;
-                    if (position === 'static') {
-                        parent.style.position = 'relative';
-                    }
-                    console.log(`[LinguaFlow] Player container encontrado via video parent`);
+                    if (window.getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
                     return parent;
                 }
                 parent = parent.parentElement;
-                attempts++;
             }
         }
-        
-        console.warn('[LinguaFlow] Player container não encontrado, usando fallback');
-        return null;
+        return document.body;
     }
 
     async init() {
@@ -259,6 +248,8 @@ export class SubtitleEngine {
             console.log('[LinguaFlow] Configurações aplicadas.');
             if (this.shadowContainer) this._updateSubtitleColors();
         }).catch(e => console.warn('[LinguaFlow] Falha ao carregar settings:', e));
+
+        this._lastOrig = '';
 
         // Detecção de mudança de URL (SPA navigation)
         let lastUrl = location.href;
@@ -303,8 +294,17 @@ export class SubtitleEngine {
             if (e.source !== window || !e.data?.type) return;
             
             if (e.data.type === 'LF_HBO_SUB' || e.data.type === 'LF_SUBTITLE_HOOK') {
+                let url = e.data.url || '';
                 let resp = e.data.response || e.data.data;
                 if (!resp) return;
+                
+                console.log(`[LinguaFlow] Captura de Legenda detectada: ${url.substring(0, 50)}...`);
+
+                // Se for YouTube (timedtext), usa o processador específico
+                if (url.includes('timedtext')) {
+                    this._processYouTubeRawSubtitles(url, resp);
+                    return;
+                }
 
                 if (resp instanceof ArrayBuffer) resp = new TextDecoder('utf-8').decode(resp);
                 else if (typeof resp !== 'string') { try { resp = JSON.stringify(resp); } catch {} }
@@ -316,11 +316,26 @@ export class SubtitleEngine {
                     this.usingXhr = true;
                     console.log('[LinguaFlow] Legendas unificadas via postMessage (' + cues.length + ' frases)');
                     
-                    // Se o painel lateral já estiver aberto, solicita reconstrução
-                    const panel = document.getElementById('lf-subtitle-panel');
-                    if (panel && panel.style.display !== 'none') {
-                        this._rebuildSubtitleList();
-                    }
+                    // Notifica reconstrução do painel lateral
+                    this._rebuildSubtitleList();
+                    this._renderVideoWordPrep();
+                }
+            }
+
+            // --- NOVO: Handler de Estado do Player (Language Reactor Style) ---
+            if (e.data.type === 'LF_PLAYER_STATE') {
+                const state = e.data.state; // 1=Playing, 2=Paused, 3=Buffering
+                console.log(`[LinguaFlow] Estado do Player: ${state}`);
+                if (state === 3) {
+                    // Buffer detectado! Podemos mostrar um pequeno indicador se quisermos
+                }
+            }
+
+            // --- NOVO: Handler de Toggle de Legenda Nativa ---
+            if (e.data.type === 'LF_YT_SUB_TOGGLE') {
+                console.log(`[LinguaFlow] Usuário ${e.data.active ? 'ativou' : 'desativou'} legendas no menu nativo.`);
+                if (!e.data.active) {
+                    this.renderDual('', ''); // Limpa nossa legenda se o usuário desligou a nativa
                 }
             }
         });
@@ -343,15 +358,187 @@ export class SubtitleEngine {
             const { WordPopup } = await import('./word-popup.js');
             this.wordPopup = new WordPopup(this, this.platform);
             this.wordPopup.init();
-            console.log('[LinguaFlow] ✅ WordPopup inicializado com sucesso');
-            console.log('[LinguaFlow] WordPopup popup element:', this.wordPopup.popup);
-            
-            // Teste: criar botão para abrir popup manualmente
-            if (this.platform === 'youtube') {
-                // Botão de teste removido — funcionalidade em produção
-            }
         } catch (e) {
-            console.error('[LinguaFlow] ❌ Erro ao inicializar WordPopup:', e);
+            console.error('[LinguaFlow] Erro ao inicializar WordPopup:', e);
+        }
+
+        // ── NOVO: Atalhos de Teclado Profissionais (Padrão LR) ───────────────
+        this._setupKeyboardShortcuts();
+    }
+
+    _setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Não dispara se o usuário estiver digitando em um input
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
+
+            const vid = this.videoElement || document.querySelector('video');
+            if (!vid) return;
+
+            const key = e.key.toLowerCase();
+            const code = e.code;
+
+            // Bloqueia scroll por espaço/setas se o foco não estiver no vídeo
+            if ([' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+                // e.preventDefault(); // Opcional: remover se quebrar scroll da página
+            }
+
+            switch (code) {
+                case 'KeyA': // Anterior
+                    e.preventDefault();
+                    this.prevSubtitle();
+                    this._showNotification('⏮️ Frase Anterior');
+                    break;
+                case 'KeyS': // Repetir atual (Shadowing)
+                    e.preventDefault();
+                    this.repeatSubtitle();
+                    this._showNotification('🔄 Repetindo (Shadowing)');
+                    break;
+                case 'KeyD': // Próxima
+                    e.preventDefault();
+                    this.nextSubtitle();
+                    this._showNotification('⏭️ Próxima Frase');
+                    break;
+                case 'KeyQ': // Toggle Pausa Automática
+                    e.preventDefault();
+                    this.autoPause = !this.autoPause;
+                    this._showAutoPauseIndicator();
+                    break;
+                case 'KeyL': // Painel de Legendas
+                    e.preventDefault();
+                    this.toggleSubtitlePanel();
+                    break;
+                case 'KeyO': // Configurações
+                    e.preventDefault();
+                    window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
+                    break;
+                case 'KeyC': // Toggle Legendas
+                    e.preventDefault();
+                    this.toggleSubtitles();
+                    const isVisible = localStorage.getItem('lf_sub_visible') === 'true';
+                    this._showNotification(isVisible ? '👁️ Legendas Ativadas' : '🙈 Legendas Ocultas');
+                    break;
+                case 'Space': // Play/Pause
+                    e.preventDefault();
+                    if (vid.paused) {
+                        vid.play();
+                        this._showNotification('▶️ Play');
+                    } else {
+                        vid.pause();
+                        this._showNotification('⏸️ Pause');
+                    }
+                    break;
+            }
+        });
+        console.log('[LinguaFlow] ⌨️ Centro de Comando unificado (A, S, D, Q, L, O, C, Espaço).');
+    }
+
+    // ── Navegação por Legenda ───────────────────────────────────────────────
+
+
+    repeatSubtitle() {
+        const cue = this._currentCue || (this.cues && this.cues[this.currentCueIndex]);
+        if (cue && this.videoElement) {
+            this.videoElement.currentTime = cue.start;
+            this.videoElement.play();
+            console.log('[LinguaFlow] 🔄 Repetindo legenda:', cue.text);
+        }
+    }
+
+    prevSubtitle() {
+        if (!this.cues || this.cues.length === 0) return;
+        const v = this.videoElement;
+        if (!v) return;
+
+        // Se estivermos no meio de uma frase, volta pro início dela. 
+        // Se estivermos no início, volta pra anterior.
+        const t = v.currentTime;
+        let idx = this._binarySearchCue(this.cues, t);
+        
+        if (idx === -1) {
+            // Se não há legenda agora, procura a última que terminou antes de agora
+            for (let i = this.cues.length - 1; i >= 0; i--) {
+                if (this.cues[i].end < t) { idx = i; break; }
+            }
+        } else {
+            // Se o tempo atual já passou de 1s do início da legenda, apenas repete ela
+            if (t - this.cues[idx].start > 1) {
+                this.repeatSubtitle();
+                return;
+            }
+            idx = Math.max(0, idx - 1);
+        }
+
+        if (idx !== -1) {
+            v.currentTime = this.cues[idx].start;
+            v.play();
+        }
+    }
+
+    nextSubtitle() {
+        if (!this.cues || this.cues.length === 0) return;
+        const v = this.videoElement;
+        if (!v) return;
+
+        const t = v.currentTime;
+        let idx = this._binarySearchCue(this.cues, t);
+
+        if (idx === -1) {
+            // Procura a próxima que começa após agora
+            for (let i = 0; i < this.cues.length; i++) {
+                if (this.cues[i].start > t) { idx = i; break; }
+            }
+        } else {
+            idx = Math.min(this.cues.length - 1, idx + 1);
+        }
+
+        if (idx !== -1) {
+            v.currentTime = this.cues[idx].start;
+            v.play();
+        }
+    }
+
+    // ── Limpeza de estado para troca de vídeo ────────────────────────────────
+    _onUrlChange() {
+        console.log('[LinguaFlow] URL alterada, resetando motor de legendas...');
+        this.cues = [];
+        this.xhrCues = [];
+        this.currentCueIndex = -1;
+        this.lastText = '';
+        this.usingXhr = false;
+        this._lastOrig = '';
+        // Limpa intervalos de espera de vídeo anteriores
+        if (this._videoWaitInterval) {
+            clearInterval(this._videoWaitInterval);
+            this._videoWaitInterval = null;
+        }
+        this._stopSyncLoop();
+        
+        // Remove listener de XHR do YouTube para evitar duplicação na troca de vídeo
+        if (this._ytXhrListener) {
+            document.removeEventListener('youtubeSubtitleXhrEvent', this._ytXhrListener);
+        }
+
+        // Limpa intervalos e timers pendentes para evitar vazamento de memória
+        if (this._videoWaitInterval) {
+            clearInterval(this._videoWaitInterval);
+            this._videoWaitInterval = null;
+        }
+
+        // Esconde a interface atual
+        this.renderDual('', '');
+        
+        // Remove painel de legendas se aberto
+        document.getElementById('lf-subtitle-panel')?.remove();
+        
+        // Re-inicializa a UI para o novo player
+        this._injectSubtitleUI();
+        
+        // Inicia respeitando a preferência do usuário
+        setTimeout(() => this.toggleSubtitles(), 500);
+        
+        // Re-inicializa captura específica da plataforma
+        if (this.platform === 'youtube') {
+            setTimeout(() => this._fetchYoutubeSubtitles(), 1000);
         }
     }
 
@@ -373,11 +560,15 @@ export class SubtitleEngine {
             const { db } = await import('../utils/db.js');
             await db.initPromise;
             
-            // Carrega antecipação de tradução
-            const anticipation = await db.getSetting('translationAnticipation');
+            // Carrega antecipação de tradução (Força 0 se for o valor antigo indesejado)
+            let anticipation = await db.getSetting('translationAnticipation');
+            if (anticipation === 2 || anticipation === -2) {
+                console.log('[LinguaFlow] Resetando offset de 2.0 para 0.0 (Padrão de Fábrica)');
+                anticipation = 0;
+                await db.setSetting('translationAnticipation', 0);
+            }
             if (anticipation !== undefined && anticipation !== null) {
-                this.translationAnticipation = anticipation;
-                console.log(`[LinguaFlow] Antecipação carregada: ${anticipation}s`);
+                this.translationAnticipation = parseFloat(anticipation);
             }
             
             // Carrega delay de tradução
@@ -399,6 +590,18 @@ export class SubtitleEngine {
             if (speed !== undefined && speed !== null) {
                 this.translationSpeed = speed;
                 console.log(`[LinguaFlow] Velocidade carregada: ${speed}`);
+            }
+
+            // Carrega modo de exibição (displayMode)
+            let mode = await db.getSetting('subtitleMode');
+            if (mode === 'translated') {
+                console.log('[LinguaFlow] Resetando modo "Somente Tradução" para "Bilíngue" para evitar confusão.');
+                mode = 'bilingual';
+                await db.setSetting('subtitleMode', 'bilingual');
+            }
+            if (mode) {
+                this.displayMode = mode;
+                console.log(`[LinguaFlow] Modo de exibição carregado: ${mode}`);
             }
         } catch (e) {
             console.warn('[LinguaFlow] Erro ao carregar configurações:', e.message);
@@ -444,6 +647,18 @@ export class SubtitleEngine {
     async _repositionSubtitle() {
         const host = document.getElementById('linguaflow-subtitle-host');
         if (!host) return;
+
+        const player = this._findPlayerContainer() || document.body;
+        const playerWidth = player.getBoundingClientRect().width;
+
+        // Cálculo proporcional de fonte (Base: 1280px -> 31px / 18px)
+        // Usamos uma escala linear com um "piso" para não ficar minúsculo
+        const scaleFactor = Math.max(0.4, Math.min(1.2, playerWidth / 1280));
+        const fontSizeOrig = Math.round(31 * scaleFactor);
+        const fontSizeTrans = Math.round(18 * scaleFactor);
+
+        host.style.setProperty('--lf-font-size', `${fontSizeOrig}px`);
+        host.style.setProperty('--lf-font-size-trans', `${fontSizeTrans}px`);
 
         if (this._currentHorizontal !== undefined) {
             host.style.left = `${this._currentHorizontal}%`;
@@ -543,11 +758,13 @@ export class SubtitleEngine {
                 left: ${horizontalPos}% !important;
                 transform: translateX(-${horizontalPos}%) !important;
                 z-index: 2147483647 !important;
-                width: 80% !important;
+                width: 94% !important;
                 max-width: 900px !important;
                 text-align: center !important;
                 pointer-events: none !important;
                 padding: 0 !important;
+                display: flex !important;
+                justify-content: center !important;
             `;
             playerContainer.appendChild(host);
             console.log(`[LinguaFlow] Legenda posicionada: ${horizontalPos}% horizontal, ${bottomPos}px vertical`);
@@ -559,11 +776,13 @@ export class SubtitleEngine {
                 left: ${horizontalPos}% !important;
                 transform: translateX(-${horizontalPos}%) !important;
                 z-index: 2147483647 !important;
-                width: 80% !important;
+                width: 94% !important;
                 max-width: 900px !important;
                 text-align: center !important;
                 pointer-events: none !important;
                 padding: 0 !important;
+                display: flex !important;
+                justify-content: center !important;
             `;
             document.body.appendChild(host);
             console.log(`[LinguaFlow] Legenda posicionada (fallback): ${horizontalPos}% horizontal, ${bottomPos}px vertical`);
@@ -607,15 +826,19 @@ export class SubtitleEngine {
                     transition: filter 0.25s, opacity 0.25s;
                     text-shadow: 0 1px 6px rgba(0,0,0,0.8);
                 }
-                /* Modo Blur */
+                /* Modo Blur Premium (Frosted Glass) */
                 .mode-blur .lf-trans {
-                    filter: blur(8px);
-                    opacity: 0.55;
+                    filter: blur(12px) saturate(1.8);
+                    opacity: 0.35;
                     cursor: pointer;
+                    background: rgba(255, 255, 255, 0.05);
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 }
                 .mode-blur .lf-trans:hover {
-                    filter: none;
+                    filter: blur(0px) saturate(1);
                     opacity: 1;
+                    background: rgba(10, 15, 30, var(--lf-bg-opacity, 0.78));
+                    transform: scale(1.02);
                 }
                 /* Palavras clicáveis */
                 .lf-word {
@@ -633,6 +856,11 @@ export class SubtitleEngine {
                 .lf-review   { color: #38BDF8; text-decoration: underline dashed; text-underline-offset: 3px; } /* azul — revisando */
                 .lf-learning { color: #FBBF24; text-decoration: underline dashed; text-underline-offset: 3px; } /* amarelo — aprendendo */
                 .lf-saved    { color: var(--lf-color-saved, #93C5FD); text-decoration: underline dashed; text-underline-offset: 4px; } /* azul claro — nova */
+                .lf-expression { 
+                    border-bottom: 2px dotted rgba(56, 189, 248, 0.6); 
+                    padding-bottom: 1px;
+                    border-radius: 4px;
+                }
                 .lf-new      { color: #FFF; } /* branco — nunca vista */
 
                 /* Botão de tradução rápida */
@@ -724,13 +952,13 @@ export class SubtitleEngine {
                     to { opacity: 0; transform: translateX(-50%) translateY(-5px); }
                 }
             </style>
-            <div class="lf-wrap" id="lf-wrap">
+            <div class="lf-wrap" id="lf-wrap" data-subtitle-mode="native">
                 <div class="lf-orig-row">
                     <button class="lf-save-btn" id="lf-save-btn" style="display:none;" title="Salvar frase">+ Salvar frase</button>
-                    <div class="lf-orig" id="lf-orig" style="display:none;"></div>
+                    <div class="lf-orig" id="lf-orig"></div>
                     <button class="lf-translate-btn" id="lf-translate-btn" style="display:none;" title="Traduzir frase">🌐 Traduzir</button>
                 </div>
-                <div class="lf-trans" id="lf-trans" style="display:none;">
+                <div class="lf-trans" id="lf-trans">
                     <span id="lf-trans-txt"></span>
                 </div>
             </div>
@@ -747,7 +975,7 @@ export class SubtitleEngine {
         let startBottom = 0;
 
         wrap.addEventListener('mousedown', (e) => {
-            if (e.target.classList.contains('lf-word')) return; // Não arrasta se clicar numa palavra
+            if (e.target.classList.contains('lf-word')) return;
             isDragging = true;
             startY = e.clientY;
             const computedBottom = window.getComputedStyle(host).bottom;
@@ -756,20 +984,24 @@ export class SubtitleEngine {
             e.preventDefault();
         });
 
-        window.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            const deltaY = startY - e.clientY;
-            const newBottom = Math.max(0, startBottom + deltaY);
-            host.style.bottom = `${newBottom}px`;
-            this._currentBottom = newBottom;
-        });
+        // Listeners de janela protegidos contra duplicação
+        if (!this._dragEventsAttached) {
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const deltaY = startY - e.clientY;
+                const newBottom = Math.max(0, startBottom + deltaY);
+                host.style.bottom = `${newBottom}px`;
+                this._currentBottom = newBottom;
+            });
 
-        window.addEventListener('mouseup', () => {
-            if (isDragging) {
-                isDragging = false;
-                wrap.style.cursor = 'default';
-            }
-        });
+            window.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    wrap.style.cursor = 'default';
+                }
+            });
+            this._dragEventsAttached = true;
+        }
 
         wrap.addEventListener('mouseenter', () => {
             if (!isDragging) wrap.style.cursor = 'grab';
@@ -878,7 +1110,8 @@ export class SubtitleEngine {
             }
 
             // Wrapper do Switch
-            const isSubVisible = localStorage.getItem('lf_sub_visible') === 'true';
+            // Inicia sempre com o switch DESLIGADO visualmente
+            const isSubVisible = false;
             const switchWrapper = document.createElement('div');
             switchWrapper.id = 'lf-yt-toggle-wrapper';
             switchWrapper.className = 'lf-switch-wrapper';
@@ -936,13 +1169,17 @@ export class SubtitleEngine {
                 this._kbAttached = true;
             }
 
-            // Aplica estado inicial
-            this.toggleSubtitles();
+            // Inicia sempre DESLIGADO (OFF by default)
+            this.toggleSubtitles(false);
             return true;
         };
 
-        // Tenta imediatamente e depois a cada 1.5 s (YouTube é SPA)
-        const iv = setInterval(() => { if (tryInject()) clearInterval(iv); }, 1500);
+        // Tenta por no máximo 30 segundos (20 tentativas de 1.5s)
+        let attempts = 0;
+        const iv = setInterval(() => { 
+            attempts++;
+            if (tryInject() || attempts > 20) clearInterval(iv); 
+        }, 1500);
     }
 
     _injectDeckSelector() {
@@ -1002,8 +1239,6 @@ export class SubtitleEngine {
 
         // Switch de Ativar/Desativar legendas (HBO/Max)
         if (this.platform === 'max') {
-            const isSubVisible = localStorage.getItem('lf_sub_visible') === 'true';
-            
             // Injeta CSS se necessário
             if (!document.getElementById('lf-hbo-styles')) {
                 const style = document.createElement('style');
@@ -1038,10 +1273,12 @@ export class SubtitleEngine {
                 document.head.appendChild(style);
             }
 
+            // Inicia sempre com o switch DESLIGADO visualmente (HBO)
+            const isSubVisible = false;
             const switchWrapper = document.createElement('div');
             switchWrapper.id = 'lf-hbo-toggle-wrapper';
             switchWrapper.className = 'lf-hbo-switch-wrapper';
-            switchWrapper.title = isSubVisible ? 'Desativar LinguaFlow (C)' : 'Ativar LinguaFlow (C)';
+            switchWrapper.title = 'Ativar LinguaFlow (C)';
             switchWrapper.innerHTML = `
                 <div class="lf-hbo-switch ${isSubVisible ? 'active' : ''}" id="lf-hbo-switch">
                     <div class="lf-hbo-slider"></div>
@@ -1139,45 +1376,14 @@ export class SubtitleEngine {
             
             leftCtrl.appendChild(container);
             
-            // Atalhos de teclado
-            document.addEventListener('keydown', (e) => {
-                if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
-                
-                if (e.key.toLowerCase() === 'a') {
-                    e.preventDefault();
-                    this.gotoPreviousCue();
-                } else if (e.key.toLowerCase() === 'd') {
-                    e.preventDefault();
-                    this.gotoNextCue();
-                } else if (e.key.toLowerCase() === 's') {
-                    e.preventDefault();
-                    this.video.currentTime = (this.cues[this.currentCueIndex].start / 1000) + 0.01;
-                    this.video.play();
-                } else if (e.key.toLowerCase() === 'r') {
-                    e.preventDefault();
-                    this.toggleLoop();
-                } else if (e.key.toLowerCase() === 'l') {
-                    e.preventDefault();
-                    this.toggleSubtitlePanel();
-                } else if (e.key.toLowerCase() === 'o') {
-                    e.preventDefault();
-                    window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
-                } else if (e.key.toLowerCase() === ' ') {
-                    e.preventDefault();
-                    if (this.video.paused) this.video.play();
-                    else this.video.pause();
-                } else if (e.key.toLowerCase() === 'q') {
-                    e.preventDefault();
-                    this.autoPause = !this.autoPause;
-                    console.log(`[LinguaFlow] Pausa automática ${this.autoPause ? 'ATIVADA' : 'DESATIVADA'}`);
-                    this._showNotification(this.autoPause ? '⏸️ Pausa Automática ATIVADA' : '▶️ Pausa Automática DESATIVADA');
-                }
-            });
-            
             return true;
         };
         
-        const iv = setInterval(() => { if (tryInject()) clearInterval(iv); }, 1500);
+        let attempts = 0;
+        const iv = setInterval(() => { 
+            attempts++;
+            if (tryInject() || attempts > 20) clearInterval(iv); 
+        }, 1500);
     }
     
     _createNavButton(icon, title, onclick) {
@@ -1207,17 +1413,19 @@ export class SubtitleEngine {
     gotoPreviousCue() {
         if (!this.videoElement || this.cues.length === 0) return;
         
-        const currentTime = this.videoElement.currentTime * 1000;
+        const currentTime = this.videoElement.currentTime;
+
         let targetIdx = -1;
         
         // Se estamos no início de uma frase (primeiros 500ms), volta para a anterior
         if (this.currentCueIndex >= 0) {
             const currentCue = this.cues[this.currentCueIndex];
-            if (currentTime - currentCue.start < 500 && this.currentCueIndex > 0) {
+            if (currentTime - currentCue.start < 0.5 && this.currentCueIndex > 0) {
                 targetIdx = this.currentCueIndex - 1;
+
             } else {
                 // Senão, volta para o início da frase atual
-                this.videoElement.currentTime = currentCue.start / 1000;
+                this.videoElement.currentTime = currentCue.start;
                 return;
             }
         } else {
@@ -1231,7 +1439,7 @@ export class SubtitleEngine {
         }
         
         if (targetIdx >= 0) {
-            this.videoElement.currentTime = this.cues[targetIdx].start / 1000;
+            this.videoElement.currentTime = this.cues[targetIdx].start;
             console.log('[LinguaFlow] Voltou para frase anterior');
         }
     }
@@ -1239,7 +1447,8 @@ export class SubtitleEngine {
     gotoNextCue() {
         if (!this.videoElement || this.cues.length === 0) return;
         
-        const currentTime = this.videoElement.currentTime * 1000;
+        const currentTime = this.videoElement.currentTime;
+
         let targetIdx = -1;
         
         // Procura a próxima frase
@@ -1251,7 +1460,7 @@ export class SubtitleEngine {
         }
         
         if (targetIdx >= 0) {
-            this.videoElement.currentTime = this.cues[targetIdx].start / 1000;
+            this.videoElement.currentTime = this.cues[targetIdx].start;
             console.log('[LinguaFlow] Pulou para próxima frase');
         }
     }
@@ -1264,8 +1473,8 @@ export class SubtitleEngine {
         
         if (this.isLooping) {
             const currentCue = this.cues[this.currentCueIndex];
-            this.loopStartTime = currentCue.start / 1000;
-            this.loopEndTime = currentCue.end / 1000;
+            this.loopStartTime = currentCue.start;
+            this.loopEndTime = currentCue.end;
             
             if (btnLoop) {
                 btnLoop.style.background = 'rgba(56, 189, 248, 0.3)';
@@ -1337,9 +1546,18 @@ export class SubtitleEngine {
     }
     
     toggleSubtitlePanel() {
-        const existingPanel = document.getElementById('lf-subtitle-panel');
-        if (existingPanel) {
-            existingPanel.remove();
+        const wrapper = document.getElementById('lf-subtitle-panel-wrapper');
+        if (wrapper) {
+            const overlay = wrapper.querySelector('div');
+            const panel = wrapper.querySelector('#lf-subtitle-panel');
+            if (overlay && panel) {
+                overlay.style.opacity = '0';
+                panel.style.transform = 'translateX(100%)';
+                setTimeout(() => wrapper.remove(), 300);
+            } else {
+                wrapper.remove();
+            }
+            
             const btnPanel = document.getElementById('lf-btn-panel');
             if (btnPanel) {
                 btnPanel.style.background = 'rgba(255,255,255,0.1)';
@@ -1353,36 +1571,111 @@ export class SubtitleEngine {
     
     
     _createSubtitlePanel() {
+        const existing = document.getElementById('lf-subtitle-panel-wrapper');
+        if (existing) return;
+
+        const wrapper = document.createElement('div');
+        wrapper.id = 'lf-subtitle-panel-wrapper';
+        wrapper.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2147483647;
+            display: flex;
+            justify-content: flex-end;
+            pointer-events: none;
+        `;
+
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(2px);
+            pointer-events: auto;
+            opacity: 0;
+            transition: opacity 0.3s;
+        `;
+        
         const panel = document.createElement('div');
         panel.id = 'lf-subtitle-panel';
         panel.style.cssText = `
-            position: fixed;
-            top: 0;
-            right: 0;
-            width: 400px;
-            height: 100vh;
-            background: rgba(10, 22, 40, 0.98);
-            backdrop-filter: blur(10px);
-            border-left: 1px solid rgba(255,255,255,0.1);
-            z-index: 2147483646;
+            width: 420px;
+            height: 100%;
+            background: #0A1628;
+            color: #F1F5F9;
+            box-shadow: -20px 0 60px rgba(0,0,0,0.6);
             display: flex;
             flex-direction: column;
             font-family: 'Inter', sans-serif;
-            animation: slideInRight 0.3s ease-out;
+            position: relative;
+            z-index: 2;
+            pointer-events: auto;
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         `;
 
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideInRight {
-                from { transform: translateX(100%); }
-                to { transform: translateX(0); }
+        // Injeta estilos de palavras no painel (fora do shadow dom)
+        const panelStyle = document.createElement('style');
+        panelStyle.textContent = `
+            #lf-subtitle-panel .lf-word {
+                cursor: pointer;
+                display: inline-block;
+                transition: color 0.12s;
+                border-radius: 3px;
+                padding: 0 1px;
+            }
+            #lf-subtitle-panel .lf-word:hover {
+                color: #FBBF24 !important;
+                background: rgba(251, 191, 36, 0.1);
+            }
+            #lf-subtitle-panel .lf-known { color: #86EFAC; }
+            #lf-subtitle-panel .lf-mature { color: #34D399; text-decoration: underline dotted; }
+            #lf-subtitle-panel .lf-review { color: #38BDF8; text-decoration: underline dashed; }
+            #lf-subtitle-panel .lf-learning { color: #FBBF24; text-decoration: underline dashed; }
+            #lf-subtitle-panel .lf-saved { color: #93C5FD; text-decoration: underline dashed; }
+            #lf-subtitle-panel .lf-expression { border-bottom: 2px dotted rgba(56, 189, 248, 0.6); }
+            #lf-subtitle-panel .lf-new { color: #E2E8F0; }
+            
+            #lf-subtitle-panel .lf-subtitle-item.active {
+                background: rgba(56, 189, 248, 0.12) !important;
+                border-left-color: #38BDF8 !important;
             }
         `;
-        document.head.appendChild(style);
+        panel.appendChild(panelStyle);
+
+        wrapper.appendChild(overlay);
+        wrapper.appendChild(panel);
+        document.body.appendChild(wrapper);
+
+        // Animação de entrada
+        requestAnimationFrame(() => {
+            overlay.style.opacity = '1';
+            panel.style.transform = 'translateX(0)';
+        });
+
+        const closePanel = () => {
+            overlay.style.opacity = '0';
+            panel.style.transform = 'translateX(100%)';
+            setTimeout(() => wrapper.remove(), 300);
+            
+            const btnPanel = document.getElementById('lf-btn-panel');
+            if (btnPanel) {
+                btnPanel.style.background = 'rgba(255,255,255,0.1)';
+                btnPanel.style.color = '';
+            }
+        };
+
+        overlay.onclick = closePanel;
+
+
+
+
         
-        // ── Header ──────────────────────────────────────────────────────────
         const header = document.createElement('div');
-        header.style.cssText = 'padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.1);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;';
+        header.style.cssText = 'padding:20px 24px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:linear-gradient(135deg, #0F172A, #0A1628);';
         header.innerHTML = `
             <div style="display:flex;align-items:center;gap:10px;">
               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -1391,10 +1684,15 @@ export class SubtitleEngine {
                 </linearGradient></defs>
                 <path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z" fill="url(#lf-hdr-grad)"/>
               </svg>
-              <span style="font-size:15px;font-weight:700;color:#F1F5F9;">LinguaFlow</span>
+              <span style="font-size:18px;font-weight:700;color:#F1F5F9;">⚡ <span style="color:#38BDF8;">LinguaFlow</span> — Painel</span>
             </div>
-            <button id="lf-close-panel" style="background:rgba(255,255,255,0.08);border:none;color:#94A3B8;width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;">✕</button>
+            <button id="lf-close-panel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#94A3B8;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:0.2s;">✕</button>
         `;
+        
+        const closeBtn = header.querySelector('#lf-close-panel');
+        closeBtn.onmouseenter = () => { closeBtn.style.background = 'rgba(255,255,255,0.12)'; closeBtn.style.color = '#FFF'; };
+        closeBtn.onmouseleave = () => { closeBtn.style.background = 'rgba(255,255,255,0.06)'; closeBtn.style.color = '#94A3B8'; };
+
 
         // ── Abas Subtitles / Words ────────────────────────────────────────────
         const tabs = document.createElement('div');
@@ -1410,18 +1708,38 @@ export class SubtitleEngine {
         subtitlePane.style.cssText = 'flex:1;display:flex;flex-direction:column;overflow:hidden;';
 
         const toolbar = document.createElement('div');
-        toolbar.style.cssText = 'padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;gap:6px;align-items:center;flex-shrink:0;';
+        toolbar.style.cssText = 'padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:10px;flex-shrink:0;background:rgba(255,255,255,0.02);';
         toolbar.innerHTML = `
-            <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#94A3B8;cursor:pointer;">
-                <input type="checkbox" id="lf-show-translation" checked style="cursor:pointer;">
-                <span>Tradução</span>
-            </label>
-            <input id="lf-panel-search" type="search" placeholder="Buscar..." style="width:80px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#E2E8F0;border-radius:6px;padding:5px 7px;font-size:11px;outline:none;">
-            <button id="lf-follow-btn" title="Seguir legenda atual" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:#10B981;padding:4px 7px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">📍</button>
-            <div style="flex:1;"></div>
-            <button id="lf-export-html" style="background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.3);color:#38BDF8;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">HTML</button>
-            <button id="lf-export-pdf" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#EF4444;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">PDF</button>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <div style="position:relative;flex:1;">
+                    <input id="lf-panel-search" type="search" placeholder="Buscar no script..." style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#E2E8F0;border-radius:8px;padding:8px 12px 8px 32px;font-size:12px;outline:none;transition:border-color 0.2s;">
+                    <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#64748B;font-size:14px;">🔍</span>
+                </div>
+                <button id="lf-follow-btn" title="Seguir legenda atual" style="background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.3);color:#38BDF8;width:34px;height:34px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;">📍</button>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div style="display:flex;gap:12px;">
+                    <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94A3B8;cursor:pointer;">
+                        <input type="checkbox" id="lf-show-translation" checked style="cursor:pointer;accent-color:#38BDF8;">
+                        <span>Tradução</span>
+                    </label>
+                    <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94A3B8;cursor:pointer;">
+                        <input type="checkbox" id="lf-autoscroll-panel" checked style="cursor:pointer;accent-color:#38BDF8;">
+                        <span>Auto-scroll</span>
+                    </label>
+                </div>
+                <div style="display:flex;gap:6px;">
+                    <button id="lf-export-csv" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#CBD5E1;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;text-transform:uppercase;">CSV</button>
+                    <button id="lf-export-anki" style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);color:#38BDF8;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;text-transform:uppercase;">Anki</button>
+                </div>
+            </div>
         `;
+
+        // Evento de busca
+        const searchInput = toolbar.querySelector('#lf-panel-search');
+        searchInput.addEventListener('input', (e) => {
+            this._filterSubtitleList(e.target.value);
+        });
 
         const list = document.createElement('div');
         list.id = 'lf-subtitle-list';
@@ -1434,10 +1752,7 @@ export class SubtitleEngine {
             _scrollTimer = setTimeout(() => { list._userScrolling = false; }, 3000);
         }, { passive: true });
 
-        this._rebuildSubtitleList();
-
-        subtitlePane.appendChild(toolbar);
-        subtitlePane.appendChild(list);
+        this._rebuildSubtitleList(list);
 
         subtitlePane.appendChild(toolbar);
         subtitlePane.appendChild(list);
@@ -1481,6 +1796,16 @@ export class SubtitleEngine {
         const statsDiv = document.createElement('div');
         statsDiv.style.cssText = 'background:rgba(255,255,255,0.04);border-radius:10px;padding:14px 16px;margin-bottom:14px;';
 
+        // --- CÁLCULO DE EXPRESSÕES ---
+        const expressionsFound = new Set();
+        this.cues.forEach(cue => {
+            const text = (cue.text || '').toLowerCase();
+            expressionsDB.forEach(expr => {
+                if (text.includes(expr)) expressionsFound.add(expr);
+            });
+        });
+        const totalExpressions = expressionsFound.size;
+
         const renderStats = (knownWords, savedWords) => {
             const videoWords = [...freqMap.keys()];
             const cKnown    = videoWords.filter(w => knownWords.has(w)).length;
@@ -1489,12 +1814,18 @@ export class SubtitleEngine {
             const cMature   = videoWords.filter(w => savedWords.get(w) === 'mature').length;
             const cSaved    = videoWords.filter(w => savedWords.get(w) === 'new').length;
             const cNew      = videoWords.filter(w => !knownWords.has(w) && !savedWords.has(w)).length;
-            const pct = (n) => totalUnique ? Math.round(n / totalUnique * 100) : 0;
+            const pct       = (val) => Math.round((val / totalUnique) * 100) || 0;
 
             statsDiv.innerHTML = `
-                <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px;">
-                  <div style="font-size:28px;font-weight:800;color:#F1F5F9;line-height:1;">${totalUnique}</div>
-                  <div style="font-size:10px;color:#64748B;text-transform:uppercase;letter-spacing:0.8px;font-weight:700;">UNIQUE WORDS</div>
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+                  <div style="display:flex;align-items:baseline;gap:8px;">
+                    <div style="font-size:28px;font-weight:800;color:#F1F5F9;line-height:1;">${totalUnique}</div>
+                    <div style="font-size:10px;color:#64748B;text-transform:uppercase;letter-spacing:0.8px;font-weight:700;">UNIQUE WORDS</div>
+                  </div>
+                  <div style="text-align:right;">
+                    <div style="font-size:18px;font-weight:800;color:#f472b6;line-height:1;">${totalExpressions}</div>
+                    <div style="font-size:9px;color:#f472b6;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">PHRASAL VERBS</div>
+                  </div>
                 </div>
 
                 <div style="margin-bottom:9px;">
@@ -1637,7 +1968,7 @@ export class SubtitleEngine {
                 chip.addEventListener('click', () => {
                     const fi = this.cues.findIndex(cue => new RegExp('\\b' + word + '\\b', 'i').test(cue.text || ''));
                     if (fi >= 0 && this.videoElement) {
-                        this.videoElement.currentTime = this.cues[fi].start / 1000;
+                        this.videoElement.currentTime = this.cues[fi].start;
                         document.getElementById('lf-tab-subtitles')?.click();
                     }
                 });
@@ -1664,7 +1995,7 @@ export class SubtitleEngine {
         panel.appendChild(tabs);
         panel.appendChild(subtitlePane);
         panel.appendChild(wordsPane);
-        document.body.appendChild(panel);
+
 
         // ── Lógica das abas ───────────────────────────────────────────────────
         const tabSubtitles = document.getElementById('lf-tab-subtitles');
@@ -1690,133 +2021,39 @@ export class SubtitleEngine {
         tabWords.addEventListener('click', () => switchTab('words'));
         switchTab('subtitles');
 
-        // ── Eventos ───────────────────────────────────────────────────────────
-        document.getElementById('lf-close-panel').onclick = () => this.toggleSubtitlePanel();
+        // ── Eventos do Painel (Fiação Final) ──────────────────────────────────
+        document.getElementById('lf-close-panel').onclick = closePanel;
+        
         document.getElementById('lf-show-translation').onchange = (e) => {
-            list.querySelectorAll('.lf-translation-text').forEach(t => { t.style.display = e.target.checked ? 'block' : 'none'; });
+            this._rebuildSubtitleList(list, document.getElementById('lf-panel-search').value);
         };
-        document.getElementById('lf-panel-search').addEventListener('input', e => {
-            const q = e.target.value.toLowerCase();
-            list.querySelectorAll('.lf-subtitle-item').forEach(item => {
-                const cue = this.cues[Number(item.dataset.index)];
-                const text = ((cue?.text || '') + ' ' + (cue?.translatedText || '')).toLowerCase();
-                item.style.display = text.includes(q) ? 'block' : 'none';
-            });
-        });
-        document.getElementById('lf-export-html').onclick = () => this._exportSubtitlesHTML();
-        document.getElementById('lf-export-pdf').onclick = () => this._exportSubtitlesPDF();
-        document.getElementById('lf-follow-btn').onclick = () => { list._userScrolling = false; this._updateSubtitlePanelHighlight(); };
+
+        document.getElementById('lf-export-csv').onclick = () => this._exportCSV();
+        document.getElementById('lf-export-anki').onclick = () => this._exportAnki();
+        
+        document.getElementById('lf-follow-btn').onclick = () => { 
+            list._userScrolling = false; 
+            this._updateSubtitlePanelHighlight(); 
+        };
 
         const btnPanel = document.getElementById('lf-btn-panel');
-        if (btnPanel) { btnPanel.style.background = 'rgba(56,189,248,0.3)'; btnPanel.style.color = '#38BDF8'; }
+        if (btnPanel) { 
+            btnPanel.style.background = 'rgba(56,189,248,0.3)'; 
+            btnPanel.style.color = '#38BDF8'; 
+        }
 
+        // Highlight Inicial e Loop de Sincronia
         this._updateSubtitlePanelHighlight();
-        setInterval(() => this._updateSubtitlePanelHighlight(), 500);
-    }
-    
-    _exportSubtitlesHTML() {
-        const videoTitle = document.title || 'Legendas';
-        const showTranslation = document.getElementById('lf-show-translation').checked;
-
-        const rows = this.cues.map(cue => {
-            const time = this._formatTime(cue.start / 1000);
-            const trans = cue.translatedText || '';
-            return `<tr>
-  <td class="t">${time}</td>
-  <td class="o">${escapeHTML(cue.text)}${showTranslation && trans ? `<span class="tr">${escapeHTML(trans)}</span>` : ''}</td>
-</tr>`;
-        }).join('\n');
-
-        const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head><meta charset="UTF-8"><title>${videoTitle}</title>
-<style>
-body{font-family:Arial,sans-serif;font-size:13px;margin:24px;color:#1e293b;}
-h2{color:#0ea5e9;margin-bottom:4px;}
-p{color:#64748b;margin:0 0 16px;font-size:12px;}
-table{width:100%;border-collapse:collapse;}
-td{padding:5px 8px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
-.t{color:#94a3b8;font-size:11px;white-space:nowrap;width:48px;}
-.o{line-height:1.5;}
-.tr{display:block;color:#0ea5e9;font-size:12px;margin-top:2px;cursor:pointer;}
-.tr:not(.vis){display:none;}
-</style></head>
-<body>
-<h2>${videoTitle}</h2>
-<p>${this.cues.length} legendas &bull; ${new Date().toLocaleDateString('pt-BR')} &bull; LinguaFlow${showTranslation ? ' &bull; <em>Clique na linha para ver tradu&ccedil;&atilde;o</em>' : ''}</p>
-<table>${rows}</table>
-</body></html>`;
-
-        const blob = new Blob([html], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${videoTitle.replace(/[^a-z0-9]/gi, '_').slice(0,40)}_legendas.html`;
-        a.click();
-        URL.revokeObjectURL(url);
-    }
-    
-    _exportSubtitlesPDF() {
-        const videoTitle = document.title || 'Legendas';
-        const showTranslation = document.getElementById('lf-show-translation').checked;
-
-        const rows = this.cues.map(cue => {
-            const time = this._formatTime(cue.start / 1000);
-            const trans = cue.translatedText || '';
-            return `<tr>
-  <td class="t">${time}</td>
-  <td class="o">${escapeHTML(cue.text)}${showTranslation && trans ? `<br><span class="tr">${escapeHTML(trans)}</span>` : ''}</td>
-</tr>`;
-        }).join('\n');
-
-        const printHTML = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head><meta charset="UTF-8"><title>${videoTitle}</title>
-<style>
-@page{margin:1.5cm 2cm;}
-body{font-family:Arial,sans-serif;font-size:11px;color:#1e293b;}
-h2{color:#0ea5e9;font-size:14px;margin-bottom:2px;}
-p{color:#64748b;font-size:10px;margin:0 0 10px;}
-table{width:100%;border-collapse:collapse;}
-tr{page-break-inside:avoid;}
-td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
-.t{color:#94a3b8;font-size:10px;white-space:nowrap;width:40px;}
-.o{line-height:1.4;}
-.tr{color:#0ea5e9;font-size:10px;}
-</style></head>
-<body>
-<h2>${videoTitle}</h2>
-<p>${this.cues.length} legendas &bull; ${new Date().toLocaleDateString('pt-BR')} &bull; LinguaFlow</p>
-<table>${rows}</table>
-</body></html>`;
-
-        const w = window.open('', '_blank');
-        w.document.write(printHTML);
-        w.document.close();
-        w.onload = () => setTimeout(() => w.print(), 250);
-    }
-    
-    _updateSubtitlePanelHighlight() {
-        const list = document.getElementById('lf-subtitle-list');
-        if (!list) return;
-        
-        const items = list.querySelectorAll('.lf-subtitle-item');
-        items.forEach((item, idx) => {
-            if (idx === this.currentCueIndex) {
-                item.style.background = 'rgba(56, 189, 248, 0.15)';
-                item.style.borderLeftColor = '#38BDF8';
-                
-                // Só faz scroll automático se o usuário não estiver rolando manualmente
-                // _userScrolling é definido como true quando o usuário rola, e volta a false após 3s
-                if (!list._userScrolling) {
-                    item.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            } else {
-                item.style.background = 'rgba(255,255,255,0.03)';
-                item.style.borderLeftColor = 'transparent';
+        const panelSync = setInterval(() => {
+            if (!document.getElementById('lf-subtitle-panel')) {
+                clearInterval(panelSync);
+                return;
             }
-        });
+            this._updateSubtitlePanelHighlight();
+        }, 500);
     }
+    
+    
 
     _renderVideoWordPrep() {
         const box = document.getElementById('lf-video-words');
@@ -1848,7 +2085,7 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
             chip.textContent = `${word} ×${count}`;
             chip.addEventListener('click', () => {
                 const firstIndex = this.cues.findIndex(cue => new RegExp(`\\b${word}\\b`, 'i').test(cue.text || ''));
-                if (firstIndex >= 0 && this.videoElement) this.videoElement.currentTime = this.cues[firstIndex].start / 1000;
+                if (firstIndex >= 0 && this.videoElement) this.videoElement.currentTime = this.cues[firstIndex].start;
             });
             box.appendChild(chip);
         });
@@ -1862,7 +2099,7 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
             const { db } = await import('../utils/db.js');
             if (!cue.translatedText) {
                 const { translator } = await import('../utils/translator.js');
-                const result = await translator.translate(cue.text, 'auto', this.targetLang);
+                const result = await translator.translate(cue.text, 'auto', this.targetLang || 'pt');
                 cue.translatedText = result.translation;
             }
             const data = {
@@ -1874,13 +2111,17 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
                 phrase_translation: cue.translatedText || '',
                 context_sentence: cue.text,
                 deck_id: 1,
-                video_url: await this._getVideoUrlWithTimestamp(),
-                timestamp: cue.start / 1000,
+                video_url: videoUtils.getVideoUrlWithTimestamp(),
+                timestamp: cue.start,
                 platform: this.platform,
                 tags: ['phrase']
             };
             const saveRes = await db.saveSentence(data);
             if (!saveRes || !saveRes.ok) throw new Error('Falha ao salvar frase');
+            
+            // Notifica o Dashboard para atualizar contadores e listas
+            chrome.runtime.sendMessage({ type: 'REFRESH_DASHBOARD' }).catch(() => {});
+
             if (btn) {
                 btn.textContent = 'Salva';
                 btn.style.background = 'rgba(16,185,129,0.18)';
@@ -1895,11 +2136,8 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
         }
     }
     
-    async _formatTime(seconds) {
-        const BASE = chrome.runtime.getURL('utils/');
-        const { videoUtils } = await import(BASE + 'video-utils.js');
-        return videoUtils.formatTime(seconds);
-    }
+    // Removido _formatTime duplicado e assíncrono (usando a versão síncrona no fim do arquivo)
+
 
     // ── VTT Parser (HBO Max) — V5 version ────────────────────────────────────
     _parseVTT(vttStr) {
@@ -1924,44 +2162,54 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
         return cues;
     }
 
-    // ── fetchYoutubeSubtitles — cópia exata do V5 ────────────────────────────
     async _fetchYoutubeSubtitles() {
+        if (this.cues.length > 0) return;
+        
         try {
             const { lastYoutubeSubtitleUrls } = await chrome.storage.local.get('lastYoutubeSubtitleUrls');
             const urls = lastYoutubeSubtitleUrls ?? [];
-            console.log('[LinguaFlow] Fetched', urls.length, 'subtitle URLs');
-
+            
             const videoId = new URL(window.location.href).searchParams.get('v');
             if (!videoId) return;
 
-            const url = urls.find(r => {
+            // Filtra URLs que pertencem ao vídeo atual
+            const matchingUrls = urls.filter(r => {
                 try { return new URL(r).searchParams.get('v') === videoId; }
                 catch { return false; }
-            });
-            if (!url) {
-                console.log('[LinguaFlow] No subtitle URL found for video', videoId);
+            }).reverse();
+
+            if (matchingUrls.length === 0) {
+                console.log('[LinguaFlow] Nenhuma URL de legenda encontrada para o vídeo', videoId);
                 return;
             }
 
-            const response = await fetch(new URL(url).toString());
-            const text = await response.text();
-            const data = (() => { try { return JSON.parse(text); } catch { return null; } })();
-            if (!data?.events) {
-                console.log('[LinguaFlow] No events in data');
-                return;
-            }
-
-            const cues = this._processYtSub(data);
-            console.log('[LinguaFlow] Loaded', cues.length, 'cues');
-            if (cues.length > 0) {
-                this.cues = cues; // Sincroniza para o Sync Loop do YouTube
-                this.xhrCues = cues;
-                this.usingXhr = true;
-                window.dispatchEvent(new CustomEvent('LF_CUES_LOADED', { detail: cues }));
-                console.log('[LinguaFlow] Legendas carregadas e sincronizadas.');
+            for (const url of matchingUrls) {
+                console.log('[LinguaFlow] Tentando carregar legendas de:', url);
+                const response = await fetch(new URL(url).toString());
+                if (!response.ok) continue;
+                
+                const text = await response.text();
+                let data = null;
+                
+                if (text.startsWith('{')) {
+                    try { data = JSON.parse(text); } catch {}
+                }
+                
+                if (data && data.events) {
+                    const cues = this._processYtSub(data);
+                    if (cues && cues.length > 0) {
+                        this.cues = cues;
+                        this.xhrCues = cues;
+                        this.usingXhr = true;
+                        this._renderVideoWordPrep();
+                        this.toggleSubtitles(); // Garante visibilidade
+                        console.log('[LinguaFlow] Legendas carregadas com sucesso (' + cues.length + ' frases)');
+                        return;
+                    }
+                }
             }
         } catch (e) {
-            console.error('[LinguaFlow] Fetch error', e);
+            console.error('[LinguaFlow] Erro ao recuperar legendas:', e);
         }
     }
 
@@ -2024,82 +2272,35 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
                     m.push({ text: b, start: d / 1000, end: (d + x) / 1000 });
                 });
             } else {
-                const n = [];
-                s.events.forEach(t => {
-                    if (!t.segs) return;
-                    const c = t.tStartMs ?? 0, p = t.dDurationMs ?? 0;
-                    t.segs.forEach(W => {
-                        let S = (W.utf8 ?? '').replace(/\n/g, ' ').trim();
-                        if (!S) return;
-                        const f = S.split(/\s+/);
-                        if (f.length > 1) {
-                            const i = p > 0 ? p / f.length : 500;
-                            f.forEach((h, j) => { n.push({ word: h, startMs: c + j * i }); });
-                        } else {
-                            const i = W.tOffsetMs ?? 0;
-                            n.push({ word: S, startMs: c + i });
-                        }
+                // Estratégia de Precisão: Captura eventos e respeita os tempos de cada segmento (word-level timing)
+                s.events.forEach(evt => {
+                    if (!evt.segs || evt.segs.length === 0) return;
+                    
+                    const startMs = evt.tStartMs ?? 0;
+                    const durationMs = evt.dDurationMs ?? 0;
+                    
+                    // Se houver múltiplos segmentos, tentamos capturar a frase inteira com seu tempo real
+                    let text = '';
+                    evt.segs.forEach(seg => {
+                        text += (seg.utf8 || '');
+                    });
+                    
+                    text = text.replace(/\n/g, ' ').trim();
+                    if (!text) return;
+
+                    // Higienização de texto (remove marcadores de música/ruído [Music], [Laughter])
+                    const cleanText = text.replace(/\[.*?\]/g, '').trim();
+                    if (!cleanText) return;
+
+                    m.push({ 
+                        text: cleanText, 
+                        start: startMs / 1000, 
+                        end: (startMs + durationMs) / 1000 
                     });
                 });
-                n.sort((t, c) => t.startMs - c.startMs);
 
-                const langKey = detectLang(n.map(t => t.word));
-                const d = langKey ? D[langKey] : null;
-                const isConn = t => d ? d.has(t.toLowerCase().replace(/[^a-záàâäãéèêëíìîïóòôöõúùûüñçß]/g, '')) : false;
-                const hasComma = t => /[,;]$/.test(t);
-                const pushCue = (words, startMs, endMs) => {
-                    const sep = CJK.test(words[0] ?? '') ? '' : ' ';
-                    m.push({ text: words.join(sep), start: startMs / 1000, end: endMs / 1000 });
-                };
-
-                let u = [], _ = -1, M = [];
-                if (n.length > 0) { _ = n[0].startMs; u.push(n[0].word); M.push(0); }
-
-                for (let t = 0; t < n.length - 1; t++) {
-                    const c = n[t], p = n[t + 1];
-                    const W = Math.max(c.word.length * 50, 200);
-                    const S = c.startMs + W;
-                    const f = Math.max(0, p.startMs - S);
-                    const i = u.length;
-                    let h = false;
-                    const j = /[.?!。？！]["']?$/.test(c.word);
-
-                    if (
-                        (j && i >= l._h) ||
-                        f > l._c ||
-                        i >= l._b ||
-                        (d && i >= l._i && isConn(p.word)) ||
-                        (hasComma(c.word) && i >= l._j) ||
-                        (i >= l._e && f > l._d) ||
-                        (i >= l._g && f > l._f)
-                    ) h = true;
-
-                    if (h) {
-                        let w = i - 1;
-                        if (i >= l._b && !j && f <= l._c) {
-                            for (let v = 1; v <= Math.min(l._k, i - l._a); v++) {
-                                const E = i - 1 - v, k = u[E], T = u[E + 1];
-                                if (hasComma(k)) { w = E; break; }
-                                if (d && isConn(T)) { w = E; break; }
-                            }
-                        }
-                        if (w < i - 1) {
-                            const v = u.slice(0, w + 1), E = u.slice(w + 1);
-                            const k = M[w], T = n[k], N = Math.max(T.word.length * 50, 200);
-                            pushCue(v, _, T.startMs + N);
-                            const O = M[w + 1];
-                            u = [...E]; M = M.slice(w + 1); _ = n[O].startMs;
-                        } else {
-                            pushCue(u, _, c.startMs + W);
-                            u = []; M = []; _ = p.startMs;
-                        }
-                    }
-                    u.push(p.word); M.push(t + 1);
-                }
-                if (u.length > 0) {
-                    const t = n[n.length - 1], c = Math.max(t.word.length * 50, 200);
-                    pushCue(u, _ !== -1 ? _ : t.startMs, t.startMs + c);
-                }
+                // Ordenação e remoção de sobreposições
+                m.sort((a, b) => a.start - b.start);
             }
             return m;
         }
@@ -2117,10 +2318,10 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
                 duration:  g,
                 finishTime: m,
                 id: `subtitle_${a}_${m}`,
-                sentence: decodeHtml(e.text.trim()),
+                sentence: this._cleanSubtitleText(e.text),
                 start: a,
                 end:   m,
-                text:  decodeHtml(e.text.trim()),
+                text:  this._cleanSubtitleText(e.text),
             };
         }).filter(e => e != null);
         console.log('[LinguaFlow] Final cues:', result.length);
@@ -2129,15 +2330,38 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
 
     // ── Aguarda elemento <video> ─────────────────────────────────────────────
     _waitForVideo() {
-        const iv = setInterval(() => {
+        // Cancela busca anterior se houver
+        if (this._videoWaitInterval) clearInterval(this._videoWaitInterval);
+
+        this._videoWaitInterval = setInterval(() => {
             const vid = document.querySelector('video');
             if (!vid) return;
-            this.videoElement = vid;
-            clearInterval(iv);
-            if (this.platform === 'youtube' || this.platform === 'max') this._startSyncLoop();
 
-            // Reinjecta botão caso o YT tenha remontado o player
-            vid.addEventListener('play', () => this._injectYouTubeControls());
+            this.videoElement = vid;
+            clearInterval(this._videoWaitInterval);
+            this._videoWaitInterval = null;
+
+            if (this.platform === 'youtube' || this.platform === 'max') {
+                // INJEÇÃO CRÍTICA: Cria o DOM das legendas antes de iniciar o loop
+                this._injectSubtitleUI().then(() => {
+                    console.log('[LinguaFlow] ✅ UI das legendas injetada com sucesso.');
+                    this._startSyncLoop();
+                }).catch(e => {
+                    console.error('[LinguaFlow] ❌ Erro ao injetar UI das legendas:', e);
+                });
+            }
+
+            // Injeta botões e controles
+            this._injectYouTubeControls();
+            vid.addEventListener('play', () => {
+                this._injectYouTubeControls();
+                this._wasPausedByHover = false;
+            });
+            vid.addEventListener('seeking', () => {
+                this.lastText = '';
+                this._lastFoundIdx = -1; // Reset do índice otimizado
+                this._lastAutoPausedEndTime = -1;
+            });
 
             // Para HBO/Max: se a legenda foi posicionada em fallback, reposiciona
             // dentro do player agora que o vídeo (e o player) estão prontos
@@ -2175,54 +2399,46 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
     startCapture() {
         if (this.platform === 'youtube') {
             this._injectYouTubeHook();
+            this._fetchYoutubeSubtitles(); // Tenta carregar do cache imediatamente
         }
         // V5: Inicia o sync loop para todas as plataformas (exceto YouTube/Max que usam o novo motor)
         if (this.platform !== 'youtube' && this.platform !== 'max') {
             this._ready = true;
-            this._syncLoop = () => {
-                this._syncXhrCues();
-                if (this._ready) this._syncTimer = requestAnimationFrame(this._syncLoop);
+            this._syncLoop = (now, metadata) => {
+                const v = this.videoElement || document.querySelector('video');
+                const t = (metadata ? metadata.mediaTime : (v ? v.currentTime : 0)) + (this.translationAnticipation || 0);
+                // Loop legado unificado com o motor de elite
+                const cuesToSearch = (this.xhrCues && this.xhrCues.length > 0) ? this.xhrCues : this.cues;
+                const idx = this._binarySearchCue(cuesToSearch, t);
+                const cue = idx !== -1 ? cuesToSearch[idx] : null;
+                
+                if (cue && cue.text !== this.lastText) {
+                    this.lastText = cue.text;
+                    this.onSubtitle(cue);
+                } else if (!cue && this.lastText !== '') {
+                    this.lastText = '';
+                    this.renderDual('', '');
+                }
+                
+                if (this._ready) {
+                    if (v && v.requestVideoFrameCallback) {
+                        this._syncTimer = v.requestVideoFrameCallback(this._syncLoop);
+                    } else {
+                        this._syncTimer = requestAnimationFrame(this._syncLoop);
+                    }
+                }
             };
-            this._syncTimer = requestAnimationFrame(this._syncLoop);
-            console.log('[LinguaFlow] Sync loop legado iniciado');
+            
+            const v = this.videoElement || document.querySelector('video');
+            if (v && v.requestVideoFrameCallback) {
+                this._syncTimer = v.requestVideoFrameCallback(this._syncLoop);
+            } else {
+                this._syncTimer = requestAnimationFrame(this._syncLoop);
+            }
+            console.log('[LinguaFlow] Sync loop legado iniciado com precisão de frame');
         } else {
             console.log('[LinguaFlow] Utilizando novo motor de sincronização');
         }
-    }
-
-    // ── Recupera legendas do YouTube do storage local (Persistência F5) ────────
-    async _fetchYoutubeSubtitles() {
-        if (this.cues.length > 0) return;
-        
-        chrome.storage.local.get('lastYoutubeSubtitleUrls', async (res) => {
-            const urls = res.lastYoutubeSubtitleUrls || [];
-            if (urls.length === 0) return;
-            
-            console.log('[LinguaFlow] Tentando recuperar legendas de URLs salvas:', urls.length);
-            
-            // Tenta a URL mais recente que combine com o vídeo atual
-            // No YouTube, as URLs de legenda contêm o v=VIDEO_ID
-            const videoId = new URLSearchParams(window.location.search).get('v');
-            if (!videoId) return;
-            
-            const matchingUrls = urls.filter(u => u.includes(videoId)).reverse();
-            
-            for (const url of matchingUrls) {
-                try {
-                    const resp = await fetch(url);
-                    if (resp.ok) {
-                        const text = await resp.text();
-                        this._processYouTubeRawSubtitles(url, text);
-                        if (this.cues.length > 0) {
-                            console.log('[LinguaFlow] Legendas recuperadas com sucesso via F5 Cache');
-                            break;
-                        }
-                    }
-                } catch (e) {
-                    console.warn('[LinguaFlow] Falha ao fetch subtitle cache:', e);
-                }
-            }
-        });
     }
 
     _injectYouTubeHook() {
@@ -2230,11 +2446,7 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
         script.src = chrome.runtime.getURL('content/youtube-hook.js');
         script.onload = () => script.remove();
         (document.head || document.documentElement).appendChild(script);
-
-        window.addEventListener('message', (ev) => {
-            if (ev.source !== window || !ev.data || ev.data.type !== 'LF_SUBTITLE_HOOK') return;
-            this._processYouTubeRawSubtitles(ev.data.url, ev.data.data);
-        });
+        // O listener de mensagens agora é centralizado no constructor/init para evitar duplicidade
     }
 
     _processYouTubeRawSubtitles(url, raw) {
@@ -2242,18 +2454,19 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
         let cues = [];
 
         if (raw.startsWith('{')) {
-            try { cues = subtitleParsers.parseYouTubeJSON(JSON.parse(raw)); } catch(e) {}
+            try { cues = this._processYtSub(JSON.parse(raw)); } catch(e) {}
         } else if (raw.includes('WEBVTT')) {
-            cues = subtitleParsers.parseVTT(raw);
-        } else if (raw.includes('<p') || raw.includes('<?xml')) {
-            cues = subtitleParsers.parseTTML(raw);
+            cues = this._parseVTT(raw);
         } else if (raw.includes('-->')) {
-            cues = subtitleParsers.parseSRT(raw);
+            cues = this._parseVTT(raw); // VTT/SRT unificado
         }
 
         if (cues.length > 0) {
             this.cues = cues;
+            this.xhrCues = cues; // Unifica para garantir que o sync loop e sidebar vejam o mesmo
             this._renderVideoWordPrep();
+            this._rebuildSubtitleList(); // Atualiza painel lateral IMEDIATAMENTE
+            this.toggleSubtitles(); // Garante visibilidade
             
             // Persistência para F5
             chrome.storage.local.get('lastYoutubeSubtitleUrls', (res) => {
@@ -2302,67 +2515,52 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
         }
     }
 
-    // ── V5 Sync Method (cópia exata do LinguaFlow Pro V5) ────────────────────
-    _syncXhrCues() {
-        if (!this.xhrCues || !this.xhrCues.length) return;
 
-        // YouTube: respeita o botão de legendas nativo
-        if (this.platform === 'youtube') {
-            const subBtn = document.querySelector('.ytp-subtitles-button');
-            if (subBtn && subBtn.getAttribute('aria-pressed') === 'false') {
-                if (this.lastText !== '') {
-                    this.lastText = '';
-                    this.renderDual('', '');
-                }
+    // ── Sync Loop (YouTube + HBO, RAF/rVFC) ───────────────────────────────────────
+    _startSyncLoop() {
+        this._stopSyncLoop();
+        
+        let lastSyncPulse = Date.now();
+        
+        const loop = (now, metadata) => {
+            const v = this.videoElement || document.querySelector('video');
+            if (!v) {
+                this._continueLoop(loop, v);
                 return;
             }
-        }
 
-        const v = this.videoElement || document.querySelector('video');
-        if (!v) return;
-        
-        const t = v.currentTime;
-        
-        // Encontra a cue atual (para auto-captions que sobrepõem, pegamos a mais longa)
-        const activeCues = this.xhrCues.filter(c => t >= c.start && t <= c.end);
-        let cue = null;
-        if (activeCues.length > 0) {
-            cue = activeCues.reduce((prev, current) => 
-                (prev.text.length > current.text.length) ? prev : current
-            );
-        }
-        
-        if (cue && cue.text !== this.lastText) {
-            this.lastText = cue.text;
-            console.log('[LinguaFlow] Mostrando legenda:', cue.text.substring(0, 50));
-            this.onSubtitle(cue);
-        } else if (!cue && this.lastText !== '') {
-            this.lastText = '';
-            console.log('[LinguaFlow] Escondendo legenda');
-            this.renderDual('', '');
-        }
-    }
+            lastSyncPulse = Date.now();
 
-    // ── Sync Loop (YouTube + HBO, RAF) ───────────────────────────────────────
-    _startSyncLoop() {
-        let lastCueEndTime = 0;
-        let autoPausedAt = 0;
-        
-        const loop = () => {
-            // HBO/Max: usa xhrCues (VTT completo)
-            if (this.platform === 'max' && this.xhrCues.length > 0) {
-                const v = this.videoElement || document.querySelector('video');
-                if (!v) {
-                    this.syncInterval = requestAnimationFrame(loop);
-                    return;
+            // SINCRONIA ROBUSTA
+            // v.currentTime está sempre em segundos.
+            let t = v.currentTime;
+            
+            // Verificação de Popup: Se estiver aberto, não atualizamos a legenda (manter a atual)
+            const isPopupOpen = this.wordPopup && this.wordPopup.popup && this.wordPopup.popup.style.display !== 'none';
+            if (isPopupOpen) {
+                // Se o popup está aberto e o vídeo NÃO está pausado, pausamos agressivamente
+                if (!v.paused) {
+                    v.pause();
                 }
-                const t = v.currentTime;
-                
-                // Encontra TODAS as cues ativas no tempo atual
-                const cuesToSearch = (this.xhrCues && this.xhrCues.length > 0) ? this.xhrCues : this.cues;
+                this._continueLoop(loop, v);
+                return;
+            }
+
+            const cuesToSearch = (this.xhrCues && this.xhrCues.length > 0) ? this.xhrCues : this.cues;
+            
+            if (cuesToSearch && cuesToSearch.length > 0) {
+                // Sincronia com Legenda Nativa (YouTube)
+                if (this.platform === 'youtube') {
+                    const ytNative = document.querySelector('.ytp-caption-window-container');
+                    if (ytNative && ytNative.style.display !== 'none') {
+                        ytNative.style.display = 'none';
+                    }
+                }
+
+                // Encontra todas as cues ativas no tempo atual
                 const activeCues = cuesToSearch.filter(c => t >= c.start && t <= c.end);
                 
-                // Se houver múltiplas cues ativas (overlap), pega a mais longa
+                // Se houver múltiplas, pegamos a mais longa (mais provável ser a frase completa)
                 let cue = null;
                 if (activeCues.length > 0) {
                     cue = activeCues.reduce((prev, current) => 
@@ -2374,98 +2572,98 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
                     this.lastText = cue.text;
                     this.onSubtitle(cue);
                 } else if (!cue && this.lastText !== '') {
+                    // Hysteresis: Pequena tolerância para evitar piscar
                     this.lastText = '';
                     this._currentCue = null;
                     this.renderDual('', '');
                 }
-                
-                this.syncInterval = requestAnimationFrame(loop);
-                return;
-            }
-            
-            // YouTube: respeita o botão de legendas nativo
-            if (this.platform === 'youtube') {
-                const subBtn = document.querySelector('.ytp-subtitles-button');
-                if (subBtn && subBtn.getAttribute('aria-pressed') === 'false') {
-                    if (this.lastText !== '') {
-                        this.lastText = '';
-                        this.renderDual('', '');
-                    }
-                    this.syncInterval = requestAnimationFrame(loop);
-                    return;
-                }
-            }
-            
-            // YouTube: usa cues normais (ou fallback para xhrCues se populado por fetch direto)
-            const activeCuesList = this.cues.length > 0 ? this.cues : (this.platform === 'youtube' ? this.xhrCues : []);
-            if (this.videoElement && activeCuesList.length > 0) {
-                const currentTimeMs = this.videoElement.currentTime * 1000;
-                const t = currentTimeMs / 1000; // Converte para segundos
-                
-                // Encontra TODAS as cues ativas no tempo atual
-                const activeCues = activeCuesList.filter(c => t >= c.start/1000 && t <= c.end/1000);
-                
-                // Se houver múltiplas cues ativas (overlap), pega a mais longa
-                let idx = -1;
-                if (activeCues.length > 0) {
-                    const longestCue = activeCues.reduce((prev, current) => 
-                        (prev.text.length > current.text.length) ? prev : current
-                    );
-                    idx = activeCuesList.indexOf(longestCue);
-                }
 
-                if (idx !== this.currentCueIndex) {
-                    this.currentCueIndex = idx;
-                    if (idx !== -1) {
-                        const currentCue = activeCuesList[idx];
-                        this.onSubtitle(currentCue);
-                        lastCueEndTime = currentCue.end;
-                        
-                        // SAFE LOOKAHEAD: pre-translate next 3 cues sequentially to avoid rate-limits
-                        const nextCues = activeCuesList.slice(idx + 1, idx + 4).filter(c => !c.translatedText && !c.isTranslating);
-                        if (nextCues.length > 0) {
-                            nextCues.forEach(c => c.isTranslating = true);
-                            import('../utils/translator.js').then(({ translator }) => {
-                                nextCues.reduce((promise, nextCue) => {
-                                    return promise.then(() => translator.translate(nextCue.text, 'auto', this.targetLang).then(res => {
-                                        nextCue.translatedText = res.translation;
-                                        nextCue.isTranslating = false;
-                                    }).catch(() => { nextCue.isTranslating = false; }));
-                                }, Promise.resolve());
-                            });
-                        }
-                    }
-                    else {
-                        this.renderDual('', '');
-                        
-                        // PAUSA AUTOMÁTICA: Pausa quando legenda termina
-                        if (this.autoPause && 
-                            !this.videoElement.paused && 
-                            lastCueEndTime > 0 && 
-                            currentTimeMs >= lastCueEndTime &&
-                            currentTimeMs - autoPausedAt > 1000) { // Evita pausas múltiplas
-                            
-                            this.videoElement.pause();
-                            autoPausedAt = currentTimeMs;
-                            console.log('[LinguaFlow AutoPause] Vídeo pausado ao fim da fala');
-                            
-                            // Mostra indicador visual de pausa
-                            this._showAutoPauseIndicator();
-                        }
-                    }
+                // Auto-Pause (Shadowing Mode)
+                if (this.autoPause && !v.paused && cue && t >= cue.end - 0.05) {
+                    v.pause();
+                    this._showAutoPauseIndicator();
                 }
             }
-            this.syncInterval = requestAnimationFrame(loop);
+            
+            this._continueLoop(loop, v);
         };
-        this.syncInterval = requestAnimationFrame(loop);
+
+        // Watchdog Timer: Se o loop morrer (aba suspensa), reinicia
+        this._watchdogInterval = setInterval(() => {
+            const v = this.videoElement || document.querySelector('video');
+            if (v && !v.paused && (Date.now() - lastSyncPulse > 1000)) {
+                console.warn('[LinguaFlow] Watchdog: Sync loop congelado detectado. Reiniciando...');
+                this._startSyncLoop();
+            }
+        }, 2000);
+
+        this._continueLoop(loop, this.videoElement || document.querySelector('video'));
+    }
+
+    _prefetchTranslations(cues, currentIdx) {
+        const nextCues = cues.slice(currentIdx + 1, currentIdx + 5).filter(c => !c.translatedText && !c.isTranslating);
+        nextCues.forEach(c => {
+            c.isTranslating = true;
+            chrome.runtime.sendMessage({
+                action: 'translate',
+                text: c.text,
+                from: this.sourceLang,
+                to: this.targetLang
+            }, (res) => {
+                if (res?.translation) c.translatedText = res.translation;
+                c.isTranslating = false;
+            });
+        });
+    }
+
+    _cleanSubtitleText(text) {
+        if (!text) return '';
+        return text
+            .replace(/\[.*?\]/g, '')      // Remove [Music], [Laughter]
+            .replace(/\(.*?\)/g, '')      // Remove (shouting)
+            .replace(/&nbsp;/g, ' ')
+            .replace(/\s+/g, ' ')         // Unifica espaços
+            .trim();
+    }
+
+    _continueLoop(loop, v) {
+        if (v && v.requestVideoFrameCallback) {
+            this.syncInterval = v.requestVideoFrameCallback(loop);
+        } else {
+            this.syncInterval = requestAnimationFrame(loop);
+        }
+    }
+
+    _stopSyncLoop() {
+        const v = this.videoElement || document.querySelector('video');
+        if (this._watchdogInterval) {
+            clearInterval(this._watchdogInterval);
+            this._watchdogInterval = null;
+        }
+        if (this.syncInterval) {
+            if (v && v.cancelVideoFrameCallback) {
+                try { v.cancelVideoFrameCallback(this.syncInterval); } catch(e) {}
+            } else {
+                cancelAnimationFrame(this.syncInterval);
+            }
+            this.syncInterval = null;
+        }
+        if (this._syncTimer) {
+            if (v && v.cancelVideoFrameCallback) {
+                try { v.cancelVideoFrameCallback(this._syncTimer); } catch(e) {}
+            } else {
+                cancelAnimationFrame(this._syncTimer);
+            }
+            this._syncTimer = null;
+        }
     }
     
     _showAutoPauseIndicator() {
-        if (!this.shadowContainer) return;
+        const container = this._findPlayerContainer() || document.body;
         
         const indicator = document.createElement('div');
         indicator.style.cssText = `
-            position: fixed;
+            position: ${container === document.body ? 'fixed' : 'absolute'};
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
@@ -2492,7 +2690,7 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
             }
         `;
         document.head.appendChild(style);
-        document.body.appendChild(indicator);
+        container.appendChild(indicator);
         
         setTimeout(() => {
             indicator.remove();
@@ -2500,64 +2698,7 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
         }, 1500);
     }
 
-    async onSubtitle(cue) {
-        const delayMs = (this.translationDelay || 0) * 1000;
-        
-        // Armazena o timestamp da legenda atual para uso ao clicar em palavras
-        this.currentSubtitleTimestamp = cue.start / 1000;
-        // Guarda referência da cue atual (funciona para xhrCues e cues)
-        this._currentCue = cue;
-        
-        if (cue.translatedText) {
-            if (!cue.firstRenderedAt) cue.firstRenderedAt = Date.now();
-            const elapsed = Date.now() - cue.firstRenderedAt;
-            
-            if (elapsed >= delayMs) {
-                this.renderDual(cue.text, cue.translatedText);
-            } else {
-                this.renderDual(cue.text, '...');
-                setTimeout(() => {
-                    if (this._currentCue === cue) {
-                        this.renderDual(cue.text, cue.translatedText);
-                    }
-                }, delayMs - elapsed);
-            }
-        } else {
-            // Mostra imediatamente o original
-            this.renderDual(cue.text, '...');
-            if (!cue.firstRenderedAt) cue.firstRenderedAt = Date.now();
-            
-            if (!cue.isTranslating) {
-                cue.isTranslating = true;
-                try {
-                    const { translator } = await import('../utils/translator.js');
-                    const result = await translator.translate(cue.text, 'auto', this.targetLang);
-                    cue.translatedText = result.translation;
-                    cue.isTranslating = false;
-                    
-                    const elapsed = Date.now() - cue.firstRenderedAt;
-                    const remainingDelay = Math.max(0, delayMs - elapsed);
-                    
-                    if (remainingDelay > 0) {
-                        setTimeout(() => {
-                            if (this._currentCue === cue) {
-                                this.renderDual(cue.text, cue.translatedText);
-                            }
-                        }, remainingDelay);
-                    } else {
-                        if (this._currentCue === cue) {
-                            this.renderDual(cue.text, cue.translatedText);
-                        }
-                    }
-                } catch(e) {
-                    cue.isTranslating = false;
-                    if (this._currentCue === cue) {
-                        this.renderDual(cue.text, '');
-                    }
-                }
-            }
-        }
-    }
+
 
     // ── Renderização ─────────────────────────────────────────────────────────
     _showTranslationFlash(text) {
@@ -2590,9 +2731,12 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
 
     // ── Salvar Frase (Pro V5 Style) ──────────────────────────────────────────
     async _getVideoUrlWithTimestamp() {
-        const BASE = chrome.runtime.getURL('utils/');
-        const { videoUtils } = await import(BASE + 'video-utils.js');
-        return videoUtils.getVideoUrlWithTimestamp();
+        const videoId = new URLSearchParams(window.location.search).get('v');
+        const time = Math.floor(this.videoElement?.currentTime || 0);
+        if (this.platform === 'youtube' && videoId) {
+            return `https://youtu.be/${videoId}?t=${time}`;
+        }
+        return window.location.href;
     }
 
     async _saveSentence() {
@@ -2614,23 +2758,121 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
 
             const res = await db.saveSentence(sentenceData);
 
-            // Feedback visual
             if (res.ok && saveBtn) {
                 saveBtn.textContent = '✅ Salva!';
-                saveBtn.classList.add('ok');
+                saveBtn.style.color = '#34D399';
                 setTimeout(() => {
                     saveBtn.textContent = '+ Salvar frase';
-                    saveBtn.classList.remove('ok');
+                    saveBtn.style.color = '';
                 }, 2000);
             }
-            console.log('[LinguaFlow] 📌 Frase salva via DB Proxy:', sentenceData.original);
         } catch (e) {
             console.error('[LinguaFlow] Erro ao salvar frase:', e);
         }
     }
 
+    async _saveCueAsPhrase(cue, item) {
+        const btn = item.querySelector('.lf-save-line');
+        if (btn) btn.disabled = true;
+        
+        try {
+            const { db } = await import('../utils/db.js');
+            if (!cue.translatedText) {
+                const { translator } = await import('../utils/translator.js');
+                const result = await translator.translate(cue.text, 'auto', this.targetLang);
+                cue.translatedText = result.translation;
+            }
+            const data = {
+                item_type: 'phrase',
+                word: cue.text,
+                lang: 'en',
+                translation: cue.translatedText || '',
+                phrase_text: cue.text,
+                phrase_translation: cue.translatedText || '',
+                context_sentence: cue.text,
+                deck_id: 1,
+                video_url: await this._getVideoUrlWithTimestamp(),
+                timestamp: cue.start > 100000 ? cue.start / 1000 : cue.start,
+                platform: this.platform,
+                tags: ['phrase']
+            };
+            const saveRes = await db.saveSentence(data);
+            if (btn) {
+                btn.textContent = '★';
+                btn.style.color = '#FBBF24';
+            }
+        } catch (e) {
+            console.error('[LinguaFlow] Erro ao salvar frase do painel:', e);
+            if (btn) btn.disabled = false;
+        }
+    }
+        
+
+    // ── Motor de Renderização de Elite (onSubtitle) ──────────────────────────
+    onSubtitle(cue) {
+        if (!cue) return;
+        console.log('[LinguaFlow] onSubtitle triggered:', cue.text.substring(0, 30) + '...');
+        if (cue.text === this._lastProcessedText) return;
+        this._lastProcessedText = cue.text;
+        this._currentCue = cue;
+        this.currentSubtitleTimestamp = cue.start;
+
+        // --- NOVO: Contexto Expandido (Melhor que o Lingosive) ---
+        const cues = (this.xhrCues && this.xhrCues.length) ? this.xhrCues : this.cues;
+        const idx = cues.indexOf(cue);
+        const prevText = idx > 0 ? cues[idx - 1].text : '';
+        const nextText = idx < cues.length - 1 ? cues[idx + 1].text : '';
+        
+        cue.fullContext = {
+            prev: prevText,
+            current: cue.text,
+            next: nextText
+        };
+
+        // 1. Pre-renderização: Cria os spans clicáveis antes de mostrar
+        if (!cue._renderedNode) {
+            cue._renderedNode = this._makeClickable(cue.text);
+        }
+
+        // 2. Tradução Dinâmica: Se não tiver, busca ou usa placeholder
+        const trans = cue.translatedText || (cue.isTranslating ? '...' : '');
+        
+        // 3. Exibição Instantânea
+        if (this.shadowContainer) {
+            this.renderDual(cue.text, trans);
+        } else {
+            console.warn('[LinguaFlow] ⚠️ shadowContainer não pronto em onSubtitle. Tentando injetar...');
+            this._injectSubtitleUI().then(() => {
+                this.renderDual(cue.text, trans);
+            });
+        }
+
+        // 4. Se a tradução chegou depois, atualiza
+        if (!cue.translatedText && !cue.isTranslating) {
+            cue.isTranslating = true;
+            chrome.runtime.sendMessage({
+                action: 'translate',
+                text: cue.text,
+                from: this.sourceLang,
+                to: this.targetLang
+            }, (res) => {
+                cue.isTranslating = false;
+                if (res?.translation) {
+                    cue.translatedText = res.translation;
+                    if (this._currentCue === cue) {
+                        this.renderDual(cue.text, res.translation);
+                    }
+                }
+            });
+        }
+    }
+
     renderDual(orig, trans) {
-        if (!this.shadowContainer) return;
+        if (!this.shadowContainer) {
+            console.warn('[LinguaFlow] renderDual failed: shadowContainer not ready');
+            return;
+        }
+        console.log('[LinguaFlow] renderDual called with:', { orig: orig?.substring(0, 20), trans: trans?.substring(0, 20) });
         const wrap     = this.shadowContainer.getElementById('lf-wrap');
         const origDiv  = this.shadowContainer.getElementById('lf-orig');
         const transDiv = this.shadowContainer.getElementById('lf-trans');
@@ -2650,21 +2892,28 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
             return;
         }
         
+        // Reseta botão de salvar se for uma nova legenda
+        if (saveBtn && orig !== this._lastOrig) {
+            saveBtn.textContent = '+ Salvar frase';
+            saveBtn.classList.remove('ok');
+            this._lastOrig = orig;
+        }
+
         // Mostra botão salvar APENAS quando há legenda ativa e válida
         if (saveBtn) {
             saveBtn.style.display = 'inline-block';
         }
 
-        const mode = this.displayMode;
 
         origDiv.innerHTML = '';
+        // Força recriação do nó clicável para garantir que ele pertença ao Shadow Root atual
         origDiv.appendChild(this._makeClickable(orig));
 
         // Corrige encoding de caracteres especiais
         const decodedTrans = this._fixEncoding(trans);
         
         // Log para debug de encoding (apenas se houver caracteres suspeitos)
-        if (trans && (trans.includes('◆') || trans.includes('�') || trans.includes('Ã'))) {
+        if (trans && (trans.includes('◆') || trans.includes('Ã'))) {
             console.warn('[LinguaFlow] ⚠️ Encoding issue detectado:');
             console.warn('  Original:', trans);
             console.warn('  Corrigido:', decodedTrans);
@@ -2674,8 +2923,14 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
         if (transSpan) transSpan.textContent = decodedTrans;
         else { const s = transDiv.querySelector('#lf-trans-txt'); if(s) s.textContent = decodedTrans; }
 
+        // Aplica o modo de exibição
+        const mode = this.displayMode || 'bilingual';
+        if (wrap) wrap.setAttribute('data-subtitle-mode', mode);
+
         origDiv.style.display  = (mode === 'translated') ? 'none' : 'block';
         transDiv.style.display = (mode === 'native')     ? 'none' : 'block';
+
+        console.log(`[LinguaFlow] Render: mode=${mode}, origDisplay=${origDiv.style.display}, transDisplay=${transDiv.style.display}`);
 
         // Mostra botão de tradução rápida apenas quando tradução está oculta
         const translateBtn = this.shadowContainer.getElementById('lf-translate-btn');
@@ -2689,7 +2944,7 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
         else                 wrap.classList.remove('mode-blur');
     }
 
-    _makeClickable(text) {
+    _makeClickable(text, disableHoverPause = false) {
         const frag = document.createDocumentFragment();
 
         // Normaliza entidades HTML de apostrofo antes de tokenizar
@@ -2699,57 +2954,108 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
             .replace(/\u2019/g, "'")
             .replace(/\u2018/g, "'");
 
-        // Split em espacos/pontuacao, mas NAO em apostrofo entre letras (preserva contracoes)
+        // Regex para capturar palavras e o que não é palavra (separadores)
+        // Mantemos os separadores para reconstruir a frase original exatamente
         const tokens = normalized.split(/([ \n\t\r.,!?;"()[\]{}<>]+)/);
+        
+        // Filtra tokens vazios resultantes do split
+        const filteredTokens = tokens.filter(t => t !== '');
 
-        tokens.forEach(token => {
-            if (/[a-zA-Z\u00C0-\u024F]/.test(token)) {
-                const span = document.createElement('span');
-                span.textContent = token;
-                span.className   = 'lf-word ' + this._wordClass(token);
-                
-                // Hover: abre o popup completo após 400ms (igual ao Language Reactor)
-                let hoverTimeout = null;
-                
-                span.addEventListener('mouseenter', async (e) => {
-                    hoverTimeout = setTimeout(() => {
-                        if (this.wordPopup) {
-                            const rect = span.getBoundingClientRect();
-                            console.log('[LinguaFlow] Abrindo popup para:', token, 'rect:', rect);
-                            // showForWord(word, context, rect)
-                            this.wordPopup.showForWord(token, fixUtf8(text), rect);
-                        } else {
-                            console.warn('[LinguaFlow] WordPopup não inicializado');
-                        }
-                    }, 400);
-                });
-                
-                span.addEventListener('mouseleave', () => {
-                    if (hoverTimeout) {
-                        clearTimeout(hoverTimeout);
-                        hoverTimeout = null;
-                    }
-                    // Não fecha o popup — o popup fecha sozinho quando o mouse sai dele
-                });
-                
-                span.addEventListener('click', e => {
-                    e.stopPropagation();
-                    // Click imediato (sem delay)
-                    if (hoverTimeout) { clearTimeout(hoverTimeout); hoverTimeout = null; }
-                    if (this.wordPopup) {
-                        const rect = span.getBoundingClientRect();
-                        console.log('[LinguaFlow] Click no popup para:', token, 'rect:', rect);
-                        this.wordPopup.showForWord(token, fixUtf8(text), rect);
-                    } else {
-                        console.warn('[LinguaFlow] WordPopup não inicializado');
-                    }
-                });
-                frag.appendChild(span);
-            } else {
+        for (let i = 0; i < filteredTokens.length; i++) {
+            const token = filteredTokens[i];
+
+            // Se for pontuação ou espaço, apenas adiciona
+            if (!/[a-zA-Z\u00C0-\u024F]/.test(token)) {
                 frag.appendChild(document.createTextNode(token));
+                continue;
+            }
+
+            // --- DETECÇÃO DE EXPRESSÕES (Greedy Algorithm) ---
+            // Tenta encontrar a expressão mais longa (até 5 palavras à frente)
+            let longestMatch = null;
+            let matchTokenCount = 0;
+            let matchText = "";
+
+            // Olha até 9 tokens à frente (para pegar ~5 palavras + espaços/pontuação)
+            for (let lookAhead = 1; lookAhead <= 10; lookAhead += 2) {
+                if (i + lookAhead >= filteredTokens.length) break;
+                
+                // Reconstrói a possível expressão (ex: "get" + " " + "up")
+                let candidateParts = filteredTokens.slice(i, i + lookAhead + 1);
+                let candidateText = candidateParts.join('');
+                
+                let cleanCandidate = candidateText.toLowerCase().replace(/[.,!?;"()[\]{}<>]+$/g, '').trim();
+                
+                if (expressionsDB.has(cleanCandidate)) {
+                    longestMatch = cleanCandidate;
+                    matchText = candidateText;
+                    matchTokenCount = lookAhead;
+                }
+            }
+            if (longestMatch) {
+                // Encontramos uma expressão! (Ex: "looking forward to")
+                const span = this._createWordSpan(matchText, true, disableHoverPause);
+                frag.appendChild(span);
+                i += matchTokenCount; // Pula os tokens que fazem parte da expressão
+            } else {
+                // Palavra isolada
+                const span = this._createWordSpan(token, false, disableHoverPause);
+                frag.appendChild(span);
+            }
+        }
+        return frag;
+    }
+
+    _createWordSpan(text, isExpression, disableHoverPause = false) {
+        const span = document.createElement('span');
+        span.textContent = text;
+        
+        // Se for expressão, adiciona uma classe especial para destaque visual (underline sutil)
+        const baseClass = isExpression ? 'lf-word lf-expression' : 'lf-word';
+        span.className = baseClass + ' ' + this._wordClass(text);
+        
+        let hoverTimeout = null;
+        
+        span.addEventListener('mouseenter', (e) => {
+            // Debounce de Elite: Só pausa se o usuário realmente quiser interagir (150ms)
+            this._hoverPauseTimer = setTimeout(() => {
+                if (!disableHoverPause && this.videoElement && !this.videoElement.paused) {
+                    this.videoElement.pause();
+                    this._wasPausedByHover = true;
+                }
+                
+                // Mostra tradução rápida no popup
+                if (this.wordPopup) {
+                    const rect = span.getBoundingClientRect();
+                    this.wordPopup.showForWord(text, this.lastText, rect, this._currentCue);
+                }
+            }, 150);
+        });
+        
+        span.addEventListener('mouseleave', () => {
+            if (this._hoverPauseTimer) {
+                clearTimeout(this._hoverPauseTimer);
+                this._hoverPauseTimer = null;
+            }
+            
+            // NÃO retoma o vídeo aqui. O vídeo só retoma se o usuário clicar fora do popup ou no X.
+            // Isso evita que o vídeo volte a tocar enquanto o usuário move o mouse para o popup.
+            const isPopupOpen = this.wordPopup && this.wordPopup.popup && this.wordPopup.popup.style.display !== 'none';
+            if (this.wordPopup && !isPopupOpen) {
+                this.wordPopup.hide();
             }
         });
-        return frag;
+        
+        span.addEventListener('click', e => {
+            e.stopPropagation();
+            if (hoverTimeout) { clearTimeout(hoverTimeout); hoverTimeout = null; }
+            if (this.wordPopup) {
+                const rect = span.getBoundingClientRect();
+                this.wordPopup.showForWord(text, this.lastText, rect, this._currentCue);
+            }
+        });
+        
+        return span;
     }
 
 
@@ -2813,8 +3119,9 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
         if (forceState !== null) {
             isVisible = forceState;
         } else {
-            // Se for chamado sem argumentos, alterna o estado
-            isVisible = localStorage.getItem('lf_sub_visible') === 'true';
+            // Se for chamado sem argumentos, alterna o estado. Padrão: LIGADO (true) se não houver registro.
+            const stored = localStorage.getItem('lf_sub_visible');
+            isVisible = stored !== 'false'; 
         }
         
         host.style.visibility = isVisible ? 'visible' : 'hidden';
@@ -2911,52 +3218,234 @@ td{padding:3px 6px;vertical-align:top;border-bottom:1px solid #e2e8f0;}
             return text.replace(/[◆�]/g, '');
         }
     }
-    _rebuildSubtitleList() {
-        const list = document.getElementById('lf-subtitle-list');
-        if (!list) return;
-        list.innerHTML = '';
-        
-        this.cues.forEach((cue, idx) => {
-            const item = document.createElement('div');
-            item.className = 'lf-subtitle-item';
-            item.dataset.index = idx;
-            item.style.cssText = 'padding:9px 11px;margin-bottom:5px;background:rgba(255,255,255,0.03);border-radius:8px;cursor:pointer;transition:all 0.2s;border-left:3px solid transparent;';
-            const time = this._formatTime(cue.start / 1000 || cue.start);
-            item.innerHTML = `
-                <div style="font-size:10px;color:#64748B;margin-bottom:2px;font-weight:600;">${time}</div>
-                <div style="font-size:13px;color:#E2E8F0;line-height:1.4;">${escapeHTML(cue.text)}</div>
-                <div class="lf-translation-text" style="font-size:12px;color:#38BDF8;margin-top:3px;min-height:15px;">${cue.translatedText || '<span style="color:#475569;font-style:italic;">traduzindo...</span>'}</div>
-                <button class="lf-save-line" style="margin-top:6px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.3);color:#C4B5FD;border-radius:6px;padding:3px 7px;font-size:11px;cursor:pointer;">Salvar frase</button>
-            `;
+
+
+    _toggleCueLoop(idx, btn) {
+        const cues = (this.xhrCues && this.xhrCues.length > 0) ? this.xhrCues : this.cues;
+        const cue = cues[idx];
+        if (!cue) return;
+
+        // Se já está em loop desta frase, desativa
+        if (this.isLooping && this.loopStartTime === cue.start) {
+            this.isLooping = false;
+            if (this._loopInterval) clearInterval(this._loopInterval);
+            this._loopInterval = null;
+            btn.style.background = 'rgba(255,255,255,0.05)';
+            btn.style.color = '#94A3B8';
+            this._showNotification('▶️ Loop Desativado');
+        } else {
+            // Ativa loop para esta frase
+            if (this._loopInterval) clearInterval(this._loopInterval);
             
-            if (!cue.translatedText) {
-                import('../utils/translator.js').then(({ translator }) => {
-                    translator.translate(cue.text, 'auto', this.targetLang).then(res => {
-                        cue.translatedText = res.translation;
-                        const el = item.querySelector('.lf-translation-text');
-                        if (el) el.textContent = res.translation;
-                    }).catch(() => {});
-                });
+            this.isLooping = true;
+            this.loopStartTime = cue.start;
+            this.loopEndTime = cue.end;
+            
+            // Limpa outros botões de loop (estilo)
+            document.querySelectorAll('.lf-loop-cue').forEach(b => {
+                b.style.background = 'rgba(255,255,255,0.05)';
+                b.style.color = '#94A3B8';
+            });
+
+            btn.style.background = 'rgba(56, 189, 248, 0.2)';
+            btn.style.color = '#38BDF8';
+            
+            if (this.videoElement) {
+                this.videoElement.currentTime = cue.start;
+                this.videoElement.play();
             }
-            
-            item.onmouseenter = () => { item.style.background = 'rgba(255,255,255,0.08)'; item.style.borderLeftColor = '#38BDF8'; };
-            item.onmouseleave = () => { if (idx !== this.currentCueIndex) { item.style.background = 'rgba(255,255,255,0.03)'; item.style.borderLeftColor = 'transparent'; } };
-            item.onclick = () => { if (this.videoElement) this.videoElement.currentTime = (cue.start / 1000) || cue.start; };
-            item.querySelector('.lf-save-line')?.addEventListener('click', ev => { ev.stopPropagation(); this._saveCueAsPhrase(cue, item); });
-            list.appendChild(item);
-        });
+
+            this._loopInterval = setInterval(() => {
+                if (this.isLooping && this.videoElement.currentTime >= this.loopEndTime) {
+                    this.videoElement.currentTime = this.loopStartTime;
+                }
+            }, 100);
+
+            this._showNotification('🔁 Loop Ativado');
+        }
     }
 
     _formatTime(seconds) {
-        if (isNaN(seconds)) return '00:00';
+        if (isNaN(seconds) || seconds === null) return '00:00';
         const h = Math.floor(seconds / 3600);
         const m = Math.floor((seconds % 3600) / 60);
         const s = Math.floor(seconds % 60);
         return (h > 0 ? h + ':' : '') + (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
     }
 
+    _rebuildSubtitleList(container, filter = '') {
+        if (!container) container = document.getElementById('lf-subtitle-list');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        const cues = (this.xhrCues && this.xhrCues.length > 0) ? this.xhrCues : this.cues;
+        
+        if (!cues || cues.length === 0) {
+            container.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#64748B;font-size:14px;">Nenhuma legenda encontrada para este vídeo.</div>';
+            return;
+        }
+
+        const showTrans = document.getElementById('lf-show-translation')?.checked ?? true;
+
+        cues.forEach((cue, idx) => {
+            const matchesFilter = !filter || 
+                                 cue.text.toLowerCase().includes(filter.toLowerCase()) || 
+                                 (cue.translatedText && cue.translatedText.toLowerCase().includes(filter.toLowerCase()));
+            
+            if (!matchesFilter) return;
+
+            const item = document.createElement('div');
+            item.className = 'lf-subtitle-item';
+            item.dataset.index = idx;
+            item.style.cssText = `
+                padding: 12px 16px;
+                border-bottom: 1px solid rgba(255,255,255,0.04);
+                border-left: 3px solid transparent;
+                cursor: pointer;
+                transition: all 0.2s;
+                position: relative;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            `;
+
+            // Garante que o tempo está em segundos para formatar
+            const startTime = cue.start > 100000 ? cue.start / 1000 : cue.start;
+
+            item.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+                    <span class="lf-sub-time" style="font-size:10px;color:#475569;font-family:monospace;flex-shrink:0;margin-top:3px;">${this._formatTime(startTime)}</span>
+                    <div class="lf-sub-text" style="flex:1;font-size:13px;line-height:1.4;color:#E2E8F0;font-weight:500;">${this._escapeHTML(cue.text)}</div>
+                    <div style="display:flex;gap:4px;">
+                        <button class="lf-loop-cue" title="Repetir frase" style="background:transparent;border:none;color:#475569;cursor:pointer;font-size:12px;padding:0 2px;">🔁</button>
+                        <button class="lf-save-line" title="Salvar frase" style="background:transparent;border:none;color:#475569;cursor:pointer;font-size:14px;padding:0 2px;transition:color 0.2s;">☆</button>
+                    </div>
+                </div>
+                <div class="lf-translation-text" style="font-size:12px;color:#94A3B8;padding-left:42px;display:${showTrans ? 'block' : 'none'};">
+                    ${cue.translatedText || '<span style="color:#334155;font-style:italic;">traduzindo...</span>'}
+                </div>
+            `;
+
+            // Auto-tradução na barra lateral se estiver faltando
+            if (!cue.translatedText && showTrans) {
+                import('../utils/translator.js').then(({ translator }) => {
+                    translator.translate(cue.text, 'auto', this.targetLang).then(res => {
+                        cue.translatedText = res.translation;
+                        const tDiv = item.querySelector('.lf-translation-text');
+                        if (tDiv) tDiv.textContent = res.translation;
+                    }).catch(() => {
+                        const tDiv = item.querySelector('.lf-translation-text');
+                        if (tDiv) tDiv.textContent = '';
+                    });
+                });
+            }
+
+            item.onclick = (e) => {
+                if (e.target.classList.contains('lf-save-line')) {
+                    this._saveCueAsPhrase(cue, item);
+                    return;
+                }
+                if (e.target.classList.contains('lf-loop-cue')) {
+                    this._toggleCueLoop(idx, e.target);
+                    return;
+                }
+                if (this.videoElement) {
+                    this.videoElement.currentTime = startTime;
+                    this.videoElement.play();
+                }
+            };
+
+            item.onmouseenter = () => { if (this.currentCueIndex !== idx) item.style.background = 'rgba(255,255,255,0.03)'; };
+            item.onmouseleave = () => { if (this.currentCueIndex !== idx) item.style.background = 'transparent'; };
+
+            container.appendChild(item);
+        });
+        
+        this._updateSubtitlePanelHighlight();
+    }
+
+    _escapeHTML(str) {
+        return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    _filterSubtitleList(text) {
+        const list = document.getElementById('lf-subtitle-list');
+        if (list) this._rebuildSubtitleList(list, text);
+    }
+
+    _updateSubtitlePanelHighlight() {
+        const list = document.getElementById('lf-subtitle-list');
+        if (!list) return;
+        
+        const autoScroll = document.getElementById('lf-autoscroll-panel')?.checked ?? true;
+        const items = list.querySelectorAll('.lf-subtitle-item');
+        
+        items.forEach((item) => {
+            const idx = parseInt(item.dataset.index);
+            if (idx === this.currentCueIndex) {
+                item.style.background = 'rgba(56, 189, 248, 0.12)';
+                item.style.borderLeftColor = '#38BDF8';
+                
+                if (autoScroll && !list._userScrolling) {
+                    item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            } else {
+                item.style.background = 'transparent';
+                item.style.borderLeftColor = 'transparent';
+            }
+        });
+    }
+
+    _exportCSV() {
+        const videoTitle = document.title || 'Legendas';
+        const cues = (this.xhrCues && this.xhrCues.length > 0) ? this.xhrCues : this.cues;
+        let csv = 'Timestamp;Original;Translation\n';
+        
+        cues.forEach(c => {
+            const time = this._formatTime(c.start);
+            const orig = (c.text || '').replace(/"/g, '""');
+            const trans = (c.translatedText || '').replace(/"/g, '""');
+            csv += `${time};"${orig}";"${trans}"\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${videoTitle.replace(/[^a-z0-9]/gi, '_')}_LinguaFlow.csv`;
+        link.click();
+    }
+
+    _exportAnki() {
+        const videoTitle = document.title || 'Legendas';
+        const cues = (this.xhrCues && this.xhrCues.length > 0) ? this.xhrCues : this.cues;
+        let content = '';
+        
+        cues.forEach(c => {
+            const orig = (c.text || '').replace(/\n/g, '<br>');
+            const trans = (c.translatedText || '').replace(/\n/g, '<br>');
+            const time = this._formatTime(c.start);
+            // Formato Anki: Front [tab] Back [tab] Tag
+            content += `${orig}<br><small style="color:gray">${time}</small>\t${trans}\tLinguaFlow_${this.platform}\n`;
+        });
+
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${videoTitle.replace(/[^a-z0-9]/gi, '_')}_Anki.txt`;
+        link.click();
+    }
+
+
     destroy() {
-        if (this.syncInterval) cancelAnimationFrame(this.syncInterval);
+        const v = this.videoElement || document.querySelector('video');
+        if (this.syncInterval) {
+            if (v && v.cancelVideoFrameCallback) v.cancelVideoFrameCallback(this.syncInterval);
+            else cancelAnimationFrame(this.syncInterval);
+        }
+        if (this._syncTimer) {
+            if (v && v.cancelVideoFrameCallback) v.cancelVideoFrameCallback(this._syncTimer);
+            else cancelAnimationFrame(this._syncTimer);
+        }
         if (this._loopInterval) clearInterval(this._loopInterval);
         this.domCapture.stop();
         this.shadowContainer?.host?.remove();

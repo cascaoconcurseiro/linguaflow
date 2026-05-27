@@ -2579,14 +2579,16 @@ export class SubtitleEngine {
             }
         };
 
-        // Watchdog Timer: Se o loop morrer (e a página estiver visível), reinicia
+        // Watchdog Timer: Se o loop morrer (e a página estiver visível e o vídeo carregado), reinicia
         this._watchdogInterval = setInterval(() => {
             if (document.hidden) {
                 // Em background, rVFC/RAF são pausados nativamente pelo navegador para poupar bateria
                 return;
             }
             const v = this.videoElement || document.querySelector('video');
-            if (v && !v.paused && (Date.now() - lastSyncPulse > 2000)) {
+            // Só reinicia se o vídeo não estiver pausado, se já tiver dados carregados (readyState >= 3)
+            // e se o último pulso de sincronia ocorreu há mais de 2500ms.
+            if (v && !v.paused && v.readyState >= 3 && (Date.now() - lastSyncPulse > 2500)) {
                 console.warn('[LinguaFlow] Watchdog: Sync loop congelado detectado. Reiniciando...');
                 this._startSyncLoop();
             }

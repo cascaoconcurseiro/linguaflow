@@ -212,6 +212,7 @@ export class WordPopup {
     }
 
     if (!word) return;
+    this._isHiding = false;
     this.word=word.replace(/[.,!?()"]+/g, ''); this.context=context||'';
     this.currentCue = cue; // Armazena a cue completa com contexto expandido
     this._gramBuilt=false; this._exBuilt=false;
@@ -806,6 +807,7 @@ export class WordPopup {
   hide(resumeVideo = false) {
     if (!this.popup || this.popup.style.display === 'none') return;
     
+    this._isHiding = true;
     this.popup.style.opacity = '0';
     this.popup.style.transform = 'translateY(10px) scale(0.95)';
     

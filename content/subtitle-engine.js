@@ -2536,8 +2536,8 @@ export class SubtitleEngine {
                 // SINCRONIA ROBUSTA
                 let t = v.currentTime;
                 
-                // Verificação de Popup: Se estiver aberto, pausa o vídeo e mantém a legenda
-                const isPopupOpen = this.wordPopup && this.wordPopup.popup && this.wordPopup.popup.style.display !== 'none';
+                // Verificação de Popup: Se estiver aberto e não estiver fechando, pausa o vídeo e mantém a legenda
+                const isPopupOpen = this.wordPopup && this.wordPopup.popup && this.wordPopup.popup.style.display !== 'none' && !this.wordPopup._isHiding;
                 if (isPopupOpen) {
                     if (!v.paused) v.pause();
                     this._continueLoop(loop, v);

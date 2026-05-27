@@ -2505,6 +2505,7 @@ export class SubtitleEngine {
         this._stopSyncLoop();
         
         let lastSyncPulse = Date.now();
+        let lastVideoTime = -1;
         
         const loop = (now, metadata) => {
             try {
@@ -2515,6 +2516,7 @@ export class SubtitleEngine {
                 }
 
                 lastSyncPulse = Date.now();
+                lastVideoTime = v.currentTime;
 
                 // SINCRONIA ROBUSTA
                 let t = v.currentTime;
@@ -2589,8 +2591,15 @@ export class SubtitleEngine {
             // Só reinicia se o vídeo não estiver pausado, se já tiver dados carregados (readyState >= 3)
             // e se o último pulso de sincronia ocorreu há mais de 2500ms.
             if (v && !v.paused && v.readyState >= 3 && (Date.now() - lastSyncPulse > 2500)) {
-                console.warn('[LinguaFlow] Watchdog: Sync loop congelado detectado. Reiniciando...');
-                this._startSyncLoop();
+                // Verifica se o vídeo realmente avançou no tempo (evita falsos positivos em "buffering fantasma" do YT)
+                if (v.currentTime !== lastVideoTime) {
+                    console.warn('[LinguaFlow] Watchdog: Sync loop congelado detectado (vídeo avançou). Reiniciando...');
+                    this._startSyncLoop();
+                } else {
+                    // Vídeo não avançou, loop parou naturalmente por falta de novos quadros.
+                    // Atualizamos o pulso para não re-verificar imediatamente.
+                    lastSyncPulse = Date.now();
+                }
             }
         }, 3000);
 

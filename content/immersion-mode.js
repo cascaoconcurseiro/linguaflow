@@ -36,7 +36,7 @@ export class ImmersionMode {
         this.knownWordsMap.set('mundo', 'world');
         this.knownWordsMap.set('tecnologia', 'technology');
         
-        console.log(`LinguaFlow: Modo Imersão Ativado [Intensidade: ${intensity}%]`);
+        console.debug(`LinguaFlow: Modo Imersão Ativado [Intensidade: ${intensity}%]`);
         this.processTextNodes(document.body);
     }
 

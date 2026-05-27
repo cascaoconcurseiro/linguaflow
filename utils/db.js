@@ -14,14 +14,14 @@ class Database {
             this.initPromise = this._open();
         } else {
             this.initPromise = Promise.resolve();
-            console.log('[LinguaFlow DB] Operando em modo Proxy (Content Script)');
+            console.debug('[LinguaFlow DB] Operando em modo Proxy (Content Script)');
         }
     }
 
     async _open() {
         if (this.db) return this.db;
         return new Promise((resolve, reject) => {
-            console.log('[LinguaFlow DB] Abrindo IndexedDB:', DB_NAME, 'v', DB_VERSION);
+            console.debug('[LinguaFlow DB] Abrindo IndexedDB:', DB_NAME, 'v', DB_VERSION);
             const req = indexedDB.open(DB_NAME, DB_VERSION);
 
             req.onblocked = () => {
@@ -30,7 +30,7 @@ class Database {
 
             req.onupgradeneeded = (e) => {
                 const idb = e.target.result;
-                console.log('[LinguaFlow DB] Upgrade necessário v', e.oldVersion, '->', DB_VERSION);
+                console.debug('[LinguaFlow DB] Upgrade necessário v', e.oldVersion, '->', DB_VERSION);
                 
                 if (!idb.objectStoreNames.contains('words')) {
                     const s = idb.createObjectStore('words', { keyPath: 'id', autoIncrement: true });
@@ -65,11 +65,11 @@ class Database {
                 this.db.onversionchange = () => {
                     this.db.close();
                     if (typeof window !== 'undefined' && window.location) {
-                        console.log('[LinguaFlow DB] Nova versão detectada. Recarregando...');
+                        console.debug('[LinguaFlow DB] Nova versão detectada. Recarregando...');
                         window.location.reload();
                     }
                 };
-                console.log('[LinguaFlow DB] Banco aberto com sucesso');
+                console.debug('[LinguaFlow DB] Banco aberto com sucesso');
                 resolve(this.db);
             };
             req.onerror = () => {

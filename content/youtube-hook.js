@@ -3,7 +3,7 @@
 // e capturar a legenda direto da fonte de rede sem atraso.
 
 (function() {
-    console.log('[LinguaFlow] ⚡ Hook Superior Ativado (Nível: Main World)');
+    console.debug('[LinguaFlow] ⚡ Hook Superior Ativado (Nível: Main World)');
 
     const notifyExt = (url, body) => {
         window.postMessage({ 
@@ -86,7 +86,7 @@
                     lastPlayerState = state;
                 }
             });
-            console.log('[LinguaFlow] 🎥 Monitor de Player acoplado com sucesso.');
+            console.debug('[LinguaFlow] 🎥 Monitor de Player acoplado com sucesso.');
         } else {
             setTimeout(monitorPlayer, 1000); // Tenta novamente se o player ainda não carregou
         }

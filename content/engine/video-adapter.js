@@ -56,6 +56,6 @@ export class VideoAdapter {
             document.head.appendChild(s);
         }
         s.textContent = '[data-testid="caption_renderer_overlay"],[class*="SubtitleText"],[class*="subtitle-text"],.track-text-container{opacity:0!important;pointer-events:none!important;}';
-        console.log('[LinguaFlow VideoAdapter] HBO Max: legenda nativa escondida via CSS');
+        console.debug('[LinguaFlow VideoAdapter] HBO Max: legenda nativa escondida via CSS');
     }
 }

@@ -2,7 +2,7 @@
 import { db } from '../utils/db.js';
 import { translator } from '../utils/translator.js';
 
-console.log('LinguaFlow: Service Worker inicializado.');
+console.debug('LinguaFlow: Service Worker inicializado.');
 
 // ── Alarmes ──────────────────────────────────────────────────────────────────
 chrome.alarms.create('srs-reminder', { periodInMinutes: 1440 });
@@ -35,7 +35,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 // ── Listener de mensagens ─────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log('[LinguaFlow SW] Mensagem recebida:', request.type || request.action);
+    console.debug('[LinguaFlow SW] Mensagem recebida:', request.type || request.action);
 
     // Proxy para chamadas de banco de dados (Sincronização global entre sites)
     if (request.type === 'DB_CALL') {

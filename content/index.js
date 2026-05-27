@@ -18,9 +18,9 @@ const supportedSites = [
 const isSupported = supportedSites.some(site => hostname.includes(site));
 
 if (!isSupported) {
-    console.log('[LinguaFlow] Site não suportado, extensão não será carregada.');
+    console.debug('[LinguaFlow] Site não suportado, extensão não será carregada.');
 } else {
-    console.log("[LinguaFlow] Inicializando Arquitetura Premium (Language Reactor Style).");
+    console.debug("[LinguaFlow] Inicializando Arquitetura Premium (Language Reactor Style).");
 
     const bootstrap = () => {
         const engine = new SubtitleEngine();
@@ -38,7 +38,7 @@ if (!isSupported) {
     };
 
     if (window.__LF_INITIALIZED__) {
-        console.log('[LinguaFlow] Engine já inicializada nesta aba.');
+        console.debug('[LinguaFlow] Engine já inicializada nesta aba.');
     } else {
         window.__LF_INITIALIZED__ = true;
         if (document.readyState === 'loading') {

@@ -18,7 +18,7 @@ class TTS {
         if (this.synth) {
             this.synth.onvoiceschanged = () => {
                 this.voices = this.synth.getVoices();
-                console.log('[LinguaFlow TTS] Vozes carregadas:', this.voices.length);
+                console.debug('[LinguaFlow TTS] Vozes carregadas:', this.voices.length);
             };
         }
     }
@@ -41,7 +41,7 @@ class TTS {
                 await audio.play();
                 return true;
             } catch (e) {
-                console.log('[TTS] Audio MP3 falhou, tentando Google TTS');
+                console.debug('[TTS] Audio MP3 falhou, tentando Google TTS');
             }
         }
 
@@ -50,7 +50,7 @@ class TTS {
             await this._playGoogleTTS(text, lang, rate);
             return true;
         } catch (e) {
-            console.log('[TTS] Google TTS falhou, usando Web Speech API');
+            console.debug('[TTS] Google TTS falhou, usando Web Speech API');
         }
 
         // Prioridade 3: Web Speech API (fallback)
@@ -90,10 +90,10 @@ class TTS {
                 }
 
                 await audio.play();
-                console.log('[TTS] Google TTS success with:', url.includes('tw-ob') ? 'tw-ob' : url.includes('gtx') ? 'gtx' : 'dict-chrome-ex');
+                console.debug('[TTS] Google TTS success with:', url.includes('tw-ob') ? 'tw-ob' : url.includes('gtx') ? 'gtx' : 'dict-chrome-ex');
                 return true;
             } catch (e) {
-                console.log('[TTS] Google TTS endpoint failed, trying next...');
+                console.debug('[TTS] Google TTS endpoint failed, trying next...');
                 continue;
             }
         }
@@ -161,9 +161,9 @@ class TTS {
                 return isNatural && !isRobotic;
             });
 
-            console.log('[TTS] Vozes naturais disponíveis:', naturalVoices.length, '/', this.voices.length);
+            console.debug('[TTS] Vozes naturais disponíveis:', naturalVoices.length, '/', this.voices.length);
             if (naturalVoices.length > 0) {
-                console.log('[TTS] Vozes naturais:', naturalVoices.map(v => v.name).join(', '));
+                console.debug('[TTS] Vozes naturais:', naturalVoices.map(v => v.name).join(', '));
             }
 
             // Lista de preferência (apenas vozes de alta qualidade)
@@ -185,7 +185,7 @@ class TTS {
             for (const name of preferred) {
                 voice = naturalVoices.find(v => v.name.includes(name));
                 if (voice) {
-                    console.log('[TTS] Usando voz preferida:', voice.name);
+                    console.debug('[TTS] Usando voz preferida:', voice.name);
                     break;
                 }
             }
@@ -194,14 +194,14 @@ class TTS {
             if (!voice) {
                 voice = naturalVoices.find(v => v.lang.startsWith((lang || 'en').split('-')[0]));
                 if (voice) {
-                    console.log('[TTS] Usando voz natural do idioma:', voice.name);
+                    console.debug('[TTS] Usando voz natural do idioma:', voice.name);
                 }
             }
             
             // Último recurso: primeira voz natural disponível
             if (!voice && naturalVoices.length > 0) {
                 voice = naturalVoices[0];
-                console.log('[TTS] Usando primeira voz natural disponível:', voice.name);
+                console.debug('[TTS] Usando primeira voz natural disponível:', voice.name);
             }
             
             // Se AINDA não tem voz natural, tenta qualquer voz do idioma (melhor que nada)

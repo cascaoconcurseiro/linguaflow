@@ -5,7 +5,7 @@
     if (window.__lf_hbo_injected) return;
     window.__lf_hbo_injected = true;
 
-    console.log('[LF-inject] HBO/Max intercept instalado (XHR + Fetch)');
+    console.debug('[LF-inject] HBO/Max intercept instalado (XHR + Fetch)');
 
     // ── Intercepta XMLHttpRequest ───────────────────────────────────────────
     var _open = XMLHttpRequest.prototype.open;
@@ -50,7 +50,7 @@
         const hasVttHeader = typeof content === 'string' && (content.includes('WEBVTT') || content.includes('-->'));
 
         if (isVtt || hasVttHeader) {
-            console.log('[LF-inject] Legenda detectada, enviando via postMessage');
+            console.debug('[LF-inject] Legenda detectada, enviando via postMessage');
             window.postMessage({
                 type: 'LF_HBO_SUB',
                 url: url,

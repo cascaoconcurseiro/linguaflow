@@ -220,7 +220,7 @@ export class WordPopup {
     const playerContainer = this._findPlayerContainer();
     if (playerContainer && this.popup.parentElement !== playerContainer) {
       playerContainer.appendChild(this.popup);
-      console.log('[WordPopup] Popup movido para dentro do player');
+      console.debug('[WordPopup] Popup movido para dentro do player');
     } else if (!playerContainer && this.popup.parentElement !== document.body) {
       document.body.appendChild(this.popup);
     }
@@ -477,7 +477,7 @@ export class WordPopup {
         antonyms:(d.antonyms||[]).join(','),
       });
       
-      console.log('[WordPopup] ✅ Palavra salva:', result);
+      console.debug('[WordPopup] ✅ Palavra salva:', result);
       
       btn.textContent='✅ Salvo!';
       btn.style.background='linear-gradient(135deg,#15803d,#16a34a)';
@@ -509,7 +509,7 @@ export class WordPopup {
         detail: { word: this.word, result }
       }));
       
-      console.log('[WordPopup] 📢 Notificações enviadas');
+      console.debug('[WordPopup] 📢 Notificações enviadas');
       
     } catch(e) {
       console.error('[WordPopup] ❌ Erro ao salvar:',e);
@@ -815,7 +815,7 @@ export class WordPopup {
         // e deem play naturalmente. Se o player não fizer nada, nós forçamos o play.
         setTimeout(() => {
             if (vid.paused) {
-                vid.play().catch(e => console.log('LF Play fallback falhou:', e));
+                vid.play().catch(e => console.debug('LF Play fallback falhou:', e));
             }
         }, 150);
 

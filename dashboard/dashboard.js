@@ -1428,7 +1428,7 @@ function switchTab(tab) {
 // INIT
 // ============================================================================
 async function init() {
-    console.log('🚀 LinguaFlow Dashboard v2 iniciando...');
+    console.debug('🚀 LinguaFlow Dashboard v2 iniciando...');
     try {
         await lfDb.initPromise;
 

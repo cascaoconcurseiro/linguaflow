@@ -65,15 +65,15 @@ export class SubtitleEngine {
         });
         window.addEventListener('LF_UPDATE_DELAY', e => {
             this.translationDelay = e.detail;
-            console.log(`[LinguaFlow] Delay de tradução atualizado para: ${e.detail}s`);
+            console.debug(`[LinguaFlow] Delay de tradução atualizado para: ${e.detail}s`);
         });
         window.addEventListener('LF_UPDATE_ANTICIPATION', e => {
             this.translationAnticipation = e.detail;
-            console.log(`[LinguaFlow] Antecipação de tradução atualizada para: ${e.detail}s`);
+            console.debug(`[LinguaFlow] Antecipação de tradução atualizada para: ${e.detail}s`);
         });
         window.addEventListener('LF_UPDATE_AUTOPAUSE', e => {
             this.autoPause = e.detail;
-            console.log(`[LinguaFlow] Pausa automática ${e.detail ? 'ATIVADA' : 'DESATIVADA'}`);
+            console.debug(`[LinguaFlow] Pausa automática ${e.detail ? 'ATIVADA' : 'DESATIVADA'}`);
         });
         window.addEventListener('LF_UPDATE_POSITION', e => {
             const host = document.getElementById('linguaflow-subtitle-host');
@@ -97,7 +97,7 @@ export class SubtitleEngine {
         // Sincronização global de vocabulário
         chrome.runtime.onMessage.addListener(request => {
             if (request.type === 'REFRESH_VOCAB') {
-                console.log('[LinguaFlow] Sincronizando vocabulário...');
+                console.debug('[LinguaFlow] Sincronizando vocabulário...');
                 this._loadSavedWords();
             }
         });
@@ -132,7 +132,7 @@ export class SubtitleEngine {
             this.knownWords.clear();
             known.forEach(w => this.knownWords.add(w.word.toLowerCase()));
             
-            console.log(`[LinguaFlow] Vocabulário carregado: ${this.savedWords.size} salvas, ${this.knownWords.size} conhecidas.`);
+            console.debug(`[LinguaFlow] Vocabulário carregado: ${this.savedWords.size} salvas, ${this.knownWords.size} conhecidas.`);
             
             // Recolore as legendas se elas já estiverem na tela
             this._updateSubtitleColors();
@@ -241,12 +241,12 @@ export class SubtitleEngine {
     }
 
     async init() {
-        console.log(`[LinguaFlow] 🚀 Inicializando Engine... Plataforma: ${this.platform}`);
+        console.debug(`[LinguaFlow] 🚀 Inicializando Engine... Plataforma: ${this.platform}`);
         
         // Carrega configurações salvas do banco (não bloqueante para evitar travamentos do SW)
-        console.log('[LinguaFlow] Carregando configurações em background...');
+        console.debug('[LinguaFlow] Carregando configurações em background...');
         this._loadSettings().then(() => {
-            console.log('[LinguaFlow] Configurações aplicadas.');
+            console.debug('[LinguaFlow] Configurações aplicadas.');
             if (this.shadowContainer) this._updateSubtitleColors();
         }).catch(e => console.warn('[LinguaFlow] Falha ao carregar settings:', e));
 
@@ -267,14 +267,14 @@ export class SubtitleEngine {
                 const nativeWindow = document.querySelector('.ytp-caption-window-container');
                 if (nativeWindow && nativeWindow.style.display !== 'none') {
                     nativeWindow.style.display = 'none';
-                    console.log('[LinguaFlow] Legenda nativa detectada e ocultada novamente');
+                    console.debug('[LinguaFlow] Legenda nativa detectada e ocultada novamente');
                 }
             });
             ytObserver.observe(document.body, { childList: true, subtree: true });
         }
         
         document.addEventListener('yt-navigate-finish', () => {
-            console.log('[LinguaFlow] YouTube SPA Navigation detectada');
+            console.debug('[LinguaFlow] YouTube SPA Navigation detectada');
             this._waitForVideo();
             // Re-checa legendas após navegação
             setTimeout(() => this._fetchYoutubeSubtitles(), 1000);
@@ -299,7 +299,7 @@ export class SubtitleEngine {
                 let resp = e.data.response || e.data.data;
                 if (!resp) return;
                 
-                console.log(`[LinguaFlow] Captura de Legenda detectada: ${url.substring(0, 50)}...`);
+                console.debug(`[LinguaFlow] Captura de Legenda detectada: ${url.substring(0, 50)}...`);
 
                 // Se for YouTube (timedtext), usa o processador específico
                 if (url.includes('timedtext')) {
@@ -315,7 +315,7 @@ export class SubtitleEngine {
                     this.xhrCues = cues;
                     this.cues = cues; // Unifica para o Sidebar
                     this.usingXhr = true;
-                    console.log('[LinguaFlow] Legendas unificadas via postMessage (' + cues.length + ' frases)');
+                    console.debug('[LinguaFlow] Legendas unificadas via postMessage (' + cues.length + ' frases)');
                     
                     // Notifica reconstrução do painel lateral
                     this._rebuildSubtitleList();
@@ -326,7 +326,7 @@ export class SubtitleEngine {
             // --- NOVO: Handler de Estado do Player (Language Reactor Style) ---
             if (e.data.type === 'LF_PLAYER_STATE') {
                 const state = e.data.state; // 1=Playing, 2=Paused, 3=Buffering
-                console.log(`[LinguaFlow] Estado do Player: ${state}`);
+                console.debug(`[LinguaFlow] Estado do Player: ${state}`);
                 if (state === 3) {
                     // Buffer detectado! Podemos mostrar um pequeno indicador se quisermos
                 }
@@ -334,7 +334,7 @@ export class SubtitleEngine {
 
             // --- NOVO: Handler de Toggle de Legenda Nativa ---
             if (e.data.type === 'LF_YT_SUB_TOGGLE') {
-                console.log(`[LinguaFlow] Usuário ${e.data.active ? 'ativou' : 'desativou'} legendas no menu nativo.`);
+                console.debug(`[LinguaFlow] Usuário ${e.data.active ? 'ativou' : 'desativou'} legendas no menu nativo.`);
                 if (!e.data.active) {
                     this.renderDual('', ''); // Limpa nossa legenda se o usuário desligou a nativa
                 }
@@ -342,7 +342,7 @@ export class SubtitleEngine {
         });
 
         if (this.platform === 'max') {
-            console.log('[LinguaFlow] HBO Max: aguardando VTT via XHR intercept');
+            console.debug('[LinguaFlow] HBO Max: aguardando VTT via XHR intercept');
             this._hideHBONativeSubtitles();
         }
         
@@ -430,7 +430,7 @@ export class SubtitleEngine {
                     break;
             }
         });
-        console.log('[LinguaFlow] ⌨️ Centro de Comando unificado (A, S, D, Q, L, O, C, Espaço).');
+        console.debug('[LinguaFlow] ⌨️ Centro de Comando unificado (A, S, D, Q, L, O, C, Espaço).');
     }
 
     // ── Navegação por Legenda ───────────────────────────────────────────────
@@ -441,7 +441,7 @@ export class SubtitleEngine {
         if (cue && this.videoElement) {
             this.videoElement.currentTime = cue.start;
             this.videoElement.play();
-            console.log('[LinguaFlow] 🔄 Repetindo legenda:', cue.text);
+            console.debug('[LinguaFlow] 🔄 Repetindo legenda:', cue.text);
         }
     }
 
@@ -500,7 +500,7 @@ export class SubtitleEngine {
 
     // ── Limpeza de estado para troca de vídeo ────────────────────────────────
     async _onUrlChange() {
-        console.log('[LinguaFlow] URL alterada, resetando motor de legendas...');
+        console.debug('[LinguaFlow] URL alterada, resetando motor de legendas...');
         this.cues = [];
         this.xhrCues = [];
         this.currentCueIndex = -1;
@@ -550,7 +550,7 @@ export class SubtitleEngine {
             document.head.appendChild(s);
         }
         s.textContent = '[data-testid="caption_renderer_overlay"],[class*="SubtitleText"],[class*="subtitle-text"],.track-text-container{opacity:0!important;pointer-events:none!important;}';
-        console.log('[LinguaFlow] HBO Max: legenda nativa escondida via CSS (Pro V5)');
+        console.debug('[LinguaFlow] HBO Max: legenda nativa escondida via CSS (Pro V5)');
     }
 
     // ── Carrega configurações do banco ───────────────────────────────────────
@@ -562,7 +562,7 @@ export class SubtitleEngine {
             // Carrega antecipação de tradução (Força 0 se for o valor antigo indesejado)
             let anticipation = await db.getSetting('translationAnticipation');
             if (anticipation === 2 || anticipation === -2) {
-                console.log('[LinguaFlow] Resetando offset de 2.0 para 0.0 (Padrão de Fábrica)');
+                console.debug('[LinguaFlow] Resetando offset de 2.0 para 0.0 (Padrão de Fábrica)');
                 anticipation = 0;
                 await db.setSetting('translationAnticipation', 0);
             }
@@ -574,33 +574,33 @@ export class SubtitleEngine {
             const delay = await db.getSetting('translationDelay');
             if (delay !== undefined && delay !== null) {
                 this.translationDelay = delay;
-                console.log(`[LinguaFlow] Delay carregado: ${delay}s`);
+                console.debug(`[LinguaFlow] Delay carregado: ${delay}s`);
             }
             
             // Carrega pausa automática
             const autoPause = await db.getSetting('autoPause');
             if (autoPause !== undefined && autoPause !== null) {
                 this.autoPause = autoPause;
-                console.log(`[LinguaFlow] Pausa automática carregada: ${autoPause}`);
+                console.debug(`[LinguaFlow] Pausa automática carregada: ${autoPause}`);
             }
             
             // Carrega velocidade de tradução
             const speed = await db.getSetting('translationSpeed');
             if (speed !== undefined && speed !== null) {
                 this.translationSpeed = speed;
-                console.log(`[LinguaFlow] Velocidade carregada: ${speed}`);
+                console.debug(`[LinguaFlow] Velocidade carregada: ${speed}`);
             }
 
             // Carrega modo de exibição (displayMode)
             let mode = await db.getSetting('subtitleMode');
             if (mode === 'translated') {
-                console.log('[LinguaFlow] Resetando modo "Somente Tradução" para "Bilíngue" para evitar confusão.');
+                console.debug('[LinguaFlow] Resetando modo "Somente Tradução" para "Bilíngue" para evitar confusão.');
                 mode = 'bilingual';
                 await db.setSetting('subtitleMode', 'bilingual');
             }
             if (mode) {
                 this.displayMode = mode;
-                console.log(`[LinguaFlow] Modo de exibição carregado: ${mode}`);
+                console.debug(`[LinguaFlow] Modo de exibição carregado: ${mode}`);
             }
         } catch (e) {
             console.warn('[LinguaFlow] Erro ao carregar configurações:', e.message);
@@ -615,13 +615,13 @@ export class SubtitleEngine {
             
             if (playerContainer && subtitleHost) {
                 const resizeObserver = new ResizeObserver(() => {
-                    console.log('[LinguaFlow] Player redimensionado, ajustando legenda...');
+                    console.debug('[LinguaFlow] Player redimensionado, ajustando legenda...');
                     // Reaplica posicionamento quando player muda de tamanho
                     this._repositionSubtitle();
                 });
                 
                 resizeObserver.observe(playerContainer);
-                console.log('[LinguaFlow] ResizeObserver ativado para legenda');
+                console.debug('[LinguaFlow] ResizeObserver ativado para legenda');
             } else {
                 // Tenta novamente após 2 segundos
                 setTimeout(checkAndObserve, 2000);
@@ -748,7 +748,7 @@ export class SubtitleEngine {
                 padding: 0 !important;
             `;
             document.body.appendChild(host);
-            console.log(`[LinguaFlow] HBO: legenda fixed bottom=${effectiveBottom}px`);
+            console.debug(`[LinguaFlow] HBO: legenda fixed bottom=${effectiveBottom}px`);
         } else if (playerContainer) {
             // YouTube e outros: absoluto dentro do player
             host.style.cssText = `
@@ -766,7 +766,7 @@ export class SubtitleEngine {
                 justify-content: center !important;
             `;
             playerContainer.appendChild(host);
-            console.log(`[LinguaFlow] Legenda posicionada: ${horizontalPos}% horizontal, ${bottomPos}px vertical`);
+            console.debug(`[LinguaFlow] Legenda posicionada: ${horizontalPos}% horizontal, ${bottomPos}px vertical`);
         } else {
             // Fallback: posição fixa
             host.style.cssText = `
@@ -784,7 +784,7 @@ export class SubtitleEngine {
                 justify-content: center !important;
             `;
             document.body.appendChild(host);
-            console.log(`[LinguaFlow] Legenda posicionada (fallback): ${horizontalPos}% horizontal, ${bottomPos}px vertical`);
+            console.debug(`[LinguaFlow] Legenda posicionada (fallback): ${horizontalPos}% horizontal, ${bottomPos}px vertical`);
         }
 
         // Aplica o estado de ativação atual após a injeção para evitar que o cssText resetado mostre a legenda
@@ -1411,7 +1411,7 @@ export class SubtitleEngine {
         
         if (targetIdx >= 0) {
             this.videoElement.currentTime = this.cues[targetIdx].start;
-            console.log('[LinguaFlow] Voltou para frase anterior');
+            console.debug('[LinguaFlow] Voltou para frase anterior');
         }
     }
     
@@ -1432,7 +1432,7 @@ export class SubtitleEngine {
         
         if (targetIdx >= 0) {
             this.videoElement.currentTime = this.cues[targetIdx].start;
-            console.log('[LinguaFlow] Pulou para próxima frase');
+            console.debug('[LinguaFlow] Pulou para próxima frase');
         }
     }
     
@@ -1459,7 +1459,7 @@ export class SubtitleEngine {
                 }
             }, 100);
             
-            console.log(`[LinguaFlow] Loop ATIVADO: ${this.loopStartTime.toFixed(2)}s - ${this.loopEndTime.toFixed(2)}s`);
+            console.debug(`[LinguaFlow] Loop ATIVADO: ${this.loopStartTime.toFixed(2)}s - ${this.loopEndTime.toFixed(2)}s`);
             this._showNotification('🔁 Repetindo Frase');
         } else {
             if (btnLoop) {
@@ -1472,7 +1472,7 @@ export class SubtitleEngine {
                 this._loopInterval = null;
             }
             
-            console.log('[LinguaFlow] Loop DESATIVADO');
+            console.debug('[LinguaFlow] Loop DESATIVADO');
             this._showNotification('▶️ Loop Desativado');
         }
     }
@@ -2163,12 +2163,12 @@ export class SubtitleEngine {
             }).reverse();
 
             if (matchingUrls.length === 0) {
-                console.log('[LinguaFlow] Nenhuma URL de legenda encontrada para o vídeo', videoId);
+                console.debug('[LinguaFlow] Nenhuma URL de legenda encontrada para o vídeo', videoId);
                 return;
             }
 
             for (const url of matchingUrls) {
-                console.log('[LinguaFlow] Tentando carregar legendas de:', url);
+                console.debug('[LinguaFlow] Tentando carregar legendas de:', url);
                 const response = await fetch(new URL(url).toString());
                 if (!response.ok) continue;
                 
@@ -2187,7 +2187,7 @@ export class SubtitleEngine {
                         this.usingXhr = true;
                         this._renderVideoWordPrep();
                         // this.toggleSubtitles(); // Removido: Não forçar ativação automática
-                        console.log('[LinguaFlow] Legendas carregadas com sucesso (' + cues.length + ' frases)');
+                        console.debug('[LinguaFlow] Legendas carregadas com sucesso (' + cues.length + ' frases)');
                         return;
                     }
                 }
@@ -2290,7 +2290,7 @@ export class SubtitleEngine {
         }
 
         const raw = processEvents(data);
-        console.log('[LinguaFlow] Raw cues from processEvents:', raw.length);
+        console.debug('[LinguaFlow] Raw cues from processEvents:', raw.length);
         for (let e = 0; e < raw.length - 1; e++) {
             if (raw[e].end > raw[e + 1].start) raw[e].end = raw[e + 1].start;
         }
@@ -2308,7 +2308,7 @@ export class SubtitleEngine {
                 text:  this._cleanSubtitleText(e.text),
             };
         }).filter(e => e != null);
-        console.log('[LinguaFlow] Final cues:', result.length);
+        console.debug('[LinguaFlow] Final cues:', result.length);
         return result;
     }
 
@@ -2328,7 +2328,7 @@ export class SubtitleEngine {
             if (this.platform === 'youtube' || this.platform === 'max') {
                 // INJEÇÃO CRÍTICA: Cria o DOM das legendas antes de iniciar o loop
                 this._injectSubtitleUI().then(() => {
-                    console.log('[LinguaFlow] ✅ UI das legendas injetada com sucesso.');
+                    console.debug('[LinguaFlow] ✅ UI das legendas injetada com sucesso.');
                     this._startSyncLoop();
                 }).catch(e => {
                     console.error('[LinguaFlow] ❌ Erro ao injetar UI das legendas:', e);
@@ -2371,7 +2371,7 @@ export class SubtitleEngine {
                                 padding: 0 !important;
                             `;
                             player.appendChild(host);
-                            console.log('[LinguaFlow] Legenda reposicionada dentro do player');
+                            console.debug('[LinguaFlow] Legenda reposicionada dentro do player');
                         }
                     }, 1500);
                 }
@@ -2419,9 +2419,9 @@ export class SubtitleEngine {
             } else {
                 this._syncTimer = requestAnimationFrame(this._syncLoop);
             }
-            console.log('[LinguaFlow] Sync loop legado iniciado com precisão de frame');
+            console.debug('[LinguaFlow] Sync loop legado iniciado com precisão de frame');
         } else {
-            console.log('[LinguaFlow] Utilizando novo motor de sincronização');
+            console.debug('[LinguaFlow] Utilizando novo motor de sincronização');
         }
     }
 
@@ -2466,7 +2466,7 @@ export class SubtitleEngine {
             const ytWrap = document.querySelector('.ytp-caption-window-container');
             if (ytWrap) {
                 ytWrap.style.display = 'none';
-                console.log('[LinguaFlow] Legenda nativa do YouTube escondida');
+                console.debug('[LinguaFlow] Legenda nativa do YouTube escondida');
             }
         }
     }
@@ -2491,7 +2491,7 @@ export class SubtitleEngine {
             
             // Log de performance (apenas em dev)
             if (result.source !== 'memory_cache') {
-                console.log(`[LinguaFlow] Tradução: ${result.source} (${result.cached ? 'cached' : 'new'})`);
+                console.debug(`[LinguaFlow] Tradução: ${result.source} (${result.cached ? 'cached' : 'new'})`);
             }
         } catch(e) {
             console.error('[LinguaFlow] Erro na tradução:', e);
@@ -2817,7 +2817,7 @@ export class SubtitleEngine {
     // ── Motor de Renderização de Elite (onSubtitle) ──────────────────────────
     onSubtitle(cue) {
         if (!cue) return;
-        console.log('[LinguaFlow] onSubtitle triggered:', cue.text.substring(0, 30) + '...');
+        console.debug('[LinguaFlow] onSubtitle triggered:', cue.text.substring(0, 30) + '...');
         if (cue.text === this._lastProcessedText) return;
         this._lastProcessedText = cue.text;
         this._currentCue = cue;
@@ -2878,7 +2878,7 @@ export class SubtitleEngine {
             console.warn('[LinguaFlow] renderDual failed: shadowContainer not ready');
             return;
         }
-        console.log('[LinguaFlow] renderDual called with:', { orig: orig?.substring(0, 20), trans: trans?.substring(0, 20) });
+        console.debug('[LinguaFlow] renderDual called with:', { orig: orig?.substring(0, 20), trans: trans?.substring(0, 20) });
         const wrap     = this.shadowContainer.getElementById('lf-wrap');
         const origDiv  = this.shadowContainer.getElementById('lf-orig');
         const transDiv = this.shadowContainer.getElementById('lf-trans');
@@ -2952,7 +2952,7 @@ export class SubtitleEngine {
             wrap.style.display = (origDiv.style.display === 'none' && transDiv.style.display === 'none') ? 'none' : 'inline-flex';
         }
 
-        console.log(`[LinguaFlow] Render: mode=${mode}, origDisplay=${origDiv.style.display}, transDisplay=${transDiv.style.display}`);
+        console.debug(`[LinguaFlow] Render: mode=${mode}, origDisplay=${origDiv.style.display}, transDisplay=${transDiv.style.display}`);
 
         // Mostra botão de tradução rápida apenas quando tradução está oculta e engine ligado
         const translateBtn = this.shadowContainer.getElementById('lf-translate-btn');

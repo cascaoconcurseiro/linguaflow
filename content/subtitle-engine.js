@@ -2958,16 +2958,15 @@ export class SubtitleEngine {
             }
 
             // --- DETECÇÃO DE EXPRESSÕES (Greedy Algorithm) ---
-            // Tenta encontrar a expressão mais longa (até 5 palavras à frente)
             let longestMatch = null;
             let matchTokenCount = 0;
             let matchText = "";
 
-            // Olha até 9 tokens à frente (para pegar ~5 palavras + espaços/pontuação)
-            for (let lookAhead = 1; lookAhead <= 10; lookAhead += 2) {
+            // Usa lookAhead PAR (2, 4, 6...) para terminar sempre em uma palavra, nunca num espaço
+            for (let lookAhead = 2; lookAhead <= 10; lookAhead += 2) {
                 if (i + lookAhead >= filteredTokens.length) break;
                 
-                // Reconstrói a possível expressão (ex: "get" + " " + "up")
+                // Reconstrói a possível expressão (ex: "a" + " " + "lot")
                 let candidateParts = filteredTokens.slice(i, i + lookAhead + 1);
                 let candidateText = candidateParts.join('');
                 

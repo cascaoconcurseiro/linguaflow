@@ -139,13 +139,7 @@ export class WordPopup {
     if (!this._mousedownAttached) {
       document.addEventListener('mousedown', e => {
         if (this.popup && this.popup.style.display !== 'none' && !this.popup.contains(e.target) && !e.target.classList?.contains('lf-word')) {
-          // Se o clique for no player, NÃO forçamos o play, pois o player fará isso nativamente.
-          const isPlayerClick = this.engine && (
-             e.target === this.engine.videoElement || 
-             (this.engine._findPlayerContainer && this.engine._findPlayerContainer()?.contains(e.target))
-          );
-          
-          this.hide(!isPlayerClick); 
+          this.hide(true); 
         }
       });
       
@@ -778,7 +772,16 @@ export class WordPopup {
     this.popup.style.transform = 'translateY(10px) scale(0.95)';
     
     if (resumeVideo && (this._wasPlayingBefore || this.engine?._wasPausedByHover) && this.engine?.videoElement) {
-        this.engine.videoElement.play();
+        const vid = this.engine.videoElement;
+        
+        // Aguarda 150ms para permitir que cliques nativos na tela do player sejam processados
+        // e deem play naturalmente. Se o player não fizer nada, nós forçamos o play.
+        setTimeout(() => {
+            if (vid.paused) {
+                vid.play().catch(e => console.log('LF Play fallback falhou:', e));
+            }
+        }, 150);
+
         this._wasPlayingBefore = false;
         if (this.engine) this.engine._wasPausedByHover = false;
     }

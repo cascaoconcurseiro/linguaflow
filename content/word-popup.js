@@ -134,7 +134,7 @@ export class WordPopup {
     
     if (!this._mousedownAttached) {
       document.addEventListener('mousedown', e => {
-        if (this.popup && this.popup.style.display !== 'none' && !this.popup.contains(e.target) && !e.target.classList?.contains('w')) {
+        if (this.popup && this.popup.style.display !== 'none' && !this.popup.contains(e.target) && !e.target.classList?.contains('lf-word')) {
           this.hide(true); // true = resume video
         }
       });
@@ -198,11 +198,14 @@ export class WordPopup {
     q('#fy5').onclick = () => window.open(`https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english/academic`,'_blank');
   }
 
-  // _findPlayerContainer movido para baixo para evitar duplicidade
-
   async showForWord(word, context, rect, cue) {
+    if (this._hideTimeout) {
+      clearTimeout(this._hideTimeout);
+      this._hideTimeout = null;
+    }
+
     if (!word) return;
-    this.word=word; this.context=context||'';
+    this.word=word.replace(/[.,!?()"]+/g, ''); this.context=context||'';
     this.currentCue = cue; // Armazena a cue completa com contexto expandido
     this._gramBuilt=false; this._exBuilt=false;
     
@@ -769,8 +772,10 @@ export class WordPopup {
         if (this.engine) this.engine._wasPausedByHover = false;
     }
 
-    setTimeout(() => {
+    if (this._hideTimeout) clearTimeout(this._hideTimeout);
+    this._hideTimeout = setTimeout(() => {
       this.popup.style.display = 'none';
+      this._hideTimeout = null;
     }, 200);
   }
   async _ai() {

@@ -30,7 +30,7 @@ export class SubtitleEngine {
         this._lastFoundIdx      = -1; // Índice otimizado para busca de legendas
         this._lastAutoPausedEndTime = -1; 
         this._wasPausedByHover  = false;
-        this.isActivated        = false; // Estado de ativação do engine (botão liga/desliga)
+        this.isActivated        = false; // Inicia sempre desligado por padrão (conforme pedido do usuário)
 
         // Settings (defaults) — serão sobrescritos pelo SettingsPanel
         this.displayMode  = 'bilingual'; // Padrão Seguro: Bilíngue
@@ -348,7 +348,7 @@ export class SubtitleEngine {
         
         await this._injectSubtitleUI();
         this._injectYouTubeControls();
-        this._injectNavigationControls();
+        // this._injectNavigationControls(); // Removido a pedido do usuário
         this._injectFloatingButton();
         this._setupResizeObserver();
         this._waitForVideo();
@@ -787,6 +787,9 @@ export class SubtitleEngine {
             console.log(`[LinguaFlow] Legenda posicionada (fallback): ${horizontalPos}% horizontal, ${bottomPos}px vertical`);
         }
 
+        // Aplica o estado de ativação atual após a injeção para evitar que o cssText resetado mostre a legenda
+        this.toggleSubtitles(this.isActivated);
+
         this.shadowContainer = host.attachShadow({ mode: 'open' });
         this.shadowContainer.innerHTML = `
             <style>
@@ -953,9 +956,13 @@ export class SubtitleEngine {
             </style>
             <div class="lf-wrap" id="lf-wrap" data-subtitle-mode="native">
                 <div class="lf-orig-row">
-                    <button class="lf-save-btn" id="lf-save-btn" style="display:none;" title="Salvar frase">+ Salvar frase</button>
+                    <button class="lf-save-btn" id="lf-save-btn" style="display:none;" title="Salvar frase">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg> Salvar
+                    </button>
                     <div class="lf-orig" id="lf-orig"></div>
-                    <button class="lf-translate-btn" id="lf-translate-btn" style="display:none;" title="Traduzir frase">🌐 Traduzir</button>
+                    <button class="lf-translate-btn" id="lf-translate-btn" style="display:none;" title="Traduzir frase">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"></path><path d="m4 14 6-6 2-3"></path><path d="M2 5h12"></path><path d="M7 2h1"></path><path d="m22 22-5-10-5 10"></path><path d="M14 18h6"></path></svg> Traduzir
+                    </button>
                 </div>
                 <div class="lf-trans" id="lf-trans">
                     <span id="lf-trans-txt"></span>
@@ -1336,80 +1343,13 @@ export class SubtitleEngine {
         }
     }
 
-    // ── Controles de Navegação (Anterior, Próxima, Repetir, Painel) ──────────
+    // ── Controles de Navegação (Removidos a pedido do usuário) ──────────
     _injectNavigationControls() {
-        if (this.platform !== 'youtube') return;
-
-        this.isLooping = false;
-        this.loopStartTime = 0;
-        this.loopEndTime = 0;
-
-        const tryInject = () => {
-            const leftCtrl = document.querySelector('.ytp-left-controls');
-            if (!leftCtrl || document.getElementById('lf-nav-controls')) return false;
-            
-            const container = document.createElement('div');
-            container.id = 'lf-nav-controls';
-            container.style.cssText = `
-                display: inline-flex;
-                align-items: center;
-                gap: 4px;
-                margin-left: 8px;
-            `;
-            
-            // Botão Anterior
-            const btnPrev = this._createNavButton('⏮️', 'Frase Anterior (A)', () => this.gotoPreviousCue());
-            
-            // Botão Repetir (Loop)
-            const btnLoop = this._createNavButton('🔁', 'Repetir Frase (R)', () => this.toggleLoop());
-            btnLoop.id = 'lf-btn-loop';
-            
-            // Botão Próxima
-            const btnNext = this._createNavButton('⏭️', 'Próxima Frase (D)', () => this.gotoNextCue());
-            
-            // Botão Painel de Legendas
-            const btnPanel = this._createNavButton('📜', 'Painel de Legendas (L)', () => this.toggleSubtitlePanel());
-            btnPanel.id = 'lf-btn-panel';
-            
-            container.appendChild(btnPrev);
-            container.appendChild(btnLoop);
-            container.appendChild(btnNext);
-            container.appendChild(btnPanel);
-            
-            leftCtrl.appendChild(container);
-            
-            return true;
-        };
-        
-        let attempts = 0;
-        const iv = setInterval(() => { 
-            attempts++;
-            if (tryInject() || attempts > 20) clearInterval(iv); 
-        }, 1500);
+        // Botões ⏮️, 🔁, ⏭️ removidos. A navegação será feita por atalhos ou painel lateral.
     }
     
     _createNavButton(icon, title, onclick) {
-        const btn = document.createElement('button');
-        btn.className = 'ytp-button';
-        btn.title = title;
-        btn.style.cssText = `
-            width: 36px; height: 36px;
-            display: inline-flex; align-items: center; justify-content: center;
-            background: rgba(255,255,255,0.1); border: none; cursor: pointer;
-            font-size: 16px; border-radius: 6px; opacity: 0.9;
-            transition: all 0.2s;
-        `;
-        btn.textContent = icon;
-        btn.onmouseenter = () => {
-            btn.style.opacity = '1';
-            btn.style.background = 'rgba(255,255,255,0.2)';
-        };
-        btn.onmouseleave = () => {
-            btn.style.opacity = '0.9';
-            btn.style.background = 'rgba(255,255,255,0.1)';
-        };
-        btn.onclick = onclick;
-        return btn;
+        // Não utilizado
     }
     
     gotoPreviousCue() {
@@ -1606,7 +1546,10 @@ export class SubtitleEngine {
         panel.style.cssText = `
             width: 420px;
             height: 100%;
-            background: #0A1628;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-left: 1px solid rgba(255,255,255,0.05);
             color: #F1F5F9;
             box-shadow: -20px 0 60px rgba(0,0,0,0.6);
             display: flex;
@@ -1642,8 +1585,18 @@ export class SubtitleEngine {
             #lf-subtitle-panel .lf-new { color: #E2E8F0; }
             
             #lf-subtitle-panel .lf-subtitle-item.active {
-                background: rgba(56, 189, 248, 0.12) !important;
+                background: rgba(56, 189, 248, 0.15) !important;
                 border-left-color: #38BDF8 !important;
+                box-shadow: inset 4px 0 12px rgba(56, 189, 248, 0.2);
+                text-shadow: 0 0 8px rgba(255,255,255,0.4);
+                transform: scale(1.02);
+                z-index: 10;
+            }
+            #lf-subtitle-panel .lf-subtitle-item {
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            #lf-subtitle-panel .lf-subtitle-item:not(.active) {
+                opacity: 0.6;
             }
         `;
         panel.appendChild(panelStyle);
@@ -2204,7 +2157,7 @@ export class SubtitleEngine {
                         this.xhrCues = cues;
                         this.usingXhr = true;
                         this._renderVideoWordPrep();
-                        this.toggleSubtitles(); // Garante visibilidade
+                        // this.toggleSubtitles(); // Removido: Não forçar ativação automática
                         console.log('[LinguaFlow] Legendas carregadas com sucesso (' + cues.length + ' frases)');
                         return;
                     }
@@ -2468,7 +2421,7 @@ export class SubtitleEngine {
             this.xhrCues = cues; // Unifica para garantir que o sync loop e sidebar vejam o mesmo
             this._renderVideoWordPrep();
             this._rebuildSubtitleList(); // Atualiza painel lateral IMEDIATAMENTE
-            this.toggleSubtitles(); // Garante visibilidade
+            // this.toggleSubtitles(); // Removido: Não forçar ativação automática
             
             // Persistência para F5
             chrome.storage.local.get('lastYoutubeSubtitleUrls', (res) => {
@@ -2525,69 +2478,76 @@ export class SubtitleEngine {
         let lastSyncPulse = Date.now();
         
         const loop = (now, metadata) => {
-            const v = this.videoElement || document.querySelector('video');
-            if (!v) {
-                this._continueLoop(loop, v);
-                return;
-            }
-
-            lastSyncPulse = Date.now();
-
-            // SINCRONIA ROBUSTA
-            // v.currentTime está sempre em segundos.
-            let t = v.currentTime;
-            
-            // Verificação de Popup: Se estiver aberto, não atualizamos a legenda (manter a atual)
-            const isPopupOpen = this.wordPopup && this.wordPopup.popup && this.wordPopup.popup.style.display !== 'none';
-            if (isPopupOpen) {
-                // Se o popup está aberto e o vídeo NÃO está pausado, pausamos agressivamente
-                if (!v.paused) {
-                    v.pause();
+            try {
+                const v = this.videoElement || document.querySelector('video');
+                if (!v) {
+                    this._continueLoop(loop, v);
+                    return;
                 }
-                this._continueLoop(loop, v);
-                return;
-            }
 
-            const cuesToSearch = (this.xhrCues && this.xhrCues.length > 0) ? this.xhrCues : this.cues;
-            
-            if (cuesToSearch && cuesToSearch.length > 0) {
-                // Sincronia com Legenda Nativa (YouTube)
-                if (this.platform === 'youtube') {
-                    const ytNative = document.querySelector('.ytp-caption-window-container');
-                    if (ytNative && ytNative.style.display !== 'none') {
-                        ytNative.style.display = 'none';
+                lastSyncPulse = Date.now();
+
+                // SINCRONIA ROBUSTA
+                let t = v.currentTime;
+                
+                // Verificação de Popup: Se estiver aberto, pausa o vídeo e mantém a legenda
+                const isPopupOpen = this.wordPopup && this.wordPopup.popup && this.wordPopup.popup.style.display !== 'none';
+                if (isPopupOpen) {
+                    if (!v.paused) v.pause();
+                    this._continueLoop(loop, v);
+                    return;
+                }
+
+                const cuesToSearch = (this.xhrCues && this.xhrCues.length > 0) ? this.xhrCues : this.cues;
+                
+                if (cuesToSearch && cuesToSearch.length > 0) {
+                    // Otimização: Se o vídeo está pausado, não precisamos filtrar cues repetidamente
+                    if (v.paused && this.lastText !== '') {
+                        this._continueLoop(loop, v);
+                        return;
+                    }
+
+                    // Sincronia com Legenda Nativa (YouTube)
+                    if (this.platform === 'youtube' && this.isActivated) {
+                        const ytNative = document.querySelector('.ytp-caption-window-container');
+                        if (ytNative && ytNative.style.display !== 'none') {
+                            ytNative.style.display = 'none';
+                        }
+                    }
+
+                    // Encontra a cue ativa (Otimizado: usa busca binária primeiro se não houver sobreposição conhecida)
+                    // Para manter compatibilidade com sobreposições, usamos o filter apenas se necessário
+                    const activeCues = cuesToSearch.filter(c => t >= c.start && t <= c.end);
+                    
+                    let cue = null;
+                    if (activeCues.length > 0) {
+                        cue = activeCues.reduce((prev, current) => 
+                            (prev.text.length > current.text.length) ? prev : current
+                        );
+                    }
+                    
+                    if (cue && cue.text !== this.lastText) {
+                        this.lastText = cue.text;
+                        this.onSubtitle(cue);
+                    } else if (!cue && this.lastText !== '') {
+                        this.lastText = '';
+                        this._currentCue = null;
+                        this.renderDual('', '');
+                    }
+
+                    // Auto-Pause (Shadowing Mode)
+                    if (this.autoPause && !v.paused && cue && t >= cue.end - 0.05) {
+                        v.pause();
+                        this._showAutoPauseIndicator();
                     }
                 }
-
-                // Encontra todas as cues ativas no tempo atual
-                const activeCues = cuesToSearch.filter(c => t >= c.start && t <= c.end);
                 
-                // Se houver múltiplas, pegamos a mais longa (mais provável ser a frase completa)
-                let cue = null;
-                if (activeCues.length > 0) {
-                    cue = activeCues.reduce((prev, current) => 
-                        (prev.text.length > current.text.length) ? prev : current
-                    );
-                }
-                
-                if (cue && cue.text !== this.lastText) {
-                    this.lastText = cue.text;
-                    this.onSubtitle(cue);
-                } else if (!cue && this.lastText !== '') {
-                    // Hysteresis: Pequena tolerância para evitar piscar
-                    this.lastText = '';
-                    this._currentCue = null;
-                    this.renderDual('', '');
-                }
-
-                // Auto-Pause (Shadowing Mode)
-                if (this.autoPause && !v.paused && cue && t >= cue.end - 0.05) {
-                    v.pause();
-                    this._showAutoPauseIndicator();
-                }
+                this._continueLoop(loop, v);
+            } catch (err) {
+                console.error('[LinguaFlow] Erro crítico no sync loop:', err);
+                // Tenta continuar o loop após um pequeno respiro para não travar a aba se for erro contínuo
+                setTimeout(() => this._continueLoop(loop, this.videoElement), 100);
             }
-            
-            this._continueLoop(loop, v);
         };
 
         // Watchdog Timer: Se o loop morrer (aba suspensa), reinicia
@@ -2884,12 +2844,14 @@ export class SubtitleEngine {
         // Verifica se há legenda válida (texto não vazio após trim)
         const hasValidSubtitle = orig && orig.trim().length > 0;
 
-        if (!hasValidSubtitle) {
+        // Bloqueia renderização se o motor não estiver ativado ou não houver legenda
+        if (!hasValidSubtitle || !this.isActivated) {
             origDiv.style.display  = 'none';
             transDiv.style.display = 'none';
+            if (wrap) wrap.style.display = 'none';
             if (saveBtn) {
                 saveBtn.style.display = 'none';
-                saveBtn.textContent = '+ Salvar frase'; // Reseta texto se estava "Salvo"
+                saveBtn.textContent = '+ Salvar frase';
             }
             return;
         }
@@ -3153,9 +3115,14 @@ export class SubtitleEngine {
                 const isYtSubActive = ytSubBtn.getAttribute('aria-pressed') === 'true';
                 if (isVisible !== isYtSubActive) {
                     ytSubBtn.click();
-                    console.log(`[LinguaFlow] Legenda nativa do YouTube sincronizada para: ${isVisible ? 'LIGADA' : 'DESLIGADA'}`);
                 }
             }
+        }
+
+        // HBO/Max: Desabilita o ocultador de legendas nativas se o engine estiver desligado
+        if (this.platform === 'max') {
+            const s = document.getElementById('lf-native-hide');
+            if (s) s.disabled = !isVisible;
         }
     }
 

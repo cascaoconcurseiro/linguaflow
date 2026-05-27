@@ -207,7 +207,10 @@ export class SettingsPanel {
                 pointer-events: auto; justify-content: flex-end;
             }
             .panel {
-                width: 420px; height: 100%; background: #0A1628;
+                width: 420px; height: 100%; 
+                background: rgba(10, 22, 40, 0.75); 
+                backdrop-filter: blur(24px) saturate(160%);
+                -webkit-backdrop-filter: blur(24px) saturate(160%);
                 color: #F1F5F9; font-family: 'Inter', sans-serif;
                 box-shadow: -20px 0 60px rgba(0,0,0,0.6);
                 padding: 0; display: flex; flex-direction: column;
@@ -253,8 +256,14 @@ export class SettingsPanel {
             select:focus { border-color: #38BDF8; }
             .slider-row { display: flex; align-items: center; gap: 10px; }
             input[type=range] {
-                flex: 1; height: 4px; border-radius: 4px; outline: none;
-                background: #1E293B; border: none; cursor: pointer; accent-color: #38BDF8;
+                flex: 1; height: 6px; border-radius: 4px; outline: none;
+                background: rgba(255,255,255,0.1); border: none; cursor: pointer; accent-color: #38BDF8;
+                transition: background 0.2s;
+            }
+            input[type=range]:hover { background: rgba(255,255,255,0.2); }
+            input[type=range]::-webkit-slider-thumb {
+                width: 14px; height: 14px; border-radius: 50%; background: #38BDF8;
+                box-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
             }
             .slider-val { font-size: 12px; color: #38BDF8; font-weight: 700; min-width: 44px; text-align: right; }
             .color-row { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
@@ -454,10 +463,10 @@ export class SettingsPanel {
                 <div class="version-tag">LinguaFlow Free — v1.0 · 100% offline · Privado</div>
 
                 <div class="footer-btns">
-                    <button id="btn-save-settings" style="flex:1;background:#10B981;color:white;border:none;padding:12px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;font-family:inherit;">
+                    <button id="btn-save-settings" style="flex:1;background:linear-gradient(135deg, #10B981, #059669);color:white;border:none;padding:12px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;font-family:inherit;transition:all 0.2s;box-shadow:0 4px 12px rgba(16,185,129,0.2);">
                         💾 Salvar Configurações
                     </button>
-                    <button id="btn-export-data" style="flex:1;background:#3B82F6;color:white;border:none;padding:12px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;font-family:inherit;">
+                    <button id="btn-export-data" style="flex:1;background:linear-gradient(135deg, #3B82F6, #2563EB);color:white;border:none;padding:12px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;font-family:inherit;transition:all 0.2s;box-shadow:0 4px 12px rgba(59,130,246,0.2);">
                         📊 Dashboard
                     </button>
                 </div>

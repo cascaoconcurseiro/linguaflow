@@ -758,9 +758,10 @@ export class WordPopup {
     this.popup.style.opacity = '0';
     this.popup.style.transform = 'translateY(10px) scale(0.95)';
     
-    if (resumeVideo && this._wasPlayingBefore && this.engine?.videoElement) {
+    if (resumeVideo && (this._wasPlayingBefore || this.engine?._wasPausedByHover) && this.engine?.videoElement) {
         this.engine.videoElement.play();
         this._wasPlayingBefore = false;
+        if (this.engine) this.engine._wasPausedByHover = false;
     }
 
     setTimeout(() => {

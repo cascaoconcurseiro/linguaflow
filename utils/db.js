@@ -512,6 +512,16 @@ class Database {
             nextStatus = nextInterval >= 21 ? 'mature' : 'review';
         }
 
+        let nextDueDate;
+        if (nextInterval >= 1) {
+            const d = new Date();
+            d.setDate(d.getDate() + Math.round(nextInterval));
+            d.setHours(0, 0, 0, 0);
+            nextDueDate = d.getTime();
+        } else {
+            nextDueDate = Date.now() + (nextInterval * 24 * 60 * 60 * 1000);
+        }
+
         return {
             ...card,
             interval: nextInterval,
@@ -520,7 +530,7 @@ class Database {
             step_index: nextStepIndex,
             reps: nextReps,
             lapses: nextLapses,
-            due_date: Date.now() + (nextInterval * 24 * 60 * 60 * 1000),
+            due_date: nextDueDate,
             last_review: Date.now()
         };
     }
@@ -679,6 +689,55 @@ class Database {
                 r((req.result || []).filter(s => s.date >= minDate));
             };
             req.onerror = () => r([]);
+        });
+    }
+
+    async exportDatabase() {
+        if (this.isProxyMode) return this._proxy('exportDatabase', []);
+        const idb = await this.initPromise;
+        return new Promise((resolve, reject) => {
+            const exportData = {};
+            const storeNames = Array.from(idb.objectStoreNames);
+            const tx = idb.transaction(storeNames, 'readonly');
+            
+            let completed = 0;
+            if (storeNames.length === 0) return resolve(JSON.stringify({}));
+
+            storeNames.forEach(storeName => {
+                const req = tx.objectStore(storeName).getAll();
+                req.onsuccess = e => {
+                    exportData[storeName] = e.target.result;
+                    completed++;
+                    if (completed === storeNames.length) {
+                        resolve(JSON.stringify(exportData));
+                    }
+                };
+                req.onerror = () => reject(req.error);
+            });
+        });
+    }
+
+    async importDatabase(jsonData) {
+        if (this.isProxyMode) return this._proxy('importDatabase', [jsonData]);
+        const idb = await this.initPromise;
+        
+        return new Promise((resolve, reject) => {
+            let data;
+            try { data = JSON.parse(jsonData); } catch(e) { return reject('JSON inválido'); }
+            
+            const storeNames = Object.keys(data).filter(name => idb.objectStoreNames.contains(name));
+            if (storeNames.length === 0) return reject('Nenhum dado válido encontrado.');
+            
+            const tx = idb.transaction(storeNames, 'readwrite');
+            
+            storeNames.forEach(storeName => {
+                const store = tx.objectStore(storeName);
+                store.clear();
+                data[storeName].forEach(item => store.put(item));
+            });
+            
+            tx.oncomplete = () => resolve(true);
+            tx.onerror = () => reject(tx.error);
         });
     }
 }

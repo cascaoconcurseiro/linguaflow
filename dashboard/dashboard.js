@@ -1546,7 +1546,51 @@ async function init() {
         });
 
         document.getElementById('exportAnkiBtn')?.addEventListener('click', () => window.exportToAnki());
-        document.getElementById('exportFullBtn')?.addEventListener('click', () => window.dashboard.refreshDashboard()); // Fallback placeholder
+        document.getElementById('exportFullBtn')?.addEventListener('click', async () => {
+            const btn = document.getElementById('exportFullBtn');
+            const origText = btn.textContent;
+            btn.textContent = '⏳ Preparando...';
+            try {
+                const json = await db.exportDatabase();
+                const blob = new Blob([json], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `linguaflow_backup_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                btn.textContent = '✅ Backup Salvo!';
+            } catch(e) {
+                console.error(e);
+                btn.textContent = '❌ Erro';
+            }
+            setTimeout(() => btn.textContent = origText, 3000);
+        });
+
+        document.getElementById('importFullBtn')?.addEventListener('click', () => {
+            document.getElementById('backupInput').click();
+        });
+
+        document.getElementById('backupInput')?.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const btn = document.getElementById('importFullBtn');
+            const origText = btn.textContent;
+            btn.textContent = '⏳ Restaurando...';
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                try {
+                    await db.importDatabase(ev.target.result);
+                    btn.textContent = '✅ Restaurado!';
+                    setTimeout(() => window.location.reload(), 1500);
+                } catch(err) {
+                    console.error(err);
+                    btn.textContent = '❌ Erro ao Restaurar';
+                    setTimeout(() => btn.textContent = origText, 3000);
+                }
+            };
+            reader.readAsText(file);
+        });
         document.getElementById('start-quiz-btn')?.addEventListener('click', () => window.startLab('quiz'));
         document.getElementById('start-listening-btn')?.addEventListener('click', () => window.startLab('listening'));
         document.getElementById('back-to-lab-quiz')?.addEventListener('click', () => window.backToLab());

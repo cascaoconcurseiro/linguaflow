@@ -762,7 +762,7 @@ export class WordPopup {
       height:      'auto',
       maxHeight:   '85vh',
       borderRadius:'24px',
-      display:     'flex',
+      display:     'block',
       visibility:  'visible',
       opacity:     '0',
       transform:   'translateY(10px) scale(0.95)',

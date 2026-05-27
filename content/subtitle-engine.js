@@ -2382,7 +2382,7 @@ export class SubtitleEngine {
     // ── Captura ──────────────────────────────────────────────────────────────
     startCapture() {
         if (this.platform === 'youtube') {
-            this._injectYouTubeHook();
+            // A injeção do hook agora é feita pelo injector.js
             this._fetchYoutubeSubtitles(); // Tenta carregar do cache imediatamente
         }
         // V5: Inicia o sync loop para todas as plataformas (exceto YouTube/Max que usam o novo motor)
@@ -2425,13 +2425,7 @@ export class SubtitleEngine {
         }
     }
 
-    _injectYouTubeHook() {
-        const script = document.createElement('script');
-        script.src = chrome.runtime.getURL('content/youtube-hook.js');
-        script.onload = () => script.remove();
-        (document.head || document.documentElement).appendChild(script);
-        // O listener de mensagens agora é centralizado no constructor/init para evitar duplicidade
-    }
+    // A injeção do youtube-hook.js agora é feita pelo injector.js em document_start
 
     _processYouTubeRawSubtitles(url, raw) {
         if (!raw || raw.length < 10) return;

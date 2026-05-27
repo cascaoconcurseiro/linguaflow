@@ -236,13 +236,13 @@ export class WordPopup {
       q('#fknown').textContent=known?'✅ Conhecida':'✓ Já Conheço';
       q('#fknown').style.background=known?'rgba(74,222,128,.18)':'rgba(74,222,128,.08)';
     })();
-    // Grammar reset
     q('#fgb').innerHTML='<div style="text-align:center;color:#475569;font-size:13px;padding:16px;">Clique "Analisar" para análise completa com IA.</div>';
     q('#fexb').innerHTML='<div style="text-align:center;color:#475569;font-size:13px;padding:20px;">Carregando exemplos…</div>';
     q('#fvctx').textContent=context||'(sem contexto)';
     q('#fvctxtr').textContent='';
-    this._position(rect);
+    
     this.popup.style.display = 'block';
+    this._position(rect); // Chama após display=block para obter offsetHeight real
     
     // Trigger animation
     requestAnimationFrame(() => {
@@ -718,34 +718,39 @@ export class WordPopup {
     const isFixed = player === document.body;
     const playerRect = player.getBoundingClientRect();
     
-    const W = Math.min(400, playerRect.width * 0.95);
-    const H = 540;
+    const W = Math.min(420, playerRect.width * 0.95);
     
     this.popup.style.width = W + 'px';
-    this.popup.style.height = H + 'px';
+    this.popup.style.height = 'auto'; // Altura dinâmica
+    this.popup.style.maxHeight = '85vh'; // Previne estourar tela
     this.popup.style.position = isFixed ? 'fixed' : 'absolute';
 
+    const actualH = this.popup.offsetHeight;
     let left, top;
     
     if (rect) {
-      // Posiciona relativo ao clique
       const scrollX = isFixed ? 0 : player.scrollLeft;
       const scrollY = isFixed ? 0 : player.scrollTop;
       
-      left = (rect.left - playerRect.left) + scrollX + (rect.width / 2) - (W / 2);
-      top = (rect.top - playerRect.top) + scrollY - H - 15;
+      // Centraliza horizontalmente no player
+      left = (playerRect.width - W) / 2;
+      
+      // Posiciona imediatamente ACIMA da palavra (rect)
+      top = (rect.top - playerRect.top) + scrollY - actualH - 15;
 
-      // Se estourar para cima, coloca embaixo
+      // Se estourar para cima, coloca embaixo da palavra
       if (top < scrollY + 10) {
         top = (rect.bottom - playerRect.top) + scrollY + 15;
       }
       
-      // Ajuste horizontal para não sair do player
-      left = Math.max(10, Math.min(left, playerRect.width - W - 10));
+      // Se embaixo também estourar (player pequeno), centraliza verticalmente
+      if (top + actualH > scrollY + playerRect.height) {
+         top = scrollY + (playerRect.height - actualH) / 2;
+      }
+      
     } else {
-      // Centraliza no player
       left = (playerRect.width - W) / 2;
-      top = (playerRect.height - H) / 2;
+      top = (playerRect.height - actualH) / 2;
     }
 
     this.popup.style.left = left + 'px';

@@ -1036,9 +1036,14 @@ export class SubtitleEngine {
             wrap.style.cursor = 'default';
             // Se o popup estiver aberto, deixamos o fechamento do popup cuidar do play
             const popupOpen = this.wordPopup && this.wordPopup.popup && this.wordPopup.popup.style.display !== 'none';
+            console.debug(`[LinguaFlow] mouseleave wrap. popupOpen=${popupOpen}, vid.paused=${this.videoElement?.paused}`);
             if (!popupOpen && this.videoElement && this.videoElement.paused) {
-                if (this._wasPausedByHover || (this.autoPause && this._lastAutoPausedEndTime > 0)) {
-                    this.videoElement.play().catch(e => console.debug('[LinguaFlow] Auto-resume failed:', e));
+                const hoverPause = this._wasPausedByHover;
+                const autoPauseOn = this.autoPause && this._lastAutoPausedEndTime > 0;
+                console.debug(`[LinguaFlow] mouseleave checks: hoverPause=${hoverPause}, autoPauseOn=${autoPauseOn}`);
+                if (hoverPause || autoPauseOn) {
+                    this.videoElement.play().then(() => console.debug('[LinguaFlow] Auto-resume mouseleave success!'))
+                                            .catch(e => console.debug('[LinguaFlow] Auto-resume failed:', e));
                     this._wasPausedByHover = false;
                     this._lastAutoPausedEndTime = -1;
                 }
@@ -2577,6 +2582,7 @@ export class SubtitleEngine {
                         v.pause();
                         this._showAutoPauseIndicator();
                         this._lastAutoPausedEndTime = cue.end;
+                        console.debug(`[LinguaFlow] Auto-paused at ${cue.end}. _lastAutoPausedEndTime set.`);
                     }
                 }
                 

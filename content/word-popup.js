@@ -808,19 +808,24 @@ export class WordPopup {
     this.popup.style.opacity = '0';
     this.popup.style.transform = 'translateY(10px) scale(0.95)';
     
-    if (resumeVideo && (this._wasPlayingBefore || this.engine?._wasPausedByHover) && this.engine?.videoElement) {
+    if (resumeVideo && this.engine?.videoElement) {
         const vid = this.engine.videoElement;
+        const shouldResume = this._wasPlayingBefore || this.engine._wasPausedByHover || (this.engine.autoPause && this.engine._lastAutoPausedEndTime > 0);
         
-        // Aguarda 150ms para permitir que cliques nativos na tela do player sejam processados
-        // e deem play naturalmente. Se o player não fizer nada, nós forçamos o play.
-        setTimeout(() => {
-            if (vid.paused) {
-                vid.play().catch(e => console.debug('LF Play fallback falhou:', e));
-            }
-        }, 150);
+        if (shouldResume) {
+            // Aguarda 150ms para permitir que cliques nativos na tela do player sejam processados
+            setTimeout(() => {
+                if (vid.paused) {
+                    vid.play().catch(e => console.debug('LF Play fallback falhou:', e));
+                }
+            }, 150);
+        }
 
         this._wasPlayingBefore = false;
-        if (this.engine) this.engine._wasPausedByHover = false;
+        if (this.engine) {
+            this.engine._wasPausedByHover = false;
+            this.engine._lastAutoPausedEndTime = -1;
+        }
     }
 
     if (this._hideTimeout) clearTimeout(this._hideTimeout);

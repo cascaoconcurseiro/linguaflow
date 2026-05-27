@@ -802,9 +802,10 @@ export class SubtitleEngine {
                     pointer-events: auto;
                 }
                 .lf-orig-row {
+                    position: relative;
                     display: inline-flex;
                     align-items: center;
-                    gap: 6px;
+                    justify-content: center;
                 }
                 .lf-orig {
                     font-family: 'Inter', Arial, sans-serif;
@@ -878,16 +879,18 @@ export class SubtitleEngine {
                     font-family: 'Inter', Arial, sans-serif;
                     cursor: pointer;
                     transition: all 0.2s;
-                    margin-right: 8px;
-                    margin-left: 0;
-                    vertical-align: middle;
                     backdrop-filter: blur(8px);
                     pointer-events: auto;
                     display: inline-block;
+                    white-space: nowrap;
+                    position: absolute;
+                    left: calc(100% + 12px);
+                    top: 50%;
+                    transform: translateY(-50%);
                 }
                 .lf-translate-btn:hover {
                     background: rgba(56,189,248,0.3);
-                    transform: scale(1.05);
+                    transform: translateY(-50%) scale(1.05);
                 }
                 /* Botão de salvar frase */
                 .lf-save-btn {
@@ -901,19 +904,19 @@ export class SubtitleEngine {
                     font-family: 'Inter', Arial, sans-serif;
                     cursor: pointer;
                     transition: all 0.2s;
-                    margin-right: 8px;
-                    margin-left: 0;
-                    vertical-align: middle;
                     backdrop-filter: blur(8px);
                     pointer-events: auto;
                     display: inline-block;
                     white-space: nowrap;
-                    flex-shrink: 0;
+                    position: absolute;
+                    right: calc(100% + 12px);
+                    top: 50%;
+                    transform: translateY(-50%);
                 }
                 .lf-save-btn:hover {
                     background: rgba(125,209,252,0.28);
                     border-color: rgba(125,209,252,0.6);
-                    transform: scale(1.05);
+                    transform: translateY(-50%) scale(1.05);
                 }
                 .lf-save-btn.ok {
                     color: #4ade80;
@@ -1031,6 +1034,15 @@ export class SubtitleEngine {
         });
         wrap.addEventListener('mouseleave', () => {
             wrap.style.cursor = 'default';
+            // Se o popup estiver aberto, deixamos o fechamento do popup cuidar do play
+            const popupOpen = this.wordPopup && this.wordPopup.popup && this.wordPopup.popup.style.display !== 'none';
+            if (!popupOpen && this.videoElement && this.videoElement.paused) {
+                if (this._wasPausedByHover || (this.autoPause && this._lastAutoPausedEndTime > 0)) {
+                    this.videoElement.play().catch(e => console.debug('[LinguaFlow] Auto-resume failed:', e));
+                    this._wasPausedByHover = false;
+                    this._lastAutoPausedEndTime = -1;
+                }
+            }
         });
 
         // Botão de tradução rápida

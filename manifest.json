@@ -50,13 +50,17 @@
       ],
       "js": ["content/hbo-inject.js"],
       "run_at": "document_start",
-      "world": "MAIN"
+      "world": "MAIN",
+      "match_about_blank": false,
+      "all_frames": false
     },
     {
       "matches": ["*://*.youtube.com/*"],
       "js": ["content/youtube-hook.js"],
       "run_at": "document_start",
-      "world": "MAIN"
+      "world": "MAIN",
+      "match_about_blank": false,
+      "all_frames": false
     },
     {
       "matches": [
@@ -70,7 +74,9 @@
         "*://*.amazon.com/*/video/*"
       ],
       "js": ["content/boot.js"],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "match_about_blank": false,
+      "all_frames": false
     }
   ],
   "action": {

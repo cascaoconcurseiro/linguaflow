@@ -3,7 +3,7 @@ const DB_NAME = 'LinguaFlowFreeDB';
 
 async function readAllSettings() {
     const { db } = await import('../utils/db.js');
-    const settings = ['targetLang', 'subtitleMode', 'bgOpacity', 'fontSize', 'fontSizeTrans', 'autoPause', 'showOriginal', 'showTranslation', 'subtitleBottom', 'subtitleHorizontal', 'translationDelay', 'translationAnticipation', 'flashDuration', 'wordColorKnown', 'wordColorSaved'];
+    const settings = ['targetLang', 'subtitleMode', 'bgOpacity', 'fontSize', 'fontSizeTrans', 'autoPause', 'showOriginal', 'showTranslation', 'subtitleBottom', 'subtitleHorizontal', 'translationDelay', 'translationAnticipation', 'flashDuration', 'wordColorKnown', 'wordColorSaved', 'blurSubtitles', 'ttsPlaybackRate', 'fontFamily', 'colorPalette', 'popupMode'];
     const obj = {};
     for (const key of settings) {
         const val = await db.getSetting(key);
@@ -40,6 +40,11 @@ export class SettingsPanel {
             translationDelay:        0,
             translationAnticipation: 0,
             flashDuration:           4,        // segundos do flash de tradução (NOVO)
+            blurSubtitles:           false,
+            ttsPlaybackRate:         1.0,
+            fontFamily:              'Inter',
+            colorPalette:            'Vibrant',
+            popupMode:               'floating',
         };
 
         this._init();
@@ -87,6 +92,12 @@ export class SettingsPanel {
         s.getElementById('rng-flash').value         = this.cfg.flashDuration;
         s.getElementById('col-known').value         = this.cfg.wordColorKnown;
         s.getElementById('col-saved').value         = this.cfg.wordColorSaved;
+        
+        s.getElementById('sel-font-family').value   = this.cfg.fontFamily;
+        s.getElementById('sel-palette').value       = this.cfg.colorPalette;
+        s.getElementById('sel-tts-speed').value     = this.cfg.ttsPlaybackRate;
+        s.getElementById('sel-popup-mode').value    = this.cfg.popupMode;
+        s.getElementById('sel-blur').value          = this.cfg.blurSubtitles ? 'on' : 'off';
 
         s.getElementById('val-font').textContent        = `${this.cfg.fontSize}px`;
         s.getElementById('val-font-trans').textContent  = `${this.cfg.fontSizeTrans}px`;
@@ -110,6 +121,14 @@ export class SettingsPanel {
             this._save('autoPause', val);
             window.dispatchEvent(new CustomEvent('LF_UPDATE_AUTOPAUSE', { detail: val }));
         };
+        s.getElementById('sel-blur').onchange = e => {
+            const val = e.target.value === 'on';
+            this._save('blurSubtitles', val);
+        };
+        s.getElementById('sel-font-family').onchange = e => this._save('fontFamily', e.target.value);
+        s.getElementById('sel-palette').onchange = e => this._save('colorPalette', e.target.value);
+        s.getElementById('sel-tts-speed').onchange = e => this._save('ttsPlaybackRate', parseFloat(e.target.value));
+        s.getElementById('sel-popup-mode').onchange = e => this._save('popupMode', e.target.value);
 
         // Tamanho legenda original
         s.getElementById('rng-font').oninput = e => {
@@ -199,7 +218,8 @@ export class SettingsPanel {
     _html() {
         return `
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap');
+            @import url('https://fonts.cdnfonts.com/css/opendyslexic');
             * { box-sizing: border-box; }
             .overlay {
                 display: none; position: absolute; inset: 0;
@@ -323,6 +343,43 @@ export class SettingsPanel {
                         </div>
                     </div>
 
+                    <!-- ESTÉTICA E ACESSIBILIDADE PREMIUM -->
+                    <div class="section">
+                        <p class="section-title">✨ Estética & Acessibilidade</p>
+                        <div class="group">
+                            <label>Tipografia das Legendas</label>
+                            <select id="sel-font-family">
+                                <option value="Inter">Inter (Moderna/Padrão)</option>
+                                <option value="Merriweather">Merriweather (Livro/Clássica)</option>
+                                <option value="OpenDyslexic">OpenDyslexic (Acessibilidade)</option>
+                            </select>
+                        </div>
+                        <div class="group">
+                            <label>Comportamento do Dicionário (Popup)</label>
+                            <select id="sel-popup-mode">
+                                <option value="floating">Flutuante (Acima/Abaixo da palavra)</option>
+                                <option value="dock">Dock Lateral (Fixo no canto direito)</option>
+                            </select>
+                        </div>
+                        <div class="group">
+                            <label>Paleta de Cores Semântica</label>
+                            <select id="sel-palette">
+                                <option value="Vibrant">Vibrante (Cores Fortes)</option>
+                                <option value="Pastel">Pastel (Cores Suaves)</option>
+                                <option value="Colorblind">Daltônico (Azul e Laranja)</option>
+                            </select>
+                            <small>Como as palavras conhecidas e novas são destacadas.</small>
+                        </div>
+                        <div class="group">
+                            <label>Velocidade da Voz (Dicionário)</label>
+                            <select id="sel-tts-speed">
+                                <option value="1.0">1.0x (Normal)</option>
+                                <option value="0.75">0.75x (Lenta)</option>
+                                <option value="0.5">0.5x (Muito Lenta)</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <!-- LEGENDAS -->
                     <div class="section">
                         <p class="section-title">📺 Exibição das Legendas</p>
@@ -395,6 +452,14 @@ export class SettingsPanel {
                                 <option value="on">Ligada — Pausa após cada fala</option>
                                 <option value="off">Desligada</option>
                             </select>
+                        </div>
+                        <div class="group">
+                            <label>Modo Hardcore (Blur Subtitles)</label>
+                            <select id="sel-blur">
+                                <option value="off">Desligado</option>
+                                <option value="on">Ligado — Borrar legendas até passar o mouse</option>
+                            </select>
+                            <small>Força você a praticar o Listening antes de ler.</small>
                         </div>
                     </div>
 
@@ -518,14 +583,31 @@ export class SettingsPanel {
         this.engine.translationAnticipation  = this.cfg.translationAnticipation;
         this.engine.autoPause                = this.cfg.autoPause;
         this.engine.flashDuration            = this.cfg.flashDuration;
+        this.engine.blurSubtitles            = this.cfg.blurSubtitles;
+        this.engine.ttsPlaybackRate          = this.cfg.ttsPlaybackRate;
+        this.engine.popupMode                = this.cfg.popupMode;
 
         const host = document.getElementById('linguaflow-subtitle-host');
         if (host) {
             host.style.setProperty('--lf-font-size',       `${this.cfg.fontSize}px`);
             host.style.setProperty('--lf-font-size-trans', `${this.cfg.fontSizeTrans}px`);
             host.style.setProperty('--lf-bg-opacity',      this.cfg.bgOpacity);
-            host.style.setProperty('--lf-color-known',     this.cfg.wordColorKnown);
-            host.style.setProperty('--lf-color-saved',     this.cfg.wordColorSaved);
+            host.style.setProperty('--lf-font-family',     this.cfg.fontFamily);
+            
+            // Applica Cores Baseadas na Paleta
+            let colKnown = this.cfg.wordColorKnown;
+            let colSaved = this.cfg.wordColorSaved;
+            
+            if (this.cfg.colorPalette === 'Pastel') {
+                colKnown = '#bbf7d0'; // Verde Pastel
+                colSaved = '#bae6fd'; // Azul Pastel
+            } else if (this.cfg.colorPalette === 'Colorblind') {
+                colKnown = '#60a5fa'; // Azul (para daltônicos verem que já sabem)
+                colSaved = '#fb923c'; // Laranja (foco/estudando)
+            }
+            
+            host.style.setProperty('--lf-color-known',     colKnown);
+            host.style.setProperty('--lf-color-saved',     colSaved);
             host.style.bottom    = `${this.cfg.subtitleBottom}px`;
             host.style.left      = `${this.cfg.subtitleHorizontal}%`;
             host.style.transform = `translateX(-${this.cfg.subtitleHorizontal}%)`;

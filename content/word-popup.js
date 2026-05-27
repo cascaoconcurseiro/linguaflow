@@ -159,8 +159,10 @@ export class WordPopup {
       const BASE = chrome.runtime.getURL('utils/');
       try {
         const { tts } = await import(BASE + 'tts.js');
-        // Pass audioUrl from dictionary (priority 1: native MP3)
-        await tts.play(this.word, 'en-US', this._currentAudioUrl || null);
+        // Velocidade configurável (1.0, 0.75 ou 0.5)
+        const rate = this.engine?.ttsPlaybackRate ?? 1.0;
+        tts.preferredRate = rate; // Expõe para uso interno no tts.js
+        await tts.play(this.word, 'en-US', this._currentAudioUrl || null, rate);
       } catch (e) {
         console.error('[WordPopup] Erro ao reproduzir áudio:', e);
       }
@@ -722,22 +724,58 @@ export class WordPopup {
   }
 
   _position(rect) {
+    const popupMode = this.engine?.popupMode ?? 'floating';
+
+    // ── MODO DOCK: Barra lateral fixa no canto direito ─────────────────────
+    if (popupMode === 'dock') {
+      Object.assign(this.popup.style, {
+        position:      'fixed',
+        top:           '0',
+        right:         '0',
+        left:          'auto',
+        bottom:        '0',
+        width:         '360px',
+        maxWidth:      '90vw',
+        height:        '100vh',
+        maxHeight:     '100vh',
+        borderRadius:  '20px 0 0 20px',
+        boxShadow:     '-8px 0 40px rgba(0,0,0,0.6), inset 1px 0 0 rgba(255,255,255,0.07)',
+        animation:     'lfpDockIn 0.3s cubic-bezier(0.16,1,0.3,1)',
+        overflowY:     'auto',
+      });
+      // Garante o keyframe de animação dock
+      if (!document.getElementById('lfp-dock-k')) {
+        const s = document.createElement('style'); s.id = 'lfp-dock-k';
+        s.textContent = '@keyframes lfpDockIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}';
+        document.head.appendChild(s);
+      }
+      return; // Não aplica posicionamento relativo à palavra
+    }
+
+    // ── MODO FLUTUANTE (padrão) ──────────────────────────────────────────────
+    // Restaura estilos caso tenha mudado de dock para floating
+    Object.assign(this.popup.style, {
+      bottom:      'auto',
+      right:       'auto',
+      height:      'auto',
+      maxHeight:   '85vh',
+      borderRadius:'24px',
+      animation:   '',
+      overflowY:   'visible',
+    });
+
     const player = this._findPlayerContainer();
     const isFixed = player === document.body;
     const playerRect = player.getBoundingClientRect();
     
     const W = Math.min(420, playerRect.width * 0.95);
-    
-    this.popup.style.width = W + 'px';
-    this.popup.style.height = 'auto'; // Altura dinâmica
-    this.popup.style.maxHeight = '85vh'; // Previne estourar tela
+    this.popup.style.width    = W + 'px';
     this.popup.style.position = isFixed ? 'fixed' : 'absolute';
 
     const actualH = this.popup.offsetHeight;
     let left, top;
     
     if (rect) {
-      const scrollX = isFixed ? 0 : player.scrollLeft;
       const scrollY = isFixed ? 0 : player.scrollTop;
       
       // Centraliza horizontalmente no player
@@ -755,14 +793,13 @@ export class WordPopup {
       if (top + actualH > scrollY + playerRect.height) {
          top = scrollY + (playerRect.height - actualH) / 2;
       }
-      
     } else {
       left = (playerRect.width - W) / 2;
       top = (playerRect.height - actualH) / 2;
     }
 
     this.popup.style.left = left + 'px';
-    this.popup.style.top = top + 'px';
+    this.popup.style.top  = top + 'px';
   }
 
   hide(resumeVideo = false) {

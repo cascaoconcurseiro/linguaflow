@@ -29,7 +29,7 @@ class TTS {
      * @param {string} lang  ex: 'en-US', 'pt-BR'
      * @param {string} audioUrl  URL MP3 opcional (dicionario)
      */
-    async play(text, lang = 'en-US', audioUrl = null) {
+    async play(text, lang = 'en-US', audioUrl = null, rate = 1.0) {
         if (!text || text.trim() === '') return false;
 
         // Prioridade 1: Audio MP3 nativo do dicionario (melhor qualidade)
@@ -37,6 +37,7 @@ class TTS {
             try {
                 const audio = new Audio(audioUrl);
                 audio.volume = 1.0;
+                audio.playbackRate = Math.max(0.1, Math.min(rate, 4.0));
                 await audio.play();
                 return true;
             } catch (e) {
@@ -46,17 +47,17 @@ class TTS {
 
         // Prioridade 2: Google Translate TTS (voz neural, natural)
         try {
-            await this._playGoogleTTS(text, lang);
+            await this._playGoogleTTS(text, lang, rate);
             return true;
         } catch (e) {
             console.log('[TTS] Google TTS falhou, usando Web Speech API');
         }
 
         // Prioridade 3: Web Speech API (fallback)
-        return this._playWebSpeech(text, lang);
+        return this._playWebSpeech(text, lang, rate);
     }
 
-    async _playGoogleTTS(text, lang) {
+    async _playGoogleTTS(text, lang, rate = 1.0) {
         const langMap = {
             'en-US': 'en', 'en-GB': 'en',
             'pt-BR': 'pt', 'pt-PT': 'pt',
@@ -81,6 +82,7 @@ class TTS {
         for (const url of urls) {
             try {
                 const audio = new Audio(url);
+                audio.playbackRate = Math.max(0.1, Math.min(rate, 4.0));
                 const cacheKey = `${lang}:${text}`;
                 this.audioCache.set(cacheKey, audio);
                 if (this.audioCache.size > 50) {
@@ -100,7 +102,7 @@ class TTS {
         throw new Error('All Google TTS endpoints failed');
     }
 
-    async _playWebSpeech(text, lang) {
+    async _playWebSpeech(text, lang, rate = 1.0) {
         if (!this.synth) return false;
 
         // Aguarda vozes carregarem (sem setTimeout fixo de 1s)
@@ -128,7 +130,7 @@ class TTS {
         return new Promise(resolve => {
             const utter = new SpeechSynthesisUtterance(text);
             utter.lang = lang || 'en-US';
-            utter.rate = 0.9;
+            utter.rate = Math.max(0.1, Math.min(rate, 4.0));
             utter.pitch = 1.0;
             utter.volume = 1.0;
 

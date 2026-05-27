@@ -848,6 +848,7 @@ export class SubtitleEngine {
                     display: inline-block;
                     transition: transform 0.12s, color 0.12s;
                     border-radius: 3px;
+                    font-family: var(--lf-font-family, 'Inter'), sans-serif;
                 }
                 .lf-word:hover {
                     transform: scale(1.18) translateY(-2px);
@@ -919,6 +920,18 @@ export class SubtitleEngine {
                     border-color: rgba(74,222,128,0.5);
                     background: rgba(74,222,128,0.15);
                 }
+                
+                .lf-blur {
+                    filter: blur(5px);
+                    opacity: 0.8;
+                    transition: filter 0.3s ease, opacity 0.3s ease;
+                }
+                
+                .lf-blur:hover {
+                    filter: blur(0px);
+                    opacity: 1;
+                }
+
                 /* Tradução temporária (flash) */
                 .lf-trans-flash {
                     animation: flashIn 0.3s ease-out;
@@ -2888,6 +2901,13 @@ export class SubtitleEngine {
         origDiv.innerHTML = '';
         // Força recriação do nó clicável para garantir que ele pertença ao Shadow Root atual
         origDiv.appendChild(this._makeClickable(orig));
+
+        // Modo Hardcore: blur na linha original até o usuário passar o mouse
+        const origRow = this.shadowContainer.querySelector('.lf-orig-row');
+        if (origRow) {
+            if (this.blurSubtitles) origRow.classList.add('lf-blur');
+            else                    origRow.classList.remove('lf-blur');
+        }
 
         // Corrige encoding de caracteres especiais
         const decodedTrans = this._fixEncoding(trans);

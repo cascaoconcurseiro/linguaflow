@@ -267,7 +267,7 @@ export class WordPopup {
         this.engine.videoElement.pause();
         this._wasPlayingBefore = true;
     }
-    console.debug(`[LinguaFlow] Popup show. vid.paused=${this.engine?.videoElement?.paused}, _wasPlayingBefore=${this._wasPlayingBefore}`);
+    console.log(`[LinguaFlow] Popup show. vid.paused=${this.engine?.videoElement?.paused}, _wasPlayingBefore=${this._wasPlayingBefore}`);
 
     // Tradução do contexto em segundo plano
     if (context) {
@@ -813,16 +813,16 @@ export class WordPopup {
         const vid = this.engine.videoElement;
         const shouldResume = this._wasPlayingBefore || this.engine._wasPausedByHover || (this.engine.autoPause && this.engine._lastAutoPausedEndTime > 0);
         
-        console.debug(`[LinguaFlow] hide(resumeVideo=true). vid.paused=${vid.paused}, shouldResume=${shouldResume}`);
-        console.debug(`[LinguaFlow] States: _wasPlayingBefore=${this._wasPlayingBefore}, _wasPausedByHover=${this.engine._wasPausedByHover}, autoPause=${this.engine.autoPause}, _lastAutoPausedEndTime=${this.engine._lastAutoPausedEndTime}`);
+        console.log(`[LinguaFlow] hide(resumeVideo=true). vid.paused=${vid.paused}, shouldResume=${shouldResume}`);
+        console.log(`[LinguaFlow] States: _wasPlayingBefore=${this._wasPlayingBefore}, _wasPausedByHover=${this.engine._wasPausedByHover}, autoPause=${this.engine.autoPause}, _lastAutoPausedEndTime=${this.engine._lastAutoPausedEndTime}`);
         
         if (shouldResume) {
             // Aguarda 150ms para permitir que cliques nativos na tela do player sejam processados
             setTimeout(() => {
-                console.debug(`[LinguaFlow] Auto-resume timeout. vid.paused=${vid.paused}`);
+                console.log(`[LinguaFlow] Auto-resume timeout. vid.paused=${vid.paused}`);
                 if (vid.paused) {
-                    vid.play().then(() => console.debug('[LinguaFlow] Play success!'))
-                              .catch(e => console.debug('[LinguaFlow] Play fallback falhou:', e));
+                    vid.play().then(() => console.log('[LinguaFlow] Play success!'))
+                              .catch(e => console.log('[LinguaFlow] Play fallback falhou:', e));
                 }
             }, 150);
         }

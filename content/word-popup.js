@@ -753,15 +753,16 @@ export class WordPopup {
       }
       return; // Não aplica posicionamento relativo à palavra
     }
-
-    // ── MODO FLUTUANTE (padrão) ──────────────────────────────────────────────
-    // Restaura estilos caso tenha mudado de dock para floating
+  }
+  _positionPopup(rect) {
+    if (!this.popup) return;
+    
+    // Mostra invisível para medir o layout real antes da animação
     Object.assign(this.popup.style, {
-      bottom:      'auto',
-      right:       'auto',
-      height:      'auto',
-      maxHeight:   '85vh',
-      borderRadius:'24px',
+      display:     'flex',
+      visibility:  'hidden',
+      opacity:     '0',
+      transform:   'none',
       animation:   '',
       overflowY:   'visible',
     });
@@ -770,35 +771,17 @@ export class WordPopup {
     const isFixed = player === document.body;
     const playerRect = player.getBoundingClientRect();
     
-    const W = Math.min(420, playerRect.width * 0.95);
+    const W = 360;
     this.popup.style.width    = W + 'px';
     this.popup.style.position = isFixed ? 'fixed' : 'absolute';
 
     const actualH = this.popup.offsetHeight;
-    let left, top;
-    
-    if (rect) {
-      const scrollY = isFixed ? 0 : player.scrollTop;
-      
-      // Centraliza horizontalmente no player
-      left = (playerRect.width - W) / 2;
-      
-      // Posiciona imediatamente ACIMA da palavra (rect)
-      top = (rect.top - playerRect.top) + scrollY - actualH - 15;
 
-      // Se estourar para cima, coloca embaixo da palavra
-      if (top < scrollY + 10) {
-        top = (rect.bottom - playerRect.top) + scrollY + 15;
-      }
-      
-      // Se embaixo também estourar (player pequeno), centraliza verticalmente
-      if (top + actualH > scrollY + playerRect.height) {
-         top = scrollY + (playerRect.height - actualH) / 2;
-      }
-    } else {
-      left = (playerRect.width - W) / 2;
-      top = (playerRect.height - actualH) / 2;
-    }
+    let left = (playerRect.width - W) / 2;
+    let top = (playerRect.height - actualH) / 2;
+    
+    // Pequeno ajuste para ele ficar um pouco acima do exato centro (visual mais agradável)
+    top = Math.max(10, top - 30);
 
     this.popup.style.left = left + 'px';
     this.popup.style.top  = top + 'px';

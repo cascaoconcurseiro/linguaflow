@@ -130,14 +130,30 @@ export class WordPopup {
 
   _bind() {
     const q = s => this._q(s);
-    q('#fx').onclick = () => this.hide(true);
+    q('#fx').onclick = (e) => { e.stopPropagation(); this.hide(true); };
+    
+    // Impede que cliques dentro do popup vazem para o YouTube/Netflix
+    this.popup.addEventListener('click', e => e.stopPropagation());
+    this.popup.addEventListener('mousedown', e => e.stopPropagation());
     
     if (!this._mousedownAttached) {
       document.addEventListener('mousedown', e => {
         if (this.popup && this.popup.style.display !== 'none' && !this.popup.contains(e.target) && !e.target.classList?.contains('lf-word')) {
+          this._justClosedPopup = true;
           this.hide(true); // true = resume video
+          setTimeout(() => this._justClosedPopup = false, 300); // Reseta após 300ms
         }
       });
+      
+      // Captura o 'click' que vem logo após o 'mousedown' para impedir que o player pause o vídeo
+      window.addEventListener('click', e => {
+        if (this._justClosedPopup && !e.target.classList?.contains('lf-word')) {
+            e.stopPropagation();
+            e.preventDefault();
+            this._justClosedPopup = false;
+        }
+      }, true);
+      
       this._mousedownAttached = true;
     }
     // Tabs

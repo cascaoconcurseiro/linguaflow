@@ -756,7 +756,7 @@ export class SubtitleEngine {
                 bottom: ${bottomPos}px !important;
                 left: ${horizontalPos}% !important;
                 transform: translateX(-${horizontalPos}%) !important;
-                z-index: 2147483647 !important;
+                z-index: 2147483640 !important;
                 width: 94% !important;
                 max-width: 900px !important;
                 text-align: center !important;
@@ -774,7 +774,7 @@ export class SubtitleEngine {
                 bottom: ${bottomPos}px !important;
                 left: ${horizontalPos}% !important;
                 transform: translateX(-${horizontalPos}%) !important;
-                z-index: 2147483647 !important;
+                z-index: 2147483640 !important;
                 width: 94% !important;
                 max-width: 900px !important;
                 text-align: center !important;
@@ -1478,7 +1478,7 @@ export class SubtitleEngine {
             font-family: 'Inter', sans-serif;
             font-size: 14px;
             font-weight: 600;
-            z-index: 2147483647;
+            z-index: 2147483640;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             animation: slideDown 0.3s ease-out;
         `;
@@ -1540,7 +1540,7 @@ export class SubtitleEngine {
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 2147483647;
+            z-index: 2147483640;
             display: flex;
             justify-content: flex-end;
             pointer-events: none;
@@ -2350,7 +2350,7 @@ export class SubtitleEngine {
                                 bottom: ${bottom}px !important;
                                 left: ${horiz}% !important;
                                 transform: translateX(-${horiz}%) !important;
-                                z-index: 2147483647 !important;
+                                z-index: 2147483640 !important;
                                 width: 80% !important;
                                 max-width: 900px !important;
                                 text-align: center !important;
@@ -2652,7 +2652,7 @@ export class SubtitleEngine {
             font-family: 'Inter', sans-serif;
             font-size: 16px;
             font-weight: 600;
-            z-index: 2147483647;
+            z-index: 2147483640;
             box-shadow: 0 8px 24px rgba(0,0,0,0.4);
             animation: fadeInOut 1.5s ease-in-out;
         `;

@@ -22,7 +22,7 @@ export class WordPopup {
     this.popup.id='lfp';
     Object.assign(this.popup.style, {
       position: 'absolute',
-      zIndex: '2147483645',
+      zIndex: '2147483647',
       background: 'rgba(13, 17, 28, 0.85)',
       backdropFilter: 'blur(20px) saturate(160%)',
       WebkitBackdropFilter: 'blur(20px) saturate(160%)',

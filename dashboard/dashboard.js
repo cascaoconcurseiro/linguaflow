@@ -1298,6 +1298,64 @@ async function doExport() {
             const content = rows.map(r => r.join(',')).join('\n');
             downloadFile(content, `linguaflow-export-${new Date().toISOString().split('T')[0]}.csv`, 'text/csv;charset=utf-8;');
             showToast(`${words.length} palavras exportadas como .csv`, 'success');
+            
+        } else if (format === 'pdf') {
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) {
+                showToast('Erro: Popup bloqueado. Permita popups no navegador para gerar o PDF.', 'error');
+                return;
+            }
+            
+            let html = `
+                <html>
+                <head>
+                    <title>LinguaFlow - Lista de Estudos</title>
+                    <style>
+                        body { font-family: 'Segoe UI', Arial, sans-serif; color: #333; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; }
+                        h1 { color: #0ea5e9; text-align: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+                        .word-item { border-bottom: 1px dashed #cbd5e1; padding: 15px 0; page-break-inside: avoid; }
+                        .word-header { display: flex; justify-content: space-between; align-items: baseline; }
+                        .word { font-size: 18px; font-weight: bold; color: #0f172a; }
+                        .translation { font-size: 16px; color: #0284c7; font-weight: 600; }
+                        .context { font-style: italic; color: #475569; margin-top: 5px; }
+                        .explanation { font-size: 14px; color: #64748b; margin-top: 8px; background: #f8fafc; padding: 10px; border-radius: 6px; }
+                        .meta { font-size: 11px; color: #94a3b8; text-transform: uppercase; margin-top: 6px; }
+                        @media print {
+                            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 0; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h1>📚 LinguaFlow - Lista de Estudos</h1>
+                    <p style="text-align:center; color:#64748b; margin-bottom: 30px;">Gerado em ${new Date().toLocaleDateString()}</p>
+            `;
+            
+            words.forEach(w => {
+                html += `<div class="word-item">`;
+                html += `<div class="word-header">`;
+                html += `  <span class="word">${w.word}</span>`;
+                html += `  <span class="translation">${w.translation || ''}</span>`;
+                html += `</div>`;
+                if (w.context_sentence) html += `<div class="context">"${w.context_sentence}"</div>`;
+                if (w.explanation) html += `<div class="explanation">${w.explanation.replace(/\n/g, '<br>')}</div>`;
+                
+                const meta = [];
+                if (w.tags) meta.push(`Tags: ${w.tags}`);
+                if (w.level) meta.push(`Nível: ${w.level}`);
+                if (meta.length > 0) html += `<div class="meta">${meta.join(' | ')}</div>`;
+                
+                html += `</div>`;
+            });
+            
+            html += `</body></html>`;
+            printWindow.document.write(html);
+            printWindow.document.close();
+            
+            setTimeout(() => {
+                printWindow.print();
+            }, 300);
+            
+            showToast(`${words.length} palavras preparadas para PDF/Impressão.`, 'success');
         }
         document.getElementById('modalExport').classList.remove('open');
     } catch (e) {

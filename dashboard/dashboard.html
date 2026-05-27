@@ -565,7 +565,7 @@
         .q4 { background: var(--accent); }
 
         /* Export modal */
-        .export-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        .export-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
         .export-opt {
             background: rgba(255,255,255,0.03);
             border: 2px solid var(--border);
@@ -1214,7 +1214,12 @@
                     <div class="export-opt" data-format="csv">
                         <div class="export-opt-icon">📊</div>
                         <div class="export-opt-title">.csv (Planilha)</div>
-                        <div class="export-opt-desc">Compatible com Excel e Google Sheets. Todos os campos disponíveis.</div>
+                        <div class="export-opt-desc">Compatível com Excel e Google Sheets. Todos os campos disponíveis.</div>
+                    </div>
+                    <div class="export-opt" data-format="pdf">
+                        <div class="export-opt-icon">🖨️</div>
+                        <div class="export-opt-title">PDF / Impressão</div>
+                        <div class="export-opt-desc">Gera um arquivo PDF limpo e formatado com sua lista de estudos para leitura off-line.</div>
                     </div>
                 </div>
 

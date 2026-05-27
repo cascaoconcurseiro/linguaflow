@@ -2576,6 +2576,7 @@ export class SubtitleEngine {
                     if (this.autoPause && !v.paused && cue && t >= cue.end - 0.05) {
                         v.pause();
                         this._showAutoPauseIndicator();
+                        this._lastAutoPausedEndTime = cue.end;
                     }
                 }
                 

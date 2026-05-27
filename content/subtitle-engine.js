@@ -1161,8 +1161,24 @@ export class SubtitleEngine {
                 window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
             };
 
+            // Botão do Painel Lateral (SVG minimalista)
+            const btnPanel = document.createElement('button');
+            btnPanel.id        = 'lf-yt-panel-btn';
+            btnPanel.className = 'lf-yt-btn';
+            btnPanel.title     = 'Painel de Legendas (L)';
+            btnPanel.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="9" y1="3" x2="9" y2="21"></line>
+                </svg>
+            `;
+            btnPanel.onclick = () => {
+                this.toggleSubtitlePanel();
+            };
+
             // Insere no player
-            rightCtrl.insertBefore(btnSettings, rightCtrl.firstChild);
+            rightCtrl.insertBefore(btnPanel, rightCtrl.firstChild);
+            rightCtrl.insertBefore(btnSettings, btnPanel);
             rightCtrl.insertBefore(switchWrapper, btnSettings);
             
             // Atalhos de teclado (apenas se ainda não houver)

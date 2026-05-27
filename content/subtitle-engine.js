@@ -1027,6 +1027,7 @@ export class SubtitleEngine {
 
         wrap.addEventListener('mouseenter', () => {
             if (!isDragging) wrap.style.cursor = 'grab';
+            if (this._pauseCooldown) return; // Ignora se acabou de dar play
             if (this.videoElement && !this.videoElement.paused) {
                 this.videoElement.pause();
                 this._wasPausedByHover = true;
@@ -1046,6 +1047,9 @@ export class SubtitleEngine {
                                             .catch(e => console.log('[LinguaFlow] Auto-resume failed:', e));
                     this._wasPausedByHover = false;
                     this._lastAutoPausedEndTime = -1;
+                    
+                    this._pauseCooldown = true;
+                    setTimeout(() => this._pauseCooldown = false, 500);
                 }
             }
         });

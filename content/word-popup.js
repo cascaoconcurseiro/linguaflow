@@ -817,14 +817,18 @@ export class WordPopup {
         console.log(`[LinguaFlow] States: _wasPlayingBefore=${this._wasPlayingBefore}, _wasPausedByHover=${this.engine._wasPausedByHover}, autoPause=${this.engine.autoPause}, _lastAutoPausedEndTime=${this.engine._lastAutoPausedEndTime}`);
         
         if (shouldResume) {
-            // Aguarda 150ms para permitir que cliques nativos na tela do player sejam processados
+            if (this.engine) {
+                this.engine._pauseCooldown = true;
+                setTimeout(() => this.engine._pauseCooldown = false, 500);
+            }
+            // Não precisa mais de timeout tão longo porque o pointer-events já foi removido
             setTimeout(() => {
                 console.log(`[LinguaFlow] Auto-resume timeout. vid.paused=${vid.paused}`);
                 if (vid.paused) {
                     vid.play().then(() => console.log('[LinguaFlow] Play success!'))
                               .catch(e => console.log('[LinguaFlow] Play fallback falhou:', e));
                 }
-            }, 150);
+            }, 50);
         }
 
         this._wasPlayingBefore = false;
@@ -834,9 +838,11 @@ export class WordPopup {
         }
     }
 
+    this.popup.style.pointerEvents = 'none'; // Impede hover acidental durante fade-out
     if (this._hideTimeout) clearTimeout(this._hideTimeout);
     this._hideTimeout = setTimeout(() => {
       this.popup.style.display = 'none';
+      this.popup.style.pointerEvents = 'auto'; // Restaura para o próximo uso
       this._hideTimeout = null;
     }, 200);
   }

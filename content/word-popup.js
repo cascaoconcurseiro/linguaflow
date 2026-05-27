@@ -763,9 +763,9 @@ export class WordPopup {
       maxHeight:   '85vh',
       borderRadius:'24px',
       display:     'flex',
-      visibility:  'hidden',
+      visibility:  'visible',
       opacity:     '0',
-      transform:   'none',
+      transform:   'translateY(10px) scale(0.95)',
       animation:   '',
       overflowY:   'visible',
     });

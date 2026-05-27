@@ -753,12 +753,15 @@ export class WordPopup {
       }
       return; // Não aplica posicionamento relativo à palavra
     }
-  }
-  _positionPopup(rect) {
-    if (!this.popup) return;
-    
-    // Mostra invisível para medir o layout real antes da animação
+
+    // ── MODO FLUTUANTE (padrão) ──────────────────────────────────────────────
+    // Restaura estilos caso tenha mudado de dock para floating
     Object.assign(this.popup.style, {
+      bottom:      'auto',
+      right:       'auto',
+      height:      'auto',
+      maxHeight:   '85vh',
+      borderRadius:'24px',
       display:     'flex',
       visibility:  'hidden',
       opacity:     '0',

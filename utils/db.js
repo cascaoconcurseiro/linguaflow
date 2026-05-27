@@ -740,6 +740,93 @@ class Database {
             tx.onerror = () => reject(tx.error);
         });
     }
+    async getCardByWordId(wordId) {
+        if (this.isProxyMode) return this._proxy('getCardByWordId', [wordId]);
+        const idb = await this.initPromise;
+        return new Promise(r => {
+            const req = idb.transaction('cards', 'readonly').objectStore('cards').index('word_id').get(Number(wordId));
+            req.onsuccess = () => r(req.result || null);
+            req.onerror = () => r(null);
+        });
+    }
+
+    async getCardStats(cardId) {
+        if (this.isProxyMode) return this._proxy('getCardStats', [cardId]);
+        const idb = await this.initPromise;
+        return new Promise(r => {
+            const req = idb.transaction('review_log', 'readonly').objectStore('review_log').getAll();
+            req.onsuccess = () => {
+                const all = (req.result || []).filter(x => x.card_id === Number(cardId));
+                r(all.sort((a, b) => b.ts - a.ts).slice(0, 30));
+            };
+            req.onerror = () => r([]);
+        });
+    }
+
+    async suspendCard(wordId, suspend = true) {
+        if (this.isProxyMode) return this._proxy('suspendCard', [wordId, suspend]);
+        const idb = await this.initPromise;
+        return new Promise((resolve, reject) => {
+            const tx = idb.transaction('cards', 'readwrite');
+            const store = tx.objectStore('cards');
+            store.index('word_id').get(Number(wordId)).onsuccess = e => {
+                const card = e.target.result;
+                if (!card) return resolve(false);
+                card.suspended = suspend;
+                if (suspend) {
+                    // Move para data futura remota para sair da fila
+                    card.due_date = Date.now() + 365 * 24 * 60 * 60 * 1000;
+                }
+                store.put(card).onsuccess = () => resolve(true);
+            };
+            tx.onerror = () => reject(tx.error);
+        });
+    }
+
+    async addTagsToWord(wordId, tags) {
+        if (this.isProxyMode) return this._proxy('addTagsToWord', [wordId, tags]);
+        const idb = await this.initPromise;
+        return new Promise((resolve, reject) => {
+            const tx = idb.transaction('words', 'readwrite');
+            const store = tx.objectStore('words');
+            store.get(Number(wordId)).onsuccess = e => {
+                const word = e.target.result;
+                if (!word) return resolve(false);
+                word.tags = Array.isArray(tags) ? tags.join(',') : (tags || '');
+                store.put(word).onsuccess = () => resolve(true);
+            };
+            tx.onerror = () => reject(tx.error);
+        });
+    }
+
+    async bulkUpdateDeck(wordIds, deckId) {
+        if (this.isProxyMode) return this._proxy('bulkUpdateDeck', [wordIds, deckId]);
+        const idb = await this.initPromise;
+        return new Promise((resolve, reject) => {
+            const tx = idb.transaction('words', 'readwrite');
+            const store = tx.objectStore('words');
+            let done = 0;
+            if (!wordIds.length) return resolve(true);
+            wordIds.forEach(id => {
+                store.get(Number(id)).onsuccess = e => {
+                    const word = e.target.result;
+                    if (word) { word.deck_id = deckId; store.put(word); }
+                    if (++done === wordIds.length) resolve(true);
+                };
+            });
+            tx.onerror = () => reject(tx.error);
+        });
+    }
+
+    async getAllTags() {
+        if (this.isProxyMode) return this._proxy('getAllTags', []);
+        const words = await this.getAllWords();
+        const tagSet = new Set();
+        words.forEach(w => {
+            if (w.tags) w.tags.split(',').map(t => t.trim()).filter(Boolean).forEach(t => tagSet.add(t));
+        });
+        return [...tagSet].sort();
+    }
 }
 
 export const db = new Database();

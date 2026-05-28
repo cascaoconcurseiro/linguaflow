@@ -31,6 +31,19 @@
             --radius2: 24px;
         }
 
+        :root[data-theme="light"] {
+            --bg: #f8fafc;
+            --bg2: #f1f5f9;
+            --bg3: #e2e8f0;
+            --surface: rgba(255, 255, 255, 0.9);
+            --surface2: rgba(241, 245, 249, 0.8);
+            --border: rgba(0,0,0,0.07);
+            --border2: rgba(56,189,248,0.3);
+            --text: #0f172a;
+            --text2: #334155;
+            --text3: #64748b;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
             background: var(--bg);
@@ -1091,6 +1104,23 @@
                                 <a href="https://console.groq.com/keys" target="_blank" style="color:#a78bfa;font-size:12px;font-weight:700;text-decoration:none">🔗 Obter chave Groq</a>
                                 <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:#a78bfa;font-size:12px;font-weight:700;text-decoration:none">🔗 Obter chave Gemini</a>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-grid" style="margin-top:20px">
+                        <!-- Google Drive Sync -->
+                        <div class="config-card" style="grid-column:1/-1;border-color:rgba(56,189,248,0.2)">
+                            <div class="config-card-title" style="color:var(--accent)">☁️ Cloud Sync (Google Drive)</div>
+                            <p style="color:var(--text2);font-size:13px;margin-bottom:16px">Faça backup do seu progresso, revisões e palavras salvas diretamente na nuvem, de forma invisível. Nunca perca seus dados!</p>
+                            <div style="display:flex;gap:12px;align-items:center">
+                                <button class="btn btn-primary btn-sm" id="btn-sync-backup" style="display:flex;align-items:center;gap:8px">
+                                    <span>⬆️ Fazer Backup Agora</span>
+                                </button>
+                                <button class="btn btn-ghost btn-sm" id="btn-sync-restore" style="display:flex;align-items:center;gap:8px">
+                                    <span>⬇️ Restaurar Backup</span>
+                                </button>
+                            </div>
+                            <div id="sync-status-msg" style="margin-top:12px;font-size:13px;font-weight:600"></div>
                         </div>
                     </div>
 

@@ -2,6 +2,7 @@
 // Este arquivo contém TODA a lógica: SRS, Decks, Stats, Export/Import Anki, Editor de Notas
 import { db as lfDb } from '../utils/db.js';
 import { tts } from '../utils/tts.js';
+import { sync } from '../utils/sync.js';
 
 // ============================================================================
 // ESTADOS GLOBAIS
@@ -1764,6 +1765,47 @@ async function init() {
         // Populate bulk deck select
         const bulkSel = document.getElementById('bulk-deck-select');
         if (bulkSel) bulkSel.innerHTML = decks.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+
+        // Cloud Sync
+        document.getElementById('btn-sync-backup')?.addEventListener('click', async () => {
+            const btn = document.getElementById('btn-sync-backup');
+            const msg = document.getElementById('sync-status-msg');
+            try {
+                btn.disabled = true;
+                msg.style.color = 'var(--text2)';
+                msg.textContent = '🔄 Iniciando backup para o Google Drive...';
+                await sync.backup();
+                msg.style.color = 'var(--green)';
+                msg.textContent = '✅ Backup realizado com sucesso!';
+                showToast('Backup no Google Drive concluído', 'success');
+            } catch (e) {
+                msg.style.color = 'var(--red)';
+                msg.textContent = '❌ Erro: ' + e.message;
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        document.getElementById('btn-sync-restore')?.addEventListener('click', async () => {
+            if (!confirm('Isso vai substituir seu banco de dados atual pelo backup do Google Drive. Deseja continuar?')) return;
+            const btn = document.getElementById('btn-sync-restore');
+            const msg = document.getElementById('sync-status-msg');
+            try {
+                btn.disabled = true;
+                msg.style.color = 'var(--text2)';
+                msg.textContent = '🔄 Restaurando backup do Google Drive...';
+                await sync.restore();
+                msg.style.color = 'var(--green)';
+                msg.textContent = '✅ Banco de dados restaurado!';
+                showToast('Restauração concluída. Recarregando...', 'success');
+                setTimeout(() => window.location.reload(), 2000);
+            } catch (e) {
+                msg.style.color = 'var(--red)';
+                msg.textContent = '❌ Erro: ' + e.message;
+            } finally {
+                btn.disabled = false;
+            }
+        });
 
         await updateHeader();
         const hash = window.location.hash.replace('#','');

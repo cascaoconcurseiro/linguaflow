@@ -5,23 +5,33 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { width: 320px; background: #0F172A; color: #F8FAFC; font-family: 'Inter', sans-serif; padding: 20px; }
+        body { width: 340px; background: #0F172A; color: #F8FAFC; font-family: 'Inter', sans-serif; padding: 20px; }
 
-        .header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-        .header img { width: 36px; height: 36px; border-radius: 8px; }
-        .header h1 { font-size: 20px; font-weight: 800; color: #38BDF8; }
-        .header small { font-size: 10px; background: #10B981; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: 700; }
+        .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .header-left { display: flex; align-items: center; gap: 12px; }
+        .header-left img { width: 36px; height: 36px; border-radius: 8px; }
+        .header-left h1 { font-size: 20px; font-weight: 800; color: #38BDF8; }
+        .badge-pro { font-size: 10px; background: linear-gradient(135deg, #F59E0B, #D97706); color: #FFF; padding: 3px 6px; border-radius: 4px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+        .streak-box { display: flex; align-items: center; gap: 4px; background: rgba(245, 158, 11, 0.15); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .streak-icon { font-size: 14px; }
+        .streak-val { font-size: 14px; font-weight: 800; color: #F59E0B; }
+
+        .level-box { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 14px; border-radius: 10px; margin-bottom: 16px; }
+        .level-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+        .level-title { font-size: 12px; color: #94A3B8; font-weight: 700; text-transform: uppercase; }
+        .level-cefr { font-size: 18px; font-weight: 800; color: #38BDF8; }
+        .progress-bar { width: 100%; height: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; overflow: hidden; margin-bottom: 6px; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #38BDF8, #0EA5E9); width: 0%; transition: width 0.5s ease; }
+        .level-desc { font-size: 10px; color: #64748B; text-align: right; }
 
         .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-        .stat { background: #1E293B; padding: 14px; border-radius: 10px; text-align: center; }
-        .stat .val { font-size: 28px; font-weight: 800; display: block; }
-        .stat .lbl { font-size: 11px; color: #64748B; font-weight: 600; text-transform: uppercase; margin-top: 2px; display: block; }
+        .stat { background: #1E293B; padding: 12px; border-radius: 10px; text-align: center; border: 1px solid rgba(255,255,255,0.05); }
+        .stat .val { font-size: 24px; font-weight: 800; display: block; line-height: 1.2; }
+        .stat .lbl { font-size: 10px; color: #64748B; font-weight: 700; text-transform: uppercase; margin-top: 4px; display: block; }
         .val-yellow { color: #F59E0B; }
         .val-blue { color: #38BDF8; }
         .val-green { color: #10B981; }
         .val-white { color: #FFF; }
-
-        hr { border: none; height: 1px; background: rgba(255,255,255,0.07); margin: 16px 0; }
 
         .btn { width: 100%; padding: 13px; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; transition: 0.2s; }
         .btn-primary { background: linear-gradient(135deg, #38BDF8, #0EA5E9); color: #0F172A; margin-bottom: 8px; }
@@ -30,14 +40,33 @@
         .btn-secondary:hover { background: rgba(255,255,255,0.1); color: #FFF; }
 
         .tip { font-size: 11px; color: #475569; text-align: center; margin-top: 12px; line-height: 1.5; }
+
+        hr { border: none; height: 1px; background: rgba(255,255,255,0.07); margin: 16px 0; }
     </style>
 </head>
 <body>
     <div class="header">
-        <img src="../icon.png" alt="LinguaFlow">
-        <div>
-            <h1>LinguaFlow <small>FREE</small></h1>
+        <div class="header-left">
+            <img src="../icon.png" alt="LinguaFlow">
+            <div>
+                <h1>LinguaFlow <span class="badge-pro">PRO</span></h1>
+            </div>
         </div>
+        <div class="streak-box" title="Dias seguidos de estudo">
+            <span class="streak-icon">🔥</span>
+            <span class="streak-val" id="stat-streak">0</span>
+        </div>
+    </div>
+
+    <div class="level-box">
+        <div class="level-header">
+            <span class="level-title" id="stat-lvl-name">Iniciante</span>
+            <span class="level-cefr" id="stat-cefr">A1</span>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="stat-progress"></div>
+        </div>
+        <div class="level-desc" id="stat-xp-text">0 / 5000 XP</div>
     </div>
 
     <div class="stats">
@@ -46,20 +75,10 @@
             <span class="lbl">Revisões Hoje</span>
         </div>
         <div class="stat">
-            <span class="val val-white" id="stat-total">...</span>
-            <span class="lbl">Palavras Salvas</span>
-        </div>
-        <div class="stat">
-            <span class="val val-blue" id="stat-new">...</span>
-            <span class="lbl">Novas</span>
-        </div>
-        <div class="stat">
             <span class="val val-green" id="stat-learned">...</span>
-            <span class="lbl">Dominadas</span>
+            <span class="lbl">Palavras Maduras</span>
         </div>
     </div>
-
-
 
     <hr>
 

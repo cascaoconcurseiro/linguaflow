@@ -909,9 +909,14 @@ async function loadStats() {
         let subText = lv.name;
         if (lv.nextLevel) {
             const xpNeeded = lv.nextLevel.min - lv.xp;
-            // Estima com base em ~20 XP por palavra (média A2-B1)
             const wordsNeeded = Math.ceil(xpNeeded / 20);
-            subText = `Faltam ~${wordsNeeded} novas palavras maduras para ${lv.nextLevel.id}`;
+            
+            const daysNeeded = Math.ceil(wordsNeeded / 15);
+            const datePrediction = new Date();
+            datePrediction.setDate(datePrediction.getDate() + daysNeeded);
+            const predictionStr = datePrediction.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' });
+
+            subText = `Faltam ~${wordsNeeded} palavras para ${lv.nextLevel.id}. Ritmo de 15/dia 🎯 Previsão: ${predictionStr}`;
         } else {
             subText = 'Nível Máximo Atingido!';
         }

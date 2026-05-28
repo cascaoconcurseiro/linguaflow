@@ -1,6 +1,8 @@
 // utils/db.js — Banco único do LinguaFlow
 // Todos os módulos usam este arquivo. Sem chrome.storage para dados de aprendizado.
 
+import { fsrs } from './fsrs.js';
+
 const DB_NAME = 'LinguaFlowFreeDB';
 const DB_VERSION = 10;
 
@@ -445,75 +447,57 @@ class Database {
     }
 
     _calculateNextState(card, quality, settings) {
-        let { interval = 0, ease_factor, reps = 0, status = 'new', step_index = 0, lapses = 0 } = card;
-        const { gradInt, easyInt, initEase, maxInt, easyBonus, intMod, lapseMod, learningSteps } = settings;
-        
-        if (ease_factor === undefined) ease_factor = initEase;
-        
-        let nextInterval = interval;
-        let nextEase = ease_factor;
-        let nextStatus = status;
-        let nextStepIndex = step_index;
-        let nextReps = reps;
-        let nextLapses = lapses;
+        // Migração suave: se o card ainda usa ease_factor do SM-2, converte inicial para FSRS
+        if (card.stability === undefined) {
+            card.stability = 0;
+            card.difficulty = 0;
+        }
 
-        // 1=Again, 2=Hard, 3=Good, 4=Easy
-        if (status === 'new' || status === 'learning') {
-            if (quality === 1) { // Again
+        const fsrsState = fsrs.nextState({
+            difficulty: card.difficulty || 0,
+            stability: card.stability || 0,
+            reps: card.reps || 0,
+            lapses: card.lapses || 0,
+            interval: card.interval || 0
+        }, quality);
+
+        // Status flow
+        let nextStatus = card.status || 'new';
+        if (nextStatus === 'new') {
+            nextStatus = (quality === 1) ? 'learning' : 'review';
+        } else if (nextStatus === 'learning') {
+            if (quality >= 3) nextStatus = 'review';
+        } else if (nextStatus === 'review' || nextStatus === 'mature') {
+            if (quality === 1) nextStatus = 'learning';
+            else nextStatus = fsrsState.interval >= 21 ? 'mature' : 'review';
+        }
+
+        // FSRS trabalha com dias inteiros. Se for Learning, usamos os steps.
+        let nextInterval = fsrsState.interval;
+        let nextStepIndex = card.step_index || 0;
+        const learningSteps = settings.learningSteps || [1, 10];
+
+        if (nextStatus === 'learning') {
+            if (quality === 1) {
                 nextStepIndex = 0;
                 nextInterval = learningSteps[0] / 1440;
-                nextStatus = 'learning';
-            } else if (quality === 2) { // Hard
-                // Hard in learning is halfway between Again and Good
-                const currentStep = learningSteps[step_index];
-                const nextStep = learningSteps[step_index + 1] || currentStep * 2;
-                nextInterval = ((currentStep + nextStep) / 2) / 1440;
-            } else if (quality === 3) { // Good
+            } else if (quality === 2) {
+                nextInterval = ((learningSteps[nextStepIndex] || 1) * 2) / 1440;
+            } else if (quality >= 3) {
                 nextStepIndex++;
                 if (nextStepIndex >= learningSteps.length) {
                     nextStatus = 'review';
-                    nextInterval = gradInt;
+                    nextInterval = Math.max(1, fsrsState.interval);
                 } else {
                     nextInterval = learningSteps[nextStepIndex] / 1440;
                 }
-            } else if (quality === 4) { // Easy
-                nextStatus = 'review';
-                nextInterval = easyInt;
             }
-            if (quality >= 3) nextReps++;
-        } else {
-            // Review/Mature Phase
-            if (quality === 1) { // Again
-                nextLapses++;
-                nextStatus = 'learning';
-                nextStepIndex = 0;
-                nextInterval = Math.max(1, Math.round(interval * lapseMod)) || (learningSteps[0] / 1440);
-                nextEase = Math.max(1.3, ease_factor - 0.2);
-            } else if (quality === 2) { // Hard
-                nextInterval = interval * 1.2 * intMod;
-                nextEase = Math.max(1.3, ease_factor - 0.15);
-            } else if (quality === 3) { // Good
-                nextInterval = interval * ease_factor * intMod;
-            } else if (quality === 4) { // Easy
-                nextInterval = interval * ease_factor * intMod * easyBonus;
-                nextEase = ease_factor + 0.15;
-            }
-            
-            if (quality >= 3) nextReps++;
-            if (nextInterval > maxInt) nextInterval = maxInt;
-            // Garantir que reviews não caiam para menos de 1 dia a menos que seja Again
-            if (nextInterval < 1 && quality > 1) nextInterval = 1;
         }
 
         // Fuzz (opcional: pequena variação aleatória de +/- 5% para intervalos > 1 dia)
         if (nextInterval > 1) {
             const fuzz = 0.95 + Math.random() * 0.1;
             nextInterval = nextInterval * fuzz;
-        }
-
-        // Status final baseado no intervalo
-        if (nextStatus !== 'learning') {
-            nextStatus = nextInterval >= 21 ? 'mature' : 'review';
         }
 
         let nextDueDate;
@@ -529,11 +513,12 @@ class Database {
         return {
             ...card,
             interval: nextInterval,
-            ease_factor: nextEase,
             status: nextStatus,
             step_index: nextStepIndex,
-            reps: nextReps,
-            lapses: nextLapses,
+            reps: fsrsState.reps,
+            lapses: fsrsState.lapses,
+            difficulty: fsrsState.difficulty,
+            stability: fsrsState.stability,
             due_date: nextDueDate,
             last_review: Date.now()
         };

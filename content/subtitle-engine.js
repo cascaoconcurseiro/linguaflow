@@ -1734,6 +1734,7 @@ export class SubtitleEngine {
                     </label>
                 </div>
                 <div style="display:flex;gap:6px;">
+                    <button id="lf-export-pdf" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#CBD5E1;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;text-transform:uppercase;">PDF</button>
                     <button id="lf-export-csv" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#CBD5E1;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;text-transform:uppercase;">CSV</button>
                     <button id="lf-export-anki" style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);color:#38BDF8;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;text-transform:uppercase;">Anki</button>
                 </div>
@@ -2033,6 +2034,7 @@ export class SubtitleEngine {
             this._rebuildSubtitleList(list, document.getElementById('lf-panel-search').value);
         };
 
+        document.getElementById('lf-export-pdf').onclick = () => this._exportPDF();
         document.getElementById('lf-export-csv').onclick = () => this._exportCSV();
         document.getElementById('lf-export-anki').onclick = () => this._exportAnki();
         
@@ -3454,6 +3456,61 @@ export class SubtitleEngine {
                 item.style.borderLeftColor = 'transparent';
             }
         });
+    }
+
+    _exportPDF() {
+        const videoTitle = document.title || 'Legendas';
+        const cues = (this.xhrCues && this.xhrCues.length > 0) ? this.xhrCues : this.cues;
+        
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            alert('Erro: Popup bloqueado. Permita popups no navegador para gerar o PDF.');
+            return;
+        }
+        
+        let html = `
+            <html>
+            <head>
+                <title>${videoTitle} - LinguaFlow Script</title>
+                <style>
+                    body { font-family: 'Segoe UI', Arial, sans-serif; color: #333; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; }
+                    h1 { color: #0ea5e9; text-align: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; font-size: 20px; }
+                    .cue-item { border-bottom: 1px solid #f1f5f9; padding: 10px 0; page-break-inside: avoid; display:flex; gap: 15px; }
+                    .time { font-family: monospace; color: #94a3b8; font-size: 13px; min-width: 60px; }
+                    .text-content { flex: 1; }
+                    .orig { font-size: 16px; font-weight: 600; color: #0f172a; }
+                    .trans { font-size: 15px; color: #475569; margin-top: 4px; }
+                    @media print {
+                        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 0; }
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>🎬 ${videoTitle}</h1>
+                <p style="text-align:center; color:#64748b; margin-bottom: 30px; font-size: 12px">Script exportado via LinguaFlow</p>
+        `;
+        
+        cues.forEach(c => {
+            const time = this._formatTime(c.start);
+            const orig = (c.text || '').replace(/\n/g, '<br>');
+            const trans = (c.translatedText || '').replace(/\n/g, '<br>');
+            
+            html += `<div class="cue-item">
+                        <div class="time">${time}</div>
+                        <div class="text-content">
+                            <div class="orig">${orig}</div>
+                            ${trans ? `<div class="trans">${trans}</div>` : ''}
+                        </div>
+                     </div>`;
+        });
+        
+        html += `</body></html>`;
+        printWindow.document.write(html);
+        printWindow.document.close();
+        
+        setTimeout(() => {
+            printWindow.print();
+        }, 500);
     }
 
     _exportCSV() {

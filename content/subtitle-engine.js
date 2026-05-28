@@ -2546,7 +2546,22 @@ export class SubtitleEngine {
 
                 const cuesToSearch = (this.xhrCues && this.xhrCues.length > 0) ? this.xhrCues : this.cues;
                 
-                if (cuesToSearch && cuesToSearch.length > 0) {
+                // Netflix / DOM Fallback
+                if (this.platform === 'netflix' && this.isActivated) {
+                    const netflixContainer = document.querySelector('.player-timedtext');
+                    if (netflixContainer) {
+                        netflixContainer.style.opacity = '0'; // Oculta nativo
+                        const text = netflixContainer.innerText.trim();
+                        if (text && text !== this.lastText) {
+                            this.lastText = text;
+                            this._onDomSubtitleUpdate(text, t);
+                        } else if (!text && this.lastText) {
+                            this.lastText = '';
+                            this.renderDual('', '');
+                        }
+                    }
+                }
+                else if (cuesToSearch && cuesToSearch.length > 0) {
                     // Otimização: Se o vídeo está pausado, não precisamos filtrar cues repetidamente
                     if (v.paused && this.lastText !== '') {
                         this._continueLoop(loop, v);

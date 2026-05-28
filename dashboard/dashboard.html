@@ -714,7 +714,8 @@
                 </button>
             </nav>
             <div class="sidebar-footer">
-                <button class="sidebar-btn primary" id="exportAnkiBtn">⭐ Exportar para Anki</button>
+                <div class="sidebar-section-title">DADOS</div>
+                <button class="sidebar-btn primary" id="exportAnkiBtn">📤 Exportar (PDF, CSV, Anki)</button>
                 <button class="sidebar-btn" id="importAnkiBtn">📥 Importar do Anki</button>
                 <button class="sidebar-btn" id="exportFullBtn">💾 Fazer Backup</button>
                 <button class="sidebar-btn" id="importFullBtn">📤 Restaurar Backup</button>
@@ -995,9 +996,17 @@
                     </div>
                 </div>
 
-                <div class="card card-padded">
-                    <h3 class="card-title">📅 Mapa de Calor</h3>
-                    <div id="stats-heatmap" class="heatmap-wrap"></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+                    <div class="card card-padded">
+                        <h3 class="card-title">📅 Mapa de Calor</h3>
+                        <div id="stats-heatmap" class="heatmap-wrap"></div>
+                    </div>
+                    <div class="card card-padded" style="max-height: 250px; overflow-y: auto;">
+                        <h3 class="card-title">🆕 Últimas Descobertas</h3>
+                        <div id="recent-words-feed" style="display:flex;flex-direction:column;gap:8px">
+                            <!-- Injetado via JS -->
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -1005,7 +1014,20 @@
             <section id="config-section" class="content-section">
                 <div style="max-width:1000px">
                     <h2 style="color:white;font-size:28px;font-weight:800;margin-bottom:6px">⚙️ Configurações</h2>
-                    <p style="color:var(--text3);margin-bottom:28px">Parâmetros completos do algoritmo SRS (idênticos ao Anki).</p>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:28px">
+                        <p style="color:var(--text3);margin:0">Parâmetros completos do algoritmo SRS e aparência.</p>
+                        <div style="display:flex; gap:10px; align-items:center">
+                            <span style="font-size:12px;color:var(--text2);font-weight:700;text-transform:uppercase">Tema:</span>
+                            <div class="color-picker-dot" style="background:#38bdf8" onclick="document.documentElement.style.setProperty('--accent', '#38bdf8'); document.documentElement.style.setProperty('--accent2', '#818cf8'); localStorage.setItem('lf_accent', '#38bdf8');"></div>
+                            <div class="color-picker-dot" style="background:#a855f7" onclick="document.documentElement.style.setProperty('--accent', '#a855f7'); document.documentElement.style.setProperty('--accent2', '#d8b4fe'); localStorage.setItem('lf_accent', '#a855f7');"></div>
+                            <div class="color-picker-dot" style="background:#4ade80" onclick="document.documentElement.style.setProperty('--accent', '#4ade80'); document.documentElement.style.setProperty('--accent2', '#86efac'); localStorage.setItem('lf_accent', '#4ade80');"></div>
+                            <div class="color-picker-dot" style="background:#ef4444" onclick="document.documentElement.style.setProperty('--accent', '#ef4444'); document.documentElement.style.setProperty('--accent2', '#fca5a5'); localStorage.setItem('lf_accent', '#ef4444');"></div>
+                        </div>
+                    </div>
+                    <style>
+                        .color-picker-dot { width:20px; height:20px; border-radius:50%; cursor:pointer; border:2px solid rgba(255,255,255,0.1); transition:transform 0.2s; }
+                        .color-picker-dot:hover { transform:scale(1.2); border-color:white; }
+                    </style>
 
                     <div class="config-grid">
                         <!-- Novos Cards -->
@@ -1220,11 +1242,11 @@
         </div>
     </div>
 
-    <!-- ═══ MODAL: EXPORTAR ANKI ═══ -->
+    <!-- ═══ MODAL: EXPORTAR DADOS ═══ -->
     <div id="modalExport" class="modal-overlay">
         <div class="modal-box">
             <div class="modal-header">
-                <span class="modal-title">⭐ Exportar para Anki</span>
+                <span class="modal-title">📤 Exportar Dados</span>
                 <button class="modal-close" onclick="document.getElementById('modalExport').classList.remove('open')">✕</button>
             </div>
             <div class="modal-body">

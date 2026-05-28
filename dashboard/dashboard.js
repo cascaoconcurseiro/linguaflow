@@ -140,9 +140,11 @@ function calculateUserLevel(stats) {
         { id: 'C1', name: 'Avançado (Advanced)',          min: 15001,  max: 40000  },
         { id: 'C2', name: 'Fluente (Proficient)',         min: 40001,  max: 1000000}
     ];
-    const current = levels.find(l => totalXP >= l.min && totalXP <= l.max) || levels[0];
+    const currentIndex = levels.findIndex(l => totalXP >= l.min && totalXP <= l.max);
+    const current = levels[currentIndex] || levels[0];
+    const nextLevel = levels[currentIndex + 1] || null;
     const progress = Math.min(100, Math.round(((totalXP - current.min) / Math.max(1, current.max - current.min)) * 100));
-    return { cefr: current.id, name: current.name, xp: totalXP, nextMin: current.max, progress, vocabPts: vocabXP, immersionPts: immersionXP, retention: stats.retention };
+    return { cefr: current.id, name: current.name, xp: totalXP, nextMin: current.max, nextLevel, progress, vocabPts: vocabXP, immersionPts: immersionXP, retention: stats.retention };
 }
 
 function formatInterval(interval) {
@@ -903,7 +905,17 @@ async function loadStats() {
         const lv = calculateUserLevel(stats);
         set('current-cefr-big', lv.cefr);
         set('level-name', lv.name);
-        set('level-name-sub', lv.name);
+        
+        let subText = lv.name;
+        if (lv.nextLevel) {
+            const xpNeeded = lv.nextLevel.min - lv.xp;
+            // Estima em palavras B2 (exemplo) ~ 80 XP cada (10 base * 8 peso)
+            const wordsNeeded = Math.ceil(xpNeeded / 80);
+            subText = `Faltam ~${wordsNeeded} novas palavras maduras para ${lv.nextLevel.id}`;
+        } else {
+            subText = 'Nível Máximo Atingido!';
+        }
+        set('level-name-sub', subText);
         set('xp-display', `${lv.xp.toLocaleString()} / ${lv.nextMin.toLocaleString()} XP`);
         set('lvl-vocab-pts', lv.vocabPts.toLocaleString());
         set('lvl-immersion-pts', lv.immersionPts.toLocaleString());
@@ -914,6 +926,26 @@ async function loadStats() {
         renderCEFR(stats.byCEFR);
         renderStatusDistribution(stats.byStatus);
         renderHeatmap('stats-heatmap');
+        
+        // Render Recent Words
+        const feedContainer = document.getElementById('recent-words-feed');
+        if (feedContainer) {
+            const allWords = await lfDb.getAllWords();
+            const recent = allWords.sort((a,b) => b.created_at - a.created_at).slice(0, 5);
+            if (recent.length === 0) {
+                feedContainer.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:10px;text-align:center">Nenhuma palavra salva ainda. Vá assistir algo!</div>`;
+            } else {
+                feedContainer.innerHTML = recent.map(w => `
+                    <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border); padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center">
+                        <div>
+                            <div style="font-weight:700;color:white;font-size:14px">${w.word}</div>
+                            <div style="color:var(--accent);font-size:12px">${w.translation || ''}</div>
+                        </div>
+                        <button class="btn btn-ghost btn-sm" onclick="openWordEditor(${w.id})" style="padding:4px 8px;font-size:10px">✏️</button>
+                    </div>
+                `).join('');
+            }
+        }
     } catch (e) { console.error(e); }
 }
 
@@ -940,20 +972,52 @@ function renderStatusDistribution(data) {
             </div></div>`;
     }).join('');
 }
-
 function renderCEFR(data) {
     const container = document.getElementById('cefr-chart');
     if (!container||!data) return;
     const levels = ['A1','A2','B1','B2','C1','C2'];
-    const max = Math.max(...Object.values(data),1);
-    container.innerHTML = levels.map(lv => {
-        const val = data[lv]||0;
-        const h = (val/max)*100;
-        return `<div class="cefr-bar-wrap">
-            <div class="cefr-bar-bg"><div class="cefr-bar-fill" style="height:${h}%"></div></div>
-            <span class="cefr-label">${lv}</span>
-            <span class="cefr-count">${val}</span></div>`;
-    }).join('');
+    const max = Math.max(...Object.values(data), 1);
+    
+    const size = 180;
+    const center = size / 2;
+    const radius = (size / 2) - 25;
+    
+    let polygonPoints = [];
+    let labelsHTML = '';
+    
+    levels.forEach((lv, i) => {
+        const val = data[lv] || 0;
+        const h = (val / max);
+        const angle = (Math.PI * 2 * i / levels.length) - Math.PI / 2;
+        
+        const px = center + radius * h * Math.cos(angle);
+        const py = center + radius * h * Math.sin(angle);
+        polygonPoints.push(`${px},${py}`);
+        
+        const lx = center + (radius + 15) * Math.cos(angle);
+        const ly = center + (radius + 15) * Math.sin(angle);
+        labelsHTML += `<text x="${lx}" y="${ly}" fill="var(--text2)" font-size="12" font-weight="bold" text-anchor="middle" dominant-baseline="middle">${lv}\n(${val})</text>`;
+    });
+
+    let gridHTML = '';
+    for (let r = 0.2; r <= 1; r += 0.2) {
+        let gridPoints = [];
+        levels.forEach((_, i) => {
+            const angle = (Math.PI * 2 * i / levels.length) - Math.PI / 2;
+            gridPoints.push(`${center + radius * r * Math.cos(angle)},${center + radius * r * Math.sin(angle)}`);
+        });
+        gridHTML += `<polygon points="${gridPoints.join(' ')}" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+    }
+    
+    container.innerHTML = `
+        <div style="display:flex; justify-content:center; align-items:center; width:100%; height:100%">
+            <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+                ${gridHTML}
+                <polygon points="${polygonPoints.join(' ')}" fill="var(--accent)" fill-opacity="0.3" stroke="var(--accent)" stroke-width="2"/>
+                ${labelsHTML}
+            </svg>
+        </div>
+    `;
 }
 
 async function renderHeatmap(containerId = 'heatmap-container') {

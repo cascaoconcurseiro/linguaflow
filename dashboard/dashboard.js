@@ -959,9 +959,20 @@ async function renderHeatmap(containerId = 'heatmap-container') {
     const container = document.getElementById(containerId);
     if (!container) return;
     try {
-        const sessions = await lfDb.getSessions(365);
-        const counts = {};
-        sessions.forEach(s => counts[s.date] = (counts[s.date]||0)+1);
+        const stats = await lfDb.getStats();
+        const counts = {}; // Armazena "pontos de esforço" por dia
+        
+        if (stats.sessions) {
+            stats.sessions.forEach(s => {
+                counts[s.date] = (counts[s.date] || 0) + Math.floor(s.seconds / 60); // 1 ponto por minuto de imersão
+            });
+        }
+        if (stats.reviewLog) {
+            stats.reviewLog.forEach(l => {
+                counts[l.date] = (counts[l.date] || 0) + 1; // 1 ponto por flashcard revisado
+            });
+        }
+
         container.innerHTML = '';
         const today = new Date();
         const start = new Date(today);
@@ -976,15 +987,27 @@ async function renderHeatmap(containerId = 'heatmap-container') {
                 container.appendChild(week);
             }
             const key = cur.toISOString().split('T')[0];
-            const c = counts[key]||0;
-            const level = c===0?0:Math.min(4,c);
+            const pts = counts[key] || 0;
+            
+            // Lógica de níveis baseada em esforço
+            let level = 0;
+            if (pts > 0) level = 1;
+            if (pts >= 10) level = 2; // 10 min ou 10 cards
+            if (pts >= 30) level = 3;
+            if (pts >= 60) level = 4;
+
             const cell = document.createElement('div');
             cell.className = `hm-day${level>0?' l'+level:''}`;
-            cell.title = `${key}: ${c} sessões`;
+            cell.title = `${key}: ${pts} pontos de esforço`;
             week?.appendChild(cell);
             cur.setDate(cur.getDate()+1);
         }
-    } catch {}
+        
+        // Atualiza o mini-stat da ofensiva na home, se existir
+        const streakVal = document.getElementById('home-streak-val');
+        if (streakVal) streakVal.textContent = stats.streak;
+
+    } catch(e) { console.error('Erro renderHeatmap:', e); }
 }
 
 // ============================================================================

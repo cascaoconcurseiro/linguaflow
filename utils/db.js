@@ -404,12 +404,16 @@ class Database {
         const goodRevs = log.filter(r => r.quality >= 3).length;
         const retention = log.length > 0 ? Math.round((goodRevs / log.length) * 100) : 0;
         
-        return { totalWords, totalSentences, dueCards: dueCount, streak: this._calculateStreak(log), retention, byStatus, todaySecs, totalSecs, byCEFR };
+        return { totalWords, totalSentences, dueCards: dueCount, streak: this._calculateStreak(log, sessions), retention, byStatus, todaySecs, totalSecs, byCEFR, sessions, reviewLog: log };
     }
 
-    _calculateStreak(logs) {
-        if (!logs || !logs.length) return 0;
-        const dates = new Set(logs.map(l => l.date));
+    _calculateStreak(logs, sessions) {
+        const dates = new Set();
+        if (logs) logs.forEach(l => dates.add(l.date));
+        if (sessions) sessions.forEach(s => {
+            if (s.seconds >= 60) dates.add(s.date); // Pelo menos 1 min de imersão conta como dia estudado
+        });
+        
         let streak = 0;
         let d = new Date();
         for (let i = 0; i < 365; i++) {

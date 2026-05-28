@@ -126,19 +126,19 @@ async function updateHeader() {
 }
 
 function calculateUserLevel(stats) {
-    const weights = { A1: 1, A2: 2, B1: 4, B2: 8, C1: 16, C2: 32 };
+    const weights = { A1: 1, A2: 1.5, B1: 2, B2: 3, C1: 4, C2: 5 };
     let vocabXP = 0;
     if (stats.byCEFR) Object.keys(stats.byCEFR).forEach(lv => { vocabXP += (stats.byCEFR[lv] || 0) * (weights[lv] || 1) * 10; });
-    const immersionXP = Math.round((stats.totalSecs || 0) / 60);
+    const immersionXP = Math.round((stats.totalSecs || 0) / 60); // 1 ponto por min
     const retentionFactor = 0.8 + ((stats.retention || 0) / 100) * 0.4;
     const totalXP = Math.round((vocabXP + immersionXP) * retentionFactor);
     const levels = [
-        { id: 'A1', name: 'Iniciante (Beginner)',        min: 0,      max: 500    },
-        { id: 'A2', name: 'Básico (Elementary)',          min: 501,    max: 2000   },
-        { id: 'B1', name: 'Intermediário (Intermediate)', min: 2001,   max: 6000   },
-        { id: 'B2', name: 'Intermediário Superior',       min: 6001,   max: 15000  },
-        { id: 'C1', name: 'Avançado (Advanced)',          min: 15001,  max: 40000  },
-        { id: 'C2', name: 'Fluente (Proficient)',         min: 40001,  max: 1000000}
+        { id: 'A1', name: 'Iniciante (Beginner)',         min: 0,       max: 5000     }, // ~500 palavras + imersão
+        { id: 'A2', name: 'Básico (Elementary)',          min: 5001,    max: 15000    }, // ~1500 palavras + imersão
+        { id: 'B1', name: 'Intermediário (Intermediate)', min: 15001,   max: 40000    }, // ~4000 palavras + imersão
+        { id: 'B2', name: 'Intermediário Superior',       min: 40001,   max: 90000    }, // ~9000 palavras + imersão
+        { id: 'C1', name: 'Avançado (Advanced)',          min: 90001,   max: 150000   }, // ~15000 palavras + imersão
+        { id: 'C2', name: 'Fluente (Proficient)',         min: 150001,  max: 10000000 }
     ];
     const currentIndex = levels.findIndex(l => totalXP >= l.min && totalXP <= l.max);
     const current = levels[currentIndex] || levels[0];
@@ -909,8 +909,8 @@ async function loadStats() {
         let subText = lv.name;
         if (lv.nextLevel) {
             const xpNeeded = lv.nextLevel.min - lv.xp;
-            // Estima em palavras B2 (exemplo) ~ 80 XP cada (10 base * 8 peso)
-            const wordsNeeded = Math.ceil(xpNeeded / 80);
+            // Estima com base em ~20 XP por palavra (média A2-B1)
+            const wordsNeeded = Math.ceil(xpNeeded / 20);
             subText = `Faltam ~${wordsNeeded} novas palavras maduras para ${lv.nextLevel.id}`;
         } else {
             subText = 'Nível Máximo Atingido!';

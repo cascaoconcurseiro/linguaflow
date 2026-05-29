@@ -26,7 +26,7 @@ export class SettingsPanel {
 
         this.cfg = {
             targetLang:              'pt',
-            subtitleMode:            'bilingual',
+            subtitleMode:            'native',
             bgOpacity:               0.45,
             fontSize:                31,       // tamanho legenda original
             fontSizeTrans:           18,       // tamanho legenda tradução (NOVO)

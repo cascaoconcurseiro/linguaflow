@@ -33,7 +33,7 @@ export class SubtitleEngine {
         this.isActivated        = false; // Inicia sempre desligado por padrão (conforme pedido do usuário)
 
         // Settings (defaults) — serão sobrescritos pelo SettingsPanel
-        this.displayMode  = 'bilingual'; // Padrão Seguro: Bilíngue
+        this.displayMode  = 'native'; // Padrão: Apenas Original
         this.targetLang   = 'pt';
         this.sourceLang   = 'en';
         this.translationSpeed = 100; // Número de legendas traduzidas em paralelo (10-200)
@@ -2609,6 +2609,11 @@ export class SubtitleEngine {
                 
                 this._continueLoop(loop, v);
             } catch (err) {
+                if (err.message && err.message.includes('Extension context invalidated')) {
+                    console.warn('[LinguaFlow] Contexto da extensão invalidado (atualização). Loop abortado de forma limpa.');
+                    this._stopSyncLoop();
+                    return; // Aborta sem encher o log de erros
+                }
                 console.error('[LinguaFlow] Erro crítico no sync loop:', err);
                 // Tenta continuar o loop após um pequeno respiro para não travar a aba se for erro contínuo
                 setTimeout(() => this._continueLoop(loop, this.videoElement), 100);

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LinguaFlow",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Aprenda idiomas assistindo vídeos. Legendas duplas, dicionário, SRS Anki — 100% gratuito e offline.",
   "icons": {
     "16": "icon16.png",
@@ -23,15 +23,7 @@
     "*://api.groq.com/*",
     "*://www.linguee.com.br/*",
     "*://context.reverso.net/*",
-    "*://*.youtube.com/*",
-    "*://*.netflix.com/*",
-    "*://*.hbomax.com/*",
-    "*://*.max.com/*",
-    "*://*.hbo.com/*",
-    "*://*.disneyplus.com/*",
-    "*://*.primevideo.com/*",
-    "*://*.amazon.com/*",
-    "https://www.googleapis.com/*"
+    "<all_urls>"
   ],
   "oauth2": {
     "client_id": "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
@@ -66,6 +58,13 @@
         "*://*.amazon.com/*/video/*"
       ],
       "js": ["content/boot.js"],
+      "run_at": "document_idle",
+      "match_about_blank": false,
+      "all_frames": false
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/reader-mode.js"],
       "run_at": "document_idle",
       "match_about_blank": false,
       "all_frames": false

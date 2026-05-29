@@ -215,6 +215,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
+    if (request.type === 'GET_KNOWN_WORDS') {
+        db.getAllWords().then(words => {
+            const known = {};
+            words.forEach(w => known[w.word.toLowerCase()] = w.status);
+            sendResponse({ known });
+        }).catch(err => sendResponse({ error: err.message }));
+        return true;
+    }
+
     return false;
 });
 

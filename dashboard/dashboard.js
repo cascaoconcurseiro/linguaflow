@@ -3,6 +3,9 @@
 import { db as lfDb } from '../utils/db.js';
 import { tts } from '../utils/tts.js';
 import { sync } from '../utils/sync.js';
+import { offlineDict } from '../utils/offline-dict.js';
+import { cloudSync } from '../utils/cloud-sync.js';
+import { pronunciationLab } from '../utils/pronunciation.js';
 
 // ============================================================================
 // ESTADOS GLOBAIS
@@ -279,7 +282,9 @@ async function showCard() {
                     <div class="fc-audio-row">
                         <button class="audio-btn" id="fc-play-word">🔊 Palavra</button>
                         ${word.context_sentence ? `<button class="audio-btn" id="fc-play-sent">🔊 Frase</button>` : ''}
+                        ${word.context_sentence ? `<button class="audio-btn" id="fc-mic-btn" title="Avaliar Pronúncia">🎙️ Falar</button>` : ''}
                     </div>
+                    <div id="fc-mic-feedback" style="display:none; text-align:center; margin-top:8px; font-size:14px; font-weight:600; padding:8px; border-radius:6px;"></div>
                     ${word.level ? `<div style="position:absolute;top:20px;left:20px"><span class="status-badge" style="background:rgba(56,189,248,0.12);color:#38bdf8">${word.level}</span></div>` : ''}
                     ${frontContent}
                     <div class="fc-hint" style="margin-top:24px">Clique para revelar • Espaço</div>
@@ -292,6 +297,34 @@ async function showCard() {
         });
         document.getElementById('fc-play-word')?.addEventListener('click', e => { e.stopPropagation(); tts.play(word.word, 'en-US'); });
         document.getElementById('fc-play-sent')?.addEventListener('click', e => { e.stopPropagation(); tts.play(word.context_sentence, 'en-US'); });
+        
+        const fcMicBtn = document.getElementById('fc-mic-btn');
+        if (fcMicBtn) {
+            fcMicBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (pronunciationLab.isRecording) { pronunciationLab.stop(); return; }
+                fcMicBtn.style.background = 'rgba(239,68,68,0.2)';
+                fcMicBtn.style.color = '#ef4444';
+                fcMicBtn.textContent = '⏹️ Ouvindo...';
+                await pronunciationLab.assess(word.context_sentence, (fb) => {
+                    const fbDiv = document.getElementById('fc-mic-feedback');
+                    if (fb.status === 'result') {
+                        fbDiv.style.display = 'block';
+                        fbDiv.innerHTML = `Pronúncia: ${fb.score}% <br> <div style="margin-top:4px">${fb.htmlFeedback}</div>`;
+                        fcMicBtn.style.background = '';
+                        fcMicBtn.style.color = '';
+                        fcMicBtn.textContent = '🎙️ Falar';
+                    } else if (fb.error) {
+                        fbDiv.style.display = 'block';
+                        fbDiv.innerHTML = `<span style="color:var(--red)">${fb.error}</span>`;
+                        fcMicBtn.style.background = '';
+                        fcMicBtn.style.color = '';
+                        fcMicBtn.textContent = '🎙️ Falar';
+                    }
+                });
+            });
+        }
+
         tts.play(word.word, 'en-US');
 
     } else {
@@ -312,8 +345,10 @@ async function showCard() {
                     <div class="fc-audio-row">
                         <button class="audio-btn" id="fc-play-word-ans">🔊 Palavra</button>
                         ${word.context_sentence ? `<button class="audio-btn" id="fc-play-sent-ans">🔊 Frase</button>` : ''}
+                        ${word.context_sentence ? `<button class="audio-btn" id="fc-mic-btn-ans" title="Avaliar Pronúncia">🎙️ Falar</button>` : ''}
                         <button class="audio-btn" id="fc-edit-btn">✏️ Editar</button>
                     </div>
+                    <div id="fc-mic-feedback-ans" style="display:none; text-align:center; margin-top:8px; font-size:14px; font-weight:600; padding:8px; border-radius:6px;"></div>
                     ${word.level ? `<div style="position:absolute;top:20px;left:20px"><span class="status-badge" style="background:rgba(56,189,248,0.12);color:#38bdf8">${word.level}</span></div>` : ''}
                     <div class="fc-word">${word.word}</div>
                     ${word.translation ? `<div class="fc-translation">${word.translation}</div>` : ''}
@@ -349,6 +384,34 @@ async function showCard() {
 
         document.getElementById('fc-play-word-ans')?.addEventListener('click', () => tts.play(word.word, 'en-US'));
         document.getElementById('fc-play-sent-ans')?.addEventListener('click', () => tts.play(word.context_sentence, 'en-US'));
+        
+        const fcMicBtnAns = document.getElementById('fc-mic-btn-ans');
+        if (fcMicBtnAns) {
+            fcMicBtnAns.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (pronunciationLab.isRecording) { pronunciationLab.stop(); return; }
+                fcMicBtnAns.style.background = 'rgba(239,68,68,0.2)';
+                fcMicBtnAns.style.color = '#ef4444';
+                fcMicBtnAns.textContent = '⏹️ Ouvindo...';
+                await pronunciationLab.assess(word.context_sentence, (fb) => {
+                    const fbDiv = document.getElementById('fc-mic-feedback-ans');
+                    if (fb.status === 'result') {
+                        fbDiv.style.display = 'block';
+                        fbDiv.innerHTML = `Pronúncia: ${fb.score}% <br> <div style="margin-top:4px">${fb.htmlFeedback}</div>`;
+                        fcMicBtnAns.style.background = '';
+                        fcMicBtnAns.style.color = '';
+                        fcMicBtnAns.textContent = '🎙️ Falar';
+                    } else if (fb.error) {
+                        fbDiv.style.display = 'block';
+                        fbDiv.innerHTML = `<span style="color:var(--red)">${fb.error}</span>`;
+                        fcMicBtnAns.style.background = '';
+                        fcMicBtnAns.style.color = '';
+                        fcMicBtnAns.textContent = '🎙️ Falar';
+                    }
+                });
+            });
+        }
+
         document.getElementById('fc-edit-btn')?.addEventListener('click', () => openWordEditor(word.id));
         document.getElementById('btn-again').addEventListener('click', () => answerCard(1));
         document.getElementById('btn-hard').addEventListener('click',  () => answerCard(2));
@@ -1875,6 +1938,84 @@ async function init() {
                 btn.disabled = false;
             }
         });
+
+        const dictUpload = document.getElementById('cfg-dict-upload');
+        if (dictUpload) {
+            dictUpload.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const status = document.getElementById('cfg-dict-status');
+                status.style.display = 'block';
+                status.style.color = 'var(--text3)';
+                status.textContent = 'Lendo arquivo JSON...';
+                
+                try {
+                    const text = await file.text();
+                    const data = JSON.parse(text);
+                    if (!Array.isArray(data)) throw new Error("JSON deve ser um array de dicionários.");
+                    status.textContent = `Processando ${data.length} termos... aguarde (isso pode travar a tela).`;
+                    
+                    // Allow UI to update
+                    await new Promise(r => setTimeout(r, 50));
+                    
+                    const result = await offlineDict.addDictionary(data);
+                    status.style.color = 'var(--green)';
+                    status.textContent = `✅ Sucesso! ${result.count} termos importados no Dicionário Offline.`;
+                } catch (err) {
+                    status.style.color = 'var(--red)';
+                    status.textContent = '❌ Erro: ' + err.message;
+                }
+                e.target.value = ''; // reset
+            });
+        }
+
+        const btnSyncUp = document.getElementById('btn-sync-up');
+        const btnSyncDown = document.getElementById('btn-sync-down');
+        const syncStatus = document.getElementById('cfg-sync-status');
+        
+        if (btnSyncUp && btnSyncDown) {
+            btnSyncUp.addEventListener('click', async () => {
+                const orig = btnSyncUp.textContent;
+                btnSyncUp.textContent = '⏳ Sincronizando...';
+                btnSyncUp.disabled = true;
+                syncStatus.style.display = 'block';
+                syncStatus.style.color = 'var(--text3)';
+                syncStatus.textContent = 'Autenticando no Google Drive...';
+                try {
+                    const res = await cloudSync.syncUp();
+                    syncStatus.style.color = 'var(--green)';
+                    syncStatus.textContent = `✅ ${res.message}`;
+                } catch (e) {
+                    syncStatus.style.color = 'var(--red)';
+                    syncStatus.textContent = `❌ Erro: ${e.message}`;
+                } finally {
+                    btnSyncUp.textContent = orig;
+                    btnSyncUp.disabled = false;
+                }
+            });
+
+            btnSyncDown.addEventListener('click', async () => {
+                if (!confirm("Restaurar o backup substituirá todos os seus flashcards atuais. Tem certeza?")) return;
+                const orig = btnSyncDown.textContent;
+                btnSyncDown.textContent = '⏳ Baixando...';
+                btnSyncDown.disabled = true;
+                syncStatus.style.display = 'block';
+                syncStatus.style.color = 'var(--text3)';
+                syncStatus.textContent = 'Procurando backup no Google Drive...';
+                try {
+                    const res = await cloudSync.syncDown();
+                    syncStatus.style.color = 'var(--green)';
+                    syncStatus.textContent = `✅ ${res.message} Recarregando...`;
+                    setTimeout(() => window.location.reload(), 1500);
+                } catch (e) {
+                    syncStatus.style.color = 'var(--red)';
+                    syncStatus.textContent = `❌ Erro: ${e.message}`;
+                } finally {
+                    btnSyncDown.textContent = orig;
+                    btnSyncDown.disabled = false;
+                }
+            });
+        }
 
         await updateHeader();
         const hash = window.location.hash.replace('#','');

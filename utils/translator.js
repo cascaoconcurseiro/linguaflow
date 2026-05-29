@@ -1,5 +1,6 @@
 // utils/translator.js
 import { db } from './db.js';
+import { offlineDict } from './offline-dict.js';
 
 class Translator {
     constructor() {
@@ -37,6 +38,20 @@ class Translator {
                 if (idbResult) {
                     this._updateMemoryCache(key, idbResult);
                     return { translation: idbResult, source: 'idb_cache', cached: true };
+                }
+
+                // Tenta Dicionário Offline primeiro (Se for palavra única ou curta)
+                if (text.split(' ').length <= 3) {
+                    try {
+                        const dictEntry = await offlineDict.lookup(text);
+                        if (dictEntry && dictEntry.def) {
+                            this._updateMemoryCache(key, dictEntry.def);
+                            db.setSetting(idbKey, dictEntry.def).catch(() => {});
+                            return { translation: dictEntry.def, source: 'offline_dict', cached: true };
+                        }
+                    } catch (e) {
+                        // ignore dict error
+                    }
                 }
 
                 const google = await this._fetchGoogleTranslate(text, fromLang, toLang);

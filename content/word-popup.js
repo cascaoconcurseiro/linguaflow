@@ -6,9 +6,19 @@ export class WordPopup {
     this.popup=null; this.word=''; this.context='';
     this.cache={}; this.activeDeck='Default'; this.decks=['Default'];
     this._gramBuilt=false; this._exBuilt=false;
+    this.freqList = null;
   }
 
-  init() { this._build(); this._loadDecks(); }
+  async init() { 
+    this._build(); 
+    this._loadDecks(); 
+    try {
+        const res = await fetch(chrome.runtime.getURL('utils/frequency-en.json'));
+        this.freqList = await res.json();
+    } catch(e) {
+        console.warn('[WordPopup] Freq list disabled/missing', e);
+    }
+  }
   destroy() { this.popup?.remove(); }
 
   _build() {
@@ -45,6 +55,7 @@ export class WordPopup {
     <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
       <span id="fw" style="font-size:28px;font-weight:800;color:#f8fafc;letter-spacing:-.03em;line-height:1;"></span>
       <span id="fpos" style="display:none;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;background:rgba(125,209,252,.1);color:#7dd3fc;padding:2px 7px;border-radius:20px;"></span>
+      <span id="ffreq" style="display:none;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:20px;"></span>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:5px;flex-wrap:wrap;">
       <span id="fipa" style="font-size:13px;color:#64748b;font-family:monospace;"></span>
@@ -228,8 +239,32 @@ export class WordPopup {
     // Reset tabs
     this.popup.querySelectorAll('.ftab').forEach((t,i)=>{ t.style.color=i===0?'#7dd3fc':'#475569'; t.style.borderBottomColor=i===0?'#7dd3fc':'transparent'; });
     this.popup.querySelectorAll('.fp').forEach((p,i)=>p.style.display=i===0?'':'none');
-    const q=s=>this._q(s);
+    const q = (s)=>this.popup.querySelector(s);
     q('#fw').textContent=word; q('#fipa').textContent=''; q('#fpos').style.display='none';
+    q('#ffreq').style.display='none';
+    
+    if (this.freqList) {
+        const cleanWord = word.toLowerCase().replace(/[^a-z0-9]/gi, '');
+        const rank = this.freqList[cleanWord];
+        if (rank) {
+            const ffreq = q('#ffreq');
+            ffreq.style.display = 'inline-block';
+            if (rank <= 1000) {
+                ffreq.textContent = `🔥 Top ${rank}`;
+                ffreq.style.background = 'rgba(239, 68, 68, 0.1)';
+                ffreq.style.color = '#f87171';
+            } else if (rank <= 5000) {
+                ffreq.textContent = `📊 Top ${rank}`;
+                ffreq.style.background = 'rgba(245, 158, 11, 0.1)';
+                ffreq.style.color = '#fcd34d';
+            } else {
+                ffreq.textContent = `✨ Rara (>5k)`;
+                ffreq.style.background = 'rgba(167, 139, 250, 0.1)';
+                ffreq.style.color = '#c4b5fd';
+            }
+        }
+    }
+
     q('#ft').textContent='…'; q('#fd').textContent=''; q('#fc').style.display='none'; q('#fctx').style.display='none';
     q('#fsyn').style.display='none'; q('#fant').style.display='none';
     q('#fair-container').style.display='none';
@@ -437,6 +472,7 @@ export class WordPopup {
     
     try {
       const {db}=await import(BASE+'db.js');
+      const { videoUtils } = await import(BASE + 'video-utils.js');
       const lang = this.engine?.sourceLang||'en';
       
       // Verifica se já existe
@@ -463,6 +499,8 @@ export class WordPopup {
 
       const deckId = await db.getOrCreateDeck(document.title, window.location.href);
 
+      const snapshot = videoUtils.captureSnapshot ? videoUtils.captureSnapshot() : null;
+
       const result = await db.saveWord({
         word:this.word, 
         lang:this.engine?.sourceLang||'en',
@@ -477,6 +515,7 @@ export class WordPopup {
         deck_id: deckId,
         synonyms:(d.synonyms||[]).join(','), 
         antonyms:(d.antonyms||[]).join(','),
+        snapshot: snapshot
       });
       
       console.debug('[WordPopup] ✅ Palavra salva:', result);
@@ -971,7 +1010,7 @@ export class WordPopup {
             setTimeout(() => q('#fcopy-gram').textContent = '📋', 2000);
         };
       } else {
-        resEl.innerHTML=`<div style="color:#f87171;padding:10px;">⚠️ <b>Falha na Gramática</b><br>${response?.error || 'Não foi possível gerar análise.'}</div>`;
+        await this._renderBasicGrammarFallback(resEl, response?.error);
       }
     } catch (e) {
       resEl.innerHTML='<div style="color:#f87171;padding:10px;">⚠️ Erro na consulta de gramática.</div>';
@@ -988,6 +1027,38 @@ export class WordPopup {
       .replace(/\*(.*?)\*/g, '<i style="color:#94a3b8">$1</i>')      // Itálico
       .replace(/\n/g, '<br>');                                      // Quebras de linha
   }
-  
   // O hide original com animação está na linha ~734
+
+  async _renderBasicGrammarFallback(resEl, errorMsg) {
+    try {
+        const sentence = this.context || this.word;
+        const words = sentence.split(/[\s,.;!?'"()]+/).filter(w => w.trim().length > 0);
+        
+        let html = '<div style="font-size:12px;color:#e2e8f0;padding:10px;background:rgba(255,255,255,0.03);border-radius:10px;">';
+        html += `<div style="margin-bottom:12px;padding:8px;background:rgba(239,68,68,0.1);border-left:3px solid #ef4444;border-radius:4px;color:#fca5a5;font-size:11px;line-height:1.4;">
+            ⚠️ <b>Análise por IA Indisponível</b><br>
+            <span style="color:#cbd5e1">Para ter explicações profundas de gramática e contexto, configure sua chave da API (Gemini) nas opções.</span><br><br>
+            <span style="color:#94a3b8">Gerando tradução palavra-por-palavra (Básico/Offline)...</span>
+        </div>`;
+        html += '<table style="width:100%;border-collapse:collapse;text-align:left;font-size:12px;">';
+        
+        const { translator } = await import(chrome.runtime.getURL('utils/translator.js'));
+        const sourceLang = this.engine?.sourceLang || 'auto';
+        
+        // Traduz palavra por palavra em paralelo
+        const translations = await Promise.all(words.map(w => translator.translate(w, sourceLang, 'pt')));
+        
+        for (let i = 0; i < words.length; i++) {
+             html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+                <td style="padding:6px 4px;font-weight:700;color:#38bdf8;">${words[i]}</td>
+                <td style="padding:6px 4px;color:#cbd5e1;">${translations[i]?.translation || '...'}</td>
+             </tr>`;
+        }
+        html += '</table></div>';
+        resEl.innerHTML = html;
+        resEl.className = 'ai-res';
+    } catch(e) {
+        resEl.innerHTML=`<div style="color:#f87171;padding:10px;">⚠️ <b>Falha na Gramática</b><br>Erro ao gerar modo básico offline.</div>`;
+    }
+  }
 }

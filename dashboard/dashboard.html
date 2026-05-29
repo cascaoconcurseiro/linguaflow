@@ -1127,6 +1127,36 @@
                                 <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:#a78bfa;font-size:12px;font-weight:700;text-decoration:none">🔗 Obter chave Gemini</a>
                             </div>
                         </div>
+                        
+                        <!-- Offline Dictionary Section -->
+                        <div class="config-card" style="grid-column:1/-1;border-color:rgba(168,85,247,0.2)">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <h3 style="color:var(--text); font-size:16px; font-weight:800; margin-bottom:4px;">📖 Dicionário Offline (JSON)</h3>
+                                    <p style="color:var(--text3); font-size:12px; margin:0;">Importe um dicionário JSON local para ter traduções instantâneas sem internet.</p>
+                                </div>
+                                <label class="btn btn-primary" style="background: linear-gradient(135deg, #a855f7, #9333ea); cursor: pointer;">
+                                    Importar JSON
+                                    <input type="file" id="cfg-dict-upload" accept=".json" style="display: none;">
+                                </label>
+                            </div>
+                            <div id="cfg-dict-status" style="margin-top: 12px; font-size: 12px; color: var(--green); display: none;"></div>
+                        </div>
+
+                        <!-- Cloud Sync Section -->
+                        <div class="config-card" style="grid-column:1/-1;border-color:rgba(59,130,246,0.2)">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <h3 style="color:var(--text); font-size:16px; font-weight:800; margin-bottom:4px;">☁️ Sincronização em Nuvem</h3>
+                                    <p style="color:var(--text3); font-size:12px; margin:0;">Faça backup automático dos seus flashcards no Google Drive.</p>
+                                </div>
+                                <div style="display:flex; gap:8px;">
+                                    <button class="btn btn-primary" id="btn-sync-up" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">⬆️ Fazer Backup</button>
+                                    <button class="btn btn-secondary" id="btn-sync-down" style="background: rgba(255,255,255,0.05); color:white; border-color: rgba(255,255,255,0.1);">⬇️ Restaurar</button>
+                                </div>
+                            </div>
+                            <div id="cfg-sync-status" style="margin-top: 12px; font-size: 12px; color: var(--green); display: none;"></div>
+                        </div>
                     </div>
 
                     <div class="settings-grid" style="margin-top:20px">

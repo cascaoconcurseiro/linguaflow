@@ -59,6 +59,20 @@ async function loadStats() {
 
 
 
+document.getElementById('btn-reader').addEventListener('click', () => {
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+        if (tabs[0]) {
+            chrome.tabs.sendMessage(tabs[0].id, { action: 'TOGGLE_READER_MODE' }, response => {
+                if (chrome.runtime.lastError) {
+                    alert('Este site não permite injeção de scripts (ex: configurações do Chrome ou nova aba). Abra um artigo de verdade.');
+                } else {
+                    window.close();
+                }
+            });
+        }
+    });
+});
+
 document.getElementById('btn-dash').addEventListener('click', () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('dashboard/dashboard.html') });
 });

@@ -25,19 +25,37 @@ export class ImmersionMode {
     async activate(targetLang, intensity) {
         this.intensity = intensity;
         
-        // Em um ambiente de produção extrairíamos isso via:
-        // const words = await chrome.runtime.sendMessage({ action: 'getAllWords' });
-        // this.knownWordsMap = buildMap(words);
-        
-        // Mock representativo para testes de fluxo
-        this.knownWordsMap.set('pessoas', 'people');
-        this.knownWordsMap.set('empresa', 'company');
-        this.knownWordsMap.set('dinheiro', 'money');
-        this.knownWordsMap.set('mundo', 'world');
-        this.knownWordsMap.set('tecnologia', 'technology');
+        // Extrai palavras reais conhecidas do banco de dados do usuário
+        try {
+            const words = await new Promise(resolve => {
+                chrome.runtime.sendMessage({ action: 'lf_get_all_known_words' }, resolve);
+            });
+            if (words && words.length > 0) {
+                words.forEach(w => {
+                    // Mapeia { word: "palavra", lang: "pt-br" } para word -> alvo (inglês)
+                    // Como não armazenamos a tradução na tabela known_words, 
+                    // precisaremos garantir que o background nos envie a tradução também
+                    // Mas assumindo que 'w.word' é o que queremos substituir
+                    if (w.word && w.translation) {
+                        this.knownWordsMap.set(w.word.toLowerCase(), w.translation.toLowerCase());
+                    }
+                });
+
+                // Compila Motor O(1) Unificado
+                const keys = Array.from(this.knownWordsMap.keys())
+                    .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) // escape regex chars
+                    .sort((a,b) => b.length - a.length); // Maiores primeiro para evitar overlap parcial
+                
+                if (keys.length > 0) {
+                    this.unifiedRegex = new RegExp(`\\b(${keys.join('|')})\\b`, 'gi');
+                }
+            }
+        } catch (e) {
+            console.error('Erro ao carregar palavras reais:', e);
+        }
         
         console.debug(`LinguaFlow: Modo Imersão Ativado [Intensidade: ${intensity}%]`);
-        this.processTextNodes(document.body);
+        if (this.unifiedRegex) this.processTextNodes(document.body);
     }
 
     processTextNodes(node) {
@@ -53,16 +71,23 @@ export class ImmersionMode {
     }
 
     replaceWords(textNode) {
-        let text = textNode.textContent;
-        let replaced = false;
+        if (!this.unifiedRegex) return;
 
-        this.knownWordsMap.forEach((targetWord, nativeWord) => {
-            const regex = new RegExp(`\\b${nativeWord}\\b`, 'gi');
-            if (regex.test(text) && (Math.random() * 100) <= this.intensity) {
-                // Preserva cap case original se desejar, mas vamos usar lowercase por simplicidade
-                text = escapeHTML(text).replace(regex, `<span class="lf-immersed" data-original="${escapeHTML(nativeWord)}" title="Aviso Imersivo: Original era '${escapeHTML(nativeWord)}'" style="color: #0EA5E9; font-weight: 600; border-bottom: 2px dashed #38BDF8; cursor: help; padding: 0 2px;">${escapeHTML(targetWord)}</span>`);
-                replaced = true;
-            }
+        let originalText = textNode.textContent;
+        this.unifiedRegex.lastIndex = 0; // Reset
+        if (!this.unifiedRegex.test(originalText)) return;
+
+        let text = escapeHTML(originalText);
+        let replaced = false;
+        
+        this.unifiedRegex.lastIndex = 0; // Reset before replace
+        text = text.replace(this.unifiedRegex, (match) => {
+            if ((Math.random() * 100) > this.intensity) return match; // skip by probability
+            const targetWord = this.knownWordsMap.get(match.toLowerCase());
+            if (!targetWord) return match;
+            
+            replaced = true;
+            return `<span class="lf-immersed" data-original="${escapeHTML(match)}" title="Aviso Imersivo: Original era '${escapeHTML(match)}'" style="color: #0EA5E9; font-weight: 600; border-bottom: 2px dashed #38BDF8; cursor: help; padding: 0 2px;">${escapeHTML(targetWord)}</span>`;
         });
 
         if (replaced) {

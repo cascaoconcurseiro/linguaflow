@@ -346,8 +346,10 @@ async function showCard() {
                         <button class="audio-btn" id="fc-play-word-ans">🔊 Palavra</button>
                         ${word.context_sentence ? `<button class="audio-btn" id="fc-play-sent-ans">🔊 Frase</button>` : ''}
                         ${word.context_sentence ? `<button class="audio-btn" id="fc-mic-btn-ans" title="Avaliar Pronúncia">🎙️ Falar</button>` : ''}
+                        ${word.context_sentence ? `<button class="audio-btn" id="fc-ai-var-btn" title="Gerar novas frases">🧠 Variação</button>` : ''}
                         <button class="audio-btn" id="fc-edit-btn">✏️ Editar</button>
                     </div>
+                    <div id="fc-ai-var-container" style="display:none; text-align:left; margin-top:8px; font-size:14px; font-weight:500; padding:12px; border-radius:8px; background:rgba(56, 189, 248, 0.1); border:1px solid rgba(56, 189, 248, 0.2); color:#e2e8f0;"></div>
                     <div id="fc-mic-feedback-ans" style="display:none; text-align:center; margin-top:8px; font-size:14px; font-weight:600; padding:8px; border-radius:6px;"></div>
                     ${word.level ? `<div style="position:absolute;top:20px;left:20px"><span class="status-badge" style="background:rgba(56,189,248,0.12);color:#38bdf8">${word.level}</span></div>` : ''}
                     <div class="fc-word">${word.word}</div>
@@ -407,6 +409,35 @@ async function showCard() {
                         fcMicBtnAns.style.background = '';
                         fcMicBtnAns.style.color = '';
                         fcMicBtnAns.textContent = '🎙️ Falar';
+                    }
+                });
+            });
+        }
+
+        const fcAiBtn = document.getElementById('fc-ai-var-btn');
+        if (fcAiBtn) {
+            fcAiBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const container = document.getElementById('fc-ai-var-container');
+                if (container.style.display === 'block') { container.style.display = 'none'; return; }
+                
+                fcAiBtn.textContent = '⏳ Gerando...';
+                fcAiBtn.disabled = true;
+                container.style.display = 'block';
+                container.innerHTML = '<div style="text-align:center; padding:10px;">🧠 A Inteligência Artificial está gerando frases exclusivas para você...</div>';
+
+                chrome.runtime.sendMessage({
+                    action: 'lf_generate_variation',
+                    word: word.word,
+                    sentence: word.context_sentence
+                }, (res) => {
+                    fcAiBtn.textContent = '🧠 Variação';
+                    fcAiBtn.disabled = false;
+                    if (res && res.ok && res.data) {
+                        const htmlList = res.data.split('\n').map(l => l.trim()).filter(l => l).map(l => `<div style="margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:8px;">${l}</div>`).join('');
+                        container.innerHTML = `<div style="color:#38bdf8; font-weight:700; margin-bottom:10px;">🌟 Novas Formas de Usar:</div>${htmlList}`;
+                    } else {
+                        container.innerHTML = '<div style="color:#ef4444;">Erro ao gerar variações. Verifique sua API Key na aba de Configurações.</div>';
                     }
                 });
             });
@@ -900,7 +931,12 @@ async function loadHome() {
         if (recentList) {
             const recent = sentences.slice(-5).reverse();
             if (!recent.length) {
-                recentList.innerHTML = `<div style="color:#64748b;font-size:13px;font-style:italic;padding:16px;text-align:center">Nenhuma frase salva ainda</div>`;
+                recentList.innerHTML = `
+                <div style="background:rgba(56, 189, 248, 0.05); border:1px dashed rgba(56, 189, 248, 0.3); border-radius:12px; padding:24px; text-align:center; margin-top:10px;">
+                    <div style="font-size:32px; margin-bottom:12px;">🌱</div>
+                    <h3 style="color:white; font-size:16px; margin-bottom:8px;">Seu Cérebro está Pronto</h3>
+                    <p style="color:#94a3b8; font-size:13px; line-height:1.5;">Você ainda não garimpou nenhuma frase. Entre em qualquer site no seu idioma alvo, selecione um texto real e use a extensão para dissecá-lo!</p>
+                </div>`;
             } else {
                 recentList.innerHTML = recent.map(s => `
                     <div style="padding:12px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background 0.15s;border-radius:8px" onclick="openSentenceDetails(${s.id})">
@@ -909,6 +945,20 @@ async function loadHome() {
                     </div>`).join('');
             }
         }
+
+        // Lógica de Alerta de Segurança (Backup)
+        try {
+            const warningEl = document.getElementById('home-backup-warning');
+            const lastBackupStr = await lfDb.getSetting('last_backup_date');
+            if (warningEl) {
+                if (!lastBackupStr) {
+                    warningEl.style.display = 'flex';
+                } else {
+                    const days = (Date.now() - new Date(lastBackupStr).getTime()) / (1000 * 3600 * 24);
+                    warningEl.style.display = days > 7 ? 'flex' : 'none';
+                }
+            }
+        } catch(e) { console.error('Erro ao verificar backup:', e); }
 
         renderHeatmap('home-heatmap');
         loadHomeDecks();
@@ -949,18 +999,9 @@ async function loadStats() {
         const stats = await lfDb.getStats();
         const reviews = await lfDb.getReviewLog(365);
         const reviewDates = [...new Set(reviews.map(r => r.date))].sort((a,b) => b.localeCompare(a));
-        let streak = 0;
-        const todayStr = new Date().toISOString().split('T')[0];
-        if (reviewDates.length > 0 && Math.floor((new Date(todayStr)-new Date(reviewDates[0]))/(86400000)) <= 1) {
-            streak = 1;
-            for (let i = 1; i < reviewDates.length; i++) {
-                if (Math.floor((new Date(reviewDates[i-1])-new Date(reviewDates[i]))/86400000) === 1) streak++;
-                else break;
-            }
-        }
-
+        
         const set = (id,v) => { const el = document.getElementById(id); if(el) el.textContent=v; };
-        set('statStreakVal', streak);
+        set('statStreakVal', stats.streak);
         set('statTotalVal', stats.totalWords);
         set('statRetentVal', stats.retention+'%');
         set('statHoursVal', (stats.totalSecs/3600).toFixed(1));
@@ -1440,6 +1481,18 @@ async function doExport() {
             await exportAnkiTxtAdvanced(words, template);
             showToast(`${words.length} cards exportados no formato avançado do Anki`, 'success');
 
+        } else if (format === 'json') {
+            const decks = await lfDb.getAllDecks();
+            const logs = await lfDb.getAllReviewLogs ? await lfDb.getAllReviewLogs() : [];
+            const backup = {
+                version: 5,
+                exportedAt: new Date().toISOString(),
+                data: { words, decks, logs }
+            };
+            const content = JSON.stringify(backup, null, 2);
+            downloadFile(content, `linguaflow-backup-${new Date().toISOString().split('T')[0]}.json`, 'application/json');
+            showToast(`Backup JSON completo gerado com sucesso!`, 'success');
+
         } else if (format === 'csv') {
             const rows = [['Word','Translation','Context','Level','Tags','Explanation','Status']];
             words.forEach(w => rows.push([
@@ -1635,6 +1688,7 @@ function switchTab(tab) {
         else if (tab === 'lab')      await loadLab();
         else if (tab === 'progresso') await loadStats();
         else if (tab === 'config')   await loadConfig();
+        else if (tab === 'moonshot-feed') await loadMoonshotFeed();
     }, 10);
 }
 
@@ -1765,7 +1819,11 @@ async function init() {
             try {
                 const json = await lfDb.exportDatabase();
                 downloadFile(json, `linguaflow-backup-${new Date().toISOString().split('T')[0]}.json`, 'application/json');
+                await lfDb.saveSetting('last_backup_date', new Date().toISOString());
                 showToast('Backup salvo com sucesso!', 'success');
+                // Hide warning if visible
+                const warningEl = document.getElementById('home-backup-warning');
+                if (warningEl) warningEl.style.display = 'none';
             } catch (e) { showToast('Erro ao fazer backup', 'error'); }
             btn.textContent = orig;
         });
@@ -2030,6 +2088,83 @@ async function init() {
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
 else init();
+
+// ============================================================================
+// MOONSHOT LOGIC (BETA)
+// ============================================================================
+
+// --- Voice Simulator ---
+const moonshotStartVoice = document.getElementById('moonshot-start-voice');
+if (moonshotStartVoice) {
+    moonshotStartVoice.addEventListener('click', async () => {
+        const logArea = document.getElementById('moonshot-voice-log');
+        logArea.style.display = 'block';
+        logArea.innerHTML = '<div style="color:var(--primary); font-weight:bold; margin-bottom:10px;">🤖 IA: Hello! I am your English partner. Let\'s practice. Where are you from?</div><div style="font-style:italic; color:var(--text3); font-size:14px;">(Ouvindo... Fale agora!)</div>';
+        moonshotStartVoice.textContent = '⏹️ Parar Conversa';
+        moonshotStartVoice.style.background = '#3f3f46';
+        
+        try {
+            pronunciationLab.listen(navigator.language.includes('pt') ? 'en-US' : 'en-US', async (result) => {
+                if (result.status === 'result') {
+                    const userText = result.transcript;
+                    logArea.innerHTML += `<div style="color:white; margin:15px 0; text-align:right;"><strong>Você:</strong> ${userText}</div>`;
+                    logArea.innerHTML += `<div id="moonshot-thinking" style="color:var(--text3); font-style:italic;">(Pensando...)</div>`;
+                    
+                    // Pedir resposta da IA
+                    chrome.runtime.sendMessage({
+                        action: 'lf_generate_variation', // Reaproveitando a chamada de IA (adaptar para chat no futuro)
+                        word: "conversation",
+                        sentence: `The user said: "${userText}". Act as an english teacher and conversational partner. Reply to them in English, keep it short, and ask a follow up question.`
+                    }, (res) => {
+                        document.getElementById('moonshot-thinking')?.remove();
+                        if (res && res.data) {
+                            const reply = res.data.replace(/1\.|2\.|3\.|-/g, '').trim(); // Remove a formatação da outra rota
+                            logArea.innerHTML += `<div style="color:var(--primary); font-weight:bold; margin-bottom:10px;">🤖 IA: ${reply}</div>`;
+                            tts.play(reply, 'en-US');
+                        }
+                    });
+                } else if (result.error) {
+                    logArea.innerHTML += `<div style="color:red">Erro: ${result.error}</div>`;
+                }
+            });
+        } catch (e) {
+            logArea.innerHTML += `<div style="color:red">Erro: ${e.message}</div>`;
+        }
+    });
+}
+
+// --- Dynamic N+1 Feed ---
+async function loadMoonshotFeed() {
+    // Apenas prepara a UI
+}
+
+const moonshotGenerateFeed = document.getElementById('moonshot-generate-feed');
+if (moonshotGenerateFeed) {
+    moonshotGenerateFeed.addEventListener('click', async () => {
+        const feedArea = document.getElementById('moonshot-feed-content');
+        feedArea.style.display = 'block';
+        moonshotGenerateFeed.textContent = '⏳ Analisando seu vocabulário e gerando...';
+        moonshotGenerateFeed.disabled = true;
+
+        const words = await lfDb.getAllWords();
+        const knownWords = words.filter(w => w.status !== 'new').map(w => w.word).slice(0, 30); // Pega uma amostra do que ele sabe
+
+        chrome.runtime.sendMessage({
+            action: 'lf_generate_variation', 
+            word: "article",
+            sentence: `Write a very short, engaging 3-paragraph article in English about Technology or Travel. Use simple words but include 2 or 3 slightly advanced words. The user knows these words: ${knownWords.join(', ')}.`
+        }, (res) => {
+            moonshotGenerateFeed.textContent = '🪄 Gerar Outro Artigo';
+            moonshotGenerateFeed.disabled = false;
+            if (res && res.data) {
+                const text = res.data.replace(/\n/g, '<br>');
+                feedArea.innerHTML = `<h3 style="color:var(--accent); margin-bottom:16px;">Sua Leitura do Dia</h3><p>${text}</p><div style="margin-top:20px; font-size:14px; color:var(--text3);">Dica: Selecione qualquer palavra desconhecida para traduzir e salvar!</div>`;
+            } else {
+                feedArea.innerHTML = '<div style="color:#ef4444;">Erro ao gerar texto. Verifique a API Key.</div>';
+            }
+        });
+    });
+}
 
 // ============================================================================
 // LISTENER DE MENSAGENS DO EXTENSION

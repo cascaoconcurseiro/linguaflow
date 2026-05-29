@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Nova Guia - LinguaFlow</title>
+    <style>
+        :root {
+            --bg: #0f172a; --surface: #1e293b; --primary: #38bdf8;
+            --text: #f8fafc; --text2: #94a3b8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, sans-serif; }
+        body { background: var(--bg); color: var(--text); height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .container { text-align: center; max-width: 600px; padding: 40px; }
+        .time { font-size: 64px; font-weight: 800; letter-spacing: -2px; margin-bottom: 8px; opacity: 0.9; }
+        .date { color: var(--primary); font-size: 18px; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 40px; }
+        .card { background: var(--surface); border: 1px solid rgba(255,255,255,0.05); padding: 40px; border-radius: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); cursor: pointer; transition: transform 0.2s; position: relative; overflow: hidden; }
+        .card:hover { transform: translateY(-4px); border-color: rgba(56,189,248,0.3); }
+        .word { font-size: 32px; font-weight: 700; margin-bottom: 12px; }
+        .hint { color: var(--text2); font-size: 14px; margin-top: 20px; opacity: 0.6; }
+        .answer-layer { position: absolute; inset: 0; background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; padding: 40px; }
+        .card.revealed .answer-layer { opacity: 1; pointer-events: all; }
+        .translation { color: var(--primary); font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+        .context { color: var(--text2); font-size: 16px; font-style: italic; }
+        
+        .actions { display: flex; gap: 12px; margin-top: 30px; }
+        .btn { padding: 12px 24px; border-radius: 12px; border: none; font-weight: 600; font-size: 14px; cursor: pointer; color: white; transition: opacity 0.2s; }
+        .btn:hover { opacity: 0.8; }
+        .btn.bad { background: #ef4444; }
+        .btn.good { background: #10b981; }
+
+        .header-nav { position: absolute; top: 30px; right: 40px; }
+        .header-nav a { color: var(--text2); text-decoration: none; font-weight: 600; padding: 8px 16px; border-radius: 8px; background: rgba(255,255,255,0.05); transition: background 0.2s; }
+        .header-nav a:hover { background: rgba(255,255,255,0.1); color: white; }
+    </style>
+</head>
+<body>
+    <div class="header-nav">
+        <a href="dashboard.html" target="_blank">Acessar Dashboard</a>
+    </div>
+
+    <div class="container">
+        <div class="time" id="clock">00:00</div>
+        <div class="date" id="date">Carregando...</div>
+
+        <div id="study-area" style="display:none">
+            <p style="color:var(--text2); margin-bottom:16px; font-size:14px;">Revisão Rápida Diária</p>
+            <div class="card" id="flashcard">
+                <div class="word" id="fc-word">Word</div>
+                <div class="hint">Clique em qualquer lugar para revelar a resposta</div>
+                
+                <div class="answer-layer">
+                    <div class="translation" id="fc-trans">Tradução</div>
+                    <div class="context" id="fc-ctx">"Contexto"</div>
+                    <div class="actions">
+                        <button class="btn bad" id="btn-bad">Não lembrei</button>
+                        <button class="btn good" id="btn-good">Lembrei</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="done-area" style="display:none">
+            <div style="font-size:48px; margin-bottom:16px">🔥</div>
+            <h3 style="margin-bottom:8px">Você está em dia!</h3>
+            <p style="color:var(--text2)">Não há cartões pendentes no momento. Continue sua jornada de imersão.</p>
+        </div>
+    </div>
+
+    <script type="module" src="newtab.js"></script>
+</body>
+</html>

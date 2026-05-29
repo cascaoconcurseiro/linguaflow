@@ -5,7 +5,7 @@ import { translator } from '../utils/translator.js';
 console.debug('LinguaFlow: Service Worker inicializado.');
 
 // ── Alarmes ──────────────────────────────────────────────────────────────────
-chrome.alarms.create('srs-reminder', { periodInMinutes: 1440 });
+chrome.alarms.create('srs-reminder', { periodInMinutes: 60 });
 chrome.alarms.create('auto-backup', { periodInMinutes: 1440 });
 
 chrome.alarms.onAlarm.addListener(alarm => {
@@ -77,6 +77,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
+    // Geração de Variações AI (Pilar 3: Motor Infinito)
+    if (request.action === 'lf_generate_variation') {
+        const { word, sentence } = request;
+        generateAIVariation(word, sentence)
+            .then(data => sendResponse({ ok: true, data }))
+            .catch(err => sendResponse({ ok: false, error: err.message }));
+        return true;
+    }
+
     // Explicação com IA (Grok)
     if (request.action === 'ai_explain_word') {
         const { fullContext } = request;
@@ -84,14 +93,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             ? `ANTERIOR: "${fullContext.prev}" | ATUAL: "${fullContext.current}" | PRÓXIMA: "${fullContext.next}"`
             : request.context;
 
-        const prompt = `Analise a palavra "${request.word}" no diálogo: "${contextStr}".
-        Forneça uma resposta rica com:
-        1. Nível Sugerido (CEFR)
-        2. O que significa na prática
-        3. Colocações Comuns (Chunks importantes)
-        4. Como e onde usar
-        5. Exemplos Reais (2 frases)
-        6. Associação Mental`;
+        const prompt = `Analise a palavra "${request.word}" vista neste diálogo: "${contextStr}".
+        Siga RIGOROSAMENTE a "Estrutura de Resposta Obrigatória" fornecida nas diretrizes do sistema.`;
         
         explainWordWithAI(request.word, contextStr, prompt)
             .then(explanation => sendResponse({ explanation }))
@@ -224,6 +227,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
+    if (request.action === 'lf_get_all_known_words') {
+        db.getAllWords().then(words => {
+            // Retorna o objeto completo da palavra, incluindo word e translation
+            sendResponse(words);
+        }).catch(err => {
+            console.error('[LinguaFlow] Error fetching words:', err);
+            sendResponse([]);
+        });
+        return true;
+    }
+
     return false;
 });
 
@@ -311,29 +325,34 @@ async function getApiConfig() {
     return { provider: 'groq', apiKey: defaultKey, apiUrl: groqUrl, model: groqModel };
 }
 
-const BASE_PERSONA = `Atue como um Professor de Inglês Nativo e Mentor Linguístico, extremamente didático e nada robótico. 
-Seu objetivo é ensinar o uso real do idioma através do método de aquisição natural.
+const BASE_PERSONA = `Atue como um Especialista em Aquisição de Linguagem e Treinador de Fluência (Nativo). 
+Seu objetivo é fazer o aluno dominar o uso real do inglês de forma visceral, sem decoreba gramatical.
 
 DIRETRIZES DE OURO:
-- Responda SEMPRE em Português Brasileiro (explicações).
-- Os EXEMPLOS devem ser OBRIGATORIAMENTE em Inglês.
-- FOCO TOTAL NO CONTEXTO: Explique o significado da palavra NA FRASE fornecida. 
-- Se a palavra for um "multi-uso" (como 'for', 'get', 'take'), explique OBRIGATORIAMENTE o uso atual e forneça uma pequena dica rápida para os outros 2 usos mais comuns. O usuário quer dominar a palavra como um todo.
-- LIMPEZA DE UI: NÃO inclua seções de "Gírias" ou "Phrasal Verbs" se o termo não for um deles. "Menos é mais".
-- Sem jargões gramaticais (não diga "adjunto adnominal", diga "palavra que dá característica").
-- Sem perguntas no final ou conversa fiada. Seja direto e humano.
+- Responda SEMPRE em Português Brasileiro (para as explicações).
+- Os EXEMPLOS devem ser OBRIGATORIAMENTE em Inglês com a tradução ao lado.
+- FOCO NO CONTEXTO: Explique o significado da palavra EXATAMENTE como foi usada na frase fornecida.
+- SEGREDO DA FLUÊNCIA (CHUNKS): Nativos não pensam em palavras isoladas, pensam em blocos. Sempre ensine os "Chunks" (colocações) mais comuns com essa palavra.
+- PRONÚNCIA DE RUA: Diga como a palavra soa na vida real, em "connected speech" (Ex: "got to" -> "gotta").
+- Sem jargões gramaticais chatos. Fale como um mentor de alta performance.
+- Use formatação Markdown (Negrito, Itálico) para destacar as partes importantes.
 
-ESTRUTURA DE RESPOSTA:
-Nível Sugerido (CEFR): [A1-C2]
+ESTRUTURA DE RESPOSTA OBRIGATÓRIA:
+**Nível Sugerido (CEFR):** [A1 a C2]
 
-O que significa na prática: Explicação simples do conceito no contexto da frase.
+**O que significa na prática:** Explicação hiper-direta do conceito dentro do contexto da frase.
 
-Como e onde usar: Vibe e contexto social.
+**Como e onde usar (Vibe):** É formal? É gíria? É usado em reuniões ou no bar? Qual o tom emocional da palavra?
 
-Exemplos Reais: 
+**Pronúncia de Rua:** Como os nativos falam isso rápido (escreva como se lê em português).
+
+**Colocações Comuns (Chunks):** 2 ou 3 blocos de palavras que andam sempre junto com esse termo.
+
+**Exemplos Reais:** 
+- [Inglês] (Tradução)
 - [Inglês] (Tradução)
 
-Associação Mental: Uma analogia ou hack visual para memorizar.`;
+**Associação Mental (Neuro-Hack):** Como um especialista em memória, crie um "gancho" absurdo, uma semelhança sonora com o português ou uma cena inesquecível para o cérebro memorizar a palavra na hora. O foco é fixação imediata!`;
 
 async function explainWordWithAI(word, context, customPrompt = null) {
     try {
@@ -396,25 +415,31 @@ async function analyzeGrammarWithAI(sentence) {
     try {
         if (!sentence) return 'Frase vazia.';
         const config = await getApiConfig();
-        if (!config.apiKey && config.provider !== 'gemini') return 'Configure sua API Key.';
+        if (!config.apiKey && config.provider !== 'gemini') throw new Error('Configure sua API Key.');
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-        const grammarPersona = `Você é um Linguista Especialista em Gramática Comparada (EN-PT). 
-Sua missão é desconstruir a mecânica da frase de forma ultra-didática para um brasileiro.
+        const grammarPersona = `Atue como um Engenheiro de Padrões de Linguagem (Nativo do Idioma Alvo).
+Seu objetivo é extrair o MOLDE ESTRUTURAL de uma frase inteira e ensinar um brasileiro a usá-lo para criar suas próprias frases, focando 100% na prática e fluência.
+
+DIRETRIZES ABSOLUTAS:
+- Esqueça regras acadêmicas chatas (não use palavras como sujeito, verbo, objeto, presente contínuo).
+- O foco é a ESTRUTURA e a FLUÊNCIA no idioma estrangeiro. 
+- Responda as explicações em Português Brasileiro, mas os exemplos DEVEM ser no IDIOMA ESTRANGEIRO.
+- Mantenha a resposta super dinâmica e empolgante, estilo "Mentor de Alta Performance".
+- Use EXATAMENTE os títulos em negrito abaixo.
 
 ESTRUTURA DE RESPOSTA OBRIGATÓRIA:
-1. 🧩 O Esqueleto: Identifique Sujeito, Verbo e Objeto.
-2. ⏳ Tempo & Aspecto: Qual o tempo verbal? (Ex: Present Perfect) Por que foi usado aqui?
-3. 🔬 Partículas & Conectores: Explique preposições ou phrasal verbs presentes.
-4. ⚠️ O Pulo do Gato: Uma regra de ouro ou erro comum de brasileiros nessa estrutura.
-5. 💡 Expressão Similar: Como um nativo diria isso de forma informal (se aplicável).
+**🧬 O Molde (A Estrutura):** Extraia a "fórmula matemática" da frase original. Mostre a estrutura de blocos (Ex: "There + [Pronome] + [Verbo to be]").
 
-REGRAS:
-- Use emojis para facilitar a leitura.
-- Responda em Português Brasileiro.
-- Seja direto, sem introduções vazias.`;
+**⚙️ Como a Engrenagem Funciona:** Uma explicação hiper-direta (máx 2 linhas) sobre em qual situação na vida real usamos esse molde.
+
+**🛠️ Mão na Massa:** Mostre 3 exemplos de frases totalmente diferentes e úteis para a vida real construídas EXATAMENTE com o mesmo molde da frase original. (Formato: "- [Inglês] -> [Tradução]").
+
+**🗣️ Pronúncia de Rua:** Como os nativos falam a frase ORIGINAL em "connected speech"? Escreva como se lê, mostrando onde as palavras se juntam. (MANTENHA O IDIOMA ORIGINAL, ex: "There he is" -> "Dere-iz").
+
+**⚠️ O Pulo do Gato:** Qual erro clássico de lógica ou tradução os brasileiros cometem ao tentar usar esse molde no idioma alvo?`;
 
         const userPrompt = `Analise detalhadamente a gramática desta frase: "${sentence}"`;
 
@@ -461,7 +486,7 @@ async function explainSentenceWithAI(sentence, fullContext = null) {
     try {
         if (!sentence) return 'Frase vazia.';
         const config = await getApiConfig();
-        if (!config.apiKey && config.provider !== 'gemini') return 'Configure sua API Key.';
+        if (!config.apiKey && config.provider !== 'gemini') throw new Error('Configure sua API Key.');
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -589,7 +614,7 @@ function updateBadge() {
     db.getStats().then(stats => {
         const due = stats.dueCards || 0;
         chrome.action.setBadgeText({ text: due > 0 ? String(due) : '' });
-        chrome.action.setBadgeBackgroundColor({ color: '#38BDF8' });
+        chrome.action.setBadgeBackgroundColor({ color: '#EF4444' }); // Vermelho de alerta (Gamification)
     }).catch(() => {});
 }
 
@@ -607,4 +632,45 @@ async function runAutoBackup() {
         const backup = { version: 4, exportedAt: new Date().toISOString(), db: { words } };
         chrome.storage.local.set({ 'lf_auto_backup': backup, 'lf_auto_backup_date': Date.now() });
     } catch (e) {}
+}
+
+async function generateAIVariation(word, sentence) {
+    const config = await getApiConfig();
+    const prompt = `Você é um professor de inglês inovador.
+A frase que estou estudando contém a palavra "${word}": "${sentence}".
+Sua tarefa é gerar APENAS 3 frases INÉDITAS usando o mesmo padrão gramatical e a palavra "${word}".
+As frases devem ser coloquiais, modernas e úteis (nada de frases de livro de escola).
+
+Regras de Saída:
+Não dê explicações. Responda APENAS com a lista numerada, sendo a frase em inglês e a tradução.
+1. [Frase 1 em inglês] - [Tradução 1]
+2. [Frase 2 em inglês] - [Tradução 2]
+3. [Frase 3 em inglês] - [Tradução 3]`;
+
+    const payload = {
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.8,
+        max_tokens: 300
+    };
+
+    if (config.provider !== 'gemini') {
+        payload.model = config.model;
+    } else {
+        delete payload.model;
+        delete payload.messages;
+        payload.contents = [{ parts: [{ text: prompt }] }];
+    }
+
+    const res = await fetch(config.apiUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...(config.provider !== 'gemini' && { 'Authorization': `Bearer ${config.apiKey}` })
+        },
+        body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('API AI falhou ao gerar variações');
+    const data = await res.json();
+    return config.provider === 'gemini' ? data.candidates[0].content.parts[0].text : data.choices[0].message.content;
 }

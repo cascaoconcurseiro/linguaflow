@@ -706,6 +706,14 @@
                 <button class="nav-tab" data-tab="lab">
                     <span>🧪</span> Laboratório
                 </button>
+                <div class="sidebar-section-title" style="margin-top:20px; font-size:11px; opacity:0.5; letter-spacing:1px; margin-bottom:10px;">MOONSHOT (BETA)</div>
+                <button class="nav-tab" data-tab="moonshot-voice">
+                    <span style="color:#f43f5e">🗣️</span> Simulador Voice-to-Voice
+                </button>
+                <button class="nav-tab" data-tab="moonshot-feed">
+                    <span style="color:#a855f7">📰</span> Feed de Leitura (N+1)
+                </button>
+                <div style="margin-top:20px;"></div>
                 <button class="nav-tab" data-tab="progresso">
                     <span>📈</span> Progresso
                 </button>
@@ -763,6 +771,13 @@
                 <div class="home-grid">
                     <!-- Hero -->
                     <div class="home-hero">
+                        <div id="home-backup-warning" style="display:none; background:rgba(239, 68, 68, 0.15); border:1px solid rgba(239, 68, 68, 0.4); border-radius:10px; padding:12px; margin-bottom:16px; color:#fca5a5; font-size:13px; text-align:left; align-items:center; gap:10px;">
+                            <span style="font-size:24px">⚠️</span>
+                            <div style="flex:1">
+                                <b style="color:#ef4444; display:block; margin-bottom:2px; font-size:14px;">Backup Pendente</b>
+                                O armazenamento local do Chrome pode ser limpo automaticamente se faltar espaço no PC. Acesse Configurações > Exportar Dados para proteger seus estudos.
+                            </div>
+                        </div>
                         <div style="font-size:52px;margin-bottom:16px">⚡</div>
                         <h2 style="color:white;font-size:26px;font-weight:800;margin-bottom:10px">Sessão de Hoje</h2>
                         <p style="color:var(--text2);font-size:15px;margin-bottom:28px" id="home-study-desc">Carregando...</p>
@@ -1182,6 +1197,39 @@
                     </div>
                 </div>
             </section>
+
+            <!-- ═══ MOONSHOT VOICE ═══ -->
+            <section id="moonshot-voice-section" class="content-section">
+                <div class="section-header">
+                    <h2>🗣️ Simulador Voice-to-Voice</h2>
+                    <p style="color:var(--text2)">Converse com a Inteligência Artificial para perder o medo de falar.</p>
+                </div>
+                <div style="text-align:center; padding:60px 20px; background:rgba(255,255,255,0.02); border-radius:16px; border:1px solid rgba(255,255,255,0.05)">
+                    <div style="font-size:64px; margin-bottom:24px">🎙️</div>
+                    <h3 style="font-size:24px; margin-bottom:12px">Bate-Papo Dinâmico</h3>
+                    <p style="color:var(--text2); max-width:500px; margin:0 auto 30px">A IA está pronta para simular situações reais. Pressione o botão para começar a falar.</p>
+                    <button class="btn btn-primary" id="moonshot-start-voice" style="padding:16px 40px; font-size:18px; border-radius:30px; background:#f43f5e">
+                        🟢 Iniciar Conversa
+                    </button>
+                    <div id="moonshot-voice-log" style="margin-top:40px; text-align:left; max-width:600px; margin-left:auto; margin-right:auto; background:var(--bg); padding:20px; border-radius:12px; display:none;">
+                        <!-- Chat logs will appear here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══ MOONSHOT FEED ═══ -->
+            <section id="moonshot-feed-section" class="content-section">
+                <div class="section-header">
+                    <h2>📰 Feed Dinâmico (N+1)</h2>
+                    <p style="color:var(--text2)">Textos gerados para o seu nível exato de vocabulário.</p>
+                </div>
+                <div style="display:flex; justify-content:center; margin-bottom:30px">
+                    <button class="btn btn-accent" id="moonshot-generate-feed" style="background:#a855f7">🪄 Gerar Artigo Baseado no meu Vocabulário</button>
+                </div>
+                <div id="moonshot-feed-content" style="max-width:700px; margin:0 auto; background:rgba(255,255,255,0.02); padding:40px; border-radius:16px; line-height:1.8; font-size:18px; display:none;">
+                    <!-- Feed will appear here -->
+                </div>
+            </section>
         </main>
     </div>
 
@@ -1302,6 +1350,11 @@
                         <div class="export-opt-icon">🖨️</div>
                         <div class="export-opt-title">PDF / Impressão</div>
                         <div class="export-opt-desc">Gera um arquivo PDF limpo e formatado com sua lista de estudos para leitura off-line.</div>
+                    </div>
+                    <div class="export-opt" data-format="json">
+                        <div class="export-opt-icon">💾</div>
+                        <div class="export-opt-title">Backup JSON Completo</div>
+                        <div class="export-opt-desc">Exporta absolutamente TODOS os seus cartões, decks e logs do FSRS. Ideal para segurança e migração.</div>
                     </div>
                 </div>
 

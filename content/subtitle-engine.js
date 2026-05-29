@@ -3076,7 +3076,9 @@ export class SubtitleEngine {
         
         let hoverTimeout = null;
         
-        span.addEventListener('mouseenter', (e) => {
+        span.addEventListener('pointerenter', (e) => {
+            // Se for touch, o touchstart ou o click resolvem, não pausa por pointerenter de touch pra não conflitar
+            if (e.pointerType === 'touch') return;
             // Debounce de Elite: Só pausa se o usuário realmente quiser interagir (150ms)
             this._hoverPauseTimer = setTimeout(() => {
                 if (!disableHoverPause && this.videoElement && !this.videoElement.paused) {
@@ -3092,7 +3094,8 @@ export class SubtitleEngine {
             }, 150);
         });
         
-        span.addEventListener('mouseleave', () => {
+        span.addEventListener('pointerleave', (e) => {
+            if (e.pointerType === 'touch') return;
             if (this._hoverPauseTimer) {
                 clearTimeout(this._hoverPauseTimer);
                 this._hoverPauseTimer = null;
@@ -3106,14 +3109,22 @@ export class SubtitleEngine {
             }
         });
         
-        span.addEventListener('click', e => {
+        const onClickOrTouch = (e) => {
             e.stopPropagation();
+            if (e.cancelable) e.preventDefault(); // Evita eventos duplicados no mobile
             if (hoverTimeout) { clearTimeout(hoverTimeout); hoverTimeout = null; }
+            if (!disableHoverPause && this.videoElement && !this.videoElement.paused) {
+                this.videoElement.pause();
+                this._wasPausedByHover = true;
+            }
             if (this.wordPopup) {
                 const rect = span.getBoundingClientRect();
                 this.wordPopup.showForWord(text, this.lastText, rect, this._currentCue);
             }
-        });
+        };
+
+        span.addEventListener('click', onClickOrTouch);
+        span.addEventListener('touchstart', onClickOrTouch, { passive: false });
         
         return span;
     }

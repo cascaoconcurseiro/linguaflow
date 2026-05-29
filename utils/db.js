@@ -207,6 +207,15 @@ class Database {
         });
     }
 
+    async getAllReviewLogs() {
+        if (this.isProxyMode) return this._proxy('getAllReviewLogs', []);
+        const idb = await this.initPromise;
+        return new Promise((resolve, reject) => {
+            const req = idb.transaction('review_logs', 'readonly').objectStore('review_logs').getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+        });
+    }
     async getAllCards() {
         if (this.isProxyMode) return this._proxy('getAllCards', []);
         const idb = await this.initPromise;
@@ -719,11 +728,18 @@ class Database {
             
             const tx = idb.transaction(storeNames, 'readwrite');
             
-            storeNames.forEach(storeName => {
-                const store = tx.objectStore(storeName);
-                store.clear();
-                data[storeName].forEach(item => store.put(item));
-            });
+            try {
+                storeNames.forEach(storeName => {
+                    const store = tx.objectStore(storeName);
+                    store.clear();
+                    if (Array.isArray(data[storeName])) {
+                        data[storeName].forEach(item => store.put(item));
+                    }
+                });
+            } catch (err) {
+                tx.abort();
+                return reject('Falha ao processar os registros do JSON.');
+            }
             
             tx.oncomplete = () => resolve(true);
             tx.onerror = () => reject(tx.error);

@@ -67,7 +67,7 @@ export class WordPopup {
   </div>
 </div>
 <div style="display:flex;border-bottom:1px solid rgba(255,255,255,.07);margin-top:12px;padding:0 4px;">
-  ${['Tradução','Gramática','Exemplos','Linguee','YouGlish'].map((l,i)=>`<button class="ftab" data-i="${i}" style="flex:1;padding:9px 2px;font-size:11px;font-weight:700;color:${i===0?'#7dd3fc':'#475569'};background:none;border:none;border-bottom:2px solid ${i===0?'#7dd3fc':'transparent'};cursor:pointer;letter-spacing:.03em;white-space:nowrap;transition:all .15s;">${l}</button>`).join('')}
+  ${['Tradução','Padrões','Exemplos','Linguee','YouGlish'].map((l,i)=>`<button class="ftab" data-i="${i}" style="flex:1;padding:9px 2px;font-size:11px;font-weight:700;color:${i===0?'#7dd3fc':'#475569'};background:none;border:none;border-bottom:2px solid ${i===0?'#7dd3fc':'transparent'};cursor:pointer;letter-spacing:.03em;white-space:nowrap;transition:all .15s;">${l}</button>`).join('')}
 </div>
 <div class="lfp-panels" style="padding:14px 18px 18px;max-height:400px;overflow-y:auto;">
 
@@ -403,7 +403,7 @@ export class WordPopup {
         }));
       }
     } catch {}
-    if(!exs.length){q('#fexb').innerHTML='<div style="color:#475569;font-size:13px;text-align:center;padding:16px 0;">Nenhum exemplo no dicionário.<br>Use "Analisar com IA" na aba Gramática para gerar exemplos personalizados.</div>';return;}
+    if(!exs.length){q('#fexb').innerHTML='<div style="color:#475569;font-size:13px;text-align:center;padding:16px 0;">Nenhum exemplo no dicionário.<br>Use "Analisar com IA" na aba Padrões para gerar exemplos personalizados.</div>';return;}
     // Translate all examples
     const hl=(t,w)=>t.replace(new RegExp(`\\b(${w})\\b`,'gi'),'<b style="color:#7dd3fc">$1</b>');
     q('#fexb').innerHTML='<div style="color:#475569;font-size:12px;text-align:center;padding:8px;">Traduzindo exemplos…</div>';
@@ -673,51 +673,10 @@ export class WordPopup {
     }
   }
 
-  async _loadReverso() {
-    const q=s=>this._q(s);
-    const btn=q('#frevbtn');
-    const container=q('#frev');
-    
-    btn.textContent='🔄 Carregando…';
-    btn.disabled=true;
-    
-    try {
-      const response = await new Promise(resolve => {
-        chrome.runtime.sendMessage({
-          type: 'FETCH_REVERSO',
-          word: this.word,
-          srcLang: 'en',
-          dstLang: 'pt'
-        }, resolve);
-      });
-      
-      if (response?.success && response.list?.length > 0) {
-        const examples = response.list.slice(0, 10);
-        const hl = (text, word) => text.replace(new RegExp(`\\b(${word})\\b`, 'gi'), '<b style="color:#7dd3fc">$1</b>');
-        
-        container.innerHTML = examples.map(ex => `
-          <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 12px;margin-bottom:8px;">
-            <div style="font-size:12px;color:#e2e8f0;line-height:1.6;margin-bottom:4px;">${hl(ex.en, this.word)}</div>
-            <div style="font-size:11px;color:#7dd3fc;font-style:italic;line-height:1.5;">→ ${ex.pt}</div>
-          </div>
-        `).join('');
-        container.style.display='';
-        btn.textContent='✓ Exemplos Carregados';
-        btn.style.background='rgba(16,185,129,.15)';
-        btn.style.color='#4ade80';
-      } else {
-        container.innerHTML='<div style="text-align:center;color:#475569;font-size:12px;padding:12px;">Nenhum exemplo encontrado no Reverso.</div>';
-        container.style.display='';
-        btn.textContent='🔄 Reverso Context';
-        btn.disabled=false;
-      }
-    } catch (e) {
-      console.error('[WordPopup] Erro ao carregar Reverso:', e);
-      container.innerHTML='<div style="text-align:center;color:#f87171;font-size:12px;padding:12px;">⚠️ Erro ao carregar exemplos.</div>';
-      container.style.display='';
-      btn.textContent='🔄 Reverso Context';
-      btn.disabled=false;
-    }
+  _loadReverso() {
+    const wordEncoded = encodeURIComponent(this.word);
+    const url = `https://context.reverso.net/translation/english-portuguese/${wordEncoded}`;
+    window.open(url, '_blank');
   }
 
   _phrasals(word) {
@@ -883,20 +842,23 @@ export class WordPopup {
     resEl.style.display='block';
     resEl.innerHTML='<div style="padding:10px;text-align:center;"><span class="lfp-spin"></span> A IA está processando uma explicação detalhada...</div>';
     try {
-      const response = await new Promise(resolve => {
+      const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           action: 'ai_explain_word',
           word: this.word,
           context: this.context,
           fullContext: this.currentCue?.fullContext || null
-        }, resolve);
+        }, r => {
+          if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+          else resolve(r);
+        });
       });
       if (response?.explanation) {
         q('#fair-container').style.display = 'block';
         resEl.innerHTML = this._formatAI(response.explanation);
 
-        // Tenta extrair o nível CEFR (A1-C2)
-        const cefrMatch = response.explanation.match(/Nível Sugerido \(CEFR\):\s*(A1|A2|B1|B2|C1|C2)/i);
+        // Tenta extrair o nível CEFR (A1-C2) ignorando asteriscos e colchetes
+        const cefrMatch = response.explanation.match(/Nível Sugerido \(CEFR\)[^A-Z]*(A1|A2|B1|B2|C1|C2)/i);
         if (cefrMatch) {
             const level = cefrMatch[1].toUpperCase();
             this.activeLevel = level;
@@ -984,22 +946,25 @@ export class WordPopup {
     if (btn.disabled) return;
     btn.innerHTML='<span class="lfp-spin"></span> Analisando…';
     btn.disabled=true;
-    resEl.innerHTML='<div style="text-align:center;padding:20px;color:#a78bfa;"><span class="lfp-spin"></span> Mapeando estruturas gramaticais...</div>';
+    resEl.innerHTML='<div style="text-align:center;padding:20px;color:#a78bfa;"><span class="lfp-spin"></span> Extraindo moldes de fluência...</div>';
     
 
     try {
-      const response = await new Promise(resolve => {
+      const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           action: 'ai_analyze_sentence',
           sentence: this.context || this.word
-        }, resolve);
+        }, r => {
+          if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+          else resolve(r);
+        });
       });
       if (response?.analysis) {
         resEl.className = 'ai-res';
         resEl.style.cssText = 'font-size:13px;color:#e2e8f0;line-height:1.6;padding:10px;background:rgba(255,255,255,0.03);border-radius:10px;position:relative;';
         const formatted = this._formatAI(response.analysis);
         resEl.innerHTML = `
-          <div id="fgb-text" style="max-height:300px;overflow-y:auto;padding-right:5px;">${formatted}</div>
+          <div id="fgb-text" style="padding-right:5px;">${formatted}</div>
           <button id="fcopy-gram" style="position:absolute;top:5px;right:5px;background:rgba(255,255,255,0.1);border:none;border-radius:6px;color:#fff;padding:3px 6px;font-size:9px;cursor:pointer;z-index:10;">📋 Copiar</button>
         `;
         
@@ -1013,7 +978,7 @@ export class WordPopup {
         await this._renderBasicGrammarFallback(resEl, response?.error);
       }
     } catch (e) {
-      resEl.innerHTML='<div style="color:#f87171;padding:10px;">⚠️ Erro na consulta de gramática.</div>';
+      resEl.innerHTML='<div style="color:#f87171;padding:10px;">⚠️ Erro na consulta de padrões.</div>';
     } finally {
       btn.textContent='✦ Analisar com IA';
       btn.disabled=false;
@@ -1022,10 +987,38 @@ export class WordPopup {
 
   _formatAI(text) {
     if (!text) return '';
-    return text
-      .replace(/\*\*(.*?)\*\*/g, '<b style="color:#7dd3fc">$1</b>') // Negrito
-      .replace(/\*(.*?)\*/g, '<i style="color:#94a3b8">$1</i>')      // Itálico
-      .replace(/\n/g, '<br>');                                      // Quebras de linha
+    let formatted = text
+      // Emojis Automáticos para os Títulos (Dicionário)
+      .replace(/\*\*(.*?Nível Sugerido.*?)\*\*/gi, '<b style="color:#fde047;display:block;margin-bottom:8px">⭐ $1</b>')
+      .replace(/\*\*(.*?na prática.*?)\*\*/gi, '<b style="color:#7dd3fc;display:block;margin-top:12px">🎯 $1</b>')
+      .replace(/\*\*(.*?Como e onde usar.*?)\*\*/gi, '<b style="color:#86efac;display:block;margin-top:12px">🎭 $1</b>')
+      .replace(/\*\*(.*?Colocações Comuns.*?)\*\*/gi, '<b style="color:#fb923c;display:block;margin-top:12px">🧩 $1</b>')
+      .replace(/\*\*(.*?Exemplos Reais.*?)\*\*/gi, '<b style="color:#d8b4fe;display:block;margin-top:12px">📝 $1</b>')
+
+      // Cabeçalhos Premium para a Aba de Padrões (Engenharia de Frases) - estilo Banner para evitar nesting
+      .replace(/\*\*(.*?O Molde.*?)\*\*/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(110,231,183,0.1);border-left:3px solid #6ee7b7;border-radius:4px;color:#6ee7b7;font-weight:bold;font-size:13px;">🧬 $1</div>')
+      .replace(/\*\*(.*?Como a Engrenagem Funciona.*?)\*\*/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(147,197,253,0.1);border-left:3px solid #93c5fd;border-radius:4px;color:#93c5fd;font-weight:bold;font-size:13px;">⚙️ $1</div>')
+      .replace(/\*\*(.*?Mão na Massa.*?)\*\*/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(251,146,60,0.1);border-left:3px solid #fb923c;border-radius:4px;color:#fb923c;font-weight:bold;font-size:13px;">🛠️ $1</div>')
+      .replace(/\*\*(.*?Pronúncia de Rua.*?)\*\*/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(249,168,212,0.1);border-left:3px solid #f9a8d4;border-radius:4px;color:#f9a8d4;font-weight:bold;font-size:13px;">🗣️ $1</div>')
+      .replace(/\*\*(.*?O Pulo do Gato.*?)\*\*/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(252,165,165,0.1);border-left:3px solid #fca5a5;border-radius:4px;color:#fca5a5;font-weight:bold;font-size:13px;">⚠️ $1</div>')
+
+      // O Neuro-Hack ganha uma caixa especial (pois é sempre o último, não quebra)
+      .replace(/\*\*(.*?Associação Mental.*?)\*\*(.*?)(?=\n\n|\*$|$)/gis, (match, title, content) => {
+          return `<div style="margin-top:16px;padding:10px;background:rgba(167,139,250,0.1);border-left:3px solid #a78bfa;border-radius:4px;">
+              <b style="color:#c084fc">🧠 ${title.replace(/:/g,'').trim()}</b><br><span style="color:#e2e8f0">${content.replace(/\n/g, '<br>')}</span>
+          </div>`;
+      })
+      
+      // Negrito normal
+      .replace(/\*\*(.*?)\*\*/g, '<b style="color:#7dd3fc">$1</b>')
+      // Itálico
+      .replace(/\*(.*?)\*/g, '<i style="color:#94a3b8">$1</i>')
+      // Quebras de linha normais
+      .replace(/\n/g, '<br>');
+      
+      // Limpar brs colados aos banners e blocos
+      formatted = formatted.replace(/<br>\s*<div/g, '<div').replace(/<\/div>\s*<br>/g, '</div>');
+      return formatted;
   }
   // O hide original com animação está na linha ~734
 
@@ -1037,28 +1030,54 @@ export class WordPopup {
         let html = '<div style="font-size:12px;color:#e2e8f0;padding:10px;background:rgba(255,255,255,0.03);border-radius:10px;">';
         html += `<div style="margin-bottom:12px;padding:8px;background:rgba(239,68,68,0.1);border-left:3px solid #ef4444;border-radius:4px;color:#fca5a5;font-size:11px;line-height:1.4;">
             ⚠️ <b>Análise por IA Indisponível</b><br>
-            <span style="color:#cbd5e1">Para ter explicações profundas de gramática e contexto, configure sua chave da API (Gemini) nas opções.</span><br><br>
-            <span style="color:#94a3b8">Gerando tradução palavra-por-palavra (Básico/Offline)...</span>
+            <span style="color:#cbd5e1">Para ter explicações profundas de padrões, adicione uma chave no <a href="chrome-extension://${chrome.runtime.id}/dashboard/dashboard.html" target="_blank" style="color:#60a5fa;text-decoration:underline;">Dashboard</a>. Você pode gerar uma de graça no <a href="https://console.groq.com/keys" target="_blank" style="color:#60a5fa;text-decoration:underline;">Groq Cloud</a>.</span><br><br>
+            <span style="color:#94a3b8">Gerando tradução e classe gramatical (Básico/Offline)...</span>
         </div>`;
         html += '<table style="width:100%;border-collapse:collapse;text-align:left;font-size:12px;">';
         
         const { translator } = await import(chrome.runtime.getURL('utils/translator.js'));
         const sourceLang = this.engine?.sourceLang || 'auto';
         
-        // Traduz palavra por palavra em paralelo
-        const translations = await Promise.all(words.map(w => translator.translate(w, sourceLang, 'pt')));
+        // Função auxiliar para buscar a classe gramatical (apenas inglês por enquanto, grátis)
+        const fetchPOS = async (word) => {
+            if (sourceLang !== 'en' && sourceLang !== 'auto') return '';
+            try {
+                const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
+                if (!res.ok) return '';
+                const data = await res.json();
+                if (data && data[0] && data[0].meanings && data[0].meanings[0]) {
+                    const pos = data[0].meanings[0].partOfSpeech;
+                    // Traduzir termos comuns
+                    const map = { noun:'Substantivo', verb:'Verbo', adjective:'Adjetivo', adverb:'Advérbio', pronoun:'Pronome', preposition:'Preposição', conjunction:'Conjunção', interjection:'Interjeição' };
+                    return map[pos] || pos;
+                }
+            } catch(e) {}
+            return '';
+        };
+
+        // Traduz e busca classe gramatical em paralelo
+        const tasks = words.map(async (w) => {
+            const [trans, pos] = await Promise.all([
+                translator.translate(w, sourceLang, 'pt'),
+                fetchPOS(w)
+            ]);
+            return { word: w, translation: trans?.translation || '...', pos: pos };
+        });
         
-        for (let i = 0; i < words.length; i++) {
+        const results = await Promise.all(tasks);
+        
+        for (let r of results) {
+             const posTag = r.pos ? `<br><span style="font-size:10px;color:#a78bfa;font-weight:normal;background:rgba(167,139,250,0.15);padding:1px 4px;border-radius:3px;">${r.pos}</span>` : '';
              html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
-                <td style="padding:6px 4px;font-weight:700;color:#38bdf8;">${words[i]}</td>
-                <td style="padding:6px 4px;color:#cbd5e1;">${translations[i]?.translation || '...'}</td>
+                <td style="padding:8px 4px;font-weight:700;color:#38bdf8;vertical-align:top;">${r.word}${posTag}</td>
+                <td style="padding:8px 4px;color:#cbd5e1;vertical-align:top;padding-top:10px;">${r.translation}</td>
              </tr>`;
         }
         html += '</table></div>';
         resEl.innerHTML = html;
         resEl.className = 'ai-res';
     } catch(e) {
-        resEl.innerHTML=`<div style="color:#f87171;padding:10px;">⚠️ <b>Falha na Gramática</b><br>Erro ao gerar modo básico offline.</div>`;
+        resEl.innerHTML=`<div style="color:#f87171;padding:10px;">⚠️ <b>Falha nos Padrões</b><br>Erro ao gerar modo básico offline.</div>`;
     }
   }
 }

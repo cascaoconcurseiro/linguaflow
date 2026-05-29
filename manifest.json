@@ -79,6 +79,9 @@
     },
     "default_title": "LinguaFlow"
   },
+  "chrome_url_overrides": {
+    "newtab": "dashboard/newtab.html"
+  },
   "web_accessible_resources": [
     {
       "resources": [

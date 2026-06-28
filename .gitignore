@@ -71,3 +71,5 @@ icon*.png.bak
 # API keys (if any)
 *_API_KEY*
 secrets.json
+background/env.js
+background/env.json

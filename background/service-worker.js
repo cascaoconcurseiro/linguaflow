@@ -1,5 +1,28 @@
 // background/service-worker.js
 import { db } from '../utils/db.js';
+
+// Garbage Collector para limpar dicionários velhos e liberar espaço (QuotaExceeded)
+function _sweepStaleCache() {
+    chrome.storage.local.get(null, (items) => {
+        const now = Date.now();
+        const keysToRemove = [];
+        for (const [key, value] of Object.entries(items)) {
+            if (key.startsWith('linguee_') || key.startsWith('reverso_')) {
+                // Remove se for mais velho que 7 dias (7 * 24 * 60 * 60 * 1000 = 604800000ms)
+                if (value.ts && (now - value.ts > 604800000)) {
+                    keysToRemove.push(key);
+                }
+            }
+        }
+        if (keysToRemove.length > 0) {
+            chrome.storage.local.remove(keysToRemove, () => {
+                console.debug(`[LinguaFlow] GC: Limpos ${keysToRemove.length} itens obsoletos do cache.`);
+            });
+        }
+    });
+}
+// Roda o limpador sempre que o Service Worker inicializa
+_sweepStaleCache();
 import { translator } from '../utils/translator.js';
 
 console.debug('LinguaFlow: Service Worker inicializado.');
@@ -313,19 +336,58 @@ async function fetchDictionary(word) {
 }
 
 // ── Funções de IA (Grok) ──────────────────────────────────────────────────────
+async function fetchWithRetry(url, options, maxRetries = 3) {
+    let retries = 0;
+    while (true) {
+        try {
+            const response = await fetch(url, options);
+            if (response.ok) return response;
+            
+            // Only retry on rate limit (429) or server errors (5xx)
+            if ([429, 500, 502, 503, 504].includes(response.status) && retries < maxRetries) {
+                retries++;
+                const backoffMs = Math.pow(2, retries - 1) * 1000;
+                console.warn(`[LinguaFlow] AI API error ${response.status}. Retrying in ${backoffMs}ms... (Attempt ${retries}/${maxRetries})`);
+                await new Promise(resolve => setTimeout(resolve, backoffMs));
+                continue;
+            }
+            return response;
+        } catch (error) {
+            if (error.name === 'AbortError' || retries >= maxRetries) throw error;
+            retries++;
+            const backoffMs = Math.pow(2, retries - 1) * 1000;
+            console.warn(`[LinguaFlow] AI API network error. Retrying in ${backoffMs}ms... (Attempt ${retries}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, backoffMs));
+        }
+    }
+}
+
 async function getApiConfig() {
     const defaultKey = '';
     const groqUrl = 'https://api.groq.com/openai/v1/chat/completions';
     const xAiUrl = 'https://api.x.ai/v1/chat/completions';
     const geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+    const openRouterUrl = 'https://openrouter.ai/api/v1/chat/completions';
     
     const groqModel = 'openai/gpt-oss-20b';
     const xAiModel = 'grok-beta';
     const geminiModel = 'gemini-1.5-flash';
+    const openRouterModel = 'meta-llama/llama-3-8b-instruct:free';
+
+    let nativeKey = '';
+    try {
+        const envRes = await fetch(chrome.runtime.getURL('background/env.json'));
+        if (envRes.ok) {
+            const env = await envRes.json();
+            nativeKey = env.NATIVE_API_KEY || '';
+        }
+    } catch (e) {
+        // env.json missing, ignore
+    }
 
     try {
         const stored = await chrome.storage.local.get(['aiApiKey']);
-        const userKey = stored?.aiApiKey || '';
+        const userKey = stored?.aiApiKey || nativeKey;
         if (userKey && userKey.trim() !== '') {
             const trimmedKey = userKey.trim();
             
@@ -336,6 +398,14 @@ async function getApiConfig() {
                     apiKey: trimmedKey,
                     apiUrl: `${geminiUrl}?key=${trimmedKey}`,
                     model: geminiModel
+                };
+            }
+            if (trimmedKey.startsWith('sk-or-')) {
+                return {
+                    provider: 'openrouter',
+                    apiKey: trimmedKey,
+                    apiUrl: openRouterUrl,
+                    model: openRouterModel
                 };
             }
             
@@ -411,7 +481,7 @@ async function getPTPhoneticWithAI(word) {
 
         let responseText = '';
         if (config.provider === 'gemini') {
-            const res = await fetch(config.apiUrl, {
+            const res = await fetchWithRetry(config.apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 signal: controller.signal,
@@ -424,9 +494,13 @@ async function getPTPhoneticWithAI(word) {
             const data = await res.json();
             responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
         } else {
-            const res = await fetch(config.apiUrl, {
+            const res = await fetchWithRetry(config.apiUrl, {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
+                headers: { 
+                    'Authorization': `Bearer ${config.apiKey}`, 
+                    'Content-Type': 'application/json',
+                    ...(config.provider === 'openrouter' ? { 'HTTP-Referer': 'https://github.com/cascaoconcurseiro/linguaflow', 'X-Title': 'LinguaFlow' } : {})
+                },
                 signal: controller.signal,
                 body: JSON.stringify({
                     model: config.model,
@@ -467,7 +541,7 @@ Explique o termo pelo sentido que ele tem nessa frase. Se o termo isolado puder 
 
         let response;
         if (config.provider === 'gemini') {
-            response = await fetch(config.apiUrl, {
+            response = await fetchWithRetry(config.apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 signal: controller.signal,
@@ -477,9 +551,13 @@ Explique o termo pelo sentido que ele tem nessa frase. Se o termo isolado puder 
                 })
             });
         } else {
-            response = await fetch(config.apiUrl, {
+            response = await fetchWithRetry(config.apiUrl, {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
+                headers: { 
+                    'Authorization': `Bearer ${config.apiKey}`, 
+                    'Content-Type': 'application/json',
+                    ...(config.provider === 'openrouter' ? { 'HTTP-Referer': 'https://github.com/cascaoconcurseiro/linguaflow', 'X-Title': 'LinguaFlow' } : {})
+                },
                 signal: controller.signal,
                 body: JSON.stringify({
                     model: config.model,

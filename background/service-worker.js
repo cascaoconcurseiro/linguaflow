@@ -369,7 +369,7 @@ async function getApiConfig() {
     const geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
     const openRouterUrl = 'https://openrouter.ai/api/v1/chat/completions';
     
-    const groqModel = 'openai/gpt-oss-20b';
+    const groqModel = 'llama-3.3-70b-versatile';
     const xAiModel = 'grok-beta';
     const geminiModel = 'gemini-1.5-flash';
     const openRouterModel = 'openrouter/free';

@@ -372,7 +372,7 @@ async function getApiConfig() {
     const groqModel = 'openai/gpt-oss-20b';
     const xAiModel = 'grok-beta';
     const geminiModel = 'gemini-1.5-flash';
-    const openRouterModel = 'meta-llama/llama-3-8b-instruct:free';
+    const openRouterModel = 'meta-llama/llama-3.1-8b-instruct:free';
 
     let nativeKey = '';
     try {

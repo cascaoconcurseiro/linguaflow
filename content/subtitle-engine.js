@@ -276,14 +276,14 @@ export class SubtitleEngine {
 
         // Observer para esconder legenda nativa (YouTube altera o DOM frequentemente)
         if (this.platform === 'youtube') {
-            const ytObserver = new MutationObserver(() => {
+            this.ytObserver = new MutationObserver(() => {
                 const nativeWindow = document.querySelector('.ytp-caption-window-container');
                 if (nativeWindow && nativeWindow.style.display !== 'none') {
                     nativeWindow.style.display = 'none';
                     console.debug('[LinguaFlow] Legenda nativa detectada e ocultada novamente');
                 }
             });
-            ytObserver.observe(document.body, { childList: true, subtree: true });
+            this.ytObserver.observe(document.body, { childList: true, subtree: true });
         }
         
         document.addEventListener('yt-navigate-finish', () => {
@@ -648,13 +648,14 @@ export class SubtitleEngine {
             const subtitleHost = document.getElementById('linguaflow-subtitle-host');
             
             if (playerContainer && subtitleHost) {
-                const resizeObserver = new ResizeObserver(() => {
+                if (this.resizeObserver) this.resizeObserver.disconnect();
+                this.resizeObserver = new ResizeObserver(() => {
                     console.debug('[LinguaFlow] Player redimensionado, ajustando legenda...');
                     // Reaplica posicionamento quando player muda de tamanho
                     this._repositionSubtitle();
                 });
                 
-                resizeObserver.observe(playerContainer);
+                this.resizeObserver.observe(playerContainer);
                 console.debug('[LinguaFlow] ResizeObserver ativado para legenda');
             } else {
                 // Tenta novamente após 2 segundos
@@ -3754,6 +3755,9 @@ export class SubtitleEngine {
 
 
     destroy() {
+        if (this.ytObserver) this.ytObserver.disconnect();
+        if (this.resizeObserver) this.resizeObserver.disconnect();
+        
         const v = this.videoElement || document.querySelector('video');
         if (this.syncInterval) {
             if (v && v.cancelVideoFrameCallback) v.cancelVideoFrameCallback(this.syncInterval);

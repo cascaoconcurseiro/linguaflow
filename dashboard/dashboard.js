@@ -1,10 +1,9 @@
 // Dashboard v2 — LinguaFlow (Paridade Total com Anki)
 // Este arquivo contém TODA a lógica: SRS, Decks, Stats, Export/Import Anki, Editor de Notas
 import { db as lfDb } from '../utils/db.js';
+import { escapeHTML as escapeAttr } from '../utils/html.js';
 import { tts } from '../utils/tts.js';
-import { sync } from '../utils/sync.js';
 import { offlineDict } from '../utils/offline-dict.js';
-import { cloudSync } from '../utils/cloud-sync.js';
 import { pronunciationLab } from '../utils/pronunciation.js';
 
 // ============================================================================
@@ -102,19 +101,30 @@ window.dashboard = {
 
 window.switchTab = switchTab;
 
+
+function closeModal(id) {
+    document.getElementById(id)?.classList.remove('open');
+}
+
 // ============================================================================
 // HEADER / STATS GLOBAIS
 // ============================================================================
 async function updateHeader() {
     try {
-        const [stats, reviewLog] = await Promise.all([lfDb.getStats(), lfDb.getReviewLog(1)]);
+        const [stats, reviewLog, words] = await Promise.all([lfDb.getStats(), lfDb.getReviewLog(1), lfDb.getAllWords()]);
         const today = new Date().toISOString().split('T')[0];
         const todayCount = reviewLog.filter(r => r.date === today).length;
+        
+        let totalChunks = 0;
+        words.forEach(w => {
+            if (w.chunks && Array.isArray(w.chunks)) totalChunks += w.chunks.length;
+        });
 
         const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
         set('headerDue', stats.dueCards);
         set('headerStreak', stats.streak);
         set('headerWords', stats.totalWords);
+        set('headerChunks', totalChunks);
         set('nav-due', stats.dueCards);
 
         const lv = calculateUserLevel(stats);
@@ -203,8 +213,12 @@ async function loadStudy() {
                     <h2 style="color:white;font-size:28px;font-weight:800;margin-bottom:12px">Sessão Completa!</h2>
                     <p style="color:#64748b;font-size:16px;margin-bottom:28px">Todos os cards do dia foram revisados. Ótimo trabalho!</p>
                     ${window.dashboard.currentDeckFilter ?
-                        `<button class="btn btn-ghost" onclick="window.dashboard.currentDeckFilter=null;loadStudy()">Ver Todos os Decks</button>` : ''}
+                        `<button class="btn btn-ghost" id="study-all-decks-btn">Ver Todos os Decks</button>` : ''}
                 </div>`;
+            document.getElementById('study-all-decks-btn')?.addEventListener('click', () => {
+                window.dashboard.currentDeckFilter = null;
+                loadStudy();
+            });
             updateSessionUI();
             return;
         }
@@ -265,15 +279,18 @@ async function showCard() {
         if (isBlindMode) {
             frontContent = `<div style="font-size:64px;margin-bottom:16px">👂</div><div class="fc-hint">Ouça e tente identificar a palavra</div>`;
         } else if (word.context_sentence) {
-            const cloze = word.context_sentence.replace(
-                new RegExp(`\\b(${word.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'gi'),
+            const escaped = word.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const clozeRx = new RegExp(`(?<![\\wÀ-ÖØ-öø-ÿ])(${escaped})(?![\\wÀ-ÖØ-öø-ÿ])`, 'gi');
+            const cloze = word.context_sentence.replace(clozeRx,
                 `<span style="color:#38bdf8;border-bottom:2px dashed #38bdf8;padding:0 2px">[...]</span>`
             );
             frontContent = `
                 <div class="fc-context" style="font-size:22px;font-style:normal;color:#e2e8f0;margin-bottom:28px">"${cloze}"</div>
                 <div class="fc-word" style="font-size:18px;opacity:0.25">${word.word[0]}${'·'.repeat(Math.max(0,word.word.length-1))}</div>`;
         } else {
-            frontContent = `<div class="fc-word">${word.word}</div>`;
+            frontContent = `
+                <div class="fc-word">${word.word}</div>
+                <div class="fc-hint" style="margin-top:14px">Qual o significado em português?</div>`;
         }
 
         content.innerHTML = `
@@ -287,12 +304,19 @@ async function showCard() {
                     <div id="fc-mic-feedback" style="display:none; text-align:center; margin-top:8px; font-size:14px; font-weight:600; padding:8px; border-radius:6px;"></div>
                     ${word.level ? `<div style="position:absolute;top:20px;left:20px"><span class="status-badge" style="background:rgba(56,189,248,0.12);color:#38bdf8">${word.level}</span></div>` : ''}
                     ${frontContent}
-                    <div class="fc-hint" style="margin-top:24px">Clique para revelar • Espaço</div>
+                    <div style="margin-top:30px">
+                        <button class="btn btn-accent" id="fc-btn-reveal" style="font-size:16px; padding:14px 32px; box-shadow: 0 4px 15px rgba(56,189,248,0.4);">Revelar Resposta</button>
+                    </div>
+                    <div class="fc-hint" style="margin-top:16px">Ou pressione Espaço</div>
                 </div>
             </div>`;
 
         document.getElementById('fc-front').addEventListener('click', e => {
             if (e.target.closest('.audio-btn')) return;
+            revealAnswer();
+        });
+        document.getElementById('fc-btn-reveal').addEventListener('click', e => {
+            e.stopPropagation();
             revealAnswer();
         });
         document.getElementById('fc-play-word')?.addEventListener('click', e => { e.stopPropagation(); tts.play(word.word, 'en-US'); });
@@ -329,6 +353,10 @@ async function showCard() {
 
     } else {
         // ── VERSO ──
+        if (word.pronunciation_pt) {
+            tts.play(word.pronunciation_pt, 'pt-BR');
+        }
+
         const [intAgain, intHard, intGood, intEasy] = await Promise.all([
             lfDb.predictNextInterval(card, 1),
             lfDb.predictNextInterval(card, 2),
@@ -336,14 +364,15 @@ async function showCard() {
             lfDb.predictNextInterval(card, 4)
         ]);
 
-        const tagRow = (word.tags || '').split(',').map(t => t.trim()).filter(Boolean)
+        const tagRow = (Array.isArray(word.tags) ? word.tags : (word.tags || '').split(',').map(t => t.trim()).filter(Boolean))
             .map(t => `<span class="tag-chip">${t}</span>`).join('');
 
         content.innerHTML = `
             <div class="flashcard-scene">
                 <div class="flashcard" style="cursor:default">
                     <div class="fc-audio-row">
-                        <button class="audio-btn" id="fc-play-word-ans">🔊 Palavra</button>
+                        <button class="audio-btn" id="fc-play-word-ans">🔊 Inglês</button>
+                        ${word.pronunciation_pt ? `<button class="audio-btn" id="fc-play-pt-ans">🇧🇷 BR</button>` : ''}
                         ${word.context_sentence ? `<button class="audio-btn" id="fc-play-sent-ans">🔊 Frase</button>` : ''}
                         ${word.context_sentence ? `<button class="audio-btn" id="fc-mic-btn-ans" title="Avaliar Pronúncia">🎙️ Falar</button>` : ''}
                         ${word.context_sentence ? `<button class="audio-btn" id="fc-ai-var-btn" title="Gerar novas frases">🧠 Variação</button>` : ''}
@@ -353,8 +382,27 @@ async function showCard() {
                     <div id="fc-mic-feedback-ans" style="display:none; text-align:center; margin-top:8px; font-size:14px; font-weight:600; padding:8px; border-radius:6px;"></div>
                     ${word.level ? `<div style="position:absolute;top:20px;left:20px"><span class="status-badge" style="background:rgba(56,189,248,0.12);color:#38bdf8">${word.level}</span></div>` : ''}
                     <div class="fc-word">${word.word}</div>
-                    ${word.translation ? `<div class="fc-translation">${word.translation}</div>` : ''}
-                    ${word.context_sentence ? `<div class="fc-context">"${word.context_sentence}"</div>` : ''}
+                    ${word.pronunciation_pt ? `<div style="font-size:18px; color:#fbbf24; font-weight:800; font-family:monospace; background:rgba(251,191,36,0.1); padding:6px 14px; border-radius:8px; display:inline-block; border:1px solid rgba(251,191,36,0.35); margin-top:10px;">🇧🇷 ${word.pronunciation_pt}</div>` : (word.phonetic ? `<div style="font-size:14px; color:#94a3b8; font-family:monospace; margin-top:8px;">${word.phonetic}</div>` : '')}
+                    ${word.context_sentence ? `<div class="fc-context" style="margin-top:16px;">"${word.context_sentence}"</div>` : ''}
+                    ${word.translation ? `<div class="fc-translation" style="color:#22c55e; margin-top:8px;">${word.translation}</div>` : ''}
+                    ${word.chunks && Array.isArray(word.chunks) && word.chunks.length > 0 ? `
+                        <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); width: 100%; text-align: left; max-width:500px;">
+                            <div style="font-size:12px; color:#94a3b8; font-weight:700; margin-bottom:12px; text-transform:uppercase;">🧩 Chunks (IA)</div>
+                            <div style="display:flex; flex-direction:column; gap:12px;">
+                                ${word.chunks.map(c => `
+                                    <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:8px; padding:12px;">
+                                        <div style="font-size:14px; color:#e2e8f0; font-weight:700; margin-bottom:4px;">${c.eng}</div>
+                                        <div style="font-size:13px; color:#fbbf24; font-family:monospace; background:rgba(251,191,36,0.1); padding:2px 6px; border-radius:4px; display:inline-block; margin-bottom:6px;">${c.phon}</div>
+                                        <div style="font-size:12px; color:#94a3b8; font-style:italic;">${c.pt}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : `
+                        <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); width: 100%; text-align: center;">
+                            <button id="fc-gen-chunks-btn" class="btn btn-outline" style="font-size:13px; padding:8px 16px;">✦ Gerar Chunks com IA</button>
+                        </div>
+                    `}
                     ${tagRow ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:16px;justify-content:center">${tagRow}</div>` : ''}
                     ${word.explanation ? `<div style="font-size:13px;color:#64748b;margin-top:16px;max-width:500px;text-align:center;line-height:1.6">${word.explanation.substring(0,200)}${word.explanation.length>200?'…':''}</div>` : ''}
                 </div>
@@ -385,7 +433,29 @@ async function showCard() {
             </div>`;
 
         document.getElementById('fc-play-word-ans')?.addEventListener('click', () => tts.play(word.word, 'en-US'));
+        document.getElementById('fc-play-pt-ans')?.addEventListener('click', () => tts.play(word.pronunciation_pt, 'pt-BR'));
         document.getElementById('fc-play-sent-ans')?.addEventListener('click', () => tts.play(word.context_sentence, 'en-US'));
+
+        const genChunksBtn = document.getElementById('fc-gen-chunks-btn');
+        if (genChunksBtn) {
+            genChunksBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                genChunksBtn.textContent = '⏳ Gerando...';
+                genChunksBtn.disabled = true;
+                chrome.runtime.sendMessage({ action: 'ai_generate_chunks', word: word.word }, async (res) => {
+                    if (res?.chunks && Array.isArray(res.chunks)) {
+                        word.chunks = res.chunks;
+                        await lfDb.saveWord(word);
+                        // Recarrega a carta atual para exibir os novos chunks
+                        showAnswer = true;
+                        await showCard();
+                    } else {
+                        genChunksBtn.textContent = '❌ Erro. Tente novamente';
+                        genChunksBtn.disabled = false;
+                    }
+                });
+            });
+        }
         
         const fcMicBtnAns = document.getElementById('fc-mic-btn-ans');
         if (fcMicBtnAns) {
@@ -451,7 +521,15 @@ async function showCard() {
     }
 }
 
-function revealAnswer() { showAnswer = true; showCard(); }
+async function revealAnswer() { 
+    try {
+        showAnswer = true; 
+        await showCard(); 
+    } catch (e) {
+        showToast('Erro ao revelar o cartão: ' + e.message, 'error');
+        console.error(e);
+    }
+}
 
 async function answerCard(quality) {
     const card = studyCards[currentIndex];
@@ -540,7 +618,7 @@ async function loadCards() {
             }
 
             if (deckFilter && String(w.deck_id) !== String(deckFilter)) return false;
-            if (libActiveTag && !(w.tags || '').split(',').map(t=>t.trim()).includes(libActiveTag)) return false;
+            if (libActiveTag && !(Array.isArray(w.tags) ? w.tags : (w.tags || '').split(',').map(t=>t.trim())).includes(libActiveTag)) return false;
 
             if (search) {
                 return (w.word||'').toLowerCase().includes(search) ||
@@ -570,12 +648,12 @@ async function loadCards() {
             const card = cardMap[word.id];
             const status = card?.suspended ? 'suspended' : (card?.status || 'new');
             const isLeech = card?.is_leech;
-            const tags = (word.tags || '').split(',').map(t=>t.trim()).filter(Boolean);
+            const tags = Array.isArray(word.tags) ? word.tags : (word.tags || '').split(',').map(t=>t.trim()).filter(Boolean);
             const isSelected = libSelectedIds.has(String(word.id));
 
             return `
                 <div class="word-card ${isLeech ? 'leech' : ''} ${isSelected ? 'selected' : ''}" data-id="${word.id}">
-                    <input type="checkbox" class="wc-check" ${isSelected ? 'checked' : ''} onclick="toggleSelect('${word.id}',this)">
+                    <input type="checkbox" class="wc-check" data-id="${word.id}" ${isSelected ? 'checked' : ''}>
                     <div class="wc-word">${word.word}</div>
                     <div class="wc-translation">${word.translation || '<span style="color:#64748b;font-style:italic">sem tradução</span>'}</div>
                     ${word.context_sentence ? `<div class="wc-context">"${word.context_sentence.substring(0,80)}${word.context_sentence.length>80?'…':''}"</div>` : ''}
@@ -597,6 +675,12 @@ async function loadCards() {
                 openWordEditor(card.dataset.id);
             });
         });
+        grid.querySelectorAll('.wc-check').forEach(checkbox => {
+            checkbox.addEventListener('click', e => {
+                e.stopPropagation();
+                toggleSelect(e.currentTarget.dataset.id, e.currentTarget);
+            });
+        });
     } catch (e) { console.error(e); }
 }
 
@@ -605,13 +689,18 @@ function renderTagFilters(tags) {
     if (!row) return;
     if (!tags.length) { row.innerHTML = ''; return; }
     row.innerHTML = `<span style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;align-self:center">Tags:</span>` +
-        tags.map(t => `<button class="filter-chip ${libActiveTag===t?'active purple':''}" onclick="setTagFilter('${t}')">${t}</button>`).join('');
+        tags.map(t => `<button class="filter-chip ${libActiveTag===t?'active purple':''}" data-tag="${escapeAttr(t)}">${t}</button>`).join('');
+    row.querySelectorAll('.filter-chip[data-tag]').forEach(btn => {
+        btn.addEventListener('click', () => setTagFilter(btn.dataset.tag));
+    });
 }
 
-window.setTagFilter = (tag) => {
+function setTagFilter(tag) {
     libActiveTag = (libActiveTag === tag) ? '' : tag;
     loadCards();
-};
+}
+
+window.setTagFilter = setTagFilter;
 
 window.toggleSelect = (id, checkbox) => {
     if (checkbox.checked) libSelectedIds.add(String(id));
@@ -727,7 +816,7 @@ async function openWordEditor(id) {
     document.getElementById('edit-explanation').value = word.explanation || '';
 
     // Tags
-    renderTagInputChips(((word.tags||'').split(',').map(t=>t.trim()).filter(Boolean)));
+    renderTagInputChips(Array.isArray(word.tags) ? word.tags : (word.tags||'').split(',').map(t=>t.trim()).filter(Boolean));
 
     // Deck select
     populateDeckFilter(decks);
@@ -799,6 +888,8 @@ async function openWordEditor(id) {
     }
 }
 
+
+
 // Tags input funcional
 function renderTagInputChips(tags) {
     const wrap = document.getElementById('tag-input-wrap');
@@ -809,17 +900,25 @@ function renderTagInputChips(tags) {
     tags.forEach(tag => {
         const chip = document.createElement('span');
         chip.className = 'tag-input-chip';
-        chip.innerHTML = `${tag} <button onclick="removeTag('${tag}')">×</button>`;
+        const label = document.createTextNode(`${tag} `);
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.textContent = '×';
+        removeBtn.addEventListener('click', () => removeTag(tag));
+        chip.appendChild(label);
+        chip.appendChild(removeBtn);
         wrap.appendChild(chip);
     });
     wrap.appendChild(input);
     input.value = '';
 }
 
-window.removeTag = (tag) => {
+function removeTag(tag) {
     const chips = document.querySelectorAll('.tag-input-chip');
     chips.forEach(c => { if (c.textContent.trim().startsWith(tag)) c.remove(); });
-};
+}
+
+window.removeTag = removeTag;
 
 function getEditorTags() {
     const chips = document.querySelectorAll('.tag-input-chip');
@@ -913,9 +1012,14 @@ async function loadHome() {
         set('home-goal-val', `${newTodayWords}/20`);
 
         const studyDesc = document.getElementById('home-study-desc');
-        if (studyDesc) studyDesc.innerHTML = dueCount > 0 ?
-            `Você tem <b style="color:#38bdf8">${dueCount} revisões</b> pendentes para hoje!` :
-            'Tudo em dia! 🎉 Que tal salvar novas frases?';
+        const totalChunks = words.flatMap(w => (w.chunks && Array.isArray(w.chunks)) ? w.chunks : []).length;
+        let descHtml = '';
+        if (dueCount > 0) descHtml += `Você tem <b style="color:#38bdf8">${dueCount} revisões</b> pendentes para hoje! `;
+        else descHtml += 'Tudo em dia com flashcards! 🎉 ';
+        
+        if (totalChunks > 0) descHtml += `<br><span style="color:#fbbf24">Você tem ${totalChunks} chunks aguardando treino.</span>`;
+        
+        if (studyDesc) studyDesc.innerHTML = descHtml;
 
         // IA status
         try {
@@ -939,10 +1043,13 @@ async function loadHome() {
                 </div>`;
             } else {
                 recentList.innerHTML = recent.map(s => `
-                    <div style="padding:12px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background 0.15s;border-radius:8px" onclick="openSentenceDetails(${s.id})">
+                    <div class="home-recent-sentence" data-id="${s.id}" style="padding:12px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background 0.15s;border-radius:8px">
                         <div style="color:white;font-weight:600;font-size:14px;margin-bottom:4px">${(s.original||s.phrase_text||'').substring(0,60)}${(s.original||s.phrase_text||'').length>60?'…':''}</div>
                         <div style="color:#38bdf8;font-size:12px">${(s.translation||s.phrase_translation||'').substring(0,60)}</div>
                     </div>`).join('');
+                recentList.querySelectorAll('.home-recent-sentence').forEach(item => {
+                    item.addEventListener('click', () => openSentenceDetails(item.dataset.id));
+                });
             }
         }
 
@@ -985,7 +1092,7 @@ async function loadHomeDecks() {
             <div style="text-align:center;color:#4ade80;font-weight:800">${d.dueCount}</div>
             <div style="text-align:center;color:#94a3b8">${d.totalCount}</div>
             <div style="text-align:right">
-                <button class="btn btn-primary btn-sm home-study-deck-btn" data-id="${d.id}">Estudar</button>
+                <button class="btn btn-primary btn-sm home-study-deck-btn" data-id="${d.id}" ${d.dueCount===0&&d.newCount===0?'disabled':''}>Estudar</button>
             </div>
         </div>`).join('');
     list.querySelectorAll('.home-study-deck-btn').forEach(b => b.addEventListener('click', () => window.dashboard.studyDeck(parseInt(b.dataset.id))));
@@ -1050,9 +1157,12 @@ async function loadStats() {
                             <div style="font-weight:700;color:white;font-size:14px">${w.word}</div>
                             <div style="color:var(--accent);font-size:12px">${w.translation || ''}</div>
                         </div>
-                        <button class="btn btn-ghost btn-sm" onclick="openWordEditor(${w.id})" style="padding:4px 8px;font-size:10px">✏️</button>
+                        <button class="btn btn-ghost btn-sm recent-word-edit" data-id="${w.id}" style="padding:4px 8px;font-size:10px">✏️</button>
                     </div>
                 `).join('');
+                feedContainer.querySelectorAll('.recent-word-edit').forEach(btn => {
+                    btn.addEventListener('click', () => openWordEditor(btn.dataset.id));
+                });
             }
         }
     } catch (e) { console.error(e); }
@@ -1193,12 +1303,210 @@ async function loadLab() {
     document.getElementById('listening-area').style.display = 'none';
 }
 
+// ============================================================================
+// CHUNKS — Treino
+// ============================================================================
+let allChunks = [];
+let chunkIndex = 0;
+
+async function loadChunks() {
+    const grid = document.getElementById('chunksGrid');
+    const badge = document.getElementById('chunks-due-badge');
+    if (!grid || !badge) return;
+
+    const words = await lfDb.getAllWords();
+    allChunks = [];
+
+    words.forEach(w => {
+        if (w.chunks && Array.isArray(w.chunks) && w.chunks.length > 0) {
+            w.chunks.forEach(c => allChunks.push({ wordId: w.id, word: w.word, ...c }));
+        }
+    });
+
+    badge.textContent = `${allChunks.length} chunks disponíveis`;
+
+    const wordsWithoutChunks = words.filter(w => !w.chunks || !w.chunks.length);
+    const batchBtn = document.getElementById('btn-batch-chunks');
+    const batchProgress = document.getElementById('batch-chunks-progress');
+
+    if (batchBtn) {
+        if (wordsWithoutChunks.length === 0) {
+            batchBtn.textContent = '✅ Todas as palavras já têm chunks';
+            batchBtn.disabled = true;
+        } else {
+            batchBtn.textContent = `✦ Gerar Chunks para ${wordsWithoutChunks.length} palavra${wordsWithoutChunks.length > 1 ? 's' : ''} sem chunks (IA)`;
+            batchBtn.onclick = () => _batchGenerateChunks(wordsWithoutChunks, batchBtn, batchProgress);
+        }
+    }
+
+    if (allChunks.length === 0) {
+        grid.innerHTML = `<div class="empty" style="grid-column: 1/-1;">
+            <div class="empty-icon">🧩</div>
+            <div class="empty-text">Nenhum chunk ainda</div>
+            <div class="empty-sub">Clique em "Gerar Chunks" acima ou gere no popup clicando em uma palavra.</div>
+        </div>`;
+    } else {
+        renderChunksGrid();
+    }
+
+    document.getElementById('btn-practice-chunks').onclick = () => startChunkPractice();
+}
+
+async function _batchGenerateChunks(words, btn, progressEl) {
+    btn.disabled = true;
+    progressEl.style.display = 'block';
+    let done = 0;
+    let errors = 0;
+
+    for (const w of words) {
+        progressEl.textContent = `Gerando chunks: ${done}/${words.length} palavras... (${errors > 0 ? errors + ' erros' : 'sem erros'})`;
+        try {
+            const res = await new Promise(resolve =>
+                chrome.runtime.sendMessage({ action: 'ai_generate_chunks', word: w.word }, resolve)
+            );
+            if (res?.chunks?.length) {
+                await lfDb.saveWord({ ...w, chunks: res.chunks });
+            }
+        } catch (e) {
+            errors++;
+        }
+        done++;
+        await new Promise(r => setTimeout(r, 400)); // evita rate limit
+    }
+
+    progressEl.textContent = `✅ Concluído: ${done - errors} gerados, ${errors} falharam.`;
+    btn.textContent = '✅ Chunks gerados';
+    await loadChunks();
+}
+
+function renderChunksGrid() {
+    const grid = document.getElementById('chunksGrid');
+    grid.innerHTML = '';
+    
+    if (allChunks.length === 0) {
+        grid.innerHTML = `
+            <div style="grid-column: 1/-1; text-align:center; padding: 60px 20px; color: var(--text3);">
+                <div style="font-size:48px; margin-bottom:16px; opacity:0.5;">🧩</div>
+                <div style="font-size:18px; font-weight:700; margin-bottom:8px; color:var(--text);">Nenhum Chunk Encontrado</div>
+                <div style="font-size:14px;">Você ainda não tem chunks salvos para praticar.</div>
+            </div>
+        `;
+        document.getElementById('btn-practice-chunks').style.display = 'none';
+        return;
+    } else {
+        document.getElementById('btn-practice-chunks').style.display = 'inline-block';
+    }
+    
+    allChunks.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'lf-card';
+        div.style.position = 'relative';
+        div.style.padding = '20px';
+        div.innerHTML = `
+            <div style="font-size:16px; font-weight:800; color:#e2e8f0; margin-bottom:6px;">${c.eng}</div>
+            <div style="font-size:13px; color:#94a3b8; font-style:italic; margin-bottom:12px;">${c.pt}</div>
+            <div style="font-size:14px; color:#fbbf24; font-weight:700; font-family:monospace; background:rgba(251,191,36,0.1); padding:6px 10px; border-radius:8px; display:inline-block; border:1px solid rgba(251,191,36,0.3);">${c.phon}</div>
+            <div style="margin-top:12px; font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:0.05em; border-top:1px solid rgba(255,255,255,0.05); padding-top:10px;">Palavra base: <strong style="color:#7dd3fc">${c.word}</strong></div>
+        `;
+        grid.appendChild(div);
+    });
+}
+
+function startChunkPractice() {
+    // Basic flashcard UI for chunks
+    if (allChunks.length === 0) return;
+    
+    // Shuffle chunks
+    allChunks.sort(() => Math.random() - 0.5);
+    chunkIndex = 0;
+    
+    const grid = document.getElementById('chunksGrid');
+    grid.innerHTML = `
+        <div id="chunk-practice-container" style="grid-column: 1/-1; max-width: 600px; margin: 0 auto; width: 100%;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;">
+                <button class="btn btn-ghost" id="btn-end-chunk-practice">← Encerrar</button>
+                <div style="font-size:14px; color:#94a3b8; font-weight:600;"><span id="chunk-progress-current">1</span> / ${allChunks.length}</div>
+            </div>
+            
+            <div id="chunk-card" style="background:var(--card-bg); border:1px solid var(--border); border-radius:20px; padding:40px; text-align:center; min-height:300px; display:flex; flex-direction:column; justify-content:center; align-items:center; cursor:pointer; box-shadow:0 10px 30px rgba(0,0,0,0.2);">
+                <div id="chunk-front" style="width:100%;">
+                    <div style="font-size:24px; font-weight:800; color:#e2e8f0; margin-bottom:12px;" id="chunk-text-eng"></div>
+                    <div style="margin-top:30px;">
+                        <button class="btn btn-accent" id="chunk-btn-reveal" style="font-size:16px; padding:14px 32px;">Revelar Tradução</button>
+                    </div>
+                </div>
+                
+                <div id="chunk-back" style="display:none; width:100%;">
+                    <div style="font-size:24px; font-weight:800; color:#e2e8f0; margin-bottom:12px;" id="chunk-text-eng-back"></div>
+                    <div style="height:1px; background:var(--border); margin:20px 0; width:100%;"></div>
+                    <div style="font-size:18px; color:#94a3b8; font-style:italic; margin-bottom:20px;" id="chunk-text-pt"></div>
+                    <div style="font-size:22px; color:#fbbf24; font-weight:700; font-family:monospace; background:rgba(251,191,36,0.1); padding:12px 20px; border-radius:12px; display:inline-block; border:1px solid rgba(251,191,36,0.3);" id="chunk-text-phon"></div>
+                    
+                    <div style="display:flex; justify-content:center; gap:12px; margin-top:30px; width:100%;">
+                        <button class="btn btn-primary" id="btn-chunk-next" style="width:100%; max-width:200px; font-size:16px;">Próximo</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('btn-end-chunk-practice').onclick = () => {
+        renderChunksGrid();
+    };
+    
+    showCurrentChunk();
+}
+
+function showCurrentChunk() {
+    if (chunkIndex >= allChunks.length) {
+        showToast('Treino de chunks concluído!', 'success');
+        renderChunksGrid();
+        return;
+    }
+    
+    const chunk = allChunks[chunkIndex];
+    document.getElementById('chunk-progress-current').textContent = chunkIndex + 1;
+    
+    document.getElementById('chunk-front').style.display = 'block';
+    document.getElementById('chunk-back').style.display = 'none';
+    
+    document.getElementById('chunk-text-eng').textContent = chunk.eng;
+    document.getElementById('chunk-text-eng-back').textContent = chunk.eng;
+    document.getElementById('chunk-text-pt').textContent = chunk.pt;
+    document.getElementById('chunk-text-phon').textContent = chunk.phon;
+    
+    const card = document.getElementById('chunk-card');
+    
+    // Only bind flip on front
+    const flipHandler = () => {
+        document.getElementById('chunk-front').style.display = 'none';
+        document.getElementById('chunk-back').style.display = 'block';
+        card.removeEventListener('click', flipHandler);
+        const revealBtn = document.getElementById('chunk-btn-reveal');
+        if(revealBtn) revealBtn.removeEventListener('click', flipHandler);
+    };
+    
+    card.addEventListener('click', flipHandler);
+    document.getElementById('chunk-btn-reveal').addEventListener('click', (e) => {
+        e.stopPropagation();
+        flipHandler();
+    });
+    
+    document.getElementById('btn-chunk-next').onclick = (e) => {
+        e.stopPropagation();
+        chunkIndex++;
+        showCurrentChunk();
+    };
+
+}
+
 async function initQuiz() {
     const container = document.getElementById('quiz-container');
     if (!container) return;
     const words = (await lfDb.getAllWords()).filter(w => w.word && w.translation);
     if (words.length < 4) {
-        container.innerHTML = `<div class="empty"><div class="empty-icon">📚</div><div class="empty-text">Vocabulário insuficiente</div><div class="empty-sub">Você precisa de pelo menos 4 palavras com tradução.</div><button class="btn btn-primary" onclick="switchTab('library')" style="margin-top:20px">Ir para Biblioteca</button></div>`;
+        container.innerHTML = `<div class="empty"><div class="empty-icon">📚</div><div class="empty-text">Vocabulário insuficiente</div><div class="empty-sub">Você precisa de pelo menos 4 palavras com tradução.</div><button class="btn btn-primary" id="quiz-go-library" style="margin-top:20px">Ir para Biblioteca</button></div>`;
+        document.getElementById('quiz-go-library')?.addEventListener('click', () => switchTab('library'));
         return;
     }
     container.innerHTML = `
@@ -1363,6 +1671,8 @@ async function loadConfig() {
         if (el) el.value = val !== undefined && val !== null ? val : def;
     };
     await s('newCardsPerDay',     'cfg-new-limit',       20);
+    await s('cefrTargetLevel',    'cfg-cefr-level',      'none');
+    await s('autoHarvestLimit',   'cfg-auto-harvest-limit', 10);
     await s('learning_steps',     'cfg-learning-steps',  '1 10');
     await s('new_order',          'cfg-new-order',       'newest');
     await s('reviewsPerDay',      'cfg-rev-limit',       100);
@@ -1376,6 +1686,62 @@ async function loadConfig() {
     await s('leech_threshold',    'cfg-leech-threshold', 8);
     await s('leech_action',       'cfg-leech-action',    'tag');
     await s('grok_api_key',       'cfg-grok-key',        '');
+    
+    // Novas configs CEFR Auto e Colors
+    const elAuto = document.getElementById('cfg-cefr-auto');
+    if (elAuto) {
+        let autoHarvest = await lfDb.getSetting('cefrAutoHarvest');
+        elAuto.value = autoHarvest ? 'on' : 'off';
+    }
+    
+    const elColors = document.getElementById('cfg-cefr-colors');
+    if (elColors) {
+        let cefrColors = await lfDb.getSetting('cefrColorsEnabled');
+        elColors.value = (cefrColors !== false) ? 'on' : 'off'; // default true
+    }
+
+    // Sincroniza chave para chrome.storage.local (acessível pelo service worker)
+    const existingKey = await lfDb.getSetting('grok_api_key');
+    if (existingKey) await chrome.storage.local.set({ aiApiKey: existingKey });
+}
+
+function _ipaToPhoneticBR(ipa) {
+    if (!ipa) return '';
+    let s = ipa.replace(/[\/\[\]ˈˌː.]/g, '').toLowerCase();
+    const map = {
+        'aɪ':'ái','eɪ':'êi','ɔɪ':'ói','aʊ':'áu','oʊ':'ôu','əʊ':'ôu',
+        'æ':'é','ɑ':'á','ɒ':'ó','ɔ':'ó','ɛ':'é','ɜ':'âr',
+        'ɪ':'i','ʌ':'ã','ʊ':'u','ə':'â',
+        'ʧ':'tch','dʒ':'dj','ʃ':'ch','ʒ':'j','θ':'f','ð':'d',
+        'ŋ':'ng','j':'i','w':'u','ɹ':'r'
+    };
+    for (const [k, v] of Object.entries(map)) s = s.split(k).join(v);
+    return s.replace(/([bcdfghjklmnpqrstvwxyz])\1+/g, '$1');
+}
+
+async function migratePhoneticsBR() {
+    const btn = document.getElementById('btn-migrate-phonetics');
+    const status = document.getElementById('migrate-phonetics-status');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Migrando...'; }
+
+    const words = await lfDb.getAllWords();
+    const toMigrate = words.filter(w => !w.pronunciation_pt && w.phonetic);
+    let done = 0;
+
+    for (const w of toMigrate) {
+        const pt = _ipaToPhoneticBR(w.phonetic);
+        if (pt) {
+            await lfDb.saveWord({ ...w, pronunciation_pt: pt });
+            done++;
+        }
+    }
+
+    const msg = done > 0
+        ? `✅ ${done} palavra${done > 1 ? 's' : ''} atualizada${done > 1 ? 's' : ''}`
+        : 'Nada para migrar — tudo já atualizado';
+    if (status) status.textContent = msg;
+    if (btn) { btn.textContent = '🇧🇷 Migrar fonética BR para palavras antigas'; btn.disabled = false; }
+    showToast(msg, 'success');
 }
 
 async function saveAllConfig() {
@@ -1388,6 +1754,10 @@ async function saveAllConfig() {
     try {
         await Promise.all([
             lfDb.setSetting('newCardsPerDay',     n('cfg-new-limit')),
+            lfDb.setSetting('cefrTargetLevel',    g('cfg-cefr-level')),
+            lfDb.setSetting('cefrAutoHarvest',    g('cfg-cefr-auto') === 'on'),
+            lfDb.setSetting('cefrColorsEnabled',  g('cfg-cefr-colors') === 'on'),
+            lfDb.setSetting('autoHarvestLimit',   n('cfg-auto-harvest-limit')),
             lfDb.setSetting('learning_steps',     g('cfg-learning-steps')),
             lfDb.setSetting('new_order',          g('cfg-new-order')),
             lfDb.setSetting('reviewsPerDay',      n('cfg-rev-limit')),
@@ -1421,6 +1791,7 @@ async function testAiConnection() {
     if(btn){btn.disabled=true;btn.textContent='⏳ Testando...';}
     if(resEl){resEl.style.display='block';resEl.style.background='rgba(255,255,255,0.05)';resEl.style.color='#94a3b8';resEl.textContent='Conectando...';}
     await lfDb.setSetting('grok_api_key', key);
+    await chrome.storage.local.set({ aiApiKey: key });
     try {
         chrome.runtime.sendMessage({ action:'ai_explain_word', word:'Hello', context:'Hello, world!' }, response => {
             if(btn){btn.disabled=false;btn.textContent='Testar Conexão';}
@@ -1466,12 +1837,13 @@ async function doExport() {
             const lines = words.map(w => {
                 let front = w.word, back = w.translation||'';
                 if (template === 'cloze' && w.context_sentence) {
-                    front = w.context_sentence.replace(new RegExp(`\\b${w.word}\\b`,'gi'), '{{c1::'+w.word+'}}');
+                    front = w.context_sentence.replace(new RegExp(`(?<![\\wÀ-ÖØ-öø-ÿ])(${w.word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})(?![\\wÀ-ÖØ-öø-ÿ])`,'gi'), '{{c1::$1}}');
                 } else if (template === 'translation') {
                     [front, back] = [back, front];
                 }
-                const tags = (w.tags||'').split(',').map(t=>t.trim()).filter(Boolean).join(' ');
-                return [front, back, w.context_sentence||'', tags, w.level||''].join('\t');
+                const phonetic = w.pronunciation_pt ? `🇧🇷 ${w.pronunciation_pt}` : (w.phonetic || '');
+                const tags = (Array.isArray(w.tags) ? w.tags : (w.tags||'').split(',').map(t=>t.trim()).filter(Boolean)).join(' ');
+                return [front, back, w.context_sentence||'', phonetic, tags, w.level||''].join('\t');
             });
             const content = '#separator:tab\n#html:false\n#notetype:Basic\n#deck:LinguaFlow\n' + lines.join('\n');
             downloadFile(content, `linguaflow-anki-${new Date().toISOString().split('T')[0]}.txt`, 'text/plain');
@@ -1545,6 +1917,8 @@ async function doExport() {
                 html += `  <span class="word">${w.word}</span>`;
                 html += `  <span class="translation">${w.translation || ''}</span>`;
                 html += `</div>`;
+                if (w.pronunciation_pt) html += `<div style="font-family:monospace;color:#b45309;font-weight:700;font-size:14px;margin-top:2px">🇧🇷 ${w.pronunciation_pt}</div>`;
+                else if (w.phonetic) html += `<div style="font-family:monospace;color:#6b7280;font-size:12px;margin-top:2px">${w.phonetic}</div>`;
                 if (w.context_sentence) html += `<div class="context">"${w.context_sentence}"</div>`;
                 if (w.explanation) html += `<div class="explanation">${w.explanation.replace(/\n/g, '<br>')}</div>`;
                 
@@ -1582,12 +1956,17 @@ async function exportAnkiTxtAdvanced(words, template) {
     const lines = words.map((w, i) => {
         let front = w.word, back = w.translation || '';
         if (template === 'cloze' && w.context_sentence) {
-            front = w.context_sentence.replace(new RegExp(`\\b${w.word}\\b`, 'gi'), `<b style="color:blue">[${w.word}]</b>`);
+            front = w.context_sentence.replace(new RegExp(`(?<![\\wÀ-ÖØ-öø-ÿ])(${w.word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})(?![\\wÀ-ÖØ-öø-ÿ])`,'gi'), `<b style="color:blue">[$1]</b>`);
         } else if (template === 'translation') {
             [front, back] = [back, front];
         }
-        const extra = [w.context_sentence ? `<i>"${w.context_sentence}"</i>` : '', w.explanation ? `<small>${w.explanation.substring(0,200)}</small>` : ''].filter(Boolean).join('<br>');
-        const tags = (w.tags || '').split(',').map(t => t.trim()).filter(Boolean).join(' ');
+        const phoneticLine = w.pronunciation_pt ? `<div style="color:#b45309;font-family:monospace;font-weight:700;font-size:14px">🇧🇷 ${w.pronunciation_pt}</div>` : (w.phonetic ? `<div style="color:#6b7280;font-size:12px">${w.phonetic}</div>` : '');
+        const extra = [
+            phoneticLine,
+            w.context_sentence ? `<i style="color:#475569">"${w.context_sentence}"</i>` : '',
+            w.explanation ? `<small style="color:#64748b">${w.explanation.substring(0, 200)}</small>` : ''
+        ].filter(Boolean).join('<br>');
+        const tags = (Array.isArray(w.tags) ? w.tags : (w.tags || '').split(',').map(t => t.trim()).filter(Boolean)).join(' ');
         return `${front}\t${back}${extra ? '\t' + extra : ''}\t${tags}`;
     });
     const content = '#separator:tab\n#html:true\n#notetype:Basic (and reversed card)\n#deck:LinguaFlow\n#tags column:4\n' + lines.join('\n');
@@ -1686,10 +2065,86 @@ function switchTab(tab) {
         else if (tab === 'study')    await loadStudy();
         else if (tab === 'library')  await loadLibrary();
         else if (tab === 'lab')      await loadLab();
+        else if (tab === 'chunks')   await loadChunks();
         else if (tab === 'progresso') await loadStats();
         else if (tab === 'config')   await loadConfig();
         else if (tab === 'moonshot-feed') await loadMoonshotFeed();
     }, 10);
+}
+
+// ============================================================================
+// EXPORTAÇÃO DE CHUNKS
+// ============================================================================
+function exportChunksCSV() {
+    if (!allChunks || allChunks.length === 0) {
+        showToast('Nenhum chunk para exportar.', 'error'); return;
+        return;
+    }
+    const header = "Inglês,Português,Fonética,Data de Adição\n";
+    const rows = allChunks.map(c => {
+        const eng = `"${(c.eng || '').replace(/"/g, '""')}"`;
+        const pt = `"${(c.pt || '').replace(/"/g, '""')}"`;
+        const phon = `"${(c.phon || '').replace(/"/g, '""')}"`;
+        const d = new Date(c.created_at || Date.now()).toLocaleDateString();
+        return `${eng},${pt},${phon},${d}`;
+    }).join("\n");
+    
+    const blob = new Blob(["\uFEFF" + header + rows], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `linguaflow_chunks_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function exportChunksPDF() {
+    if (!allChunks || allChunks.length === 0) {
+        showToast('Nenhum chunk para exportar.', 'error'); return;
+        return;
+    }
+    
+    let html = `
+        <html>
+        <head>
+            <title>Meus Chunks - LinguaFlow</title>
+            <style>
+                body { font-family: sans-serif; color: #111827; padding: 20px; line-height: 1.5; }
+                h1 { border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px; }
+                .chunk-row { border-bottom: 1px solid #e2e8f0; padding: 15px 0; page-break-inside: avoid; }
+                .eng { font-size: 18px; font-weight: bold; color: #0f172a; margin-bottom: 4px; }
+                .pt { font-size: 16px; color: #475569; margin-bottom: 4px; }
+                .phon { font-size: 14px; color: #d97706; font-style: italic; }
+            </style>
+        </head>
+        <body>
+            <h1>Meus Chunks - LinguaFlow</h1>
+            <p>Total: ${allChunks.length} chunks salvos.</p>
+    `;
+    
+    allChunks.forEach(c => {
+        html += `
+            <div class="chunk-row">
+                <div class="eng">${c.eng}</div>
+                <div class="pt">${c.pt}</div>
+                ${c.phon ? `<div class="phon">${c.phon}</div>` : ''}
+            </div>
+        `;
+    });
+    
+    html += `</body></html>`;
+    
+    const printWin = window.open('', '_blank');
+    if (printWin) {
+        printWin.document.write(html);
+        printWin.document.close();
+        printWin.focus();
+        setTimeout(() => {
+            printWin.print();
+        }, 500);
+    } else {
+        showToast('Permita pop-ups nesta página para gerar o PDF.', 'error'); return;
+    }
 }
 
 // ============================================================================
@@ -1700,6 +2155,9 @@ async function init() {
     try {
         await lfDb.initPromise;
 
+        document.getElementById('btn-export-chunks-pdf')?.addEventListener('click', exportChunksPDF);
+        document.getElementById('btn-export-chunks-csv')?.addEventListener('click', exportChunksCSV);
+
         // Navegação
         document.querySelectorAll('.nav-tab').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -1707,6 +2165,27 @@ async function init() {
                 if (tab) switchTab(tab);
             });
         });
+
+        document.getElementById('home-view-all-phrases')?.addEventListener('click', () => {
+            switchTab('library');
+            setTimeout(() => document.getElementById('lib-tab-phrases')?.click(), 100);
+        });
+
+        document.querySelectorAll('[data-close-modal]').forEach(btn => {
+            btn.addEventListener('click', () => closeModal(btn.dataset.closeModal));
+        });
+
+        document.querySelectorAll('.color-picker-dot[data-accent]').forEach(dot => {
+            dot.addEventListener('click', () => {
+                const accent = dot.dataset.accent;
+                const accent2 = dot.dataset.accent2 || accent;
+                document.documentElement.style.setProperty('--accent', accent);
+                document.documentElement.style.setProperty('--accent2', accent2);
+                localStorage.setItem('lf_accent', accent);
+            });
+        });
+
+        document.getElementById('import-cancel-btn')?.addEventListener('click', resetImportModal);
 
         // Export / Import Anki
         document.getElementById('exportAnkiBtn')?.addEventListener('click', exportToAnki);
@@ -1819,7 +2298,7 @@ async function init() {
             try {
                 const json = await lfDb.exportDatabase();
                 downloadFile(json, `linguaflow-backup-${new Date().toISOString().split('T')[0]}.json`, 'application/json');
-                await lfDb.saveSetting('last_backup_date', new Date().toISOString());
+                await lfDb.setSetting('last_backup_date', new Date().toISOString());
                 showToast('Backup salvo com sucesso!', 'success');
                 // Hide warning if visible
                 const warningEl = document.getElementById('home-backup-warning');
@@ -1847,6 +2326,7 @@ async function init() {
 
         // Config
         document.getElementById('save-all-config')?.addEventListener('click', saveAllConfig);
+        document.getElementById('btn-migrate-phonetics')?.addEventListener('click', migratePhoneticsBR);
         document.getElementById('toggle-key-visibility')?.addEventListener('click', () => {
             const inp = document.getElementById('cfg-grok-key');
             if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
@@ -1956,46 +2436,7 @@ async function init() {
         const bulkSel = document.getElementById('bulk-deck-select');
         if (bulkSel) bulkSel.innerHTML = decks.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
 
-        // Cloud Sync
-        document.getElementById('btn-sync-backup')?.addEventListener('click', async () => {
-            const btn = document.getElementById('btn-sync-backup');
-            const msg = document.getElementById('sync-status-msg');
-            try {
-                btn.disabled = true;
-                msg.style.color = 'var(--text2)';
-                msg.textContent = '🔄 Iniciando backup para o Google Drive...';
-                await sync.backup();
-                msg.style.color = 'var(--green)';
-                msg.textContent = '✅ Backup realizado com sucesso!';
-                showToast('Backup no Google Drive concluído', 'success');
-            } catch (e) {
-                msg.style.color = 'var(--red)';
-                msg.textContent = '❌ Erro: ' + e.message;
-            } finally {
-                btn.disabled = false;
-            }
-        });
 
-        document.getElementById('btn-sync-restore')?.addEventListener('click', async () => {
-            if (!confirm('Isso vai substituir seu banco de dados atual pelo backup do Google Drive. Deseja continuar?')) return;
-            const btn = document.getElementById('btn-sync-restore');
-            const msg = document.getElementById('sync-status-msg');
-            try {
-                btn.disabled = true;
-                msg.style.color = 'var(--text2)';
-                msg.textContent = '🔄 Restaurando backup do Google Drive...';
-                await sync.restore();
-                msg.style.color = 'var(--green)';
-                msg.textContent = '✅ Banco de dados restaurado!';
-                showToast('Restauração concluída. Recarregando...', 'success');
-                setTimeout(() => window.location.reload(), 2000);
-            } catch (e) {
-                msg.style.color = 'var(--red)';
-                msg.textContent = '❌ Erro: ' + e.message;
-            } finally {
-                btn.disabled = false;
-            }
-        });
 
         const dictUpload = document.getElementById('cfg-dict-upload');
         if (dictUpload) {
@@ -2027,53 +2468,7 @@ async function init() {
             });
         }
 
-        const btnSyncUp = document.getElementById('btn-sync-up');
-        const btnSyncDown = document.getElementById('btn-sync-down');
-        const syncStatus = document.getElementById('cfg-sync-status');
-        
-        if (btnSyncUp && btnSyncDown) {
-            btnSyncUp.addEventListener('click', async () => {
-                const orig = btnSyncUp.textContent;
-                btnSyncUp.textContent = '⏳ Sincronizando...';
-                btnSyncUp.disabled = true;
-                syncStatus.style.display = 'block';
-                syncStatus.style.color = 'var(--text3)';
-                syncStatus.textContent = 'Autenticando no Google Drive...';
-                try {
-                    const res = await cloudSync.syncUp();
-                    syncStatus.style.color = 'var(--green)';
-                    syncStatus.textContent = `✅ ${res.message}`;
-                } catch (e) {
-                    syncStatus.style.color = 'var(--red)';
-                    syncStatus.textContent = `❌ Erro: ${e.message}`;
-                } finally {
-                    btnSyncUp.textContent = orig;
-                    btnSyncUp.disabled = false;
-                }
-            });
 
-            btnSyncDown.addEventListener('click', async () => {
-                if (!confirm("Restaurar o backup substituirá todos os seus flashcards atuais. Tem certeza?")) return;
-                const orig = btnSyncDown.textContent;
-                btnSyncDown.textContent = '⏳ Baixando...';
-                btnSyncDown.disabled = true;
-                syncStatus.style.display = 'block';
-                syncStatus.style.color = 'var(--text3)';
-                syncStatus.textContent = 'Procurando backup no Google Drive...';
-                try {
-                    const res = await cloudSync.syncDown();
-                    syncStatus.style.color = 'var(--green)';
-                    syncStatus.textContent = `✅ ${res.message} Recarregando...`;
-                    setTimeout(() => window.location.reload(), 1500);
-                } catch (e) {
-                    syncStatus.style.color = 'var(--red)';
-                    syncStatus.textContent = `❌ Erro: ${e.message}`;
-                } finally {
-                    btnSyncDown.textContent = orig;
-                    btnSyncDown.disabled = false;
-                }
-            });
-        }
 
         await updateHeader();
         const hash = window.location.hash.replace('#','');
@@ -2093,45 +2488,6 @@ else init();
 // MOONSHOT LOGIC (BETA)
 // ============================================================================
 
-// --- Voice Simulator ---
-const moonshotStartVoice = document.getElementById('moonshot-start-voice');
-if (moonshotStartVoice) {
-    moonshotStartVoice.addEventListener('click', async () => {
-        const logArea = document.getElementById('moonshot-voice-log');
-        logArea.style.display = 'block';
-        logArea.innerHTML = '<div style="color:var(--primary); font-weight:bold; margin-bottom:10px;">🤖 IA: Hello! I am your English partner. Let\'s practice. Where are you from?</div><div style="font-style:italic; color:var(--text3); font-size:14px;">(Ouvindo... Fale agora!)</div>';
-        moonshotStartVoice.textContent = '⏹️ Parar Conversa';
-        moonshotStartVoice.style.background = '#3f3f46';
-        
-        try {
-            pronunciationLab.listen(navigator.language.includes('pt') ? 'en-US' : 'en-US', async (result) => {
-                if (result.status === 'result') {
-                    const userText = result.transcript;
-                    logArea.innerHTML += `<div style="color:white; margin:15px 0; text-align:right;"><strong>Você:</strong> ${userText}</div>`;
-                    logArea.innerHTML += `<div id="moonshot-thinking" style="color:var(--text3); font-style:italic;">(Pensando...)</div>`;
-                    
-                    // Pedir resposta da IA
-                    chrome.runtime.sendMessage({
-                        action: 'lf_generate_variation', // Reaproveitando a chamada de IA (adaptar para chat no futuro)
-                        word: "conversation",
-                        sentence: `The user said: "${userText}". Act as an english teacher and conversational partner. Reply to them in English, keep it short, and ask a follow up question.`
-                    }, (res) => {
-                        document.getElementById('moonshot-thinking')?.remove();
-                        if (res && res.data) {
-                            const reply = res.data.replace(/1\.|2\.|3\.|-/g, '').trim(); // Remove a formatação da outra rota
-                            logArea.innerHTML += `<div style="color:var(--primary); font-weight:bold; margin-bottom:10px;">🤖 IA: ${reply}</div>`;
-                            tts.play(reply, 'en-US');
-                        }
-                    });
-                } else if (result.error) {
-                    logArea.innerHTML += `<div style="color:red">Erro: ${result.error}</div>`;
-                }
-            });
-        } catch (e) {
-            logArea.innerHTML += `<div style="color:red">Erro: ${e.message}</div>`;
-        }
-    });
-}
 
 // --- Dynamic N+1 Feed ---
 async function loadMoonshotFeed() {
@@ -2173,5 +2529,5 @@ chrome.runtime.onMessage.addListener((request) => {
     if (['REFRESH_VOCAB','WORD_SAVED','REFRESH_DASHBOARD'].includes(request.type)) {
         window.dashboard.refreshDashboard();
     }
-    return true;
+    return false;
 });

@@ -81,16 +81,34 @@ class TTS {
         // Try each URL until one works
         for (const url of urls) {
             try {
-                const audio = new Audio(url);
-                audio.playbackRate = Math.max(0.1, Math.min(rate, 4.0));
-                const cacheKey = `${lang}:${text}`;
-                this.audioCache.set(cacheKey, audio);
-                if (this.audioCache.size > 50) {
-                    this.audioCache.delete(this.audioCache.keys().next().value);
+                const cacheKey = `${text}|${googleLang}`;
+                let playableUrl = this.audioCache.get(cacheKey);
+                if (!playableUrl) {
+                    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+                        const res = await new Promise(resolve => {
+                            chrome.runtime.sendMessage({ type: 'FETCH_TTS', url }, resolve);
+                        });
+                        if (!res || !res.success) throw new Error('FETCH_TTS failed');
+                        playableUrl = res.dataUrl;
+                    } else {
+                        playableUrl = url;
+                    }
+                    this.audioCache.set(cacheKey, playableUrl);
+                    if (this.audioCache.size > 200) {
+                        this.audioCache.delete(this.audioCache.keys().next().value);
+                    }
                 }
 
-                await audio.play();
-                console.debug('[TTS] Google TTS success with:', url.includes('tw-ob') ? 'tw-ob' : url.includes('gtx') ? 'gtx' : 'dict-chrome-ex');
+                const audio = new Audio(playableUrl);
+                audio.playbackRate = Math.max(0.1, Math.min(rate, 4.0));
+                
+                await new Promise((resolve, reject) => {
+                    audio.onended = resolve;
+                    audio.onerror = reject;
+                    audio.play().catch(reject);
+                });
+
+                console.debug('[TTS] Google TTS success');
                 return true;
             } catch (e) {
                 console.debug('[TTS] Google TTS endpoint failed, trying next...');

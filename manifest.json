@@ -59,15 +59,7 @@
       ],
       "js": ["content/boot.js"],
       "run_at": "document_idle",
-      "match_about_blank": false,
-      "all_frames": false
-    },
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content/reader-mode.js"],
-      "run_at": "document_idle",
-      "match_about_blank": false,
-      "all_frames": false
+      "match_about_blank": false
     }
   ],
   "action": {

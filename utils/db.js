@@ -85,19 +85,19 @@ class Database {
         if (!this.isProxyMode) return null;
         return new Promise((resolve, reject) => {
             const timeoutId = setTimeout(() => {
-                console.warn(`[LinguaFlow DB] Timeout na chamada ${method}. O Service Worker pode estar travado.`);
-                resolve(null);
+                console.error(`[LinguaFlow DB] Timeout na chamada ${method}. Service Worker travado.`);
+                reject(new Error(`DB proxy timeout: ${method}`));
             }, 2000);
 
-            chrome.runtime.sendMessage({ 
-                type: 'DB_CALL', 
-                method, 
-                args: JSON.parse(JSON.stringify(args || [])) 
+            chrome.runtime.sendMessage({
+                type: 'DB_CALL',
+                method,
+                args: JSON.parse(JSON.stringify(args || []))
             }, response => {
                 clearTimeout(timeoutId);
                 if (chrome.runtime.lastError) {
-                    console.warn('[LinguaFlow DB] Erro no proxy:', chrome.runtime.lastError.message);
-                    resolve(null);
+                    console.error('[LinguaFlow DB] Erro no proxy:', chrome.runtime.lastError.message);
+                    reject(new Error(chrome.runtime.lastError.message));
                 } else {
                     resolve(response ? response.result : null);
                 }
@@ -193,17 +193,29 @@ class Database {
         });
     }
 
-    async getAllWords(deckId = null) {
-        if (this.isProxyMode) return this._proxy('getAllWords', [deckId]);
+    async getAllWords(deckId = null, limit = 0) {
+        if (this.isProxyMode) return this._proxy('getAllWords', [deckId, limit]);
         const idb = await this.initPromise;
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             const req = idb.transaction('words', 'readonly').objectStore('words').getAll();
             req.onsuccess = () => {
                 let res = req.result || [];
+                const toFix = res.filter(w => typeof w.deck_id !== 'number' || isNaN(w.deck_id));
+                if (toFix.length) {
+                    const fixTx = idb.transaction('words', 'readwrite');
+                    const fixStore = fixTx.objectStore('words');
+                    toFix.forEach(w => {
+                        let newId = parseInt(w.deck_id, 10);
+                        w.deck_id = isNaN(newId) || newId < 1 ? 1 : newId;
+                        fixStore.put(w);
+                    });
+                }
                 if (deckId) res = res.filter(w => w.deck_id === deckId);
+                res = res.reverse();
+                if (limit > 0) res = res.slice(0, limit);
                 resolve(res);
             };
-            req.onerror = () => reject(req.error);
+            req.onerror = () => resolve([]);
         });
     }
 
@@ -211,7 +223,7 @@ class Database {
         if (this.isProxyMode) return this._proxy('getAllReviewLogs', []);
         const idb = await this.initPromise;
         return new Promise((resolve, reject) => {
-            const req = idb.transaction('review_logs', 'readonly').objectStore('review_logs').getAll();
+            const req = idb.transaction('review_log', 'readonly').objectStore('review_log').getAll();
             req.onsuccess = () => resolve(req.result || []);
             req.onerror = () => reject(req.error);
         });
@@ -349,8 +361,23 @@ class Database {
         if (this.isProxyMode) return this._proxy('getHistory', [limit]);
         const idb = await this.initPromise;
         return new Promise(r => {
-            const req = idb.transaction('words', 'readonly').objectStore('words').index('added_at').getAll(null, 'prev');
-            req.onsuccess = () => r((req.result || []).slice(0, limit));
+            const tx = idb.transaction('words', 'readonly');
+            const store = tx.objectStore('words');
+            let req;
+            try {
+                req = store.index('created_at').getAll(null, 'prev');
+            } catch (e) {
+                // Se o índice não existir, faz fallback
+                req = store.getAll();
+            }
+            
+            req.onsuccess = () => {
+                let res = req.result || [];
+                if (!store.indexNames.contains('created_at')) {
+                    res.sort((a,b) => (b.created_at || 0) - (a.created_at || 0));
+                }
+                r(res.slice(0, limit));
+            };
             req.onerror = () => r([]);
         });
     }
@@ -398,7 +425,14 @@ class Database {
 
         const byCEFR = { A1: 0, A2: 0, B1: 0, B2: 0, C1: 0, C2: 0 };
         const words = await this.getAllWords();
+        const cards = await this.getAllCards();
+        const cardMap = {};
+        cards.forEach(c => { cardMap[c.word_id] = c; });
+
         words.forEach(w => {
+            const card = cardMap[w.id];
+            if (!card || card.status === 'new') return; // Só dá XP se já começou a estudar no deck
+
             if (w.level && byCEFR[w.level] !== undefined) {
                 byCEFR[w.level]++;
             } else {
@@ -416,6 +450,20 @@ class Database {
         const retention = log.length > 0 ? Math.round((goodRevs / log.length) * 100) : 0;
         
         return { totalWords, totalSentences, dueCards: dueCount, streak: this._calculateStreak(log, sessions), retention, byStatus, todaySecs, totalSecs, byCEFR, sessions, reviewLog: log };
+    }
+
+    async getHarvestedCountToday() {
+        if (this.isProxyMode) return this._proxy('getHarvestedCountToday', []);
+        const words = await this.getAllWords();
+        const today = new Date().toISOString().split('T')[0];
+        let count = 0;
+        words.forEach(w => {
+            if (w.tags && w.tags.includes('cefr-harvest')) {
+                const dateAdded = new Date(w.added_at).toISOString().split('T')[0];
+                if (dateAdded === today) count++;
+            }
+        });
+        return count;
     }
 
     _calculateStreak(logs, sessions) {

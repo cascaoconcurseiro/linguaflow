@@ -1,5 +1,4 @@
 import { SubtitleEngine } from './subtitle-engine.js';
-import { ImmersionMode } from './immersion-mode.js';
 import { SettingsPanel } from './settings-panel.js';
 
 // Verifica se está em um site suportado
@@ -31,9 +30,7 @@ if (!isSupported) {
         
         // Roteamento inteligente de domínios
         if (engine.platform === 'generic') {
-            // Sites genéricos de leitura (Wikipedia, Notícias)
-            const immersion = new ImmersionMode();
-            immersion.activate('en', 30);
+            console.debug('[LinguaFlow] Web Reader Mode disabled.');
         }
     };
 

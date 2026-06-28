@@ -102,12 +102,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
-    // Análise gramatical com IA (Grok)
-    if (request.action === 'ai_analyze_sentence') {
-        const { sentence } = request;
-        analyzeGrammarWithAI(sentence)
-            .then(analysis => sendResponse({ analysis }))
-            .catch(err => sendResponse({ analysis: null, error: err.message }));
+    // Transliteração fonética PT-BR com IA
+    if (request.action === 'ai_phonetic_pt') {
+        getPTPhoneticWithAI(request.word)
+            .then(pronunciation => sendResponse({ pronunciation }))
+            .catch(err => sendResponse({ pronunciation: null, error: err.message }));
+        return true;
+    }
+
+    // Gerador de Chunks com IA (Inglês, Tradução, Fonética Brasileira)
+    if (request.action === 'ai_generate_chunks') {
+        const { word } = request;
+        generateChunksWithAI(word)
+            .then(chunks => sendResponse({ chunks }))
+            .catch(err => sendResponse({ chunks: null, error: err.message }));
         return true;
     }
 
@@ -129,6 +137,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
+    if (request.type === 'FETCH_TTS') {
+        fetch(request.url)
+            .then(r => {
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                return r.arrayBuffer();
+            })
+            .then(buffer => {
+                let binary = '';
+                const bytes = new Uint8Array(buffer);
+                for (let i = 0; i < bytes.byteLength; i++) {
+                    binary += String.fromCharCode(bytes[i]);
+                }
+                const b64 = btoa(binary);
+                sendResponse({ success: true, dataUrl: `data:audio/mp3;base64,${b64}` });
+            })
+            .catch(err => sendResponse({ success: false, error: err.message }));
+        return true;
+    }
 
     if (request.type === 'FETCH_LINGUEE') {
         const word = request.word;
@@ -293,12 +319,13 @@ async function getApiConfig() {
     const xAiUrl = 'https://api.x.ai/v1/chat/completions';
     const geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
     
-    const groqModel = 'llama-3.1-8b-instant';
+    const groqModel = 'openai/gpt-oss-20b';
     const xAiModel = 'grok-beta';
     const geminiModel = 'gemini-1.5-flash';
 
     try {
-        const userKey = await db.getSetting('grok_api_key');
+        const stored = await chrome.storage.local.get(['aiApiKey']);
+        const userKey = stored?.aiApiKey || '';
         if (userKey && userKey.trim() !== '') {
             const trimmedKey = userKey.trim();
             
@@ -325,39 +352,112 @@ async function getApiConfig() {
     return { provider: 'groq', apiKey: defaultKey, apiUrl: groqUrl, model: groqModel };
 }
 
-const BASE_PERSONA = `Atue como um Especialista em Aquisição de Linguagem e Treinador de Fluência (Nativo). 
-Seu objetivo é fazer o aluno dominar o uso real do inglês de forma visceral, sem decoreba gramatical.
+const BASE_PERSONA = `Atue como um professor particular de inglês para brasileiros, com foco em uso real, contexto e clareza.
+Seu objetivo é fazer o aluno entender o que a palavra, phrasal verb, gíria, chunk ou colocação quer dizer NA FRASE, e também como isso difere do sentido isolado de dicionário.
 
 DIRETRIZES DE OURO:
 - Responda SEMPRE em Português Brasileiro (para as explicações).
 - Os EXEMPLOS devem ser OBRIGATORIAMENTE em Inglês com a tradução ao lado.
-- FOCO NO CONTEXTO: Explique o significado da palavra EXATAMENTE como foi usada na frase fornecida.
-- SEGREDO DA FLUÊNCIA (CHUNKS): Nativos não pensam em palavras isoladas, pensam em blocos. Sempre ensine os "Chunks" (colocações) mais comuns com essa palavra.
-- PRONÚNCIA DE RUA: Diga como a palavra soa na vida real, em "connected speech" (Ex: "got to" -> "gotta").
-- Sem jargões gramaticais chatos. Fale como um mentor de alta performance.
+- FOCO MÁXIMO NO CONTEXTO: se houver frase, explique primeiro o sentido exato naquela frase. Não dê apenas tradução isolada.
+- CONTRASTE: sempre mostre "sentido isolado" versus "sentido nesta frase" quando houver diferença ou ambiguidade.
+- EXPRESSÕES: se for phrasal verb, idiom, gíria, chunk ou colocação, trate o BLOCO inteiro como unidade de significado. Explique por que traduzir palavra por palavra engana.
+- PROFESSOR DIDÁTICO: use termos gramaticais quando ajudarem, mas sempre explique em linguagem simples.
+- PRONÚNCIA REAL: quando útil, diga como soa em connected speech.
 - Use formatação Markdown (Negrito, Itálico) para destacar as partes importantes.
 
 ESTRUTURA DE RESPOSTA OBRIGATÓRIA:
 **Nível Sugerido (CEFR):** [A1 a C2]
 
-**O que significa na prática:** Explicação hiper-direta do conceito dentro do contexto da frase.
+**Sentido nesta frase:** Explique o significado exato no contexto fornecido. Se o contexto mudar o sentido, diga claramente.
 
-**Como e onde usar (Vibe):** É formal? É gíria? É usado em reuniões ou no bar? Qual o tom emocional da palavra?
+**Sentido isolado:** Mostre o significado comum de dicionário e compare com o uso da frase.
 
-**Pronúncia de Rua:** Como os nativos falam isso rápido (escreva como se lê em português).
+**Por que não traduzir ao pé da letra:** Se for expressão, phrasal verb, gíria, chunk ou colocação, explique o bloco inteiro.
 
-**Colocações Comuns (Chunks):** 2 ou 3 blocos de palavras que andam sempre junto com esse termo.
+**Como e onde usar:** É formal, informal, gíria, técnico ou neutro? Qual é o tom emocional?
+
+**Pronúncia natural:** Como os nativos falam isso rápido quando fizer sentido.
+
+**Chunks úteis:** 2 ou 3 blocos reais com esse termo ou estrutura.
 
 **Exemplos Reais:** 
 - [Inglês] (Tradução)
 - [Inglês] (Tradução)
 
-**Associação Mental (Neuro-Hack):** Como um especialista em memória, crie um "gancho" absurdo, uma semelhança sonora com o português ou uma cena inesquecível para o cérebro memorizar a palavra na hora. O foco é fixação imediata!`;
+**Resumo de professor:** Uma frase final dizendo o que o aluno deve lembrar.`;
+
+async function getPTPhoneticWithAI(word) {
+    if (!word) return '';
+    const cleanWord = word.toLowerCase().trim();
+    const cacheKey = `pt_phonetic_${cleanWord}`;
+    
+    try {
+        const cached = await db.getSetting(cacheKey).catch(() => null);
+        if (cached) return cached;
+
+        const config = await getApiConfig();
+        if (!config.apiKey && config.provider !== 'gemini') {
+            console.warn('[LinguaFlow] API Key vazia. Não é possível gerar transliteração PT-BR.');
+            return '';
+        }
+
+        const prompt = `Retorne APENAS a transliteração fonética de como um BRASILEIRO leria a palavra em inglês "${word}" para soar o mais nativo possível (exemplo: apple -> á-pou, though -> dôu, write -> ruáit). Regras:
+- Retorne APENAS a transliteração.
+- NÃO inclua aspas, pontuação, hífens sobrando ou textos explicativos.
+- Use acentos do português (á, é, í, ó, ú, â, ê, ô) para indicar a sílaba tônica.`;
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        let responseText = '';
+        if (config.provider === 'gemini') {
+            const res = await fetch(config.apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                signal: controller.signal,
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { temperature: 0.1, maxOutputTokens: 20 }
+                })
+            });
+            clearTimeout(timeoutId);
+            const data = await res.json();
+            responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        } else {
+            const res = await fetch(config.apiUrl, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
+                signal: controller.signal,
+                body: JSON.stringify({
+                    model: config.model,
+                    messages: [{ role: 'user', content: prompt }],
+                    temperature: 0.1,
+                    max_tokens: 400
+                })
+            });
+            clearTimeout(timeoutId);
+            const data = await res.json();
+            responseText = data.choices?.[0]?.message?.content || '';
+        }
+
+        const transliteration = responseText.replace(/['"]/g, '').trim().toLowerCase();
+        if (transliteration) {
+            db.setSetting(cacheKey, transliteration).catch(() => {});
+        }
+        return transliteration;
+    } catch (err) {
+        console.error('[LinguaFlow] AI Phonetic Error:', err);
+        return '';
+    }
+}
 
 async function explainWordWithAI(word, context, customPrompt = null) {
     try {
         if (!word) return 'Nenhuma palavra fornecida.';
-        const prompt = customPrompt || `Explique a palavra: "${word}" (vista na frase: "${context || 'sem contexto'}")`;
+        const prompt = customPrompt || `Termo selecionado: "${word}"
+Frase/contexto: "${context || 'sem contexto'}"
+
+Explique o termo pelo sentido que ele tem nessa frase. Se o termo isolado puder significar outra coisa, compare os dois sentidos. Se for phrasal verb, gíria, chunk, idiom ou colocação, explique o bloco inteiro.`;
         
         const config = await getApiConfig();
         if (!config.apiKey && config.provider !== 'gemini') return 'Por favor, configure sua chave de API no Dashboard para usar recursos de IA.';
@@ -384,7 +484,7 @@ async function explainWordWithAI(word, context, customPrompt = null) {
                 body: JSON.stringify({
                     model: config.model,
                     messages: [
-                        { role: 'system', content: BASE_PERSONA + "\nFOCO: Na alma da palavra específica e sua personalidade." },
+                        { role: 'system', content: BASE_PERSONA + "\nFOCO: sentido contextual primeiro; dicionário isolado só como comparação." },
                         { role: 'user', content: prompt }
                     ],
                     temperature: 0.7,
@@ -411,6 +511,101 @@ async function explainWordWithAI(word, context, customPrompt = null) {
     }
 }
 
+async function generateChunksWithAI(word) {
+    try {
+        if (!word) return [];
+        const config = await getApiConfig();
+        if (!config.apiKey && config.provider !== 'gemini') throw new Error('Configure sua API Key.');
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        const chunksPersona = `Você é um professor de inglês para brasileiros focando no aprendizado por 'chunks' (blocos léxicos).
+Seu objetivo é criar 3 frases curtas e muito úteis do dia a dia contendo a palavra ou expressão fornecida.
+
+Para cada frase (chunk), você deve fornecer:
+1. "eng": A frase em inglês.
+2. "pt": A tradução natural para português brasileiro.
+3. "phon": A pronúncia da frase inteira usando EXCLUSIVAMENTE 'Fonética Brasileira' (Inglês escrito como se fala em português).
+REGRAS CRÍTICAS PARA "phon":
+- NUNCA traduza nenhuma palavra para o português no meio da pronúncia (ex: NUNCA use "deve" para "should", use "xud").
+- NUNCA use símbolos do Alfabeto Fonético Internacional (AFI/IPA) como ə, ʌ, ɔ, ʃ, θ. Use apenas letras comuns do alfabeto português.
+- Exemplo: "I think you should call her" -> "Ai fink iú xud cól râr".
+- Dê bastante ênfase (acentuação) na sílaba tônica.
+
+Responda ÚNICA E EXCLUSIVAMENTE com um objeto JSON válido contendo uma chave "chunks" que guarda o array com os 3 objetos. Nada de texto antes ou depois.
+Exemplo de formato esperado:
+{
+  "chunks": [
+    { "eng": "I want to go", "pt": "Eu quero ir", "phon": "Ai uánt tchu gou" }
+  ]
+}`;
+
+        const userPrompt = `Gere os 3 chunks para a palavra/expressão: "${word}"`;
+
+        let response;
+        if (config.provider === 'gemini') {
+            response = await fetch(config.apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                signal: controller.signal,
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: chunksPersona + "\n\n" + userPrompt }] }],
+                    generationConfig: { temperature: 0.7, maxOutputTokens: 1000 }
+                })
+            });
+        } else {
+            response = await fetch(config.apiUrl, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
+                signal: controller.signal,
+                body: JSON.stringify({
+                    model: config.model,
+                    messages: [
+                        { role: 'system', content: chunksPersona },
+                        { role: 'user', content: userPrompt }
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 1000
+                })
+            });
+        }
+
+        clearTimeout(timeoutId);
+        if (!response.ok) {
+            const errBody = await response.text().catch(() => '');
+            throw new Error(`Erro API (${response.status}): ${errBody}`);
+        }
+        
+        const data = await response.json();
+        
+        let content = '';
+        if (config.provider === 'gemini') {
+            content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        } else {
+            content = data.choices?.[0]?.message?.content || '';
+        }
+
+        // Limpa possíveis formatações markdown de código
+        content = content.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        try {
+            const parsed = JSON.parse(content);
+            if (Array.isArray(parsed)) return parsed;
+            // Se for um objeto com uma propriedade de array
+            const firstKey = Object.keys(parsed)[0];
+            if (Array.isArray(parsed[firstKey])) return parsed[firstKey];
+            return [];
+        } catch (e) {
+            console.error("Falha ao parsear JSON dos chunks:", content);
+            return [];
+        }
+    } catch (err) {
+        console.error('[LinguaFlow IA] Erro ao gerar chunks:', err);
+        throw err;
+    }
+}
+
 async function analyzeGrammarWithAI(sentence) {
     try {
         if (!sentence) return 'Frase vazia.';
@@ -420,26 +615,25 @@ async function analyzeGrammarWithAI(sentence) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-        const grammarPersona = `Atue como um Engenheiro de Padrões de Linguagem (Nativo do Idioma Alvo).
-Seu objetivo é extrair o MOLDE ESTRUTURAL de uma frase inteira e ensinar um brasileiro a usá-lo para criar suas próprias frases, focando 100% na prática e fluência.
+        const grammarPersona = `Atue como um professor de inglês paciente, claro e direto.
+Seu objetivo é ajudar o aluno a entender o USO REAL da expressão ou palavra na frase, sem parecer resposta robótica.
 
 DIRETRIZES ABSOLUTAS:
-- Esqueça regras acadêmicas chatas (não use palavras como sujeito, verbo, objeto, presente contínuo).
-- O foco é a ESTRUTURA e a FLUÊNCIA no idioma estrangeiro. 
-- Responda as explicações em Português Brasileiro, mas os exemplos DEVEM ser no IDIOMA ESTRANGEIRO.
-- Mantenha a resposta super dinâmica e empolgante, estilo "Mentor de Alta Performance".
+- Responda em Português Brasileiro.
+- Seja curto, didático e humano.
+- Não use aula genérica de gramática.
+- Foque no sentido da frase, no bloco de palavras e em como usar depois.
+- Se houver phrasal verb, chunk, idiom, gíria ou colocação, explique o bloco inteiro.
 - Use EXATAMENTE os títulos em negrito abaixo.
 
 ESTRUTURA DE RESPOSTA OBRIGATÓRIA:
-**🧬 O Molde (A Estrutura):** Extraia a "fórmula matemática" da frase original. Mostre a estrutura de blocos (Ex: "There + [Pronome] + [Verbo to be]").
+**Nesta frase:** Explique em 1 frase o sentido real.
 
-**⚙️ Como a Engrenagem Funciona:** Uma explicação hiper-direta (máx 2 linhas) sobre em qual situação na vida real usamos esse molde.
+**Bloco importante:** Mostre qual parte deve ser memorizada junta.
 
-**🛠️ Mão na Massa:** Mostre 3 exemplos de frases totalmente diferentes e úteis para a vida real construídas EXATAMENTE com o mesmo molde da frase original. (Formato: "- [Inglês] -> [Tradução]").
+**Não confunda com:** Mostre a armadilha de tradução, se existir.
 
-**🗣️ Pronúncia de Rua:** Como os nativos falam a frase ORIGINAL em "connected speech"? Escreva como se lê, mostrando onde as palavras se juntam. (MANTENHA O IDIOMA ORIGINAL, ex: "There he is" -> "Dere-iz").
-
-**⚠️ O Pulo do Gato:** Qual erro clássico de lógica ou tradução os brasileiros cometem ao tentar usar esse molde no idioma alvo?`;
+**Use assim:** Dê 2 exemplos curtos em inglês com tradução.`;
 
         const userPrompt = `Analise detalhadamente a gramática desta frase: "${sentence}"`;
 
@@ -551,10 +745,13 @@ async function explainQuickContext(word, sentence) {
         if (!config.apiKey && config.provider !== 'gemini') return null;
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s para contexto rápido
+        const timeoutId = setTimeout(() => controller.abort(), 6000); // contexto rápido
 
-        const systemPrompt = 'Você é um professor particular de inglês focado em insights rápidos. Responda em português brasileiro de forma ultra-direta e didática.';
-        const userPrompt = `O que "${word}" significa EXATAMENTE nesta situação: "${sentence}"? Me dê um insight rápido de 1 linha.`;
+        const systemPrompt = 'Você é um professor particular de inglês focado em contexto. Responda em português brasileiro, curto e natural.';
+        const userPrompt = `Termo selecionado: "${word}"
+Frase/contexto: "${sentence}"
+
+Responda em 1 frase curta. Diga o sentido nesta frase. Se o termo isolado costuma significar outra coisa, acrescente uma comparação breve. Se for phrasal verb/chunk/gíria/idiom, explique o bloco inteiro, sem lista.`;
 
         let response;
         if (config.provider === 'gemini') {
@@ -564,7 +761,7 @@ async function explainQuickContext(word, sentence) {
                 signal: controller.signal,
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }],
-                    generationConfig: { temperature: 0.5, maxOutputTokens: 150 }
+                    generationConfig: { temperature: 0.35, maxOutputTokens: 90 }
                 })
             });
         } else {
@@ -578,8 +775,8 @@ async function explainQuickContext(word, sentence) {
                         { role: 'system', content: systemPrompt },
                         { role: 'user', content: userPrompt }
                     ],
-                    temperature: 0.5,
-                    max_tokens: 150
+                    temperature: 0.35,
+                    max_tokens: 500
                 })
             });
         }

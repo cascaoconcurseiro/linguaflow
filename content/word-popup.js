@@ -4,20 +4,165 @@ export class WordPopup {
   constructor(engine, platform) {
     this.engine=engine; this.platform=platform;
     this.popup=null; this.word=''; this.context='';
-    this.cache={}; this.activeDeck='Default'; this.decks=['Default'];
+    this.cache={}; this.activeDeck=1; this.decks=[{id:1, name:'Padrão'}];
     this._gramBuilt=false; this._exBuilt=false;
     this.freqList = null;
   }
 
-  async init() { 
-    this._build(); 
-    this._loadDecks(); 
+  async init() {
+    this._build();
+    this._initData();
+    this._loadDecks();
     try {
         const res = await fetch(chrome.runtime.getURL('utils/frequency-en.json'));
         this.freqList = await res.json();
     } catch(e) {
         console.warn('[WordPopup] Freq list disabled/missing', e);
     }
+    try {
+        const res = await fetch(chrome.runtime.getURL('utils/cefr-wordlist.json'));
+        this.cefrList = await res.json();
+    } catch(e) { /* sem CEFR wordlist — ok */ }
+  }
+
+  _initData() {
+    // Falsos cognatos mais perigosos para brasileiros
+    this._falseFriends = {
+      'actually':    '"actually" = na verdade / de fato (NÃO "atualmente" → use "currently" ou "nowadays")',
+      'pretend':     '"pretend" = fingir / simular (NÃO "pretender" → use "intend" ou "plan to")',
+      'eventually':  '"eventually" = eventualmente no sentido de "no fim" / "com o tempo" (NÃO "eventualmente" = sometimes → use "occasionally")',
+      'library':     '"library" = biblioteca (NÃO "livraria" → use "bookstore")',
+      'college':     '"college" = faculdade / universidade (NÃO "colégio" = high school)',
+      'fabric':      '"fabric" = tecido / pano (NÃO "fábrica" → use "factory")',
+      'parents':     '"parents" = pais (pai e mãe) (NÃO "parentes" = relatives)',
+      'push':        '"push" = empurrar (NÃO "puxar" = pull)',
+      'exit':        '"exit" = saída (NÃO "êxito" = success)',
+      'novel':       '"novel" = romance (livro) (NÃO "novela" = soap opera = "soap opera")',
+      'sensible':    '"sensible" = sensato / prudente (NÃO "sensível" = sensitive)',
+      'polite':      '"polite" = educado / cortês (NÃO "político" = politician)',
+      'large':       '"large" = grande (NÃO "largo" = wide)',
+      'assist':      '"assist" = ajudar / auxiliar (NÃO "assistir" a um filme → "watch")',
+      'contest':     '"contest" = competição (NÃO "contestar" = dispute/challenge)',
+      'editor':      '"editor" = revisor/redator (NÃO "editor" de livros = publisher)',
+      'engineer':    '"engineer" = engenheiro (NÃO "maquinista" = train driver)',
+      'eventually':  '"eventually" = no fim das contas (NÃO às vezes = sometimes)',
+      'exquisite':   '"exquisite" = refinado/primoroso (NÃO "esquisito" = weird/strange)',
+      'genial':      '"genial" = simpático/cordial (NÃO "genial" = brilliant → "genius")',
+      'infamous':    '"infamous" = notório/famigerado (NÃO apenas "famoso" = famous)',
+      'legend':      '"legend" = lenda (NÃO "legenda" de vídeo = subtitle/caption)',
+      'mundane':     '"mundane" = entediante/comum (NÃO "mundano" = worldly)',
+      'realize':     '"realize" = perceber/tomar consciência (NÃO "realizar" uma tarefa = carry out/accomplish)',
+      'resume':      '"resume" = retomar (NÃO "resumo" = summary)',
+      'sympathetic': '"sympathetic" = solidário/compreensivo (NÃO "simpático" = nice/friendly)',
+      'taxes':       '"taxes" = impostos (NÃO "táxis" = taxis)',
+      'travesty':    '"travesty" = paródia/distorção grotesca (NÃO "travesti" = transgender person)',
+      'vacant':      '"vacant" = vago/desocupado (NÃO "vacante" formal → use "empty")',
+      'versatile':   '"versatile" = versátil/multifuncional (NÃO "versátil" geralmente mais positivo em inglês)',
+    };
+
+    // Expressões/idiomas comuns para detecção por lookup
+    this._idiomSet = new Set([
+      'piece of cake','break a leg','hit the nail on the head','under the weather',
+      'bite the bullet','beat around the bush','get out of hand','spill the beans',
+      'kick the bucket','let the cat out of the bag','hit the sack','cost an arm and a leg',
+      'once in a blue moon','the ball is in your court','pull someone\'s leg',
+      'hang in there','cut corners','get cold feet','it\'s not rocket science',
+      'back to the drawing board','bite off more than you can chew','burn bridges',
+      'catch someone red-handed','don\'t judge a book by its cover',
+    ]);
+
+    // Chunks / fixed phrases
+    this._chunkSet = new Set([
+      'as well as','as long as','as soon as','due to','in order to','in spite of',
+      'on the other hand','at the same time','in addition to','as a result',
+      'by the way','in fact','for example','such as','in terms of','according to',
+      'on the contrary','in other words','first of all','last but not least',
+      'as a matter of fact','to be honest','you know what','kind of','sort of',
+      'a lot of','all of a sudden','at least','at most','by the way',
+      'come on','figure out','find out','give up','go ahead','go on',
+      'look forward to','make sense','no wonder','of course','right away',
+      'take care','take part','turn out','used to','what if',
+    ]);
+  }
+
+  // Detecta o tipo linguístico da expressão clicada
+  _detectExprType(word, phrasalVerbsDB) {
+    const w = word.toLowerCase().trim();
+    const tokens = w.split(/\s+/);
+    const isMulti = tokens.length > 1;
+
+    if (this._idiomSet?.has(w)) return { type: 'idiom',       label: '🌀 Idiom',        cls: 'lfp-type-idiom' };
+    if (this._chunkSet?.has(w)) return { type: 'chunk',       label: '🧩 Chunk',        cls: 'lfp-type-chunk' };
+
+    if (isMulti && phrasalVerbsDB) {
+      const verb = tokens[0];
+      const entries = phrasalVerbsDB[verb] || [];
+      if (entries.some(e => e.phrase?.toLowerCase() === w)) {
+        return { type: 'phrasal',   label: '🔗 Phrasal Verb', cls: 'lfp-type-phrasal' };
+      }
+      // Multi-word que não é idiom nem chunk nem phrasal → colocação
+      return { type: 'collocation', label: '🤝 Colocação',    cls: 'lfp-type-collocation' };
+    }
+
+    // Palavras simples: verificar registro pelo dicionário depois — placeholder
+    return { type: 'word', label: '📖 Palavra', cls: 'lfp-type-word' };
+  }
+
+  _detectFalseFriend(word) {
+    return this._falseFriends?.[word.toLowerCase()] || null;
+  }
+
+  _lookupCEFR(word) {
+    if (!this.cefrList) return null;
+    return this.cefrList[word.toLowerCase()] || null;
+  }
+  _escapeAttr(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[ch]));
+  }
+  _escapeRegExp(value) {
+    return String(value ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+  async _expandTermInContext(word, context) {
+    const cleanWord = String(word || '').toLowerCase().replace(/[.,!?()"]/g, '').trim();
+    if (!cleanWord || cleanWord.includes(' ') || !context) return word;
+
+    const tokens = String(context).match(/[a-zA-Z']+/g) || [];
+    const lower = tokens.map(t => t.toLowerCase());
+    const positions = lower.map((t, i) => t === cleanWord ? i : -1).filter(i => i >= 0);
+    if (!positions.length) return word;
+
+    let phrasalDB = null;
+    try {
+      const BASE = chrome.runtime.getURL('utils/');
+      const m = await import(BASE + 'phrasal-verbs.js');
+      phrasalDB = m.phrasalVerbsDB;
+    } catch {}
+
+    const isKnownExpression = (phrase) => {
+      if (this._idiomSet?.has(phrase) || this._chunkSet?.has(phrase)) return true;
+      if (!phrasalDB) return false;
+      const first = phrase.split(/\s+/)[0];
+      return (phrasalDB[first] || []).some(e => e.phrase?.toLowerCase() === phrase);
+    };
+
+    let best = '';
+    for (const pos of positions) {
+      for (let start = Math.max(0, pos - 4); start <= pos; start++) {
+        for (let end = pos; end < Math.min(lower.length, pos + 5); end++) {
+          const phrase = lower.slice(start, end + 1).join(' ');
+          if (phrase.split(' ').length < 2) continue;
+          if (isKnownExpression(phrase) && phrase.length > best.length) best = phrase;
+        }
+      }
+    }
+
+    return best || word;
   }
   destroy() { this.popup?.remove(); }
 
@@ -25,7 +170,41 @@ export class WordPopup {
     document.getElementById('lfp')?.remove();
     if (!document.getElementById('lfp-k')) {
       const s=document.createElement('style');s.id='lfp-k';
-      s.textContent=`@keyframes lfpIn{from{opacity:0;transform:translateY(10px) scale(0.93)}to{opacity:1;transform:translateY(0) scale(1)}}@keyframes lfpSpin{to{transform:rotate(360deg)}}.lfp-spin{width:18px;height:18px;border:2px solid rgba(255,255,255,.1);border-top-color:#a78bfa;border-radius:50%;animation:lfpSpin .6s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px}#lfp *{box-sizing:border-box;margin:0;padding:0}#lfp button,#lfp select,#lfp input{font-family:'Outfit','Segoe UI',sans-serif}.lfp-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:3px 10px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .12s;display:inline-block}.lfp-chip:hover{color:#7dd3fc;border-color:rgba(125,209,252,.35)}.lfp-chip.red{background:rgba(248,113,113,.06);border-color:rgba(248,113,113,.15);color:#f87171}.lfp-panels::-webkit-scrollbar{width:3px}.lfp-panels::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}.lfp-ph{background:rgba(244,114,182,.06);border:1px solid rgba(244,114,182,.15);border-radius:9px;padding:9px 12px;margin-bottom:7px}.lfp-ex{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 13px;margin-bottom:8px}.ai-res{white-space:pre-wrap;word-break:break-word}`;
+      s.textContent=`@keyframes lfpIn{from{opacity:0;transform:translateY(10px) scale(0.93)}to{opacity:1;transform:translateY(0) scale(1)}}@keyframes lfpSpin{to{transform:rotate(360deg)}}.lfp-spin{width:18px;height:18px;border:2px solid rgba(255,255,255,.1);border-top-color:#a78bfa;border-radius:50%;animation:lfpSpin .6s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px}#lfp *{box-sizing:border-box;margin:0;padding:0}#lfp button,#lfp select,#lfp input{font-family:'Outfit','Segoe UI',sans-serif}.lfp-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:3px 10px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .12s;display:inline-block}.lfp-chip:hover{color:#7dd3fc;border-color:rgba(125,209,252,.35)}.lfp-chip.red{background:rgba(248,113,113,.06);border-color:rgba(248,113,113,.15);color:#f87171}.lfp-panels::-webkit-scrollbar{width:3px}.lfp-panels::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}.lfp-ph{background:rgba(244,114,182,.06);border:1px solid rgba(244,114,182,.15);border-radius:9px;padding:9px 12px;margin-bottom:7px}.lfp-ex{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 13px;margin-bottom:8px}.ai-res{white-space:pre-wrap;word-break:break-word}
+/* CEFR badges */
+.lfp-badge{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:20px;line-height:1.6}
+.lfp-a1{background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.25)}
+.lfp-a2{background:rgba(56,189,248,.12);color:#38bdf8;border:1px solid rgba(56,189,248,.25)}
+.lfp-b1{background:rgba(34,211,238,.12);color:#22d3ee;border:1px solid rgba(34,211,238,.25)}
+.lfp-b2{background:rgba(251,191,36,.12);color:#fbbf24;border:1px solid rgba(251,191,36,.25)}
+.lfp-c1{background:rgba(251,146,60,.12);color:#fb923c;border:1px solid rgba(251,146,60,.25)}
+.lfp-c2{background:rgba(167,139,250,.12);color:#a78bfa;border:1px solid rgba(167,139,250,.25)}
+/* Expression type badges */
+.lfp-type-phrasal{background:rgba(244,114,182,.1);color:#f472b6;border:1px solid rgba(244,114,182,.25)}
+.lfp-type-idiom{background:rgba(251,146,60,.1);color:#fb923c;border:1px solid rgba(251,146,60,.25)}
+.lfp-type-chunk{background:rgba(139,92,246,.1);color:#a78bfa;border:1px solid rgba(139,92,246,.25)}
+.lfp-type-collocation{background:rgba(56,189,248,.1);color:#7dd3fc;border:1px solid rgba(56,189,248,.2)}
+.lfp-type-slang{background:rgba(248,113,113,.1);color:#f87171;border:1px solid rgba(248,113,113,.25)}
+.lfp-type-formal{background:rgba(99,102,241,.1);color:#818cf8;border:1px solid rgba(99,102,241,.25)}
+.lfp-type-word{background:rgba(255,255,255,.05);color:#94a3b8;border:1px solid rgba(255,255,255,.1)}
+/* False friend alert */
+.lfp-ff{background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.3);border-radius:10px;padding:9px 12px;margin-bottom:10px}
+.lfp-use-card{background:rgba(139,92,246,.06);border:1px solid rgba(139,92,246,.18);border-radius:10px;padding:10px 13px;margin-bottom:10px;font-family:inherit}
+.lfp-use-card.blue{background:rgba(125,209,252,.04);border-color:rgba(125,209,252,.18)}
+.lfp-use-card.green{background:rgba(74,222,128,.06);border-color:rgba(74,222,128,.18)}
+.lfp-use-card.amber{background:rgba(251,191,36,.06);border-color:rgba(251,191,36,.18)}
+.lfp-use-title{font-size:10px;color:#a78bfa;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;display:flex;align-items:center;gap:5px}
+.lfp-use-card.blue .lfp-use-title{color:#7dd3fc}
+.lfp-use-card.green .lfp-use-title{color:#4ade80}
+.lfp-use-card.amber .lfp-use-title{color:#fbbf24}
+.lfp-use-text{font-size:12px;color:#e2e8f0;line-height:1.7}
+.lfp-use-muted{font-size:11px;color:#94a3b8;line-height:1.55}
+.lfp-mini-chip{display:inline-block;margin:2px 4px 2px 0;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:#cbd5e1;font-size:11px;font-weight:700}
+/* Deck modal */
+#lfp-deck-modal{position:absolute;inset:0;background:rgba(8,12,24,.92);backdrop-filter:blur(10px);border-radius:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:10;padding:24px}
+#lfp-deck-modal input{width:100%;padding:10px 14px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:10px;color:#f8fafc;font-size:14px;outline:none;font-family:inherit}
+#lfp-deck-modal input:focus{border-color:#38bdf8}
+`;
       document.head.appendChild(s);
     }
     this.popup=document.createElement('div');
@@ -52,28 +231,36 @@ export class WordPopup {
     this.popup.innerHTML=`
 <div style="padding:16px 18px 0;display:flex;align-items:flex-start;justify-content:space-between;">
   <div style="flex:1;min-width:0;">
-    <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;">
       <span id="fw" style="font-size:28px;font-weight:800;color:#f8fafc;letter-spacing:-.03em;line-height:1;"></span>
-      <span id="fpos" style="display:none;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;background:rgba(125,209,252,.1);color:#7dd3fc;padding:2px 7px;border-radius:20px;"></span>
-      <span id="ffreq" style="display:none;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:20px;"></span>
+      <span id="fcefr" class="lfp-badge" style="display:none;"></span>
+      <span id="fcefr-prog" style="display:none;font-size:10px;color:#94a3b8;font-family:monospace;align-self:center;"></span>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;margin-top:5px;flex-wrap:wrap;">
-      <span id="fipa" style="font-size:13px;color:#64748b;font-family:monospace;"></span>
+    <div style="display:flex;align-items:center;gap:5px;margin-top:5px;flex-wrap:wrap;">
+      <span id="fipa" style="font-size:12px;color:#64748b;font-family:monospace;"></span>
+      <span id="fprpt" style="display:none;font-size:18px;color:#fbbf24;font-weight:700;font-family:monospace;background:rgba(251,191,36,0.15);padding:4px 8px;border-radius:6px;border:1px solid rgba(251,191,36,0.3);"></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:5px;margin-top:6px;flex-wrap:wrap;">
+      <span id="fexprtype" class="lfp-badge" style="display:none;"></span>
+      <span id="fpos" class="lfp-badge" style="display:none;background:rgba(125,209,252,.1);color:#7dd3fc;border:1px solid rgba(125,209,252,.2)"></span>
+      <span id="ffreq" style="display:none;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:20px;"></span>
     </div>
   </div>
   <div style="display:flex;gap:6px;flex-shrink:0;margin-top:2px;">
     <button id="ftts" title="🔊 Ouvir" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#7dd3fc;cursor:pointer;padding:6px 9px;font-size:16px;line-height:1;transition:all .15s;">🔊</button>
+    <button id="fmic" title="🎤 Praticar pronúncia" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#a78bfa;cursor:pointer;padding:6px 9px;font-size:16px;line-height:1;transition:all .15s;">🎤</button>
     <button id="fx" style="background:none;border:none;color:#475569;font-size:18px;cursor:pointer;padding:4px 7px;border-radius:6px;line-height:1;">✕</button>
   </div>
 </div>
 <div style="display:flex;border-bottom:1px solid rgba(255,255,255,.07);margin-top:12px;padding:0 4px;">
-  ${['Tradução','Padrões','Exemplos','Linguee','YouGlish'].map((l,i)=>`<button class="ftab" data-i="${i}" style="flex:1;padding:9px 2px;font-size:11px;font-weight:700;color:${i===0?'#7dd3fc':'#475569'};background:none;border:none;border-bottom:2px solid ${i===0?'#7dd3fc':'transparent'};cursor:pointer;letter-spacing:.03em;white-space:nowrap;transition:all .15s;">${l}</button>`).join('')}
+  ${['Tradução','Treino de Chunks','Exemplos','Linguee','YouGlish'].map((l,i)=>`<button class="ftab" data-i="${i}" style="flex:1;padding:9px 2px;font-size:11px;font-weight:700;color:${i===0?'#7dd3fc':'#475569'};background:none;border:none;border-bottom:2px solid ${i===0?'#7dd3fc':'transparent'};cursor:pointer;letter-spacing:.03em;white-space:nowrap;transition:all .15s;">${l}</button>`).join('')}
 </div>
 <div class="lfp-panels" style="padding:14px 18px 18px;max-height:400px;overflow-y:auto;">
 
   <div class="fp" data-p="0">
     <div id="ft" style="font-size:26px;font-weight:800;color:#4ade80;margin-bottom:5px;line-height:1.2;">…</div>
     <div id="fd" style="font-size:13px;color:#94a3b8;line-height:1.6;font-style:italic;margin-bottom:10px;"></div>
+    <div id="fff-card" style="display:none;" class="lfp-ff"><div style="font-size:10px;color:#fb923c;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;">⚠️ Falso Cognato — Armadilha!</div><div id="fff-text" style="font-size:12px;color:#fcd34d;line-height:1.6;"></div></div>
     <div id="fctx" style="display:none;background:rgba(139,92,246,.06);border:1px solid rgba(139,92,246,.18);border-radius:10px;padding:10px 13px;margin-bottom:12px;"><div style="font-size:10px;color:#a78bfa;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;display:flex;align-items:center;gap:5px;"><span>💡</span><span>Contexto nesta frase</span></div><div id="fctxt" style="font-size:12px;color:#e2e8f0;line-height:1.7;"></div></div>
     <div id="fc" style="display:none;background:rgba(125,209,252,.04);border-left:3px solid rgba(125,209,252,.3);padding:8px 12px;border-radius:0 8px 8px 0;font-size:12px;color:#cbd5e1;line-height:1.6;margin-bottom:12px;"></div>
     <div id="fsyn" style="display:none;margin-bottom:10px;"><div style="font-size:10px;color:#475569;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px;">Sinônimos</div><div id="fsyns" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
@@ -97,8 +284,8 @@ export class WordPopup {
   </div>
 
   <div class="fp" data-p="1" style="display:none;">
-    <div id="fgb"><div style="text-align:center;color:#475569;font-size:13px;padding:16px;">Clique "Analisar" para análise completa com IA.</div></div>
-    <button id="fgbtn" style="display:block;width:100%;margin-top:12px;padding:10px;background:rgba(139,92,246,.1);color:#a78bfa;border:1px solid rgba(139,92,246,.25);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;">✦ Analisar com IA</button>
+    <div id="fchunks-container"><div style="text-align:center;color:#475569;font-size:13px;padding:16px;">Clique no botão abaixo para gerar 3 chunks de treino.</div></div>
+    <button id="fgenchunks" style="display:block;width:100%;margin-top:12px;padding:10px;background:rgba(139,92,246,.1);color:#a78bfa;border:1px solid rgba(139,92,246,.25);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">✦ Gerar Chunks (Professor IA)</button>
   </div>
 
   <div class="fp" data-p="2" style="display:none;">
@@ -162,7 +349,7 @@ export class WordPopup {
         const i = parseInt(t.dataset.i);
         this.popup.querySelectorAll('.ftab').forEach((x,j)=>{ x.style.color=j===i?'#7dd3fc':'#475569'; x.style.borderBottomColor=j===i?'#7dd3fc':'transparent'; });
         this.popup.querySelectorAll('.fp').forEach((p,j)=>p.style.display=j===i?'':'none');
-        if (i===1 && !this._gramBuilt) this._aiGrammar();
+        if (i===1 && !this._chunksBuilt) this._loadSavedChunks();
         if (i===2 && !this._exBuilt)  this._buildExamples();
       };
     });
@@ -182,7 +369,7 @@ export class WordPopup {
     q('#fknown').onclick = () => this._toggleKnown();
     q('#fai').onclick = () => this._ai();
     q('#faisent').onclick = () => this._aiSentence();
-    q('#fgbtn').onclick = () => this._aiGrammar();
+    q('#fgenchunks').onclick = () => this._generateChunks();
     q('#frevbtn').onclick = () => this._loadReverso();
     q('#fcopy-ai').onclick = () => {
       const text = q('#fair').textContent;
@@ -191,19 +378,9 @@ export class WordPopup {
       btn.textContent = '✅ Copiado!';
       setTimeout(() => btn.textContent = '📋 Copiar', 2000);
     };
-    q('#fnewdeck').onclick = async() => {
-      const n=prompt('Nome do deck:');
-      if(!n?.trim()) return;
-      const BASE=chrome.runtime.getURL('utils/');
-      const {db}=await import(BASE+'db.js');
-      const decks=[...this.decks,n.trim()];
-      await db.setSetting('decks',decks);
-      this.decks=decks;
-      this._renderDecks();
-      q('#fdeck').value=n.trim();
-      this.activeDeck=n.trim();
-    };
-    q('#fdeck').onchange = e => this.activeDeck=e.target.value;
+    q('#fnewdeck').onclick = () => this._showDeckModal();
+    q('#fmic').onclick = () => this._practicePronunciation();
+    q('#fdeck').onchange = e => this.activeDeck=parseInt(e.target.value, 10);
     // Linguee
     q('#fl1').onclick = () => window.open(`https://www.linguee.com/english-portuguese/search?source=auto&query=${encodeURIComponent(this.word)}`,'_blank');
     q('#fl2').onclick = () => window.open(`https://www.linguee.com/english-portuguese/search?source=english&query=${encodeURIComponent(this.word)}`,'_blank');
@@ -224,9 +401,11 @@ export class WordPopup {
 
     if (!word) return;
     this._isHiding = false;
-    this.word=word.replace(/[.,!?()"]+/g, ''); this.context=context||'';
+    const cleanedWord = word.replace(/[.,!?()"]+/g, '').trim();
+    this.context=context||'';
+    this.word=await this._expandTermInContext(cleanedWord, this.context);
     this.currentCue = cue; // Armazena a cue completa com contexto expandido
-    this._gramBuilt=false; this._exBuilt=false;
+    this._chunksBuilt=false; this._exBuilt=false; this._contextExplained=false;
     
     // Encontra o player container
     const playerContainer = this._findPlayerContainer();
@@ -240,11 +419,74 @@ export class WordPopup {
     this.popup.querySelectorAll('.ftab').forEach((t,i)=>{ t.style.color=i===0?'#7dd3fc':'#475569'; t.style.borderBottomColor=i===0?'#7dd3fc':'transparent'; });
     this.popup.querySelectorAll('.fp').forEach((p,i)=>p.style.display=i===0?'':'none');
     const q = (s)=>this.popup.querySelector(s);
-    q('#fw').textContent=word; q('#fipa').textContent=''; q('#fpos').style.display='none';
-    q('#ffreq').style.display='none';
+    q('#fw').textContent=this.word; q('#fipa').textContent=''; q('#fprpt').style.display='none';
+    q('#fpos').style.display='none'; q('#ffreq').style.display='none';
+    q('#fcefr').style.display='none'; q('#fexprtype').style.display='none';
+    q('#fff-card').style.display='none';
+
+    // — CEFR badge —
+    const cefr = this._lookupCEFR(this.word);
+    if (cefr) {
+      const el = q('#fcefr');
+      el.textContent = cefr;
+      el.className = `lfp-badge lfp-${cefr.toLowerCase()}`;
+      el.style.display = 'inline-block';
+      this.activeLevel = cefr;
+      
+      // Auto-selecionar / Criar Deck CEFR + mostrar progresso de nível
+      (async () => {
+          const BASE = chrome.runtime.getURL('utils/');
+          const {db} = await import(BASE+'db.js');
+          let decks = await db.getSetting('decks') || ['Default'];
+          if (!decks.includes(cefr)) {
+              decks.push(cefr);
+              await db.setSetting('decks', decks);
+              this.decks = decks;
+          }
+          this.activeDeck = 1;
+          this._renderDecks();
+          // Progresso CEFR
+          const progEl = q('#fcefr-prog');
+          if (progEl && this.engine?.cefrList) {
+              const allLevel = Object.values(this.engine.cefrList).filter(v => v === cefr).length;
+              const knownAtLevel = [...(this.engine.savedWords?.keys() || [])].filter(w => this.engine.cefrList[w] === cefr).length
+                  + [...(this.engine.knownWords || [])].filter(w => this.engine.cefrList[w] === cefr).length;
+              if (allLevel > 0) {
+                  progEl.textContent = `${knownAtLevel}/${allLevel} ${cefr}`;
+                  progEl.style.display = 'inline';
+              }
+          }
+      })();
+    } else {
+      this.activeLevel = null;
+      this.activeDeck = 1;
+      this._renderDecks();
+    }
+
+    // — Expression type badge (async, loads phrasal verbs db) —
+    (async () => {
+      const BASE = chrome.runtime.getURL('utils/');
+      let phrasalDB = null;
+      try { const m = await import(BASE+'phrasal-verbs.js'); phrasalDB = m.phrasalVerbsDB; } catch {}
+      const exprInfo = this._detectExprType(this.word, phrasalDB);
+      this._exprType = exprInfo;
+      const el = q('#fexprtype');
+      if (el) {
+        el.textContent = exprInfo.label;
+        el.className = `lfp-badge ${exprInfo.cls}`;
+        el.style.display = 'inline-block';
+      }
+    })();
+
+    // — Falso cognato alert —
+    const ff = this._detectFalseFriend(this.word);
+    if (ff) {
+      q('#fff-text').textContent = ff;
+      q('#fff-card').style.display = '';
+    }
     
     if (this.freqList) {
-        const cleanWord = word.toLowerCase().replace(/[^a-z0-9]/gi, '');
+        const cleanWord = this.word.toLowerCase().replace(/[^a-z0-9]/gi, '');
         const rank = this.freqList[cleanWord];
         if (rank) {
             const ffreq = q('#ffreq');
@@ -269,20 +511,25 @@ export class WordPopup {
     q('#fsyn').style.display='none'; q('#fant').style.display='none';
     q('#fair-container').style.display='none';
     // Context
-    if (context) { q('#fc').innerHTML=context.replace(new RegExp(`\\b(${word})\\b`,'gi'),'<b style="color:#7dd3fc">$1</b>'); q('#fc').style.display=''; }
+    if (context) {
+      const safeContext = this._escapeAttr(context);
+      const safeTerm = this._escapeAttr(this.word);
+      q('#fc').innerHTML = safeContext.replace(new RegExp(`\\b(${this._escapeRegExp(safeTerm)})\\b`, 'gi'), '<b style="color:#7dd3fc">$1</b>');
+      q('#fc').style.display='';
+    }
     // Buttons state
     (async()=>{
       const BASE=chrome.runtime.getURL('utils/');
       const {db}=await import(BASE+'db.js');
       const lang=this.engine?.sourceLang||'en';
-      const saved=await db.getWord(word,lang);
-      const known=await db.isKnown(word,lang);
+      const saved=await db.getWord(this.word,lang);
+      const known=await db.isKnown(this.word,lang);
       q('#fsave').textContent=saved?'✅ Salvo nos Flashcards':'+ Salvar nos Flashcards';
       q('#fsave').style.background=saved?'linear-gradient(135deg,#15803d,#16a34a)':'linear-gradient(135deg,#1d4ed8,#2563eb)';
       q('#fknown').textContent=known?'✅ Conhecida':'✓ Já Conheço';
       q('#fknown').style.background=known?'rgba(74,222,128,.18)':'rgba(74,222,128,.08)';
     })();
-    q('#fgb').innerHTML='<div style="text-align:center;color:#475569;font-size:13px;padding:16px;">Clique "Analisar" para análise completa com IA.</div>';
+    this._loadSavedChunks();
     q('#fexb').innerHTML='<div style="text-align:center;color:#475569;font-size:13px;padding:20px;">Carregando exemplos…</div>';
     q('#fvctx').textContent=context||'(sem contexto)';
     q('#fvctxtr').textContent='';
@@ -296,15 +543,13 @@ export class WordPopup {
       this.popup.style.transform = 'translateY(0) scale(1)';
     });
 
-    this._loadData(word);
+    this._loadData(this.word);
     
     // Se o vídeo estava tocando, pausamos e marcamos que fomos nós
     if (this.engine?.videoElement && !this.engine.videoElement.paused) {
         this.engine.videoElement.pause();
         this._wasPlayingBefore = true;
     }
-    console.log(`[LinguaFlow] Popup show. vid.paused=${this.engine?.videoElement?.paused}, _wasPlayingBefore=${this._wasPlayingBefore}`);
-
     // Tradução do contexto em segundo plano
     if (context) {
         this._translate(context).then(tr => {
@@ -315,32 +560,74 @@ export class WordPopup {
   }
 
   async _loadData(word) {
-    if (this.cache[word]) { this._render(this.cache[word]); return; }
-    const [tr, di] = await Promise.all([this._translate(word), this._dict(word)]);
-    const d = { translation:tr, ...di };
-    this.cache[word]=d;
-    this._render(d);
+    if (this.cache[word]) { 
+      if (this.word === word) this._render(this.cache[word]); 
+      return; 
+    }
+    
+    // Inicia um estado de carregamento base na cache (ou objeto vazio)
+    this.cache[word] = { translation: '...', phonetic: '', pronunciation_pt: '...', partOfSpeech: '', definition: 'Carregando dicionário...' };
+    if (this.word === word) this._render(this.cache[word]);
+
+    // Busca tradução e dicionário em paralelo, mas atualiza a tela assim que cada um chegar
+    this._translate(word).then(tr => {
+        if (this.cache[word]) this.cache[word].translation = tr;
+        if (this.word === word) this._render(this.cache[word]);
+    });
+
+    this._dict(word).then(dict => {
+        if (this.cache[word]) {
+            this.cache[word] = { ...this.cache[word], ...dict };
+            this.cache[word].phonetic = dict.phonetic || '';
+            this.cache[word].pronunciation_pt = this._convertIPAtoPT(dict.phonetic);
+        }
+        if (this.word === word) this._render(this.cache[word]);
+    });
+
+
   }
 
   _render(d) {
     const q=s=>this._q(s);
     q('#ft').textContent=d.translation||'—';
-    if(d.phonetic) q('#fipa').textContent=d.phonetic;
-    if(d.partOfSpeech){q('#fpos').textContent=d.partOfSpeech;q('#fpos').style.display='';}
+    if(d.phonetic){ q('#fipa').textContent=d.phonetic; }
+    const elPt = q('#fprpt');
+    if(d.pronunciation_pt){ elPt.textContent='🇧🇷 '+d.pronunciation_pt; elPt.style.display='inline'; } else { elPt.style.display='none'; }
+    if(d.partOfSpeech){
+      q('#fpos').textContent=this._posLabel(d.partOfSpeech);
+      q('#fpos').style.display='inline-block';
+    }
+    // Update expression type badge if AI enriched the data
+    if(d.register){
+      const el = q('#fexprtype');
+      if(el && (d.register === 'slang' || d.register === 'informal' || d.register === 'formal' || d.register === 'technical')){
+        const map = {slang:['🔥 Gíria','lfp-type-slang'],informal:['💬 Informal','lfp-type-collocation'],formal:['🎩 Formal','lfp-type-formal'],technical:['⚙️ Técnico','lfp-c1']};
+        const [label,cls] = map[d.register] || [];
+        if(label && el.textContent === '📖 Palavra'){ el.textContent=label; el.className=`lfp-badge ${cls}`; }
+      }
+    }
     if(d.definition) q('#fd').textContent=d.definition;
     if(d.synonyms?.length){
-      q('#fsyns').innerHTML=d.synonyms.slice(0,6).map(s=>`<span class="lfp-chip" onclick="window.__lfpopup?.showForWord('${s}','',null)">${s}</span>`).join('');
+      const syns = q('#fsyns');
+      syns.innerHTML=d.synonyms.slice(0,6).map(s=>`<span class="lfp-chip" data-word="${this._escapeAttr(s)}">${this._escapeAttr(s)}</span>`).join('');
+      syns.querySelectorAll('.lfp-chip[data-word]').forEach(chip => {
+        chip.addEventListener('click', () => window.__lfpopup?.showForWord(chip.dataset.word, '', null));
+      });
       q('#fsyn').style.display='';
     }
     if(d.antonyms?.length){
-      q('#fants').innerHTML=d.antonyms.slice(0,4).map(s=>`<span class="lfp-chip red" onclick="window.__lfpopup?.showForWord('${s}','',null)">${s}</span>`).join('');
+      const ants = q('#fants');
+      ants.innerHTML=d.antonyms.slice(0,4).map(s=>`<span class="lfp-chip red" data-word="${this._escapeAttr(s)}">${this._escapeAttr(s)}</span>`).join('');
+      ants.querySelectorAll('.lfp-chip[data-word]').forEach(chip => {
+        chip.addEventListener('click', () => window.__lfpopup?.showForWord(chip.dataset.word, '', null));
+      });
       q('#fant').style.display='';
     }
     
     // Store audioUrl for TTS button
     this._currentAudioUrl = d.audioUrl || null;
     
-    // Auto-carrega contexto se disponível
+    // Auto-carrega contexto
     if (this.context && !this._contextExplained) {
         this._explainContext(this.word, this.context);
     }
@@ -355,36 +642,89 @@ export class WordPopup {
     const BASE=chrome.runtime.getURL('utils/');
     const { phrasalVerbsDB } = await import(BASE + 'phrasal-verbs.js');
     
-    // Verifica se a palavra atual já é uma expressão (contém espaço)
-    const isExpr = this.word.includes(' ');
-    const phs = isExpr ? [] : (phrasalVerbsDB[this.word.toLowerCase()] || []);
+    // Usa o tipo já detectado (pode ter sido enriquecido pela IA)
+    const exprInfo = this._exprType || this._detectExprType(this.word, phrasalVerbsDB);
+    const isExpr = this.word.includes(' ') || ['phrasal','idiom','chunk','collocation'].includes(exprInfo.type);
+    const lowerWord = this.word.toLowerCase();
+    const firstToken = lowerWord.split(/\s+/)[0];
+    const exactPhrasal = (phrasalVerbsDB[firstToken] || []).filter(e => e.phrase?.toLowerCase() === lowerWord);
+    const phs = exprInfo.type === 'phrasal'
+      ? exactPhrasal
+      : (!isExpr ? (phrasalVerbsDB[lowerWord] || []) : []);
+
+    const typeDescriptions = {
+      phrasal:     { title: 'Phrasal verb', desc: 'Leia como uma ideia só. Traduzir palavra por palavra costuma enganar.' },
+      idiom:       { title: 'Expressão idiomática', desc: 'O sentido vem do conjunto, não das palavras separadas.' },
+      chunk:       { title: 'Chunk', desc: 'Bloco pronto que nativos usam sem montar palavra por palavra.' },
+      collocation: { title: 'Combinação natural', desc: 'Palavras que soam certas juntas. Guarde o par completo.' },
+      slang:       { title: 'Gíria', desc: 'Uso informal. Bom para entender fala real, cuidado em contexto formal.' },
+      formal:      { title: 'Registro formal', desc: 'Mais comum em escrita, trabalho ou fala cuidadosa.' },
+      word:        { title: 'Palavra', desc: 'Aqui vale olhar o sentido no contexto antes de memorizar a tradução.' },
+    };
+    const tinfo = typeDescriptions[exprInfo.type] || typeDescriptions.word;
+    const safeWord = this._escapeAttr(this.word);
+    const safeTranslation = this._escapeAttr(d.translation || '');
+    const safeDefinition = this._escapeAttr(d.definition || '');
+    const safeContext = this._escapeAttr(this.context || '');
+    const contextLine = safeContext
+      ? safeContext.replace(new RegExp(`\\b(${this._escapeRegExp(safeWord)})\\b`, 'gi'), '<b style="color:#7dd3fc">$1</b>')
+      : 'Sem frase de contexto para comparar.';
+    const chunkChips = this._usageChunks(exprInfo, phs).map(item => `<span class="lfp-mini-chip">${this._escapeAttr(item)}</span>`).join('');
+    const simpleUse = this._simpleUsageLine(exprInfo, safeWord, safeTranslation);
 
     let h = '';
-    
-    if (isExpr) {
-      h += `<div style="margin-bottom:14px;background:rgba(244,114,182,0.1);padding:12px;border-radius:12px;border:1px solid rgba(244,114,182,0.2);">
-             <div style="font-size:10px;color:#f472b6;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Tipo de Termo</div>
-             <div style="font-size:14px;color:#f8fafc;font-weight:700;">Expressão / Phrasal Verb</div>
-             <div style="font-size:12px;color:#94a3b8;margin-top:4px;line-height:1.5;">Este é um termo composto que possui um significado único quando as palavras são usadas juntas.</div>
-            </div>`;
-    } else {
-      h += `<div style="margin-bottom:14px;"><div style="font-size:10px;color:#7dd3fc;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Classe Gramatical</div><div style="font-size:13px;color:#e2e8f0;line-height:1.7;">${this._posDetail(d.partOfSpeech,this.word)}</div></div>`;
+    h += `<div class="lfp-use-card">
+      <div class="lfp-use-title"><span>💡</span><span>O que olhar aqui</span></div>
+      <div class="lfp-use-text">${tinfo.title}: ${tinfo.desc}</div>
+    </div>`;
+
+    h += `<div class="lfp-use-card blue">
+      <div class="lfp-use-title"><span>🎬</span><span>Nesta frase</span></div>
+      <div class="lfp-use-text">${contextLine}</div>
+      ${safeTranslation ? `<div class="lfp-use-muted" style="margin-top:6px;">Tradução-base: <b style="color:#4ade80">${safeTranslation}</b></div>` : ''}
+    </div>`;
+
+    if (safeDefinition) {
+      h += `<div class="lfp-use-card green">
+        <div class="lfp-use-title"><span>📌</span><span>Sentido simples</span></div>
+        <div class="lfp-use-text">${safeDefinition}</div>
+      </div>`;
     }
 
     if(phs.length){
-      h+=`<div style="margin-bottom:14px;"><div style="font-size:10px;color:#f472b6;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Phrasal Verbs com "${this.word}"</div>`;
-      h+=phs.map(p=>`<div class="lfp-ph"><div style="font-size:13px;font-weight:700;color:#f472b6;margin-bottom:2px;">${p.phrase}</div><div style="font-size:12px;color:#94a3b8;margin-bottom:2px;">${p.meaning}</div><div style="font-size:11px;color:#64748b;font-style:italic;">"${p.example}"</div></div>`).join('');
-      h+=`</div>`;
+      h+=`<div class="lfp-use-card amber">
+        <div class="lfp-use-title"><span>🔗</span><span>Use como bloco</span></div>
+        ${phs.map(p=>`<div style="margin-bottom:8px;">
+          <div class="lfp-use-text"><b style="color:#fbbf24">${this._escapeAttr(p.phrase)}</b> = ${this._escapeAttr(p.meaning || '')}</div>
+          ${p.example ? `<div class="lfp-use-muted">"${this._escapeAttr(p.example)}"</div>` : ''}
+        </div>`).join('')}
+      </div>`;
     }
 
-    if (!isExpr) {
-      h+=`<div><div style="font-size:10px;color:#fbbf24;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Padrões Gramaticais</div><div style="font-size:13px;color:#94a3b8;line-height:1.8;">${this._patterns(d.partOfSpeech,this.word)}</div></div>`;
-    } else {
-      h+=`<div><div style="font-size:10px;color:#fbbf24;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Análise Sugerida</div><div style="font-size:13px;color:#94a3b8;line-height:1.8;">Clique em <b>"Analisar com IA"</b> abaixo para entender como as palavras se combinam nesta expressão específica.</div></div>`;
-    }
+    h += `<div class="lfp-use-card">
+      <div class="lfp-use-title"><span>🧩</span><span>Blocos para lembrar</span></div>
+      <div class="lfp-use-text">${chunkChips || simpleUse}</div>
+    </div>`;
 
-    h+=`<div id="fgai" style="display:none;margin-top:12px;background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:12px;font-size:12px;color:#c4b5fd;line-height:1.7;"></div>`;
-    q('#fgb').innerHTML=h;
+    q('#fchunks-container').innerHTML=h;
+  }
+
+  _usageChunks(exprInfo, phs) {
+    if (phs?.length) return phs.slice(0, 3).map(p => p.phrase);
+    const w = this.word;
+    if (exprInfo.type === 'phrasal' || w.includes(' ')) return [w];
+    const pos = (this.cache[this.word]?.partOfSpeech || '').toLowerCase();
+    if (pos === 'verb') return [`to ${w}`, `${w} it`, `${w} with`];
+    if (pos === 'noun') return [`a ${w}`, `the ${w}`, `${w} of`];
+    if (pos === 'adjective') return [`be ${w}`, `feel ${w}`, `${w} thing`];
+    return [w];
+  }
+
+  _simpleUsageLine(exprInfo, word, translation) {
+    if (exprInfo.type !== 'word') {
+      return `Memorize <b style="color:#7dd3fc">${word}</b> como uma peça só. O sentido real vem do bloco.`;
+    }
+    return `Use <b style="color:#7dd3fc">${word}</b>${translation ? ` como "${translation}"` : ''}, mas confirme pelo contexto da frase.`;
   }
 
   async _buildExamples() {
@@ -403,7 +743,7 @@ export class WordPopup {
         }));
       }
     } catch {}
-    if(!exs.length){q('#fexb').innerHTML='<div style="color:#475569;font-size:13px;text-align:center;padding:16px 0;">Nenhum exemplo no dicionário.<br>Use "Analisar com IA" na aba Padrões para gerar exemplos personalizados.</div>';return;}
+    if(!exs.length){q('#fexb').innerHTML='<div style="color:#475569;font-size:13px;text-align:center;padding:16px 0;">Nenhum exemplo no dicionário.<br>Use "Explicar melhor" na aba Uso Real para ver o sentido no contexto.</div>';return;}
     // Translate all examples
     const hl=(t,w)=>t.replace(new RegExp(`\\b(${w})\\b`,'gi'),'<b style="color:#7dd3fc">$1</b>');
     q('#fexb').innerHTML='<div style="color:#475569;font-size:12px;text-align:center;padding:8px;">Traduzindo exemplos…</div>';
@@ -497,25 +837,36 @@ export class WordPopup {
         translation = await this._translate(this.word) || '';
       }
 
+      if (!this._chunksBuilt && !this.generatedChunks) {
+          btn.innerHTML = '<span class="lfp-spin"></span> Gerando Chunks (IA)...';
+          await this._generateChunks();
+      }
+      
+      if (!d.phonetic && this.generatedChunks && this.generatedChunks.length > 0) {
+          d.phonetic = this.generatedChunks[0].phon;
+      }
+
       const deckId = await db.getOrCreateDeck(document.title, window.location.href);
 
       const snapshot = videoUtils.captureSnapshot ? videoUtils.captureSnapshot() : null;
 
       const result = await db.saveWord({
-        word:this.word, 
+        word:this.word,
         lang:this.engine?.sourceLang||'en',
-        translation: translation, 
+        translation: translation,
         phonetic:d.phonetic||'',
-        definition:d.definition||'', 
+        pronunciation_pt: d.pronunciation_pt || this._convertIPAtoPT(d.phonetic || '') || '',
+        definition:d.definition||'',
         context_sentence:this.context||'',
-        video_url:await this._getVideoUrlWithTimestamp(), 
+        video_url:await this._getVideoUrlWithTimestamp(),
         video_title:document.title,
-        platform:this.platform||'youtube', 
+        platform:this.platform||'youtube',
         level: this.activeLevel || '',
-        deck_id: deckId,
-        synonyms:(d.synonyms||[]).join(','), 
+        deck_id: this.activeDeck || deckId,
+        synonyms:(d.synonyms||[]).join(','),
         antonyms:(d.antonyms||[]).join(','),
-        snapshot: snapshot
+        snapshot: snapshot,
+        chunks: this.generatedChunks || null
       });
       
       console.debug('[WordPopup] ✅ Palavra salva:', result);
@@ -630,46 +981,99 @@ export class WordPopup {
   async _loadDecks(){
     const BASE=chrome.runtime.getURL('utils/');
     const {db}=await import(BASE+'db.js');
-    const decks=await db.getSetting('decks')||['Default'];
-    this.decks=decks;
+    const decks = await db.getAllDecks();
+    this.decks = decks.length ? decks : [{id:1, name:'Padrão'}];
+    if(!this.decks.find(d=>d.id===this.activeDeck)) this.activeDeck = this.decks[0].id;
     this._renderDecks();
   }
-  _renderDecks(){const s=this._q('#fdeck');if(!s)return;s.innerHTML=this.decks.map(d=>`<option value="${d}">${d==='Default'?'📚 Default':d}</option>`).join('');s.value=this.activeDeck;}
+  _renderDecks(){
+    const s=this._q('#fdeck');
+    if(!s)return;
+    s.innerHTML=this.decks.map(d=>`<option value="${d.id}">${d.id===1?'📚 Padrão':d.name}</option>`).join('');
+    s.value=this.activeDeck;
+  }
 
   _translate(t){return new Promise(res=>{chrome.runtime.sendMessage({action:'translate',text:t,from:this.engine?.sourceLang||'en',to:this.engine?.targetLang||'pt'},r=>{if(chrome.runtime.lastError){res(null);return;}res(r?.translation||null);});});}
   _dict(w){return new Promise(res=>{chrome.runtime.sendMessage({action:'dictionary',word:w},r=>{if(chrome.runtime.lastError||!r?.ok){res({});return;}res(r.data||{});});});}
+  _convertIPAtoPT(ipa) {
+    if (!ipa) return '';
+    let s = ipa.replace(/[\/\[\]ˈˌː.]/g, '').toLowerCase();
+    const map = {
+        'aɪ': 'ái', 'eɪ': 'êi', 'ɔɪ': 'ói', 'aʊ': 'áu', 'oʊ': 'ôu', 'əʊ': 'ôu',
+        'æ': 'é', 'ɑ': 'á', 'ɒ': 'ó', 'ɔ': 'ó', 'e': 'é', 'ɛ': 'é', 'ɜ': 'âr',
+        'ɪ': 'i', 'i': 'í', 'ʌ': 'ã', 'ʊ': 'u', 'u': 'ú', 'ə': 'â',
+        'ʧ': 'tch', 'dʒ': 'dj', 'ʃ': 'ch', 'ʒ': 'j', 'θ': 'f', 'ð': 'd',
+        'ŋ': 'ng', 'j': 'i', 'w': 'u', 'ɹ': 'r', 'r': 'r'
+    };
+    for (const [k, v] of Object.entries(map)) {
+        s = s.split(k).join(v);
+    }
+    s = s.replace(/([bcdfghjklmnpqrstvwxyz])\1+/g, '$1'); 
+    return s;
+  }
 
   async _explainContext(word, sentence) {
     const q=s=>this._q(s);
     const el=q('#fctxt');
     const container=q('#fctx');
     
-    // Gera explicação contextual rápida
-    el.textContent='Analisando contexto…';
+    this._contextExplained = true;
     container.style.display='';
     
+    el.innerHTML='<span style="color:#94a3b8;font-size:12px;">Analisando estrutura e acionando Professor (IA)...</span>';
+    
     try {
-      const prompt = `Palavra: "${word}"\nFrase: "${sentence}"\n\nEm 1-2 linhas curtas, explique o que "${word}" significa NESTA frase específica. Seja direto e prático.`;
-      
-      const response = await new Promise(resolve => {
-        chrome.runtime.sendMessage({
-          action: 'ai_quick_context',
-          word: word,
-          sentence: sentence
-        }, resolve);
-      });
-      
-      if (response?.explanation) {
-        el.innerHTML = response.explanation.replace(/\n/g, '<br>');
-      } else {
-        // Fallback: explicação simples baseada na tradução
-        const translation = await this._translate(word);
         const sentenceTranslation = await this._translate(sentence);
-        el.innerHTML = `A palavra <b style="color:#7dd3fc">"${word}"</b> nesta frase significa <b style="color:#4ade80">"${translation}"</b>.<br><br><span style="color:#64748b;font-size:11px;font-style:italic;">→ ${sentenceTranslation}</span>`;
-      }
+        const BASE=chrome.runtime.getURL('utils/');
+        const { phrasalVerbsDB } = await import(BASE + 'phrasal-verbs.js');
+        const exprInfo = this._detectExprType(word, phrasalVerbsDB);
+        
+        const typeDescriptions = {
+          phrasal:     { title: 'Phrasal verb', desc: 'Leia como uma ideia só. Traduzir palavra por palavra costuma enganar.', icon: '🔗' },
+          idiom:       { title: 'Expressão idiomática', desc: 'O sentido vem do conjunto, não das palavras separadas.', icon: '🎭' },
+          chunk:       { title: 'Chunk', desc: 'Bloco pronto que nativos usam sem montar palavra por palavra.', icon: '🧩' },
+          collocation: { title: 'Combinação natural', desc: 'Palavras que soam certas juntas. Guarde o par completo.', icon: '🤝' },
+          slang:       { title: 'Gíria', desc: 'Uso informal. Bom para entender fala real.', icon: '🔥' },
+          formal:      { title: 'Registro formal', desc: 'Mais comum em escrita, trabalho ou fala cuidadosa.', icon: '🎩' }
+        };
+        
+        const tinfo = typeDescriptions[exprInfo.type];
+        let nativeHtml = '';
+
+        if (tinfo) {
+            nativeHtml = `
+              <div style="background:rgba(251,191,36,0.1); border-left:3px solid #fbbf24; padding:8px; border-radius:4px; margin-bottom:8px;">
+                <b style="color:#fbbf24; font-size:13px;">${tinfo.icon} ${tinfo.title}</b><br>
+                <span style="color:#cbd5e1; font-size:12px;">${tinfo.desc}</span>
+              </div>
+            `;
+        }
+        
+        // Puxa a IA direto (sem botão)
+        const response = await new Promise(resolve => {
+            chrome.runtime.sendMessage({
+              action: 'ai_quick_context',
+              word: word,
+              sentence: sentence
+            }, r => {
+              if (chrome.runtime.lastError) resolve(null);
+              else resolve(r);
+            });
+        });
+        
+        if (response?.explanation) {
+            const aiExplanation = response.explanation.replace(/\n/g, '<br>');
+            el.innerHTML = nativeHtml + aiExplanation;
+        } else {
+            // Fallback caso a IA falhe
+            el.innerHTML = nativeHtml + `
+              <b style="color:#7dd3fc">Frase traduzida:</b> <span style="color:#94a3b8">${sentenceTranslation || 'tradução indisponível'}</span><br>
+              <span style="color:#f87171;font-size:12px;display:block;margin-top:8px;">Falha ao obter professor IA. Limite atingido ou offline.</span>
+            `;
+        }
     } catch (e) {
-      console.error('[WordPopup] Erro ao gerar contexto:', e);
-      container.style.display='none';
+      console.error('[WordPopup] Erro geral no contexto:', e);
+      el.innerHTML = `<span style="color:#f87171;font-size:12px;">Erro interno ao carregar contexto.</span>`;
     }
   }
 
@@ -682,6 +1086,108 @@ export class WordPopup {
   _phrasals(word) {
     // Agora carregado dinamicamente no _buildGrammar para manter o arquivo principal leve.
     return [];
+  }
+
+  _posLabel(pos) {
+    const map = { noun:'substantivo', verb:'verbo', adjective:'adjetivo', adverb:'advérbio',
+      preposition:'preposição', conjunction:'conjunção', pronoun:'pronome', interjection:'interjeição',
+      article:'artigo', determiner:'determinante', exclamation:'exclamação' };
+    return map[pos?.toLowerCase()] || pos || '';
+  }
+
+  _showDeckModal() {
+    let modal = this._q('#lfp-deck-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'lfp-deck-modal';
+      modal.innerHTML = `
+        <div style="font-size:13px;color:#94a3b8;font-weight:600;margin-bottom:4px;text-align:center;">Nome do novo deck</div>
+        <input id="lfp-deck-input" type="text" placeholder="Ex: Breaking Bad, B2 Vocabulary…" maxlength="40" />
+        <div style="display:flex;gap:8px;width:100%">
+          <button id="lfp-deck-cancel" style="flex:1;padding:9px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:#64748b;cursor:pointer;font-size:13px;">Cancelar</button>
+          <button id="lfp-deck-confirm" style="flex:2;padding:9px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:10px;color:#fff;cursor:pointer;font-size:13px;font-weight:700;">Criar Deck</button>
+        </div>`;
+      this.popup.appendChild(modal);
+      modal.querySelector('#lfp-deck-cancel').onclick = () => modal.style.display = 'none';
+      modal.querySelector('#lfp-deck-confirm').onclick = async () => {
+        const n = modal.querySelector('#lfp-deck-input').value.trim();
+        if (!n) return;
+        modal.style.display = 'none';
+        const BASE = chrome.runtime.getURL('utils/');
+        const {db} = await import(BASE+'db.js');
+        const deckId = await db.getOrCreateDeck(n, window.location.href);
+        const decks = await db.getAllDecks();
+        this.decks = decks;
+        this._renderDecks();
+        this._q('#fdeck').value = deckId;
+        this.activeDeck = deckId;
+      };
+      modal.querySelector('#lfp-deck-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') modal.querySelector('#lfp-deck-confirm').click();
+        if (e.key === 'Escape') modal.style.display = 'none';
+      });
+    }
+    modal.style.display = 'flex';
+    setTimeout(() => modal.querySelector('#lfp-deck-input').focus(), 50);
+  }
+
+  async _practicePronunciation() {
+    const q = s => this._q(s);
+    const btn = q('#fmic');
+    if (!this.word) return;
+    // Navega para a aba Uso Real se não estiver nela (tab index 1)
+    const tabs = [...this.popup.querySelectorAll('.ftab')];
+    tabs.forEach((t,i) => { t.style.color=i===1?'#a78bfa':'#475569'; t.style.borderBottomColor=i===1?'#a78bfa':'transparent'; });
+    this.popup.querySelectorAll('.fp').forEach((p,i) => p.style.display=i===1?'':'none');
+    if (!this._gramBuilt) this._aiGrammar();
+
+    // Adiciona painel de pronúncia no topo do tab Uso Real se ainda não existir
+    let pPanel = q('#lfp-pron-panel');
+    if (!pPanel) {
+      pPanel = document.createElement('div');
+      pPanel.id = 'lfp-pron-panel';
+      pPanel.style.cssText = 'background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:12px;margin-bottom:12px;';
+      pPanel.innerHTML = `
+        <div style="font-size:10px;color:#a78bfa;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;">🎤 Laboratório de Pronúncia</div>
+        <div style="font-size:22px;font-weight:700;color:#f8fafc;text-align:center;margin-bottom:4px;">${this.word}</div>
+        <div id="lfp-pron-ipa" style="font-size:12px;color:#64748b;text-align:center;font-family:monospace;margin-bottom:10px;"></div>
+        <button id="lfp-pron-btn" style="display:block;width:100%;padding:10px;background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.3);border-radius:10px;color:#a78bfa;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;">🎤 Pressione para falar</button>
+        <div id="lfp-pron-score" style="display:none;text-align:center;font-size:13px;color:#94a3b8;line-height:1.6;"></div>`;
+      const tab1 = q('.fp[data-p="1"]');
+      if (tab1) tab1.insertBefore(pPanel, tab1.firstChild);
+    }
+
+    const ipa = q('#fipa')?.textContent || this.cache[this.word]?.phonetic || '';
+    if (ipa) q('#lfp-pron-ipa').textContent = ipa;
+    q('#lfp-pron-btn').textContent = '🎤 Pressione para falar';
+
+    q('#lfp-pron-btn').onclick = async () => {
+      const pbtn = q('#lfp-pron-btn');
+      const scoreEl = q('#lfp-pron-score');
+      pbtn.textContent = '🔴 Gravando…';
+      pbtn.style.background = 'rgba(248,113,113,.15)';
+      pbtn.style.borderColor = 'rgba(248,113,113,.3)';
+      pbtn.style.color = '#f87171';
+      scoreEl.style.display = 'none';
+      try {
+        const BASE = chrome.runtime.getURL('utils/');
+        const { pronunciationLab } = await import(BASE+'pronunciation.js');
+        pronunciationLab.assess(this.word, ({ score, transcript, feedback }) => {
+          pbtn.textContent = '🎤 Pressione para falar';
+          pbtn.style.background = 'rgba(167,139,250,.15)';
+          pbtn.style.borderColor = 'rgba(167,139,250,.3)';
+          pbtn.style.color = '#a78bfa';
+          const pct = Math.round(score * 100);
+          const bar = '█'.repeat(Math.round(pct/10)) + '░'.repeat(10-Math.round(pct/10));
+          const color = pct>=80?'#4ade80':pct>=50?'#fbbf24':'#f87171';
+          scoreEl.style.display = '';
+          scoreEl.innerHTML = `<div style="font-size:28px;font-weight:800;color:${color};">${pct}%</div><div style="color:${color};font-family:monospace;font-size:13px;letter-spacing:2px;">${bar}</div><div style="margin-top:6px;font-size:12px;color:#94a3b8;">Você disse: <b style="color:#e2e8f0">"${transcript}"</b></div>${feedback?`<div style="margin-top:6px;font-size:11px;color:#64748b;">💡 ${feedback}</div>`:''}`;
+        });
+      } catch(e) {
+        pbtn.textContent = '⚠️ Microfone indisponível';
+        setTimeout(() => pbtn.textContent = '🎤 Pressione para falar', 2000);
+      }
+    };
   }
 
   _posDetail(pos,w){const m={noun:`<b style="color:#7dd3fc">Substantivo</b> — Pessoa, lugar, coisa ou ideia.<br>• Artigo: <span style="color:#7dd3fc">a/an/the ${w}</span><br>• Plural: <span style="color:#7dd3fc">${w}s</span> • Possessivo: <span style="color:#7dd3fc">${w}'s</span>`,verb:`<b style="color:#4ade80">Verbo</b> — Ação ou estado.<br>• Base: <span style="color:#4ade80">${w}</span> • 3ª pessoa: <span style="color:#4ade80">${w}s</span><br>• Gerúndio: <span style="color:#4ade80">${w}ing</span> • Passado: <span style="color:#4ade80">${w}ed</span><br>• Passiva: <span style="color:#4ade80">be/was ${w}ed</span>`,adjective:`<b style="color:#fbbf24">Adjetivo</b> — Descreve substantivos.<br>• Antes do noun: <span style="color:#fbbf24">${w} + noun</span><br>• Após linking verb: <span style="color:#fbbf24">be/seem/look + ${w}</span><br>• Comparativo: <span style="color:#fbbf24">more ${w}</span> • Superlativo: <span style="color:#fbbf24">most ${w}</span>`,adverb:`<b style="color:#f472b6">Advérbio</b> — Modifica verbos, adjetivos ou advérbios.<br>• Geralmente termina em <b>-ly</b><br>• Ex: very, quite, rather, too + <span style="color:#f472b6">${w}</span>`,preposition:`<b style="color:#a78bfa">Preposição</b> — Relação entre elementos.<br>• Lugar: in, on, at, under, over<br>• Tempo: at, on, in, before, after<br>• Movimento: to, from, into, through`};return m[pos?.toLowerCase()]||`<span style="color:#64748b">Clique "Analisar com IA" para análise detalhada da classe gramatical desta palavra.</span>`;}
@@ -799,9 +1305,6 @@ export class WordPopup {
         const vid = this.engine.videoElement;
         const shouldResume = this._wasPlayingBefore || this.engine._wasPausedByHover || (this.engine.autoPause && this.engine._lastAutoPausedEndTime > 0);
         
-        console.log(`[LinguaFlow] hide(resumeVideo=true). vid.paused=${vid.paused}, shouldResume=${shouldResume}`);
-        console.log(`[LinguaFlow] States: _wasPlayingBefore=${this._wasPlayingBefore}, _wasPausedByHover=${this.engine._wasPausedByHover}, autoPause=${this.engine.autoPause}, _lastAutoPausedEndTime=${this.engine._lastAutoPausedEndTime}`);
-        
         if (shouldResume) {
             if (this.engine) {
                 this.engine._pauseCooldown = true;
@@ -809,10 +1312,8 @@ export class WordPopup {
             }
             // Não precisa mais de timeout tão longo porque o pointer-events já foi removido
             setTimeout(() => {
-                console.log(`[LinguaFlow] Auto-resume timeout. vid.paused=${vid.paused}`);
                 if (vid.paused) {
-                    vid.play().then(() => console.log('[LinguaFlow] Play success!'))
-                              .catch(e => console.log('[LinguaFlow] Play fallback falhou:', e));
+                    vid.play().catch(() => {});
                 }
             }, 50);
         }
@@ -939,50 +1440,109 @@ export class WordPopup {
     };
   }
 
-  async _aiGrammar() {
+  async _loadSavedChunks() {
+    const q = s => this._q(s);
+    const container = q('#fchunks-container');
+    const btn = q('#fgenchunks');
+    try {
+      const BASE = chrome.runtime.getURL('utils/');
+      const { db } = await import(BASE + 'db.js');
+      const saved = await db.getWord(this.word, this.engine?.sourceLang || 'en');
+      if (saved?.chunks?.length) {
+        this._chunksBuilt = true;
+        this.generatedChunks = saved.chunks;
+        let html = '';
+        saved.chunks.forEach(c => {
+          html += `<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px;margin-bottom:10px;">
+            <div style="font-size:14px;color:#e2e8f0;font-weight:700;margin-bottom:4px;">${c.eng}</div>
+            <div style="font-size:12px;color:#94a3b8;font-style:italic;margin-bottom:8px;">${c.pt}</div>
+            <div style="font-size:13px;color:#fbbf24;font-family:monospace;font-weight:600;background:rgba(251,191,36,.1);padding:4px 8px;border-radius:6px;display:inline-block;border:1px solid rgba(251,191,36,.3);">${c.phon}</div>
+          </div>`;
+        });
+        container.innerHTML = html;
+        if (btn) btn.textContent = '🔄 Regenerar Chunks';
+      } else {
+        container.innerHTML = '<div style="text-align:center;color:#475569;font-size:13px;padding:16px;">Clique "Gerar" para criar chunks de treino com IA.</div>';
+        if (btn) { btn.style.display = 'block'; btn.disabled = false; }
+      }
+    } catch (e) {
+      container.innerHTML = '<div style="text-align:center;color:#475569;font-size:13px;padding:16px;">Clique "Gerar" para criar chunks de treino com IA.</div>';
+    }
+  }
+
+  async _generateChunks() {
     const q=s=>this._q(s);
-    const btn=q('#fgbtn');
-    const resEl=q('#fgb');
+    const btn=q('#fgenchunks');
+    const resEl=q('#fchunks-container');
     if (btn.disabled) return;
-    btn.innerHTML='<span class="lfp-spin"></span> Analisando…';
-    btn.disabled=true;
-    resEl.innerHTML='<div style="text-align:center;padding:20px;color:#a78bfa;"><span class="lfp-spin"></span> Extraindo moldes de fluência...</div>';
     
+    btn.innerHTML='<span class="lfp-spin"></span> Gerando Chunks…';
+    btn.disabled=true;
+    resEl.innerHTML='<div style="text-align:center;color:#a78bfa;padding:20px;"><span class="lfp-spin"></span> Professor (IA) está montando os chunks...</div>';
 
     try {
       const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
-          action: 'ai_analyze_sentence',
-          sentence: this.context || this.word
+          action: 'ai_generate_chunks',
+          word: this.word
         }, r => {
           if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
           else resolve(r);
         });
       });
-      if (response?.analysis) {
-        resEl.className = 'ai-res';
-        resEl.style.cssText = 'font-size:13px;color:#e2e8f0;line-height:1.6;padding:10px;background:rgba(255,255,255,0.03);border-radius:10px;position:relative;';
-        const formatted = this._formatAI(response.analysis);
-        resEl.innerHTML = `
-          <div id="fgb-text" style="padding-right:5px;">${formatted}</div>
-          <button id="fcopy-gram" style="position:absolute;top:5px;right:5px;background:rgba(255,255,255,0.1);border:none;border-radius:6px;color:#fff;padding:3px 6px;font-size:9px;cursor:pointer;z-index:10;">📋 Copiar</button>
-        `;
+      
+      if (response?.chunks) {
+        this._chunksBuilt = true;
+        this.generatedChunks = response.chunks;
         
-        q('#fcopy-gram').onclick = (e) => {
-            e.stopPropagation();
-            navigator.clipboard.writeText(response.analysis);
-            q('#fcopy-gram').textContent = '✅';
-            setTimeout(() => q('#fcopy-gram').textContent = '📋', 2000);
-        };
+        let html = '';
+        response.chunks.forEach((c) => {
+            html += `
+            <div style="background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:12px; margin-bottom:10px;">
+                <div style="font-size:14px; color:#e2e8f0; font-weight:700; margin-bottom:4px;">${c.eng}</div>
+                <div style="font-size:12px; color:#94a3b8; font-style:italic; margin-bottom:8px;">${c.pt}</div>
+                <div style="font-size:13px; color:#fbbf24; font-family:monospace; font-weight:600; background:rgba(251,191,36,.1); padding:4px 8px; border-radius:6px; display:inline-block; border:1px solid rgba(251,191,36,.3);">${c.phon}</div>
+            </div>`;
+        });
+        
+        resEl.innerHTML = html;
+        btn.style.display = 'none';
       } else {
-        await this._renderBasicGrammarFallback(resEl, response?.error);
+        const errorMsg = response?.error || 'A IA não conseguiu gerar os chunks.';
+        resEl.innerHTML = `<div style="color:#f87171;padding:10px;text-align:center;">⚠️ <b>Erro</b><br>${errorMsg}</div>`;
       }
     } catch (e) {
-      resEl.innerHTML='<div style="color:#f87171;padding:10px;">⚠️ Erro na consulta de padrões.</div>';
+      console.error('[LinguaFlow] Erro ao gerar chunks:', e);
+      resEl.innerHTML = `<div style="color:#f87171;padding:10px;text-align:center;">⚠️ Falha na comunicação: ${e.message}</div>`;
     } finally {
-      btn.textContent='✦ Analisar com IA';
-      btn.disabled=false;
+      btn.textContent = '✦ Gerar Chunks (Professor IA)';
+      btn.disabled = false;
     }
+  }
+
+  _formatUseRealAI(text) {
+    const raw = String(text || '').trim();
+    const sections = [
+      ['Nesta frase', 'blue'],
+      ['Bloco importante', ''],
+      ['Não confunda com', 'amber'],
+      ['Use assim', 'green']
+    ];
+    const escape = value => this._escapeAttr(value).replace(/\n/g, '<br>');
+    let html = '';
+
+    sections.forEach(([title, tone]) => {
+      const re = new RegExp(`\\*\\*${title}:?\\*\\*([\\s\\S]*?)(?=\\n\\s*\\*\\*|$)`, 'i');
+      const match = raw.match(re);
+      if (!match?.[1]?.trim()) return;
+      html += `<div class="lfp-use-card ${tone}">
+        <div class="lfp-use-title"><span>${title === 'Nesta frase' ? '🎬' : title === 'Bloco importante' ? '🧩' : title === 'Não confunda com' ? '⚠️' : '✅'}</span><span>${title}</span></div>
+        <div class="lfp-use-text">${escape(match[1].trim().replace(/^:/, '').trim())}</div>
+      </div>`;
+    });
+
+    if (html) return html;
+    return `<div class="lfp-use-card"><div class="lfp-use-text">${escape(raw)}</div></div>`;
   }
 
   _formatAI(text) {
@@ -995,12 +1555,12 @@ export class WordPopup {
       .replace(/\*\*(.*?Colocações Comuns.*?)\*\*/gi, '<b style="color:#fb923c;display:block;margin-top:12px">🧩 $1</b>')
       .replace(/\*\*(.*?Exemplos Reais.*?)\*\*/gi, '<b style="color:#d8b4fe;display:block;margin-top:12px">📝 $1</b>')
 
-      // Cabeçalhos Premium para a Aba de Padrões (Engenharia de Frases) - estilo Banner para evitar nesting
+      // Cabeçalhos antigos mantidos para compatibilidade com respostas já formatadas.
       .replace(/\*\*(.*?O Molde.*?)\*\*/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(110,231,183,0.1);border-left:3px solid #6ee7b7;border-radius:4px;color:#6ee7b7;font-weight:bold;font-size:13px;">🧬 $1</div>')
       .replace(/\*\*(.*?Como a Engrenagem Funciona.*?)\*\*/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(147,197,253,0.1);border-left:3px solid #93c5fd;border-radius:4px;color:#93c5fd;font-weight:bold;font-size:13px;">⚙️ $1</div>')
       .replace(/\*\*(.*?Mão na Massa.*?)\*\*/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(251,146,60,0.1);border-left:3px solid #fb923c;border-radius:4px;color:#fb923c;font-weight:bold;font-size:13px;">🛠️ $1</div>')
       .replace(/\*\*(.*?Pronúncia de Rua.*?)\*\*/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(249,168,212,0.1);border-left:3px solid #f9a8d4;border-radius:4px;color:#f9a8d4;font-weight:bold;font-size:13px;">🗣️ $1</div>')
-      .replace(/\*\*(.*?O Pulo do Gato.*?)\*\*/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(252,165,165,0.1);border-left:3px solid #fca5a5;border-radius:4px;color:#fca5a5;font-weight:bold;font-size:13px;">⚠️ $1</div>')
+      .replace(/\*\*(.*?Nível Nativo.*?)\*\*/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(250,204,21,0.1);border-left:3px solid #facc15;border-radius:4px;color:#facc15;font-weight:bold;font-size:13px;">🔥 $1</div>')
 
       // O Neuro-Hack ganha uma caixa especial (pois é sempre o último, não quebra)
       .replace(/\*\*(.*?Associação Mental.*?)\*\*(.*?)(?=\n\n|\*$|$)/gis, (match, title, content) => {
@@ -1027,13 +1587,13 @@ export class WordPopup {
         const sentence = this.context || this.word;
         const words = sentence.split(/[\s,.;!?'"()]+/).filter(w => w.trim().length > 0);
         
-        let html = '<div style="font-size:12px;color:#e2e8f0;padding:10px;background:rgba(255,255,255,0.03);border-radius:10px;">';
-        html += `<div style="margin-bottom:12px;padding:8px;background:rgba(239,68,68,0.1);border-left:3px solid #ef4444;border-radius:4px;color:#fca5a5;font-size:11px;line-height:1.4;">
-            ⚠️ <b>Análise por IA Indisponível</b><br>
-            <span style="color:#cbd5e1">Para ter explicações profundas de padrões, adicione uma chave no <a href="chrome-extension://${chrome.runtime.id}/dashboard/dashboard.html" target="_blank" style="color:#60a5fa;text-decoration:underline;">Dashboard</a>. Você pode gerar uma de graça no <a href="https://console.groq.com/keys" target="_blank" style="color:#60a5fa;text-decoration:underline;">Groq Cloud</a>.</span><br><br>
-            <span style="color:#94a3b8">Gerando tradução e classe gramatical (Básico/Offline)...</span>
+        let html = '<div>';
+        html += `<div class="lfp-use-card amber">
+            <div class="lfp-use-title"><span>⚠️</span><span>IA indisponível</span></div>
+            <div class="lfp-use-text">Não consegui gerar uma explicação contextual agora.${errorMsg ? `<br><br><b>Detalhe:</b> ${errorMsg}` : ''}</div>
+            <div class="lfp-use-muted" style="margin-top:6px;">Você ainda pode usar a tradução, a frase do vídeo e os exemplos para entender o uso.</div>
         </div>`;
-        html += '<table style="width:100%;border-collapse:collapse;text-align:left;font-size:12px;">';
+        html += '<div class="lfp-use-card blue"><div class="lfp-use-title"><span>🔎</span><span>Palavras da frase</span></div>';
         
         const { translator } = await import(chrome.runtime.getURL('utils/translator.js'));
         const sourceLang = this.engine?.sourceLang || 'auto';
@@ -1068,16 +1628,16 @@ export class WordPopup {
         
         for (let r of results) {
              const posTag = r.pos ? `<br><span style="font-size:10px;color:#a78bfa;font-weight:normal;background:rgba(167,139,250,0.15);padding:1px 4px;border-radius:3px;">${r.pos}</span>` : '';
-             html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
-                <td style="padding:8px 4px;font-weight:700;color:#38bdf8;vertical-align:top;">${r.word}${posTag}</td>
-                <td style="padding:8px 4px;color:#cbd5e1;vertical-align:top;padding-top:10px;">${r.translation}</td>
-             </tr>`;
+             html += `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+                <div style="font-weight:700;color:#7dd3fc;">${r.word}${posTag}</div>
+                <div style="color:#e2e8f0;text-align:right;">${r.translation}</div>
+             </div>`;
         }
-        html += '</table></div>';
+        html += '</div></div>';
         resEl.innerHTML = html;
         resEl.className = 'ai-res';
     } catch(e) {
-        resEl.innerHTML=`<div style="color:#f87171;padding:10px;">⚠️ <b>Falha nos Padrões</b><br>Erro ao gerar modo básico offline.</div>`;
+        resEl.innerHTML=`<div class="lfp-use-card amber"><div class="lfp-use-title"><span>⚠️</span><span>IA indisponível</span></div><div class="lfp-use-text">Não consegui gerar a explicação agora.<br><br><b>Detalhe técnico:</b> ${e.message}</div></div>`;
     }
   }
 }

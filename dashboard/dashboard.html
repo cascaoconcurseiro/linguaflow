@@ -703,6 +703,9 @@
                 <button class="nav-tab" data-tab="library">
                     <span>📚</span> Biblioteca
                 </button>
+                <button class="nav-tab" data-tab="chunks">
+                    <span>🧩</span> Chunks
+                </button>
                 <button class="nav-tab" data-tab="lab">
                     <span>🧪</span> Laboratório
                 </button>
@@ -944,7 +947,24 @@
                 </div>
             </section>
 
-            <!-- ═══ PROGRESSO ═══ -->
+            <!-- ═══ CHUNKS ═══ -->
+            <section id="chunks-section" class="content-section" style="display:none;">
+                <div class="view-header">
+                    <h2>Meus Chunks <span id="chunks-due-badge" style="font-size:12px; background:var(--accent); color:#000; padding:2px 8px; border-radius:12px; margin-left:8px;"></span></h2>
+                    <p class="view-desc">Domine a gramática intuitivamente focando em blocos de palavras.</p>
+                    <div style="margin-top:16px; display:flex; gap:12px;">
+                        <button class="btn btn-outline" id="btn-batch-chunks">✦ Gerar Chunks</button>
+                        <button class="btn btn-primary" id="btn-practice-chunks">▶ Praticar Chunks</button>
+                    </div>
+                    <div id="batch-chunks-progress" style="margin-top:10px; font-size:13px; color:var(--text3); display:none;"></div>
+                </div>
+                
+                <div id="chunksGrid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
+                    <!-- Preenchido via JS -->
+                </div>
+            </section>
+
+            <!-- ═══ PROGRES SO ═══ -->
             <section id="progresso-section" class="content-section">
                 <div class="stats-grid">
                     <div class="stat-card">
@@ -1064,6 +1084,43 @@
                                     <option value="oldest">Mais antigos primeiro</option>
                                     <option value="random">Aleatório</option>
                                 </select>
+                            </div>
+                        </div>
+
+                        <!-- Imersão Automática -->
+                        <div class="config-card" style="border-color:rgba(34,197,94,0.15)">
+                            <div class="config-card-title" style="color:var(--green)">🎧 Imersão Automática</div>
+                            <div class="config-row">
+                                <span class="config-label">Nível Alvo (CEFR)</span>
+                                <select id="cfg-cefr-level" class="input-field config-input" style="color:white">
+                                    <option value="none">Desativado</option>
+                                    <option value="A1">A1 (Iniciante)</option>
+                                    <option value="A2">A2 (Básico)</option>
+                                    <option value="B1">B1 (Intermediário)</option>
+                                    <option value="B2">B2 (Independente)</option>
+                                    <option value="C1">C1 (Proficiência)</option>
+                                    <option value="C2">C2 (Maestria)</option>
+                                </select>
+                                <small style="color:var(--text3);font-size:11px;margin-top:4px;display:block">Modo invisível que capta palavras do seu nível</small>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Coleta Automática</span>
+                                <select id="cfg-cefr-auto" class="input-field config-input" style="color:white">
+                                    <option value="on">Ativada (Salvar automaticamente)</option>
+                                    <option value="off">Desativada</option>
+                                </select>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Cores do CEFR</span>
+                                <select id="cfg-cefr-colors" class="input-field config-input" style="color:white">
+                                    <option value="on">Ativada (Colorir legenda por nível)</option>
+                                    <option value="off">Desativada</option>
+                                </select>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Limite Diário de Palavras</span>
+                                <input type="number" id="cfg-auto-harvest-limit" class="input-field config-input-sm" min="1" max="999">
+                                <small style="color:var(--text3);font-size:11px;margin-top:4px;display:block">Pausa captação ao atingir (padrão: 10)</small>
                             </div>
                         </div>
 

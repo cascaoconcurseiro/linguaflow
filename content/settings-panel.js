@@ -3,7 +3,7 @@ const DB_NAME = 'LinguaFlowFreeDB';
 
 async function readAllSettings() {
     const { db } = await import('../utils/db.js');
-    const settings = ['targetLang', 'subtitleMode', 'bgOpacity', 'fontSize', 'fontSizeTrans', 'autoPause', 'showOriginal', 'showTranslation', 'subtitleBottom', 'subtitleHorizontal', 'translationDelay', 'translationAnticipation', 'flashDuration', 'wordColorKnown', 'wordColorSaved', 'blurSubtitles', 'ttsPlaybackRate', 'fontFamily', 'colorPalette', 'popupMode'];
+    const settings = ['targetLang', 'subtitleMode', 'bgOpacity', 'fontSize', 'fontSizeTrans', 'autoPause', 'showOriginal', 'showTranslation', 'subtitleBottom', 'subtitleHorizontal', 'translationDelay', 'translationAnticipation', 'flashDuration', 'wordColorKnown', 'wordColorSaved', 'blurSubtitles', 'ttsPlaybackRate', 'fontFamily', 'colorPalette', 'popupMode', 'cefrTargetLevel', 'autoHarvestLimit', 'cefrAutoHarvest', 'cefrColorsEnabled'];
     const obj = {};
     for (const key of settings) {
         const val = await db.getSetting(key);
@@ -45,6 +45,10 @@ export class SettingsPanel {
             fontFamily:              'Inter',
             colorPalette:            'Vibrant',
             popupMode:               'floating',
+            cefrTargetLevel:         'none',
+            autoHarvestLimit:        10,
+            cefrAutoHarvest:         false,
+            cefrColorsEnabled:       true
         };
 
         this._init();
@@ -98,6 +102,10 @@ export class SettingsPanel {
         s.getElementById('sel-tts-speed').value     = this.cfg.ttsPlaybackRate;
         s.getElementById('sel-popup-mode').value    = this.cfg.popupMode;
         s.getElementById('sel-blur').value          = this.cfg.blurSubtitles ? 'on' : 'off';
+        s.getElementById('sel-cefr-level').value    = this.cfg.cefrTargetLevel;
+        s.getElementById('rng-auto-harvest').value  = this.cfg.autoHarvestLimit;
+        s.getElementById('sel-cefr-auto').value     = this.cfg.cefrAutoHarvest ? 'on' : 'off';
+        s.getElementById('sel-cefr-colors').value   = this.cfg.cefrColorsEnabled ? 'on' : 'off';
 
         s.getElementById('val-font').textContent        = `${this.cfg.fontSize}px`;
         s.getElementById('val-font-trans').textContent  = `${this.cfg.fontSizeTrans}px`;
@@ -108,6 +116,7 @@ export class SettingsPanel {
         // No YouTube, sempre mostra 0s no slider de antecipação
         s.getElementById('val-anticipation').textContent = `${this.cfg.translationAnticipation}s`;
         s.getElementById('val-flash').textContent       = `${this.cfg.flashDuration}s`;
+        s.getElementById('val-auto-harvest').textContent = `${this.cfg.autoHarvestLimit}`;
 
         // Handlers
         s.getElementById('btn-close').onclick  = () => this.close();
@@ -129,6 +138,20 @@ export class SettingsPanel {
         s.getElementById('sel-palette').onchange = e => this._save('colorPalette', e.target.value);
         s.getElementById('sel-tts-speed').onchange = e => this._save('ttsPlaybackRate', parseFloat(e.target.value));
         s.getElementById('sel-popup-mode').onchange = e => this._save('popupMode', e.target.value);
+        s.getElementById('sel-cefr-level').onchange = e => this._save('cefrTargetLevel', e.target.value);
+        
+        s.getElementById('sel-cefr-auto').onchange = e => {
+            this._save('cefrAutoHarvest', e.target.value === 'on');
+        };
+        s.getElementById('sel-cefr-colors').onchange = e => {
+            this._save('cefrColorsEnabled', e.target.value === 'on');
+        };
+
+        s.getElementById('rng-auto-harvest').oninput = e => {
+            const v = Number(e.target.value);
+            s.getElementById('val-auto-harvest').textContent = v;
+            this._save('autoHarvestLimit', v);
+        };
 
         // Tamanho legenda original
         s.getElementById('rng-font').oninput = e => {
@@ -340,6 +363,47 @@ export class SettingsPanel {
                                 <option value="de">Deutsch 🇩🇪</option>
                                 <option value="en">English 🇺🇸</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <!-- IMERSÃO AUTOMÁTICA -->
+                    <div class="section">
+                        <p class="section-title">🎧 Imersão Automática</p>
+                        <div class="group">
+                            <label>Nível Alvo (CEFR)</label>
+                            <select id="sel-cefr-level">
+                                <option value="none">Desativado</option>
+                                <option value="A1">A1 (Iniciante)</option>
+                                <option value="A2">A2 (Básico)</option>
+                                <option value="B1">B1 (Intermediário)</option>
+                                <option value="B2">B2 (Independente)</option>
+                                <option value="C1">C1 (Avançado)</option>
+                                <option value="C2">C2 (Fluente)</option>
+                            </select>
+                            <small>Foca na captação automática de palavras do seu nível.</small>
+                        </div>
+                        <div class="group">
+                            <label>Coleta Automática de Palavras</label>
+                            <select id="sel-cefr-auto">
+                                <option value="on">Ativada (Salvar automaticamente)</option>
+                                <option value="off">Desativada</option>
+                            </select>
+                        </div>
+                        <div class="group">
+                            <label>Cores Baseadas no CEFR</label>
+                            <select id="sel-cefr-colors">
+                                <option value="on">Ativada (Colorir por nível)</option>
+                                <option value="off">Desativada (Apenas conhecidas/salvas)</option>
+                            </select>
+                            <small>Mostra cores diferentes para A1, A2, B1, etc. nas legendas.</small>
+                        </div>
+                        <div class="group">
+                            <label>Limite Diário de Palavras Automáticas</label>
+                            <div class="slider-row">
+                                <input type="range" id="rng-auto-harvest" min="1" max="100" step="1" value="10">
+                                <span class="val-display" id="val-auto-harvest">10</span>
+                            </div>
+                            <small>Quantas palavras desconhecidas o sistema pode adicionar aos seus decks por dia assistindo vídeos.</small>
                         </div>
                     </div>
 

@@ -3,15 +3,7 @@ import { expressionsDB } from '../utils/expressions-db.js';
 
 
 
-function escapeHTML(value) {
-    return String(value ?? '').replace(/[&<>"']/g, ch => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-    }[ch]));
-}
+import { escapeHTML } from '../utils/html.js';
 
 
 // ─── Engine Principal ─────────────────────────────────────────────────────────
@@ -44,6 +36,18 @@ export class SubtitleEngine {
 
         this.flashDuration = 4; // segundos do flash de traducao (configuravel)
 
+        // CEFR Auto-Leveling
+        this.cefrList = {};
+        this.cefrTargetLevel = 'none'; // 'none', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'
+        this.cefrAutoSave = false;
+        this.cefrColorsEnabled = true;
+        this.maxWordsPerVideo = 15;
+        this.maxWordsPerDay = 30;
+        this._wordsHarvestedThisVideo = 0;
+        this._sessionStartTime = Date.now();
+        this._streakShown = false;
+        setTimeout(() => this._checkStreakNotification(), 10 * 60 * 1000);
+        
         // Vocabulário em memória — carregado do banco e atualizado em tempo real
         this.savedWords = new Map();  // word -> status ('new'|'learning'|'review'|'mature')
         this.knownWords = new Set();
@@ -99,6 +103,8 @@ export class SubtitleEngine {
             if (request.type === 'REFRESH_VOCAB') {
                 console.debug('[LinguaFlow] Sincronizando vocabulário...');
                 this._loadSavedWords();
+            } else if (request.action === 'LF_TOGGLE_SETTINGS') {
+                window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
             }
         });
     }
@@ -249,6 +255,13 @@ export class SubtitleEngine {
             console.debug('[LinguaFlow] Configurações aplicadas.');
             if (this.shadowContainer) this._updateSubtitleColors();
         }).catch(e => console.warn('[LinguaFlow] Falha ao carregar settings:', e));
+
+        fetch(chrome.runtime.getURL('utils/cefr-wordlist.json'))
+            .then(res => res.json())
+            .then(data => {
+                this.cefrList = data;
+                console.debug('[LinguaFlow] Lista CEFR carregada.');
+            }).catch(e => console.warn('[LinguaFlow] Falha ao carregar lista CEFR:', e));
 
         this._lastOrig = '';
 
@@ -501,6 +514,7 @@ export class SubtitleEngine {
     // ── Limpeza de estado para troca de vídeo ────────────────────────────────
     async _onUrlChange() {
         console.debug('[LinguaFlow] URL alterada, resetando motor de legendas...');
+        this._wordsHarvestedThisVideo = 0;
         this.cues = [];
         this.xhrCues = [];
         this.currentCueIndex = -1;
@@ -601,6 +615,26 @@ export class SubtitleEngine {
             if (mode) {
                 this.displayMode = mode;
                 console.debug(`[LinguaFlow] Modo de exibição carregado: ${mode}`);
+            }
+
+            const targetLevel = await db.getSetting('cefrTargetLevel');
+            if (targetLevel !== undefined && targetLevel !== null) {
+                this.cefrTargetLevel = targetLevel;
+            }
+            
+            const autoLimit = await db.getSetting('autoHarvestLimit');
+            if (autoLimit !== undefined && autoLimit !== null) {
+                this.maxWordsPerDay = autoLimit;
+            }
+
+            const autoHarvest = await db.getSetting('cefrAutoHarvest');
+            if (autoHarvest !== undefined && autoHarvest !== null) {
+                this.cefrAutoSave = autoHarvest;
+            }
+
+            const cefrColors = await db.getSetting('cefrColorsEnabled');
+            if (cefrColors !== undefined && cefrColors !== null) {
+                this.cefrColorsEnabled = cefrColors;
             }
         } catch (e) {
             console.warn('[LinguaFlow] Erro ao carregar configurações:', e.message);
@@ -860,6 +894,12 @@ export class SubtitleEngine {
                 .lf-review   { color: #38BDF8; text-decoration: underline dashed; text-underline-offset: 3px; } /* azul — revisando */
                 .lf-learning { color: #FBBF24; text-decoration: underline dashed; text-underline-offset: 3px; } /* amarelo — aprendendo */
                 .lf-saved    { color: var(--lf-color-saved, #93C5FD); text-decoration: underline dashed; text-underline-offset: 4px; } /* azul claro — nova */
+                .lf-cefr-A1 { color: #60a5fa !important; text-shadow: 0 0 8px rgba(96, 165, 250, 0.4); }
+                .lf-cefr-A2 { color: #4ade80 !important; text-shadow: 0 0 8px rgba(74, 222, 128, 0.4); }
+                .lf-cefr-B1 { color: #facc15 !important; text-shadow: 0 0 8px rgba(250, 204, 21, 0.4); }
+                .lf-cefr-B2 { color: #fb923c !important; text-shadow: 0 0 8px rgba(251, 146, 60, 0.4); }
+                .lf-cefr-C1 { color: #f87171 !important; text-shadow: 0 0 8px rgba(248, 113, 113, 0.4); }
+                .lf-cefr-C2 { color: #c084fc !important; text-shadow: 0 0 8px rgba(192, 132, 252, 0.4); }
                 .lf-expression { 
                     border-bottom: 2px dotted rgba(56, 189, 248, 0.6); 
                     padding-bottom: 1px;
@@ -1037,14 +1077,11 @@ export class SubtitleEngine {
             wrap.style.cursor = 'default';
             // Se o popup estiver aberto, deixamos o fechamento do popup cuidar do play
             const popupOpen = this.wordPopup && this.wordPopup.popup && this.wordPopup.popup.style.display !== 'none';
-            console.log(`[LinguaFlow] mouseleave wrap. popupOpen=${popupOpen}, vid.paused=${this.videoElement?.paused}`);
             if (!popupOpen && this.videoElement && this.videoElement.paused) {
                 const hoverPause = this._wasPausedByHover;
                 const autoPauseOn = this.autoPause && this._lastAutoPausedEndTime > 0;
-                console.log(`[LinguaFlow] mouseleave checks: hoverPause=${hoverPause}, autoPauseOn=${autoPauseOn}`);
                 if (hoverPause || autoPauseOn) {
-                    this.videoElement.play().then(() => console.log('[LinguaFlow] Auto-resume mouseleave success!'))
-                                            .catch(e => console.log('[LinguaFlow] Auto-resume failed:', e));
+                    this.videoElement.play().catch(() => {});
                     this._wasPausedByHover = false;
                     this._lastAutoPausedEndTime = -1;
                     
@@ -1822,7 +1859,29 @@ export class SubtitleEngine {
             const cNew      = videoWords.filter(w => !knownWords.has(w) && !savedWords.has(w)).length;
             const pct       = (val) => Math.round((val / totalUnique) * 100) || 0;
 
+            // Comprehension score (ponderado por frequência de tokens)
+            let totalTokens = 0, understoodTokens = 0;
+            freqMap.forEach((freq, w) => {
+                totalTokens += freq;
+                if (knownWords.has(w) || savedWords.get(w) === 'mature' || savedWords.get(w) === 'review') {
+                    understoodTokens += freq;
+                } else if (savedWords.get(w) === 'learning') {
+                    understoodTokens += Math.round(freq * 0.5);
+                }
+            });
+            const comprehension = totalTokens > 0 ? Math.round((understoodTokens / totalTokens) * 100) : 0;
+            const compColor = comprehension >= 80 ? '#34D399' : comprehension >= 60 ? '#FBBF24' : '#f87171';
+            const compLabel = comprehension >= 95 ? 'Fluente' : comprehension >= 80 ? 'Compreensão alta' : comprehension >= 60 ? 'Intermediário' : 'Desafio';
+
             statsDiv.innerHTML = `
+                <div style="background:rgba(0,0,0,0.3);border:1px solid ${compColor}33;border-radius:14px;padding:14px 16px;margin-bottom:14px;text-align:center;">
+                  <div style="font-size:36px;font-weight:900;color:${compColor};line-height:1;letter-spacing:-1px;">${comprehension}%</div>
+                  <div style="font-size:11px;color:${compColor};font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">${compLabel}</div>
+                  <div style="font-size:10px;color:#475569;margin-top:4px;">Score de compreensão deste episódio</div>
+                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;margin-top:8px;">
+                    <div style="height:100%;width:${comprehension}%;background:linear-gradient(90deg,${compColor}88,${compColor});border-radius:6px;transition:width 0.8s;"></div>
+                  </div>
+                </div>
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
                   <div style="display:flex;align-items:baseline;gap:8px;">
                     <div style="font-size:28px;font-weight:800;color:#F1F5F9;line-height:1;">${totalUnique}</div>
@@ -1914,11 +1973,10 @@ export class SubtitleEngine {
         import('../utils/db.js').then(async ({ db }) => {
             try {
                 await db.initPromise;
-                const tx = db.db.transaction(['words', 'cards'], 'readonly');
-                const words = await new Promise(r => { const req = tx.objectStore('words').getAll(); req.onsuccess = () => r(req.result || []); req.onerror = () => r([]); });
-                const cards = await new Promise(r => { const req = tx.objectStore('cards').getAll(); req.onsuccess = () => r(req.result || []); req.onerror = () => r([]); });
+                const words = await db.getAllWords();
+                const cards = await db.getAllCards();
                 const cardStatus = {};
-                cards.forEach(c => { cardStatus[c.word_id] = c.status; });
+                if (cards) cards.forEach(c => { cardStatus[c.word_id] = c.status; });
                 const freshSaved = new Map();
                 const freshKnown = new Set(this.knownWords); // mantém os marcados em sessão
                 words.forEach(w => {
@@ -2851,6 +2909,68 @@ export class SubtitleEngine {
             if (btn) btn.disabled = false;
         }
     }
+
+    async _harvestCEFRWords(cue) {
+        if (!this.cefrList || !cue || !cue.text) return;
+        const text = cue.text;
+        const words = text.match(/[a-zA-Z\u00C0-\u024F']+/g) || [];
+        
+        for (const w of words) {
+            const word = w.toLowerCase().replace(/^'+|'+$/g, '');
+            const level = this.cefrList[word];
+            if (level === this.cefrTargetLevel) {
+                // If it's a known or already saved word, skip
+                if (this.knownWords.has(word) || this.savedWords.has(word)) continue;
+                
+                // Limite de sanidade diário e nível
+                try {
+                    const { db } = await import('../utils/db.js');
+                    
+                    if (this._wordsHarvestedThisVideo >= this.maxWordsPerVideo) {
+                        console.debug(`[LinguaFlow CEFR] Limite por vídeo atingido (${this.maxWordsPerVideo}).`);
+                        return;
+                    }
+                    const harvestedToday = await db.getHarvestedCountToday();
+                    if (harvestedToday >= this.maxWordsPerDay) {
+                        console.debug(`[LinguaFlow CEFR] Limite diário atingido (${this.maxWordsPerDay}).`);
+                        return;
+                    }
+
+                    const videoTitle = document.title || 'Video Legenda';
+                    
+                    // Garante que o deck existe
+                    let decks = await db.getSetting('decks') || ['Default'];
+                    if (!decks.includes(level)) {
+                        decks.push(level);
+                        await db.setSetting('decks', decks);
+                    }
+                    
+                    if (!cue.translatedText) {
+                        const res = await new Promise(resolve => chrome.runtime.sendMessage({
+                            action: 'translate', text: cue.text, from: this.sourceLang, to: this.targetLang
+                        }, resolve));
+                        if (res?.translation) cue.translatedText = res.translation;
+                    }
+                    const data = {
+                        word: word,
+                        sentence: cue.fullContext ? `${cue.fullContext.prev} ${cue.fullContext.current} ${cue.fullContext.next}`.trim() : cue.text,
+                        translation: cue.translatedText || '',
+                        source: await this._getVideoUrlWithTimestamp(),
+                        sourceTitle: videoTitle,
+                        tags: ['cefr-harvest', level],
+                        deckId: level
+                    };
+                    await db.saveWord(data);
+                    this.savedWords.set(word, 'new');
+                    this._wordsHarvestedThisVideo++;
+                    this._showHarvestHUD(word, this._wordsHarvestedThisVideo, this.maxWordsPerVideo);
+                    console.debug(`[LinguaFlow CEFR] Auto-saved: ${word} (vídeo: ${this._wordsHarvestedThisVideo}/${this.maxWordsPerVideo}, dia: ${harvestedToday+1}/${this.maxWordsPerDay})`);
+                } catch (e) {
+                    console.error('[LinguaFlow CEFR] Error harvesting word:', e);
+                }
+            }
+        }
+    }
         
 
     // ── Motor de Renderização de Elite (onSubtitle) ──────────────────────────
@@ -2890,6 +3010,11 @@ export class SubtitleEngine {
             this._injectSubtitleUI().then(() => {
                 this.renderDual(cue.text, trans);
             });
+        }
+
+        // CEFR Auto-save (Harvest mode)
+        if (this.cefrAutoSave && this.cefrTargetLevel !== 'none') {
+            this._harvestCEFRWords(cue);
         }
 
         // 4. Se a tradução chegou depois, atualiza
@@ -3015,48 +3140,52 @@ export class SubtitleEngine {
             .replace(/\u2019/g, "'")
             .replace(/\u2018/g, "'");
 
-        // Regex para capturar palavras e o que não é palavra (separadores)
-        // Mantemos os separadores para reconstruir a frase original exatamente
-        const tokens = normalized.split(/([ \n\t\r.,!?;"()[\]{}<>]+)/);
-        
-        // Filtra tokens vazios resultantes do split
-        const filteredTokens = tokens.filter(t => t !== '');
+        // Captura palavras e separadores mantendo a ordem original.
+        const tokens = Array.from(
+            normalized.matchAll(/[a-zA-Z\u00C0-\u024F']+|[^a-zA-Z\u00C0-\u024F']+/g),
+            m => m[0]
+        );
 
-        for (let i = 0; i < filteredTokens.length; i++) {
-            const token = filteredTokens[i];
+        const isWord = token => /[a-zA-Z\u00C0-\u024F]/.test(token);
+        const cleanWord = token => token.toLowerCase().replace(/^'+|'+$/g, '');
+        const maxExpressionWords = this._getMaxExpressionWords();
+
+        for (let i = 0; i < tokens.length; i++) {
+            const token = tokens[i];
 
             // Se for pontuação ou espaço, apenas adiciona
-            if (!/[a-zA-Z\u00C0-\u024F]/.test(token)) {
+            if (!isWord(token)) {
                 frag.appendChild(document.createTextNode(token));
                 continue;
             }
 
-            // --- DETECÇÃO DE EXPRESSÕES (Greedy Algorithm) ---
+            // --- DETECÇÃO DE EXPRESSÕES ---
+            // Olha para as próximas palavras ignorando espaços/pontuação e escolhe
+            // o maior bloco conhecido. Assim clicar em "put" dentro de "put up with"
+            // abre "put up with", não "put".
             let longestMatch = null;
-            let matchTokenCount = 0;
-            let matchText = "";
+            let matchEndTokenIndex = i;
+            let seenWords = [];
 
-            // Usa lookAhead PAR (2, 4, 6...) para terminar sempre em uma palavra, nunca num espaço
-            for (let lookAhead = 2; lookAhead <= 10; lookAhead += 2) {
-                if (i + lookAhead >= filteredTokens.length) break;
-                
-                // Reconstrói a possível expressão (ex: "a" + " " + "lot")
-                let candidateParts = filteredTokens.slice(i, i + lookAhead + 1);
-                let candidateText = candidateParts.join('');
-                
-                let cleanCandidate = candidateText.toLowerCase().replace(/[.,!?;"()[\]{}<>]+$/g, '').trim();
-                
-                if (expressionsDB.has(cleanCandidate)) {
-                    longestMatch = cleanCandidate;
-                    matchText = candidateText;
-                    matchTokenCount = lookAhead;
+            for (let j = i; j < tokens.length && seenWords.length < maxExpressionWords; j++) {
+                if (!isWord(tokens[j])) continue;
+                seenWords.push(cleanWord(tokens[j]));
+
+                if (seenWords.length < 2) continue;
+
+                const candidate = seenWords.join(' ');
+                if (expressionsDB.has(candidate)) {
+                    longestMatch = candidate;
+                    matchEndTokenIndex = j;
                 }
             }
+
             if (longestMatch) {
-                // Encontramos uma expressão! (Ex: "looking forward to")
+                const matchText = tokens.slice(i, matchEndTokenIndex + 1).join('');
                 const span = this._createWordSpan(matchText, true, disableHoverPause);
+                span.dataset.expression = longestMatch;
                 frag.appendChild(span);
-                i += matchTokenCount; // Pula os tokens que fazem parte da expressão
+                i = matchEndTokenIndex;
             } else {
                 // Palavra isolada
                 const span = this._createWordSpan(token, false, disableHoverPause);
@@ -3066,13 +3195,35 @@ export class SubtitleEngine {
         return frag;
     }
 
+    _getMaxExpressionWords() {
+        if (!this._maxExpressionWords) {
+            this._maxExpressionWords = Math.max(
+                2,
+                ...Array.from(expressionsDB, expr => expr.split(/\s+/).length)
+            );
+        }
+        return this._maxExpressionWords;
+    }
+
     _createWordSpan(text, isExpression, disableHoverPause = false) {
         const span = document.createElement('span');
         span.textContent = text;
         
         // Se for expressão, adiciona uma classe especial para destaque visual (underline sutil)
         const baseClass = isExpression ? 'lf-word lf-expression' : 'lf-word';
-        span.className = baseClass + ' ' + this._wordClass(text);
+        let cefrClass = '';
+        const wordStatus = this.savedWords.get(text.toLowerCase()) || (this.knownWords.has(text.toLowerCase()) ? 'known' : null);
+        
+        // Aplica a cor CEFR apenas se a palavra for nova (não salva e não conhecida)
+        if (this.cefrColorsEnabled && !wordStatus && this.cefrList) {
+            const level = this.cefrList[text.toLowerCase()];
+            if (level && ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].includes(level)) {
+                if (!this.cefrTargetLevel || this.cefrTargetLevel === 'none' || this.cefrTargetLevel === level) {
+                    cefrClass = ' lf-cefr-' + level;
+                }
+            }
+        }
+        span.className = baseClass + cefrClass + ' ' + this._wordClass(text);
         
         let hoverTimeout = null;
         
@@ -3393,7 +3544,7 @@ export class SubtitleEngine {
             item.innerHTML = `
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
                     <span class="lf-sub-time" style="font-size:10px;color:#475569;font-family:monospace;flex-shrink:0;margin-top:3px;">${this._formatTime(startTime)}</span>
-                    <div class="lf-sub-text" style="flex:1;font-size:13px;line-height:1.4;color:#E2E8F0;font-weight:500;">${this._escapeHTML(cue.text)}</div>
+                    <div class="lf-sub-text" style="flex:1;font-size:13px;line-height:1.4;color:#E2E8F0;font-weight:500;">${escapeHTML(cue.text)}</div>
                     <div style="display:flex;gap:4px;">
                         <button class="lf-loop-cue" title="Repetir frase" style="background:transparent;border:none;color:#475569;cursor:pointer;font-size:12px;padding:0 2px;">🔁</button>
                         <button class="lf-save-line" title="Salvar frase" style="background:transparent;border:none;color:#475569;cursor:pointer;font-size:14px;padding:0 2px;transition:color 0.2s;">☆</button>
@@ -3442,8 +3593,41 @@ export class SubtitleEngine {
         this._updateSubtitlePanelHighlight();
     }
 
-    _escapeHTML(str) {
-        return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    _showHarvestHUD(word, count, max) {
+        const id = 'lf-harvest-hud';
+        let hud = document.getElementById(id);
+        if (!hud) {
+            hud = document.createElement('div');
+            hud.id = id;
+            hud.style.cssText = 'position:fixed;top:16px;right:16px;z-index:2147483647;background:rgba(15,23,42,0.92);color:#e2e8f0;font-family:Inter,sans-serif;font-size:13px;font-weight:700;padding:10px 16px;border-radius:12px;border:1px solid rgba(56,189,248,0.3);backdrop-filter:blur(8px);pointer-events:none;transition:opacity 0.3s;box-shadow:0 4px 20px rgba(0,0,0,0.4)';
+            document.body.appendChild(hud);
+        }
+        clearTimeout(this._hudTimeout);
+        hud.style.opacity = '1';
+        hud.innerHTML = `📚 <span style="color:#38bdf8">${word}</span> salva &nbsp;·&nbsp; <span style="color:#fbbf24">${count}/${max}</span> neste vídeo`;
+        this._hudTimeout = setTimeout(() => { hud.style.opacity = '0'; }, 3000);
+    }
+
+    async _checkStreakNotification() {
+        if (this._streakShown) return;
+        this._streakShown = true;
+        try {
+            const { db } = await import('../utils/db.js');
+            const stats = await db.getStats();
+            const streak = stats?.streak || 0;
+            if (streak < 1) return;
+            const id = 'lf-streak-hud';
+            let hud = document.getElementById(id);
+            if (!hud) {
+                hud = document.createElement('div');
+                hud.id = id;
+                hud.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2147483647;background:rgba(15,23,42,0.95);color:#e2e8f0;font-family:Inter,sans-serif;font-size:14px;font-weight:700;padding:12px 22px;border-radius:14px;border:1px solid rgba(251,191,36,0.4);backdrop-filter:blur(8px);pointer-events:none;transition:opacity 0.5s;box-shadow:0 4px 24px rgba(0,0,0,0.5);text-align:center;';
+                document.body.appendChild(hud);
+            }
+            hud.style.opacity = '1';
+            hud.innerHTML = `🔥 <span style="color:#fbbf24">${streak} ${streak === 1 ? 'dia' : 'dias'}</span> de streak mantido!`;
+            setTimeout(() => { hud.style.opacity = '0'; setTimeout(() => hud.remove(), 500); }, 5000);
+        } catch(e) {}
     }
 
     _filterSubtitleList(text) {

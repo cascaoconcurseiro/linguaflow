@@ -1060,6 +1060,9 @@ export class SubtitleEngine {
         // Ativa o observer para esconder/mostrar botão de salvar frase conforme o texto
         this._setupSaveButtonObserver();
 
+        // Aplica as cores carregadas
+        this._updateSubtitleColors();
+
         // Auto-pause video on hover (Language Reactor feature) e Arrastar Legenda
         const wrap = this.shadowContainer.getElementById('lf-wrap');
         

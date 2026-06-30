@@ -71,9 +71,6 @@
     },
     "default_title": "LinguaFlow"
   },
-  "chrome_url_overrides": {
-    "newtab": "dashboard/newtab.html"
-  },
   "web_accessible_resources": [
     {
       "resources": [
@@ -83,7 +80,8 @@
         "icon.png",
         "icon16.png",
         "icon48.png",
-        "icon128.png"
+        "icon128.png",
+        "assets/*"
       ],
       "matches": ["<all_urls>"]
     }

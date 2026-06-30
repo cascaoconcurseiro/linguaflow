@@ -8,6 +8,37 @@
     <!-- JSZip para exportação .apkg -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #chunks-section, #chunks-section * {
+                visibility: visible;
+            }
+            #chunks-section {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                color: black !important;
+                background: white !important;
+            }
+            .chunk-card {
+                break-inside: avoid;
+                page-break-inside: avoid;
+                border: 1px solid #ccc !important;
+                background: #f9f9f9 !important;
+                color: #000 !important;
+            }
+            .chunk-card * {
+                color: #000 !important;
+                background: none !important;
+            }
+            /* Hide buttons during print */
+            #btn-batch-chunks, #btn-export-pdf, #btn-practice-chunks {
+                display: none !important;
+            }
+        }
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
@@ -948,12 +979,13 @@
             </section>
 
             <!-- ═══ CHUNKS ═══ -->
-            <section id="chunks-section" class="content-section" style="display:none;">
+            <section id="chunks-section" class="content-section">
                 <div class="view-header">
                     <h2>Meus Chunks <span id="chunks-due-badge" style="font-size:12px; background:var(--accent); color:#000; padding:2px 8px; border-radius:12px; margin-left:8px;"></span></h2>
                     <p class="view-desc">Domine a gramática intuitivamente focando em blocos de palavras.</p>
                     <div style="margin-top:16px; display:flex; gap:12px;">
                         <button class="btn btn-outline" id="btn-batch-chunks">✦ Gerar Chunks</button>
+                        <button class="btn btn-outline" id="btn-export-pdf" style="border-color: #fbbf24; color: #fbbf24;">📄 Gerar PDF</button>
                         <button class="btn btn-primary" id="btn-practice-chunks">▶ Praticar Chunks</button>
                     </div>
                     <div id="batch-chunks-progress" style="margin-top:10px; font-size:13px; color:var(--text3); display:none;"></div>

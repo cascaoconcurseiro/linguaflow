@@ -11,7 +11,7 @@ import { pronunciationLab } from '../utils/pronunciation.js';
 // ============================================================================
 let studyCards   = [];
 let currentIndex = 0;
-let showAnswer   = false;
+let revealStep   = 0;
 let isBlindMode  = false;
 let immersionPlayerInterval = null;
 let quizTimerInterval = null;
@@ -200,7 +200,7 @@ async function loadStudy() {
         });
 
         currentIndex  = 0;
-        showAnswer    = false;
+        revealStep    = 0;
         sessionTotal  = studyCards.length;
         sessionDone   = 0;
         sessionCorrect = 0;
@@ -273,24 +273,25 @@ async function showCard() {
         badge.textContent = label;
     }
 
-    if (!showAnswer) {
-        // ── FRENTE ──
+    // --- GERAÇÃO AUTOMÁTICA DE CHUNKS ---
+    // Solicita chunks em background no Passo 0 para que estejam prontos no Passo 2
+    if (revealStep === 0 && (!word.chunks || word.chunks.length === 0) && !word._chunksRequested) {
+        word._chunksRequested = true;
+        chrome.runtime.sendMessage({ action: 'ai_generate_chunks', word: word.word }, async (res) => {
+            if (res?.chunks && Array.isArray(res.chunks)) {
+                word.chunks = res.chunks;
+                await lfDb.saveWord(word);
+            }
+        });
+    }
+
+    if (revealStep === 0) {
+        // ── PASSO 0: APENAS A PALAVRA ──
         let frontContent;
         if (isBlindMode) {
             frontContent = `<div style="font-size:64px;margin-bottom:16px">👂</div><div class="fc-hint">Ouça e tente identificar a palavra</div>`;
-        } else if (word.context_sentence) {
-            const escaped = word.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const clozeRx = new RegExp(`(?<![\\wÀ-ÖØ-öø-ÿ])(${escaped})(?![\\wÀ-ÖØ-öø-ÿ])`, 'gi');
-            const cloze = word.context_sentence.replace(clozeRx,
-                `<span style="color:#38bdf8;border-bottom:2px dashed #38bdf8;padding:0 2px">[...]</span>`
-            );
-            frontContent = `
-                <div class="fc-context" style="font-size:22px;font-style:normal;color:#e2e8f0;margin-bottom:28px">"${cloze}"</div>
-                <div class="fc-word" style="font-size:18px;opacity:0.25">${word.word[0]}${'·'.repeat(Math.max(0,word.word.length-1))}</div>`;
         } else {
-            frontContent = `
-                <div class="fc-word">${word.word}</div>
-                <div class="fc-hint" style="margin-top:14px">Qual o significado em português?</div>`;
+            frontContent = `<div class="fc-word">${word.word}</div><div class="fc-hint" style="margin-top:14px">Qual a frase ou significado?</div>`;
         }
 
         content.innerHTML = `
@@ -298,8 +299,43 @@ async function showCard() {
                 <div class="flashcard" id="fc-front">
                     <div class="fc-audio-row">
                         <button class="audio-btn" id="fc-play-word">🔊 Palavra</button>
-                        ${word.context_sentence ? `<button class="audio-btn" id="fc-play-sent">🔊 Frase</button>` : ''}
-                        ${word.context_sentence ? `<button class="audio-btn" id="fc-mic-btn" title="Avaliar Pronúncia">🎙️ Falar</button>` : ''}
+                    </div>
+                    ${word.level ? `<div style="position:absolute;top:20px;left:20px"><span class="status-badge" style="background:rgba(56,189,248,0.12);color:#38bdf8">${word.level}</span></div>` : ''}
+                    ${frontContent}
+                    <div style="margin-top:30px">
+                        <button class="btn btn-accent" id="fc-btn-reveal" style="font-size:16px; padding:14px 32px; box-shadow: 0 4px 15px rgba(56,189,248,0.4);">Revelar Frase</button>
+                    </div>
+                    <div class="fc-hint" style="margin-top:16px">Ou pressione Espaço</div>
+                </div>
+            </div>`;
+    } else if (revealStep === 1) {
+        // ── PASSO 1: PALAVRA + FRASE DE CONTEXTO ──
+        let sentence = word.context_sentence;
+        if (!sentence && word.chunks && word.chunks.length > 0) sentence = word.chunks[0].eng;
+
+        let frontContent;
+        if (isBlindMode) {
+            frontContent = `<div style="font-size:64px;margin-bottom:16px">👂</div><div class="fc-hint">Ouça e tente identificar a palavra</div>`;
+        } else if (sentence) {
+            const escaped = word.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const clozeRx = new RegExp(`(?<![\\wÀ-ÖØ-öø-ÿ])(${escaped})(?![\\wÀ-ÖØ-öø-ÿ])`, 'gi');
+            const cloze = sentence.replace(clozeRx, `<span style="color:#38bdf8;border-bottom:2px dashed #38bdf8;padding:0 2px">[...]</span>`);
+            frontContent = `
+                <div class="fc-context" style="font-size:22px;font-style:normal;color:#e2e8f0;margin-bottom:28px">"${cloze}"</div>
+                <div class="fc-word" style="font-size:18px;opacity:0.25">${word.word[0]}${'·'.repeat(Math.max(0,word.word.length-1))}</div>`;
+        } else {
+            frontContent = `
+                <div class="fc-word">${word.word}</div>
+                <div class="fc-hint" style="margin-top:14px">Sem frase salva. Qual o significado?</div>`;
+        }
+
+        content.innerHTML = `
+            <div class="flashcard-scene">
+                <div class="flashcard" id="fc-front">
+                    <div class="fc-audio-row">
+                        <button class="audio-btn" id="fc-play-word">🔊 Palavra</button>
+                        ${sentence ? `<button class="audio-btn" id="fc-play-sent">🔊 Frase</button>` : ''}
+                        ${sentence ? `<button class="audio-btn" id="fc-mic-btn" title="Avaliar Pronúncia">🎙️ Falar</button>` : ''}
                     </div>
                     <div id="fc-mic-feedback" style="display:none; text-align:center; margin-top:8px; font-size:14px; font-weight:600; padding:8px; border-radius:6px;"></div>
                     ${word.level ? `<div style="position:absolute;top:20px;left:20px"><span class="status-badge" style="background:rgba(56,189,248,0.12);color:#38bdf8">${word.level}</span></div>` : ''}
@@ -310,52 +346,9 @@ async function showCard() {
                     <div class="fc-hint" style="margin-top:16px">Ou pressione Espaço</div>
                 </div>
             </div>`;
-
-        document.getElementById('fc-front').addEventListener('click', e => {
-            if (e.target.closest('.audio-btn')) return;
-            revealAnswer();
-        });
-        document.getElementById('fc-btn-reveal').addEventListener('click', e => {
-            e.stopPropagation();
-            revealAnswer();
-        });
-        document.getElementById('fc-play-word')?.addEventListener('click', e => { e.stopPropagation(); tts.play(word.word, 'en-US'); });
-        document.getElementById('fc-play-sent')?.addEventListener('click', e => { e.stopPropagation(); tts.play(word.context_sentence, 'en-US'); });
-        
-        const fcMicBtn = document.getElementById('fc-mic-btn');
-        if (fcMicBtn) {
-            fcMicBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                if (pronunciationLab.isRecording) { pronunciationLab.stop(); return; }
-                fcMicBtn.style.background = 'rgba(239,68,68,0.2)';
-                fcMicBtn.style.color = '#ef4444';
-                fcMicBtn.textContent = '⏹️ Ouvindo...';
-                await pronunciationLab.assess(word.context_sentence, (fb) => {
-                    const fbDiv = document.getElementById('fc-mic-feedback');
-                    if (fb.status === 'result') {
-                        fbDiv.style.display = 'block';
-                        fbDiv.innerHTML = `Pronúncia: ${fb.score}% <br> <div style="margin-top:4px">${fb.htmlFeedback}</div>`;
-                        fcMicBtn.style.background = '';
-                        fcMicBtn.style.color = '';
-                        fcMicBtn.textContent = '🎙️ Falar';
-                    } else if (fb.error) {
-                        fbDiv.style.display = 'block';
-                        fbDiv.innerHTML = `<span style="color:var(--red)">${fb.error}</span>`;
-                        fcMicBtn.style.background = '';
-                        fcMicBtn.style.color = '';
-                        fcMicBtn.textContent = '🎙️ Falar';
-                    }
-                });
-            });
-        }
-
-        tts.play(word.word, 'en-US');
-
     } else {
-        // ── VERSO ──
-        if (word.pronunciation_pt) {
-            tts.play(word.pronunciation_pt, 'pt-BR');
-        }
+        // ── PASSO 2: VERSO COMPLETO ──
+        if (word.pronunciation_pt) tts.play(word.pronunciation_pt, 'pt-BR');
 
         const [intAgain, intHard, intGood, intEasy] = await Promise.all([
             lfDb.predictNextInterval(card, 1),
@@ -367,15 +360,18 @@ async function showCard() {
         const tagRow = (Array.isArray(word.tags) ? word.tags : (word.tags || '').split(',').map(t => t.trim()).filter(Boolean))
             .map(t => `<span class="tag-chip">${t}</span>`).join('');
 
+        let sentence = word.context_sentence;
+        if (!sentence && word.chunks && word.chunks.length > 0) sentence = word.chunks[0].eng;
+
         content.innerHTML = `
             <div class="flashcard-scene">
                 <div class="flashcard" style="cursor:default">
                     <div class="fc-audio-row">
                         <button class="audio-btn" id="fc-play-word-ans">🔊 Inglês</button>
                         ${word.pronunciation_pt ? `<button class="audio-btn" id="fc-play-pt-ans">🇧🇷 BR</button>` : ''}
-                        ${word.context_sentence ? `<button class="audio-btn" id="fc-play-sent-ans">🔊 Frase</button>` : ''}
-                        ${word.context_sentence ? `<button class="audio-btn" id="fc-mic-btn-ans" title="Avaliar Pronúncia">🎙️ Falar</button>` : ''}
-                        ${word.context_sentence ? `<button class="audio-btn" id="fc-ai-var-btn" title="Gerar novas frases">🧠 Variação</button>` : ''}
+                        ${sentence ? `<button class="audio-btn" id="fc-play-sent-ans">🔊 Frase</button>` : ''}
+                        ${sentence ? `<button class="audio-btn" id="fc-mic-btn-ans" title="Avaliar Pronúncia">🎙️ Falar</button>` : ''}
+                        ${sentence ? `<button class="audio-btn" id="fc-ai-var-btn" title="Gerar novas frases">🧠 Variação</button>` : ''}
                         <button class="audio-btn" id="fc-edit-btn">✏️ Editar</button>
                     </div>
                     <div id="fc-ai-var-container" style="display:none; text-align:left; margin-top:8px; font-size:14px; font-weight:500; padding:12px; border-radius:8px; background:rgba(56, 189, 248, 0.1); border:1px solid rgba(56, 189, 248, 0.2); color:#e2e8f0;"></div>
@@ -383,7 +379,7 @@ async function showCard() {
                     ${word.level ? `<div style="position:absolute;top:20px;left:20px"><span class="status-badge" style="background:rgba(56,189,248,0.12);color:#38bdf8">${word.level}</span></div>` : ''}
                     <div class="fc-word">${word.word}</div>
                     ${word.pronunciation_pt ? `<div style="font-size:18px; color:#fbbf24; font-weight:800; font-family:monospace; background:rgba(251,191,36,0.1); padding:6px 14px; border-radius:8px; display:inline-block; border:1px solid rgba(251,191,36,0.35); margin-top:10px;">🇧🇷 ${word.pronunciation_pt}</div>` : (word.phonetic ? `<div style="font-size:14px; color:#94a3b8; font-family:monospace; margin-top:8px;">${word.phonetic}</div>` : '')}
-                    ${word.context_sentence ? `<div class="fc-context" style="margin-top:16px;">"${word.context_sentence}"</div>` : ''}
+                    ${sentence ? `<div class="fc-context" style="margin-top:16px;">"${sentence}"</div>` : ''}
                     ${word.translation ? `<div class="fc-translation" style="color:#22c55e; margin-top:8px;">${word.translation}</div>` : ''}
                     ${word.chunks && Array.isArray(word.chunks) && word.chunks.length > 0 ? `
                         <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); width: 100%; text-align: left; max-width:500px;">
@@ -431,7 +427,57 @@ async function showCard() {
                 <span class="key-chip"><kbd>3</kbd> Bom</span>
                 <span class="key-chip"><kbd>4</kbd> Fácil</span>
             </div>`;
+    }
 
+    if (revealStep < 2) {
+        document.getElementById('fc-front')?.addEventListener('click', e => {
+            if (e.target.closest('.audio-btn') || e.target.closest('.btn')) return;
+            revealAnswer();
+        });
+        document.getElementById('fc-btn-reveal')?.addEventListener('click', e => {
+            e.stopPropagation();
+            revealAnswer();
+        });
+        document.getElementById('fc-play-word')?.addEventListener('click', e => { e.stopPropagation(); tts.play(word.word, 'en-US'); });
+        
+        let sentenceToPlay = word.context_sentence;
+        if (!sentenceToPlay && word.chunks && word.chunks.length > 0) sentenceToPlay = word.chunks[0].eng;
+
+        document.getElementById('fc-play-sent')?.addEventListener('click', e => { e.stopPropagation(); tts.play(sentenceToPlay, 'en-US'); });
+        
+        const fcMicBtn = document.getElementById('fc-mic-btn');
+        if (fcMicBtn) {
+            fcMicBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (pronunciationLab.isRecording) { pronunciationLab.stop(); return; }
+                fcMicBtn.style.background = 'rgba(239,68,68,0.2)';
+                fcMicBtn.style.color = '#ef4444';
+                fcMicBtn.textContent = '⏹️ Ouvindo...';
+                await pronunciationLab.assess(sentenceToPlay, (fb) => {
+                    const fbDiv = document.getElementById('fc-mic-feedback');
+                    if (fb.status === 'result') {
+                        fbDiv.style.display = 'block';
+                        fbDiv.innerHTML = `Pronúncia: ${fb.score}% <br> <div style="margin-top:4px">${fb.htmlFeedback}</div>`;
+                        fcMicBtn.style.background = '';
+                        fcMicBtn.style.color = '';
+                        fcMicBtn.textContent = '🎙️ Falar';
+                    } else if (fb.error) {
+                        fbDiv.style.display = 'block';
+                        fbDiv.innerHTML = `<span style="color:var(--red)">${fb.error}</span>`;
+                        fcMicBtn.style.background = '';
+                        fcMicBtn.style.color = '';
+                        fcMicBtn.textContent = '🎙️ Falar';
+                    }
+                });
+            });
+        }
+
+        if (revealStep === 0) {
+            tts.play(word.word, 'en-US');
+        } else if (revealStep === 1) {
+            tts.play(sentenceToPlay, 'en-US');
+        }
+    } else {
         document.getElementById('fc-play-word-ans')?.addEventListener('click', () => tts.play(word.word, 'en-US'));
         document.getElementById('fc-play-pt-ans')?.addEventListener('click', () => tts.play(word.pronunciation_pt, 'pt-BR'));
         document.getElementById('fc-play-sent-ans')?.addEventListener('click', () => tts.play(word.context_sentence, 'en-US'));
@@ -446,9 +492,7 @@ async function showCard() {
                     if (res?.chunks && Array.isArray(res.chunks)) {
                         word.chunks = res.chunks;
                         await lfDb.saveWord(word);
-                        // Recarrega a carta atual para exibir os novos chunks
-                        showAnswer = true;
-                        await showCard();
+                        await showCard(); // Redraw with chunks
                     } else {
                         genChunksBtn.textContent = '❌ Erro. Tente novamente';
                         genChunksBtn.disabled = false;
@@ -523,7 +567,8 @@ async function showCard() {
 
 async function revealAnswer() { 
     try {
-        showAnswer = true; 
+        revealStep++;
+        if (revealStep > 2) revealStep = 2;
         await showCard(); 
     } catch (e) {
         showToast('Erro ao revelar o cartão: ' + e.message, 'error');
@@ -537,7 +582,7 @@ async function answerCard(quality) {
     sessionDone++;
     if (quality >= 3) sessionCorrect++;
     currentIndex++;
-    showAnswer = false;
+    revealStep = 0;
     updateHeader();
     updateSessionUI();
     await showCard();
@@ -548,8 +593,8 @@ document.addEventListener('keydown', e => {
     const active = document.querySelector('.content-section.active')?.id;
     if (active !== 'study-section') return;
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    if (!showAnswer && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); revealAnswer(); }
-    if (showAnswer) {
+    if (revealStep < 2 && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); revealAnswer(); }
+    if (revealStep === 2) {
         if (e.key === '1') document.getElementById('btn-again')?.click();
         if (e.key === '2') document.getElementById('btn-hard')?.click();
         if (e.key === '3') document.getElementById('btn-good')?.click();
@@ -1318,8 +1363,17 @@ async function loadChunks() {
     allChunks = [];
 
     words.forEach(w => {
-        if (w.chunks && Array.isArray(w.chunks) && w.chunks.length > 0) {
-            w.chunks.forEach(c => allChunks.push({ wordId: w.id, word: w.word, ...c }));
+        let chunks = w.chunks;
+        if (typeof chunks === 'string') {
+            try { chunks = JSON.parse(chunks); } catch(e) { chunks = null; }
+        }
+        if (chunks && Array.isArray(chunks) && chunks.length > 0) {
+            chunks.forEach(c => allChunks.push({ wordId: w.id, word: w.word, ...c }));
+            // Atualizar o banco para o formato correto em background
+            if (typeof w.chunks === 'string') {
+                w.chunks = chunks;
+                lfDb.saveWord(w).catch(console.error);
+            }
         }
     });
 
@@ -1328,9 +1382,16 @@ async function loadChunks() {
     const wordsWithoutChunks = words.filter(w => !w.chunks || !w.chunks.length);
     const batchBtn = document.getElementById('btn-batch-chunks');
     const batchProgress = document.getElementById('batch-chunks-progress');
+    const pdfBtn = document.getElementById('btn-export-pdf');
 
-    if (batchBtn) {
-        if (wordsWithoutChunks.length === 0) {
+    if (pdfBtn) {
+        pdfBtn.onclick = () => {
+            window.print();
+        };
+    }
+
+    if (wordsWithoutChunks.length === 0) {
+        if (batchBtn) {
             batchBtn.textContent = '✅ Todas as palavras já têm chunks';
             batchBtn.disabled = true;
         } else {
@@ -1399,7 +1460,7 @@ function renderChunksGrid() {
     
     allChunks.forEach(c => {
         const div = document.createElement('div');
-        div.className = 'lf-card';
+        div.className = 'lf-card chunk-card';
         div.style.position = 'relative';
         div.style.padding = '20px';
         div.innerHTML = `

@@ -3,7 +3,7 @@ const DB_NAME = 'LinguaFlowFreeDB';
 
 async function readAllSettings() {
     const { db } = await import('../utils/db.js');
-    const settings = ['targetLang', 'subtitleMode', 'bgOpacity', 'fontSize', 'fontSizeTrans', 'autoPause', 'showOriginal', 'showTranslation', 'subtitleBottom', 'subtitleHorizontal', 'translationDelay', 'translationAnticipation', 'flashDuration', 'wordColorKnown', 'wordColorSaved', 'blurSubtitles', 'ttsPlaybackRate', 'fontFamily', 'colorPalette', 'popupMode', 'cefrTargetLevel', 'autoHarvestLimit', 'cefrAutoHarvest', 'cefrColorsEnabled'];
+    const settings = ['targetLang', 'subtitleMode', 'bgOpacity', 'fontSize', 'fontSizeTrans', 'autoPause', 'showOriginal', 'showTranslation', 'subtitleBottom', 'subtitleHorizontal', 'translationDelay', 'translationAnticipation', 'flashDuration', 'wordColorKnown', 'wordColorSaved', 'blurSubtitles', 'ttsPlaybackRate', 'fontFamily', 'colorPalette', 'popupMode', 'cefrTargetLevel', 'autoHarvestLimit', 'cefrAutoHarvest', 'cefrColorsEnabled', 'cefrColorA1', 'cefrColorA2', 'cefrColorB1', 'cefrColorB2', 'cefrColorC1', 'cefrColorC2'];
     const obj = {};
     for (const key of settings) {
         const val = await db.getSetting(key);
@@ -48,7 +48,13 @@ export class SettingsPanel {
             cefrTargetLevel:         'none',
             autoHarvestLimit:        10,
             cefrAutoHarvest:         false,
-            cefrColorsEnabled:       true
+            cefrColorsEnabled:       true,
+            cefrColorA1:             '#4ade80',
+            cefrColorA2:             '#38bdf8',
+            cefrColorB1:             '#22d3ee',
+            cefrColorB2:             '#fbbf24',
+            cefrColorC1:             '#fb923c',
+            cefrColorC2:             '#a78bfa'
         };
 
         this._init();
@@ -107,6 +113,13 @@ export class SettingsPanel {
         s.getElementById('sel-cefr-auto').value     = this.cfg.cefrAutoHarvest ? 'on' : 'off';
         s.getElementById('sel-cefr-colors').value   = this.cfg.cefrColorsEnabled ? 'on' : 'off';
 
+        s.getElementById('col-cefr-a1').value       = this.cfg.cefrColorA1;
+        s.getElementById('col-cefr-a2').value       = this.cfg.cefrColorA2;
+        s.getElementById('col-cefr-b1').value       = this.cfg.cefrColorB1;
+        s.getElementById('col-cefr-b2').value       = this.cfg.cefrColorB2;
+        s.getElementById('col-cefr-c1').value       = this.cfg.cefrColorC1;
+        s.getElementById('col-cefr-c2').value       = this.cfg.cefrColorC2;
+
         s.getElementById('val-font').textContent        = `${this.cfg.fontSize}px`;
         s.getElementById('val-font-trans').textContent  = `${this.cfg.fontSizeTrans}px`;
         s.getElementById('val-bg').textContent          = `${Math.round(this.cfg.bgOpacity * 100)}%`;
@@ -146,6 +159,12 @@ export class SettingsPanel {
         s.getElementById('sel-cefr-colors').onchange = e => {
             this._save('cefrColorsEnabled', e.target.value === 'on');
         };
+        
+        ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].forEach(level => {
+            s.getElementById(`col-cefr-${level.toLowerCase()}`).onchange = e => {
+                this._save(`cefrColor${level}`, e.target.value);
+            };
+        });
 
         s.getElementById('rng-auto-harvest').oninput = e => {
             const v = Number(e.target.value);
@@ -227,6 +246,7 @@ export class SettingsPanel {
             for (const [key, value] of Object.entries(this.cfg)) {
                 await writeSetting(key, value);
             }
+            window.dispatchEvent(new CustomEvent('LF_SETTINGS_CHANGED'));
             setTimeout(() => {
                 btn.textContent = '💾 Salvar Configurações';
                 btn.style.background = '#10B981';
@@ -373,6 +393,7 @@ export class SettingsPanel {
                             <label>Nível Alvo (CEFR)</label>
                             <select id="sel-cefr-level">
                                 <option value="none">Desativado</option>
+                                <option value="all">Todos os Níveis (A1-C2)</option>
                                 <option value="A1">A1 (Iniciante)</option>
                                 <option value="A2">A2 (Básico)</option>
                                 <option value="B1">B1 (Intermediário)</option>
@@ -396,6 +417,35 @@ export class SettingsPanel {
                                 <option value="off">Desativada (Apenas conhecidas/salvas)</option>
                             </select>
                             <small>Mostra cores diferentes para A1, A2, B1, etc. nas legendas.</small>
+                        </div>
+                        <div class="group">
+                            <label>Personalizar Cores CEFR</label>
+                            <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                                <div style="display:flex; flex-direction:column; gap:4px;">
+                                    <small style="font-size:10px;">A1 (Iniciante)</small>
+                                    <input type="color" id="col-cefr-a1">
+                                </div>
+                                <div style="display:flex; flex-direction:column; gap:4px;">
+                                    <small style="font-size:10px;">A2 (Básico)</small>
+                                    <input type="color" id="col-cefr-a2">
+                                </div>
+                                <div style="display:flex; flex-direction:column; gap:4px;">
+                                    <small style="font-size:10px;">B1 (Intermediário)</small>
+                                    <input type="color" id="col-cefr-b1">
+                                </div>
+                                <div style="display:flex; flex-direction:column; gap:4px;">
+                                    <small style="font-size:10px;">B2 (Independente)</small>
+                                    <input type="color" id="col-cefr-b2">
+                                </div>
+                                <div style="display:flex; flex-direction:column; gap:4px;">
+                                    <small style="font-size:10px;">C1 (Avançado)</small>
+                                    <input type="color" id="col-cefr-c1">
+                                </div>
+                                <div style="display:flex; flex-direction:column; gap:4px;">
+                                    <small style="font-size:10px;">C2 (Fluente)</small>
+                                    <input type="color" id="col-cefr-c2">
+                                </div>
+                            </div>
                         </div>
                         <div class="group">
                             <label>Limite Diário de Palavras Automáticas</label>
@@ -647,6 +697,18 @@ export class SettingsPanel {
         this.engine.translationAnticipation  = this.cfg.translationAnticipation;
         this.engine.autoPause                = this.cfg.autoPause;
         this.engine.flashDuration            = this.cfg.flashDuration;
+        this.engine.cefrAutoSave             = this.cfg.cefrAutoHarvest;
+        this.engine.cefrColorsEnabled        = this.cfg.cefrColorsEnabled;
+        
+        // Passar cores do CEFR para a engine
+        this.engine.cefrColors = {
+            A1: this.cfg.cefrColorA1,
+            A2: this.cfg.cefrColorA2,
+            B1: this.cfg.cefrColorB1,
+            B2: this.cfg.cefrColorB2,
+            C1: this.cfg.cefrColorC1,
+            C2: this.cfg.cefrColorC2
+        };
         this.engine.blurSubtitles            = this.cfg.blurSubtitles;
         this.engine.ttsPlaybackRate          = this.cfg.ttsPlaybackRate;
         this.engine.popupMode                = this.cfg.popupMode;

@@ -107,6 +107,15 @@ export class SubtitleEngine {
                 window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
             }
         });
+        
+        window.addEventListener('LF_SETTINGS_CHANGED', async () => {
+            console.debug('[LinguaFlow] Configurações alteradas. Recarregando...');
+            await this._loadSettings();
+            if (this._lastOrig) {
+                // Força re-renderização para aplicar novas cores de CEFR
+                this.renderDual(this._lastOrig, this._lastTrans);
+            }
+        });
     }
 
     _startImmersionLog() {
@@ -149,6 +158,18 @@ export class SubtitleEngine {
 
     _updateSubtitleColors() {
         if (this.shadowContainer) {
+            if (this.cefrColors) {
+                const inner = this.shadowContainer.querySelector('#lf-inner-container');
+                if (inner) {
+                    inner.style.setProperty('--cefr-a1', this.cefrColors.A1 || '#4ade80');
+                    inner.style.setProperty('--cefr-a2', this.cefrColors.A2 || '#38bdf8');
+                    inner.style.setProperty('--cefr-b1', this.cefrColors.B1 || '#22d3ee');
+                    inner.style.setProperty('--cefr-b2', this.cefrColors.B2 || '#fbbf24');
+                    inner.style.setProperty('--cefr-c1', this.cefrColors.C1 || '#fb923c');
+                    inner.style.setProperty('--cefr-c2', this.cefrColors.C2 || '#a78bfa');
+                }
+            }
+            
             const words = this.shadowContainer.querySelectorAll('.lf-word');
             words.forEach(el => {
                 const w = el.dataset.word?.toLowerCase();
@@ -895,12 +916,12 @@ export class SubtitleEngine {
                 .lf-review   { color: #38BDF8; text-decoration: underline dashed; text-underline-offset: 3px; } /* azul — revisando */
                 .lf-learning { color: #FBBF24; text-decoration: underline dashed; text-underline-offset: 3px; } /* amarelo — aprendendo */
                 .lf-saved    { color: var(--lf-color-saved, #93C5FD); text-decoration: underline dashed; text-underline-offset: 4px; } /* azul claro — nova */
-                .lf-cefr-A1 { color: #60a5fa !important; text-shadow: 0 0 8px rgba(96, 165, 250, 0.4); }
-                .lf-cefr-A2 { color: #4ade80 !important; text-shadow: 0 0 8px rgba(74, 222, 128, 0.4); }
-                .lf-cefr-B1 { color: #facc15 !important; text-shadow: 0 0 8px rgba(250, 204, 21, 0.4); }
-                .lf-cefr-B2 { color: #fb923c !important; text-shadow: 0 0 8px rgba(251, 146, 60, 0.4); }
-                .lf-cefr-C1 { color: #f87171 !important; text-shadow: 0 0 8px rgba(248, 113, 113, 0.4); }
-                .lf-cefr-C2 { color: #c084fc !important; text-shadow: 0 0 8px rgba(192, 132, 252, 0.4); }
+                .lf-cefr-A1 { color: var(--cefr-a1, #60a5fa) !important; text-shadow: 0 0 8px var(--cefr-a1, #60a5fa); }
+                .lf-cefr-A2 { color: var(--cefr-a2, #4ade80) !important; text-shadow: 0 0 8px var(--cefr-a2, #4ade80); }
+                .lf-cefr-B1 { color: var(--cefr-b1, #facc15) !important; text-shadow: 0 0 8px var(--cefr-b1, #facc15); }
+                .lf-cefr-B2 { color: var(--cefr-b2, #fb923c) !important; text-shadow: 0 0 8px var(--cefr-b2, #fb923c); }
+                .lf-cefr-C1 { color: var(--cefr-c1, #f87171) !important; text-shadow: 0 0 8px var(--cefr-c1, #f87171); }
+                .lf-cefr-C2 { color: var(--cefr-c2, #c084fc) !important; text-shadow: 0 0 8px var(--cefr-c2, #c084fc); }
                 .lf-expression { 
                     border-bottom: 2px dotted rgba(56, 189, 248, 0.6); 
                     padding-bottom: 1px;
@@ -2919,7 +2940,7 @@ export class SubtitleEngine {
         for (const w of words) {
             const word = w.toLowerCase().replace(/^'+|'+$/g, '');
             const level = this.cefrList[word];
-            if (level === this.cefrTargetLevel) {
+            if (level === this.cefrTargetLevel || this.cefrTargetLevel === 'all') {
                 // If it's a known or already saved word, skip
                 if (this.knownWords.has(word) || this.savedWords.has(word)) continue;
                 
@@ -2952,14 +2973,20 @@ export class SubtitleEngine {
                         }, resolve));
                         if (res?.translation) cue.translatedText = res.translation;
                     }
+                    
+                    const deckName = level || 'Uncategorized';
+                    const videoUrl = await this._getVideoUrlWithTimestamp();
+                    const deckId = await db.getOrCreateDeck(deckName, videoUrl);
+
                     const data = {
                         word: word,
                         sentence: cue.fullContext ? `${cue.fullContext.prev} ${cue.fullContext.current} ${cue.fullContext.next}`.trim() : cue.text,
                         translation: cue.translatedText || '',
-                        source: await this._getVideoUrlWithTimestamp(),
+                        source: videoUrl,
                         sourceTitle: videoTitle,
                         tags: ['cefr-harvest', level],
-                        deckId: level
+                        deck_id: deckId,
+                        level: level
                     };
                     await db.saveWord(data);
                     this.savedWords.set(word, 'new');
@@ -3219,7 +3246,7 @@ export class SubtitleEngine {
         if (this.cefrColorsEnabled && !wordStatus && this.cefrList) {
             const level = this.cefrList[text.toLowerCase()];
             if (level && ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].includes(level)) {
-                if (!this.cefrTargetLevel || this.cefrTargetLevel === 'none' || this.cefrTargetLevel === level) {
+                if (this.cefrTargetLevel === 'all' || this.cefrTargetLevel === level) {
                     cefrClass = ' lf-cefr-' + level;
                 }
             }

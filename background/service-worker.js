@@ -531,7 +531,26 @@ async function explainWordWithAI(word, context, customPrompt = null) {
         const prompt = customPrompt || `Termo selecionado: "${word}"
 Frase/contexto: "${context || 'sem contexto'}"
 
-Explique o termo pelo sentido que ele tem nessa frase. Se o termo isolado puder significar outra coisa, compare os dois sentidos. Se for phrasal verb, gíria, chunk, idiom ou colocação, explique o bloco inteiro.`;
+Você é um professor de inglês especializado em pronúncia, connected speech e percepção auditiva para brasileiros.
+Sua missão não é apenas ensinar a pronúncia correta, mas ensinar o aluno a reconhecer como os americanos realmente falam em conversas naturais.
+
+Explique o termo pelo sentido que ele tem nessa frase. Se o termo isolado puder significar outra coisa, compare os dois sentidos. Se for phrasal verb, gíria, chunk, idiom ou colocação, explique o bloco inteiro.
+
+Para a palavra, siga EXATAMENTE esta estrutura de pronúncia no final da sua explicação:
+
+## 1. Pronúncia oficial
+Mostre a pronúncia em IPA.
+Exemplo: Would → /wʊd/
+
+## 2. Como um brasileiro costuma aprender
+Explique como normalmente é ensinada.
+Exemplo: "uud"
+
+## 3. Como realmente soa para um brasileiro
+Escreva uma adaptação fonética usando apenas letras do português, mesmo que não seja foneticamente perfeita.
+Exemplo:
+Would → uãd
+Should → xãd`;
         
         const config = await getApiConfig();
         if (!config.apiKey && config.provider !== 'gemini') return 'Por favor, configure sua chave de API no Dashboard para usar recursos de IA.';

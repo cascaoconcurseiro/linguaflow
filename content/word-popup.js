@@ -168,17 +168,29 @@ export class WordPopup {
 
   _build() {
     document.getElementById('lfp')?.remove();
+    const hexToRgb = (hex) => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '#000');
+      return result ? `${parseInt(result[1], 16)},${parseInt(result[2], 16)},${parseInt(result[3], 16)}` : '255,255,255';
+    };
+    const cA1 = this.engine?.cefrColors?.A1 || '#4ade80';
+    const cA2 = this.engine?.cefrColors?.A2 || '#38bdf8';
+    const cB1 = this.engine?.cefrColors?.B1 || '#22d3ee';
+    const cB2 = this.engine?.cefrColors?.B2 || '#fbbf24';
+    const cC1 = this.engine?.cefrColors?.C1 || '#fb923c';
+    const cC2 = this.engine?.cefrColors?.C2 || '#a78bfa';
+    const rA1 = hexToRgb(cA1), rA2 = hexToRgb(cA2), rB1 = hexToRgb(cB1), rB2 = hexToRgb(cB2), rC1 = hexToRgb(cC1), rC2 = hexToRgb(cC2);
+
     if (!document.getElementById('lfp-k')) {
       const s=document.createElement('style');s.id='lfp-k';
       s.textContent=`@keyframes lfpIn{from{opacity:0;transform:translateY(10px) scale(0.93)}to{opacity:1;transform:translateY(0) scale(1)}}@keyframes lfpSpin{to{transform:rotate(360deg)}}.lfp-spin{width:18px;height:18px;border:2px solid rgba(255,255,255,.1);border-top-color:#a78bfa;border-radius:50%;animation:lfpSpin .6s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px}#lfp *{box-sizing:border-box;margin:0;padding:0}#lfp button,#lfp select,#lfp input{font-family:'Outfit','Segoe UI',sans-serif}.lfp-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:3px 10px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .12s;display:inline-block}.lfp-chip:hover{color:#7dd3fc;border-color:rgba(125,209,252,.35)}.lfp-chip.red{background:rgba(248,113,113,.06);border-color:rgba(248,113,113,.15);color:#f87171}.lfp-panels::-webkit-scrollbar{width:3px}.lfp-panels::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}.lfp-ph{background:rgba(244,114,182,.06);border:1px solid rgba(244,114,182,.15);border-radius:9px;padding:9px 12px;margin-bottom:7px}.lfp-ex{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 13px;margin-bottom:8px}.ai-res{white-space:pre-wrap;word-break:break-word}
 /* CEFR badges */
 .lfp-badge{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:20px;line-height:1.6}
-.lfp-a1{background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.25)}
-.lfp-a2{background:rgba(56,189,248,.12);color:#38bdf8;border:1px solid rgba(56,189,248,.25)}
-.lfp-b1{background:rgba(34,211,238,.12);color:#22d3ee;border:1px solid rgba(34,211,238,.25)}
-.lfp-b2{background:rgba(251,191,36,.12);color:#fbbf24;border:1px solid rgba(251,191,36,.25)}
-.lfp-c1{background:rgba(251,146,60,.12);color:#fb923c;border:1px solid rgba(251,146,60,.25)}
-.lfp-c2{background:rgba(167,139,250,.12);color:#a78bfa;border:1px solid rgba(167,139,250,.25)}
+.lfp-a1{background:rgba(${rA1},.12);color:${cA1};border:1px solid rgba(${rA1},.25)}
+.lfp-a2{background:rgba(${rA2},.12);color:${cA2};border:1px solid rgba(${rA2},.25)}
+.lfp-b1{background:rgba(${rB1},.12);color:${cB1};border:1px solid rgba(${rB1},.25)}
+.lfp-b2{background:rgba(${rB2},.12);color:${cB2};border:1px solid rgba(${rB2},.25)}
+.lfp-c1{background:rgba(${rC1},.12);color:${cC1};border:1px solid rgba(${rC1},.25)}
+.lfp-c2{background:rgba(${rC2},.12);color:${cC2};border:1px solid rgba(${rC2},.25)}
 /* Expression type badges */
 .lfp-type-phrasal{background:rgba(244,114,182,.1);color:#f472b6;border:1px solid rgba(244,114,182,.25)}
 .lfp-type-idiom{background:rgba(251,146,60,.1);color:#fb923c;border:1px solid rgba(251,146,60,.25)}
@@ -510,11 +522,16 @@ export class WordPopup {
     q('#ft').textContent='…'; q('#fd').textContent=''; q('#fc').style.display='none'; q('#fctx').style.display='none';
     q('#fsyn').style.display='none'; q('#fant').style.display='none';
     q('#fair-container').style.display='none';
-    // Context
     if (context) {
       const safeContext = this._escapeAttr(context);
       const safeTerm = this._escapeAttr(this.word);
-      q('#fc').innerHTML = safeContext.replace(new RegExp(`\\b(${this._escapeRegExp(safeTerm)})\\b`, 'gi'), '<b style="color:#7dd3fc">$1</b>');
+      const level = this.engine?.cefrList?.[this.word.toLowerCase()];
+      const colors = {
+          'A1': '#60a5fa', 'A2': '#4ade80', 'B1': '#facc15',
+          'B2': '#fb923c', 'C1': '#f87171', 'C2': '#c084fc'
+      };
+      const highlightColor = (level && colors[level]) ? colors[level] : '#7dd3fc';
+      q('#fc').innerHTML = safeContext.replace(new RegExp(`\\b(${this._escapeRegExp(safeTerm)})\\b`, 'gi'), `<b style="color:${highlightColor}">$1</b>`);
       q('#fc').style.display='';
     }
     // Buttons state
@@ -846,7 +863,8 @@ export class WordPopup {
           d.phonetic = this.generatedChunks[0].phon;
       }
 
-      const deckId = await db.getOrCreateDeck(document.title, window.location.href);
+      const deckName = this.activeLevel || 'Uncategorized';
+      const deckId = await db.getOrCreateDeck(deckName, window.location.href);
 
       const snapshot = videoUtils.captureSnapshot ? videoUtils.captureSnapshot() : null;
 
@@ -1358,11 +1376,41 @@ export class WordPopup {
         q('#fair-container').style.display = 'block';
         resEl.innerHTML = this._formatAI(response.explanation);
 
-        // Tenta extrair o nível CEFR (A1-C2) ignorando asteriscos e colchetes
+        // Tenta extrair o nível CEFR (A1-C2) ignorando asteriscos e colchetes (fallback)
         const cefrMatch = response.explanation.match(/Nível Sugerido \(CEFR\)[^A-Z]*(A1|A2|B1|B2|C1|C2)/i);
+        let level = null;
+        
         if (cefrMatch) {
-            const level = cefrMatch[1].toUpperCase();
+            level = cefrMatch[1].toUpperCase();
+        } else if (this.engine && this.engine.cefrList && this.word) {
+            level = this.engine.cefrList[this.word.toLowerCase()];
+        }
+        
+        if (level) {
             this.activeLevel = level;
+            
+            // Atualiza a UI do popup dinamicamente com o nível da IA
+            const cefrBadge = this.popup.querySelector('#fcefr');
+            if (cefrBadge) {
+                cefrBadge.textContent = level;
+                cefrBadge.className = `lfp-badge lfp-${level.toLowerCase()}`;
+                cefrBadge.style.display = 'inline-block';
+            }
+            
+            // Atualiza a cor na frase de contexto
+            const colors = {
+                'A1': '#60a5fa', 'A2': '#4ade80', 'B1': '#facc15',
+                'B2': '#fb923c', 'C1': '#f87171', 'C2': '#c084fc'
+            };
+            if (colors[level] && this.context) {
+                const safeContext = this._escapeAttr(this.context);
+                const safeTerm = this._escapeAttr(this.word);
+                const fc = this.popup.querySelector('#fc');
+                if (fc) {
+                    fc.innerHTML = safeContext.replace(new RegExp(`\\b(${this._escapeRegExp(safeTerm)})\\b`, 'gi'), `<b style="color:${colors[level]}">$1</b>`);
+                }
+            }
+
             // Se já estiver salva, atualiza o nível no banco
             const BASE=chrome.runtime.getURL('utils/');
             const {db}=await import(BASE+'db.js');
@@ -1561,6 +1609,11 @@ export class WordPopup {
       .replace(/\*\*(.*?Mão na Massa.*?)\*\*/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(251,146,60,0.1);border-left:3px solid #fb923c;border-radius:4px;color:#fb923c;font-weight:bold;font-size:13px;">🛠️ $1</div>')
       .replace(/\*\*(.*?Pronúncia de Rua.*?)\*\*/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(249,168,212,0.1);border-left:3px solid #f9a8d4;border-radius:4px;color:#f9a8d4;font-weight:bold;font-size:13px;">🗣️ $1</div>')
       .replace(/\*\*(.*?Nível Nativo.*?)\*\*/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(250,204,21,0.1);border-left:3px solid #facc15;border-radius:4px;color:#facc15;font-weight:bold;font-size:13px;">🔥 $1</div>')
+
+      // Novos cabeçalhos de pronúncia
+      .replace(/##\s*1\.\s*Pronúncia oficial/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(147,197,253,0.1);border-left:3px solid #93c5fd;border-radius:4px;color:#93c5fd;font-weight:bold;font-size:13px;">🗣️ 1. Pronúncia Oficial</div>')
+      .replace(/##\s*2\.\s*Como um brasileiro costuma aprender/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(251,146,60,0.1);border-left:3px solid #fb923c;border-radius:4px;color:#fb923c;font-weight:bold;font-size:13px;">🇧🇷 2. Como costuma ser ensinado</div>')
+      .replace(/##\s*3\.\s*Como realmente soa para um brasileiro/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(249,168,212,0.1);border-left:3px solid #f9a8d4;border-radius:4px;color:#f9a8d4;font-weight:bold;font-size:13px;">🔥 3. Como realmente soa</div>')
 
       // O Neuro-Hack ganha uma caixa especial (pois é sempre o último, não quebra)
       .replace(/\*\*(.*?Associação Mental.*?)\*\*(.*?)(?=\n\n|\*$|$)/gis, (match, title, content) => {

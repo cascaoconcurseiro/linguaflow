@@ -657,6 +657,15 @@ export class SubtitleEngine {
             if (cefrColors !== undefined && cefrColors !== null) {
                 this.cefrColorsEnabled = cefrColors;
             }
+
+            this.cefrColors = {
+                A1: await db.getSetting('cefrColorA1'),
+                A2: await db.getSetting('cefrColorA2'),
+                B1: await db.getSetting('cefrColorB1'),
+                B2: await db.getSetting('cefrColorB2'),
+                C1: await db.getSetting('cefrColorC1'),
+                C2: await db.getSetting('cefrColorC2')
+            };
         } catch (e) {
             console.warn('[LinguaFlow] Erro ao carregar configurações:', e.message);
         }

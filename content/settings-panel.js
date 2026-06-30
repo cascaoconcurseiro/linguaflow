@@ -49,12 +49,12 @@ export class SettingsPanel {
             autoHarvestLimit:        10,
             cefrAutoHarvest:         false,
             cefrColorsEnabled:       true,
-            cefrColorA1:             '#4ade80',
-            cefrColorA2:             '#38bdf8',
-            cefrColorB1:             '#22d3ee',
-            cefrColorB2:             '#fbbf24',
-            cefrColorC1:             '#fb923c',
-            cefrColorC2:             '#a78bfa'
+            cefrColorA1:             '#4ade80', // Verde Claro
+            cefrColorA2:             '#22d3ee', // Ciano
+            cefrColorB1:             '#facc15', // Amarelo
+            cefrColorB2:             '#fb923c', // Laranja
+            cefrColorC1:             '#f472b6', // Rosa
+            cefrColorC2:             '#c084fc'  // Roxo
         };
 
         this._init();

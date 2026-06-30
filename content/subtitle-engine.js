@@ -159,7 +159,7 @@ export class SubtitleEngine {
     _updateSubtitleColors() {
         if (this.shadowContainer) {
             if (this.cefrColors) {
-                const inner = this.shadowContainer.querySelector('#lf-inner-container');
+                const inner = this.shadowContainer.querySelector('#lf-wrap');
                 if (inner) {
                     inner.style.setProperty('--cefr-a1', this.cefrColors.A1 || '#4ade80');
                     inner.style.setProperty('--cefr-a2', this.cefrColors.A2 || '#38bdf8');

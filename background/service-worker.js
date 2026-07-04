@@ -67,7 +67,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             db[method](...(args || []))
                 .then(result => {
                     // Notificações automáticas para métodos de escrita
-                    const writeMethods = ['saveWord', 'updateCard', 'logReview', 'createDeck', 'saveSentence', 'deleteWord', 'deleteDeck', 'markAsKnown'];
+                    const writeMethods = ['saveWord', 'updateCard', 'logReview', 'createDeck', 'saveSentence', 'deleteWord', 'deleteDeck', 'markAsKnown', 'saveLibraryDoc', 'deleteLibraryDoc'];
                     if (writeMethods.includes(method)) {
                         notifyDashboards(args[0]?.word || null);
                         updateBadge();

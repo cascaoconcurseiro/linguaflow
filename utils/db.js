@@ -4,7 +4,7 @@
 import { fsrs } from './fsrs.js';
 
 const DB_NAME = 'LinguaFlowFreeDB';
-const DB_VERSION = 10;
+const DB_VERSION = 11;
 
 class Database {
     constructor() {
@@ -59,6 +59,10 @@ class Database {
                 if (!idb.objectStoreNames.contains('review_log')) {
                     const s = idb.createObjectStore('review_log', { keyPath: 'id', autoIncrement: true });
                     s.createIndex('date', 'date', { unique: false });
+                }
+                if (!idb.objectStoreNames.contains('library_docs')) {
+                    const s = idb.createObjectStore('library_docs', { keyPath: 'id', autoIncrement: true });
+                    s.createIndex('created_at', 'created_at', { unique: false });
                 }
             };
 
@@ -665,6 +669,84 @@ class Database {
             req.onsuccess = () => resolve(true);
             req.onerror = () => reject(req.error);
         });
+    }
+
+    // ── BIBLIOTECA DE LEITURA (textos importados) ───────────────────────────
+    // Trava de segurança aplicada aqui (não só na UI) para que nenhum caminho de
+    // gravação consiga persistir um texto grande o bastante para travar a renderização.
+    static LIBRARY_DOC_MAX_CHARS = 60000;
+
+    async saveLibraryDoc(data) {
+        if (this.isProxyMode) return this._proxy('saveLibraryDoc', [data]);
+        const idb = await this.initPromise;
+        return new Promise((resolve, reject) => {
+            const doc = {
+                ...data,
+                text: String(data.text || '').slice(0, Database.LIBRARY_DOC_MAX_CHARS),
+                created_at: data.created_at || Date.now(),
+                last_position: data.last_position || 0
+            };
+            if (!data.id) delete doc.id;
+            const req = idb.transaction('library_docs', 'readwrite').objectStore('library_docs').put(doc);
+            req.onsuccess = () => resolve({ ok: true, id: req.result });
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    async getAllLibraryDocs() {
+        if (this.isProxyMode) return this._proxy('getAllLibraryDocs', []);
+        const idb = await this.initPromise;
+        return new Promise(r => {
+            const req = idb.transaction('library_docs', 'readonly').objectStore('library_docs').getAll();
+            req.onsuccess = () => r((req.result || []).sort((a, b) => b.created_at - a.created_at));
+            req.onerror = () => r([]);
+        });
+    }
+
+    async getLibraryDoc(id) {
+        if (this.isProxyMode) return this._proxy('getLibraryDoc', [id]);
+        const idb = await this.initPromise;
+        return new Promise((resolve, reject) => {
+            const req = idb.transaction('library_docs', 'readonly').objectStore('library_docs').get(Number(id));
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    async deleteLibraryDoc(id) {
+        if (this.isProxyMode) return this._proxy('deleteLibraryDoc', [id]);
+        const idb = await this.initPromise;
+        return new Promise((resolve, reject) => {
+            const req = idb.transaction('library_docs', 'readwrite').objectStore('library_docs').delete(Number(id));
+            req.onsuccess = () => resolve(true);
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    // Busca local (100% client-side) por trecho de texto na biblioteca importada
+    // e nas frases de contexto já salvas nos flashcards.
+    async searchLibrary(query) {
+        if (this.isProxyMode) return this._proxy('searchLibrary', [query]);
+        const q = String(query || '').toLowerCase().trim();
+        if (!q) return [];
+        const [docs, words] = await Promise.all([this.getAllLibraryDocs(), this.getAllWords()]);
+        const results = [];
+        for (const doc of docs) {
+            const idx = (doc.text || '').toLowerCase().indexOf(q);
+            if (idx !== -1) {
+                const start = Math.max(0, idx - 40);
+                const snippet = doc.text.slice(start, idx + q.length + 40).trim();
+                results.push({ type: 'library', docId: doc.id, title: doc.title || 'Sem título', snippet });
+            }
+            if (results.length >= 100) break;
+        }
+        for (const w of words) {
+            if (w.context_sentence && w.context_sentence.toLowerCase().includes(q)) {
+                results.push({ type: 'word', word: w.word, snippet: w.context_sentence, source: w.video_title || w.platform || '' });
+            }
+            if (results.length >= 100) break;
+        }
+        return results;
     }
 
     async markAsKnown(word, lang) {

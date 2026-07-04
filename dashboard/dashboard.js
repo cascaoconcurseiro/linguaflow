@@ -2124,6 +2124,7 @@ function switchTab(tab) {
         else if (tab === 'progresso') await loadStats();
         else if (tab === 'config')   await loadConfig();
         else if (tab === 'moonshot-feed') await loadMoonshotFeed();
+        else if (tab === 'reader')   await loadReaderTab();
     }, 10);
 }
 
@@ -2527,7 +2528,7 @@ async function init() {
 
         await updateHeader();
         const hash = window.location.hash.replace('#','');
-        if (['home','study','library','lab','progresso','config'].includes(hash)) switchTab(hash);
+        if (['home','study','library','lab','progresso','config','reader'].includes(hash)) switchTab(hash);
         else switchTab('home');
 
     } catch (e) {
@@ -2550,9 +2551,10 @@ async function loadMoonshotFeed() {
 }
 
 // Popup de dicionário reaproveitado fora do contexto de vídeo (leitura no dashboard).
-let _feedWordPopup = null;
-async function getFeedWordPopup() {
-    if (_feedWordPopup) return _feedWordPopup;
+// Usado tanto pelo N+1 Feed quanto pela Biblioteca de Leitura (aba Reader).
+let _readingWordPopup = null;
+async function getReadingWordPopup() {
+    if (_readingWordPopup) return _readingWordPopup;
     const { WordPopup } = await import('../content/word-popup.js');
     const stubEngine = {
         sourceLang: 'en',
@@ -2564,13 +2566,13 @@ async function getFeedWordPopup() {
         videoElement: null,
         ttsPlaybackRate: 1.0
     };
-    _feedWordPopup = new WordPopup(stubEngine, 'reading');
-    await _feedWordPopup.init();
-    return _feedWordPopup;
+    _readingWordPopup = new WordPopup(stubEngine, 'reading');
+    await _readingWordPopup.init();
+    return _readingWordPopup;
 }
 
-// Quebra o artigo gerado em spans clicáveis por palavra, preservando sentenças como contexto.
-function buildInteractiveFeedHtml(text) {
+// Quebra um texto em spans clicáveis por palavra, preservando sentenças como contexto.
+function buildInteractiveReadingHtml(text) {
     const sentences = String(text || '').split(/(?<=[.!?])\s+/);
     return sentences.map(sentence => {
         const safeSentence = escapeAttr(sentence);
@@ -2600,7 +2602,7 @@ if (moonshotGenerateFeed) {
             moonshotGenerateFeed.textContent = '🪄 Gerar Outro Artigo';
             moonshotGenerateFeed.disabled = false;
             if (res && res.data) {
-                const interactiveText = buildInteractiveFeedHtml(res.data);
+                const interactiveText = buildInteractiveReadingHtml(res.data);
                 feedArea.innerHTML = `<h3 style="color:var(--accent); margin-bottom:16px;">Sua Leitura do Dia</h3><p id="moonshot-feed-text">${interactiveText}</p><div style="margin-top:20px; font-size:14px; color:var(--text3);">Dica: clique em qualquer palavra para traduzir e salvar nos flashcards!</div>`;
             } else {
                 feedArea.innerHTML = '<div style="color:#ef4444;">Erro ao gerar texto. Verifique a API Key.</div>';
@@ -2613,10 +2615,186 @@ if (moonshotGenerateFeed) {
         if (!span) return;
         const word = span.dataset.word.replace(/[.,!?;:"'()]/g, '').trim();
         if (!word) return;
-        const popup = await getFeedWordPopup();
+        const popup = await getReadingWordPopup();
         popup.showForWord(word, span.dataset.sentence || '', span.getBoundingClientRect());
     });
 }
+
+// ============================================================================
+// BIBLIOTECA DE LEITURA (importar texto / .txt / .srt / .vtt)
+// ============================================================================
+const READER_MAX_CHARS = 60000; // Trava de segurança: evita milhares de <span> travando a aba com textos gigantes
+
+async function loadReaderTab() {
+    document.getElementById('reader-pane').style.display = 'none';
+    document.getElementById('reader-doc-list').style.display = 'block';
+    const toolbar = document.querySelector('#reader-section .lib-toolbar');
+    if (toolbar) toolbar.style.display = 'flex';
+    document.getElementById('reader-search-results').style.display = 'none';
+    document.getElementById('reader-search').value = '';
+    await renderReaderDocList();
+}
+
+async function renderReaderDocList() {
+    const list = document.getElementById('reader-doc-list');
+    if (!list) return;
+    const docs = await lfDb.getAllLibraryDocs();
+    if (docs.length === 0) {
+        list.innerHTML = `<div style="color:var(--text3); text-align:center; padding:30px;">Nenhum texto importado ainda. Clique em "+ Novo Texto" para começar.</div>`;
+        return;
+    }
+    list.innerHTML = docs.map(doc => `
+        <div class="card" style="display:flex; justify-content:space-between; align-items:center; padding:14px 18px; margin-bottom:8px;">
+            <div style="cursor:pointer; flex:1;" data-open-doc="${doc.id}">
+                <strong>${escapeAttr(doc.title || 'Sem título')}</strong>
+                <div style="font-size:12px; color:var(--text3); margin-top:4px;">
+                    ${(doc.text || '').split(/\s+/).filter(Boolean).length} palavras · ${new Date(doc.created_at).toLocaleDateString('pt-BR')} · ${escapeAttr(doc.source_type || 'texto')}
+                </div>
+            </div>
+            <button class="btn btn-ghost btn-sm" data-delete-doc="${doc.id}">🗑</button>
+        </div>
+    `).join('');
+
+    list.querySelectorAll('[data-open-doc]').forEach(el => {
+        el.addEventListener('click', () => openReaderDoc(Number(el.dataset.openDoc)));
+    });
+    list.querySelectorAll('[data-delete-doc]').forEach(el => {
+        el.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (!confirm('Excluir este texto da biblioteca?')) return;
+            await lfDb.deleteLibraryDoc(Number(el.dataset.deleteDoc));
+            renderReaderDocList();
+        });
+    });
+}
+
+async function openReaderDoc(id) {
+    const doc = await lfDb.getLibraryDoc(id);
+    if (!doc) return;
+    document.getElementById('reader-doc-list').style.display = 'none';
+    document.querySelector('#reader-section .lib-toolbar').style.display = 'none';
+    document.getElementById('reader-pane').style.display = 'block';
+    // Trava de segurança redundante na leitura: mesmo um registro antigo/gravado por
+    // outro caminho não deve gerar spans suficientes para travar a aba.
+    const text = String(doc.text || '').slice(0, READER_MAX_CHARS);
+    document.getElementById('reader-doc-content').innerHTML = buildInteractiveReadingHtml(text);
+}
+
+function closeReaderDoc() {
+    document.getElementById('reader-pane').style.display = 'none';
+    document.getElementById('reader-doc-list').style.display = 'block';
+    document.querySelector('#reader-section .lib-toolbar').style.display = 'flex';
+    renderReaderDocList();
+}
+
+function parseImportedSubtitleText(rawText, extension) {
+    if (extension === 'srt' || extension === 'vtt') {
+        // Import dinâmico para não pesar o carregamento inicial do dashboard.
+        return import('../utils/subtitle-parsers.js').then(({ subtitleParsers }) => {
+            const cues = extension === 'srt' ? subtitleParsers.parseSRT(rawText) : subtitleParsers.parseVTT(rawText);
+            return cues.map(c => c.text).join(' ');
+        });
+    }
+    return Promise.resolve(rawText);
+}
+
+const readerNewDocBtn = document.getElementById('reader-new-doc-btn');
+if (readerNewDocBtn) {
+    const form = document.getElementById('reader-new-doc-form');
+    const titleInput = document.getElementById('reader-doc-title');
+    const textInput = document.getElementById('reader-doc-text');
+    const fileInput = document.getElementById('reader-file-input');
+    const statusEl = document.getElementById('reader-form-status');
+
+    readerNewDocBtn.addEventListener('click', () => {
+        form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        statusEl.textContent = '';
+    });
+
+    document.getElementById('reader-cancel-doc-btn').addEventListener('click', () => {
+        form.style.display = 'none';
+        titleInput.value = '';
+        textInput.value = '';
+        statusEl.textContent = '';
+    });
+
+    document.getElementById('reader-pick-file-btn').addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', async () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+        const ext = file.name.split('.').pop().toLowerCase();
+        const rawText = await file.text();
+        const parsed = await parseImportedSubtitleText(rawText, ext);
+        textInput.value = parsed;
+        if (!titleInput.value) titleInput.value = file.name.replace(/\.[^.]+$/, '');
+        statusEl.textContent = `Arquivo "${file.name}" carregado (${parsed.length.toLocaleString('pt-BR')} caracteres).`;
+        fileInput.value = '';
+    });
+
+    document.getElementById('reader-save-doc-btn').addEventListener('click', async () => {
+        let text = textInput.value.trim();
+        if (!text) { statusEl.textContent = 'Cole um texto ou escolha um arquivo primeiro.'; return; }
+        let truncated = false;
+        if (text.length > READER_MAX_CHARS) {
+            text = text.slice(0, READER_MAX_CHARS);
+            truncated = true;
+        }
+        await lfDb.saveLibraryDoc({
+            title: titleInput.value.trim() || 'Sem título',
+            text,
+            source_type: 'import'
+        });
+        form.style.display = 'none';
+        titleInput.value = '';
+        textInput.value = '';
+        statusEl.textContent = truncated ? 'Texto salvo (truncado em 60.000 caracteres por segurança).' : '';
+        renderReaderDocList();
+    });
+}
+
+document.getElementById('reader-back-btn')?.addEventListener('click', closeReaderDoc);
+
+// Busca local (100% client-side) em tudo que foi importado ou salvo nos flashcards.
+let _readerSearchDebounce = null;
+document.getElementById('reader-search')?.addEventListener('input', (e) => {
+    clearTimeout(_readerSearchDebounce);
+    const query = e.target.value.trim();
+    const resultsEl = document.getElementById('reader-search-results');
+    if (!query) { resultsEl.style.display = 'none'; return; }
+    _readerSearchDebounce = setTimeout(async () => {
+        const results = await lfDb.searchLibrary(query);
+        if (results.length === 0) {
+            resultsEl.innerHTML = `<div style="color:var(--text3);">Nada encontrado para "${escapeAttr(query)}".</div>`;
+        } else {
+            resultsEl.innerHTML = results.map(r => {
+                if (r.type === 'library') {
+                    return `<div class="card" style="padding:10px 14px; margin-bottom:6px; cursor:pointer;" data-open-doc="${r.docId}">
+                        <strong>📖 ${escapeAttr(r.title)}</strong>
+                        <div style="font-size:13px; color:var(--text3); margin-top:4px;">…${escapeAttr(r.snippet)}…</div>
+                    </div>`;
+                }
+                return `<div class="card" style="padding:10px 14px; margin-bottom:6px;">
+                    <strong>🎴 ${escapeAttr(r.word)}</strong>
+                    <div style="font-size:13px; color:var(--text3); margin-top:4px;">"${escapeAttr(r.snippet)}" ${r.source ? '— ' + escapeAttr(r.source) : ''}</div>
+                </div>`;
+            }).join('');
+            resultsEl.querySelectorAll('[data-open-doc]').forEach(el => {
+                el.addEventListener('click', () => openReaderDoc(Number(el.dataset.openDoc)));
+            });
+        }
+        resultsEl.style.display = 'block';
+    }, 250);
+});
+
+document.getElementById('reader-doc-content')?.addEventListener('click', async (e) => {
+    const span = e.target.closest('.lf-feed-word');
+    if (!span) return;
+    const word = span.dataset.word.replace(/[.,!?;:"'()]/g, '').trim();
+    if (!word) return;
+    const popup = await getReadingWordPopup();
+    popup.showForWord(word, span.dataset.sentence || '', span.getBoundingClientRect());
+});
 
 // ============================================================================
 // LISTENER DE MENSAGENS DO EXTENSION

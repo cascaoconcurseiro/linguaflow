@@ -29,6 +29,11 @@ Extensão Chrome para aprendizado de idiomas através de vídeos com legendas du
 - ✅ Estatísticas detalhadas
 - ✅ Dashboard completo
 
+### 📖 Biblioteca de Leitura
+- ✅ Importe seus próprios textos (colar ou arquivo .txt/.srt/.vtt)
+- ✅ Leitura com tradução instantânea, clicando em qualquer palavra
+- ✅ Busca local (100% offline) em tudo que você leu ou salvou
+
 ### 🎮 Controles por Teclado
 - **A** - Legenda anterior
 - **S** - Repetir legenda
@@ -182,6 +187,10 @@ Contribuições são bem-vindas! Para contribuir:
 ---
 
 ## 📝 Changelog
+
+### v1.3.0 (04/07/2026)
+- ✅ **Biblioteca de Leitura:** nova aba no dashboard para importar textos próprios (colar ou arquivo .txt/.srt/.vtt), com tradução instantânea clicando em qualquer palavra.
+- ✅ **Busca Local:** busca por trecho de texto em tudo que foi importado ou salvo nos flashcards, 100% offline.
 
 ### v1.2.0 (04/07/2026)
 - ✅ **Velocidade de Vídeo:** controle de reprodução (0.25x–2x) com atalhos `[`/`]`, persistente entre sessões.

@@ -14,7 +14,9 @@ const supportedSites = [
   'amazon.com',
 ];
 
-const isSupported = supportedSites.some((site) => hostname.includes(site));
+// Ativação manual: injetada sob demanda via activeTab (clique em "Ativar Nesta Página" no
+// popup) em sites fora da lista fixa abaixo — ver popup/popup.js.
+const isSupported = supportedSites.some((site) => hostname.includes(site)) || window.__LF_FORCE_GENERIC__ === true;
 
 if (!isSupported) {
   console.debug('[LinguaFlow] Site não suportado, extensão não será carregada.');
@@ -75,9 +77,8 @@ if (!isSupported) {
       console.debug('[LinguaFlow] Review overlay não carregado:', e.message);
     }
 
-    // Roteamento inteligente de domínios
     if (engine.platform === 'generic') {
-      console.debug('[LinguaFlow] Web Reader Mode disabled.');
+      console.debug('[LinguaFlow] Modo genérico ativado neste site (legendas via <track> nativo, se disponível).');
     }
   };
 

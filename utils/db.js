@@ -1,8 +1,10 @@
 // utils/db.js — Banco único do LinguaFlow
 // Todos os módulos usam este arquivo. Sem chrome.storage para dados de aprendizado.
 
+import { fsrs } from './fsrs.js';
+
 const DB_NAME = 'LinguaFlowFreeDB';
-const DB_VERSION = 10;
+const DB_VERSION = 11;
 
 class Database {
   constructor() {
@@ -60,6 +62,10 @@ class Database {
         if (!idb.objectStoreNames.contains('review_log')) {
           const s = idb.createObjectStore('review_log', { keyPath: 'id', autoIncrement: true });
           s.createIndex('date', 'date', { unique: false });
+        }
+        if (!idb.objectStoreNames.contains('library_docs')) {
+          const s = idb.createObjectStore('library_docs', { keyPath: 'id', autoIncrement: true });
+          s.createIndex('created_at', 'created_at', { unique: false });
         }
       };
 
@@ -549,150 +555,60 @@ class Database {
     };
   }
 
-  /**
-   * SM-2 Algorithm — Anki-compatible spaced repetition scheduler.
-   *
-   * Card states: new → learning → review → mature
-   *
-   * NEW cards:
-   *   Again(1): enter learning at first step
-   *   Hard(2):  enter learning at first step × 1.5
-   *   Good(3):  advance to next learning step (or graduate if last)
-   *   Easy(4):  graduate immediately with easy_interval
-   *
-   * LEARNING cards:
-   *   Again(1): reset to first step
-   *   Hard(2):  stay at current step × 1.5
-   *   Good(3):  advance step (or graduate if last step)
-   *   Easy(4):  graduate immediately with easy_interval
-   *
-   * REVIEW/MATURE cards:
-   *   Again(1): lapse → learning step 0. Ease -= 0.20.
-   *   Hard(2):  interval × 1.2 × interval_modifier. Ease -= 0.15.
-   *   Good(3):  interval × ease × interval_modifier.
-   *   Easy(4):  interval × ease × easy_bonus × interval_modifier. Ease += 0.15.
-   *
-   * Graduation: card leaves learning → interval = graduating_interval days.
-   * After lapse, re-graduation uses max(gradInt, preLapseInterval × lapseMod).
-   */
   _calculateNextState(card, quality, settings) {
-    const now = Date.now();
-    const prevStatus = card.status || 'new';
-    const prevInterval = card.interval || 0;
-    const learningSteps = settings.learningSteps; // minutes, e.g. [1, 10]
-    const gradInt = settings.gradInt; // days
-    const easyInt = settings.easyInt; // days
-    const easyBonus = settings.easyBonus; // e.g. 1.3
-    const intMod = settings.intMod; // e.g. 1.0
-    const maxInt = settings.maxInt; // e.g. 36500
-    const lapseMod = settings.lapseMod; // 0.0–1.0, % of prev interval after lapse
+    // Migração suave: se o card ainda usa ease_factor do SM-2, converte inicial para FSRS
+    if (card.stability === undefined) {
+      card.stability = 0;
+      card.difficulty = 0;
+    }
 
-    let nextStatus;
-    let nextInterval;
+    const fsrsState = fsrs.nextState({
+      difficulty: card.difficulty || 0,
+      stability: card.stability || 0,
+      reps: card.reps || 0,
+      lapses: card.lapses || 0,
+      interval: card.interval || 0
+    }, quality);
+
+    // Status flow
+    let nextStatus = card.status || 'new';
+    if (nextStatus === 'new') {
+      nextStatus = (quality === 1) ? 'learning' : 'review';
+    } else if (nextStatus === 'learning') {
+      if (quality >= 3) nextStatus = 'review';
+    } else if (nextStatus === 'review' || nextStatus === 'mature') {
+      if (quality === 1) nextStatus = 'learning';
+      else nextStatus = fsrsState.interval >= 21 ? 'mature' : 'review';
+    }
+
+    // FSRS trabalha com dias inteiros. Se for Learning, usamos os steps.
+    let nextInterval = fsrsState.interval;
     let nextStepIndex = card.step_index || 0;
-    let nextEase = card.ease_factor || 2.5;
-    let nextLapses = card.lapses || 0;
-    let nextReps = (card.reps || 0) + 1;
-    let preLapseInterval = card.pre_lapse_interval || 0;
+    const learningSteps = settings.learningSteps || [1, 10];
 
-    if (prevStatus === 'new') {
+    if (nextStatus === 'learning') {
       if (quality === 1) {
-        // Again: enter learning at step 0
-        nextStatus = 'learning';
         nextStepIndex = 0;
         nextInterval = learningSteps[0] / 1440;
       } else if (quality === 2) {
-        // Hard: enter learning at step 0 × 1.5
-        nextStatus = 'learning';
-        nextStepIndex = 0;
-        nextInterval = (learningSteps[0] * 1.5) / 1440;
-      } else if (quality === 3) {
-        // Good: advance step or graduate
-        if (learningSteps.length <= 1) {
-          nextStatus = 'review';
-          nextStepIndex = 0;
-          nextInterval = gradInt;
-        } else {
-          nextStatus = 'learning';
-          nextStepIndex = 1;
-          nextInterval = learningSteps[1] / 1440;
-        }
-      } else {
-        // Easy: graduate immediately
-        nextStatus = 'review';
-        nextStepIndex = 0;
-        nextInterval = easyInt;
-      }
-    } else if (prevStatus === 'learning') {
-      if (quality === 1) {
-        // Again: back to step 0
-        nextStatus = 'learning';
-        nextStepIndex = 0;
-        nextInterval = learningSteps[0] / 1440;
-      } else if (quality === 2) {
-        // Hard: stay at current step, × 1.5 time
-        nextStatus = 'learning';
-        const currentMin = learningSteps[nextStepIndex] || 1;
-        nextInterval = (currentMin * 1.5) / 1440;
-      } else if (quality === 3) {
-        // Good: advance or graduate
+        nextInterval = ((learningSteps[nextStepIndex] || 1) * 2) / 1440;
+      } else if (quality >= 3) {
         nextStepIndex++;
         if (nextStepIndex >= learningSteps.length) {
           nextStatus = 'review';
-          nextStepIndex = 0;
-          // After lapse, use max(gradInt, preLapseInterval × lapseMod)
-          if (preLapseInterval > 0) {
-            nextInterval = Math.max(gradInt, preLapseInterval * lapseMod);
-            preLapseInterval = 0;
-          } else {
-            nextInterval = gradInt;
-          }
+          nextInterval = Math.max(1, fsrsState.interval);
         } else {
-          nextStatus = 'learning';
           nextInterval = learningSteps[nextStepIndex] / 1440;
         }
-      } else {
-        // Easy: graduate immediately
-        nextStatus = 'review';
-        nextStepIndex = 0;
-        nextInterval = easyInt;
-        preLapseInterval = 0;
-      }
-    } else {
-      // review or mature
-      if (quality === 1) {
-        // Again → Lapse
-        nextLapses++;
-        nextStatus = 'learning';
-        nextStepIndex = 0;
-        nextInterval = learningSteps[0] / 1440;
-        nextEase = Math.max(1.3, nextEase - 0.2);
-        preLapseInterval = prevInterval;
-      } else {
-        if (quality === 2) {
-          nextInterval = Math.max(prevInterval * 1.2 * intMod, prevInterval + 1);
-          nextEase = Math.max(1.3, nextEase - 0.15);
-        } else if (quality === 3) {
-          nextInterval = Math.max(prevInterval * nextEase * intMod, prevInterval + 1);
-        } else {
-          nextInterval = Math.max(prevInterval * nextEase * easyBonus * intMod, prevInterval + 1);
-          nextEase += 0.15;
-        }
-
-        nextInterval = Math.min(nextInterval, maxInt);
-
-        if (nextInterval >= 21) nextStatus = 'mature';
-        else nextStatus = 'review';
       }
     }
 
-    // Fuzz: ±5% for intervals ≥ 1 day (Anki-like)
-    if (nextInterval >= 1) {
+    // Fuzz (opcional: pequena variação aleatória de +/- 5% para intervalos > 1 dia)
+    if (nextInterval > 1) {
       const fuzz = 0.95 + Math.random() * 0.1;
       nextInterval = nextInterval * fuzz;
     }
 
-    // Due date: if ≥ 1 day → next day at midnight; else → now + minutes
     let nextDueDate;
     if (nextInterval >= 1) {
       const d = new Date();
@@ -700,7 +616,7 @@ class Database {
       d.setHours(0, 0, 0, 0);
       nextDueDate = d.getTime();
     } else {
-      nextDueDate = now + Math.round(nextInterval * 24 * 60 * 60 * 1000);
+      nextDueDate = Date.now() + (nextInterval * 24 * 60 * 60 * 1000);
     }
 
     return {
@@ -708,12 +624,12 @@ class Database {
       interval: nextInterval,
       status: nextStatus,
       step_index: nextStepIndex,
-      ease_factor: nextEase,
-      pre_lapse_interval: preLapseInterval,
-      reps: nextReps,
-      lapses: nextLapses,
+      reps: fsrsState.reps,
+      lapses: fsrsState.lapses,
+      difficulty: fsrsState.difficulty,
+      stability: fsrsState.stability,
       due_date: nextDueDate,
-      last_review: now,
+      last_review: Date.now()
     };
   }
 
@@ -818,6 +734,84 @@ class Database {
       req.onsuccess = () => resolve(true);
       req.onerror = () => reject(req.error);
     });
+  }
+
+  // ── BIBLIOTECA DE LEITURA (textos importados) ───────────────────────────
+  // Trava de segurança aplicada aqui (não só na UI) para que nenhum caminho de
+  // gravação consiga persistir um texto grande o bastante para travar a renderização.
+  static LIBRARY_DOC_MAX_CHARS = 60000;
+
+  async saveLibraryDoc(data) {
+    if (this.isProxyMode) return this._proxy('saveLibraryDoc', [data]);
+    const idb = await this.initPromise;
+    return new Promise((resolve, reject) => {
+      const doc = {
+        ...data,
+        text: String(data.text || '').slice(0, Database.LIBRARY_DOC_MAX_CHARS),
+        created_at: data.created_at || Date.now(),
+        last_position: data.last_position || 0
+      };
+      if (!data.id) delete doc.id;
+      const req = idb.transaction('library_docs', 'readwrite').objectStore('library_docs').put(doc);
+      req.onsuccess = () => resolve({ ok: true, id: req.result });
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async getAllLibraryDocs() {
+    if (this.isProxyMode) return this._proxy('getAllLibraryDocs', []);
+    const idb = await this.initPromise;
+    return new Promise((r) => {
+      const req = idb.transaction('library_docs', 'readonly').objectStore('library_docs').getAll();
+      req.onsuccess = () => r((req.result || []).sort((a, b) => b.created_at - a.created_at));
+      req.onerror = () => r([]);
+    });
+  }
+
+  async getLibraryDoc(id) {
+    if (this.isProxyMode) return this._proxy('getLibraryDoc', [id]);
+    const idb = await this.initPromise;
+    return new Promise((resolve, reject) => {
+      const req = idb.transaction('library_docs', 'readonly').objectStore('library_docs').get(Number(id));
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async deleteLibraryDoc(id) {
+    if (this.isProxyMode) return this._proxy('deleteLibraryDoc', [id]);
+    const idb = await this.initPromise;
+    return new Promise((resolve, reject) => {
+      const req = idb.transaction('library_docs', 'readwrite').objectStore('library_docs').delete(Number(id));
+      req.onsuccess = () => resolve(true);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  // Busca local (100% client-side) por trecho de texto na biblioteca importada
+  // e nas frases de contexto já salvas nos flashcards.
+  async searchLibrary(query) {
+    if (this.isProxyMode) return this._proxy('searchLibrary', [query]);
+    const q = String(query || '').toLowerCase().trim();
+    if (!q) return [];
+    const [docs, words] = await Promise.all([this.getAllLibraryDocs(), this.getAllWords()]);
+    const results = [];
+    for (const doc of docs) {
+      const idx = (doc.text || '').toLowerCase().indexOf(q);
+      if (idx !== -1) {
+        const start = Math.max(0, idx - 40);
+        const snippet = doc.text.slice(start, idx + q.length + 40).trim();
+        results.push({ type: 'library', docId: doc.id, title: doc.title || 'Sem título', snippet });
+      }
+      if (results.length >= 100) break;
+    }
+    for (const w of words) {
+      if (w.context_sentence && w.context_sentence.toLowerCase().includes(q)) {
+        results.push({ type: 'word', word: w.word, snippet: w.context_sentence, source: w.video_title || w.platform || '' });
+      }
+      if (results.length >= 100) break;
+    }
+    return results;
   }
 
   async markAsKnown(word, lang) {

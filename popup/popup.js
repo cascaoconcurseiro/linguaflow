@@ -115,4 +115,31 @@ document.getElementById('btn-settings').addEventListener('click', () => {
   });
 });
 
+document.getElementById('btn-activate-generic').addEventListener('click', async () => {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) return;
+    // Ativa legendas duplas (se houver <video>+<track>) via bootstrap genérico do SubtitleEngine.
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => {
+        if (window.__LF_INITIALIZED__) return 'already-active';
+        window.__LF_FORCE_GENERIC__ = true;
+        import(chrome.runtime.getURL('content/index.js'));
+        return 'activated';
+      }
+    });
+    // Ativa o modo de leitura (clique em qualquer palavra) para páginas de texto.
+    // web-reader.js já ignora sites de vídeo e evita dupla injeção sozinho.
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['content/web-reader.js']
+    }).catch(() => {});
+    window.close();
+  } catch (e) {
+    console.error('[LinguaFlow Popup] Erro ao ativar nesta página:', e);
+    alert('Não foi possível ativar nesta página (ela pode bloquear extensões).');
+  }
+});
+
 init();

@@ -3,7 +3,7 @@ const DB_NAME = 'LinguaFlowFreeDB';
 
 async function readAllSettings() {
     const { db } = await import('../utils/db.js');
-    const settings = ['targetLang', 'subtitleMode', 'bgOpacity', 'fontSize', 'fontSizeTrans', 'autoPause', 'showOriginal', 'showTranslation', 'subtitleBottom', 'subtitleHorizontal', 'translationDelay', 'translationAnticipation', 'flashDuration', 'wordColorKnown', 'wordColorSaved', 'blurSubtitles', 'ttsPlaybackRate', 'fontFamily', 'colorPalette', 'popupMode', 'cefrTargetLevel', 'cefrColorsEnabled', 'cefrColorA1', 'cefrColorA2', 'cefrColorB1', 'cefrColorB2', 'cefrColorC1', 'cefrColorC2'];
+    const settings = ['targetLang', 'subtitleMode', 'bgOpacity', 'fontSize', 'fontSizeTrans', 'autoPause', 'showOriginal', 'showTranslation', 'subtitleBottom', 'subtitleHorizontal', 'translationDelay', 'translationAnticipation', 'flashDuration', 'wordColorKnown', 'wordColorSaved', 'blurSubtitles', 'ttsPlaybackRate', 'videoPlaybackRate', 'fontFamily', 'colorPalette', 'popupMode', 'cefrTargetLevel', 'cefrColorsEnabled', 'cefrColorA1', 'cefrColorA2', 'cefrColorB1', 'cefrColorB2', 'cefrColorC1', 'cefrColorC2'];
     const obj = {};
     for (const key of settings) {
         const val = await db.getSetting(key);
@@ -42,6 +42,7 @@ export class SettingsPanel {
             flashDuration:           4,        // segundos do flash de tradução (NOVO)
             blurSubtitles:           false,
             ttsPlaybackRate:         1.0,
+            videoPlaybackRate:       1.0,
             fontFamily:              'Inter',
             colorPalette:            'Vibrant',
             popupMode:               'floating',
@@ -103,11 +104,19 @@ export class SettingsPanel {
         
         s.getElementById('sel-font-family').value   = this.cfg.fontFamily;
         s.getElementById('sel-palette').value       = this.cfg.colorPalette;
-        s.getElementById('sel-tts-speed').value     = this.cfg.ttsPlaybackRate;
+        this._selectByNumericValue(s.getElementById('sel-tts-speed'), this.cfg.ttsPlaybackRate);
         s.getElementById('sel-popup-mode').value    = this.cfg.popupMode;
         s.getElementById('sel-blur').value          = this.cfg.blurSubtitles ? 'on' : 'off';
         s.getElementById('sel-cefr-level').value    = this.cfg.cefrTargetLevel;
         s.getElementById('sel-cefr-colors').value   = this.cfg.cefrColorsEnabled ? 'on' : 'off';
+        this._selectByNumericValue(s.getElementById('sel-video-speed'), this.cfg.videoPlaybackRate);
+
+        s.getElementById('col-cefr-a1').value       = this.cfg.cefrColorA1;
+        s.getElementById('col-cefr-a2').value       = this.cfg.cefrColorA2;
+        s.getElementById('col-cefr-b1').value       = this.cfg.cefrColorB1;
+        s.getElementById('col-cefr-b2').value       = this.cfg.cefrColorB2;
+        s.getElementById('col-cefr-c1').value       = this.cfg.cefrColorC1;
+        s.getElementById('col-cefr-c2').value       = this.cfg.cefrColorC2;
 
         s.getElementById('val-font').textContent        = `${this.cfg.fontSize}px`;
         s.getElementById('val-font-trans').textContent  = `${this.cfg.fontSizeTrans}px`;
@@ -145,7 +154,19 @@ export class SettingsPanel {
         s.getElementById('sel-cefr-colors').onchange = e => {
             this._save('cefrColorsEnabled', e.target.value === 'on');
         };
-        
+
+        s.getElementById('sel-video-speed').onchange = e => {
+            const rate = parseFloat(e.target.value);
+            this._save('videoPlaybackRate', rate);
+            this.engine?._setPlaybackRate?.(rate);
+        };
+
+        ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].forEach(level => {
+            s.getElementById(`col-cefr-${level.toLowerCase()}`).onchange = e => {
+                this._save(`cefrColor${level}`, e.target.value);
+            };
+        });
+
 
         // Tamanho legenda original
         s.getElementById('rng-font').oninput = e => {
@@ -376,7 +397,56 @@ export class SettingsPanel {
                                 <option value="C1">C1 (Avançado)</option>
                                 <option value="C2">C2 (Fluente)</option>
                             </select>
-                            <small>Foca na captação automática de palavras do seu nível.</small>
+                            <small>Destaca nas legendas apenas as palavras do nível escolhido.</small>
+                        </div>
+                        <div class="group">
+                            <label>Cores Baseadas no CEFR</label>
+                            <select id="sel-cefr-colors">
+                                <option value="on">Ativada (Colorir por nível)</option>
+                                <option value="off">Desativada (Apenas conhecidas/salvas)</option>
+                            </select>
+                            <small>Mostra cores diferentes para A1, A2, B1, etc. nas legendas.</small>
+                        </div>
+                        <div class="group">
+                            <label>Personalizar Cores CEFR</label>
+                            <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                                <div style="display:flex; flex-direction:column; gap:4px;">
+                                    <small style="font-size:10px;">A1 (Iniciante)</small>
+                                    <input type="color" id="col-cefr-a1">
+                                </div>
+                                <div style="display:flex; flex-direction:column; gap:4px;">
+                                    <small style="font-size:10px;">A2 (Básico)</small>
+                                    <input type="color" id="col-cefr-a2">
+                                </div>
+                                <div style="display:flex; flex-direction:column; gap:4px;">
+                                    <small style="font-size:10px;">B1 (Intermediário)</small>
+                                    <input type="color" id="col-cefr-b1">
+                                </div>
+                                <div style="display:flex; flex-direction:column; gap:4px;">
+                                    <small style="font-size:10px;">B2 (Independente)</small>
+                                    <input type="color" id="col-cefr-b2">
+                                </div>
+                                <div style="display:flex; flex-direction:column; gap:4px;">
+                                    <small style="font-size:10px;">C1 (Avançado)</small>
+                                    <input type="color" id="col-cefr-c1">
+                                </div>
+                                <div style="display:flex; flex-direction:column; gap:4px;">
+                                    <small style="font-size:10px;">C2 (Fluente)</small>
+                                    <input type="color" id="col-cefr-c2">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="group">
+                            <label>Velocidade Padrão do Vídeo</label>
+                            <select id="sel-video-speed">
+                                <option value="0.5">0.5x</option>
+                                <option value="0.75">0.75x</option>
+                                <option value="1.0">1.0x (Normal)</option>
+                                <option value="1.25">1.25x</option>
+                                <option value="1.5">1.5x</option>
+                                <option value="2.0">2.0x</option>
+                            </select>
+                            <small>Também pode ser ajustada com as teclas [ e ] durante o vídeo.</small>
                         </div>
                     </div>
 
@@ -610,6 +680,16 @@ export class SettingsPanel {
         this._applyToEngine();
     }
 
+    // Seleciona a <option> cujo valor numérico bate com `num`, evitando o
+    // problema de "1.0" (number) virar "1" (string) e não casar com value="1.0".
+    _selectByNumericValue(selectEl, num) {
+        if (!selectEl) return;
+        const target = parseFloat(num);
+        for (const opt of selectEl.options) {
+            if (parseFloat(opt.value) === target) { selectEl.value = opt.value; return; }
+        }
+    }
+
     _applyToEngine() {
         if (!this.engine) return;
 
@@ -634,6 +714,8 @@ export class SettingsPanel {
         };
         this.engine.blurSubtitles            = this.cfg.blurSubtitles;
         this.engine.ttsPlaybackRate          = this.cfg.ttsPlaybackRate;
+        this.engine.videoPlaybackRate        = this.cfg.videoPlaybackRate;
+        this.engine._applyPlaybackRate?.();
         this.engine.popupMode                = this.cfg.popupMode;
 
         const host = document.getElementById('linguaflow-subtitle-host');

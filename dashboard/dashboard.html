@@ -37,6 +37,7 @@
           <button class="nav-tab" data-tab="library"><span>📚</span> Biblioteca</button>
           <button class="nav-tab" data-tab="chunks"><span>🧩</span> Chunks</button>
           <button class="nav-tab" data-tab="lab"><span>🧪</span> Laboratório</button>
+          <button class="nav-tab" data-tab="reader"><span>📖</span> Leitura</button>
           <div class="sidebar-section-title">MOONSHOT (BETA)</div>
           <button class="nav-tab" data-tab="moonshot-voice">
             <span>🗣️</span> Simulador Voice-to-Voice
@@ -693,6 +694,40 @@
             <div id="moonshot-voice-log">
               <!-- Chat logs will appear here -->
             </div>
+          </div>
+        </section>
+
+        <!-- ═══ LEITURA (BIBLIOTECA DE TEXTOS) ═══ -->
+        <section id="reader-section" class="content-section">
+          <div class="section-header">
+            <h2>📖 Leitura</h2>
+            <p>Importe seus próprios textos, artigos ou legendas (.txt/.srt/.vtt) e leia com tradução instantânea — clique em qualquer palavra.</p>
+          </div>
+
+          <div class="lib-toolbar">
+            <input type="text" class="input-field" id="reader-search" placeholder="🔍 Buscar em tudo que você leu ou salvou..." style="flex:1;min-width:220px">
+            <button class="btn btn-accent" id="reader-new-doc-btn">+ Novo Texto</button>
+          </div>
+
+          <div id="reader-search-results" style="display:none; margin-bottom:20px; background:rgba(255,255,255,0.02); border-radius:12px; padding:16px;"></div>
+
+          <div id="reader-new-doc-form" style="display:none; background:rgba(255,255,255,0.02); border-radius:12px; padding:20px; margin-bottom:20px;">
+            <input type="text" class="input-field" id="reader-doc-title" placeholder="Título (opcional)" style="width:100%; margin-bottom:10px;">
+            <textarea class="input-field" id="reader-doc-text" placeholder="Cole o texto aqui, ou escolha um arquivo .txt/.srt/.vtt abaixo..." rows="8" style="width:100%; resize:vertical; margin-bottom:10px;"></textarea>
+            <input type="file" id="reader-file-input" accept=".txt,.srt,.vtt" style="display:none">
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button class="btn btn-ghost btn-sm" id="reader-pick-file-btn">📎 Escolher Arquivo</button>
+              <button class="btn btn-accent btn-sm" id="reader-save-doc-btn">Salvar e Ler</button>
+              <button class="btn btn-ghost btn-sm" id="reader-cancel-doc-btn">Cancelar</button>
+            </div>
+            <small id="reader-form-status" style="display:block; margin-top:8px; color:var(--text3);"></small>
+          </div>
+
+          <div id="reader-doc-list"></div>
+
+          <div id="reader-pane" style="display:none;">
+            <button class="btn btn-ghost btn-sm" id="reader-back-btn">← Voltar à lista</button>
+            <div id="reader-doc-content" style="max-width:700px; margin:20px auto; background:rgba(255,255,255,0.02); padding:40px; border-radius:16px; line-height:1.8; font-size:18px;"></div>
           </div>
         </section>
 

@@ -23,19 +23,26 @@ Extensão Chrome para aprendizado de idiomas através de vídeos com legendas du
 - ✅ Frequência da palavra
 
 ### 🎴 Sistema SRS (Flashcards)
-- ✅ Algoritmo SuperMemo-2
+- ✅ Algoritmo FSRS (Free Spaced Repetition Scheduler)
 - ✅ Revisão espaçada inteligente
 - ✅ 4 níveis de dificuldade
 - ✅ Estatísticas detalhadas
 - ✅ Dashboard completo
+- ✅ Revisão rápida durante o vídeo (Review Overlay)
+
+### 📖 Biblioteca de Leitura
+- ✅ Importe seus próprios textos (colar ou arquivo .txt/.srt/.vtt)
+- ✅ Leitura com tradução instantânea, clicando em qualquer palavra
+- ✅ Busca local (100% offline) em tudo que você leu ou salvou
 
 ### 🎮 Controles por Teclado
 - **A** - Legenda anterior
 - **S** - Repetir legenda
 - **D** - Próxima legenda
 - **Q** - Toggle auto-pausa
-- **R** - Salvar frase inteira
+- **R** - Revisão rápida (Review Overlay)
 - **O** - Abrir configurações
+- **[ / ]** - Diminuir/aumentar velocidade do vídeo
 - **Espaço** - Play/Pause
 
 ### 🌐 Plataformas Suportadas
@@ -44,7 +51,7 @@ Extensão Chrome para aprendizado de idiomas através de vídeos com legendas du
 - ✅ Prime Video
 - ✅ Disney+
 - ✅ Max (HBO Max)
-- ✅ Sites genéricos
+- ✅ Sites genéricos com `<video>` + legenda HTML5 nativa (`<track>`) e modo de leitura em qualquer página de texto — clique em "Ativar Nesta Página" no popup da extensão
 
 ---
 
@@ -181,6 +188,14 @@ Contribuições são bem-vindas! Para contribuir:
 ---
 
 ## 📝 Changelog
+
+### v1.2.0 (04/07/2026)
+- ✅ **Biblioteca de Leitura:** nova aba no dashboard para importar textos próprios (colar ou arquivo .txt/.srt/.vtt), com tradução instantânea clicando em qualquer palavra, e busca local (100% offline) em tudo que foi importado ou salvo.
+- ✅ **Velocidade de Vídeo:** controle de reprodução (0.25x–2x) com atalhos `[`/`]`, persistente entre sessões.
+- ✅ **Sites Genéricos (de verdade):** botão "Ativar Nesta Página" no popup liga legendas duplas em sites com `<video>`+`<track>` nativo e o modo de leitura em páginas de texto, via `activeTab` — sem rodar automaticamente em sites não listados.
+- ✅ **N+1 Feed Interativo:** o artigo gerado por IA no dashboard agora tem palavras clicáveis para tradução e salvamento nos flashcards.
+- 🔒 **Correção de Segurança:** respostas da IA agora são escapadas antes de renderizar em HTML (previne XSS via prompt injection).
+- 🐛 **Correção:** painel de configurações não inicializava mais corretamente devido a um elemento de UI ausente (seletor de cores CEFR).
 
 ### v1.1.0 (02/05/2026)
 - ✅ **Exportação para Anki:** Botão dedicado no dashboard para exportar vocabulário.

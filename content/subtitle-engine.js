@@ -925,12 +925,12 @@ export class SubtitleEngine {
                 .lf-review   { color: #38BDF8; text-decoration: underline dashed; text-underline-offset: 3px; } /* azul — revisando */
                 .lf-learning { color: #FBBF24; text-decoration: underline dashed; text-underline-offset: 3px; } /* amarelo — aprendendo */
                 .lf-saved    { color: var(--lf-color-saved, #93C5FD); text-decoration: underline dashed; text-underline-offset: 4px; } /* azul claro — nova */
-                .lf-cefr-A1 { color: var(--cefr-a1, #60a5fa) !important; text-shadow: 0 0 8px var(--cefr-a1, #60a5fa); }
-                .lf-cefr-A2 { color: var(--cefr-a2, #4ade80) !important; text-shadow: 0 0 8px var(--cefr-a2, #4ade80); }
-                .lf-cefr-B1 { color: var(--cefr-b1, #facc15) !important; text-shadow: 0 0 8px var(--cefr-b1, #facc15); }
-                .lf-cefr-B2 { color: var(--cefr-b2, #fb923c) !important; text-shadow: 0 0 8px var(--cefr-b2, #fb923c); }
-                .lf-cefr-C1 { color: var(--cefr-c1, #f87171) !important; text-shadow: 0 0 8px var(--cefr-c1, #f87171); }
-                .lf-cefr-C2 { color: var(--cefr-c2, #c084fc) !important; text-shadow: 0 0 8px var(--cefr-c2, #c084fc); }
+                .lf-cefr-A1 { text-decoration: underline solid var(--cefr-a1, #60a5fa) !important; text-underline-offset: 4px; text-decoration-thickness: 3px; }
+                .lf-cefr-A2 { text-decoration: underline solid var(--cefr-a2, #4ade80) !important; text-underline-offset: 4px; text-decoration-thickness: 3px; }
+                .lf-cefr-B1 { text-decoration: underline solid var(--cefr-b1, #facc15) !important; text-underline-offset: 4px; text-decoration-thickness: 3px; }
+                .lf-cefr-B2 { text-decoration: underline solid var(--cefr-b2, #fb923c) !important; text-underline-offset: 4px; text-decoration-thickness: 3px; }
+                .lf-cefr-C1 { text-decoration: underline solid var(--cefr-c1, #f87171) !important; text-underline-offset: 4px; text-decoration-thickness: 3px; }
+                .lf-cefr-C2 { text-decoration: underline solid var(--cefr-c2, #c084fc) !important; text-underline-offset: 4px; text-decoration-thickness: 3px; }
                 .lf-expression { 
                     border-bottom: 2px dotted rgba(56, 189, 248, 0.6); 
                     padding-bottom: 1px;

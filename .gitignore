@@ -9,6 +9,10 @@ dist/
 build/
 *.zip
 
+# Next.js
+.next/
+.vercel/
+
 # IDE / Editor
 .vscode/
 .idea/

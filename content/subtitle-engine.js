@@ -344,12 +344,19 @@ export class SubtitleEngine {
                 if (resp instanceof ArrayBuffer) resp = new TextDecoder('utf-8').decode(resp);
                 else if (typeof resp !== 'string') { try { resp = JSON.stringify(resp); } catch {} }
                 
-                const cues = this._parseVTT(resp);
-                if (cues.length > 0) {
-                    this.xhrCues = cues;
-                    this.cues = cues; // Unifica para o Sidebar
+                const newCues = this._parseVTT(resp);
+                if (newCues.length > 0) {
+                    if (this.xhrCues.length > 0) {
+                        const merged = [...this.xhrCues, ...newCues];
+                        const unique = new Map();
+                        merged.forEach(c => unique.set(c.start + '_' + c.end, c));
+                        this.xhrCues = Array.from(unique.values()).sort((a, b) => a.start - b.start);
+                    } else {
+                        this.xhrCues = newCues;
+                    }
+                    this.cues = this.xhrCues; // Unifica para o Sidebar
                     this.usingXhr = true;
-                    console.debug('[LinguaFlow] Legendas unificadas via postMessage (' + cues.length + ' frases)');
+                    console.debug('[LinguaFlow] Legendas unificadas via postMessage (' + this.xhrCues.length + ' frases ativas)');
                     
                     // Notifica reconstrução do painel lateral
                     this._rebuildSubtitleList();
@@ -378,6 +385,7 @@ export class SubtitleEngine {
         if (this.platform === 'max') {
             console.debug('[LinguaFlow] HBO Max: aguardando VTT via XHR intercept');
             this._hideHBONativeSubtitles();
+            this._autoEnableHBOSubtitles();
         }
         
         await this._injectSubtitleUI();
@@ -586,6 +594,50 @@ export class SubtitleEngine {
         }
         s.textContent = '[data-testid="caption_renderer_overlay"],[class*="SubtitleText"],[class*="subtitle-text"],.track-text-container{opacity:0!important;pointer-events:none!important;}';
         console.debug('[LinguaFlow] HBO Max: legenda nativa escondida via CSS (Pro V5)');
+    }
+
+    // ── Habilita legenda nativa automaticamente caso esteja desativada ────────
+    _autoEnableHBOSubtitles() {
+        if (this._hboAutoEnableTried) return;
+        this._hboAutoEnableTried = true;
+        
+        let attempts = 0;
+        const tryEnable = () => {
+            attempts++;
+            // Se já recebemos legenda via XHR, não precisa fazer nada
+            if (this.xhrCues && this.xhrCues.length > 0) return;
+            
+            // Procura o botão de legendas nativo da Max
+            const ccBtn = document.querySelector('[data-testid="player-ui-controls-subtitle-btn"], [aria-label*="Subtitle"], [aria-label*="Caption"], button[class*="subtitle"]');
+            
+            if (ccBtn) {
+                // Tenta descobrir se está desligado (frequentemente aria-pressed="false" ou menu mostra "Off")
+                const isOff = ccBtn.getAttribute('aria-pressed') === 'false';
+                if (isOff || !this.usingXhr) {
+                    console.debug('[LinguaFlow] Tentando auto-ativar legenda nativa na HBO Max...');
+                    try {
+                        ccBtn.click();
+                        setTimeout(() => {
+                            // Clica no primeiro item do menu que pareça ser uma legenda (ex: Inglês)
+                            // A Max tem radio buttons no menu de legendas
+                            const menus = document.querySelectorAll('[role="menuitemradio"], [role="radio"]');
+                            for (let m of menus) {
+                                // Evita clicar em "Off" ou "Desativado"
+                                if (m.textContent && !m.textContent.toLowerCase().includes('off') && !m.textContent.toLowerCase().includes('desligado')) {
+                                    m.click();
+                                    break;
+                                }
+                            }
+                            // Fecha o menu clicando de volta no CC ou clicando fora
+                            ccBtn.click();
+                        }, 300);
+                    } catch(e) {}
+                }
+            } else if (attempts < 10) {
+                setTimeout(tryEnable, 2000);
+            }
+        };
+        setTimeout(tryEnable, 5000); // Dá 5s para o player montar
     }
 
     // ── Carrega configurações do banco ───────────────────────────────────────
@@ -916,12 +968,12 @@ export class SubtitleEngine {
                 .lf-review   { color: #38BDF8; text-decoration: underline dashed; text-underline-offset: 3px; } /* azul — revisando */
                 .lf-learning { color: #FBBF24; text-decoration: underline dashed; text-underline-offset: 3px; } /* amarelo — aprendendo */
                 .lf-saved    { color: var(--lf-color-saved, #93C5FD); text-decoration: underline dashed; text-underline-offset: 4px; } /* azul claro — nova */
-                .lf-cefr-A1 { text-decoration: underline solid var(--cefr-a1, #60a5fa) !important; text-underline-offset: 4px; text-decoration-thickness: 3px; }
-                .lf-cefr-A2 { text-decoration: underline solid var(--cefr-a2, #4ade80) !important; text-underline-offset: 4px; text-decoration-thickness: 3px; }
-                .lf-cefr-B1 { text-decoration: underline solid var(--cefr-b1, #facc15) !important; text-underline-offset: 4px; text-decoration-thickness: 3px; }
-                .lf-cefr-B2 { text-decoration: underline solid var(--cefr-b2, #fb923c) !important; text-underline-offset: 4px; text-decoration-thickness: 3px; }
-                .lf-cefr-C1 { text-decoration: underline solid var(--cefr-c1, #f87171) !important; text-underline-offset: 4px; text-decoration-thickness: 3px; }
-                .lf-cefr-C2 { text-decoration: underline solid var(--cefr-c2, #c084fc) !important; text-underline-offset: 4px; text-decoration-thickness: 3px; }
+                .lf-cefr-A1 { text-decoration: underline solid var(--cefr-a1, #60a5fa) !important; text-underline-offset: 4px; text-decoration-thickness: 3px; color: inherit !important; }
+                .lf-cefr-A2 { text-decoration: underline solid var(--cefr-a2, #4ade80) !important; text-underline-offset: 4px; text-decoration-thickness: 3px; color: inherit !important; }
+                .lf-cefr-B1 { text-decoration: underline solid var(--cefr-b1, #facc15) !important; text-underline-offset: 4px; text-decoration-thickness: 3px; color: inherit !important; }
+                .lf-cefr-B2 { text-decoration: underline solid var(--cefr-b2, #fb923c) !important; text-underline-offset: 4px; text-decoration-thickness: 3px; color: inherit !important; }
+                .lf-cefr-C1 { text-decoration: underline solid var(--cefr-c1, #f87171) !important; text-underline-offset: 4px; text-decoration-thickness: 3px; color: inherit !important; }
+                .lf-cefr-C2 { text-decoration: underline solid var(--cefr-c2, #c084fc) !important; text-underline-offset: 4px; text-decoration-thickness: 3px; color: inherit !important; }
                 .lf-expression { 
                     border-bottom: 2px dotted rgba(56, 189, 248, 0.6); 
                     padding-bottom: 1px;

@@ -109,13 +109,6 @@ export class SettingsPanel {
         s.getElementById('sel-cefr-level').value    = this.cfg.cefrTargetLevel;
         s.getElementById('sel-cefr-colors').value   = this.cfg.cefrColorsEnabled ? 'on' : 'off';
 
-        s.getElementById('col-cefr-a1').value       = this.cfg.cefrColorA1;
-        s.getElementById('col-cefr-a2').value       = this.cfg.cefrColorA2;
-        s.getElementById('col-cefr-b1').value       = this.cfg.cefrColorB1;
-        s.getElementById('col-cefr-b2').value       = this.cfg.cefrColorB2;
-        s.getElementById('col-cefr-c1').value       = this.cfg.cefrColorC1;
-        s.getElementById('col-cefr-c2').value       = this.cfg.cefrColorC2;
-
         s.getElementById('val-font').textContent        = `${this.cfg.fontSize}px`;
         s.getElementById('val-font-trans').textContent  = `${this.cfg.fontSizeTrans}px`;
         s.getElementById('val-bg').textContent          = `${Math.round(this.cfg.bgOpacity * 100)}%`;
@@ -153,13 +146,6 @@ export class SettingsPanel {
             this._save('cefrColorsEnabled', e.target.value === 'on');
         };
         
-        ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].forEach(level => {
-            s.getElementById(`col-cefr-${level.toLowerCase()}`).onchange = e => {
-                this._save(`cefrColor${level}`, e.target.value);
-            };
-        });
-
-
 
         // Tamanho legenda original
         s.getElementById('rng-font').oninput = e => {
@@ -391,58 +377,6 @@ export class SettingsPanel {
                                 <option value="C2">C2 (Fluente)</option>
                             </select>
                             <small>Foca na captação automática de palavras do seu nível.</small>
-                        </div>
-                        <div class="group">
-                            <label>Coleta Automática de Palavras</label>
-                            <select id="sel-cefr-auto">
-                                <option value="on">Ativada (Salvar automaticamente)</option>
-                                <option value="off">Desativada</option>
-                            </select>
-                        </div>
-                        <div class="group">
-                            <label>Cores Baseadas no CEFR</label>
-                            <select id="sel-cefr-colors">
-                                <option value="on">Ativada (Colorir por nível)</option>
-                                <option value="off">Desativada (Apenas conhecidas/salvas)</option>
-                            </select>
-                            <small>Mostra cores diferentes para A1, A2, B1, etc. nas legendas.</small>
-                        </div>
-                        <div class="group">
-                            <label>Personalizar Cores CEFR</label>
-                            <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-                                <div style="display:flex; flex-direction:column; gap:4px;">
-                                    <small style="font-size:10px;">A1 (Iniciante)</small>
-                                    <input type="color" id="col-cefr-a1">
-                                </div>
-                                <div style="display:flex; flex-direction:column; gap:4px;">
-                                    <small style="font-size:10px;">A2 (Básico)</small>
-                                    <input type="color" id="col-cefr-a2">
-                                </div>
-                                <div style="display:flex; flex-direction:column; gap:4px;">
-                                    <small style="font-size:10px;">B1 (Intermediário)</small>
-                                    <input type="color" id="col-cefr-b1">
-                                </div>
-                                <div style="display:flex; flex-direction:column; gap:4px;">
-                                    <small style="font-size:10px;">B2 (Independente)</small>
-                                    <input type="color" id="col-cefr-b2">
-                                </div>
-                                <div style="display:flex; flex-direction:column; gap:4px;">
-                                    <small style="font-size:10px;">C1 (Avançado)</small>
-                                    <input type="color" id="col-cefr-c1">
-                                </div>
-                                <div style="display:flex; flex-direction:column; gap:4px;">
-                                    <small style="font-size:10px;">C2 (Fluente)</small>
-                                    <input type="color" id="col-cefr-c2">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="group">
-                            <label>Limite Diário de Palavras Automáticas</label>
-                            <div class="slider-row">
-                                <input type="range" id="rng-auto-harvest" min="1" max="100" step="1" value="10">
-                                <span class="val-display" id="val-auto-harvest">10</span>
-                            </div>
-                            <small>Quantas palavras desconhecidas o sistema pode adicionar aos seus decks por dia assistindo vídeos.</small>
                         </div>
                     </div>
 

@@ -8,14 +8,7 @@
     "48": "icon48.png",
     "128": "icon128.png"
   },
-  "permissions": [
-    "storage",
-    "alarms",
-    "scripting",
-    "contextMenus",
-    "tabs",
-    "identity"
-  ],
+  "permissions": ["storage", "alarms", "scripting", "contextMenus", "tabs", "identity"],
   "host_permissions": [
     "*://api.mymemory.translated.net/*",
     "*://translate.googleapis.com/*",
@@ -60,6 +53,13 @@
       "js": ["content/boot.js"],
       "run_at": "document_idle",
       "match_about_blank": false
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/web-reader.js"],
+      "run_at": "document_idle",
+      "match_about_blank": false,
+      "all_frames": false
     }
   ],
   "action": {

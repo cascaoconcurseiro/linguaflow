@@ -77,3 +77,5 @@ icon*.png.bak
 secrets.json
 background/env.js
 background/env.json
+.vercel
+.env*

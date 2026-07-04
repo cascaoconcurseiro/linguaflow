@@ -37,38 +37,24 @@
           <button class="nav-tab" data-tab="library"><span>📚</span> Biblioteca</button>
           <button class="nav-tab" data-tab="chunks"><span>🧩</span> Chunks</button>
           <button class="nav-tab" data-tab="lab"><span>🧪</span> Laboratório</button>
-          <div
-            class="sidebar-section-title"
-          >
-            MOONSHOT (BETA)
-          </div>
+          <div class="sidebar-section-title">MOONSHOT (BETA)</div>
           <button class="nav-tab" data-tab="moonshot-voice">
             <span>🗣️</span> Simulador Voice-to-Voice
           </button>
           <button class="nav-tab" data-tab="moonshot-feed">
             <span>📰</span> Feed de Leitura (N+1)
           </button>
-          <button class="nav-tab" data-tab="catalogue">
-            <span>🎬</span> Catálogo YouTube
-          </button>
+          <button class="nav-tab" data-tab="catalogue"><span>🎬</span> Catálogo YouTube</button>
           <div></div>
           <button class="nav-tab" data-tab="progresso"><span>📈</span> Progresso</button>
           <button class="nav-tab" data-tab="config"><span>⚙️</span> Configurações</button>
         </nav>
         <div class="sidebar-footer">
           <div class="sidebar-section-title">☁️ NUVEM</div>
-          <div
-            id="lf-cloud-status"
-          >
-            Desconectado
-          </div>
+          <div id="lf-cloud-status">Desconectado</div>
           <button class="sidebar-btn primary" id="lf-cloud-login-btn">🔐 Conectar Conta</button>
-          <button class="sidebar-btn" id="lf-cloud-sync-up">
-            ⬆️ Enviar para Nuvem
-          </button>
-          <button class="sidebar-btn" id="lf-cloud-sync-down">
-            ⬇️ Baixar da Nuvem
-          </button>
+          <button class="sidebar-btn" id="lf-cloud-sync-up">⬆️ Enviar para Nuvem</button>
+          <button class="sidebar-btn" id="lf-cloud-sync-down">⬇️ Baixar da Nuvem</button>
           <div></div>
           <div class="sidebar-section-title">DADOS</div>
           <button class="sidebar-btn primary" id="exportAnkiBtn">
@@ -126,33 +112,18 @@
           <div class="home-grid">
             <!-- Hero -->
             <div class="home-hero">
-              <div
-                id="home-backup-warning"
-              >
+              <div id="home-backup-warning">
                 <span>⚠️</span>
                 <div>
-                  <b
-                    >Backup Pendente</b
-                  >
+                  <b>Backup Pendente</b>
                   O armazenamento local do Chrome pode ser limpo automaticamente se faltar espaço no
                   PC. Acesse Configurações > Exportar Dados para proteger seus estudos.
                 </div>
               </div>
               <div>⚡</div>
-              <h2>
-                Sessão de Hoje
-              </h2>
-              <p
-                id="home-study-desc"
-              >
-                Carregando...
-              </p>
-              <button
-                class="btn btn-accent"
-                id="start-study-btn"
-              >
-                Começar Agora ➔
-              </button>
+              <h2>Sessão de Hoje</h2>
+              <p id="home-study-desc">Carregando...</p>
+              <button class="btn btn-accent" id="start-study-btn">Começar Agora ➔</button>
             </div>
             <!-- Mini stats -->
             <div class="home-mini-stats">
@@ -180,9 +151,7 @@
               <div class="mini-stat">
                 <span class="mini-stat-emoji">🤖</span>
                 <div id="home-ia-status">
-                  <div class="mini-stat-val">
-                    Desconectada
-                  </div>
+                  <div class="mini-stat-val">Desconectada</div>
                   <div class="mini-stat-label">IA Status</div>
                 </div>
               </div>
@@ -190,8 +159,7 @@
 
             <!-- Decks table -->
             <div class="card card-padded">
-              <div
-              >
+              <div>
                 <h3 class="card-title">🗂️ Meus Decks (Estilo Anki)</h3>
                 <div>
                   <input
@@ -213,9 +181,7 @@
                 <span>Ação</span>
               </div>
               <div id="home-decks-list">
-                <div>
-                  Carregando decks...
-                </div>
+                <div>Carregando decks...</div>
               </div>
             </div>
 
@@ -223,10 +189,7 @@
             <div class="card card-padded">
               <h3 class="card-title">💬 Frases Recentes</h3>
               <div id="home-recent-phrases">
-                <div
-                >
-                  Carregando...
-                </div>
+                <div>Carregando...</div>
               </div>
               <button
                 class="btn btn-ghost btn-sm"
@@ -272,12 +235,7 @@
               <button class="pill" id="lib-tab-phrases">Frases</button>
               <button class="pill" id="lib-tab-decks">🗂️ Decks</button>
             </div>
-            <input
-              type="text"
-              class="input-field"
-              id="library-search"
-              placeholder="🔍 Buscar..."
-            />
+            <input type="text" class="input-field" id="library-search" placeholder="🔍 Buscar..." />
             <select class="input-field" id="lib-filter-status">
               <option value="">Todos os status</option>
               <option value="new">🔵 Novo</option>
@@ -307,15 +265,11 @@
             <select class="input-field btn-sm" id="bulk-deck-select"></select>
             <button class="btn btn-ghost btn-sm" id="bulk-move-deck">Mover para Deck</button>
             <button class="btn btn-danger btn-sm" id="bulk-delete">Excluir</button>
-            <button class="btn btn-ghost btn-sm" id="bulk-cancel">
-              Cancelar
-            </button>
+            <button class="btn btn-ghost btn-sm" id="bulk-cancel">Cancelar</button>
           </div>
 
           <!-- Content -->
-          <div
-            id="lib-select-toggle"
-          >
+          <div id="lib-select-toggle">
             <button class="btn btn-ghost btn-sm" id="toggle-select-mode">☑️ Selecionar</button>
           </div>
           <div id="cardsGrid" class="cards-grid"></div>
@@ -329,28 +283,20 @@
             <div class="lab-card" id="start-quiz-btn">
               <div>🎮</div>
               <h3>Modo Quiz</h3>
-              <p>
-                Múltipla escolha, áudio e escrita com cronômetro.
-              </p>
+              <p>Múltipla escolha, áudio e escrita com cronômetro.</p>
             </div>
             <div class="lab-card" id="start-listening-btn">
               <div>🎧</div>
               <h3>Imersão Passiva</h3>
-              <p>
-                Ouça todas as frases salvas em loop (Método Natural).
-              </p>
+              <p>Ouça todas as frases salvas em loop (Método Natural).</p>
             </div>
           </div>
           <div id="quiz-area">
-            <button class="btn btn-ghost btn-sm" id="back-to-lab-quiz">
-              ← Voltar
-            </button>
+            <button class="btn btn-ghost btn-sm" id="back-to-lab-quiz">← Voltar</button>
             <div id="quiz-container"></div>
           </div>
           <div id="listening-area">
-            <button class="btn btn-ghost btn-sm" id="back-to-lab-list">
-              ← Voltar
-            </button>
+            <button class="btn btn-ghost btn-sm" id="back-to-lab-list">← Voltar</button>
             <div id="listeningContent"></div>
           </div>
         </section>
@@ -360,31 +306,20 @@
           <div class="view-header">
             <h2>
               Meus Chunks
-              <span
-                id="chunks-due-badge"
-              ></span>
+              <span id="chunks-due-badge"></span>
             </h2>
             <p class="view-desc">
               Domine a gramática intuitivamente focando em blocos de palavras.
             </p>
             <div>
               <button class="btn btn-outline" id="btn-batch-chunks">✦ Gerar Chunks</button>
-              <button
-                class="btn btn-outline"
-                id="btn-export-pdf"
-              >
-                📄 Gerar PDF
-              </button>
+              <button class="btn btn-outline" id="btn-export-pdf">📄 Gerar PDF</button>
               <button class="btn btn-primary" id="btn-practice-chunks">▶ Praticar Chunks</button>
             </div>
-            <div
-              id="batch-chunks-progress"
-            ></div>
+            <div id="batch-chunks-progress"></div>
           </div>
 
-          <div
-            id="chunksGrid"
-          >
+          <div id="chunksGrid">
             <!-- Preenchido via JS -->
           </div>
         </section>
@@ -412,86 +347,51 @@
 
           <!-- XP Card -->
           <div class="xp-card">
-            <div
-            >
+            <div>
               <div>
-                <h3
-                >
-                  🎖️ Evolução no Inglês
-                </h3>
+                <h3>🎖️ Evolução no Inglês</h3>
                 <p id="level-name">Iniciante</p>
               </div>
               <div>
-                <span
-                  id="current-cefr-big"
-                  >A1</span
-                >
+                <span id="current-cefr-big">A1</span>
                 <span>CEFR</span>
               </div>
             </div>
-            <div
-            >
+            <div>
               <span id="level-name-sub">Iniciante (Beginner)</span>
               <span id="xp-display">0 / 500 XP</span>
             </div>
             <div class="progress-bar">
-              <div
-                class="progress-fill"
-                id="xp-bar"
-              ></div>
+              <div class="progress-fill" id="xp-bar"></div>
             </div>
             <div>
-              <div
-              >
-                <div id="lvl-vocab-pts">
-                  0
-                </div>
-                <div
-                >
-                  Pts Vocabulário
-                </div>
+              <div>
+                <div id="lvl-vocab-pts">0</div>
+                <div>Pts Vocabulário</div>
               </div>
-              <div
-              >
-                <div id="lvl-immersion-pts">
-                  0
-                </div>
-                <div
-                >
-                  Bônus Imersão
-                </div>
+              <div>
+                <div id="lvl-immersion-pts">0</div>
+                <div>Bônus Imersão</div>
               </div>
-              <div
-              >
-                <div
-                  id="lvl-retention-bonus"
-                >
-                  0%
-                </div>
-                <div
-                >
-                  Retenção
-                </div>
+              <div>
+                <div id="lvl-retention-bonus">0%</div>
+                <div>Retenção</div>
               </div>
             </div>
           </div>
 
-          <div
-          >
+          <div>
             <div class="card card-padded">
               <h3 class="card-title">Nível CEFR por Palavras</h3>
               <div class="cefr-bars" id="cefr-chart"></div>
             </div>
             <div class="card card-padded">
               <h3 class="card-title">Distribuição de Status</h3>
-              <div
-                id="status-distribution"
-              ></div>
+              <div id="status-distribution"></div>
             </div>
           </div>
 
-          <div
-          >
+          <div>
             <div class="card card-padded">
               <h3 class="card-title">📅 Mapa de Calor</h3>
               <div id="stats-heatmap" class="heatmap-wrap"></div>
@@ -508,18 +408,11 @@
         <!-- ═══ CONFIG ═══ -->
         <section id="config-section" class="content-section">
           <div>
-            <h2>
-              ⚙️ Configurações
-            </h2>
-            <div
-            >
-              <p>
-                Parâmetros completos do algoritmo SRS e aparência.
-              </p>
+            <h2>⚙️ Configurações</h2>
+            <div>
+              <p>Parâmetros completos do algoritmo SRS e aparência.</p>
               <div>
-                <span
-                  >Tema:</span
-                >
+                <span>Tema:</span>
                 <div
                   class="color-picker-dot"
                   onclick="
@@ -590,9 +483,7 @@
                     class="input-field config-input"
                     placeholder="1 10"
                   />
-                  <small
-                    >Ex: "1 10" (revisão em 1min e 10min)</small
-                  >
+                  <small>Ex: "1 10" (revisão em 1min e 10min)</small>
                 </div>
                 <div class="config-row">
                   <span class="config-label">Ordem de Inserção</span>
@@ -606,9 +497,7 @@
 
               <!-- Imersão Automática -->
               <div class="config-card">
-                <div class="config-card-title">
-                  🎧 Imersão Automática
-                </div>
+                <div class="config-card-title">🎧 Imersão Automática</div>
                 <div class="config-row">
                   <span class="config-label">Nível Alvo (CEFR)</span>
                   <select id="cfg-cefr-level" class="input-field config-input">
@@ -620,17 +509,12 @@
                     <option value="C1">C1 (Proficiência)</option>
                     <option value="C2">C2 (Maestria)</option>
                   </select>
-                  <small
-                    >Destaca palavras deste nível na legenda</small
-                  >
+                  <small>Destaca palavras deste nível na legenda</small>
                 </div>
 
                 <div class="config-row">
                   <span class="config-label">Cores do CEFR</span>
-                  <select
-                    id="cfg-cefr-colors"
-                    class="input-field config-input"
-                  >
+                  <select id="cfg-cefr-colors" class="input-field config-input">
                     <option value="on">Ativada (Colorir legenda por nível)</option>
                     <option value="off">Desativada</option>
                   </select>
@@ -647,9 +531,7 @@
                 <div class="config-row">
                   <span class="config-label">Bônus Fácil (%)</span>
                   <input type="number" id="cfg-easy-bonus" class="input-field config-input-sm" />
-                  <small
-                    >Multiplicador extra para "Fácil"</small
-                  >
+                  <small>Multiplicador extra para "Fácil"</small>
                 </div>
                 <div class="config-row">
                   <span class="config-label">Modificador de Intervalo (%)</span>
@@ -684,9 +566,7 @@
                 <div class="config-row">
                   <span class="config-label">Novo Intervalo após Falha (%)</span>
                   <input type="number" id="cfg-lapse-mod" class="input-field config-input-sm" />
-                  <small
-                    >0% = volta ao começo</small
-                  >
+                  <small>0% = volta ao começo</small>
                 </div>
                 <div class="config-row">
                   <span class="config-label">Limite de Sanguessuga</span>
@@ -698,10 +578,7 @@
                 </div>
                 <div class="config-row">
                   <span class="config-label">Ação de Sanguessuga</span>
-                  <select
-                    id="cfg-leech-action"
-                    class="input-field config-input"
-                  >
+                  <select id="cfg-leech-action" class="input-field config-input">
                     <option value="tag">Apenas marcar (Tag)</option>
                     <option value="suspend">Suspender Card</option>
                   </select>
@@ -709,12 +586,8 @@
               </div>
 
               <!-- IA -->
-              <div
-                class="config-card"
-              >
-                <div class="config-card-title">
-                  ✦ Motor de Inteligência Artificial
-                </div>
+              <div class="config-card">
+                <div class="config-card-title">✦ Motor de Inteligência Artificial</div>
                 <p>
                   Configure sua chave para habilitar explicações e análises profundas. Suporta
                   <b>Groq (gsk_...)</b> e <b>Google Gemini (AIza...)</b>.
@@ -733,134 +606,73 @@
                   >
                     👁️
                   </button>
-                  <button
-                    class="btn btn-sm"
-                    id="test-ai-key"
-                  >
-                    Testar Conexão
-                  </button>
+                  <button class="btn btn-sm" id="test-ai-key">Testar Conexão</button>
                 </div>
-                <div
-                  id="test-ai-result"
-                ></div>
+                <div id="test-ai-result"></div>
                 <div>
-                  <a
-                    href="https://console.groq.com/keys"
-                    target="_blank"
-                    >🔗 Obter chave Groq</a
-                  >
-                  <a
-                    href="https://aistudio.google.com/app/apikey"
-                    target="_blank"
+                  <a href="https://console.groq.com/keys" target="_blank">🔗 Obter chave Groq</a>
+                  <a href="https://aistudio.google.com/app/apikey" target="_blank"
                     >🔗 Obter chave Gemini</a
                   >
                 </div>
               </div>
 
               <!-- Offline Dictionary Section -->
-              <div
-                class="config-card"
-              >
+              <div class="config-card">
                 <div>
                   <div>
-                    <h3
-                    >
-                      📖 Dicionário Offline (JSON)
-                    </h3>
+                    <h3>📖 Dicionário Offline (JSON)</h3>
                     <p>
                       Importe um dicionário JSON local para ter traduções instantâneas sem internet.
                     </p>
                   </div>
-                  <label
-                    class="btn btn-primary"
-                  >
+                  <label class="btn btn-primary">
                     Importar JSON
                     <input type="file" id="cfg-dict-upload" accept=".json" />
                   </label>
                 </div>
-                <div
-                  id="cfg-dict-status"
-                ></div>
+                <div id="cfg-dict-status"></div>
               </div>
 
               <!-- Cloud Sync Section -->
-              <div
-                class="config-card"
-              >
+              <div class="config-card">
                 <div>
                   <div>
-                    <h3
-                    >
-                      ☁️ Sincronização em Nuvem
-                    </h3>
-                    <p>
-                      Faça backup automático dos seus flashcards no Google Drive.
-                    </p>
+                    <h3>☁️ Sincronização em Nuvem</h3>
+                    <p>Faça backup automático dos seus flashcards no Google Drive.</p>
                   </div>
                   <div>
-                    <button
-                      class="btn btn-primary"
-                      id="btn-sync-up"
-                    >
-                      ⬆️ Fazer Backup
-                    </button>
-                    <button
-                      class="btn btn-secondary"
-                      id="btn-sync-down"
-                    >
-                      ⬇️ Restaurar
-                    </button>
+                    <button class="btn btn-primary" id="btn-sync-up">⬆️ Fazer Backup</button>
+                    <button class="btn btn-secondary" id="btn-sync-down">⬇️ Restaurar</button>
                   </div>
                 </div>
-                <div
-                  id="cfg-sync-status"
-                ></div>
+                <div id="cfg-sync-status"></div>
               </div>
             </div>
 
             <div class="settings-grid">
               <!-- Google Drive Sync -->
-              <div
-                class="config-card"
-              >
-                <div class="config-card-title">
-                  ☁️ Cloud Sync (Google Drive)
-                </div>
+              <div class="config-card">
+                <div class="config-card-title">☁️ Cloud Sync (Google Drive)</div>
                 <p>
                   Faça backup do seu progresso, revisões e palavras salvas diretamente na nuvem, de
                   forma invisível. Nunca perca seus dados!
                 </p>
                 <div>
-                  <button
-                    class="btn btn-primary btn-sm"
-                    id="btn-sync-backup"
-                  >
+                  <button class="btn btn-primary btn-sm" id="btn-sync-backup">
                     <span>⬆️ Fazer Backup Agora</span>
                   </button>
-                  <button
-                    class="btn btn-ghost btn-sm"
-                    id="btn-sync-restore"
-                  >
+                  <button class="btn btn-ghost btn-sm" id="btn-sync-restore">
                     <span>⬇️ Restaurar Backup</span>
                   </button>
                 </div>
-                <div
-                  id="sync-status-msg"
-                ></div>
+                <div id="sync-status-msg"></div>
               </div>
             </div>
 
-            <div
-            >
-              <p>
-                As alterações afetam apenas os próximos cálculos de repetição.
-              </p>
-              <button
-                class="btn btn-primary"
-                id="save-all-config"
-              >
-                Salvar Alterações
-              </button>
+            <div>
+              <p>As alterações afetam apenas os próximos cálculos de repetição.</p>
+              <button class="btn btn-primary" id="save-all-config">Salvar Alterações</button>
             </div>
           </div>
         </section>
@@ -869,26 +681,16 @@
         <section id="moonshot-voice-section" class="content-section">
           <div class="section-header">
             <h2>🗣️ Simulador Voice-to-Voice</h2>
-            <p>
-              Converse com a Inteligência Artificial para perder o medo de falar.
-            </p>
+            <p>Converse com a Inteligência Artificial para perder o medo de falar.</p>
           </div>
-          <div
-          >
+          <div>
             <div>🎙️</div>
             <h3>Bate-Papo Dinâmico</h3>
             <p>
               A IA está pronta para simular situações reais. Pressione o botão para começar a falar.
             </p>
-            <button
-              class="btn btn-primary"
-              id="moonshot-start-voice"
-            >
-              🟢 Iniciar Conversa
-            </button>
-            <div
-              id="moonshot-voice-log"
-            >
+            <button class="btn btn-primary" id="moonshot-start-voice">🟢 Iniciar Conversa</button>
+            <div id="moonshot-voice-log">
               <!-- Chat logs will appear here -->
             </div>
           </div>
@@ -905,9 +707,7 @@
               🪄 Gerar Artigo Baseado no meu Vocabulário
             </button>
           </div>
-          <div
-            id="moonshot-feed-content"
-          >
+          <div id="moonshot-feed-content">
             <!-- Feed will appear here -->
           </div>
         </section>
@@ -922,9 +722,7 @@
             </p>
           </div>
           <div id="catalogue-content">
-            <div>
-              Carregando catálogo...
-            </div>
+            <div>Carregando catálogo...</div>
           </div>
         </section>
       </main>
@@ -947,12 +745,7 @@
             <div>
               <div class="editor-field">
                 <label class="editor-label">Palavra / Expressão</label>
-                <input
-                  type="text"
-                  id="edit-word"
-                  class="editor-input"
-                  readonly
-                />
+                <input type="text" id="edit-word" class="editor-input" readonly />
               </div>
               <div class="editor-field">
                 <label class="editor-label">Tradução</label>
@@ -963,9 +756,7 @@
                 <textarea id="edit-context" class="editor-input" rows="3"></textarea>
               </div>
               <div class="editor-field">
-                <label class="editor-label"
-                  >Tags <small>(Enter para adicionar)</small></label
-                >
+                <label class="editor-label">Tags <small>(Enter para adicionar)</small></label>
                 <div class="tag-input-wrap" id="tag-input-wrap">
                   <input
                     type="text"
@@ -987,14 +778,11 @@
               </div>
               <div class="editor-field">
                 <label class="editor-label">Informações do Card SRS</label>
-                <div
-                  id="card-srs-info"
-                ></div>
+                <div id="card-srs-info"></div>
               </div>
               <div class="editor-field">
                 <label class="editor-label">Histórico de Revisões (últimas 10)</label>
-                <div
-                >
+                <div>
                   <table class="review-table" id="review-history-table">
                     <thead>
                       <tr>
@@ -1013,16 +801,10 @@
           <!-- Fonte de vídeo -->
           <div id="editor-video-row">
             <label class="editor-label">Visto em</label>
-            <a
-              id="editor-video-link"
-              href="#"
-              target="_blank"
-            >
+            <a id="editor-video-link" href="#" target="_blank">
               <span>📺</span>
               <div>
-                <div
-                  id="editor-video-title"
-                ></div>
+                <div id="editor-video-title"></div>
                 <div id="editor-video-platform"></div>
               </div>
             </a>
@@ -1032,9 +814,7 @@
             <button class="btn btn-primary" id="editor-save-btn">💾 Salvar Edições</button>
             <button class="btn btn-ghost" id="editor-play-btn">🔊 Ouvir</button>
             <button class="btn btn-ghost" id="editor-suspend-btn">⏸️ Suspender Card</button>
-            <button class="btn btn-danger" id="editor-delete-btn">
-              🗑️ Excluir
-            </button>
+            <button class="btn btn-danger" id="editor-delete-btn">🗑️ Excluir</button>
           </div>
         </div>
       </div>
@@ -1118,19 +898,13 @@
           <div>
             <div>
               <label class="config-label">Deck a exportar</label>
-              <select
-                id="export-deck-select"
-                class="input-field"
-              >
+              <select id="export-deck-select" class="input-field">
                 <option value="">Todos os decks</option>
               </select>
             </div>
             <div>
               <label class="config-label">Template da Frente</label>
-              <select
-                id="export-template"
-                class="input-field"
-              >
+              <select id="export-template" class="input-field">
                 <option value="word">Palavra (frente) → Tradução (verso)</option>
                 <option value="cloze">Contexto com [___] (frente) → Palavra (verso)</option>
                 <option value="translation">Tradução (frente) → Palavra (verso)</option>
@@ -1174,11 +948,8 @@
           <input type="file" id="import-file-input" accept=".txt,.tsv" />
 
           <div id="import-preview-wrap">
-            <div
-            >
-              <span
-                id="import-count-label"
-              ></span>
+            <div>
+              <span id="import-count-label"></span>
               <select id="import-deck-select" class="input-field btn-sm">
                 <option value="1">Deck Padrão</option>
               </select>
@@ -1192,8 +963,7 @@
             </div>
           </div>
 
-          <div
-          >
+          <div>
             <b>Como exportar do Anki Desktop:</b><br />
             1. Abra o deck → Mais → Exportar<br />
             2. Formato: <b>Notas em texto simples (.txt)</b><br />
@@ -1206,7 +976,43 @@
 
     <script type="module" src="supabase-auth.js"></script>
     <script type="module" src="dashboard.js"></script>
-    <button id="themeToggle" style="position:fixed;bottom:16px;right:16px;z-index:9999;width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;" title="Alternar tema">🌓</button>
-    <script>(function(){const t=document.getElementById('themeToggle');const s=localStorage.getItem('lf-theme')||'dark';document.documentElement.setAttribute('data-theme',s);t.textContent=s==='light'?'🌙':'☀️';t.addEventListener('click',()=>{const n=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);localStorage.setItem('lf-theme',n);t.textContent=n==='light'?'🌙':'☀️';});})();</script>
+    <button
+      id="themeToggle"
+      style="
+        position: fixed;
+        bottom: 16px;
+        right: 16px;
+        z-index: 9999;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        cursor: pointer;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      "
+      title="Alternar tema"
+    >
+      🌓
+    </button>
+    <script>
+      (function () {
+        const t = document.getElementById('themeToggle');
+        const s = localStorage.getItem('lf-theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', s);
+        t.textContent = s === 'light' ? '🌙' : '☀️';
+        t.addEventListener('click', () => {
+          const n =
+            document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', n);
+          localStorage.setItem('lf-theme', n);
+          t.textContent = n === 'light' ? '🌙' : '☀️';
+        });
+      })();
+    </script>
   </body>
 </html>

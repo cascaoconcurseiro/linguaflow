@@ -43,7 +43,7 @@ export class SubtitleEngine {
         this.cefrColorsEnabled = true;
         this.maxWordsPerVideo = 15;
         this.maxWordsPerDay = 30;
-        this._wordsHarvestedThisVideo = 0;
+
         this._sessionStartTime = Date.now();
         this._streakShown = false;
         setTimeout(() => this._checkStreakNotification(), 10 * 60 * 1000);
@@ -535,7 +535,7 @@ export class SubtitleEngine {
     // ── Limpeza de estado para troca de vídeo ────────────────────────────────
     async _onUrlChange() {
         console.debug('[LinguaFlow] URL alterada, resetando motor de legendas...');
-        this._wordsHarvestedThisVideo = 0;
+
         this.cues = [];
         this.xhrCues = [];
         this.currentCueIndex = -1;
@@ -643,15 +643,6 @@ export class SubtitleEngine {
                 this.cefrTargetLevel = targetLevel;
             }
             
-            const autoLimit = await db.getSetting('autoHarvestLimit');
-            if (autoLimit !== undefined && autoLimit !== null) {
-                this.maxWordsPerDay = autoLimit;
-            }
-
-            const autoHarvest = await db.getSetting('cefrAutoHarvest');
-            if (autoHarvest !== undefined && autoHarvest !== null) {
-                this.cefrAutoSave = autoHarvest;
-            }
 
             const cefrColors = await db.getSetting('cefrColorsEnabled');
             if (cefrColors !== undefined && cefrColors !== null) {
@@ -2944,73 +2935,7 @@ export class SubtitleEngine {
         }
     }
 
-    async _harvestCEFRWords(cue) {
-        if (!this.cefrList || !cue || !cue.text) return;
-        const text = cue.text;
-        const words = text.match(/[a-zA-Z\u00C0-\u024F']+/g) || [];
-        
-        for (const w of words) {
-            const word = w.toLowerCase().replace(/^'+|'+$/g, '');
-            const level = this.cefrList[word];
-            if (level === this.cefrTargetLevel || this.cefrTargetLevel === 'all') {
-                // If it's a known or already saved word, skip
-                if (this.knownWords.has(word) || this.savedWords.has(word)) continue;
-                
-                // Limite de sanidade diário e nível
-                try {
-                    const { db } = await import('../utils/db.js');
-                    
-                    if (this._wordsHarvestedThisVideo >= this.maxWordsPerVideo) {
-                        console.debug(`[LinguaFlow CEFR] Limite por vídeo atingido (${this.maxWordsPerVideo}).`);
-                        return;
-                    }
-                    const harvestedToday = await db.getHarvestedCountToday();
-                    if (harvestedToday >= this.maxWordsPerDay) {
-                        console.debug(`[LinguaFlow CEFR] Limite diário atingido (${this.maxWordsPerDay}).`);
-                        return;
-                    }
 
-                    const videoTitle = document.title || 'Video Legenda';
-                    
-                    // Garante que o deck existe
-                    let decks = await db.getSetting('decks') || ['Default'];
-                    if (!decks.includes(level)) {
-                        decks.push(level);
-                        await db.setSetting('decks', decks);
-                    }
-                    
-                    if (!cue.translatedText) {
-                        const res = await new Promise(resolve => chrome.runtime.sendMessage({
-                            action: 'translate', text: cue.text, from: this.sourceLang, to: this.targetLang
-                        }, resolve));
-                        if (res?.translation) cue.translatedText = res.translation;
-                    }
-                    
-                    const deckName = level || 'Uncategorized';
-                    const videoUrl = await this._getVideoUrlWithTimestamp();
-                    const deckId = await db.getOrCreateDeck(deckName, videoUrl);
-
-                    const data = {
-                        word: word,
-                        sentence: cue.fullContext ? `${cue.fullContext.prev} ${cue.fullContext.current} ${cue.fullContext.next}`.trim() : cue.text,
-                        translation: cue.translatedText || '',
-                        source: videoUrl,
-                        sourceTitle: videoTitle,
-                        tags: ['cefr-harvest', level],
-                        deck_id: deckId,
-                        level: level
-                    };
-                    await db.saveWord(data);
-                    this.savedWords.set(word, 'new');
-                    this._wordsHarvestedThisVideo++;
-                    this._showHarvestHUD(word, this._wordsHarvestedThisVideo, this.maxWordsPerVideo);
-                    console.debug(`[LinguaFlow CEFR] Auto-saved: ${word} (vídeo: ${this._wordsHarvestedThisVideo}/${this.maxWordsPerVideo}, dia: ${harvestedToday+1}/${this.maxWordsPerDay})`);
-                } catch (e) {
-                    console.error('[LinguaFlow CEFR] Error harvesting word:', e);
-                }
-            }
-        }
-    }
         
 
     // ── Motor de Renderização de Elite (onSubtitle) ──────────────────────────
@@ -3052,10 +2977,6 @@ export class SubtitleEngine {
             });
         }
 
-        // CEFR Auto-save (Harvest mode)
-        if (this.cefrAutoSave && this.cefrTargetLevel !== 'none') {
-            this._harvestCEFRWords(cue);
-        }
 
         // 4. Se a tradução chegou depois, atualiza
         if (!cue.translatedText && !cue.isTranslating) {
@@ -3633,20 +3554,7 @@ export class SubtitleEngine {
         this._updateSubtitlePanelHighlight();
     }
 
-    _showHarvestHUD(word, count, max) {
-        const id = 'lf-harvest-hud';
-        let hud = document.getElementById(id);
-        if (!hud) {
-            hud = document.createElement('div');
-            hud.id = id;
-            hud.style.cssText = 'position:fixed;top:16px;right:16px;z-index:2147483647;background:rgba(15,23,42,0.92);color:#e2e8f0;font-family:Inter,sans-serif;font-size:13px;font-weight:700;padding:10px 16px;border-radius:12px;border:1px solid rgba(56,189,248,0.3);backdrop-filter:blur(8px);pointer-events:none;transition:opacity 0.3s;box-shadow:0 4px 20px rgba(0,0,0,0.4)';
-            document.body.appendChild(hud);
-        }
-        clearTimeout(this._hudTimeout);
-        hud.style.opacity = '1';
-        hud.innerHTML = `📚 <span style="color:#38bdf8">${word}</span> salva &nbsp;·&nbsp; <span style="color:#fbbf24">${count}/${max}</span> neste vídeo`;
-        this._hudTimeout = setTimeout(() => { hud.style.opacity = '0'; }, 3000);
-    }
+
 
     async _checkStreakNotification() {
         if (this._streakShown) return;

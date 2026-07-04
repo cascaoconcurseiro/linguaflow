@@ -3,7 +3,7 @@ const DB_NAME = 'LinguaFlowFreeDB';
 
 async function readAllSettings() {
     const { db } = await import('../utils/db.js');
-    const settings = ['targetLang', 'subtitleMode', 'bgOpacity', 'fontSize', 'fontSizeTrans', 'autoPause', 'showOriginal', 'showTranslation', 'subtitleBottom', 'subtitleHorizontal', 'translationDelay', 'translationAnticipation', 'flashDuration', 'wordColorKnown', 'wordColorSaved', 'blurSubtitles', 'ttsPlaybackRate', 'fontFamily', 'colorPalette', 'popupMode', 'cefrTargetLevel', 'autoHarvestLimit', 'cefrAutoHarvest', 'cefrColorsEnabled', 'cefrColorA1', 'cefrColorA2', 'cefrColorB1', 'cefrColorB2', 'cefrColorC1', 'cefrColorC2'];
+    const settings = ['targetLang', 'subtitleMode', 'bgOpacity', 'fontSize', 'fontSizeTrans', 'autoPause', 'showOriginal', 'showTranslation', 'subtitleBottom', 'subtitleHorizontal', 'translationDelay', 'translationAnticipation', 'flashDuration', 'wordColorKnown', 'wordColorSaved', 'blurSubtitles', 'ttsPlaybackRate', 'fontFamily', 'colorPalette', 'popupMode', 'cefrTargetLevel', 'cefrColorsEnabled', 'cefrColorA1', 'cefrColorA2', 'cefrColorB1', 'cefrColorB2', 'cefrColorC1', 'cefrColorC2'];
     const obj = {};
     for (const key of settings) {
         const val = await db.getSetting(key);
@@ -46,8 +46,6 @@ export class SettingsPanel {
             colorPalette:            'Vibrant',
             popupMode:               'floating',
             cefrTargetLevel:         'none',
-            autoHarvestLimit:        10,
-            cefrAutoHarvest:         false,
             cefrColorsEnabled:       true,
             cefrColorA1:             '#4ade80', // Verde Claro
             cefrColorA2:             '#22d3ee', // Ciano
@@ -109,8 +107,6 @@ export class SettingsPanel {
         s.getElementById('sel-popup-mode').value    = this.cfg.popupMode;
         s.getElementById('sel-blur').value          = this.cfg.blurSubtitles ? 'on' : 'off';
         s.getElementById('sel-cefr-level').value    = this.cfg.cefrTargetLevel;
-        s.getElementById('rng-auto-harvest').value  = this.cfg.autoHarvestLimit;
-        s.getElementById('sel-cefr-auto').value     = this.cfg.cefrAutoHarvest ? 'on' : 'off';
         s.getElementById('sel-cefr-colors').value   = this.cfg.cefrColorsEnabled ? 'on' : 'off';
 
         s.getElementById('col-cefr-a1').value       = this.cfg.cefrColorA1;
@@ -129,7 +125,6 @@ export class SettingsPanel {
         // No YouTube, sempre mostra 0s no slider de antecipação
         s.getElementById('val-anticipation').textContent = `${this.cfg.translationAnticipation}s`;
         s.getElementById('val-flash').textContent       = `${this.cfg.flashDuration}s`;
-        s.getElementById('val-auto-harvest').textContent = `${this.cfg.autoHarvestLimit}`;
 
         // Handlers
         s.getElementById('btn-close').onclick  = () => this.close();
@@ -153,9 +148,7 @@ export class SettingsPanel {
         s.getElementById('sel-popup-mode').onchange = e => this._save('popupMode', e.target.value);
         s.getElementById('sel-cefr-level').onchange = e => this._save('cefrTargetLevel', e.target.value);
         
-        s.getElementById('sel-cefr-auto').onchange = e => {
-            this._save('cefrAutoHarvest', e.target.value === 'on');
-        };
+
         s.getElementById('sel-cefr-colors').onchange = e => {
             this._save('cefrColorsEnabled', e.target.value === 'on');
         };
@@ -166,11 +159,7 @@ export class SettingsPanel {
             };
         });
 
-        s.getElementById('rng-auto-harvest').oninput = e => {
-            const v = Number(e.target.value);
-            s.getElementById('val-auto-harvest').textContent = v;
-            this._save('autoHarvestLimit', v);
-        };
+
 
         // Tamanho legenda original
         s.getElementById('rng-font').oninput = e => {
@@ -697,7 +686,7 @@ export class SettingsPanel {
         this.engine.translationAnticipation  = this.cfg.translationAnticipation;
         this.engine.autoPause                = this.cfg.autoPause;
         this.engine.flashDuration            = this.cfg.flashDuration;
-        this.engine.cefrAutoSave             = this.cfg.cefrAutoHarvest;
+
         this.engine.cefrColorsEnabled        = this.cfg.cefrColorsEnabled;
         
         // Passar cores do CEFR para a engine

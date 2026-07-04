@@ -1733,7 +1733,7 @@ async function loadConfig() {
     };
     await s('newCardsPerDay',     'cfg-new-limit',       20);
     await s('cefrTargetLevel',    'cfg-cefr-level',      'none');
-    await s('autoHarvestLimit',   'cfg-auto-harvest-limit', 10);
+
     await s('learning_steps',     'cfg-learning-steps',  '1 10');
     await s('new_order',          'cfg-new-order',       'newest');
     await s('reviewsPerDay',      'cfg-rev-limit',       100);
@@ -1748,13 +1748,7 @@ async function loadConfig() {
     await s('leech_action',       'cfg-leech-action',    'tag');
     await s('grok_api_key',       'cfg-grok-key',        '');
     
-    // Novas configs CEFR Auto e Colors
-    const elAuto = document.getElementById('cfg-cefr-auto');
-    if (elAuto) {
-        let autoHarvest = await lfDb.getSetting('cefrAutoHarvest');
-        elAuto.value = autoHarvest ? 'on' : 'off';
-    }
-    
+
     const elColors = document.getElementById('cfg-cefr-colors');
     if (elColors) {
         let cefrColors = await lfDb.getSetting('cefrColorsEnabled');
@@ -1816,9 +1810,9 @@ async function saveAllConfig() {
         await Promise.all([
             lfDb.setSetting('newCardsPerDay',     n('cfg-new-limit')),
             lfDb.setSetting('cefrTargetLevel',    g('cfg-cefr-level')),
-            lfDb.setSetting('cefrAutoHarvest',    g('cfg-cefr-auto') === 'on'),
+
             lfDb.setSetting('cefrColorsEnabled',  g('cfg-cefr-colors') === 'on'),
-            lfDb.setSetting('autoHarvestLimit',   n('cfg-auto-harvest-limit')),
+
             lfDb.setSetting('learning_steps',     g('cfg-learning-steps')),
             lfDb.setSetting('new_order',          g('cfg-new-order')),
             lfDb.setSetting('reviewsPerDay',      n('cfg-rev-limit')),

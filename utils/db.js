@@ -452,19 +452,7 @@ class Database {
         return { totalWords, totalSentences, dueCards: dueCount, streak: this._calculateStreak(log, sessions), retention, byStatus, todaySecs, totalSecs, byCEFR, sessions, reviewLog: log };
     }
 
-    async getHarvestedCountToday() {
-        if (this.isProxyMode) return this._proxy('getHarvestedCountToday', []);
-        const words = await this.getAllWords();
-        const today = new Date().toISOString().split('T')[0];
-        let count = 0;
-        words.forEach(w => {
-            if (w.tags && w.tags.includes('cefr-harvest')) {
-                const dateAdded = new Date(w.added_at).toISOString().split('T')[0];
-                if (dateAdded === today) count++;
-            }
-        });
-        return count;
-    }
+
 
     _calculateStreak(logs, sessions) {
         const dates = new Set();

@@ -36,6 +36,7 @@ Extensão Chrome para aprendizado de idiomas através de vídeos com legendas du
 - **Q** - Toggle auto-pausa
 - **R** - Salvar frase inteira
 - **O** - Abrir configurações
+- **[ / ]** - Diminuir/aumentar velocidade do vídeo
 - **Espaço** - Play/Pause
 
 ### 🌐 Plataformas Suportadas
@@ -44,7 +45,7 @@ Extensão Chrome para aprendizado de idiomas através de vídeos com legendas du
 - ✅ Prime Video
 - ✅ Disney+
 - ✅ Max (HBO Max)
-- ✅ Sites genéricos
+- ✅ Sites genéricos com `<video>` + legenda HTML5 nativa (`<track>`) — clique em "Ativar Nesta Página" no popup da extensão
 
 ---
 
@@ -181,6 +182,12 @@ Contribuições são bem-vindas! Para contribuir:
 ---
 
 ## 📝 Changelog
+
+### v1.2.0 (04/07/2026)
+- ✅ **Velocidade de Vídeo:** controle de reprodução (0.25x–2x) com atalhos `[`/`]`, persistente entre sessões.
+- ✅ **Sites Genéricos (de verdade):** botão "Ativar Nesta Página" no popup liga legendas duplas em qualquer site com `<video>` + legenda HTML5 nativa (`<track>`), via `activeTab` — sem rodar automaticamente em sites não listados.
+- ✅ **N+1 Feed Interativo:** o artigo gerado por IA no dashboard agora tem palavras clicáveis para tradução e salvamento nos flashcards.
+- 🔒 **Correção de Segurança:** respostas da IA agora são escapadas antes de renderizar em HTML (previne XSS via prompt injection).
 
 ### v1.1.0 (02/05/2026)
 - ✅ **Exportação para Anki:** Botão dedicado no dashboard para exportar vocabulário.

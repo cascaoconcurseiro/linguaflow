@@ -35,6 +35,7 @@ export class SubtitleEngine {
         this.translationDelay = 0;
 
         this.flashDuration = 4; // segundos do flash de traducao (configuravel)
+        this.videoPlaybackRate = 1.0; // Velocidade de reprodução do vídeo (0.25 - 2.0)
 
         // CEFR Highlighting
         this.cefrList = {};
@@ -376,7 +377,17 @@ export class SubtitleEngine {
             console.debug('[LinguaFlow] HBO Max: aguardando VTT via XHR intercept');
             this._hideHBONativeSubtitles();
         }
-        
+
+        if (this.platform === 'generic') {
+            console.debug('[LinguaFlow] Modo genérico: procurando faixas <track> nativas de legenda.');
+            const tryLoadTracks = () => {
+                this._loadNativeTrackSubtitles().then(found => {
+                    if (!found) setTimeout(tryLoadTracks, 2000);
+                });
+            };
+            setTimeout(tryLoadTracks, 1000);
+        }
+
         await this._injectSubtitleUI();
         this._injectYouTubeControls();
         // this._injectNavigationControls(); // Removido a pedido do usuário
@@ -443,6 +454,14 @@ export class SubtitleEngine {
                     e.preventDefault();
                     window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
                     break;
+                case 'BracketLeft': // Diminui velocidade do vídeo
+                    e.preventDefault();
+                    this._adjustPlaybackRate(-0.1);
+                    break;
+                case 'BracketRight': // Aumenta velocidade do vídeo
+                    e.preventDefault();
+                    this._adjustPlaybackRate(0.1);
+                    break;
                 case 'KeyC': // Toggle Legendas
                     e.preventDefault();
                     this.toggleSubtitles();
@@ -461,7 +480,31 @@ export class SubtitleEngine {
                     break;
             }
         });
-        console.debug('[LinguaFlow] ⌨️ Centro de Comando unificado (A, S, D, Q, L, O, C, Espaço).');
+        console.debug('[LinguaFlow] ⌨️ Centro de Comando unificado (A, S, D, Q, L, O, C, [, ], Espaço).');
+    }
+
+    // ── Velocidade de Reprodução ─────────────────────────────────────────────
+    _applyPlaybackRate() {
+        const vid = this.videoElement || document.querySelector('video');
+        if (vid) vid.playbackRate = this.videoPlaybackRate;
+    }
+
+    async _setPlaybackRate(rate) {
+        this.videoPlaybackRate = Math.min(2, Math.max(0.25, parseFloat(rate.toFixed(2))));
+        this._applyPlaybackRate();
+        try {
+            const { db } = await import('../utils/db.js');
+            await db.setSetting('videoPlaybackRate', this.videoPlaybackRate);
+        } catch (e) {
+            console.warn('[LinguaFlow] Erro ao salvar velocidade do vídeo:', e.message);
+        }
+        this._showNotification(`⏱️ Velocidade: ${this.videoPlaybackRate.toFixed(2)}x`);
+        const label = document.getElementById('lf-speed-label');
+        if (label) label.textContent = `${this.videoPlaybackRate.toFixed(2)}x`;
+    }
+
+    _adjustPlaybackRate(delta) {
+        this._setPlaybackRate(this.videoPlaybackRate + delta);
     }
 
     // ── Navegação por Legenda ───────────────────────────────────────────────
@@ -621,6 +664,13 @@ export class SubtitleEngine {
             if (speed !== undefined && speed !== null) {
                 this.translationSpeed = speed;
                 console.debug(`[LinguaFlow] Velocidade carregada: ${speed}`);
+            }
+
+            // Carrega velocidade de reprodução do vídeo
+            const videoRate = await db.getSetting('videoPlaybackRate');
+            if (videoRate !== undefined && videoRate !== null) {
+                this.videoPlaybackRate = parseFloat(videoRate);
+                this._applyPlaybackRate();
             }
 
             // Carrega modo de exibição (displayMode)
@@ -1798,7 +1848,18 @@ export class SubtitleEngine {
                     <button id="lf-export-anki" style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);color:#38BDF8;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;text-transform:uppercase;">Anki</button>
                 </div>
             </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:11px;color:#94A3B8;">⏱️ Velocidade</span>
+                <button id="lf-speed-down" title="Diminuir velocidade ([)" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#CBD5E1;width:22px;height:22px;border-radius:4px;cursor:pointer;font-size:12px;line-height:1;">−</button>
+                <span id="lf-speed-label" style="font-size:11px;color:#E2E8F0;min-width:38px;text-align:center;">${this.videoPlaybackRate.toFixed(2)}x</span>
+                <button id="lf-speed-up" title="Aumentar velocidade (])" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#CBD5E1;width:22px;height:22px;border-radius:4px;cursor:pointer;font-size:12px;line-height:1;">+</button>
+                <button id="lf-speed-reset" title="Restaurar 1.0x" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#94A3B8;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px;">1x</button>
+            </div>
         `;
+
+        toolbar.querySelector('#lf-speed-down').addEventListener('click', () => this._adjustPlaybackRate(-0.1));
+        toolbar.querySelector('#lf-speed-up').addEventListener('click', () => this._adjustPlaybackRate(0.1));
+        toolbar.querySelector('#lf-speed-reset').addEventListener('click', () => this._setPlaybackRate(1.0));
 
         // Evento de busca
         const searchInput = toolbar.querySelector('#lf-panel-search');
@@ -2227,6 +2288,37 @@ export class SubtitleEngine {
 
 
     // ── VTT Parser (HBO Max) — V5 version ────────────────────────────────────
+    // ── Modo Genérico: lê faixas <track> nativas do HTML5 (WebVTT padrão) ────
+    async _loadNativeTrackSubtitles() {
+        const video = this.videoElement || document.querySelector('video');
+        if (!video || !video.textTracks || video.textTracks.length === 0) return false;
+
+        const tracks = Array.from(video.textTracks).filter(t => t.kind === 'subtitles' || t.kind === 'captions');
+        if (tracks.length === 0) return false;
+
+        const track = tracks.find(t => t.mode === 'showing') || tracks[0];
+        track.mode = 'hidden'; // Carrega os cues sem exibir a legenda nativa do site
+
+        const collectCues = () => {
+            if (!track.cues || track.cues.length === 0) return false;
+            const cues = Array.from(track.cues)
+                .map(c => ({ start: c.startTime, end: c.endTime, text: (c.text || '').replace(/<[^>]+>/g, '').replace(/\n/g, ' ').trim() }))
+                .filter(c => c.text);
+            if (cues.length === 0) return false;
+            this.cues = cues;
+            this.usingXhr = false;
+            console.debug(`[LinguaFlow] Legendas nativas (<track>) carregadas: ${cues.length} frases.`);
+            this._rebuildSubtitleList?.();
+            return true;
+        };
+
+        if (collectCues()) return true;
+        return new Promise(resolve => {
+            track.addEventListener('load', () => resolve(collectCues()), { once: true });
+            setTimeout(() => resolve(collectCues()), 2000);
+        });
+    }
+
     _parseVTT(vttStr) {
         const cues = [];
         const blocks = vttStr.split(/\n\s*\n/);
@@ -2427,6 +2519,7 @@ export class SubtitleEngine {
             this.videoElement = vid;
             clearInterval(this._videoWaitInterval);
             this._videoWaitInterval = null;
+            this._applyPlaybackRate();
 
             if (this.platform === 'youtube' || this.platform === 'max') {
                 // INJEÇÃO CRÍTICA: Cria o DOM das legendas antes de iniciar o loop

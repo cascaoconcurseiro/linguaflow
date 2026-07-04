@@ -76,6 +76,29 @@ document.getElementById('btn-settings').addEventListener('click', () => {
     });
 });
 
+document.getElementById('btn-activate-generic').addEventListener('click', async () => {
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab?.id) return;
+        const [{ result }] = await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: () => {
+                if (window.__LF_INITIALIZED__) return 'already-active';
+                window.__LF_FORCE_GENERIC__ = true;
+                import(chrome.runtime.getURL('content/index.js'));
+                return 'activated';
+            }
+        });
+        if (result === 'already-active') {
+            alert('O LinguaFlow já está ativo nesta página.');
+        }
+        window.close();
+    } catch (e) {
+        console.error('[LinguaFlow Popup] Erro ao ativar modo genérico:', e);
+        alert('Não foi possível ativar nesta página (ela pode bloquear extensões).');
+    }
+});
+
 // Inicialização
 document.addEventListener('DOMContentLoaded', () => {
     loadStats();

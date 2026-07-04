@@ -3,7 +3,7 @@ const DB_NAME = 'LinguaFlowFreeDB';
 
 async function readAllSettings() {
     const { db } = await import('../utils/db.js');
-    const settings = ['targetLang', 'subtitleMode', 'bgOpacity', 'fontSize', 'fontSizeTrans', 'autoPause', 'showOriginal', 'showTranslation', 'subtitleBottom', 'subtitleHorizontal', 'translationDelay', 'translationAnticipation', 'flashDuration', 'wordColorKnown', 'wordColorSaved', 'blurSubtitles', 'ttsPlaybackRate', 'fontFamily', 'colorPalette', 'popupMode', 'cefrTargetLevel', 'cefrColorsEnabled', 'cefrColorA1', 'cefrColorA2', 'cefrColorB1', 'cefrColorB2', 'cefrColorC1', 'cefrColorC2'];
+    const settings = ['targetLang', 'subtitleMode', 'bgOpacity', 'fontSize', 'fontSizeTrans', 'autoPause', 'showOriginal', 'showTranslation', 'subtitleBottom', 'subtitleHorizontal', 'translationDelay', 'translationAnticipation', 'flashDuration', 'wordColorKnown', 'wordColorSaved', 'blurSubtitles', 'ttsPlaybackRate', 'videoPlaybackRate', 'fontFamily', 'colorPalette', 'popupMode', 'cefrTargetLevel', 'cefrColorsEnabled', 'cefrColorA1', 'cefrColorA2', 'cefrColorB1', 'cefrColorB2', 'cefrColorC1', 'cefrColorC2'];
     const obj = {};
     for (const key of settings) {
         const val = await db.getSetting(key);
@@ -42,6 +42,7 @@ export class SettingsPanel {
             flashDuration:           4,        // segundos do flash de tradução (NOVO)
             blurSubtitles:           false,
             ttsPlaybackRate:         1.0,
+            videoPlaybackRate:       1.0,
             fontFamily:              'Inter',
             colorPalette:            'Vibrant',
             popupMode:               'floating',
@@ -104,6 +105,7 @@ export class SettingsPanel {
         s.getElementById('sel-font-family').value   = this.cfg.fontFamily;
         s.getElementById('sel-palette').value       = this.cfg.colorPalette;
         s.getElementById('sel-tts-speed').value     = this.cfg.ttsPlaybackRate;
+        s.getElementById('sel-video-speed').value   = this.cfg.videoPlaybackRate;
         s.getElementById('sel-popup-mode').value    = this.cfg.popupMode;
         s.getElementById('sel-blur').value          = this.cfg.blurSubtitles ? 'on' : 'off';
         s.getElementById('sel-cefr-level').value    = this.cfg.cefrTargetLevel;
@@ -145,6 +147,11 @@ export class SettingsPanel {
         s.getElementById('sel-font-family').onchange = e => this._save('fontFamily', e.target.value);
         s.getElementById('sel-palette').onchange = e => this._save('colorPalette', e.target.value);
         s.getElementById('sel-tts-speed').onchange = e => this._save('ttsPlaybackRate', parseFloat(e.target.value));
+        s.getElementById('sel-video-speed').onchange = e => {
+            const rate = parseFloat(e.target.value);
+            this._save('videoPlaybackRate', rate);
+            this.engine?._setPlaybackRate?.(rate);
+        };
         s.getElementById('sel-popup-mode').onchange = e => this._save('popupMode', e.target.value);
         s.getElementById('sel-cefr-level').onchange = e => this._save('cefrTargetLevel', e.target.value);
         
@@ -466,6 +473,18 @@ export class SettingsPanel {
                                 <option value="0.5">0.5x (Muito Lenta)</option>
                             </select>
                         </div>
+                        <div class="group">
+                            <label>Velocidade Padrão do Vídeo</label>
+                            <select id="sel-video-speed">
+                                <option value="0.5">0.5x</option>
+                                <option value="0.75">0.75x</option>
+                                <option value="1.0">1.0x (Normal)</option>
+                                <option value="1.25">1.25x</option>
+                                <option value="1.5">1.5x</option>
+                                <option value="2.0">2.0x</option>
+                            </select>
+                            <small>Também pode ser ajustada com as teclas [ e ] durante o vídeo.</small>
+                        </div>
                     </div>
 
                     <!-- LEGENDAS -->
@@ -685,6 +704,8 @@ export class SettingsPanel {
         };
         this.engine.blurSubtitles            = this.cfg.blurSubtitles;
         this.engine.ttsPlaybackRate          = this.cfg.ttsPlaybackRate;
+        this.engine.videoPlaybackRate        = this.cfg.videoPlaybackRate;
+        this.engine._applyPlaybackRate?.();
         this.engine.popupMode                = this.cfg.popupMode;
 
         const host = document.getElementById('linguaflow-subtitle-host');

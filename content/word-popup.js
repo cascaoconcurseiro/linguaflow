@@ -1292,7 +1292,7 @@ export class WordPopup {
       overflowY:   'visible',
     });
 
-    const player = this._findPlayerContainer();
+    const player = this._findPlayerContainer() || document.body;
     const isFixed = player === document.body;
     const playerRect = player.getBoundingClientRect();
     

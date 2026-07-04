@@ -2549,6 +2549,38 @@ async function loadMoonshotFeed() {
     // Apenas prepara a UI
 }
 
+// Popup de dicionário reaproveitado fora do contexto de vídeo (leitura no dashboard).
+let _feedWordPopup = null;
+async function getFeedWordPopup() {
+    if (_feedWordPopup) return _feedWordPopup;
+    const { WordPopup } = await import('../content/word-popup.js');
+    const stubEngine = {
+        sourceLang: 'en',
+        targetLang: 'pt',
+        cefrColors: {},
+        cefrList: {},
+        savedWords: new Map(),
+        knownWords: new Set(),
+        videoElement: null,
+        ttsPlaybackRate: 1.0
+    };
+    _feedWordPopup = new WordPopup(stubEngine, 'reading');
+    await _feedWordPopup.init();
+    return _feedWordPopup;
+}
+
+// Quebra o artigo gerado em spans clicáveis por palavra, preservando sentenças como contexto.
+function buildInteractiveFeedHtml(text) {
+    const sentences = String(text || '').split(/(?<=[.!?])\s+/);
+    return sentences.map(sentence => {
+        const safeSentence = escapeAttr(sentence);
+        return sentence.split(/(\s+)/).map(token => {
+            if (!/[A-Za-zÀ-ÿ]/.test(token)) return escapeAttr(token);
+            return `<span class="lf-feed-word" data-word="${escapeAttr(token)}" data-sentence="${safeSentence}">${escapeAttr(token)}</span>`;
+        }).join('');
+    }).join(' ');
+}
+
 const moonshotGenerateFeed = document.getElementById('moonshot-generate-feed');
 if (moonshotGenerateFeed) {
     moonshotGenerateFeed.addEventListener('click', async () => {
@@ -2561,19 +2593,28 @@ if (moonshotGenerateFeed) {
         const knownWords = words.filter(w => w.status !== 'new').map(w => w.word).slice(0, 30); // Pega uma amostra do que ele sabe
 
         chrome.runtime.sendMessage({
-            action: 'lf_generate_variation', 
+            action: 'lf_generate_variation',
             word: "article",
             sentence: `Write a very short, engaging 3-paragraph article in English about Technology or Travel. Use simple words but include 2 or 3 slightly advanced words. The user knows these words: ${knownWords.join(', ')}.`
         }, (res) => {
             moonshotGenerateFeed.textContent = '🪄 Gerar Outro Artigo';
             moonshotGenerateFeed.disabled = false;
             if (res && res.data) {
-                const text = escapeAttr(res.data).replace(/\n/g, '<br>');
-                feedArea.innerHTML = `<h3 style="color:var(--accent); margin-bottom:16px;">Sua Leitura do Dia</h3><p>${text}</p><div style="margin-top:20px; font-size:14px; color:var(--text3);">Dica: Selecione qualquer palavra desconhecida para traduzir e salvar!</div>`;
+                const interactiveText = buildInteractiveFeedHtml(res.data);
+                feedArea.innerHTML = `<h3 style="color:var(--accent); margin-bottom:16px;">Sua Leitura do Dia</h3><p id="moonshot-feed-text">${interactiveText}</p><div style="margin-top:20px; font-size:14px; color:var(--text3);">Dica: clique em qualquer palavra para traduzir e salvar nos flashcards!</div>`;
             } else {
                 feedArea.innerHTML = '<div style="color:#ef4444;">Erro ao gerar texto. Verifique a API Key.</div>';
             }
         });
+    });
+
+    document.getElementById('moonshot-feed-content')?.addEventListener('click', async (e) => {
+        const span = e.target.closest('.lf-feed-word');
+        if (!span) return;
+        const word = span.dataset.word.replace(/[.,!?;:"'()]/g, '').trim();
+        if (!word) return;
+        const popup = await getFeedWordPopup();
+        popup.showForWord(word, span.dataset.sentence || '', span.getBoundingClientRect());
     });
 }
 

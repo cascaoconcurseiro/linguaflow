@@ -152,19 +152,19 @@ export default function StudyPage() {
   return (
     <div className="max-w-[760px] mx-auto animate-fade-up">
       {/* Toolbar */}
-      <div className="flex items-center gap-3 mb-5">
-        <span className={`status-badge status-${card.status}`}>
+      <div className="study-toolbar">
+        <span className={`card-type-badge badge-${card.status}`}>
           {{ new: '🆕 Novo', learning: '📚 Aprendendo', review: '🔄 Revisão', mature: '⭐ Maduro' }[
             card.status
           ] || card.status}
         </span>
-        <div className="flex-1 progress-bar h-2 rounded-full">
+        <div className="session-progress-wrap">
           <div
-            className="progress-fill blue"
+            className="session-progress-fill"
             style={{ width: `${cards.length > 0 ? (index / cards.length) * 100 : 0}%` }}
           />
         </div>
-        <span className="text-xs text-[#64748b] font-bold whitespace-nowrap">
+        <span className="session-stats">
           {index + 1}/{cards.length}
         </span>
         <button
@@ -184,45 +184,21 @@ export default function StudyPage() {
       </div>
 
       {/* Flashcard */}
-      <div className="flashcard mb-7" onClick={() => step < 2 && advanceStep()}>
-        {word.level && (
-          <div className="absolute top-5 left-5">
-            <span
-              className="status-badge"
-              style={{ background: 'rgba(56,189,248,0.12)', color: '#38bdf8' }}
-            >
-              {word.level}
-            </span>
-          </div>
-        )}
-
+      <div
+        className={`flashcard${step === 2 ? ' revealed' : ''}`}
+        onClick={() => step < 2 && advanceStep()}
+      >
         {step === 0 && (
           <>
-            {blindMode ? (
-              <div className="text-5xl mb-4">👂</div>
-            ) : (
-              <div className="flashcard-word">{word.word}</div>
-            )}
-            <div className="text-[#64748b] text-sm font-semibold mt-4">
-              {blindMode ? 'Ouça e identifique a palavra' : 'Qual a tradução?'}
-            </div>
-            <button
-              className="btn btn-accent mt-8 text-base px-8 py-3.5 shadow-[0_4px_15px_rgba(56,189,248,0.4)]"
-              onClick={(e) => {
-                e.stopPropagation();
-                advanceStep();
-              }}
-            >
-              Revelar Frase
-            </button>
-            <div className="text-[#64748b] text-xs mt-4">ou pressione Espaço</div>
+            <div className="word">{word.word}</div>
+            <div className="audio-hint">Pressione Espaço ou clique para revelar</div>
           </>
         )}
 
         {step === 1 && (
           <>
-            {sentence ? (
-              <div className="text-[#e2e8f0] text-xl italic mb-6 text-center max-w-[500px] leading-relaxed">
+            {sentence && (
+              <div className="context">
                 &ldquo;
                 {sentence.replace(
                   new RegExp(
@@ -233,45 +209,23 @@ export default function StudyPage() {
                 )}
                 &rdquo;
               </div>
-            ) : null}
-            <div className="text-lg text-[#64748b] mb-6">
-              {word.word[0]}
-              {'·'.repeat(Math.max(0, word.word.length - 1))}
-            </div>
-            <button
-              className="btn btn-accent mt-4 text-base px-8 py-3.5 shadow-[0_4px_15px_rgba(56,189,248,0.4)]"
-              onClick={(e) => {
-                e.stopPropagation();
-                advanceStep();
-              }}
-            >
-              Revelar Resposta
-            </button>
-            <div className="text-[#64748b] text-xs mt-4">ou pressione Espaço</div>
+            )}
+            <div className="audio-hint">Pressione Espaço para revelar a resposta</div>
           </>
         )}
 
         {step === 2 && (
           <>
-            <div className="flashcard-word">{word.word}</div>
+            <div className="word">{word.word}</div>
             {word.pronunciation_pt && (
-              <div className="text-lg text-[#fbbf24] font-extrabold font-mono bg-[rgba(251,191,36,0.1)] px-3 py-1.5 rounded-lg border border-[rgba(251,191,36,0.35)] mt-2">
+              <div className="answer" style={{ fontSize: 16 }}>
                 🇧🇷 {word.pronunciation_pt}
               </div>
             )}
-            {word.phonetic && !word.pronunciation_pt && (
-              <div className="text-sm text-[#94a3b8] font-mono mt-2">{word.phonetic}</div>
-            )}
-            {word.translation && (
-              <div className="flashcard-translation mt-3">{word.translation}</div>
-            )}
-            {sentence && (
-              <div className="text-[#94a3b8] italic mt-4 text-center max-w-[500px] text-sm leading-relaxed">
-                &ldquo;{sentence}&rdquo;
-              </div>
-            )}
+            {word.translation && <div className="answer">{word.translation}</div>}
+            {sentence && <div className="context">&ldquo;{sentence}&rdquo;</div>}
             {word.explanation && (
-              <div className="text-xs text-[#64748b] mt-4 max-w-[450px] text-center leading-relaxed">
+              <div className="extra">
                 {word.explanation?.substring(0, 200)}
                 {(word.explanation?.length || 0) > 200 ? '…' : ''}
               </div>
@@ -283,30 +237,22 @@ export default function StudyPage() {
       {/* Answer buttons */}
       {step === 2 && (
         <>
-          <div className="study-actions">
-            <button className="study-btn again" onClick={() => answerCard(1)} disabled={loading}>
+          <div className="answer-buttons">
+            <button className="answer-btn again" onClick={() => answerCard(1)}>
               <span>❌ Errei</span>
-              <span className="text-[11px] opacity-90 font-semibold">
-                {formatInterval(predictions[0] || 0)}
-              </span>
+              <span className="btn-interval">{formatInterval(predictions[0] || 0)}</span>
             </button>
-            <button className="study-btn hard" onClick={() => answerCard(2)} disabled={loading}>
+            <button className="answer-btn hard" onClick={() => answerCard(2)}>
               <span>😓 Difícil</span>
-              <span className="text-[11px] opacity-90 font-semibold">
-                {formatInterval(predictions[1] || 0)}
-              </span>
+              <span className="btn-interval">{formatInterval(predictions[1] || 0)}</span>
             </button>
-            <button className="study-btn good" onClick={() => answerCard(3)} disabled={loading}>
+            <button className="answer-btn good" onClick={() => answerCard(3)}>
               <span>✅ Bom</span>
-              <span className="text-[11px] opacity-90 font-semibold">
-                {formatInterval(predictions[2] || 0)}
-              </span>
+              <span className="btn-interval">{formatInterval(predictions[2] || 0)}</span>
             </button>
-            <button className="study-btn easy" onClick={() => answerCard(4)} disabled={loading}>
+            <button className="answer-btn easy" onClick={() => answerCard(4)}>
               <span>⭐ Fácil</span>
-              <span className="text-[11px] opacity-90 font-semibold">
-                {formatInterval(predictions[3] || 0)}
-              </span>
+              <span className="btn-interval">{formatInterval(predictions[3] || 0)}</span>
             </button>
           </div>
           <div className="flex justify-center gap-5 mt-3 text-[11px] text-[#64748b] font-semibold">

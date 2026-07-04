@@ -26,7 +26,33 @@ if (!isSupported) {
     engine.init();
 
     // Painel de configurações globais
-    new SettingsPanel(engine);
+    const settingsPanel = new SettingsPanel(engine);
+    window.__lfSettingsPanel = settingsPanel;
+
+    // Botão flutuante de configurações
+    const settingsBtn = document.createElement('button');
+    settingsBtn.innerHTML = '⚙️';
+    settingsBtn.title = 'Configurações do Player';
+    Object.assign(settingsBtn.style, {
+      position: 'fixed',
+      bottom: '80px',
+      right: '16px',
+      zIndex: '2147483640',
+      width: '40px',
+      height: '40px',
+      borderRadius: '50%',
+      border: '1px solid rgba(255,255,255,0.15)',
+      background: 'rgba(24,24,27,0.9)',
+      color: '#fafafa',
+      fontSize: '18px',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backdropFilter: 'blur(8px)',
+    });
+    settingsBtn.onclick = () => settingsPanel.toggle();
+    document.body.appendChild(settingsBtn);
 
     // Review Overlay — revisão rápida durante vídeos (tecla R)
     try {

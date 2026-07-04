@@ -1851,9 +1851,9 @@ async function testAiConnection() {
         chrome.runtime.sendMessage({ action:'ai_explain_word', word:'Hello', context:'Hello, world!' }, response => {
             if(btn){btn.disabled=false;btn.textContent='Testar Conexão';}
             if (response?.explanation && !response.explanation.includes('Erro')) {
-                if(resEl){resEl.style.background='rgba(16,185,129,0.1)';resEl.style.color='#10b981';resEl.innerHTML=`✅ <b>Conexão OK!</b><br>"${response.explanation.substring(0,80)}..."`;}
+                if(resEl){resEl.style.background='rgba(16,185,129,0.1)';resEl.style.color='#10b981';resEl.innerHTML=`✅ <b>Conexão OK!</b><br>"${escapeAttr(response.explanation.substring(0,80))}..."`;}
             } else {
-                if(resEl){resEl.style.background='rgba(239,68,68,0.1)';resEl.style.color='#ef4444';resEl.innerHTML=`❌ <b>Falha</b><br>${response?.error||'Chave inválida ou sem quota'}`;}
+                if(resEl){resEl.style.background='rgba(239,68,68,0.1)';resEl.style.color='#ef4444';resEl.innerHTML=`❌ <b>Falha</b><br>${escapeAttr(response?.error||'Chave inválida ou sem quota')}`;}
             }
         });
     } catch(e) { if(btn){btn.disabled=false;btn.textContent='Testar Conexão';} }
@@ -2568,7 +2568,7 @@ if (moonshotGenerateFeed) {
             moonshotGenerateFeed.textContent = '🪄 Gerar Outro Artigo';
             moonshotGenerateFeed.disabled = false;
             if (res && res.data) {
-                const text = res.data.replace(/\n/g, '<br>');
+                const text = escapeAttr(res.data).replace(/\n/g, '<br>');
                 feedArea.innerHTML = `<h3 style="color:var(--accent); margin-bottom:16px;">Sua Leitura do Dia</h3><p>${text}</p><div style="margin-top:20px; font-size:14px; color:var(--text3);">Dica: Selecione qualquer palavra desconhecida para traduzir e salvar!</div>`;
             } else {
                 feedArea.innerHTML = '<div style="color:#ef4444;">Erro ao gerar texto. Verifique a API Key.</div>';

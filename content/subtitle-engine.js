@@ -36,13 +36,10 @@ export class SubtitleEngine {
 
         this.flashDuration = 4; // segundos do flash de traducao (configuravel)
 
-        // CEFR Auto-Leveling
+        // CEFR Highlighting
         this.cefrList = {};
         this.cefrTargetLevel = 'none'; // 'none', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'
-        this.cefrAutoSave = false;
         this.cefrColorsEnabled = true;
-        this.maxWordsPerVideo = 15;
-        this.maxWordsPerDay = 30;
 
         this._sessionStartTime = Date.now();
         this._streakShown = false;

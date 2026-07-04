@@ -390,14 +390,7 @@ export class SettingsPanel {
                                 <option value="C1">C1 (Avançado)</option>
                                 <option value="C2">C2 (Fluente)</option>
                             </select>
-                            <small>Foca na captação automática de palavras do seu nível.</small>
-                        </div>
-                        <div class="group">
-                            <label>Coleta Automática de Palavras</label>
-                            <select id="sel-cefr-auto">
-                                <option value="on">Ativada (Salvar automaticamente)</option>
-                                <option value="off">Desativada</option>
-                            </select>
+                            <small>Destaca nas legendas apenas as palavras do nível escolhido.</small>
                         </div>
                         <div class="group">
                             <label>Cores Baseadas no CEFR</label>
@@ -435,14 +428,6 @@ export class SettingsPanel {
                                     <input type="color" id="col-cefr-c2">
                                 </div>
                             </div>
-                        </div>
-                        <div class="group">
-                            <label>Limite Diário de Palavras Automáticas</label>
-                            <div class="slider-row">
-                                <input type="range" id="rng-auto-harvest" min="1" max="100" step="1" value="10">
-                                <span class="val-display" id="val-auto-harvest">10</span>
-                            </div>
-                            <small>Quantas palavras desconhecidas o sistema pode adicionar aos seus decks por dia assistindo vídeos.</small>
                         </div>
                     </div>
 

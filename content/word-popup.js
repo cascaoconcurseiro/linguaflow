@@ -1080,7 +1080,7 @@ export class WordPopup {
         });
         
         if (response?.explanation) {
-            const aiExplanation = response.explanation.replace(/\n/g, '<br>');
+            const aiExplanation = this._escapeAttr(response.explanation).replace(/\n/g, '<br>');
             el.innerHTML = nativeHtml + aiExplanation;
         } else {
             // Fallback caso a IA falhe
@@ -1595,7 +1595,7 @@ export class WordPopup {
 
   _formatAI(text) {
     if (!text) return '';
-    let formatted = text
+    let formatted = this._escapeAttr(text)
       // Emojis Automáticos para os Títulos (Dicionário)
       .replace(/\*\*(.*?Nível Sugerido.*?)\*\*/gi, '<b style="color:#fde047;display:block;margin-bottom:8px">⭐ $1</b>')
       .replace(/\*\*(.*?na prática.*?)\*\*/gi, '<b style="color:#7dd3fc;display:block;margin-top:12px">🎯 $1</b>')

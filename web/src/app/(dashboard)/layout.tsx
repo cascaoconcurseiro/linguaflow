@@ -38,7 +38,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/auth');
   };
 
-  if (!user) return null;
+  if (!user) return (
+    <div className="min-h-screen flex items-center justify-center bg-[#080c18]">
+      <div className="animate-spin w-8 h-8 border-2 border-[#38bdf8] border-t-transparent rounded-full" />
+    </div>
+  );
 
   const tabs = [
     { id: '/', label: 'Início', icon: '🏠' },

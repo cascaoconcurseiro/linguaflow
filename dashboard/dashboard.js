@@ -778,6 +778,17 @@ async function answerCard(quality) {
   updateHeader();
   updateSessionUI();
   await showCard();
+
+  // Auto-sync a cada 5 cards ou ao fim da sessão
+  if (sessionDone % 5 === 0 || currentIndex >= studyCards.length) {
+    try {
+      if (window._supabaseAuth?.isLoggedIn()) {
+        await window._supabaseAuth.syncUp(lfDb);
+      }
+    } catch (_) {
+      /* offline */
+    }
+  }
 }
 
 // Atalhos de teclado para estudo
@@ -2803,11 +2814,18 @@ async function init() {
           location.reload();
         };
 
-        // Auto-sync: puxa dados da nuvem ao iniciar
+        // Auto-sync bidirecional ao iniciar
         document.getElementById('lf-cloud-status').textContent = 'Sincronizando...';
-        const imported = await supabaseAuth.syncDown(lfDb);
-        if (imported > 0) {
-          showToast(`${imported} palavras sincronizadas da nuvem`, 'info');
+        try {
+          const uploaded = await supabaseAuth.syncUp(lfDb);
+          const downloaded = await supabaseAuth.syncDown(lfDb);
+          const upTotal = (uploaded.words || 0) + (uploaded.cards || 0);
+          const downTotal = (downloaded.words || 0) + (downloaded.sentences || 0);
+          if (upTotal > 0 || downTotal > 0) {
+            showToast(`Sincronizado: +${upTotal}↑ +${downTotal}↓`, 'info');
+          }
+        } catch (e) {
+          /* offline — ok */
         }
         document.getElementById('lf-cloud-status').textContent = 'Conectado';
       } else {

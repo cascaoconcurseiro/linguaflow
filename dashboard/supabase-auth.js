@@ -128,9 +128,21 @@ export class SupabaseAuth {
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 3000);
         const res = await fetch(`${SUPABASE_URL}/rest/v1/words`, {
-          method: 'POST', signal: ctrl.signal,
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.token}`, apikey: SUPABASE_ANON_KEY, Prefer: 'resolution=merge-duplicates' },
-          body: JSON.stringify({ word: w.word, lang: w.lang || 'en', translation: w.translation, context_sentence: w.context_sentence, added_at: new Date(w.added_at || Date.now()).toISOString() }),
+          method: 'POST',
+          signal: ctrl.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.token}`,
+            apikey: SUPABASE_ANON_KEY,
+            Prefer: 'resolution=merge-duplicates',
+          },
+          body: JSON.stringify({
+            word: w.word,
+            lang: w.lang || 'en',
+            translation: w.translation,
+            context_sentence: w.context_sentence,
+            added_at: new Date(w.added_at || Date.now()).toISOString(),
+          }),
         }).finally(() => clearTimeout(t));
         if (res.ok) synced++;
       } catch (_) {}
@@ -143,18 +155,32 @@ export class SupabaseAuth {
     try {
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 5000);
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/words?select=*&order=added_at.desc&limit=100`, {
-        signal: ctrl.signal,
-        headers: { Authorization: `Bearer ${this.token}`, apikey: SUPABASE_ANON_KEY },
-      }).finally(() => clearTimeout(t));
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/words?select=*&order=added_at.desc&limit=100`,
+        {
+          signal: ctrl.signal,
+          headers: { Authorization: `Bearer ${this.token}`, apikey: SUPABASE_ANON_KEY },
+        },
+      ).finally(() => clearTimeout(t));
       if (!res.ok) return { words: 0 };
       const words = await res.json();
       let imported = 0;
       for (const w of words) {
-        try { await db.saveWord({ word: w.word, lang: w.lang || 'en', translation: w.translation, context_sentence: w.context_sentence, added_at: new Date(w.added_at).getTime() }); imported++; } catch (_) {}
+        try {
+          await db.saveWord({
+            word: w.word,
+            lang: w.lang || 'en',
+            translation: w.translation,
+            context_sentence: w.context_sentence,
+            added_at: new Date(w.added_at).getTime(),
+          });
+          imported++;
+        } catch (_) {}
       }
       return { words: imported };
-    } catch (_) { return { words: 0 }; }
+    } catch (_) {
+      return { words: 0 };
+    }
   }
 }
 

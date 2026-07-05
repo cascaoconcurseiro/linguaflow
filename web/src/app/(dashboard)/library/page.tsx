@@ -1,6 +1,7 @@
 'use client';
 
 import { deleteWord, getWords, saveWord } from '@/lib/db';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 function downloadFile(content: string, filename: string, type: string) {
@@ -14,9 +15,12 @@ function downloadFile(content: string, filename: string, type: string) {
 }
 
 export default function LibraryPage() {
+  const searchParams = useSearchParams();
+  const tab = searchParams.get('tab');
   const [words, setWords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [importMsg, setImportMsg] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -80,7 +84,7 @@ export default function LibraryPage() {
         }
       }
       loadWords();
-      alert(`${imported} palavras importadas.`);
+      setImportMsg(`${imported} palavras importadas.`);
     };
     reader.readAsText(file);
     e.target.value = '';
@@ -101,6 +105,62 @@ export default function LibraryPage() {
 
   return (
     <div className="max-w-[1200px] animate-fade-up">
+      {/* Export / Import sections */}
+      {tab === 'export' && (
+        <div className="card card-padded" style={{ marginBottom: 20 }}>
+          <h3 className="card-title">📤 Exportar Dados</h3>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button onClick={handleExportAnki} className="btn btn-accent">
+              📤 Anki (.txt)
+            </button>
+            <button onClick={handleExportJSON} className="btn btn-outline">
+              💾 Backup JSON
+            </button>
+            <button
+              onClick={() => {
+                const csv =
+                  'Word,Translation,Context\n' +
+                  words
+                    .map(
+                      (w) =>
+                        `"${w.word}","${w.translation || ''}","${(w.context_sentence || '').replace(/"/g, '""')}"`,
+                    )
+                    .join('\n');
+                downloadFile(
+                  csv,
+                  `linguaflow-${new Date().toISOString().split('T')[0]}.csv`,
+                  'text/csv',
+                );
+              }}
+              className="btn btn-outline"
+            >
+              📊 CSV
+            </button>
+            <button onClick={() => window.print()} className="btn btn-ghost">
+              🖨️ Imprimir
+            </button>
+          </div>
+        </div>
+      )}
+      {tab === 'import' && (
+        <div className="card card-padded" style={{ marginBottom: 20 }}>
+          <h3 className="card-title">📥 Importar Dados</h3>
+          <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
+            Importe um arquivo .txt no formato Anki (tab-separado) ou .csv.
+          </p>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".txt,.csv,.json"
+            className="input-field"
+            onChange={handleImport}
+          />
+          {importMsg && (
+            <p style={{ marginTop: 8, fontSize: 13, color: 'var(--green)' }}>{importMsg}</p>
+          )}
+        </div>
+      )}
+
       <div className="flex gap-3 mb-5">
         <input
           value={search}

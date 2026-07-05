@@ -2796,7 +2796,15 @@ async function init() {
   const theme = localStorage.getItem('lf-theme') || 'dark';
   document.documentElement.setAttribute('data-theme', theme);
   const tt = document.getElementById('themeToggle');
-  if (tt) { tt.textContent = theme === 'light' ? '🌙' : '☀️'; tt.onclick = () => { const n = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'; document.documentElement.setAttribute('data-theme', n); localStorage.setItem('lf-theme', n); tt.textContent = n === 'light' ? '🌙' : '☀️'; }; }
+  if (tt) {
+    tt.textContent = theme === 'light' ? '🌙' : '☀️';
+    tt.onclick = () => {
+      const n = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', n);
+      localStorage.setItem('lf-theme', n);
+      tt.textContent = n === 'light' ? '🌙' : '☀️';
+    };
+  }
 
   try {
     await lfDb.initPromise;

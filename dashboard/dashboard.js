@@ -47,72 +47,54 @@ function showToast(msg, type = 'info', duration = 3000) {
   }, duration);
 }
 
-// ── Cloud Login Modal ──────────────────────────────────────────────────────
-function showCloudLogin(supabaseAuth) {
-  // Remove existing modal if any
-  const existing = document.getElementById('lf-cloud-login-modal');
-  if (existing) existing.remove();
+// ── Tela de Login (cobre o dashboard inteiro) ─────────────────────────────
+function showLoginScreen(supabaseAuth) {
+  // Esconde o layout do dashboard
+  const layout = document.querySelector('.app-layout');
+  if (layout) layout.style.display = 'none';
 
-  const modal = document.createElement('div');
-  modal.id = 'lf-cloud-login-modal';
-  modal.style.cssText =
-    'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:3000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)';
-  modal.innerHTML = `
-    <div style="background:#18181b;border:1px solid #27272a;border-radius:8px;padding:28px;width:100%;max-width:360px;animation:fadeIn 0.2s ease">
-      <h2 style="font-size:18px;font-weight:600;color:#fafafa;margin-bottom:4px;letter-spacing:-0.02em">Conectar ao LinguaFlow</h2>
-      <p style="font-size:12px;color:#a1a1aa;margin-bottom:20px">Use a mesma conta do site para sincronizar seus dados.</p>
-      <input id="lf-cloud-email" placeholder="Email" style="width:100%;padding:8px 12px;background:#09090b;border:1px solid #27272a;border-radius:5px;color:#fafafa;font-size:13px;font-family:inherit;margin-bottom:8px;outline:none">
-      <input id="lf-cloud-pass" type="password" placeholder="Senha" style="width:100%;padding:8px 12px;background:#09090b;border:1px solid #27272a;border-radius:5px;color:#fafafa;font-size:13px;font-family:inherit;margin-bottom:16px;outline:none">
-      <div id="lf-cloud-error" style="display:none;font-size:12px;color:#ef4444;margin-bottom:12px;padding:8px;background:rgba(239,68,68,0.1);border-radius:4px"></div>
-      <div style="display:flex;gap:8px">
-        <button id="lf-cloud-login-submit" style="flex:1;padding:8px;background:#fafafa;color:#09090b;border:none;border-radius:5px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Entrar</button>
-        <button id="lf-cloud-register-submit" style="flex:1;padding:8px;background:transparent;color:#a1a1aa;border:1px solid #27272a;border-radius:5px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Criar Conta</button>
+  const screen = document.createElement('div');
+  screen.id = 'lf-login-screen';
+  screen.style.cssText = 'position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;';
+  screen.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px;width:100%;max-width:380px;text-align:center">
+      <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:24px">
+        <div style="width:48px;height:48px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#09090b;margin-bottom:8px">LF</div>
+        <h1 style="font-size:18px;font-weight:600;color:var(--text)">LinguaFlow</h1>
+        <p style="font-size:12px;color:var(--subtle)">Anki Inteligente</p>
       </div>
-      <button id="lf-cloud-cancel" style="width:100%;margin-top:8px;padding:8px;background:transparent;border:none;color:#71717a;font-size:12px;cursor:pointer;font-family:inherit">Cancelar</button>
+      <p id="lf-login-msg" style="font-size:12px;color:var(--muted);margin-bottom:16px">Faça login para sincronizar seus estudos.</p>
+      <input id="lf-login-email" type="email" placeholder="Email" style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;font-family:inherit;margin-bottom:8px;outline:none">
+      <input id="lf-login-pass" type="password" placeholder="Senha" style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;font-family:inherit;margin-bottom:16px;outline:none">
+      <div id="lf-login-error" style="display:none;font-size:12px;color:var(--red);margin-bottom:12px;padding:8px;background:var(--red-bg);border-radius:4px"></div>
+      <button id="lf-login-btn" style="width:100%;padding:10px;background:var(--accent);color:#09090b;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px">Entrar</button>
+      <button id="lf-register-btn" style="width:100%;padding:10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit">Criar Conta</button>
     </div>`;
-  document.body.appendChild(modal);
+  document.body.appendChild(screen);
 
-  const errorDiv = modal.querySelector('#lf-cloud-error');
-  const showError = (msg) => {
-    errorDiv.textContent = msg;
-    errorDiv.style.display = 'block';
-  };
+  const errEl = document.getElementById('lf-login-error');
+  const msgEl = document.getElementById('lf-login-msg');
+  const showErr = (m) => { errEl.textContent = m; errEl.style.display = 'block'; };
 
-  modal.querySelector('#lf-cloud-cancel').onclick = () => modal.remove();
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) modal.remove();
-  });
-
-  modal.querySelector('#lf-cloud-login-submit').onclick = async () => {
-    const email = modal.querySelector('#lf-cloud-email').value;
-    const pass = modal.querySelector('#lf-cloud-pass').value;
-    if (!email || !pass) {
-      showError('Preencha email e senha');
-      return;
-    }
+  document.getElementById('lf-login-btn').onclick = async () => {
+    const email = document.getElementById('lf-login-email').value;
+    const pass = document.getElementById('lf-login-pass').value;
+    if (!email || !pass) { showErr('Preencha email e senha'); return; }
     try {
       await supabaseAuth.login(email, pass);
-      modal.remove();
-      showToast('Conectado com sucesso! Sincronizando...', 'success');
       location.reload();
-    } catch (e) {
-      showError(e.message);
-    }
+    } catch (e) { showErr(e.message); }
   };
 
-  modal.querySelector('#lf-cloud-register-submit').onclick = async () => {
-    const email = modal.querySelector('#lf-cloud-email').value;
-    const pass = modal.querySelector('#lf-cloud-pass').value;
-    if (!email || !pass || pass.length < 6) {
-      showError('Senha deve ter no mínimo 6 caracteres');
-      return;
-    }
+  document.getElementById('lf-register-btn').onclick = async () => {
+    const email = document.getElementById('lf-login-email').value;
+    const pass = document.getElementById('lf-login-pass').value;
+    if (!email || !pass || pass.length < 6) { showErr('Senha deve ter no mínimo 6 caracteres'); return; }
     try {
       await supabaseAuth.register(email, pass);
-      showError('✅ Conta criada! Agora clique em Entrar.');
-    } catch (e) {
-      showError(e.message);
-    }
+      msgEl.textContent = '✅ Conta criada! Agora clique em Entrar.';
+      msgEl.style.color = 'var(--green)';
+    } catch (e) { showErr(e.message); }
   };
 }
 
@@ -2798,70 +2780,34 @@ async function init() {
   try {
     await lfDb.initPromise;
 
-    // ── Supabase Auth — auto-login + sync ──────────────────────────────────
+    // ── Supabase Auth — login obrigatório ──────────────────────────────────
     try {
       const { supabaseAuth } = await import('./supabase-auth.js');
       const isLoggedIn = await supabaseAuth.init();
 
-      if (isLoggedIn) {
-        document.getElementById('lf-cloud-status').textContent = 'Conectado';
-        document.getElementById('lf-cloud-status').style.color = 'var(--green)';
-        document.getElementById('lf-cloud-login-btn').textContent = '☁️ Conectado';
-        document.getElementById('lf-cloud-sync-up').style.display = '';
-        document.getElementById('lf-cloud-sync-down').style.display = '';
-        document.getElementById('lf-cloud-login-btn').onclick = async () => {
-          await supabaseAuth.logout();
-          location.reload();
-        };
-
-        // Auto-sync bidirecional ao iniciar
-        document.getElementById('lf-cloud-status').textContent = 'Sincronizando...';
-        try {
-          const uploaded = await supabaseAuth.syncUp(lfDb);
-          const downloaded = await supabaseAuth.syncDown(lfDb);
-          const upTotal = (uploaded.words || 0) + (uploaded.cards || 0);
-          const downTotal = (downloaded.words || 0) + (downloaded.sentences || 0);
-          if (upTotal > 0 || downTotal > 0) {
-            showToast(`Sincronizado: +${upTotal}↑ +${downTotal}↓`, 'info');
-          }
-        } catch (e) {
-          /* offline — ok */
-        }
-        document.getElementById('lf-cloud-status').textContent = 'Conectado';
-      } else {
-        document.getElementById('lf-cloud-status').textContent = 'Desconectado';
-        document.getElementById('lf-cloud-login-btn').onclick = () => showCloudLogin(supabaseAuth);
+      if (!isLoggedIn) {
+        showLoginScreen(supabaseAuth);
+        return;
       }
 
-      // Cloud sync buttons
-      document.getElementById('lf-cloud-sync-up')?.addEventListener('click', async () => {
-        const btn = document.getElementById('lf-cloud-sync-up');
-        btn.textContent = '⏳ Enviando...';
-        btn.disabled = true;
-        try {
-          const count = await supabaseAuth.syncUp(lfDb);
-          showToast(`${count} palavras enviadas para nuvem`, 'success');
-        } catch (e) {
-          showToast('Erro: ' + e.message, 'error');
+      document.getElementById('lf-cloud-status').textContent = 'Sincronizando...';
+      try {
+        const uploaded = await supabaseAuth.syncUp(lfDb);
+        const downloaded = await supabaseAuth.syncDown(lfDb);
+        const upTotal = (uploaded.words || 0) + (uploaded.cards || 0);
+        const downTotal = (downloaded.words || 0) + (downloaded.sentences || 0);
+        if (upTotal > 0 || downTotal > 0) {
+          showToast(`Sincronizado: +${upTotal}↑ +${downTotal}↓`, 'info');
         }
-        btn.textContent = '⬆️ Enviar para Nuvem';
-        btn.disabled = false;
-      });
-
-      document.getElementById('lf-cloud-sync-down')?.addEventListener('click', async () => {
-        const btn = document.getElementById('lf-cloud-sync-down');
-        btn.textContent = '⏳ Baixando...';
-        btn.disabled = true;
-        try {
-          const count = await supabaseAuth.syncDown(lfDb);
-          showToast(`${count} palavras baixadas da nuvem`, 'success');
-        } catch (e) {
-          showToast('Erro: ' + e.message, 'error');
-        }
-        btn.textContent = '⬇️ Baixar da Nuvem';
-        btn.disabled = false;
-      });
-
+      } catch (e) {
+        /* offline */
+      }
+      document.getElementById('lf-cloud-status').textContent = 'Conectado';
+      document.getElementById('lf-cloud-login-btn').textContent = '☁️ Sair';
+      document.getElementById('lf-cloud-login-btn').onclick = async () => {
+        await supabaseAuth.logout();
+        location.reload();
+      };
       window._supabaseAuth = supabaseAuth;
     } catch (e) {
       console.debug('[LinguaFlow] Cloud sync não disponível:', e.message);

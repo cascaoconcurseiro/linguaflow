@@ -171,6 +171,13 @@ class Database {
             });
           }
           resolve({ ok: true, id: wordId, isNew: !existing });
+
+          // Sync direto pro Supabase (sem esperar)
+          chrome.runtime.sendMessage({
+            type: 'SYNC_TO_SUPABASE',
+            word: word, translation: wordData.translation,
+            context: wordData.context_sentence, deckId: wordData.deck_id,
+          }).catch(() => {});
         };
       };
       tx.onerror = () => reject(tx.error);
@@ -575,6 +582,24 @@ class Database {
    * Graduation: card leaves learning → interval = graduating_interval days.
    * After lapse, re-graduation uses max(gradInt, preLapseInterval × lapseMod).
    */
+
+  async _syncCardToSupabase(card, quality) {
+    try {
+      const session = await chrome.storage.local.get('lf_supabase_session');
+      const s = session.lf_supabase_session ? JSON.parse(session.lf_supabase_session) : null;
+      const token = s?.session?.access_token;
+      if (!token) return;
+      const word = await this.getWordById(card.word_id);
+      const SUPABASE_URL = 'https://qnutoswrufznztoznlql.supabase.co';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudXRvc3dydWZ6bnp0b3pubHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNzIyODEsImV4cCI6MjA5ODc0ODI4MX0.MdtBZwBnqNDpZ5nTytZDzNFKxHxd1rLmi6wT2MfV-0s';
+      const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON_KEY, Prefer: 'resolution=merge-duplicates' };
+      if (word) {
+        await fetch(`${SUPABASE_URL}/rest/v1/words?on_conflict=word,lang`, { method: 'POST', headers, body: JSON.stringify({ word: word.word, lang: word.lang || 'en', translation: word.translation, context_sentence: word.context_sentence, added_at: new Date(word.added_at || Date.now()).toISOString() }) });
+      }
+      await fetch(`${SUPABASE_URL}/rest/v1/review_log`, { method: 'POST', headers, body: JSON.stringify({ card_id: card.word_id, quality, date: new Date().toISOString().split('T')[0], ts: new Date().toISOString() }) });
+    } catch (_) {}
+  }
+
   _calculateNextState(card, quality, settings) {
     const now = Date.now();
     const prevStatus = card.status || 'new';
@@ -753,7 +778,11 @@ class Database {
         const logStore = tx.objectStore('review_log');
         logStore.add({ card_id: cardId, quality, date: today, ts: Date.now() });
 
-        tx.oncomplete = () => resolve({ ok: true, nextDue: card.due_date });
+        tx.oncomplete = () => {
+          // Sync direto pro Supabase
+          this._syncCardToSupabase(card, quality).catch(() => {});
+          resolve({ ok: true, nextDue: card.due_date });
+        };
       };
       tx.onerror = () => reject(tx.error);
     });

@@ -600,9 +600,12 @@ export class SettingsPanel {
         });
     }
 
-    toggle() { this.isOpen ? this.close() : this.open(); }
-    open()   { this.isOpen = true;  this.shadow.getElementById('overlay').style.display = 'flex'; }
-    close()  { this.isOpen = false; this.shadow.getElementById('overlay').style.display = 'none'; }
+    toggle() {
+        if (!this.shadow) return;
+        this.isOpen ? this.close() : this.open();
+    }
+    open()   { if (!this.shadow) return; this.isOpen = true;  this.shadow.getElementById('overlay').style.display = 'flex'; }
+    close()  { if (!this.shadow) return; this.isOpen = false; this.shadow.getElementById('overlay').style.display = 'none'; }
 
     async _save(key, value) {
         this.cfg[key] = value;

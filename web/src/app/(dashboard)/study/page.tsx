@@ -1,7 +1,14 @@
 'use client';
 
 import { getCardsDue, logReview } from '@/lib/db';
-import { calculateNextState, formatInterval, getDefaultSettings, type CardState } from '@/lib/srs';
+import {
+  calculateNextState,
+  formatInterval,
+  getDefaultSettings,
+  getUserSettings,
+  type CardState,
+} from '@/lib/srs';
+import { createClient } from '@/lib/supabase';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -43,9 +50,11 @@ export default function StudyPage() {
   const [predictions, setPredictions] = useState<number[]>([]);
   const [blindMode, setBlindMode] = useState(false);
 
-  const settings = getDefaultSettings();
+  const supabase = createClient();
+  const [settings, setSettings] = useState(getDefaultSettings());
 
   useEffect(() => {
+    getUserSettings(supabase).then(setSettings);
     loadCards();
   }, [deckId]);
 

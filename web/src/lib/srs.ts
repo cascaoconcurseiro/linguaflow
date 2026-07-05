@@ -41,6 +41,38 @@ export function getDefaultSettings(): SRSettings {
   return { ...DEFAULT_SETTINGS };
 }
 
+/** Lê settings do Supabase (se logado), fallback para defaults */
+export async function getUserSettings(supabase: any): Promise<SRSettings> {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { ...DEFAULT_SETTINGS };
+    const { data } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('user_id', user.id)
+      .eq('key', 'srs')
+      .single();
+    if (data?.value) {
+      const s = data.value;
+      return {
+        learningSteps: (s.learningSteps || '1 10')
+          .split(' ')
+          .map(Number)
+          .filter((n: number) => n > 0),
+        gradInt: Number(s.gradInt) || DEFAULT_SETTINGS.gradInt,
+        easyInt: Number(s.easyInt) || DEFAULT_SETTINGS.easyInt,
+        easyBonus: Number(s.easyBonus) || DEFAULT_SETTINGS.easyBonus,
+        intMod: Number(s.intMod) || DEFAULT_SETTINGS.intMod,
+        maxInt: Number(s.maxInt) || DEFAULT_SETTINGS.maxInt,
+        lapseMod: Number(s.lapseMod) || DEFAULT_SETTINGS.lapseMod,
+      };
+    }
+  } catch (_) {}
+  return { ...DEFAULT_SETTINGS };
+}
+
 export function calculateNextState(
   card: CardState,
   quality: number,

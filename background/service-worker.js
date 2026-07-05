@@ -1045,7 +1045,8 @@ Não dê explicações. Responda APENAS com a lista numerada, sendo a frase em i
 
 // ── Sync direto com Supabase (word salva → nuvem instantâneo) ─────────────────
 const SUPABASE_URL = 'https://qnutoswrufznztoznlql.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudXRvc3dydWZ6bnp0b3pubHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNzIyODEsImV4cCI6MjA5ODc0ODI4MX0.MdtBZwBnqNDpZ5nTytZDzNFKxHxd1rLmi6wT2MfV-0s';
+const SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudXRvc3dydWZ6bnp0b3pubHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNzIyODEsImV4cCI6MjA5ODc0ODI4MX0.MdtBZwBnqNDpZ5nTytZDzNFKxHxd1rLmi6wT2MfV-0s';
 
 async function syncWordToSupabase({ word, translation, context, deckId }) {
   const session = await chrome.storage.local.get('lf_supabase_session');
@@ -1061,13 +1062,18 @@ async function syncWordToSupabase({ word, translation, context, deckId }) {
   };
 
   const payload = {
-    word: word, lang: 'en', translation: translation,
-    context_sentence: context, added_at: new Date().toISOString(),
+    word: word,
+    lang: 'en',
+    translation: translation,
+    context_sentence: context,
+    added_at: new Date().toISOString(),
   };
 
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/words?on_conflict=word,lang`, {
-      method: 'POST', headers, body: JSON.stringify(payload),
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
     });
     return { synced: res.ok };
   } catch (e) {

@@ -2,10 +2,16 @@
 
 export class WordPopup {
   constructor(engine, platform) {
-    this.engine=engine; this.platform=platform;
-    this.popup=null; this.word=''; this.context='';
-    this.cache={}; this.activeDeck=1; this.decks=[{id:1, name:'Padrão'}];
-    this._gramBuilt=false; this._exBuilt=false;
+    this.engine = engine;
+    this.platform = platform;
+    this.popup = null;
+    this.word = '';
+    this.context = '';
+    this.cache = {};
+    this.activeDeck = 1;
+    this.decks = [{ id: 1, name: 'Padrão' }];
+    this._gramBuilt = false;
+    this._exBuilt = false;
     this.freqList = null;
   }
 
@@ -14,74 +20,134 @@ export class WordPopup {
     this._initData();
     this._loadDecks();
     try {
-        const res = await fetch(chrome.runtime.getURL('utils/frequency-en.json'));
-        this.freqList = await res.json();
-    } catch(e) {
-        console.warn('[WordPopup] Freq list disabled/missing', e);
+      const res = await fetch(chrome.runtime.getURL('utils/frequency-en.json'));
+      this.freqList = await res.json();
+    } catch (e) {
+      console.warn('[WordPopup] Freq list disabled/missing', e);
     }
     try {
-        const res = await fetch(chrome.runtime.getURL('utils/cefr-wordlist.json'));
-        this.cefrList = await res.json();
-    } catch(e) { /* sem CEFR wordlist — ok */ }
+      const res = await fetch(chrome.runtime.getURL('utils/cefr-wordlist.json'));
+      this.cefrList = await res.json();
+    } catch (e) {
+      /* sem CEFR wordlist — ok */
+    }
   }
 
   _initData() {
     // Falsos cognatos mais perigosos para brasileiros
     this._falseFriends = {
-      'actually':    '"actually" = na verdade / de fato (NÃO "atualmente" → use "currently" ou "nowadays")',
-      'pretend':     '"pretend" = fingir / simular (NÃO "pretender" → use "intend" ou "plan to")',
-      'eventually':  '"eventually" = eventualmente no sentido de "no fim" / "com o tempo" (NÃO "eventualmente" = sometimes → use "occasionally")',
-      'library':     '"library" = biblioteca (NÃO "livraria" → use "bookstore")',
-      'college':     '"college" = faculdade / universidade (NÃO "colégio" = high school)',
-      'fabric':      '"fabric" = tecido / pano (NÃO "fábrica" → use "factory")',
-      'parents':     '"parents" = pais (pai e mãe) (NÃO "parentes" = relatives)',
-      'push':        '"push" = empurrar (NÃO "puxar" = pull)',
-      'exit':        '"exit" = saída (NÃO "êxito" = success)',
-      'novel':       '"novel" = romance (livro) (NÃO "novela" = soap opera = "soap opera")',
-      'sensible':    '"sensible" = sensato / prudente (NÃO "sensível" = sensitive)',
-      'polite':      '"polite" = educado / cortês (NÃO "político" = politician)',
-      'large':       '"large" = grande (NÃO "largo" = wide)',
-      'assist':      '"assist" = ajudar / auxiliar (NÃO "assistir" a um filme → "watch")',
-      'contest':     '"contest" = competição (NÃO "contestar" = dispute/challenge)',
-      'editor':      '"editor" = revisor/redator (NÃO "editor" de livros = publisher)',
-      'engineer':    '"engineer" = engenheiro (NÃO "maquinista" = train driver)',
-      'eventually':  '"eventually" = no fim das contas (NÃO às vezes = sometimes)',
-      'exquisite':   '"exquisite" = refinado/primoroso (NÃO "esquisito" = weird/strange)',
-      'genial':      '"genial" = simpático/cordial (NÃO "genial" = brilliant → "genius")',
-      'infamous':    '"infamous" = notório/famigerado (NÃO apenas "famoso" = famous)',
-      'legend':      '"legend" = lenda (NÃO "legenda" de vídeo = subtitle/caption)',
-      'mundane':     '"mundane" = entediante/comum (NÃO "mundano" = worldly)',
-      'realize':     '"realize" = perceber/tomar consciência (NÃO "realizar" uma tarefa = carry out/accomplish)',
-      'resume':      '"resume" = retomar (NÃO "resumo" = summary)',
-      'sympathetic': '"sympathetic" = solidário/compreensivo (NÃO "simpático" = nice/friendly)',
-      'taxes':       '"taxes" = impostos (NÃO "táxis" = taxis)',
-      'travesty':    '"travesty" = paródia/distorção grotesca (NÃO "travesti" = transgender person)',
-      'vacant':      '"vacant" = vago/desocupado (NÃO "vacante" formal → use "empty")',
-      'versatile':   '"versatile" = versátil/multifuncional (NÃO "versátil" geralmente mais positivo em inglês)',
+      actually:
+        '"actually" = na verdade / de fato (NÃO "atualmente" → use "currently" ou "nowadays")',
+      pretend: '"pretend" = fingir / simular (NÃO "pretender" → use "intend" ou "plan to")',
+      eventually:
+        '"eventually" = eventualmente no sentido de "no fim" / "com o tempo" (NÃO "eventualmente" = sometimes → use "occasionally")',
+      library: '"library" = biblioteca (NÃO "livraria" → use "bookstore")',
+      college: '"college" = faculdade / universidade (NÃO "colégio" = high school)',
+      fabric: '"fabric" = tecido / pano (NÃO "fábrica" → use "factory")',
+      parents: '"parents" = pais (pai e mãe) (NÃO "parentes" = relatives)',
+      push: '"push" = empurrar (NÃO "puxar" = pull)',
+      exit: '"exit" = saída (NÃO "êxito" = success)',
+      novel: '"novel" = romance (livro) (NÃO "novela" = soap opera = "soap opera")',
+      sensible: '"sensible" = sensato / prudente (NÃO "sensível" = sensitive)',
+      polite: '"polite" = educado / cortês (NÃO "político" = politician)',
+      large: '"large" = grande (NÃO "largo" = wide)',
+      assist: '"assist" = ajudar / auxiliar (NÃO "assistir" a um filme → "watch")',
+      contest: '"contest" = competição (NÃO "contestar" = dispute/challenge)',
+      editor: '"editor" = revisor/redator (NÃO "editor" de livros = publisher)',
+      engineer: '"engineer" = engenheiro (NÃO "maquinista" = train driver)',
+      eventually: '"eventually" = no fim das contas (NÃO às vezes = sometimes)',
+      exquisite: '"exquisite" = refinado/primoroso (NÃO "esquisito" = weird/strange)',
+      genial: '"genial" = simpático/cordial (NÃO "genial" = brilliant → "genius")',
+      infamous: '"infamous" = notório/famigerado (NÃO apenas "famoso" = famous)',
+      legend: '"legend" = lenda (NÃO "legenda" de vídeo = subtitle/caption)',
+      mundane: '"mundane" = entediante/comum (NÃO "mundano" = worldly)',
+      realize:
+        '"realize" = perceber/tomar consciência (NÃO "realizar" uma tarefa = carry out/accomplish)',
+      resume: '"resume" = retomar (NÃO "resumo" = summary)',
+      sympathetic: '"sympathetic" = solidário/compreensivo (NÃO "simpático" = nice/friendly)',
+      taxes: '"taxes" = impostos (NÃO "táxis" = taxis)',
+      travesty: '"travesty" = paródia/distorção grotesca (NÃO "travesti" = transgender person)',
+      vacant: '"vacant" = vago/desocupado (NÃO "vacante" formal → use "empty")',
+      versatile:
+        '"versatile" = versátil/multifuncional (NÃO "versátil" geralmente mais positivo em inglês)',
     };
 
     // Expressões/idiomas comuns para detecção por lookup
     this._idiomSet = new Set([
-      'piece of cake','break a leg','hit the nail on the head','under the weather',
-      'bite the bullet','beat around the bush','get out of hand','spill the beans',
-      'kick the bucket','let the cat out of the bag','hit the sack','cost an arm and a leg',
-      'once in a blue moon','the ball is in your court','pull someone\'s leg',
-      'hang in there','cut corners','get cold feet','it\'s not rocket science',
-      'back to the drawing board','bite off more than you can chew','burn bridges',
-      'catch someone red-handed','don\'t judge a book by its cover',
+      'piece of cake',
+      'break a leg',
+      'hit the nail on the head',
+      'under the weather',
+      'bite the bullet',
+      'beat around the bush',
+      'get out of hand',
+      'spill the beans',
+      'kick the bucket',
+      'let the cat out of the bag',
+      'hit the sack',
+      'cost an arm and a leg',
+      'once in a blue moon',
+      'the ball is in your court',
+      "pull someone's leg",
+      'hang in there',
+      'cut corners',
+      'get cold feet',
+      "it's not rocket science",
+      'back to the drawing board',
+      'bite off more than you can chew',
+      'burn bridges',
+      'catch someone red-handed',
+      "don't judge a book by its cover",
     ]);
 
     // Chunks / fixed phrases
     this._chunkSet = new Set([
-      'as well as','as long as','as soon as','due to','in order to','in spite of',
-      'on the other hand','at the same time','in addition to','as a result',
-      'by the way','in fact','for example','such as','in terms of','according to',
-      'on the contrary','in other words','first of all','last but not least',
-      'as a matter of fact','to be honest','you know what','kind of','sort of',
-      'a lot of','all of a sudden','at least','at most','by the way',
-      'come on','figure out','find out','give up','go ahead','go on',
-      'look forward to','make sense','no wonder','of course','right away',
-      'take care','take part','turn out','used to','what if',
+      'as well as',
+      'as long as',
+      'as soon as',
+      'due to',
+      'in order to',
+      'in spite of',
+      'on the other hand',
+      'at the same time',
+      'in addition to',
+      'as a result',
+      'by the way',
+      'in fact',
+      'for example',
+      'such as',
+      'in terms of',
+      'according to',
+      'on the contrary',
+      'in other words',
+      'first of all',
+      'last but not least',
+      'as a matter of fact',
+      'to be honest',
+      'you know what',
+      'kind of',
+      'sort of',
+      'a lot of',
+      'all of a sudden',
+      'at least',
+      'at most',
+      'by the way',
+      'come on',
+      'figure out',
+      'find out',
+      'give up',
+      'go ahead',
+      'go on',
+      'look forward to',
+      'make sense',
+      'no wonder',
+      'of course',
+      'right away',
+      'take care',
+      'take part',
+      'turn out',
+      'used to',
+      'what if',
     ]);
   }
 
@@ -91,17 +157,17 @@ export class WordPopup {
     const tokens = w.split(/\s+/);
     const isMulti = tokens.length > 1;
 
-    if (this._idiomSet?.has(w)) return { type: 'idiom',       label: '🌀 Idiom',        cls: 'lfp-type-idiom' };
-    if (this._chunkSet?.has(w)) return { type: 'chunk',       label: '🧩 Chunk',        cls: 'lfp-type-chunk' };
+    if (this._idiomSet?.has(w)) return { type: 'idiom', label: '🌀 Idiom', cls: 'lfp-type-idiom' };
+    if (this._chunkSet?.has(w)) return { type: 'chunk', label: '🧩 Chunk', cls: 'lfp-type-chunk' };
 
     if (isMulti && phrasalVerbsDB) {
       const verb = tokens[0];
       const entries = phrasalVerbsDB[verb] || [];
-      if (entries.some(e => e.phrase?.toLowerCase() === w)) {
-        return { type: 'phrasal',   label: '🔗 Phrasal Verb', cls: 'lfp-type-phrasal' };
+      if (entries.some((e) => e.phrase?.toLowerCase() === w)) {
+        return { type: 'phrasal', label: '🔗 Phrasal Verb', cls: 'lfp-type-phrasal' };
       }
       // Multi-word que não é idiom nem chunk nem phrasal → colocação
-      return { type: 'collocation', label: '🤝 Colocação',    cls: 'lfp-type-collocation' };
+      return { type: 'collocation', label: '🤝 Colocação', cls: 'lfp-type-collocation' };
     }
 
     // Palavras simples: verificar registro pelo dicionário depois — placeholder
@@ -117,24 +183,31 @@ export class WordPopup {
     return this.cefrList[word.toLowerCase()] || null;
   }
   _escapeAttr(value) {
-    return String(value ?? '').replace(/[&<>"']/g, ch => ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;'
-    }[ch]));
+    return String(value ?? '').replace(
+      /[&<>"']/g,
+      (ch) =>
+        ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;',
+        })[ch],
+    );
   }
   _escapeRegExp(value) {
     return String(value ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
   async _expandTermInContext(word, context) {
-    const cleanWord = String(word || '').toLowerCase().replace(/[.,!?()"]/g, '').trim();
+    const cleanWord = String(word || '')
+      .toLowerCase()
+      .replace(/[.,!?()"]/g, '')
+      .trim();
     if (!cleanWord || cleanWord.includes(' ') || !context) return word;
 
     const tokens = String(context).match(/[a-zA-Z']+/g) || [];
-    const lower = tokens.map(t => t.toLowerCase());
-    const positions = lower.map((t, i) => t === cleanWord ? i : -1).filter(i => i >= 0);
+    const lower = tokens.map((t) => t.toLowerCase());
+    const positions = lower.map((t, i) => (t === cleanWord ? i : -1)).filter((i) => i >= 0);
     if (!positions.length) return word;
 
     let phrasalDB = null;
@@ -148,7 +221,7 @@ export class WordPopup {
       if (this._idiomSet?.has(phrase) || this._chunkSet?.has(phrase)) return true;
       if (!phrasalDB) return false;
       const first = phrase.split(/\s+/)[0];
-      return (phrasalDB[first] || []).some(e => e.phrase?.toLowerCase() === phrase);
+      return (phrasalDB[first] || []).some((e) => e.phrase?.toLowerCase() === phrase);
     };
 
     let best = '';
@@ -164,13 +237,17 @@ export class WordPopup {
 
     return best || word;
   }
-  destroy() { this.popup?.remove(); }
+  destroy() {
+    this.popup?.remove();
+  }
 
   _build() {
     document.getElementById('lfp')?.remove();
     const hexToRgb = (hex) => {
       const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '#000');
-      return result ? `${parseInt(result[1], 16)},${parseInt(result[2], 16)},${parseInt(result[3], 16)}` : '255,255,255';
+      return result
+        ? `${parseInt(result[1], 16)},${parseInt(result[2], 16)},${parseInt(result[3], 16)}`
+        : '255,255,255';
     };
     const cA1 = this.engine?.cefrColors?.A1 || '#4ade80';
     const cA2 = this.engine?.cefrColors?.A2 || '#38bdf8';
@@ -178,11 +255,17 @@ export class WordPopup {
     const cB2 = this.engine?.cefrColors?.B2 || '#fbbf24';
     const cC1 = this.engine?.cefrColors?.C1 || '#fb923c';
     const cC2 = this.engine?.cefrColors?.C2 || '#a78bfa';
-    const rA1 = hexToRgb(cA1), rA2 = hexToRgb(cA2), rB1 = hexToRgb(cB1), rB2 = hexToRgb(cB2), rC1 = hexToRgb(cC1), rC2 = hexToRgb(cC2);
+    const rA1 = hexToRgb(cA1),
+      rA2 = hexToRgb(cA2),
+      rB1 = hexToRgb(cB1),
+      rB2 = hexToRgb(cB2),
+      rC1 = hexToRgb(cC1),
+      rC2 = hexToRgb(cC2);
 
     if (!document.getElementById('lfp-k')) {
-      const s=document.createElement('style');s.id='lfp-k';
-      s.textContent=`@keyframes lfpIn{from{opacity:0;transform:translateY(10px) scale(0.93)}to{opacity:1;transform:translateY(0) scale(1)}}@keyframes lfpSpin{to{transform:rotate(360deg)}}.lfp-spin{width:18px;height:18px;border:2px solid rgba(255,255,255,.1);border-top-color:#a78bfa;border-radius:50%;animation:lfpSpin .6s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px}#lfp *{box-sizing:border-box;margin:0;padding:0}#lfp button,#lfp select,#lfp input{font-family:'Outfit','Segoe UI',sans-serif}.lfp-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:3px 10px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .12s;display:inline-block}.lfp-chip:hover{color:#7dd3fc;border-color:rgba(125,209,252,.35)}.lfp-chip.red{background:rgba(248,113,113,.06);border-color:rgba(248,113,113,.15);color:#f87171}.lfp-panels::-webkit-scrollbar{width:3px}.lfp-panels::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}.lfp-ph{background:rgba(244,114,182,.06);border:1px solid rgba(244,114,182,.15);border-radius:9px;padding:9px 12px;margin-bottom:7px}.lfp-ex{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 13px;margin-bottom:8px}.ai-res{white-space:pre-wrap;word-break:break-word}
+      const s = document.createElement('style');
+      s.id = 'lfp-k';
+      s.textContent = `@keyframes lfpIn{from{opacity:0;transform:translateY(10px) scale(0.93)}to{opacity:1;transform:translateY(0) scale(1)}}@keyframes lfpSpin{to{transform:rotate(360deg)}}.lfp-spin{width:18px;height:18px;border:2px solid rgba(255,255,255,.1);border-top-color:#a78bfa;border-radius:50%;animation:lfpSpin .6s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px}#lfp *{box-sizing:border-box;margin:0;padding:0}#lfp button,#lfp select,#lfp input{font-family:'Outfit','Segoe UI',sans-serif}.lfp-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:3px 10px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .12s;display:inline-block}.lfp-chip:hover{color:#7dd3fc;border-color:rgba(125,209,252,.35)}.lfp-chip.red{background:rgba(248,113,113,.06);border-color:rgba(248,113,113,.15);color:#f87171}.lfp-panels::-webkit-scrollbar{width:3px}.lfp-panels::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}.lfp-ph{background:rgba(244,114,182,.06);border:1px solid rgba(244,114,182,.15);border-radius:9px;padding:9px 12px;margin-bottom:7px}.lfp-ex{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 13px;margin-bottom:8px}.ai-res{white-space:pre-wrap;word-break:break-word}
 /* CEFR badges */
 .lfp-badge{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:20px;line-height:1.6}
 .lfp-a1{background:rgba(${rA1},.12);color:${cA1};border:1px solid rgba(${rA1},.25)}
@@ -219,8 +302,8 @@ export class WordPopup {
 `;
       document.head.appendChild(s);
     }
-    this.popup=document.createElement('div');
-    this.popup.id='lfp';
+    this.popup = document.createElement('div');
+    this.popup.id = 'lfp';
     Object.assign(this.popup.style, {
       position: 'absolute',
       zIndex: '2147483647',
@@ -238,9 +321,9 @@ export class WordPopup {
       overflow: 'hidden',
       transition: 'opacity 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
       opacity: '0',
-      transform: 'translateY(10px) scale(0.95)'
+      transform: 'translateY(10px) scale(0.95)',
     });
-    this.popup.innerHTML=`
+    this.popup.innerHTML = `
 <div style="padding:16px 18px 0;display:flex;align-items:flex-start;justify-content:space-between;">
   <div style="flex:1;min-width:0;">
     <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;">
@@ -265,7 +348,7 @@ export class WordPopup {
   </div>
 </div>
 <div style="display:flex;border-bottom:1px solid rgba(255,255,255,.07);margin-top:12px;padding:0 4px;">
-  ${['Tradução','Treino de Chunks','Exemplos','Linguee','YouGlish'].map((l,i)=>`<button class="ftab" data-i="${i}" style="flex:1;padding:9px 2px;font-size:11px;font-weight:700;color:${i===0?'#7dd3fc':'#475569'};background:none;border:none;border-bottom:2px solid ${i===0?'#7dd3fc':'transparent'};cursor:pointer;letter-spacing:.03em;white-space:nowrap;transition:all .15s;">${l}</button>`).join('')}
+  ${['Tradução', 'Treino de Chunks', 'Exemplos', 'Linguee', 'YouGlish'].map((l, i) => `<button class="ftab" data-i="${i}" style="flex:1;padding:9px 2px;font-size:11px;font-weight:700;color:${i === 0 ? '#7dd3fc' : '#475569'};background:none;border:none;border-bottom:2px solid ${i === 0 ? '#7dd3fc' : 'transparent'};cursor:pointer;letter-spacing:.03em;white-space:nowrap;transition:all .15s;">${l}</button>`).join('')}
 </div>
 <div class="lfp-panels" style="padding:14px 18px 18px;max-height:400px;overflow-y:auto;">
 
@@ -336,36 +419,51 @@ export class WordPopup {
     this._bind();
   }
 
-  _q(s) { return this.popup.querySelector(s); }
+  _q(s) {
+    return this.popup.querySelector(s);
+  }
 
   _bind() {
-    const q = s => this._q(s);
-    q('#fx').onclick = (e) => { e.stopPropagation(); this.hide(true); };
-    
+    const q = (s) => this._q(s);
+    q('#fx').onclick = (e) => {
+      e.stopPropagation();
+      this.hide(true);
+    };
+
     // Impede que cliques dentro do popup vazem para o YouTube/Netflix
-    this.popup.addEventListener('click', e => e.stopPropagation());
-    this.popup.addEventListener('mousedown', e => e.stopPropagation());
-    
+    this.popup.addEventListener('click', (e) => e.stopPropagation());
+    this.popup.addEventListener('mousedown', (e) => e.stopPropagation());
+
     if (!this._mousedownAttached) {
-      document.addEventListener('mousedown', e => {
-        if (this.popup && this.popup.style.display !== 'none' && !this.popup.contains(e.target) && !e.target.classList?.contains('lf-word')) {
-          this.hide(true); 
+      document.addEventListener('mousedown', (e) => {
+        if (
+          this.popup &&
+          this.popup.style.display !== 'none' &&
+          !this.popup.contains(e.target) &&
+          !e.target.classList?.contains('lf-word')
+        ) {
+          this.hide(true);
         }
       });
-      
+
       this._mousedownAttached = true;
     }
     // Tabs
-    this.popup.querySelectorAll('.ftab').forEach(t => {
+    this.popup.querySelectorAll('.ftab').forEach((t) => {
       t.onclick = () => {
         const i = parseInt(t.dataset.i);
-        this.popup.querySelectorAll('.ftab').forEach((x,j)=>{ x.style.color=j===i?'#7dd3fc':'#475569'; x.style.borderBottomColor=j===i?'#7dd3fc':'transparent'; });
-        this.popup.querySelectorAll('.fp').forEach((p,j)=>p.style.display=j===i?'':'none');
-        if (i===1 && !this._chunksBuilt) this._loadSavedChunks();
-        if (i===2 && !this._exBuilt)  this._buildExamples();
+        this.popup.querySelectorAll('.ftab').forEach((x, j) => {
+          x.style.color = j === i ? '#7dd3fc' : '#475569';
+          x.style.borderBottomColor = j === i ? '#7dd3fc' : 'transparent';
+        });
+        this.popup
+          .querySelectorAll('.fp')
+          .forEach((p, j) => (p.style.display = j === i ? '' : 'none'));
+        if (i === 1 && !this._chunksBuilt) this._loadSavedChunks();
+        if (i === 2 && !this._exBuilt) this._buildExamples();
       };
     });
-    q('#ftts').onclick = async () => { 
+    q('#ftts').onclick = async () => {
       const BASE = chrome.runtime.getURL('utils/');
       try {
         const { tts } = await import(BASE + 'tts.js');
@@ -388,21 +486,53 @@ export class WordPopup {
       navigator.clipboard.writeText(text);
       const btn = q('#fcopy-ai');
       btn.textContent = '✅ Copiado!';
-      setTimeout(() => btn.textContent = '📋 Copiar', 2000);
+      setTimeout(() => (btn.textContent = '📋 Copiar'), 2000);
     };
     q('#fnewdeck').onclick = () => this._showDeckModal();
     q('#fmic').onclick = () => this._practicePronunciation();
-    q('#fdeck').onchange = e => this.activeDeck=parseInt(e.target.value, 10);
+    q('#fdeck').onchange = (e) => (this.activeDeck = parseInt(e.target.value, 10));
     // Linguee
-    q('#fl1').onclick = () => window.open(`https://www.linguee.com/english-portuguese/search?source=auto&query=${encodeURIComponent(this.word)}`,'_blank');
-    q('#fl2').onclick = () => window.open(`https://www.linguee.com/english-portuguese/search?source=english&query=${encodeURIComponent(this.word)}`,'_blank');
-    q('#fl3').onclick = () => window.open(`https://translate.google.com/?sl=${this.engine?.sourceLang||'en'}&tl=${this.engine?.targetLang||'pt'}&text=${encodeURIComponent(this.word)}`,'_blank');
+    q('#fl1').onclick = () =>
+      window.open(
+        `https://www.linguee.com/english-portuguese/search?source=auto&query=${encodeURIComponent(this.word)}`,
+        '_blank',
+      );
+    q('#fl2').onclick = () =>
+      window.open(
+        `https://www.linguee.com/english-portuguese/search?source=english&query=${encodeURIComponent(this.word)}`,
+        '_blank',
+      );
+    q('#fl3').onclick = () =>
+      window.open(
+        `https://translate.google.com/?sl=${this.engine?.sourceLang || 'en'}&tl=${this.engine?.targetLang || 'pt'}&text=${encodeURIComponent(this.word)}`,
+        '_blank',
+      );
     // YouGlish
-    q('#fy1').onclick = () => window.open(`https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english`,'_blank');
-    q('#fy2').onclick = () => window.open(`https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english/us`,'_blank');
-    q('#fy3').onclick = () => window.open(`https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english/uk`,'_blank');
-    q('#fy4').onclick = () => window.open(`https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english/aus`,'_blank');
-    q('#fy5').onclick = () => window.open(`https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english/academic`,'_blank');
+    q('#fy1').onclick = () =>
+      window.open(
+        `https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english`,
+        '_blank',
+      );
+    q('#fy2').onclick = () =>
+      window.open(
+        `https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english/us`,
+        '_blank',
+      );
+    q('#fy3').onclick = () =>
+      window.open(
+        `https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english/uk`,
+        '_blank',
+      );
+    q('#fy4').onclick = () =>
+      window.open(
+        `https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english/aus`,
+        '_blank',
+      );
+    q('#fy5').onclick = () =>
+      window.open(
+        `https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english/academic`,
+        '_blank',
+      );
   }
 
   async showForWord(word, context, rect, cue) {
@@ -414,11 +544,13 @@ export class WordPopup {
     if (!word) return;
     this._isHiding = false;
     const cleanedWord = word.replace(/[.,!?()"]+/g, '').trim();
-    this.context=context||'';
-    this.word=await this._expandTermInContext(cleanedWord, this.context);
+    this.context = context || '';
+    this.word = await this._expandTermInContext(cleanedWord, this.context);
     this.currentCue = cue; // Armazena a cue completa com contexto expandido
-    this._chunksBuilt=false; this._exBuilt=false; this._contextExplained=false;
-    
+    this._chunksBuilt = false;
+    this._exBuilt = false;
+    this._contextExplained = false;
+
     // Encontra o player container
     const playerContainer = this._findPlayerContainer();
     if (playerContainer && this.popup.parentElement !== playerContainer) {
@@ -428,13 +560,20 @@ export class WordPopup {
       document.body.appendChild(this.popup);
     }
     // Reset tabs
-    this.popup.querySelectorAll('.ftab').forEach((t,i)=>{ t.style.color=i===0?'#7dd3fc':'#475569'; t.style.borderBottomColor=i===0?'#7dd3fc':'transparent'; });
-    this.popup.querySelectorAll('.fp').forEach((p,i)=>p.style.display=i===0?'':'none');
-    const q = (s)=>this.popup.querySelector(s);
-    q('#fw').textContent=this.word; q('#fipa').textContent=''; q('#fprpt').style.display='none';
-    q('#fpos').style.display='none'; q('#ffreq').style.display='none';
-    q('#fcefr').style.display='none'; q('#fexprtype').style.display='none';
-    q('#fff-card').style.display='none';
+    this.popup.querySelectorAll('.ftab').forEach((t, i) => {
+      t.style.color = i === 0 ? '#7dd3fc' : '#475569';
+      t.style.borderBottomColor = i === 0 ? '#7dd3fc' : 'transparent';
+    });
+    this.popup.querySelectorAll('.fp').forEach((p, i) => (p.style.display = i === 0 ? '' : 'none'));
+    const q = (s) => this.popup.querySelector(s);
+    q('#fw').textContent = this.word;
+    q('#fipa').textContent = '';
+    q('#fprpt').style.display = 'none';
+    q('#fpos').style.display = 'none';
+    q('#ffreq').style.display = 'none';
+    q('#fcefr').style.display = 'none';
+    q('#fexprtype').style.display = 'none';
+    q('#fff-card').style.display = 'none';
 
     // — CEFR badge —
     const cefr = this._lookupCEFR(this.word);
@@ -444,30 +583,34 @@ export class WordPopup {
       el.className = `lfp-badge lfp-${cefr.toLowerCase()}`;
       el.style.display = 'inline-block';
       this.activeLevel = cefr;
-      
+
       // Auto-selecionar / Criar Deck CEFR + mostrar progresso de nível
       (async () => {
-          const BASE = chrome.runtime.getURL('utils/');
-          const {db} = await import(BASE+'db.js');
-          let decks = await db.getSetting('decks') || ['Default'];
-          if (!decks.includes(cefr)) {
-              decks.push(cefr);
-              await db.setSetting('decks', decks);
-              this.decks = decks;
+        const BASE = chrome.runtime.getURL('utils/');
+        const { db } = await import(BASE + 'db.js');
+        let decks = (await db.getSetting('decks')) || ['Default'];
+        if (!decks.includes(cefr)) {
+          decks.push(cefr);
+          await db.setSetting('decks', decks);
+          this.decks = decks;
+        }
+        this.activeDeck = 1;
+        this._renderDecks();
+        // Progresso CEFR
+        const progEl = q('#fcefr-prog');
+        if (progEl && this.engine?.cefrList) {
+          const allLevel = Object.values(this.engine.cefrList).filter((v) => v === cefr).length;
+          const knownAtLevel =
+            [...(this.engine.savedWords?.keys() || [])].filter(
+              (w) => this.engine.cefrList[w] === cefr,
+            ).length +
+            [...(this.engine.knownWords || [])].filter((w) => this.engine.cefrList[w] === cefr)
+              .length;
+          if (allLevel > 0) {
+            progEl.textContent = `${knownAtLevel}/${allLevel} ${cefr}`;
+            progEl.style.display = 'inline';
           }
-          this.activeDeck = 1;
-          this._renderDecks();
-          // Progresso CEFR
-          const progEl = q('#fcefr-prog');
-          if (progEl && this.engine?.cefrList) {
-              const allLevel = Object.values(this.engine.cefrList).filter(v => v === cefr).length;
-              const knownAtLevel = [...(this.engine.savedWords?.keys() || [])].filter(w => this.engine.cefrList[w] === cefr).length
-                  + [...(this.engine.knownWords || [])].filter(w => this.engine.cefrList[w] === cefr).length;
-              if (allLevel > 0) {
-                  progEl.textContent = `${knownAtLevel}/${allLevel} ${cefr}`;
-                  progEl.style.display = 'inline';
-              }
-          }
+        }
       })();
     } else {
       this.activeLevel = null;
@@ -479,7 +622,10 @@ export class WordPopup {
     (async () => {
       const BASE = chrome.runtime.getURL('utils/');
       let phrasalDB = null;
-      try { const m = await import(BASE+'phrasal-verbs.js'); phrasalDB = m.phrasalVerbsDB; } catch {}
+      try {
+        const m = await import(BASE + 'phrasal-verbs.js');
+        phrasalDB = m.phrasalVerbsDB;
+      } catch {}
       const exprInfo = this._detectExprType(this.word, phrasalDB);
       this._exprType = exprInfo;
       const el = q('#fexprtype');
@@ -496,64 +642,78 @@ export class WordPopup {
       q('#fff-text').textContent = ff;
       q('#fff-card').style.display = '';
     }
-    
+
     if (this.freqList) {
-        const cleanWord = this.word.toLowerCase().replace(/[^a-z0-9]/gi, '');
-        const rank = this.freqList[cleanWord];
-        if (rank) {
-            const ffreq = q('#ffreq');
-            ffreq.style.display = 'inline-block';
-            if (rank <= 1000) {
-                ffreq.textContent = `🔥 Top ${rank}`;
-                ffreq.style.background = 'rgba(239, 68, 68, 0.1)';
-                ffreq.style.color = '#f87171';
-            } else if (rank <= 5000) {
-                ffreq.textContent = `📊 Top ${rank}`;
-                ffreq.style.background = 'rgba(245, 158, 11, 0.1)';
-                ffreq.style.color = '#fcd34d';
-            } else {
-                ffreq.textContent = `✨ Rara (>5k)`;
-                ffreq.style.background = 'rgba(167, 139, 250, 0.1)';
-                ffreq.style.color = '#c4b5fd';
-            }
+      const cleanWord = this.word.toLowerCase().replace(/[^a-z0-9]/gi, '');
+      const rank = this.freqList[cleanWord];
+      if (rank) {
+        const ffreq = q('#ffreq');
+        ffreq.style.display = 'inline-block';
+        if (rank <= 1000) {
+          ffreq.textContent = `🔥 Top ${rank}`;
+          ffreq.style.background = 'rgba(239, 68, 68, 0.1)';
+          ffreq.style.color = '#f87171';
+        } else if (rank <= 5000) {
+          ffreq.textContent = `📊 Top ${rank}`;
+          ffreq.style.background = 'rgba(245, 158, 11, 0.1)';
+          ffreq.style.color = '#fcd34d';
+        } else {
+          ffreq.textContent = `✨ Rara (>5k)`;
+          ffreq.style.background = 'rgba(167, 139, 250, 0.1)';
+          ffreq.style.color = '#c4b5fd';
         }
+      }
     }
 
-    q('#ft').textContent='…'; q('#fd').textContent=''; q('#fc').style.display='none'; q('#fctx').style.display='none';
-    q('#fsyn').style.display='none'; q('#fant').style.display='none';
-    q('#fair-container').style.display='none';
+    q('#ft').textContent = '…';
+    q('#fd').textContent = '';
+    q('#fc').style.display = 'none';
+    q('#fctx').style.display = 'none';
+    q('#fsyn').style.display = 'none';
+    q('#fant').style.display = 'none';
+    q('#fair-container').style.display = 'none';
     if (context) {
       const safeContext = this._escapeAttr(context);
       const safeTerm = this._escapeAttr(this.word);
       const level = this.engine?.cefrList?.[this.word.toLowerCase()];
       const colors = {
-          'A1': '#60a5fa', 'A2': '#4ade80', 'B1': '#facc15',
-          'B2': '#fb923c', 'C1': '#f87171', 'C2': '#c084fc'
+        A1: '#60a5fa',
+        A2: '#4ade80',
+        B1: '#facc15',
+        B2: '#fb923c',
+        C1: '#f87171',
+        C2: '#c084fc',
       };
-      const highlightColor = (level && colors[level]) ? colors[level] : '#7dd3fc';
-      q('#fc').innerHTML = safeContext.replace(new RegExp(`\\b(${this._escapeRegExp(safeTerm)})\\b`, 'gi'), `<b style="color:${highlightColor}">$1</b>`);
-      q('#fc').style.display='';
+      const highlightColor = level && colors[level] ? colors[level] : '#7dd3fc';
+      q('#fc').innerHTML = safeContext.replace(
+        new RegExp(`\\b(${this._escapeRegExp(safeTerm)})\\b`, 'gi'),
+        `<b style="color:${highlightColor}">$1</b>`,
+      );
+      q('#fc').style.display = '';
     }
     // Buttons state
-    (async()=>{
-      const BASE=chrome.runtime.getURL('utils/');
-      const {db}=await import(BASE+'db.js');
-      const lang=this.engine?.sourceLang||'en';
-      const saved=await db.getWord(this.word,lang);
-      const known=await db.isKnown(this.word,lang);
-      q('#fsave').textContent=saved?'✅ Salvo nos Flashcards':'+ Salvar nos Flashcards';
-      q('#fsave').style.background=saved?'linear-gradient(135deg,#15803d,#16a34a)':'linear-gradient(135deg,#1d4ed8,#2563eb)';
-      q('#fknown').textContent=known?'✅ Conhecida':'✓ Já Conheço';
-      q('#fknown').style.background=known?'rgba(74,222,128,.18)':'rgba(74,222,128,.08)';
+    (async () => {
+      const BASE = chrome.runtime.getURL('utils/');
+      const { db } = await import(BASE + 'db.js');
+      const lang = this.engine?.sourceLang || 'en';
+      const saved = await db.getWord(this.word, lang);
+      const known = await db.isKnown(this.word, lang);
+      q('#fsave').textContent = saved ? '✅ Salvo nos Flashcards' : '+ Salvar nos Flashcards';
+      q('#fsave').style.background = saved
+        ? 'linear-gradient(135deg,#15803d,#16a34a)'
+        : 'linear-gradient(135deg,#1d4ed8,#2563eb)';
+      q('#fknown').textContent = known ? '✅ Conhecida' : '✓ Já Conheço';
+      q('#fknown').style.background = known ? 'rgba(74,222,128,.18)' : 'rgba(74,222,128,.08)';
     })();
     this._loadSavedChunks();
-    q('#fexb').innerHTML='<div style="text-align:center;color:#475569;font-size:13px;padding:20px;">Carregando exemplos…</div>';
-    q('#fvctx').textContent=context||'(sem contexto)';
-    q('#fvctxtr').textContent='';
-    
+    q('#fexb').innerHTML =
+      '<div style="text-align:center;color:#475569;font-size:13px;padding:20px;">Carregando exemplos…</div>';
+    q('#fvctx').textContent = context || '(sem contexto)';
+    q('#fvctxtr').textContent = '';
+
     this.popup.style.display = 'block';
     this._position(rect); // Chama após display=block para obter offsetHeight real
-    
+
     // Trigger animation
     requestAnimationFrame(() => {
       this.popup.style.opacity = '1';
@@ -561,122 +721,187 @@ export class WordPopup {
     });
 
     this._loadData(this.word);
-    
+
     // Se o vídeo estava tocando, pausamos e marcamos que fomos nós
     if (this.engine?.videoElement && !this.engine.videoElement.paused) {
-        this.engine.videoElement.pause();
-        this._wasPlayingBefore = true;
+      this.engine.videoElement.pause();
+      this._wasPlayingBefore = true;
     }
     // Tradução do contexto em segundo plano
     if (context) {
-        this._translate(context).then(tr => {
-            if (tr) q('#fvctxtr').textContent = '→ ' + tr;
-        });
-        // A explicação contextual agora é disparada apenas se o usuário clicar em "IA" ou após o dicionário carregar
+      this._translate(context).then((tr) => {
+        if (tr) q('#fvctxtr').textContent = '→ ' + tr;
+      });
+      // A explicação contextual agora é disparada apenas se o usuário clicar em "IA" ou após o dicionário carregar
     }
   }
 
   async _loadData(word) {
-    if (this.cache[word]) { 
-      if (this.word === word) this._render(this.cache[word]); 
-      return; 
+    if (this.cache[word]) {
+      if (this.word === word) this._render(this.cache[word]);
+      return;
     }
-    
+
     // Inicia um estado de carregamento base na cache (ou objeto vazio)
-    this.cache[word] = { translation: '...', phonetic: '', pronunciation_pt: '...', partOfSpeech: '', definition: 'Carregando dicionário...' };
+    this.cache[word] = {
+      translation: '...',
+      phonetic: '',
+      pronunciation_pt: '...',
+      partOfSpeech: '',
+      definition: 'Carregando dicionário...',
+    };
     if (this.word === word) this._render(this.cache[word]);
 
     // Busca tradução e dicionário em paralelo, mas atualiza a tela assim que cada um chegar
-    this._translate(word).then(tr => {
-        if (this.cache[word]) this.cache[word].translation = tr;
-        if (this.word === word) this._render(this.cache[word]);
+    this._translate(word).then((tr) => {
+      if (this.cache[word]) this.cache[word].translation = tr;
+      if (this.word === word) this._render(this.cache[word]);
     });
 
-    this._dict(word).then(dict => {
-        if (this.cache[word]) {
-            this.cache[word] = { ...this.cache[word], ...dict };
-            this.cache[word].phonetic = dict.phonetic || '';
-            this.cache[word].pronunciation_pt = this._convertIPAtoPT(dict.phonetic);
-        }
-        if (this.word === word) this._render(this.cache[word]);
+    this._dict(word).then((dict) => {
+      if (this.cache[word]) {
+        this.cache[word] = { ...this.cache[word], ...dict };
+        this.cache[word].phonetic = dict.phonetic || '';
+        this.cache[word].pronunciation_pt = this._convertIPAtoPT(dict.phonetic);
+      }
+      if (this.word === word) this._render(this.cache[word]);
     });
-
-
   }
 
   _render(d) {
-    const q=s=>this._q(s);
-    q('#ft').textContent=d.translation||'—';
-    if(d.phonetic){ q('#fipa').textContent=d.phonetic; }
+    const q = (s) => this._q(s);
+    q('#ft').textContent = d.translation || '—';
+    if (d.phonetic) {
+      q('#fipa').textContent = d.phonetic;
+    }
     const elPt = q('#fprpt');
-    if(d.pronunciation_pt){ elPt.textContent='🇧🇷 '+d.pronunciation_pt; elPt.style.display='inline'; } else { elPt.style.display='none'; }
-    if(d.partOfSpeech){
-      q('#fpos').textContent=this._posLabel(d.partOfSpeech);
-      q('#fpos').style.display='inline-block';
+    if (d.pronunciation_pt) {
+      elPt.textContent = '🇧🇷 ' + d.pronunciation_pt;
+      elPt.style.display = 'inline';
+    } else {
+      elPt.style.display = 'none';
+    }
+    if (d.partOfSpeech) {
+      q('#fpos').textContent = this._posLabel(d.partOfSpeech);
+      q('#fpos').style.display = 'inline-block';
     }
     // Update expression type badge if AI enriched the data
-    if(d.register){
+    if (d.register) {
       const el = q('#fexprtype');
-      if(el && (d.register === 'slang' || d.register === 'informal' || d.register === 'formal' || d.register === 'technical')){
-        const map = {slang:['🔥 Gíria','lfp-type-slang'],informal:['💬 Informal','lfp-type-collocation'],formal:['🎩 Formal','lfp-type-formal'],technical:['⚙️ Técnico','lfp-c1']};
-        const [label,cls] = map[d.register] || [];
-        if(label && el.textContent === '📖 Palavra'){ el.textContent=label; el.className=`lfp-badge ${cls}`; }
+      if (
+        el &&
+        (d.register === 'slang' ||
+          d.register === 'informal' ||
+          d.register === 'formal' ||
+          d.register === 'technical')
+      ) {
+        const map = {
+          slang: ['🔥 Gíria', 'lfp-type-slang'],
+          informal: ['💬 Informal', 'lfp-type-collocation'],
+          formal: ['🎩 Formal', 'lfp-type-formal'],
+          technical: ['⚙️ Técnico', 'lfp-c1'],
+        };
+        const [label, cls] = map[d.register] || [];
+        if (label && el.textContent === '📖 Palavra') {
+          el.textContent = label;
+          el.className = `lfp-badge ${cls}`;
+        }
       }
     }
-    if(d.definition) q('#fd').textContent=d.definition;
-    if(d.synonyms?.length){
+    if (d.definition) q('#fd').textContent = d.definition;
+    if (d.synonyms?.length) {
       const syns = q('#fsyns');
-      syns.innerHTML=d.synonyms.slice(0,6).map(s=>`<span class="lfp-chip" data-word="${this._escapeAttr(s)}">${this._escapeAttr(s)}</span>`).join('');
-      syns.querySelectorAll('.lfp-chip[data-word]').forEach(chip => {
-        chip.addEventListener('click', () => window.__lfpopup?.showForWord(chip.dataset.word, '', null));
+      syns.innerHTML = d.synonyms
+        .slice(0, 6)
+        .map(
+          (s) =>
+            `<span class="lfp-chip" data-word="${this._escapeAttr(s)}">${this._escapeAttr(s)}</span>`,
+        )
+        .join('');
+      syns.querySelectorAll('.lfp-chip[data-word]').forEach((chip) => {
+        chip.addEventListener('click', () =>
+          window.__lfpopup?.showForWord(chip.dataset.word, '', null),
+        );
       });
-      q('#fsyn').style.display='';
+      q('#fsyn').style.display = '';
     }
-    if(d.antonyms?.length){
+    if (d.antonyms?.length) {
       const ants = q('#fants');
-      ants.innerHTML=d.antonyms.slice(0,4).map(s=>`<span class="lfp-chip red" data-word="${this._escapeAttr(s)}">${this._escapeAttr(s)}</span>`).join('');
-      ants.querySelectorAll('.lfp-chip[data-word]').forEach(chip => {
-        chip.addEventListener('click', () => window.__lfpopup?.showForWord(chip.dataset.word, '', null));
+      ants.innerHTML = d.antonyms
+        .slice(0, 4)
+        .map(
+          (s) =>
+            `<span class="lfp-chip red" data-word="${this._escapeAttr(s)}">${this._escapeAttr(s)}</span>`,
+        )
+        .join('');
+      ants.querySelectorAll('.lfp-chip[data-word]').forEach((chip) => {
+        chip.addEventListener('click', () =>
+          window.__lfpopup?.showForWord(chip.dataset.word, '', null),
+        );
       });
-      q('#fant').style.display='';
+      q('#fant').style.display = '';
     }
-    
+
     // Store audioUrl for TTS button
     this._currentAudioUrl = d.audioUrl || null;
-    
+
     // Auto-carrega contexto
     if (this.context && !this._contextExplained) {
-        this._explainContext(this.word, this.context);
+      this._explainContext(this.word, this.context);
     }
   }
 
   async _buildGrammar() {
-    this._gramBuilt=true;
-    const q=s=>this._q(s);
-    const d=this.cache[this.word]||{};
-    
+    this._gramBuilt = true;
+    const q = (s) => this._q(s);
+    const d = this.cache[this.word] || {};
+
     // Carrega DB de phrasal verbs
-    const BASE=chrome.runtime.getURL('utils/');
+    const BASE = chrome.runtime.getURL('utils/');
     const { phrasalVerbsDB } = await import(BASE + 'phrasal-verbs.js');
-    
+
     // Usa o tipo já detectado (pode ter sido enriquecido pela IA)
     const exprInfo = this._exprType || this._detectExprType(this.word, phrasalVerbsDB);
-    const isExpr = this.word.includes(' ') || ['phrasal','idiom','chunk','collocation'].includes(exprInfo.type);
+    const isExpr =
+      this.word.includes(' ') ||
+      ['phrasal', 'idiom', 'chunk', 'collocation'].includes(exprInfo.type);
     const lowerWord = this.word.toLowerCase();
     const firstToken = lowerWord.split(/\s+/)[0];
-    const exactPhrasal = (phrasalVerbsDB[firstToken] || []).filter(e => e.phrase?.toLowerCase() === lowerWord);
-    const phs = exprInfo.type === 'phrasal'
-      ? exactPhrasal
-      : (!isExpr ? (phrasalVerbsDB[lowerWord] || []) : []);
+    const exactPhrasal = (phrasalVerbsDB[firstToken] || []).filter(
+      (e) => e.phrase?.toLowerCase() === lowerWord,
+    );
+    const phs =
+      exprInfo.type === 'phrasal' ? exactPhrasal : !isExpr ? phrasalVerbsDB[lowerWord] || [] : [];
 
     const typeDescriptions = {
-      phrasal:     { title: 'Phrasal verb', desc: 'Leia como uma ideia só. Traduzir palavra por palavra costuma enganar.' },
-      idiom:       { title: 'Expressão idiomática', desc: 'O sentido vem do conjunto, não das palavras separadas.' },
-      chunk:       { title: 'Chunk', desc: 'Bloco pronto que nativos usam sem montar palavra por palavra.' },
-      collocation: { title: 'Combinação natural', desc: 'Palavras que soam certas juntas. Guarde o par completo.' },
-      slang:       { title: 'Gíria', desc: 'Uso informal. Bom para entender fala real, cuidado em contexto formal.' },
-      formal:      { title: 'Registro formal', desc: 'Mais comum em escrita, trabalho ou fala cuidadosa.' },
-      word:        { title: 'Palavra', desc: 'Aqui vale olhar o sentido no contexto antes de memorizar a tradução.' },
+      phrasal: {
+        title: 'Phrasal verb',
+        desc: 'Leia como uma ideia só. Traduzir palavra por palavra costuma enganar.',
+      },
+      idiom: {
+        title: 'Expressão idiomática',
+        desc: 'O sentido vem do conjunto, não das palavras separadas.',
+      },
+      chunk: {
+        title: 'Chunk',
+        desc: 'Bloco pronto que nativos usam sem montar palavra por palavra.',
+      },
+      collocation: {
+        title: 'Combinação natural',
+        desc: 'Palavras que soam certas juntas. Guarde o par completo.',
+      },
+      slang: {
+        title: 'Gíria',
+        desc: 'Uso informal. Bom para entender fala real, cuidado em contexto formal.',
+      },
+      formal: {
+        title: 'Registro formal',
+        desc: 'Mais comum em escrita, trabalho ou fala cuidadosa.',
+      },
+      word: {
+        title: 'Palavra',
+        desc: 'Aqui vale olhar o sentido no contexto antes de memorizar a tradução.',
+      },
     };
     const tinfo = typeDescriptions[exprInfo.type] || typeDescriptions.word;
     const safeWord = this._escapeAttr(this.word);
@@ -684,9 +909,14 @@ export class WordPopup {
     const safeDefinition = this._escapeAttr(d.definition || '');
     const safeContext = this._escapeAttr(this.context || '');
     const contextLine = safeContext
-      ? safeContext.replace(new RegExp(`\\b(${this._escapeRegExp(safeWord)})\\b`, 'gi'), '<b style="color:#7dd3fc">$1</b>')
+      ? safeContext.replace(
+          new RegExp(`\\b(${this._escapeRegExp(safeWord)})\\b`, 'gi'),
+          '<b style="color:#7dd3fc">$1</b>',
+        )
       : 'Sem frase de contexto para comparar.';
-    const chunkChips = this._usageChunks(exprInfo, phs).map(item => `<span class="lfp-mini-chip">${this._escapeAttr(item)}</span>`).join('');
+    const chunkChips = this._usageChunks(exprInfo, phs)
+      .map((item) => `<span class="lfp-mini-chip">${this._escapeAttr(item)}</span>`)
+      .join('');
     const simpleUse = this._simpleUsageLine(exprInfo, safeWord, safeTranslation);
 
     let h = '';
@@ -708,13 +938,17 @@ export class WordPopup {
       </div>`;
     }
 
-    if(phs.length){
-      h+=`<div class="lfp-use-card amber">
+    if (phs.length) {
+      h += `<div class="lfp-use-card amber">
         <div class="lfp-use-title"><span>🔗</span><span>Use como bloco</span></div>
-        ${phs.map(p=>`<div style="margin-bottom:8px;">
+        ${phs
+          .map(
+            (p) => `<div style="margin-bottom:8px;">
           <div class="lfp-use-text"><b style="color:#fbbf24">${this._escapeAttr(p.phrase)}</b> = ${this._escapeAttr(p.meaning || '')}</div>
           ${p.example ? `<div class="lfp-use-muted">"${this._escapeAttr(p.example)}"</div>` : ''}
-        </div>`).join('')}
+        </div>`,
+          )
+          .join('')}
       </div>`;
     }
 
@@ -723,11 +957,11 @@ export class WordPopup {
       <div class="lfp-use-text">${chunkChips || simpleUse}</div>
     </div>`;
 
-    q('#fchunks-container').innerHTML=h;
+    q('#fchunks-container').innerHTML = h;
   }
 
   _usageChunks(exprInfo, phs) {
-    if (phs?.length) return phs.slice(0, 3).map(p => p.phrase);
+    if (phs?.length) return phs.slice(0, 3).map((p) => p.phrase);
     const w = this.word;
     if (exprInfo.type === 'phrasal' || w.includes(' ')) return [w];
     const pos = (this.cache[this.word]?.partOfSpeech || '').toLowerCase();
@@ -745,122 +979,140 @@ export class WordPopup {
   }
 
   async _buildExamples() {
-    this._exBuilt=true;
-    const q=s=>this._q(s);
-    const d=this.cache[this.word]||{};
-    const exs=[];
-    if(d.example) exs.push({en:d.example,src:'Dicionário Oxford'});
+    this._exBuilt = true;
+    const q = (s) => this._q(s);
+    const d = this.cache[this.word] || {};
+    const exs = [];
+    if (d.example) exs.push({ en: d.example, src: 'Dicionário Oxford' });
     // Fetch more
     try {
-      const res=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(this.word)}`);
-      if(res.ok){
-        const arr=await res.json();
-        arr[0]?.meanings?.forEach(m=>m.definitions?.forEach(def=>{
-          if(def.example&&exs.length<8) exs.push({en:def.example,src:m.partOfSpeech});
-        }));
+      const res = await fetch(
+        `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(this.word)}`,
+      );
+      if (res.ok) {
+        const arr = await res.json();
+        arr[0]?.meanings?.forEach((m) =>
+          m.definitions?.forEach((def) => {
+            if (def.example && exs.length < 8) exs.push({ en: def.example, src: m.partOfSpeech });
+          }),
+        );
       }
     } catch {}
-    if(!exs.length){q('#fexb').innerHTML='<div style="color:#475569;font-size:13px;text-align:center;padding:16px 0;">Nenhum exemplo no dicionário.<br>Use "Explicar melhor" na aba Uso Real para ver o sentido no contexto.</div>';return;}
+    if (!exs.length) {
+      q('#fexb').innerHTML =
+        '<div style="color:#475569;font-size:13px;text-align:center;padding:16px 0;">Nenhum exemplo no dicionário.<br>Use "Explicar melhor" na aba Uso Real para ver o sentido no contexto.</div>';
+      return;
+    }
     // Translate all examples
-    const hl=(t,w)=>t.replace(new RegExp(`\\b(${w})\\b`,'gi'),'<b style="color:#7dd3fc">$1</b>');
-    q('#fexb').innerHTML='<div style="color:#475569;font-size:12px;text-align:center;padding:8px;">Traduzindo exemplos…</div>';
-    
+    const hl = (t, w) =>
+      t.replace(new RegExp(`\\b(${w})\\b`, 'gi'), '<b style="color:#7dd3fc">$1</b>');
+    q('#fexb').innerHTML =
+      '<div style="color:#475569;font-size:12px;text-align:center;padding:8px;">Traduzindo exemplos…</div>';
+
     // Tradução sequencial para não sobrecarregar o canal de mensagens
     const translated = [];
     for (const e of exs) {
-        const tr = await this._translate(e.en);
-        translated.push(tr);
+      const tr = await this._translate(e.en);
+      translated.push(tr);
     }
 
-    q('#fexb').innerHTML=exs.map((e,i)=>`
+    q('#fexb').innerHTML = exs
+      .map(
+        (e, i) => `
       <div class="lfp-ex">
-        <div style="margin-bottom:5px;">${hl(e.en,this.word)}</div>
-        <div style="font-size:12px;color:#7dd3fc;font-style:italic;line-height:1.5;">→ ${translated[i]||'…'}</div>
+        <div style="margin-bottom:5px;">${hl(e.en, this.word)}</div>
+        <div style="font-size:12px;color:#7dd3fc;font-style:italic;line-height:1.5;">→ ${translated[i] || '…'}</div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
           <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:.07em;">${e.src}</div>
-          <button class="lfp-shadow-btn" data-text="${e.en.replace(/"/g,'&quot;')}" style="background:rgba(56,189,248,0.1); border:none; border-radius:6px; color:#38bdf8; padding:3px 8px; font-size:11px; cursor:pointer; font-weight:700;">🎧 Shadowing</button>
+          <button class="lfp-shadow-btn" data-text="${e.en.replace(/"/g, '&quot;')}" style="background:rgba(56,189,248,0.1); border:none; border-radius:6px; color:#38bdf8; padding:3px 8px; font-size:11px; cursor:pointer; font-weight:700;">🎧 Shadowing</button>
         </div>
-      </div>`).join('');
+      </div>`,
+      )
+      .join('');
 
     // Bind shadowing buttons
-    q('#fexb').querySelectorAll('.lfp-shadow-btn').forEach(btn => {
-      btn.onclick = async () => {
-        const text = btn.dataset.text;
-        const BASE = chrome.runtime.getURL('utils/');
-        const { tts } = await import(BASE + 'tts.js');
-        
-        btn.textContent = '🔊 Ouvindo...';
-        await tts.play(text, 'en-US');
-        
-        btn.textContent = '🎙️ Sua vez!';
-        btn.style.background = 'rgba(74,222,128,0.1)';
-        btn.style.color = '#4ade80';
-        
-        setTimeout(() => {
-          btn.textContent = '🎧 Shadowing';
-          btn.style.background = 'rgba(56,189,248,0.1)';
-          btn.style.color = '#38bdf8';
-        }, 3000);
-      };
-    });
+    q('#fexb')
+      .querySelectorAll('.lfp-shadow-btn')
+      .forEach((btn) => {
+        btn.onclick = async () => {
+          const text = btn.dataset.text;
+          const BASE = chrome.runtime.getURL('utils/');
+          const { tts } = await import(BASE + 'tts.js');
+
+          btn.textContent = '🔊 Ouvindo...';
+          await tts.play(text, 'en-US');
+
+          btn.textContent = '🎙️ Sua vez!';
+          btn.style.background = 'rgba(74,222,128,0.1)';
+          btn.style.color = '#4ade80';
+
+          setTimeout(() => {
+            btn.textContent = '🎧 Shadowing';
+            btn.style.background = 'rgba(56,189,248,0.1)';
+            btn.style.color = '#38bdf8';
+          }, 3000);
+        };
+      });
   }
 
   // Os métodos _ai, _aiSentence e _aiGrammar foram movidos para o final do arquivo para melhor organização.
 
-    async _getVideoUrlWithTimestamp() {
-      const BASE = chrome.runtime.getURL('utils/');
-      const { videoUtils } = await import(BASE + 'video-utils.js');
-      return videoUtils.getVideoUrlWithTimestamp();
-    }
+  async _getVideoUrlWithTimestamp() {
+    const BASE = chrome.runtime.getURL('utils/');
+    const { videoUtils } = await import(BASE + 'video-utils.js');
+    return videoUtils.getVideoUrlWithTimestamp();
+  }
 
-    async _save() {
-    const q=s=>this._q(s);
-    const btn=q('#fsave');
-    
+  async _save() {
+    const q = (s) => this._q(s);
+    const btn = q('#fsave');
+
     // Check if already saving (prevent double-click)
     if (btn.disabled) return;
-    
+
     const originalText = btn.textContent;
-    btn.textContent='⏳ Salvando...';
+    btn.textContent = '⏳ Salvando...';
     btn.disabled = true;
-    
-    const d=this.cache[this.word]||{};
-    const BASE=chrome.runtime.getURL('utils/');
-    
+
+    const d = this.cache[this.word] || {};
+    const BASE = chrome.runtime.getURL('utils/');
+
     try {
-      const {db}=await import(BASE+'db.js');
+      const { db } = await import(BASE + 'db.js');
       const { videoUtils } = await import(BASE + 'video-utils.js');
-      const lang = this.engine?.sourceLang||'en';
-      
+      const lang = this.engine?.sourceLang || 'en';
+
       // Verifica se já existe
       const existing = await db.getWord(this.word, lang);
       if (existing) {
-          const res = confirm(`A palavra "${this.word}" já está nos seus flashcards.\n\nDeseja salvá-la novamente para atualizar com esta nova frase de contexto?`);
-          if (!res) {
-              btn.textContent='✅ Já está Salvo';
-              btn.style.background='linear-gradient(135deg,#059669,#10b981)';
-              setTimeout(() => {
-                  btn.textContent='+ Salvar nos Flashcards';
-                  btn.style.background='linear-gradient(135deg,#1d4ed8,#2563eb)';
-                  btn.disabled = false;
-              }, 2000);
-              return;
-          }
+        const res = confirm(
+          `A palavra "${this.word}" já está nos seus flashcards.\n\nDeseja salvá-la novamente para atualizar com esta nova frase de contexto?`,
+        );
+        if (!res) {
+          btn.textContent = '✅ Já está Salvo';
+          btn.style.background = 'linear-gradient(135deg,#059669,#10b981)';
+          setTimeout(() => {
+            btn.textContent = '+ Salvar nos Flashcards';
+            btn.style.background = 'linear-gradient(135deg,#1d4ed8,#2563eb)';
+            btn.disabled = false;
+          }, 2000);
+          return;
+        }
       }
 
       let translation = d.translation || '';
       if (!translation) {
         // Tentativa de tradução de última hora se o cache estiver vazio
-        translation = await this._translate(this.word) || '';
+        translation = (await this._translate(this.word)) || '';
       }
 
       if (!this._chunksBuilt && !this.generatedChunks) {
-          btn.innerHTML = '<span class="lfp-spin"></span> Gerando Chunks (IA)...';
-          await this._generateChunks();
+        btn.innerHTML = '<span class="lfp-spin"></span> Gerando Chunks (IA)...';
+        await this._generateChunks();
       }
-      
+
       if (!d.phonetic && this.generatedChunks && this.generatedChunks.length > 0) {
-          d.phonetic = this.generatedChunks[0].phon;
+        d.phonetic = this.generatedChunks[0].phon;
       }
 
       const deckName = this.activeLevel || 'Uncategorized';
@@ -869,61 +1121,77 @@ export class WordPopup {
       const snapshot = videoUtils.captureSnapshot ? videoUtils.captureSnapshot() : null;
 
       const result = await db.saveWord({
-        word:this.word,
-        lang:this.engine?.sourceLang||'en',
+        word: this.word,
+        lang: this.engine?.sourceLang || 'en',
         translation: translation,
-        phonetic:d.phonetic||'',
+        phonetic: d.phonetic || '',
         pronunciation_pt: d.pronunciation_pt || this._convertIPAtoPT(d.phonetic || '') || '',
-        definition:d.definition||'',
-        context_sentence:this.context||'',
-        video_url:await this._getVideoUrlWithTimestamp(),
-        video_title:document.title,
-        platform:this.platform||'youtube',
+        definition: d.definition || '',
+        context_sentence: this.context || '',
+        video_url: await this._getVideoUrlWithTimestamp(),
+        video_title: document.title,
+        platform: this.platform || 'youtube',
         level: this.activeLevel || '',
         deck_id: this.activeDeck || deckId,
-        synonyms:(d.synonyms||[]).join(','),
-        antonyms:(d.antonyms||[]).join(','),
+        synonyms: (d.synonyms || []).join(','),
+        antonyms: (d.antonyms || []).join(','),
         snapshot: snapshot,
-        chunks: this.generatedChunks || null
+        chunks: this.generatedChunks || null,
       });
-      
+
       console.debug('[WordPopup] ✅ Palavra salva:', result);
-      
-      btn.textContent='✅ Salvo!';
-      btn.style.background='linear-gradient(135deg,#15803d,#16a34a)';
-      
+
+      btn.textContent = '✅ Salvo!';
+      btn.style.background = 'linear-gradient(135deg,#15803d,#16a34a)';
+
       // ← FIX: Reset button after 2 seconds
       setTimeout(() => {
-        btn.textContent='+ Salvar nos Flashcards';
-        btn.style.background='linear-gradient(135deg,#1d4ed8,#2563eb)';
+        btn.textContent = '+ Salvar nos Flashcards';
+        btn.style.background = 'linear-gradient(135deg,#1d4ed8,#2563eb)';
         btn.disabled = false;
       }, 2000);
-      
+
       // Mostra toast de confirmação
       this._showSaveToast();
-      
+
       // Notifica service worker para broadcast
-      chrome.runtime.sendMessage({
-        type: 'WORD_SAVED',
-        word: this.word
-      }).catch(() => {});
-      
+      chrome.runtime
+        .sendMessage({
+          type: 'WORD_SAVED',
+          word: this.word,
+        })
+        .catch(() => {});
+
+      // Dispara sync com Supabase (background)
+      chrome.runtime
+        .sendMessage({
+          type: 'SYNC_TO_SUPABASE',
+          word: this.word,
+          translation: translation,
+          context: this.context,
+          deckId: this.activeDeck || deckId,
+        })
+        .catch(() => {});
+
       // Notifica dashboard diretamente
-      chrome.runtime.sendMessage({
-        type: 'REFRESH_DASHBOARD',
-        word: this.word
-      }).catch(() => {});
-      
+      chrome.runtime
+        .sendMessage({
+          type: 'REFRESH_DASHBOARD',
+          word: this.word,
+        })
+        .catch(() => {});
+
       // Dispara evento customizado no DOM
-      window.dispatchEvent(new CustomEvent('LF_WORD_SAVED', {
-        detail: { word: this.word, result }
-      }));
-      
+      window.dispatchEvent(
+        new CustomEvent('LF_WORD_SAVED', {
+          detail: { word: this.word, result },
+        }),
+      );
+
       console.debug('[WordPopup] 📢 Notificações enviadas');
-      
-    } catch(e) {
-      console.error('[WordPopup] ❌ Erro ao salvar:',e);
-      btn.textContent='❌ Erro';
+    } catch (e) {
+      console.error('[WordPopup] ❌ Erro ao salvar:', e);
+      btn.textContent = '❌ Erro';
       setTimeout(() => {
         btn.textContent = originalText;
         btn.disabled = false;
@@ -952,7 +1220,7 @@ export class WordPopup {
         animation: slideInRight 0.3s ease-out;
       `;
       document.body.appendChild(toast);
-      
+
       const style = document.createElement('style');
       style.textContent = `
         @keyframes slideInRight {
@@ -966,129 +1234,210 @@ export class WordPopup {
       `;
       document.head.appendChild(style);
     }
-    
+
     toast.textContent = `✅ "${this.word}" salvo no dashboard!`;
     toast.style.display = 'block';
     toast.style.animation = 'slideInRight 0.3s ease-out';
-    
+
     setTimeout(() => {
       toast.style.animation = 'slideOutRight 0.3s ease-out';
-      setTimeout(() => toast.style.display = 'none', 300);
+      setTimeout(() => (toast.style.display = 'none'), 300);
     }, 3000);
   }
 
   async _toggleKnown() {
-    const q=s=>this._q(s);
-    const btn=q('#fknown');
-    const BASE=chrome.runtime.getURL('utils/');
-    const {db}=await import(BASE+'db.js');
-    const lang=this.engine?.sourceLang||'en';
-    const isKnown=await db.isKnown(this.word,lang);
-    if(!isKnown){
-      await db.markAsKnown(this.word,lang);
+    const q = (s) => this._q(s);
+    const btn = q('#fknown');
+    const BASE = chrome.runtime.getURL('utils/');
+    const { db } = await import(BASE + 'db.js');
+    const lang = this.engine?.sourceLang || 'en';
+    const isKnown = await db.isKnown(this.word, lang);
+    if (!isKnown) {
+      await db.markAsKnown(this.word, lang);
       this.engine?.markWordKnown(this.word);
-      btn.textContent='✅ Conhecida!';
-      btn.style.background='rgba(74,222,128,.18)';
+      btn.textContent = '✅ Conhecida!';
+      btn.style.background = 'rgba(74,222,128,.18)';
     } else {
       this.engine?.knownWords?.delete(this.word.toLowerCase());
-      btn.textContent='✓ Já Conheço';
-      btn.style.background='rgba(74,222,128,.08)';
+      btn.textContent = '✓ Já Conheço';
+      btn.style.background = 'rgba(74,222,128,.08)';
     }
   }
 
-  async _loadDecks(){
-    const BASE=chrome.runtime.getURL('utils/');
-    const {db}=await import(BASE+'db.js');
+  async _loadDecks() {
+    const BASE = chrome.runtime.getURL('utils/');
+    const { db } = await import(BASE + 'db.js');
     const decks = await db.getAllDecks();
-    this.decks = decks.length ? decks : [{id:1, name:'Padrão'}];
-    if(!this.decks.find(d=>d.id===this.activeDeck)) this.activeDeck = this.decks[0].id;
+    this.decks = decks.length ? decks : [{ id: 1, name: 'Padrão' }];
+    if (!this.decks.find((d) => d.id === this.activeDeck)) this.activeDeck = this.decks[0].id;
     this._renderDecks();
   }
-  _renderDecks(){
-    const s=this._q('#fdeck');
-    if(!s)return;
-    s.innerHTML=this.decks.map(d=>`<option value="${d.id}">${d.id===1?'📚 Padrão':d.name}</option>`).join('');
-    s.value=this.activeDeck;
+  _renderDecks() {
+    const s = this._q('#fdeck');
+    if (!s) return;
+    s.innerHTML = this.decks
+      .map((d) => `<option value="${d.id}">${d.id === 1 ? '📚 Padrão' : d.name}</option>`)
+      .join('');
+    s.value = this.activeDeck;
   }
 
-  _translate(t){return new Promise(res=>{chrome.runtime.sendMessage({action:'translate',text:t,from:this.engine?.sourceLang||'en',to:this.engine?.targetLang||'pt'},r=>{if(chrome.runtime.lastError){res(null);return;}res(r?.translation||null);});});}
-  _dict(w){return new Promise(res=>{chrome.runtime.sendMessage({action:'dictionary',word:w},r=>{if(chrome.runtime.lastError||!r?.ok){res({});return;}res(r.data||{});});});}
+  _translate(t) {
+    return new Promise((res) => {
+      chrome.runtime.sendMessage(
+        {
+          action: 'translate',
+          text: t,
+          from: this.engine?.sourceLang || 'en',
+          to: this.engine?.targetLang || 'pt',
+        },
+        (r) => {
+          if (chrome.runtime.lastError) {
+            res(null);
+            return;
+          }
+          res(r?.translation || null);
+        },
+      );
+    });
+  }
+  _dict(w) {
+    return new Promise((res) => {
+      chrome.runtime.sendMessage({ action: 'dictionary', word: w }, (r) => {
+        if (chrome.runtime.lastError || !r?.ok) {
+          res({});
+          return;
+        }
+        res(r.data || {});
+      });
+    });
+  }
   _convertIPAtoPT(ipa) {
     if (!ipa) return '';
     let s = ipa.replace(/[\/\[\]ˈˌː.]/g, '').toLowerCase();
     const map = {
-        'aɪ': 'ái', 'eɪ': 'êi', 'ɔɪ': 'ói', 'aʊ': 'áu', 'oʊ': 'ôu', 'əʊ': 'ôu',
-        'æ': 'é', 'ɑ': 'á', 'ɒ': 'ó', 'ɔ': 'ó', 'e': 'é', 'ɛ': 'é', 'ɜ': 'âr',
-        'ɪ': 'i', 'i': 'í', 'ʌ': 'ã', 'ʊ': 'u', 'u': 'ú', 'ə': 'â',
-        'ʧ': 'tch', 'dʒ': 'dj', 'ʃ': 'ch', 'ʒ': 'j', 'θ': 'f', 'ð': 'd',
-        'ŋ': 'ng', 'j': 'i', 'w': 'u', 'ɹ': 'r', 'r': 'r'
+      aɪ: 'ái',
+      eɪ: 'êi',
+      ɔɪ: 'ói',
+      aʊ: 'áu',
+      oʊ: 'ôu',
+      əʊ: 'ôu',
+      æ: 'é',
+      ɑ: 'á',
+      ɒ: 'ó',
+      ɔ: 'ó',
+      e: 'é',
+      ɛ: 'é',
+      ɜ: 'âr',
+      ɪ: 'i',
+      i: 'í',
+      ʌ: 'ã',
+      ʊ: 'u',
+      u: 'ú',
+      ə: 'â',
+      ʧ: 'tch',
+      dʒ: 'dj',
+      ʃ: 'ch',
+      ʒ: 'j',
+      θ: 'f',
+      ð: 'd',
+      ŋ: 'ng',
+      j: 'i',
+      w: 'u',
+      ɹ: 'r',
+      r: 'r',
     };
     for (const [k, v] of Object.entries(map)) {
-        s = s.split(k).join(v);
+      s = s.split(k).join(v);
     }
-    s = s.replace(/([bcdfghjklmnpqrstvwxyz])\1+/g, '$1'); 
+    s = s.replace(/([bcdfghjklmnpqrstvwxyz])\1+/g, '$1');
     return s;
   }
 
   async _explainContext(word, sentence) {
-    const q=s=>this._q(s);
-    const el=q('#fctxt');
-    const container=q('#fctx');
-    
-    this._contextExplained = true;
-    container.style.display='';
-    
-    el.innerHTML='<span style="color:#94a3b8;font-size:12px;">Analisando estrutura e acionando Professor (IA)...</span>';
-    
-    try {
-        const sentenceTranslation = await this._translate(sentence);
-        const BASE=chrome.runtime.getURL('utils/');
-        const { phrasalVerbsDB } = await import(BASE + 'phrasal-verbs.js');
-        const exprInfo = this._detectExprType(word, phrasalVerbsDB);
-        
-        const typeDescriptions = {
-          phrasal:     { title: 'Phrasal verb', desc: 'Leia como uma ideia só. Traduzir palavra por palavra costuma enganar.', icon: '🔗' },
-          idiom:       { title: 'Expressão idiomática', desc: 'O sentido vem do conjunto, não das palavras separadas.', icon: '🎭' },
-          chunk:       { title: 'Chunk', desc: 'Bloco pronto que nativos usam sem montar palavra por palavra.', icon: '🧩' },
-          collocation: { title: 'Combinação natural', desc: 'Palavras que soam certas juntas. Guarde o par completo.', icon: '🤝' },
-          slang:       { title: 'Gíria', desc: 'Uso informal. Bom para entender fala real.', icon: '🔥' },
-          formal:      { title: 'Registro formal', desc: 'Mais comum em escrita, trabalho ou fala cuidadosa.', icon: '🎩' }
-        };
-        
-        const tinfo = typeDescriptions[exprInfo.type];
-        let nativeHtml = '';
+    const q = (s) => this._q(s);
+    const el = q('#fctxt');
+    const container = q('#fctx');
 
-        if (tinfo) {
-            nativeHtml = `
+    this._contextExplained = true;
+    container.style.display = '';
+
+    el.innerHTML =
+      '<span style="color:#94a3b8;font-size:12px;">Analisando estrutura e acionando Professor (IA)...</span>';
+
+    try {
+      const sentenceTranslation = await this._translate(sentence);
+      const BASE = chrome.runtime.getURL('utils/');
+      const { phrasalVerbsDB } = await import(BASE + 'phrasal-verbs.js');
+      const exprInfo = this._detectExprType(word, phrasalVerbsDB);
+
+      const typeDescriptions = {
+        phrasal: {
+          title: 'Phrasal verb',
+          desc: 'Leia como uma ideia só. Traduzir palavra por palavra costuma enganar.',
+          icon: '🔗',
+        },
+        idiom: {
+          title: 'Expressão idiomática',
+          desc: 'O sentido vem do conjunto, não das palavras separadas.',
+          icon: '🎭',
+        },
+        chunk: {
+          title: 'Chunk',
+          desc: 'Bloco pronto que nativos usam sem montar palavra por palavra.',
+          icon: '🧩',
+        },
+        collocation: {
+          title: 'Combinação natural',
+          desc: 'Palavras que soam certas juntas. Guarde o par completo.',
+          icon: '🤝',
+        },
+        slang: { title: 'Gíria', desc: 'Uso informal. Bom para entender fala real.', icon: '🔥' },
+        formal: {
+          title: 'Registro formal',
+          desc: 'Mais comum em escrita, trabalho ou fala cuidadosa.',
+          icon: '🎩',
+        },
+      };
+
+      const tinfo = typeDescriptions[exprInfo.type];
+      let nativeHtml = '';
+
+      if (tinfo) {
+        nativeHtml = `
               <div style="background:rgba(251,191,36,0.1); border-left:3px solid #fbbf24; padding:8px; border-radius:4px; margin-bottom:8px;">
                 <b style="color:#fbbf24; font-size:13px;">${tinfo.icon} ${tinfo.title}</b><br>
                 <span style="color:#cbd5e1; font-size:12px;">${tinfo.desc}</span>
               </div>
             `;
-        }
-        
-        // Puxa a IA direto (sem botão)
-        const response = await new Promise(resolve => {
-            chrome.runtime.sendMessage({
-              action: 'ai_quick_context',
-              word: word,
-              sentence: sentence
-            }, r => {
-              if (chrome.runtime.lastError) resolve(null);
-              else resolve(r);
-            });
-        });
-        
-        if (response?.explanation) {
-            const aiExplanation = response.explanation.replace(/\n/g, '<br>');
-            el.innerHTML = nativeHtml + aiExplanation;
-        } else {
-            // Fallback caso a IA falhe
-            el.innerHTML = nativeHtml + `
+      }
+
+      // Puxa a IA direto (sem botão)
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          {
+            action: 'ai_quick_context',
+            word: word,
+            sentence: sentence,
+          },
+          (r) => {
+            if (chrome.runtime.lastError) resolve(null);
+            else resolve(r);
+          },
+        );
+      });
+
+      if (response?.explanation) {
+        const aiExplanation = response.explanation.replace(/\n/g, '<br>');
+        el.innerHTML = nativeHtml + aiExplanation;
+      } else {
+        // Fallback caso a IA falhe
+        el.innerHTML =
+          nativeHtml +
+          `
               <b style="color:#7dd3fc">Frase traduzida:</b> <span style="color:#94a3b8">${sentenceTranslation || 'tradução indisponível'}</span><br>
               <span style="color:#f87171;font-size:12px;display:block;margin-top:8px;">Falha ao obter professor IA. Limite atingido ou offline.</span>
             `;
-        }
+      }
     } catch (e) {
       console.error('[WordPopup] Erro geral no contexto:', e);
       el.innerHTML = `<span style="color:#f87171;font-size:12px;">Erro interno ao carregar contexto.</span>`;
@@ -1107,9 +1456,19 @@ export class WordPopup {
   }
 
   _posLabel(pos) {
-    const map = { noun:'substantivo', verb:'verbo', adjective:'adjetivo', adverb:'advérbio',
-      preposition:'preposição', conjunction:'conjunção', pronoun:'pronome', interjection:'interjeição',
-      article:'artigo', determiner:'determinante', exclamation:'exclamação' };
+    const map = {
+      noun: 'substantivo',
+      verb: 'verbo',
+      adjective: 'adjetivo',
+      adverb: 'advérbio',
+      preposition: 'preposição',
+      conjunction: 'conjunção',
+      pronoun: 'pronome',
+      interjection: 'interjeição',
+      article: 'artigo',
+      determiner: 'determinante',
+      exclamation: 'exclamação',
+    };
     return map[pos?.toLowerCase()] || pos || '';
   }
 
@@ -1126,13 +1485,13 @@ export class WordPopup {
           <button id="lfp-deck-confirm" style="flex:2;padding:9px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:10px;color:#fff;cursor:pointer;font-size:13px;font-weight:700;">Criar Deck</button>
         </div>`;
       this.popup.appendChild(modal);
-      modal.querySelector('#lfp-deck-cancel').onclick = () => modal.style.display = 'none';
+      modal.querySelector('#lfp-deck-cancel').onclick = () => (modal.style.display = 'none');
       modal.querySelector('#lfp-deck-confirm').onclick = async () => {
         const n = modal.querySelector('#lfp-deck-input').value.trim();
         if (!n) return;
         modal.style.display = 'none';
         const BASE = chrome.runtime.getURL('utils/');
-        const {db} = await import(BASE+'db.js');
+        const { db } = await import(BASE + 'db.js');
         const deckId = await db.getOrCreateDeck(n, window.location.href);
         const decks = await db.getAllDecks();
         this.decks = decks;
@@ -1140,7 +1499,7 @@ export class WordPopup {
         this._q('#fdeck').value = deckId;
         this.activeDeck = deckId;
       };
-      modal.querySelector('#lfp-deck-input').addEventListener('keydown', e => {
+      modal.querySelector('#lfp-deck-input').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') modal.querySelector('#lfp-deck-confirm').click();
         if (e.key === 'Escape') modal.style.display = 'none';
       });
@@ -1150,13 +1509,16 @@ export class WordPopup {
   }
 
   async _practicePronunciation() {
-    const q = s => this._q(s);
+    const q = (s) => this._q(s);
     const btn = q('#fmic');
     if (!this.word) return;
     // Navega para a aba Uso Real se não estiver nela (tab index 1)
     const tabs = [...this.popup.querySelectorAll('.ftab')];
-    tabs.forEach((t,i) => { t.style.color=i===1?'#a78bfa':'#475569'; t.style.borderBottomColor=i===1?'#a78bfa':'transparent'; });
-    this.popup.querySelectorAll('.fp').forEach((p,i) => p.style.display=i===1?'':'none');
+    tabs.forEach((t, i) => {
+      t.style.color = i === 1 ? '#a78bfa' : '#475569';
+      t.style.borderBottomColor = i === 1 ? '#a78bfa' : 'transparent';
+    });
+    this.popup.querySelectorAll('.fp').forEach((p, i) => (p.style.display = i === 1 ? '' : 'none'));
     if (!this._gramBuilt) this._aiGrammar();
 
     // Adiciona painel de pronúncia no topo do tab Uso Real se ainda não existir
@@ -1164,7 +1526,8 @@ export class WordPopup {
     if (!pPanel) {
       pPanel = document.createElement('div');
       pPanel.id = 'lfp-pron-panel';
-      pPanel.style.cssText = 'background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:12px;margin-bottom:12px;';
+      pPanel.style.cssText =
+        'background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:12px;margin-bottom:12px;';
       pPanel.innerHTML = `
         <div style="font-size:10px;color:#a78bfa;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;">🎤 Laboratório de Pronúncia</div>
         <div style="font-size:22px;font-weight:700;color:#f8fafc;text-align:center;margin-bottom:4px;">${this.word}</div>
@@ -1189,36 +1552,62 @@ export class WordPopup {
       scoreEl.style.display = 'none';
       try {
         const BASE = chrome.runtime.getURL('utils/');
-        const { pronunciationLab } = await import(BASE+'pronunciation.js');
+        const { pronunciationLab } = await import(BASE + 'pronunciation.js');
         pronunciationLab.assess(this.word, ({ score, transcript, feedback }) => {
           pbtn.textContent = '🎤 Pressione para falar';
           pbtn.style.background = 'rgba(167,139,250,.15)';
           pbtn.style.borderColor = 'rgba(167,139,250,.3)';
           pbtn.style.color = '#a78bfa';
           const pct = Math.round(score * 100);
-          const bar = '█'.repeat(Math.round(pct/10)) + '░'.repeat(10-Math.round(pct/10));
-          const color = pct>=80?'#4ade80':pct>=50?'#fbbf24':'#f87171';
+          const bar = '█'.repeat(Math.round(pct / 10)) + '░'.repeat(10 - Math.round(pct / 10));
+          const color = pct >= 80 ? '#4ade80' : pct >= 50 ? '#fbbf24' : '#f87171';
           scoreEl.style.display = '';
-          scoreEl.innerHTML = `<div style="font-size:28px;font-weight:800;color:${color};">${pct}%</div><div style="color:${color};font-family:monospace;font-size:13px;letter-spacing:2px;">${bar}</div><div style="margin-top:6px;font-size:12px;color:#94a3b8;">Você disse: <b style="color:#e2e8f0">"${transcript}"</b></div>${feedback?`<div style="margin-top:6px;font-size:11px;color:#64748b;">💡 ${feedback}</div>`:''}`;
+          scoreEl.innerHTML = `<div style="font-size:28px;font-weight:800;color:${color};">${pct}%</div><div style="color:${color};font-family:monospace;font-size:13px;letter-spacing:2px;">${bar}</div><div style="margin-top:6px;font-size:12px;color:#94a3b8;">Você disse: <b style="color:#e2e8f0">"${transcript}"</b></div>${feedback ? `<div style="margin-top:6px;font-size:11px;color:#64748b;">💡 ${feedback}</div>` : ''}`;
         });
-      } catch(e) {
+      } catch (e) {
         pbtn.textContent = '⚠️ Microfone indisponível';
-        setTimeout(() => pbtn.textContent = '🎤 Pressione para falar', 2000);
+        setTimeout(() => (pbtn.textContent = '🎤 Pressione para falar'), 2000);
       }
     };
   }
 
-  _posDetail(pos,w){const m={noun:`<b style="color:#7dd3fc">Substantivo</b> — Pessoa, lugar, coisa ou ideia.<br>• Artigo: <span style="color:#7dd3fc">a/an/the ${w}</span><br>• Plural: <span style="color:#7dd3fc">${w}s</span> • Possessivo: <span style="color:#7dd3fc">${w}'s</span>`,verb:`<b style="color:#4ade80">Verbo</b> — Ação ou estado.<br>• Base: <span style="color:#4ade80">${w}</span> • 3ª pessoa: <span style="color:#4ade80">${w}s</span><br>• Gerúndio: <span style="color:#4ade80">${w}ing</span> • Passado: <span style="color:#4ade80">${w}ed</span><br>• Passiva: <span style="color:#4ade80">be/was ${w}ed</span>`,adjective:`<b style="color:#fbbf24">Adjetivo</b> — Descreve substantivos.<br>• Antes do noun: <span style="color:#fbbf24">${w} + noun</span><br>• Após linking verb: <span style="color:#fbbf24">be/seem/look + ${w}</span><br>• Comparativo: <span style="color:#fbbf24">more ${w}</span> • Superlativo: <span style="color:#fbbf24">most ${w}</span>`,adverb:`<b style="color:#f472b6">Advérbio</b> — Modifica verbos, adjetivos ou advérbios.<br>• Geralmente termina em <b>-ly</b><br>• Ex: very, quite, rather, too + <span style="color:#f472b6">${w}</span>`,preposition:`<b style="color:#a78bfa">Preposição</b> — Relação entre elementos.<br>• Lugar: in, on, at, under, over<br>• Tempo: at, on, in, before, after<br>• Movimento: to, from, into, through`};return m[pos?.toLowerCase()]||`<span style="color:#64748b">Clique "Analisar com IA" para análise detalhada da classe gramatical desta palavra.</span>`;}
+  _posDetail(pos, w) {
+    const m = {
+      noun: `<b style="color:#7dd3fc">Substantivo</b> — Pessoa, lugar, coisa ou ideia.<br>• Artigo: <span style="color:#7dd3fc">a/an/the ${w}</span><br>• Plural: <span style="color:#7dd3fc">${w}s</span> • Possessivo: <span style="color:#7dd3fc">${w}'s</span>`,
+      verb: `<b style="color:#4ade80">Verbo</b> — Ação ou estado.<br>• Base: <span style="color:#4ade80">${w}</span> • 3ª pessoa: <span style="color:#4ade80">${w}s</span><br>• Gerúndio: <span style="color:#4ade80">${w}ing</span> • Passado: <span style="color:#4ade80">${w}ed</span><br>• Passiva: <span style="color:#4ade80">be/was ${w}ed</span>`,
+      adjective: `<b style="color:#fbbf24">Adjetivo</b> — Descreve substantivos.<br>• Antes do noun: <span style="color:#fbbf24">${w} + noun</span><br>• Após linking verb: <span style="color:#fbbf24">be/seem/look + ${w}</span><br>• Comparativo: <span style="color:#fbbf24">more ${w}</span> • Superlativo: <span style="color:#fbbf24">most ${w}</span>`,
+      adverb: `<b style="color:#f472b6">Advérbio</b> — Modifica verbos, adjetivos ou advérbios.<br>• Geralmente termina em <b>-ly</b><br>• Ex: very, quite, rather, too + <span style="color:#f472b6">${w}</span>`,
+      preposition: `<b style="color:#a78bfa">Preposição</b> — Relação entre elementos.<br>• Lugar: in, on, at, under, over<br>• Tempo: at, on, in, before, after<br>• Movimento: to, from, into, through`,
+    };
+    return (
+      m[pos?.toLowerCase()] ||
+      `<span style="color:#64748b">Clique "Analisar com IA" para análise detalhada da classe gramatical desta palavra.</span>`
+    );
+  }
 
-  _patterns(pos,w){const m={verb:`• <b>S + ${w} + O</b> (transitivo)<br>• <b>S + ${w} + to-inf.</b> (ex: want to ${w})<br>• <b>S + ${w} + -ing</b> (ex: enjoy ${w}ing)<br>• <b>S + ${w} + that clause</b>`,noun:`• <b>the/a/an + ${w}</b><br>• <b>adj + ${w}</b> (ex: big/small ${w})<br>• <b>${w} + of + sth</b><br>• <b>compound: ${w}+noun</b>`,adjective:`• <b>${w} + noun</b> (atributivo)<br>• <b>be/seem/look/feel/sound + ${w}</b><br>• <b>too + ${w} / ${w} + enough</b><br>• <b>very/quite/rather/extremely + ${w}</b>`};return m[pos?.toLowerCase()]||`<span style="color:#64748b">Use "Analisar com IA" para ver padrões específicos desta palavra.</span>`;}
+  _patterns(pos, w) {
+    const m = {
+      verb: `• <b>S + ${w} + O</b> (transitivo)<br>• <b>S + ${w} + to-inf.</b> (ex: want to ${w})<br>• <b>S + ${w} + -ing</b> (ex: enjoy ${w}ing)<br>• <b>S + ${w} + that clause</b>`,
+      noun: `• <b>the/a/an + ${w}</b><br>• <b>adj + ${w}</b> (ex: big/small ${w})<br>• <b>${w} + of + sth</b><br>• <b>compound: ${w}+noun</b>`,
+      adjective: `• <b>${w} + noun</b> (atributivo)<br>• <b>be/seem/look/feel/sound + ${w}</b><br>• <b>too + ${w} / ${w} + enough</b><br>• <b>very/quite/rather/extremely + ${w}</b>`,
+    };
+    return (
+      m[pos?.toLowerCase()] ||
+      `<span style="color:#64748b">Use "Analisar com IA" para ver padrões específicos desta palavra.</span>`
+    );
+  }
 
   _findPlayerContainer() {
     const selectors = {
-      'youtube': ['#movie_player', '.html5-video-player', '#ytd-player'],
-      'netflix': ['.watch-video', '.NFPlayer', '#netflix-player'],
-      'max': ['[data-testid="player-container"]', '[class*="PlayerContainer"]', '#hbo-max-player-container'],
-      'disney': ['.btm-media-clients', '#disney-player-container'],
-      'prime': ['.rendererContainer', '#dv-web-player']
+      youtube: ['#movie_player', '.html5-video-player', '#ytd-player'],
+      netflix: ['.watch-video', '.NFPlayer', '#netflix-player'],
+      max: [
+        '[data-testid="player-container"]',
+        '[class*="PlayerContainer"]',
+        '#hbo-max-player-container',
+      ],
+      disney: ['.btm-media-clients', '#disney-player-container'],
+      prime: ['.rendererContainer', '#dv-web-player'],
     };
     const platformSelectors = selectors[this.platform] || [];
     for (const sel of platformSelectors) {
@@ -1253,24 +1642,26 @@ export class WordPopup {
     // ── MODO DOCK: Barra lateral fixa no canto direito ─────────────────────
     if (popupMode === 'dock') {
       Object.assign(this.popup.style, {
-        position:      'fixed',
-        top:           '0',
-        right:         '0',
-        left:          'auto',
-        bottom:        '0',
-        width:         '360px',
-        maxWidth:      '90vw',
-        height:        '100vh',
-        maxHeight:     '100vh',
-        borderRadius:  '20px 0 0 20px',
-        boxShadow:     '-8px 0 40px rgba(0,0,0,0.6), inset 1px 0 0 rgba(255,255,255,0.07)',
-        animation:     'lfpDockIn 0.3s cubic-bezier(0.16,1,0.3,1)',
-        overflowY:     'auto',
+        position: 'fixed',
+        top: '0',
+        right: '0',
+        left: 'auto',
+        bottom: '0',
+        width: '360px',
+        maxWidth: '90vw',
+        height: '100vh',
+        maxHeight: '100vh',
+        borderRadius: '20px 0 0 20px',
+        boxShadow: '-8px 0 40px rgba(0,0,0,0.6), inset 1px 0 0 rgba(255,255,255,0.07)',
+        animation: 'lfpDockIn 0.3s cubic-bezier(0.16,1,0.3,1)',
+        overflowY: 'auto',
       });
       // Garante o keyframe de animação dock
       if (!document.getElementById('lfp-dock-k')) {
-        const s = document.createElement('style'); s.id = 'lfp-dock-k';
-        s.textContent = '@keyframes lfpDockIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}';
+        const s = document.createElement('style');
+        s.id = 'lfp-dock-k';
+        s.textContent =
+          '@keyframes lfpDockIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}';
         document.head.appendChild(s);
       }
       return; // Não aplica posicionamento relativo à palavra
@@ -1279,68 +1670,71 @@ export class WordPopup {
     // ── MODO FLUTUANTE (padrão) ──────────────────────────────────────────────
     // Restaura estilos caso tenha mudado de dock para floating
     Object.assign(this.popup.style, {
-      bottom:      'auto',
-      right:       'auto',
-      height:      'auto',
-      maxHeight:   '85vh',
-      borderRadius:'24px',
-      display:     'block',
-      visibility:  'visible',
-      opacity:     '0',
-      transform:   'translateY(10px) scale(0.95)',
-      animation:   '',
-      overflowY:   'visible',
+      bottom: 'auto',
+      right: 'auto',
+      height: 'auto',
+      maxHeight: '85vh',
+      borderRadius: '24px',
+      display: 'block',
+      visibility: 'visible',
+      opacity: '0',
+      transform: 'translateY(10px) scale(0.95)',
+      animation: '',
+      overflowY: 'visible',
     });
 
     const player = this._findPlayerContainer();
     const isFixed = player === document.body;
     const playerRect = player.getBoundingClientRect();
-    
+
     const W = 360;
-    this.popup.style.width    = W + 'px';
+    this.popup.style.width = W + 'px';
     this.popup.style.position = isFixed ? 'fixed' : 'absolute';
 
     const actualH = this.popup.offsetHeight;
 
     let left = (playerRect.width - W) / 2;
     let top = (playerRect.height - actualH) / 2;
-    
+
     // Pequeno ajuste para ele ficar um pouco acima do exato centro (visual mais agradável)
     top = Math.max(10, top - 30);
 
     this.popup.style.left = left + 'px';
-    this.popup.style.top  = top + 'px';
+    this.popup.style.top = top + 'px';
   }
 
   hide(resumeVideo = false) {
     if (!this.popup || this.popup.style.display === 'none') return;
-    
+
     this._isHiding = true;
     this.popup.style.opacity = '0';
     this.popup.style.transform = 'translateY(10px) scale(0.95)';
-    
-    if (resumeVideo && this.engine?.videoElement) {
-        const vid = this.engine.videoElement;
-        const shouldResume = this._wasPlayingBefore || this.engine._wasPausedByHover || (this.engine.autoPause && this.engine._lastAutoPausedEndTime > 0);
-        
-        if (shouldResume) {
-            if (this.engine) {
-                this.engine._pauseCooldown = true;
-                setTimeout(() => this.engine._pauseCooldown = false, 500);
-            }
-            // Não precisa mais de timeout tão longo porque o pointer-events já foi removido
-            setTimeout(() => {
-                if (vid.paused) {
-                    vid.play().catch(() => {});
-                }
-            }, 50);
-        }
 
-        this._wasPlayingBefore = false;
+    if (resumeVideo && this.engine?.videoElement) {
+      const vid = this.engine.videoElement;
+      const shouldResume =
+        this._wasPlayingBefore ||
+        this.engine._wasPausedByHover ||
+        (this.engine.autoPause && this.engine._lastAutoPausedEndTime > 0);
+
+      if (shouldResume) {
         if (this.engine) {
-            this.engine._wasPausedByHover = false;
-            this.engine._lastAutoPausedEndTime = -1;
+          this.engine._pauseCooldown = true;
+          setTimeout(() => (this.engine._pauseCooldown = false), 500);
         }
+        // Não precisa mais de timeout tão longo porque o pointer-events já foi removido
+        setTimeout(() => {
+          if (vid.paused) {
+            vid.play().catch(() => {});
+          }
+        }, 50);
+      }
+
+      this._wasPlayingBefore = false;
+      if (this.engine) {
+        this.engine._wasPausedByHover = false;
+        this.engine._lastAutoPausedEndTime = -1;
+      }
     }
 
     this.popup.style.pointerEvents = 'none'; // Impede hover acidental durante fade-out
@@ -1352,120 +1746,139 @@ export class WordPopup {
     }, 200);
   }
   async _ai() {
-    const q=s=>this._q(s);
-    const btn=q('#fai');
-    const resEl=q('#fair');
+    const q = (s) => this._q(s);
+    const btn = q('#fai');
+    const resEl = q('#fair');
     if (btn.disabled) return;
-    btn.innerHTML='<span class="lfp-spin"></span> Analisando…';
-    btn.disabled=true;
-    resEl.style.display='block';
-    resEl.innerHTML='<div style="padding:10px;text-align:center;"><span class="lfp-spin"></span> A IA está processando uma explicação detalhada...</div>';
+    btn.innerHTML = '<span class="lfp-spin"></span> Analisando…';
+    btn.disabled = true;
+    resEl.style.display = 'block';
+    resEl.innerHTML =
+      '<div style="padding:10px;text-align:center;"><span class="lfp-spin"></span> A IA está processando uma explicação detalhada...</div>';
     try {
       const response = await new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage({
-          action: 'ai_explain_word',
-          word: this.word,
-          context: this.context,
-          fullContext: this.currentCue?.fullContext || null
-        }, r => {
-          if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
-          else resolve(r);
-        });
+        chrome.runtime.sendMessage(
+          {
+            action: 'ai_explain_word',
+            word: this.word,
+            context: this.context,
+            fullContext: this.currentCue?.fullContext || null,
+          },
+          (r) => {
+            if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+            else resolve(r);
+          },
+        );
       });
       if (response?.explanation) {
         q('#fair-container').style.display = 'block';
         resEl.innerHTML = this._formatAI(response.explanation);
 
         // Tenta extrair o nível CEFR (A1-C2) ignorando asteriscos e colchetes (fallback)
-        const cefrMatch = response.explanation.match(/Nível Sugerido \(CEFR\)[^A-Z]*(A1|A2|B1|B2|C1|C2)/i);
+        const cefrMatch = response.explanation.match(
+          /Nível Sugerido \(CEFR\)[^A-Z]*(A1|A2|B1|B2|C1|C2)/i,
+        );
         let level = null;
-        
-        if (cefrMatch) {
-            level = cefrMatch[1].toUpperCase();
-        } else if (this.engine && this.engine.cefrList && this.word) {
-            level = this.engine.cefrList[this.word.toLowerCase()];
-        }
-        
-        if (level) {
-            this.activeLevel = level;
-            
-            // Atualiza a UI do popup dinamicamente com o nível da IA
-            const cefrBadge = this.popup.querySelector('#fcefr');
-            if (cefrBadge) {
-                cefrBadge.textContent = level;
-                cefrBadge.className = `lfp-badge lfp-${level.toLowerCase()}`;
-                cefrBadge.style.display = 'inline-block';
-            }
-            
-            // Atualiza a cor na frase de contexto
-            const colors = {
-                'A1': '#60a5fa', 'A2': '#4ade80', 'B1': '#facc15',
-                'B2': '#fb923c', 'C1': '#f87171', 'C2': '#c084fc'
-            };
-            if (colors[level] && this.context) {
-                const safeContext = this._escapeAttr(this.context);
-                const safeTerm = this._escapeAttr(this.word);
-                const fc = this.popup.querySelector('#fc');
-                if (fc) {
-                    fc.innerHTML = safeContext.replace(new RegExp(`\\b(${this._escapeRegExp(safeTerm)})\\b`, 'gi'), `<b style="color:${colors[level]}">$1</b>`);
-                }
-            }
 
-            // Se já estiver salva, atualiza o nível no banco
-            const BASE=chrome.runtime.getURL('utils/');
-            const {db}=await import(BASE+'db.js');
-            db.getWord(this.word, this.engine?.sourceLang||'en').then(saved => {
-                if (saved) {
-                    saved.level = level;
-                    db.saveWord(saved);
-                }
-            });
+        if (cefrMatch) {
+          level = cefrMatch[1].toUpperCase();
+        } else if (this.engine && this.engine.cefrList && this.word) {
+          level = this.engine.cefrList[this.word.toLowerCase()];
+        }
+
+        if (level) {
+          this.activeLevel = level;
+
+          // Atualiza a UI do popup dinamicamente com o nível da IA
+          const cefrBadge = this.popup.querySelector('#fcefr');
+          if (cefrBadge) {
+            cefrBadge.textContent = level;
+            cefrBadge.className = `lfp-badge lfp-${level.toLowerCase()}`;
+            cefrBadge.style.display = 'inline-block';
+          }
+
+          // Atualiza a cor na frase de contexto
+          const colors = {
+            A1: '#60a5fa',
+            A2: '#4ade80',
+            B1: '#facc15',
+            B2: '#fb923c',
+            C1: '#f87171',
+            C2: '#c084fc',
+          };
+          if (colors[level] && this.context) {
+            const safeContext = this._escapeAttr(this.context);
+            const safeTerm = this._escapeAttr(this.word);
+            const fc = this.popup.querySelector('#fc');
+            if (fc) {
+              fc.innerHTML = safeContext.replace(
+                new RegExp(`\\b(${this._escapeRegExp(safeTerm)})\\b`, 'gi'),
+                `<b style="color:${colors[level]}">$1</b>`,
+              );
+            }
+          }
+
+          // Se já estiver salva, atualiza o nível no banco
+          const BASE = chrome.runtime.getURL('utils/');
+          const { db } = await import(BASE + 'db.js');
+          db.getWord(this.word, this.engine?.sourceLang || 'en').then((saved) => {
+            if (saved) {
+              saved.level = level;
+              db.saveWord(saved);
+            }
+          });
         }
       } else {
         resEl.innerHTML = `<div style="color:#f87171;padding:10px;">⚠️ <b>Falha na IA</b><br>${response?.error || 'Não foi possível obter resposta. Verifique sua chave API no Dashboard.'}</div>`;
       }
     } catch (e) {
-      resEl.innerHTML='<div style="color:#f87171;padding:10px;">⚠️ Erro de conexão com o servidor de IA.</div>';
+      resEl.innerHTML =
+        '<div style="color:#f87171;padding:10px;">⚠️ Erro de conexão com o servidor de IA.</div>';
     } finally {
-      btn.textContent='✦ Explicar Palavra';
-      btn.disabled=false;
+      btn.textContent = '✦ Explicar Palavra';
+      btn.disabled = false;
     }
 
     // Logic for Copy Popup
     q('#fcopy-ai').onclick = () => {
-        const text = resEl.textContent;
-        navigator.clipboard.writeText(text);
-        const copyBtn = q('#fcopy-ai');
-        copyBtn.textContent = '✅ Copiado';
-        setTimeout(() => copyBtn.textContent = '📋 Copiar', 2000);
+      const text = resEl.textContent;
+      navigator.clipboard.writeText(text);
+      const copyBtn = q('#fcopy-ai');
+      copyBtn.textContent = '✅ Copiado';
+      setTimeout(() => (copyBtn.textContent = '📋 Copiar'), 2000);
     };
   }
 
   async _aiSentence() {
-    const q=s=>this._q(s);
-    const btn=q('#faisent');
-    const resEl=q('#fair');
+    const q = (s) => this._q(s);
+    const btn = q('#faisent');
+    const resEl = q('#fair');
     if (!this.context) return alert('Frase de contexto não encontrada.');
     if (btn.disabled) return;
-    btn.innerHTML='<span class="lfp-spin" style="border-top-color:#fbbf24"></span> Analisando frase…';
-    btn.disabled=true;
-    q('#fair-container').style.display='block';
-    resEl.innerHTML='<div style="padding:10px;text-align:center;"><span class="lfp-spin" style="border-top-color:#fbbf24"></span> Desconstruindo a frase com IA...</div>';
+    btn.innerHTML =
+      '<span class="lfp-spin" style="border-top-color:#fbbf24"></span> Analisando frase…';
+    btn.disabled = true;
+    q('#fair-container').style.display = 'block';
+    resEl.innerHTML =
+      '<div style="padding:10px;text-align:center;"><span class="lfp-spin" style="border-top-color:#fbbf24"></span> Desconstruindo a frase com IA...</div>';
     try {
       const response = await new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage({
-          action: 'ai_explain_sentence',
-          sentence: this.context,
-          fullContext: this.currentCue?.fullContext || null // Passa o diálogo ao redor
-        }, (res) => {
-          if (chrome.runtime.lastError) {
-            reject(chrome.runtime.lastError);
-          } else {
-            resolve(res);
-          }
-        });
+        chrome.runtime.sendMessage(
+          {
+            action: 'ai_explain_sentence',
+            sentence: this.context,
+            fullContext: this.currentCue?.fullContext || null, // Passa o diálogo ao redor
+          },
+          (res) => {
+            if (chrome.runtime.lastError) {
+              reject(chrome.runtime.lastError);
+            } else {
+              resolve(res);
+            }
+          },
+        );
       });
-      
+
       if (response?.analysis) {
         resEl.innerHTML = this._formatAI(response.analysis);
       } else {
@@ -1473,23 +1886,24 @@ export class WordPopup {
       }
     } catch (e) {
       console.error('[LinguaFlow] Erro ao analisar frase:', e);
-      resEl.innerHTML = '<div style="color:#f87171;padding:10px;">⚠️ Falha na comunicação com o Service Worker.</div>';
+      resEl.innerHTML =
+        '<div style="color:#f87171;padding:10px;">⚠️ Falha na comunicação com o Service Worker.</div>';
     } finally {
       btn.textContent = '🔍 Analisar Frase Completa';
       btn.disabled = false;
     }
 
     q('#fcopy-ai').onclick = () => {
-        const text = resEl.textContent;
-        navigator.clipboard.writeText(text);
-        const copyBtn = q('#fcopy-ai');
-        copyBtn.textContent = '✅ Copiado';
-        setTimeout(() => copyBtn.textContent = '📋 Copiar', 2000);
+      const text = resEl.textContent;
+      navigator.clipboard.writeText(text);
+      const copyBtn = q('#fcopy-ai');
+      copyBtn.textContent = '✅ Copiado';
+      setTimeout(() => (copyBtn.textContent = '📋 Copiar'), 2000);
     };
   }
 
   async _loadSavedChunks() {
-    const q = s => this._q(s);
+    const q = (s) => this._q(s);
     const container = q('#fchunks-container');
     const btn = q('#fgenchunks');
     try {
@@ -1500,7 +1914,7 @@ export class WordPopup {
         this._chunksBuilt = true;
         this.generatedChunks = saved.chunks;
         let html = '';
-        saved.chunks.forEach(c => {
+        saved.chunks.forEach((c) => {
           html += `<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px;margin-bottom:10px;">
             <div style="font-size:14px;color:#e2e8f0;font-weight:700;margin-bottom:4px;">${c.eng}</div>
             <div style="font-size:12px;color:#94a3b8;font-style:italic;margin-bottom:8px;">${c.pt}</div>
@@ -1510,49 +1924,58 @@ export class WordPopup {
         container.innerHTML = html;
         if (btn) btn.textContent = '🔄 Regenerar Chunks';
       } else {
-        container.innerHTML = '<div style="text-align:center;color:#475569;font-size:13px;padding:16px;">Clique "Gerar" para criar chunks de treino com IA.</div>';
-        if (btn) { btn.style.display = 'block'; btn.disabled = false; }
+        container.innerHTML =
+          '<div style="text-align:center;color:#475569;font-size:13px;padding:16px;">Clique "Gerar" para criar chunks de treino com IA.</div>';
+        if (btn) {
+          btn.style.display = 'block';
+          btn.disabled = false;
+        }
       }
     } catch (e) {
-      container.innerHTML = '<div style="text-align:center;color:#475569;font-size:13px;padding:16px;">Clique "Gerar" para criar chunks de treino com IA.</div>';
+      container.innerHTML =
+        '<div style="text-align:center;color:#475569;font-size:13px;padding:16px;">Clique "Gerar" para criar chunks de treino com IA.</div>';
     }
   }
 
   async _generateChunks() {
-    const q=s=>this._q(s);
-    const btn=q('#fgenchunks');
-    const resEl=q('#fchunks-container');
+    const q = (s) => this._q(s);
+    const btn = q('#fgenchunks');
+    const resEl = q('#fchunks-container');
     if (btn.disabled) return;
-    
-    btn.innerHTML='<span class="lfp-spin"></span> Gerando Chunks…';
-    btn.disabled=true;
-    resEl.innerHTML='<div style="text-align:center;color:#a78bfa;padding:20px;"><span class="lfp-spin"></span> Professor (IA) está montando os chunks...</div>';
+
+    btn.innerHTML = '<span class="lfp-spin"></span> Gerando Chunks…';
+    btn.disabled = true;
+    resEl.innerHTML =
+      '<div style="text-align:center;color:#a78bfa;padding:20px;"><span class="lfp-spin"></span> Professor (IA) está montando os chunks...</div>';
 
     try {
       const response = await new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage({
-          action: 'ai_generate_chunks',
-          word: this.word
-        }, r => {
-          if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
-          else resolve(r);
-        });
+        chrome.runtime.sendMessage(
+          {
+            action: 'ai_generate_chunks',
+            word: this.word,
+          },
+          (r) => {
+            if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+            else resolve(r);
+          },
+        );
       });
-      
+
       if (response?.chunks) {
         this._chunksBuilt = true;
         this.generatedChunks = response.chunks;
-        
+
         let html = '';
         response.chunks.forEach((c) => {
-            html += `
+          html += `
             <div style="background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:12px; margin-bottom:10px;">
                 <div style="font-size:14px; color:#e2e8f0; font-weight:700; margin-bottom:4px;">${c.eng}</div>
                 <div style="font-size:12px; color:#94a3b8; font-style:italic; margin-bottom:8px;">${c.pt}</div>
                 <div style="font-size:13px; color:#fbbf24; font-family:monospace; font-weight:600; background:rgba(251,191,36,.1); padding:4px 8px; border-radius:6px; display:inline-block; border:1px solid rgba(251,191,36,.3);">${c.phon}</div>
             </div>`;
         });
-        
+
         resEl.innerHTML = html;
         btn.style.display = 'none';
       } else {
@@ -1574,9 +1997,9 @@ export class WordPopup {
       ['Nesta frase', 'blue'],
       ['Bloco importante', ''],
       ['Não confunda com', 'amber'],
-      ['Use assim', 'green']
+      ['Use assim', 'green'],
     ];
-    const escape = value => this._escapeAttr(value).replace(/\n/g, '<br>');
+    const escape = (value) => this._escapeAttr(value).replace(/\n/g, '<br>');
     let html = '';
 
     sections.forEach(([title, tone]) => {
@@ -1597,100 +2020,156 @@ export class WordPopup {
     if (!text) return '';
     let formatted = text
       // Emojis Automáticos para os Títulos (Dicionário)
-      .replace(/\*\*(.*?Nível Sugerido.*?)\*\*/gi, '<b style="color:#fde047;display:block;margin-bottom:8px">⭐ $1</b>')
-      .replace(/\*\*(.*?na prática.*?)\*\*/gi, '<b style="color:#7dd3fc;display:block;margin-top:12px">🎯 $1</b>')
-      .replace(/\*\*(.*?Como e onde usar.*?)\*\*/gi, '<b style="color:#86efac;display:block;margin-top:12px">🎭 $1</b>')
-      .replace(/\*\*(.*?Colocações Comuns.*?)\*\*/gi, '<b style="color:#fb923c;display:block;margin-top:12px">🧩 $1</b>')
-      .replace(/\*\*(.*?Exemplos Reais.*?)\*\*/gi, '<b style="color:#d8b4fe;display:block;margin-top:12px">📝 $1</b>')
+      .replace(
+        /\*\*(.*?Nível Sugerido.*?)\*\*/gi,
+        '<b style="color:#fde047;display:block;margin-bottom:8px">⭐ $1</b>',
+      )
+      .replace(
+        /\*\*(.*?na prática.*?)\*\*/gi,
+        '<b style="color:#7dd3fc;display:block;margin-top:12px">🎯 $1</b>',
+      )
+      .replace(
+        /\*\*(.*?Como e onde usar.*?)\*\*/gi,
+        '<b style="color:#86efac;display:block;margin-top:12px">🎭 $1</b>',
+      )
+      .replace(
+        /\*\*(.*?Colocações Comuns.*?)\*\*/gi,
+        '<b style="color:#fb923c;display:block;margin-top:12px">🧩 $1</b>',
+      )
+      .replace(
+        /\*\*(.*?Exemplos Reais.*?)\*\*/gi,
+        '<b style="color:#d8b4fe;display:block;margin-top:12px">📝 $1</b>',
+      )
 
       // Cabeçalhos antigos mantidos para compatibilidade com respostas já formatadas.
-      .replace(/\*\*(.*?O Molde.*?)\*\*/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(110,231,183,0.1);border-left:3px solid #6ee7b7;border-radius:4px;color:#6ee7b7;font-weight:bold;font-size:13px;">🧬 $1</div>')
-      .replace(/\*\*(.*?Como a Engrenagem Funciona.*?)\*\*/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(147,197,253,0.1);border-left:3px solid #93c5fd;border-radius:4px;color:#93c5fd;font-weight:bold;font-size:13px;">⚙️ $1</div>')
-      .replace(/\*\*(.*?Mão na Massa.*?)\*\*/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(251,146,60,0.1);border-left:3px solid #fb923c;border-radius:4px;color:#fb923c;font-weight:bold;font-size:13px;">🛠️ $1</div>')
-      .replace(/\*\*(.*?Pronúncia de Rua.*?)\*\*/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(249,168,212,0.1);border-left:3px solid #f9a8d4;border-radius:4px;color:#f9a8d4;font-weight:bold;font-size:13px;">🗣️ $1</div>')
-      .replace(/\*\*(.*?Nível Nativo.*?)\*\*/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(250,204,21,0.1);border-left:3px solid #facc15;border-radius:4px;color:#facc15;font-weight:bold;font-size:13px;">🔥 $1</div>')
+      .replace(
+        /\*\*(.*?O Molde.*?)\*\*/gi,
+        '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(110,231,183,0.1);border-left:3px solid #6ee7b7;border-radius:4px;color:#6ee7b7;font-weight:bold;font-size:13px;">🧬 $1</div>',
+      )
+      .replace(
+        /\*\*(.*?Como a Engrenagem Funciona.*?)\*\*/gi,
+        '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(147,197,253,0.1);border-left:3px solid #93c5fd;border-radius:4px;color:#93c5fd;font-weight:bold;font-size:13px;">⚙️ $1</div>',
+      )
+      .replace(
+        /\*\*(.*?Mão na Massa.*?)\*\*/gi,
+        '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(251,146,60,0.1);border-left:3px solid #fb923c;border-radius:4px;color:#fb923c;font-weight:bold;font-size:13px;">🛠️ $1</div>',
+      )
+      .replace(
+        /\*\*(.*?Pronúncia de Rua.*?)\*\*/gi,
+        '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(249,168,212,0.1);border-left:3px solid #f9a8d4;border-radius:4px;color:#f9a8d4;font-weight:bold;font-size:13px;">🗣️ $1</div>',
+      )
+      .replace(
+        /\*\*(.*?Nível Nativo.*?)\*\*/gi,
+        '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(250,204,21,0.1);border-left:3px solid #facc15;border-radius:4px;color:#facc15;font-weight:bold;font-size:13px;">🔥 $1</div>',
+      )
 
       // Novos cabeçalhos de pronúncia
-      .replace(/##\s*1\.\s*Pronúncia oficial/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(147,197,253,0.1);border-left:3px solid #93c5fd;border-radius:4px;color:#93c5fd;font-weight:bold;font-size:13px;">🗣️ 1. Pronúncia Oficial</div>')
-      .replace(/##\s*2\.\s*Como um brasileiro costuma aprender/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(251,146,60,0.1);border-left:3px solid #fb923c;border-radius:4px;color:#fb923c;font-weight:bold;font-size:13px;">🇧🇷 2. Como costuma ser ensinado</div>')
-      .replace(/##\s*3\.\s*Como realmente soa para um brasileiro/gi, '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(249,168,212,0.1);border-left:3px solid #f9a8d4;border-radius:4px;color:#f9a8d4;font-weight:bold;font-size:13px;">🔥 3. Como realmente soa</div>')
+      .replace(
+        /##\s*1\.\s*Pronúncia oficial/gi,
+        '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(147,197,253,0.1);border-left:3px solid #93c5fd;border-radius:4px;color:#93c5fd;font-weight:bold;font-size:13px;">🗣️ 1. Pronúncia Oficial</div>',
+      )
+      .replace(
+        /##\s*2\.\s*Como um brasileiro costuma aprender/gi,
+        '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(251,146,60,0.1);border-left:3px solid #fb923c;border-radius:4px;color:#fb923c;font-weight:bold;font-size:13px;">🇧🇷 2. Como costuma ser ensinado</div>',
+      )
+      .replace(
+        /##\s*3\.\s*Como realmente soa para um brasileiro/gi,
+        '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(249,168,212,0.1);border-left:3px solid #f9a8d4;border-radius:4px;color:#f9a8d4;font-weight:bold;font-size:13px;">🔥 3. Como realmente soa</div>',
+      )
 
       // O Neuro-Hack ganha uma caixa especial (pois é sempre o último, não quebra)
-      .replace(/\*\*(.*?Associação Mental.*?)\*\*(.*?)(?=\n\n|\*$|$)/gis, (match, title, content) => {
+      .replace(
+        /\*\*(.*?Associação Mental.*?)\*\*(.*?)(?=\n\n|\*$|$)/gis,
+        (match, title, content) => {
           return `<div style="margin-top:16px;padding:10px;background:rgba(167,139,250,0.1);border-left:3px solid #a78bfa;border-radius:4px;">
-              <b style="color:#c084fc">🧠 ${title.replace(/:/g,'').trim()}</b><br><span style="color:#e2e8f0">${content.replace(/\n/g, '<br>')}</span>
+              <b style="color:#c084fc">🧠 ${title.replace(/:/g, '').trim()}</b><br><span style="color:#e2e8f0">${content.replace(/\n/g, '<br>')}</span>
           </div>`;
-      })
-      
+        },
+      )
+
       // Negrito normal
       .replace(/\*\*(.*?)\*\*/g, '<b style="color:#7dd3fc">$1</b>')
       // Itálico
       .replace(/\*(.*?)\*/g, '<i style="color:#94a3b8">$1</i>')
       // Quebras de linha normais
       .replace(/\n/g, '<br>');
-      
-      // Limpar brs colados aos banners e blocos
-      formatted = formatted.replace(/<br>\s*<div/g, '<div').replace(/<\/div>\s*<br>/g, '</div>');
-      return formatted;
+
+    // Limpar brs colados aos banners e blocos
+    formatted = formatted.replace(/<br>\s*<div/g, '<div').replace(/<\/div>\s*<br>/g, '</div>');
+    return formatted;
   }
   // O hide original com animação está na linha ~734
 
   async _renderBasicGrammarFallback(resEl, errorMsg) {
     try {
-        const sentence = this.context || this.word;
-        const words = sentence.split(/[\s,.;!?'"()]+/).filter(w => w.trim().length > 0);
-        
-        let html = '<div>';
-        html += `<div class="lfp-use-card amber">
+      const sentence = this.context || this.word;
+      const words = sentence.split(/[\s,.;!?'"()]+/).filter((w) => w.trim().length > 0);
+
+      let html = '<div>';
+      html += `<div class="lfp-use-card amber">
             <div class="lfp-use-title"><span>⚠️</span><span>IA indisponível</span></div>
             <div class="lfp-use-text">Não consegui gerar uma explicação contextual agora.${errorMsg ? `<br><br><b>Detalhe:</b> ${errorMsg}` : ''}</div>
             <div class="lfp-use-muted" style="margin-top:6px;">Você ainda pode usar a tradução, a frase do vídeo e os exemplos para entender o uso.</div>
         </div>`;
-        html += '<div class="lfp-use-card blue"><div class="lfp-use-title"><span>🔎</span><span>Palavras da frase</span></div>';
-        
-        const { translator } = await import(chrome.runtime.getURL('utils/translator.js'));
-        const sourceLang = this.engine?.sourceLang || 'auto';
-        
-        // Função auxiliar para buscar a classe gramatical (apenas inglês por enquanto, grátis)
-        const fetchPOS = async (word) => {
-            if (sourceLang !== 'en' && sourceLang !== 'auto') return '';
-            try {
-                const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
-                if (!res.ok) return '';
-                const data = await res.json();
-                if (data && data[0] && data[0].meanings && data[0].meanings[0]) {
-                    const pos = data[0].meanings[0].partOfSpeech;
-                    // Traduzir termos comuns
-                    const map = { noun:'Substantivo', verb:'Verbo', adjective:'Adjetivo', adverb:'Advérbio', pronoun:'Pronome', preposition:'Preposição', conjunction:'Conjunção', interjection:'Interjeição' };
-                    return map[pos] || pos;
-                }
-            } catch(e) {}
-            return '';
-        };
+      html +=
+        '<div class="lfp-use-card blue"><div class="lfp-use-title"><span>🔎</span><span>Palavras da frase</span></div>';
 
-        // Traduz e busca classe gramatical em paralelo
-        const tasks = words.map(async (w) => {
-            const [trans, pos] = await Promise.all([
-                translator.translate(w, sourceLang, 'pt'),
-                fetchPOS(w)
-            ]);
-            return { word: w, translation: trans?.translation || '...', pos: pos };
-        });
-        
-        const results = await Promise.all(tasks);
-        
-        for (let r of results) {
-             const posTag = r.pos ? `<br><span style="font-size:10px;color:#a78bfa;font-weight:normal;background:rgba(167,139,250,0.15);padding:1px 4px;border-radius:3px;">${r.pos}</span>` : '';
-             html += `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+      const { translator } = await import(chrome.runtime.getURL('utils/translator.js'));
+      const sourceLang = this.engine?.sourceLang || 'auto';
+
+      // Função auxiliar para buscar a classe gramatical (apenas inglês por enquanto, grátis)
+      const fetchPOS = async (word) => {
+        if (sourceLang !== 'en' && sourceLang !== 'auto') return '';
+        try {
+          const res = await fetch(
+            `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,
+          );
+          if (!res.ok) return '';
+          const data = await res.json();
+          if (data && data[0] && data[0].meanings && data[0].meanings[0]) {
+            const pos = data[0].meanings[0].partOfSpeech;
+            // Traduzir termos comuns
+            const map = {
+              noun: 'Substantivo',
+              verb: 'Verbo',
+              adjective: 'Adjetivo',
+              adverb: 'Advérbio',
+              pronoun: 'Pronome',
+              preposition: 'Preposição',
+              conjunction: 'Conjunção',
+              interjection: 'Interjeição',
+            };
+            return map[pos] || pos;
+          }
+        } catch (e) {}
+        return '';
+      };
+
+      // Traduz e busca classe gramatical em paralelo
+      const tasks = words.map(async (w) => {
+        const [trans, pos] = await Promise.all([
+          translator.translate(w, sourceLang, 'pt'),
+          fetchPOS(w),
+        ]);
+        return { word: w, translation: trans?.translation || '...', pos: pos };
+      });
+
+      const results = await Promise.all(tasks);
+
+      for (let r of results) {
+        const posTag = r.pos
+          ? `<br><span style="font-size:10px;color:#a78bfa;font-weight:normal;background:rgba(167,139,250,0.15);padding:1px 4px;border-radius:3px;">${r.pos}</span>`
+          : '';
+        html += `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)">
                 <div style="font-weight:700;color:#7dd3fc;">${r.word}${posTag}</div>
                 <div style="color:#e2e8f0;text-align:right;">${r.translation}</div>
              </div>`;
-        }
-        html += '</div></div>';
-        resEl.innerHTML = html;
-        resEl.className = 'ai-res';
-    } catch(e) {
-        resEl.innerHTML=`<div class="lfp-use-card amber"><div class="lfp-use-title"><span>⚠️</span><span>IA indisponível</span></div><div class="lfp-use-text">Não consegui gerar a explicação agora.<br><br><b>Detalhe técnico:</b> ${e.message}</div></div>`;
+      }
+      html += '</div></div>';
+      resEl.innerHTML = html;
+      resEl.className = 'ai-res';
+    } catch (e) {
+      resEl.innerHTML = `<div class="lfp-use-card amber"><div class="lfp-use-title"><span>⚠️</span><span>IA indisponível</span></div><div class="lfp-use-text">Não consegui gerar a explicação agora.<br><br><b>Detalhe técnico:</b> ${e.message}</div></div>`;
     }
   }
 }

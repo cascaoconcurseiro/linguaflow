@@ -2,239 +2,277 @@
 const DB_NAME = 'LinguaFlowFreeDB';
 
 async function readAllSettings() {
-    const { db } = await import('../utils/db.js');
-    const settings = ['targetLang', 'subtitleMode', 'bgOpacity', 'fontSize', 'fontSizeTrans', 'autoPause', 'showOriginal', 'showTranslation', 'subtitleBottom', 'subtitleHorizontal', 'translationDelay', 'translationAnticipation', 'flashDuration', 'wordColorKnown', 'wordColorSaved', 'blurSubtitles', 'ttsPlaybackRate', 'fontFamily', 'colorPalette', 'popupMode', 'cefrTargetLevel', 'cefrColorsEnabled', 'cefrColorA1', 'cefrColorA2', 'cefrColorB1', 'cefrColorB2', 'cefrColorC1', 'cefrColorC2'];
-    const obj = {};
-    for (const key of settings) {
-        const val = await db.getSetting(key);
-        if (val !== undefined) obj[key] = val;
-    }
-    return obj;
+  const { db } = await import('../utils/db.js');
+  const settings = [
+    'targetLang',
+    'subtitleMode',
+    'bgOpacity',
+    'fontSize',
+    'fontSizeTrans',
+    'autoPause',
+    'showOriginal',
+    'showTranslation',
+    'subtitleBottom',
+    'subtitleHorizontal',
+    'translationDelay',
+    'translationAnticipation',
+    'flashDuration',
+    'wordColorKnown',
+    'wordColorSaved',
+    'blurSubtitles',
+    'ttsPlaybackRate',
+    'fontFamily',
+    'colorPalette',
+    'popupMode',
+    'cefrTargetLevel',
+    'cefrColorsEnabled',
+    'cefrColorA1',
+    'cefrColorA2',
+    'cefrColorB1',
+    'cefrColorB2',
+    'cefrColorC1',
+    'cefrColorC2',
+  ];
+  const obj = {};
+  for (const key of settings) {
+    const val = await db.getSetting(key);
+    if (val !== undefined) obj[key] = val;
+  }
+  return obj;
 }
 
 async function writeSetting(key, value) {
-    const { db } = await import('../utils/db.js');
-    return db.setSetting(key, value);
+  const { db } = await import('../utils/db.js');
+  return db.setSetting(key, value);
 }
 
 export class SettingsPanel {
-    constructor(engine) {
-        this.engine = engine;
-        this.isOpen = false;
-        this.host   = null;
-        this.shadow = null;
+  constructor(engine) {
+    this.engine = engine;
+    this.isOpen = false;
+    this.host = null;
+    this.shadow = null;
 
-        this.cfg = {
-            targetLang:              'pt',
-            subtitleMode:            'native',
-            bgOpacity:               0.45,
-            fontSize:                31,       // tamanho legenda original
-            fontSizeTrans:           18,       // tamanho legenda tradução (NOVO)
-            wordColorKnown:          '#86EFAC',
-            wordColorSaved:          '#93C5FD',
-            autoPause:               false,
-            showOriginal:            true,
-            showTranslation:         true,
-            subtitleBottom:          84,
-            subtitleHorizontal:      45,
-            translationDelay:        0,
-            translationAnticipation: 0,
-            flashDuration:           4,        // segundos do flash de tradução (NOVO)
-            blurSubtitles:           false,
-            ttsPlaybackRate:         1.0,
-            fontFamily:              'Inter',
-            colorPalette:            'Vibrant',
-            popupMode:               'floating',
-            cefrTargetLevel:         'none',
-            cefrColorsEnabled:       true,
-            cefrColorA1:             '#4ade80', // Verde Claro
-            cefrColorA2:             '#22d3ee', // Ciano
-            cefrColorB1:             '#facc15', // Amarelo
-            cefrColorB2:             '#fb923c', // Laranja
-            cefrColorC1:             '#f472b6', // Rosa
-            cefrColorC2:             '#c084fc'  // Roxo
-        };
+    this.cfg = {
+      targetLang: 'pt',
+      subtitleMode: 'native',
+      bgOpacity: 0.45,
+      fontSize: 31, // tamanho legenda original
+      fontSizeTrans: 18, // tamanho legenda tradução (NOVO)
+      wordColorKnown: '#86EFAC',
+      wordColorSaved: '#93C5FD',
+      autoPause: false,
+      showOriginal: true,
+      showTranslation: true,
+      subtitleBottom: 84,
+      subtitleHorizontal: 45,
+      translationDelay: 0,
+      translationAnticipation: 0,
+      flashDuration: 4, // segundos do flash de tradução (NOVO)
+      blurSubtitles: false,
+      ttsPlaybackRate: 1.0,
+      fontFamily: 'Inter',
+      colorPalette: 'Vibrant',
+      popupMode: 'floating',
+      cefrTargetLevel: 'none',
+      cefrColorsEnabled: true,
+      cefrColorA1: '#4ade80', // Verde Claro
+      cefrColorA2: '#22d3ee', // Ciano
+      cefrColorB1: '#facc15', // Amarelo
+      cefrColorB2: '#fb923c', // Laranja
+      cefrColorC1: '#f472b6', // Rosa
+      cefrColorC2: '#c084fc', // Roxo
+    };
 
-        this._init();
+    this._init();
+  }
+
+  async _init() {
+    try {
+      const saved = await readAllSettings();
+      this.cfg = { ...this.cfg, ...saved };
+    } catch (e) {
+      console.debug('[SettingsPanel] Could not read settings, using defaults:', e.message);
     }
-
-    async _init() {
-        const saved = await readAllSettings();
-        this.cfg = { ...this.cfg, ...saved };
-        this._buildDOM();
-        this._attachListeners();
-        this._applyToEngine();
-        if (!document.getElementById('linguaflow-subtitle-host')) {
-            setTimeout(() => this._applyToEngine(), 1000);
-            setTimeout(() => this._applyToEngine(), 3000);
-        }
+    this._attachListeners();
+    this._applyToEngine();
+    if (!document.getElementById('linguaflow-subtitle-host')) {
+      setTimeout(() => this._applyToEngine(), 1000);
+      setTimeout(() => this._applyToEngine(), 3000);
     }
+  }
 
-    _buildDOM() {
-        this.host = document.createElement('div');
-        this.host.id = 'lf-settings-host';
-        Object.assign(this.host.style, {
-            position: 'fixed', top: '0', left: '0',
-            width: '100%', height: '100%',
-            zIndex: '2147483648', pointerEvents: 'none',
-        });
+  _buildDOM() {
+    this.host = document.createElement('div');
+    this.host.id = 'lf-settings-host';
+    Object.assign(this.host.style, {
+      position: 'fixed',
+      top: '0',
+      left: '0',
+      width: '100%',
+      height: '100%',
+      zIndex: '2147483648',
+      pointerEvents: 'none',
+    });
 
-        this.shadow = this.host.attachShadow({ mode: 'open' });
-        this.shadow.innerHTML = this._html();
-        document.body.appendChild(this.host);
+    this.shadow = this.host.attachShadow({ mode: 'open' });
+    this.shadow.innerHTML = this._html();
+    document.body.appendChild(this.host);
 
-        const s = this.shadow;
+    const s = this.shadow;
 
-        // Preenche valores
-        s.getElementById('sel-lang').value          = this.cfg.targetLang;
-        s.getElementById('sel-mode').value          = this.cfg.subtitleMode;
-        s.getElementById('sel-autopause').value     = this.cfg.autoPause ? 'on' : 'off';
-        s.getElementById('rng-font').value          = this.cfg.fontSize;
-        s.getElementById('rng-font-trans').value    = this.cfg.fontSizeTrans;
-        s.getElementById('rng-bg').value            = Math.round(this.cfg.bgOpacity * 100);
-        s.getElementById('rng-position').value      = this.cfg.subtitleBottom;
-        s.getElementById('rng-horizontal').value    = this.cfg.subtitleHorizontal;
-        s.getElementById('rng-delay').value         = this.cfg.translationDelay;
-        // No YouTube, slider de antecipação sempre 0
-        s.getElementById('rng-anticipation').value  = this.cfg.translationAnticipation;
-        s.getElementById('rng-flash').value         = this.cfg.flashDuration;
-        s.getElementById('col-known').value         = this.cfg.wordColorKnown;
-        s.getElementById('col-saved').value         = this.cfg.wordColorSaved;
-        
-        s.getElementById('sel-font-family').value   = this.cfg.fontFamily;
-        s.getElementById('sel-palette').value       = this.cfg.colorPalette;
-        s.getElementById('sel-tts-speed').value     = this.cfg.ttsPlaybackRate;
-        s.getElementById('sel-popup-mode').value    = this.cfg.popupMode;
-        s.getElementById('sel-blur').value          = this.cfg.blurSubtitles ? 'on' : 'off';
-        s.getElementById('sel-cefr-level').value    = this.cfg.cefrTargetLevel;
-        s.getElementById('sel-cefr-colors').value   = this.cfg.cefrColorsEnabled ? 'on' : 'off';
+    // Preenche valores
+    s.getElementById('sel-lang').value = this.cfg.targetLang;
+    s.getElementById('sel-mode').value = this.cfg.subtitleMode;
+    s.getElementById('sel-autopause').value = this.cfg.autoPause ? 'on' : 'off';
+    s.getElementById('rng-font').value = this.cfg.fontSize;
+    s.getElementById('rng-font-trans').value = this.cfg.fontSizeTrans;
+    s.getElementById('rng-bg').value = Math.round(this.cfg.bgOpacity * 100);
+    s.getElementById('rng-position').value = this.cfg.subtitleBottom;
+    s.getElementById('rng-horizontal').value = this.cfg.subtitleHorizontal;
+    s.getElementById('rng-delay').value = this.cfg.translationDelay;
+    // No YouTube, slider de antecipação sempre 0
+    s.getElementById('rng-anticipation').value = this.cfg.translationAnticipation;
+    s.getElementById('rng-flash').value = this.cfg.flashDuration;
+    s.getElementById('col-known').value = this.cfg.wordColorKnown;
+    s.getElementById('col-saved').value = this.cfg.wordColorSaved;
 
-        s.getElementById('val-font').textContent        = `${this.cfg.fontSize}px`;
-        s.getElementById('val-font-trans').textContent  = `${this.cfg.fontSizeTrans}px`;
-        s.getElementById('val-bg').textContent          = `${Math.round(this.cfg.bgOpacity * 100)}%`;
-        s.getElementById('val-position').textContent    = `${this.cfg.subtitleBottom}px`;
-        s.getElementById('val-horizontal').textContent  = `${this.cfg.subtitleHorizontal}%`;
-        s.getElementById('val-delay').textContent       = `${this.cfg.translationDelay}s`;
-        // No YouTube, sempre mostra 0s no slider de antecipação
-        s.getElementById('val-anticipation').textContent = `${this.cfg.translationAnticipation}s`;
-        s.getElementById('val-flash').textContent       = `${this.cfg.flashDuration}s`;
+    s.getElementById('sel-font-family').value = this.cfg.fontFamily;
+    s.getElementById('sel-palette').value = this.cfg.colorPalette;
+    s.getElementById('sel-tts-speed').value = this.cfg.ttsPlaybackRate;
+    s.getElementById('sel-popup-mode').value = this.cfg.popupMode;
+    s.getElementById('sel-blur').value = this.cfg.blurSubtitles ? 'on' : 'off';
+    s.getElementById('sel-cefr-level').value = this.cfg.cefrTargetLevel;
+    s.getElementById('sel-cefr-colors').value = this.cfg.cefrColorsEnabled ? 'on' : 'off';
 
-        // Handlers
-        s.getElementById('btn-close').onclick  = () => this.close();
-        s.getElementById('overlay').onclick    = e => { if (e.target === s.getElementById('overlay')) this.close(); };
+    s.getElementById('val-font').textContent = `${this.cfg.fontSize}px`;
+    s.getElementById('val-font-trans').textContent = `${this.cfg.fontSizeTrans}px`;
+    s.getElementById('val-bg').textContent = `${Math.round(this.cfg.bgOpacity * 100)}%`;
+    s.getElementById('val-position').textContent = `${this.cfg.subtitleBottom}px`;
+    s.getElementById('val-horizontal').textContent = `${this.cfg.subtitleHorizontal}%`;
+    s.getElementById('val-delay').textContent = `${this.cfg.translationDelay}s`;
+    // No YouTube, sempre mostra 0s no slider de antecipação
+    s.getElementById('val-anticipation').textContent = `${this.cfg.translationAnticipation}s`;
+    s.getElementById('val-flash').textContent = `${this.cfg.flashDuration}s`;
 
-        s.getElementById('sel-lang').onchange = e => this._save('targetLang', e.target.value);
-        s.getElementById('sel-mode').onchange = e => this._save('subtitleMode', e.target.value);
+    // Handlers
+    s.getElementById('btn-close').onclick = () => this.close();
+    s.getElementById('overlay').onclick = (e) => {
+      if (e.target === s.getElementById('overlay')) this.close();
+    };
 
-        s.getElementById('sel-autopause').onchange = e => {
-            const val = e.target.value === 'on';
-            this._save('autoPause', val);
-            window.dispatchEvent(new CustomEvent('LF_UPDATE_AUTOPAUSE', { detail: val }));
-        };
-        s.getElementById('sel-blur').onchange = e => {
-            const val = e.target.value === 'on';
-            this._save('blurSubtitles', val);
-        };
-        s.getElementById('sel-font-family').onchange = e => this._save('fontFamily', e.target.value);
-        s.getElementById('sel-palette').onchange = e => this._save('colorPalette', e.target.value);
-        s.getElementById('sel-tts-speed').onchange = e => this._save('ttsPlaybackRate', parseFloat(e.target.value));
-        s.getElementById('sel-popup-mode').onchange = e => this._save('popupMode', e.target.value);
-        s.getElementById('sel-cefr-level').onchange = e => this._save('cefrTargetLevel', e.target.value);
-        
+    s.getElementById('sel-lang').onchange = (e) => this._save('targetLang', e.target.value);
+    s.getElementById('sel-mode').onchange = (e) => this._save('subtitleMode', e.target.value);
 
-        s.getElementById('sel-cefr-colors').onchange = e => {
-            this._save('cefrColorsEnabled', e.target.value === 'on');
-        };
-        
+    s.getElementById('sel-autopause').onchange = (e) => {
+      const val = e.target.value === 'on';
+      this._save('autoPause', val);
+      window.dispatchEvent(new CustomEvent('LF_UPDATE_AUTOPAUSE', { detail: val }));
+    };
+    s.getElementById('sel-blur').onchange = (e) => {
+      const val = e.target.value === 'on';
+      this._save('blurSubtitles', val);
+    };
+    s.getElementById('sel-font-family').onchange = (e) => this._save('fontFamily', e.target.value);
+    s.getElementById('sel-palette').onchange = (e) => this._save('colorPalette', e.target.value);
+    s.getElementById('sel-tts-speed').onchange = (e) =>
+      this._save('ttsPlaybackRate', parseFloat(e.target.value));
+    s.getElementById('sel-popup-mode').onchange = (e) => this._save('popupMode', e.target.value);
+    s.getElementById('sel-cefr-level').onchange = (e) =>
+      this._save('cefrTargetLevel', e.target.value);
 
-        // Tamanho legenda original
-        s.getElementById('rng-font').oninput = e => {
-            const v = Number(e.target.value);
-            s.getElementById('val-font').textContent = `${v}px`;
-            this._save('fontSize', v);
-            // Aplica em tempo real
-            const host = document.getElementById('linguaflow-subtitle-host');
-            if (host) host.style.setProperty('--lf-font-size', `${v}px`);
-        };
+    s.getElementById('sel-cefr-colors').onchange = (e) => {
+      this._save('cefrColorsEnabled', e.target.value === 'on');
+    };
 
-        // Tamanho legenda tradução (NOVO)
-        s.getElementById('rng-font-trans').oninput = e => {
-            const v = Number(e.target.value);
-            s.getElementById('val-font-trans').textContent = `${v}px`;
-            this._save('fontSizeTrans', v);
-            // Aplica em tempo real
-            const host = document.getElementById('linguaflow-subtitle-host');
-            if (host) host.style.setProperty('--lf-font-size-trans', `${v}px`);
-        };
+    // Tamanho legenda original
+    s.getElementById('rng-font').oninput = (e) => {
+      const v = Number(e.target.value);
+      s.getElementById('val-font').textContent = `${v}px`;
+      this._save('fontSize', v);
+      // Aplica em tempo real
+      const host = document.getElementById('linguaflow-subtitle-host');
+      if (host) host.style.setProperty('--lf-font-size', `${v}px`);
+    };
 
-        s.getElementById('rng-bg').oninput = e => {
-            const v = e.target.value;
-            s.getElementById('val-bg').textContent = `${v}%`;
-            this._save('bgOpacity', v / 100);
-            const host = document.getElementById('linguaflow-subtitle-host');
-            if (host) host.style.setProperty('--lf-bg-opacity', v / 100);
-        };
+    // Tamanho legenda tradução (NOVO)
+    s.getElementById('rng-font-trans').oninput = (e) => {
+      const v = Number(e.target.value);
+      s.getElementById('val-font-trans').textContent = `${v}px`;
+      this._save('fontSizeTrans', v);
+      // Aplica em tempo real
+      const host = document.getElementById('linguaflow-subtitle-host');
+      if (host) host.style.setProperty('--lf-font-size-trans', `${v}px`);
+    };
 
-        s.getElementById('rng-position').oninput = e => {
-            const v = Number(e.target.value);
-            s.getElementById('val-position').textContent = `${v}px`;
-            this._save('subtitleBottom', v);
-            window.dispatchEvent(new CustomEvent('LF_UPDATE_POSITION', { detail: v }));
-        };
+    s.getElementById('rng-bg').oninput = (e) => {
+      const v = e.target.value;
+      s.getElementById('val-bg').textContent = `${v}%`;
+      this._save('bgOpacity', v / 100);
+      const host = document.getElementById('linguaflow-subtitle-host');
+      if (host) host.style.setProperty('--lf-bg-opacity', v / 100);
+    };
 
-        s.getElementById('rng-horizontal').oninput = e => {
-            const v = Number(e.target.value);
-            s.getElementById('val-horizontal').textContent = `${v}%`;
-            this._save('subtitleHorizontal', v);
-            window.dispatchEvent(new CustomEvent('LF_UPDATE_HORIZONTAL', { detail: v }));
-        };
+    s.getElementById('rng-position').oninput = (e) => {
+      const v = Number(e.target.value);
+      s.getElementById('val-position').textContent = `${v}px`;
+      this._save('subtitleBottom', v);
+      window.dispatchEvent(new CustomEvent('LF_UPDATE_POSITION', { detail: v }));
+    };
 
-        s.getElementById('rng-delay').oninput = e => {
-            const v = Number(e.target.value);
-            s.getElementById('val-delay').textContent = `${v}s`;
-            this._save('translationDelay', v);
-            window.dispatchEvent(new CustomEvent('LF_UPDATE_DELAY', { detail: v }));
-        };
+    s.getElementById('rng-horizontal').oninput = (e) => {
+      const v = Number(e.target.value);
+      s.getElementById('val-horizontal').textContent = `${v}%`;
+      this._save('subtitleHorizontal', v);
+      window.dispatchEvent(new CustomEvent('LF_UPDATE_HORIZONTAL', { detail: v }));
+    };
 
-        s.getElementById('rng-anticipation').oninput = e => {
-            const v = Number(e.target.value);
-            s.getElementById('val-anticipation').textContent = `${v}s`;
-            this._save('translationAnticipation', v);
-            window.dispatchEvent(new CustomEvent('LF_UPDATE_ANTICIPATION', { detail: v }));
-        };
+    s.getElementById('rng-delay').oninput = (e) => {
+      const v = Number(e.target.value);
+      s.getElementById('val-delay').textContent = `${v}s`;
+      this._save('translationDelay', v);
+      window.dispatchEvent(new CustomEvent('LF_UPDATE_DELAY', { detail: v }));
+    };
 
-        // Tempo do flash de tradução (NOVO)
-        s.getElementById('rng-flash').oninput = e => {
-            const v = Number(e.target.value);
-            s.getElementById('val-flash').textContent = `${v}s`;
-            this._save('flashDuration', v);
-            window.dispatchEvent(new CustomEvent('LF_UPDATE_FLASH_DURATION', { detail: v }));
-        };
+    s.getElementById('rng-anticipation').oninput = (e) => {
+      const v = Number(e.target.value);
+      s.getElementById('val-anticipation').textContent = `${v}s`;
+      this._save('translationAnticipation', v);
+      window.dispatchEvent(new CustomEvent('LF_UPDATE_ANTICIPATION', { detail: v }));
+    };
 
-        s.getElementById('col-known').onchange = e => this._save('wordColorKnown', e.target.value);
-        s.getElementById('col-saved').onchange = e => this._save('wordColorSaved', e.target.value);
+    // Tempo do flash de tradução (NOVO)
+    s.getElementById('rng-flash').oninput = (e) => {
+      const v = Number(e.target.value);
+      s.getElementById('val-flash').textContent = `${v}s`;
+      this._save('flashDuration', v);
+      window.dispatchEvent(new CustomEvent('LF_UPDATE_FLASH_DURATION', { detail: v }));
+    };
 
-        s.getElementById('btn-save-settings').onclick = async () => {
-            const btn = s.getElementById('btn-save-settings');
-            btn.textContent = '✅ Salvo!';
-            btn.style.background = '#059669';
-            for (const [key, value] of Object.entries(this.cfg)) {
-                await writeSetting(key, value);
-            }
-            window.dispatchEvent(new CustomEvent('LF_SETTINGS_CHANGED'));
-            setTimeout(() => {
-                btn.textContent = '💾 Salvar Configurações';
-                btn.style.background = '#10B981';
-            }, 2000);
-        };
+    s.getElementById('col-known').onchange = (e) => this._save('wordColorKnown', e.target.value);
+    s.getElementById('col-saved').onchange = (e) => this._save('wordColorSaved', e.target.value);
 
-        s.getElementById('btn-export-data').onclick = () => {
-            window.open(chrome.runtime.getURL('dashboard/dashboard.html'), '_blank');
-        };
-    }
+    s.getElementById('btn-save-settings').onclick = async () => {
+      const btn = s.getElementById('btn-save-settings');
+      btn.textContent = '✅ Salvo!';
+      btn.style.background = '#059669';
+      for (const [key, value] of Object.entries(this.cfg)) {
+        await writeSetting(key, value);
+      }
+      window.dispatchEvent(new CustomEvent('LF_SETTINGS_CHANGED'));
+      setTimeout(() => {
+        btn.textContent = '💾 Salvar Configurações';
+        btn.style.background = '#10B981';
+      }, 2000);
+    };
 
-    _html() {
-        return `
+    s.getElementById('btn-export-data').onclick = () => {
+      window.open(chrome.runtime.getURL('dashboard/dashboard.html'), '_blank');
+    };
+  }
+
+  _html() {
+    return `
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap');
             @import url('https://fonts.cdnfonts.com/css/opendyslexic');
@@ -245,8 +283,8 @@ export class SettingsPanel {
                 pointer-events: auto; justify-content: flex-end;
             }
             .panel {
-                width: 420px; height: 100%; 
-                background: rgba(10, 22, 40, 0.75); 
+                width: 420px; height: 100%;
+                background: rgba(10, 22, 40, 0.75);
                 backdrop-filter: blur(24px) saturate(160%);
                 -webkit-backdrop-filter: blur(24px) saturate(160%);
                 color: #F1F5F9; font-family: 'Inter', sans-serif;
@@ -574,97 +612,105 @@ export class SettingsPanel {
                 </div>
             </div>
         </div>`;
+  }
+
+  _attachListeners() {
+    document.addEventListener('keydown', (e) => {
+      if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+      if (e.key.toLowerCase() === 'o') this.toggle();
+    });
+    window.addEventListener('LF_TOGGLE_SETTINGS', () => this.toggle());
+
+    // Atualiza preview em tempo real quando sliders de fonte mudam
+    const s = this.shadow;
+    s.getElementById('rng-font').addEventListener('input', (e) => {
+      const v = e.target.value;
+      s.getElementById('preview-orig').style.fontSize = `${v}px`;
+    });
+    s.getElementById('rng-font-trans').addEventListener('input', (e) => {
+      const v = e.target.value;
+      s.getElementById('preview-trans').style.fontSize = `${v}px`;
+    });
+
+    // Escuta evento de flash duration do engine
+    window.addEventListener('LF_UPDATE_FLASH_DURATION', (e) => {
+      if (this.engine) this.engine.flashDuration = e.detail;
+    });
+  }
+
+  toggle() {
+    if (!this.shadow) return;
+    this.isOpen ? this.close() : this.open();
+  }
+  open() {
+    if (!this.shadow) return;
+    this.isOpen = true;
+    this.shadow.getElementById('overlay').style.display = 'flex';
+  }
+  close() {
+    if (!this.shadow) return;
+    this.isOpen = false;
+    this.shadow.getElementById('overlay').style.display = 'none';
+  }
+
+  async _save(key, value) {
+    this.cfg[key] = value;
+    await writeSetting(key, value);
+    this._applyToEngine();
+  }
+
+  _applyToEngine() {
+    if (!this.engine) return;
+
+    this.engine.displayMode = this.cfg.subtitleMode;
+    this.engine.targetLang = this.cfg.targetLang;
+    this.engine.translationDelay = this.cfg.translationDelay;
+    // No YouTube, antecipação deve ser sempre 0 para sincronização perfeita
+    this.engine.translationAnticipation = this.cfg.translationAnticipation;
+    this.engine.autoPause = this.cfg.autoPause;
+    this.engine.flashDuration = this.cfg.flashDuration;
+
+    this.engine.cefrColorsEnabled = this.cfg.cefrColorsEnabled;
+
+    // Passar cores do CEFR para a engine
+    this.engine.cefrColors = {
+      A1: this.cfg.cefrColorA1,
+      A2: this.cfg.cefrColorA2,
+      B1: this.cfg.cefrColorB1,
+      B2: this.cfg.cefrColorB2,
+      C1: this.cfg.cefrColorC1,
+      C2: this.cfg.cefrColorC2,
+    };
+    this.engine.blurSubtitles = this.cfg.blurSubtitles;
+    this.engine.ttsPlaybackRate = this.cfg.ttsPlaybackRate;
+    this.engine.popupMode = this.cfg.popupMode;
+
+    const host = document.getElementById('linguaflow-subtitle-host');
+    if (host) {
+      host.style.setProperty('--lf-font-size', `${this.cfg.fontSize}px`);
+      host.style.setProperty('--lf-font-size-trans', `${this.cfg.fontSizeTrans}px`);
+      host.style.setProperty('--lf-bg-opacity', this.cfg.bgOpacity);
+      host.style.setProperty('--lf-font-family', this.cfg.fontFamily);
+
+      // Applica Cores Baseadas na Paleta
+      let colKnown = this.cfg.wordColorKnown;
+      let colSaved = this.cfg.wordColorSaved;
+
+      if (this.cfg.colorPalette === 'Pastel') {
+        colKnown = '#bbf7d0'; // Verde Pastel
+        colSaved = '#bae6fd'; // Azul Pastel
+      } else if (this.cfg.colorPalette === 'Colorblind') {
+        colKnown = '#60a5fa'; // Azul (para daltônicos verem que já sabem)
+        colSaved = '#fb923c'; // Laranja (foco/estudando)
+      }
+
+      host.style.setProperty('--lf-color-known', colKnown);
+      host.style.setProperty('--lf-color-saved', colSaved);
+      host.style.bottom = `${this.cfg.subtitleBottom}px`;
+      host.style.left = `${this.cfg.subtitleHorizontal}%`;
+      host.style.transform = `translateX(-${this.cfg.subtitleHorizontal}%)`;
+    } else {
+      setTimeout(() => this._applyToEngine(), 1000);
     }
-
-    _attachListeners() {
-        document.addEventListener('keydown', e => {
-            if (['INPUT','TEXTAREA'].includes(e.target.tagName)) return;
-            if (e.key.toLowerCase() === 'o') this.toggle();
-        });
-        window.addEventListener('LF_TOGGLE_SETTINGS', () => this.toggle());
-
-        // Atualiza preview em tempo real quando sliders de fonte mudam
-        const s = this.shadow;
-        s.getElementById('rng-font').addEventListener('input', e => {
-            const v = e.target.value;
-            s.getElementById('preview-orig').style.fontSize = `${v}px`;
-        });
-        s.getElementById('rng-font-trans').addEventListener('input', e => {
-            const v = e.target.value;
-            s.getElementById('preview-trans').style.fontSize = `${v}px`;
-        });
-
-        // Escuta evento de flash duration do engine
-        window.addEventListener('LF_UPDATE_FLASH_DURATION', e => {
-            if (this.engine) this.engine.flashDuration = e.detail;
-        });
-    }
-
-    toggle() {
-        if (!this.shadow) return;
-        this.isOpen ? this.close() : this.open();
-    }
-    open()   { if (!this.shadow) return; this.isOpen = true;  this.shadow.getElementById('overlay').style.display = 'flex'; }
-    close()  { if (!this.shadow) return; this.isOpen = false; this.shadow.getElementById('overlay').style.display = 'none'; }
-
-    async _save(key, value) {
-        this.cfg[key] = value;
-        await writeSetting(key, value);
-        this._applyToEngine();
-    }
-
-    _applyToEngine() {
-        if (!this.engine) return;
-
-        this.engine.displayMode              = this.cfg.subtitleMode;
-        this.engine.targetLang               = this.cfg.targetLang;
-        this.engine.translationDelay         = this.cfg.translationDelay;
-        // No YouTube, antecipação deve ser sempre 0 para sincronização perfeita
-        this.engine.translationAnticipation  = this.cfg.translationAnticipation;
-        this.engine.autoPause                = this.cfg.autoPause;
-        this.engine.flashDuration            = this.cfg.flashDuration;
-
-        this.engine.cefrColorsEnabled        = this.cfg.cefrColorsEnabled;
-        
-        // Passar cores do CEFR para a engine
-        this.engine.cefrColors = {
-            A1: this.cfg.cefrColorA1,
-            A2: this.cfg.cefrColorA2,
-            B1: this.cfg.cefrColorB1,
-            B2: this.cfg.cefrColorB2,
-            C1: this.cfg.cefrColorC1,
-            C2: this.cfg.cefrColorC2
-        };
-        this.engine.blurSubtitles            = this.cfg.blurSubtitles;
-        this.engine.ttsPlaybackRate          = this.cfg.ttsPlaybackRate;
-        this.engine.popupMode                = this.cfg.popupMode;
-
-        const host = document.getElementById('linguaflow-subtitle-host');
-        if (host) {
-            host.style.setProperty('--lf-font-size',       `${this.cfg.fontSize}px`);
-            host.style.setProperty('--lf-font-size-trans', `${this.cfg.fontSizeTrans}px`);
-            host.style.setProperty('--lf-bg-opacity',      this.cfg.bgOpacity);
-            host.style.setProperty('--lf-font-family',     this.cfg.fontFamily);
-            
-            // Applica Cores Baseadas na Paleta
-            let colKnown = this.cfg.wordColorKnown;
-            let colSaved = this.cfg.wordColorSaved;
-            
-            if (this.cfg.colorPalette === 'Pastel') {
-                colKnown = '#bbf7d0'; // Verde Pastel
-                colSaved = '#bae6fd'; // Azul Pastel
-            } else if (this.cfg.colorPalette === 'Colorblind') {
-                colKnown = '#60a5fa'; // Azul (para daltônicos verem que já sabem)
-                colSaved = '#fb923c'; // Laranja (foco/estudando)
-            }
-            
-            host.style.setProperty('--lf-color-known',     colKnown);
-            host.style.setProperty('--lf-color-saved',     colSaved);
-            host.style.bottom    = `${this.cfg.subtitleBottom}px`;
-            host.style.left      = `${this.cfg.subtitleHorizontal}%`;
-            host.style.transform = `translateX(-${this.cfg.subtitleHorizontal}%)`;
-        } else {
-            setTimeout(() => this._applyToEngine(), 1000);
-        }
-    }
+  }
 }

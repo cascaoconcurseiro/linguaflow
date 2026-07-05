@@ -2804,19 +2804,10 @@ async function init() {
         return;
       }
 
-      document.getElementById('lf-cloud-status').textContent = 'Sincronizando...';
-      try {
-        const uploaded = await supabaseAuth.syncUp(lfDb);
-        const downloaded = await supabaseAuth.syncDown(lfDb);
-        const upTotal = (uploaded.words || 0) + (uploaded.cards || 0);
-        const downTotal = (downloaded.words || 0) + (downloaded.sentences || 0);
-        if (upTotal > 0 || downTotal > 0) {
-          showToast(`Sincronizado: +${upTotal}↑ +${downTotal}↓`, 'info');
-        }
-      } catch (e) {
-        /* offline */
-      }
+      // Sync em background — não bloqueia o dashboard
       document.getElementById('lf-cloud-status').textContent = 'Conectado';
+      supabaseAuth.syncUp(lfDb).catch(() => {});
+      supabaseAuth.syncDown(lfDb).catch(() => {});
       document.getElementById('lf-cloud-login-btn').textContent = '☁️ Sair';
       document.getElementById('lf-cloud-login-btn').onclick = async () => {
         await supabaseAuth.logout();

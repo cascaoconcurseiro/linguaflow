@@ -44,16 +44,7 @@ export function getDefaultSettings(): SRSettings {
 /** Lê settings do Supabase (se logado), fallback para defaults */
 export async function getUserSettings(supabase: any): Promise<SRSettings> {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { ...DEFAULT_SETTINGS };
-    const { data } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('user_id', user.id)
-      .eq('key', 'srs')
-      .single();
+    const { data } = await supabase.from('settings').select('value').eq('key', 'srs').maybeSingle();
     if (data?.value) {
       const s = data.value;
       return {

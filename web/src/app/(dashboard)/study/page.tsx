@@ -81,7 +81,7 @@ export default function StudyPage() {
     setError('');
     try {
       const due = await getCardsDue(50, deckId);
-      setCards(due);
+      setCards(due as any);
       setIndex(0);
       setStep(0);
       setSessionDone(0);

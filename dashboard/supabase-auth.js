@@ -120,178 +120,41 @@ export class SupabaseAuth {
   }
 
   async syncUp(db) {
-    if (!this.token) throw new Error('Não autenticado');
-
+    if (!this.token) return { words: 0 };
     const words = await db.getAllWords();
-    const cards = await db.getAllCards();
-    const reviewLogs = await db.getAllReviewLogs();
-    const sentences = await db.getAllSentences();
-
-    let synced = { words: 0, cards: 0, logs: 0, sentences: 0 };
-    const headers = {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${this.token}`,
-      apikey: SUPABASE_ANON_KEY,
-      Prefer: 'resolution=merge-duplicates',
-    };
-
-    // Upload words
-    for (const w of words) {
+    let synced = 0;
+    for (const w of words.slice(0, 50)) {
       try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/words?on_conflict=word,lang`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            word: w.word,
-            lang: w.lang || 'en',
-            translation: w.translation,
-            context_sentence: w.context_sentence,
-            phonetic: w.phonetic,
-            pronunciation_pt: w.pronunciation_pt,
-            level: w.level,
-            tags: w.tags,
-            chunks: w.chunks,
-            added_at: new Date(w.added_at).toISOString(),
-          }),
-        });
-        if (res.ok) synced.words++;
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 3000);
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/words`, {
+          method: 'POST', signal: ctrl.signal,
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.token}`, apikey: SUPABASE_ANON_KEY, Prefer: 'resolution=merge-duplicates' },
+          body: JSON.stringify({ word: w.word, lang: w.lang || 'en', translation: w.translation, context_sentence: w.context_sentence, added_at: new Date(w.added_at || Date.now()).toISOString() }),
+        }).finally(() => clearTimeout(t));
+        if (res.ok) synced++;
       } catch (_) {}
     }
-
-    // Upload cards (SRS state)
-    for (const c of cards) {
-      try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/cards?on_conflict=word_id`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            word: c.word,
-            lang: c.lang || 'en',
-            status: c.status,
-            interval: c.interval,
-            ease_factor: c.ease_factor,
-            learning_step: c.learning_step,
-            due_date: c.due_date ? new Date(c.due_date).toISOString() : null,
-            last_review: c.last_review ? new Date(c.last_review).toISOString() : null,
-            reps: c.reps || 0,
-            lapses: c.lapses || 0,
-            deck_id: c.deck_id || 1,
-          }),
-        });
-        if (res.ok) synced.cards++;
-      } catch (_) {}
-    }
-
-    // Upload review logs
-    for (const r of reviewLogs) {
-      try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/review_log`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            word: r.word,
-            lang: r.lang || 'en',
-            quality: r.quality,
-            elapsed_ms: r.elapsed_ms,
-            reviewed_at: new Date(r.reviewed_at || Date.now()).toISOString(),
-          }),
-        });
-        if (res.ok) synced.logs++;
-      } catch (_) {}
-    }
-
-    // Upload sentences
-    for (const s of sentences) {
-      try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/sentences`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            text: s.text,
-            translation: s.translation,
-            source_url: s.source_url,
-            source_title: s.source_title,
-            saved_at: new Date(s.saved_at || Date.now()).toISOString(),
-          }),
-        });
-        if (res.ok) synced.sentences++;
-      } catch (_) {}
-    }
-
-    return synced;
+    return { words: synced };
   }
 
   async syncDown(db) {
-    if (!this.token) throw new Error('Não autenticado');
-
-    const headers = { Authorization: `Bearer ${this.token}`, apikey: SUPABASE_ANON_KEY };
-    let imported = { words: 0, sentences: 0 };
-
-    // Download words with cards
-    const wordsRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/words?select=*&order=added_at.desc&limit=500`,
-      { headers },
-    );
-    if (!wordsRes.ok) return imported;
-    const words = await wordsRes.json();
-
-    for (const w of words) {
-      try {
-        // Check if card exists for this word
-        const cardRes = await fetch(
-          `${SUPABASE_URL}/rest/v1/cards?select=*&word=eq.${encodeURIComponent(w.word)}&lang=eq.${w.lang || 'en'}&limit=1`,
-          { headers },
-        );
-        const cards = cardRes.ok ? await cardRes.json() : [];
-        const card = cards[0];
-
-        await db.saveWord({
-          word: w.word,
-          lang: w.lang || 'en',
-          translation: w.translation,
-          context_sentence: w.context_sentence,
-          phonetic: w.phonetic,
-          pronunciation_pt: w.pronunciation_pt,
-          level: w.level,
-          tags: w.tags,
-          chunks: w.chunks,
-          added_at: new Date(w.added_at).getTime(),
-          // Preserve SRS state from Supabase if available
-          status: card?.status || 'new',
-          interval: card?.interval || 0,
-          ease_factor: card?.ease_factor || 2.5,
-          learning_step: card?.learning_step || 0,
-          due_date: card?.due_date ? new Date(card.due_date).getTime() : Date.now(),
-          last_review: card?.last_review ? new Date(card.last_review).getTime() : null,
-          reps: card?.reps || 0,
-          lapses: card?.lapses || 0,
-        });
-        imported.words++;
-      } catch (_) {}
-    }
-
-    // Download sentences
-    const sentRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/sentences?select=*&order=saved_at.desc&limit=100`,
-      { headers },
-    );
-    if (sentRes.ok) {
-      const sentences = await sentRes.json();
-      for (const s of sentences) {
-        try {
-          await db.saveSentence({
-            text: s.text,
-            translation: s.translation,
-            source_url: s.source_url,
-            source_title: s.source_title,
-            saved_at: new Date(s.saved_at).getTime(),
-          });
-          imported.sentences++;
-        } catch (_) {}
+    if (!this.token) return { words: 0 };
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 5000);
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/words?select=*&order=added_at.desc&limit=100`, {
+        signal: ctrl.signal,
+        headers: { Authorization: `Bearer ${this.token}`, apikey: SUPABASE_ANON_KEY },
+      }).finally(() => clearTimeout(t));
+      if (!res.ok) return { words: 0 };
+      const words = await res.json();
+      let imported = 0;
+      for (const w of words) {
+        try { await db.saveWord({ word: w.word, lang: w.lang || 'en', translation: w.translation, context_sentence: w.context_sentence, added_at: new Date(w.added_at).getTime() }); imported++; } catch (_) {}
       }
-    }
-
-    return imported;
+      return { words: imported };
+    } catch (_) { return { words: 0 }; }
   }
 }
 

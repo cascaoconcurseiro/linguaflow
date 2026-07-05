@@ -8,8 +8,6 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
-    <!-- JSZip para exportação .apkg -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <link rel="stylesheet" href="design-v3.css" />
   </head>
   <body>
@@ -999,20 +997,7 @@
     >
       🌓
     </button>
-    <script>
-      (function () {
-        const t = document.getElementById('themeToggle');
-        const s = localStorage.getItem('lf-theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', s);
-        t.textContent = s === 'light' ? '🌙' : '☀️';
-        t.addEventListener('click', () => {
-          const n =
-            document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-          document.documentElement.setAttribute('data-theme', n);
-          localStorage.setItem('lf-theme', n);
-          t.textContent = n === 'light' ? '🌙' : '☀️';
-        });
-      })();
-    </script>
+    <script type="module" src="supabase-auth.js"></script>
+    <script type="module" src="dashboard.js"></script>
   </body>
 </html>

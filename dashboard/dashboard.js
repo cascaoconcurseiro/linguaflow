@@ -55,7 +55,8 @@ function showLoginScreen(supabaseAuth) {
 
   const screen = document.createElement('div');
   screen.id = 'lf-login-screen';
-  screen.style.cssText = 'position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;';
+  screen.style.cssText =
+    'position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;';
   screen.innerHTML = `
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px;width:100%;max-width:380px;text-align:center">
       <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:24px">
@@ -74,27 +75,40 @@ function showLoginScreen(supabaseAuth) {
 
   const errEl = document.getElementById('lf-login-error');
   const msgEl = document.getElementById('lf-login-msg');
-  const showErr = (m) => { errEl.textContent = m; errEl.style.display = 'block'; };
+  const showErr = (m) => {
+    errEl.textContent = m;
+    errEl.style.display = 'block';
+  };
 
   document.getElementById('lf-login-btn').onclick = async () => {
     const email = document.getElementById('lf-login-email').value;
     const pass = document.getElementById('lf-login-pass').value;
-    if (!email || !pass) { showErr('Preencha email e senha'); return; }
+    if (!email || !pass) {
+      showErr('Preencha email e senha');
+      return;
+    }
     try {
       await supabaseAuth.login(email, pass);
       location.reload();
-    } catch (e) { showErr(e.message); }
+    } catch (e) {
+      showErr(e.message);
+    }
   };
 
   document.getElementById('lf-register-btn').onclick = async () => {
     const email = document.getElementById('lf-login-email').value;
     const pass = document.getElementById('lf-login-pass').value;
-    if (!email || !pass || pass.length < 6) { showErr('Senha deve ter no mínimo 6 caracteres'); return; }
+    if (!email || !pass || pass.length < 6) {
+      showErr('Senha deve ter no mínimo 6 caracteres');
+      return;
+    }
     try {
       await supabaseAuth.register(email, pass);
       msgEl.textContent = '✅ Conta criada! Agora clique em Entrar.';
       msgEl.style.color = 'var(--green)';
-    } catch (e) { showErr(e.message); }
+    } catch (e) {
+      showErr(e.message);
+    }
   };
 }
 

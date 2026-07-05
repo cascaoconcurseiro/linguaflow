@@ -16,28 +16,32 @@ export class SupabaseAuth {
   }
 
   async init() {
-    // Tenta restaurar sessão do chrome.storage.local
     const stored = await chrome.storage.local.get('lf_supabase_session');
     if (stored.lf_supabase_session) {
       try {
         const { session, user } = JSON.parse(stored.lf_supabase_session);
-        // Verifica se o token ainda é válido
+        // Timeout de 5s pra não travar o dashboard
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 5000);
         const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
           headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_ANON_KEY },
-        });
+          signal: ctrl.signal,
+        }).finally(() => clearTimeout(timer));
         if (res.ok) {
           this.session = session;
           this.user = user;
           this.token = session.access_token;
           return true;
         }
-        // Token expirado — tenta refresh
         if (session.refresh_token) {
+          const ctrl2 = new AbortController();
+          const timer2 = setTimeout(() => ctrl2.abort(), 5000);
           const refreshRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
             body: JSON.stringify({ refresh_token: session.refresh_token }),
-          });
+            signal: ctrl2.signal,
+          }).finally(() => clearTimeout(timer2));
           if (refreshRes.ok) {
             const newSession = await refreshRes.json();
             this.session = newSession;

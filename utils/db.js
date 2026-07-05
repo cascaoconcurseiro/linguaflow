@@ -173,11 +173,15 @@ class Database {
           resolve({ ok: true, id: wordId, isNew: !existing });
 
           // Sync direto pro Supabase (sem esperar)
-          chrome.runtime.sendMessage({
-            type: 'SYNC_TO_SUPABASE',
-            word: word, translation: wordData.translation,
-            context: wordData.context_sentence, deckId: wordData.deck_id,
-          }).catch(() => {});
+          chrome.runtime
+            .sendMessage({
+              type: 'SYNC_TO_SUPABASE',
+              word: word,
+              translation: wordData.translation,
+              context: wordData.context_sentence,
+              deckId: wordData.deck_id,
+            })
+            .catch(() => {});
         };
       };
       tx.onerror = () => reject(tx.error);
@@ -591,12 +595,37 @@ class Database {
       if (!token) return;
       const word = await this.getWordById(card.word_id);
       const SUPABASE_URL = 'https://qnutoswrufznztoznlql.supabase.co';
-      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudXRvc3dydWZ6bnp0b3pubHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNzIyODEsImV4cCI6MjA5ODc0ODI4MX0.MdtBZwBnqNDpZ5nTytZDzNFKxHxd1rLmi6wT2MfV-0s';
-      const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON_KEY, Prefer: 'resolution=merge-duplicates' };
+      const SUPABASE_ANON_KEY =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudXRvc3dydWZ6bnp0b3pubHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNzIyODEsImV4cCI6MjA5ODc0ODI4MX0.MdtBZwBnqNDpZ5nTytZDzNFKxHxd1rLmi6wT2MfV-0s';
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        apikey: SUPABASE_ANON_KEY,
+        Prefer: 'resolution=merge-duplicates',
+      };
       if (word) {
-        await fetch(`${SUPABASE_URL}/rest/v1/words?on_conflict=word,lang`, { method: 'POST', headers, body: JSON.stringify({ word: word.word, lang: word.lang || 'en', translation: word.translation, context_sentence: word.context_sentence, added_at: new Date(word.added_at || Date.now()).toISOString() }) });
+        await fetch(`${SUPABASE_URL}/rest/v1/words?on_conflict=word,lang`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            word: word.word,
+            lang: word.lang || 'en',
+            translation: word.translation,
+            context_sentence: word.context_sentence,
+            added_at: new Date(word.added_at || Date.now()).toISOString(),
+          }),
+        });
       }
-      await fetch(`${SUPABASE_URL}/rest/v1/review_log`, { method: 'POST', headers, body: JSON.stringify({ card_id: card.word_id, quality, date: new Date().toISOString().split('T')[0], ts: new Date().toISOString() }) });
+      await fetch(`${SUPABASE_URL}/rest/v1/review_log`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          card_id: card.word_id,
+          quality,
+          date: new Date().toISOString().split('T')[0],
+          ts: new Date().toISOString(),
+        }),
+      });
     } catch (_) {}
   }
 

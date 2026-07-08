@@ -77,8 +77,13 @@ class App {
       }
     });
 
-    // Clear root
-    this.root.innerHTML = '';
+    // Clear root and show loading state
+    this.root.innerHTML = `
+      <div style="display:flex;height:100%;width:100%;justify-content:center;align-items:center;flex-direction:column;color:var(--color-text-light);">
+        <div style="width:40px;height:40px;border:4px solid var(--color-border);border-top-color:var(--color-primary);border-radius:50%;animation:lf-spin 1s linear infinite;"></div>
+        <style>@keyframes lf-spin { to { transform: rotate(360deg); } }</style>
+      </div>
+    `;
 
     // Render corresponding view
     switch(route) {

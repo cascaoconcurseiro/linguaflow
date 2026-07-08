@@ -586,7 +586,7 @@ async function handleGrade(grade, app) {
   playFeedbackSound(isCorrect ? 'correct' : 'wrong');
 
   if (isCorrect) {
-    lfDb.addXp(10).catch(console.error); // Save to Supabase asynchronously
+    // XP is now automatically added by Supabase Trigger when logReview is called.
     
     // Fallback local for immediate UI or old logic
     const xp = parseInt(localStorage.getItem('lf_xp_today') || '0') + 10;

@@ -7,7 +7,7 @@ export async function renderLeagues(container, app) {
   // Ensure user has a profile
   const userStats = await lfDb.getUserStats();
   if (!userStats) {
-      await lfDb.addXp(0); // Will create the profile if missing
+      await lfDb.ensureUserStats(); // Will create the profile if missing via backend
   }
 
   let currentLeagueIndex = userStats ? (userStats.league_index || 0) : 0;

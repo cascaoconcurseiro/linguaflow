@@ -86,7 +86,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
           const result = await Promise.resolve(db[method](...(args || [])));
 
-          // Notificações automáticas para métodos de escrita
           const writeMethods = [
             'saveWord',
             'updateCard',
@@ -100,6 +99,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           if (writeMethods.includes(method)) {
             notifyDashboards(args[0]?.word || null);
             updateBadge();
+            
+            // Auto-trigger backfill se for saveWord
+            if (method === 'saveWord') {
+              setTimeout(backfillMissingSentences, 2000);
+            }
           }
           sendResponse({ result });
         } catch (error) {
@@ -1201,3 +1205,50 @@ async function syncWordToSupabase({ word, translation, context, deckId }) {
     return { synced: false, error: e.message };
   }
 }
+
+// ── Backfill de Frases com IA (Background Queue) ─────────────────────────────────
+let isBackfilling = false;
+
+async function backfillMissingSentences() {
+  if (isBackfilling) return;
+  isBackfilling = true;
+  try {
+    const config = await getApiConfig();
+    if (!config.apiKey && config.provider !== 'gemini') {
+      isBackfilling = false;
+      return;
+    }
+
+    const words = await db.getAllWords();
+    const missing = words.filter(w => w.category !== 'sentence' && (!w.context_sentence || w.context_sentence === w.word || w.context_sentence.trim() === ''));
+    
+    if (missing.length === 0) {
+      isBackfilling = false;
+      return;
+    }
+    console.debug(`[LinguaFlow] Iniciando geração automática de frases para ${missing.length} palavras no cofre...`);
+
+    for (const w of missing) {
+      try {
+        await new Promise(r => setTimeout(r, 6000)); // Espera 6s para respeitar limites da API (Rate Limit)
+        const chunks = await generateChunksWithAI(w.word);
+        if (chunks && chunks.length > 0) {
+          w.context_sentence = chunks[0].eng || chunks[0].ingles || chunks[0].english;
+          w.ai_chunks = JSON.stringify(chunks);
+          await db.saveWord(w);
+          console.debug(`[LinguaFlow] Auto-generated sentence for: ${w.word}`);
+          notifyDashboards(w.word);
+        }
+      } catch (e) {
+        console.warn(`[LinguaFlow] Failed to auto-generate for ${w.word}:`, e);
+      }
+    }
+    console.debug('[LinguaFlow] Geração automática de frases concluída!');
+  } catch (e) {
+    console.error('[LinguaFlow] Backfill error:', e);
+  } finally {
+    isBackfilling = false;
+  }
+}
+
+setTimeout(backfillMissingSentences, 10000);

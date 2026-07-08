@@ -1,50 +1,49 @@
+import { db as lfDb } from '../../utils/db.js';
+
 export async function renderLeagues(container, app) {
   // 1. Setup Data
   const leagues = ['Bronze', 'Prata', 'Ouro', 'Safira', 'Rubi', 'Diamante'];
-  let currentLeagueIndex = parseInt(localStorage.getItem('lf_league_index')) || 0;
-  let userWeeklyXp = parseInt(localStorage.getItem('lf_xp_week')) || parseInt(localStorage.getItem('lf_xp_today')) || 0;
   
+  // Ensure user has a profile
+  const userStats = await lfDb.getUserStats();
+  if (!userStats) {
+      await lfDb.addXp(0); // Will create the profile if missing
+  }
+
+  let currentLeagueIndex = userStats ? (userStats.league_index || 0) : 0;
   if (currentLeagueIndex >= leagues.length) currentLeagueIndex = leagues.length - 1;
   const currentLeague = leagues[currentLeagueIndex];
 
-  // 2. Generate Bots
-  let bots = [];
-  try {
-    bots = JSON.parse(localStorage.getItem('lf_league_bots'));
-  } catch(e) {}
+  // 2. Fetch Leaderboard from Supabase
+  const realUsers = await lfDb.getLeaderboard(currentLeagueIndex, 20);
   
-  if (!bots || bots.length < 20) {
-    bots = [];
-    const firstNames = [
-        'Ana', 'João', 'Maria', 'Pedro', 'Lucas', 'Julia', 'Carlos', 'Mariana', 
-        'Paulo', 'Fernanda', 'Rafael', 'Amanda', 'Diego', 'Beatriz', 'Luiz', 
-        'Camila', 'Bruno', 'Letícia', 'Thiago', 'Laura', 'Alex', 'Sam', 'Chris'
-    ];
-    for (let i = 0; i < 20; i++) {
-        // Bots have XP around the user's XP, some higher, some lower
-        let botXp = Math.max(0, userWeeklyXp + Math.floor((Math.random() - 0.5) * 500));
-        bots.push({
-            id: `bot_${i}`,
-            name: firstNames[Math.floor(Math.random() * firstNames.length)],
-            xp: botXp,
-            isUser: false
-        });
-    }
-    localStorage.setItem('lf_league_bots', JSON.stringify(bots));
-  } else {
-      // Simulate some bot progress over time
-      if (Math.random() > 0.5) {
-          bots.forEach(bot => {
-              if (Math.random() > 0.3) bot.xp += Math.floor(Math.random() * 50);
+  // Map real users to leaderboard format
+  const allEntries = realUsers.map(u => ({
+      id: u.user_id,
+      name: u.username || 'Estudante',
+      xp: u.xp_week || 0,
+      isUser: userStats && u.user_id === userStats.user_id
+  }));
+
+  // If there are less than 20 users, let's fill with some "ghost" bots for visual aesthetics
+  if (allEntries.length < 20) {
+      const firstNames = ['Ana', 'João', 'Maria', 'Pedro', 'Lucas', 'Julia', 'Carlos', 'Mariana', 'Paulo', 'Fernanda'];
+      const currentXP = userStats ? userStats.xp_week : 0;
+      
+      for (let i = allEntries.length; i < 20; i++) {
+          allEntries.push({
+              id: `bot_${i}`,
+              name: firstNames[Math.floor(Math.random() * firstNames.length)],
+              xp: Math.max(0, currentXP + Math.floor((Math.random() - 0.5) * 200)),
+              isUser: false
           });
-          localStorage.setItem('lf_league_bots', JSON.stringify(bots));
       }
   }
 
-  const userEntry = { id: 'user', name: 'Você', xp: userWeeklyXp, isUser: true };
-  const allEntries = [...bots, userEntry].sort((a, b) => b.xp - a.xp);
+  allEntries.sort((a, b) => b.xp - a.xp);
 
-  const userRank = allEntries.findIndex(e => e.id === 'user') + 1;
+  let userRank = allEntries.findIndex(e => e.isUser) + 1;
+  if (userRank === 0) userRank = allEntries.length; // Fallback if user somehow not in top 20
   
   // 3. Render CSS
   if (!document.getElementById('league-styles')) {
@@ -237,18 +236,18 @@ export async function renderLeagues(container, app) {
   // 4. Attach Events
   const btnSimulateEnd = container.querySelector('#btnSimulateEnd');
   if (btnSimulateEnd) {
-      btnSimulateEnd.addEventListener('click', () => {
+      btnSimulateEnd.addEventListener('click', async () => {
           if (userRank <= 5) {
               if (currentLeagueIndex < leagues.length - 1) {
-                  localStorage.setItem('lf_league_index', currentLeagueIndex + 1);
-                  app.showToast?.(`Parabéns! Você foi promovido para a Liga ${leagues[currentLeagueIndex + 1]}!`, 'success');
+                  currentLeagueIndex++;
+                  app.showToast?.(`Parabéns! Você foi promovido para a Liga ${leagues[currentLeagueIndex]}!`, 'success');
               } else {
                   app.showToast?.('Incrível! Você se manteve no topo da Liga Diamante!', 'success');
               }
           } else if (userRank >= allEntries.length - 4) { // Bottom 5
               if (currentLeagueIndex > 0) {
-                  localStorage.setItem('lf_league_index', currentLeagueIndex - 1);
-                  app.showToast?.(`Poxa! Você caiu para a Liga ${leagues[currentLeagueIndex - 1]}.`, 'error');
+                  currentLeagueIndex--;
+                  app.showToast?.(`Poxa! Você caiu para a Liga ${leagues[currentLeagueIndex]}.`, 'error');
               } else {
                    app.showToast?.('Você continua na Liga Bronze. Tente estudar mais na próxima semana!', 'info');
               }
@@ -256,9 +255,11 @@ export async function renderLeagues(container, app) {
               app.showToast?.(`Você permaneceu na Liga ${currentLeague}.`, 'info');
           }
           
-          // Reset week XP and bots
-          localStorage.setItem('lf_xp_week', '0');
-          localStorage.removeItem('lf_league_bots');
+          // Force UI transition (in a real backend, a cron job would run weekly to promote/demote)
+          if (userStats) {
+             const payload = { league_index: currentLeagueIndex, xp_week: 0 };
+             await lfDb._fetch(`user_stats?user_id=eq.${userStats.user_id}`, { method: 'PATCH', body: payload });
+          }
           
           // Re-render
           setTimeout(() => renderLeagues(container, app), 1500);

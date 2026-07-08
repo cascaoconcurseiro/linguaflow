@@ -739,6 +739,88 @@ class Database {
     return true; 
   }
 
+  // ── GAMIFICAÇÃO E ESTATÍSTICAS DO USUÁRIO ────────────────────────────────
+  async getUserStats() {
+    if (this.isProxyMode) return this._proxy('getUserStats', []);
+    const res = await this._fetch('user_stats?select=*&limit=1');
+    return res && res.length > 0 ? res[0] : null;
+  }
+
+  async getLeaderboard(leagueIndex = 0, limit = 20) {
+    if (this.isProxyMode) return this._proxy('getLeaderboard', [leagueIndex, limit]);
+    const res = await this._fetch(`user_stats?league_index=eq.${leagueIndex}&order=xp_week.desc&limit=${limit}`);
+    return res || [];
+  }
+
+  async addXp(amount) {
+    if (this.isProxyMode) return this._proxy('addXp', [amount]);
+    
+    // Busca stats atuais
+    let stats = await this.getUserStats();
+    
+    // Se não existir, tenta criar
+    if (!stats) {
+      const res = await this._fetch('user_stats', {
+        method: 'POST',
+        headers: { 'Prefer': 'return=representation' },
+        body: { xp_today: 0, xp_week: 0, xp_total: 0, streak: 0, league_index: 0 }
+      });
+      if (res && res.length > 0) stats = res[0];
+      else return { ok: false };
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const lastDate = stats.last_study_date;
+    
+    let { xp_today, xp_week, xp_total, streak } = stats;
+    
+    // Calcula reset de XP/Streak baseado na data
+    if (lastDate !== todayStr) {
+      xp_today = 0;
+      
+      const last = new Date(lastDate);
+      const today = new Date(todayStr);
+      const diffTime = Math.abs(today - last);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      // Se estudou ontem, aumenta a ofensiva. Se não, reseta.
+      if (diffDays === 1) {
+        streak += 1;
+      } else if (diffDays > 1) {
+        streak = 1;
+      }
+      
+      // Reset de semana (Segunda-feira)
+      if (today.getDay() === 1 && diffDays > 0) {
+        xp_week = 0;
+      }
+    } else {
+      // Já estudou hoje, a ofensiva se mantém (ou sobe pra 1 se estava 0)
+      if (streak === 0) streak = 1;
+    }
+
+    xp_today += amount;
+    xp_week += amount;
+    xp_total += amount;
+
+    const payload = {
+      xp_today,
+      xp_week,
+      xp_total,
+      streak,
+      last_study_date: todayStr,
+      updated_at: new Date().toISOString()
+    };
+
+    const res = await this._fetch(`user_stats?user_id=eq.${stats.user_id}`, {
+      method: 'PATCH',
+      headers: { 'Prefer': 'return=representation' },
+      body: payload
+    });
+
+    return { ok: !!res, stats: res?.[0] };
+  }
+
   async getCardByWordId(wordId) {
     if (this.isProxyMode) return this._proxy('getCardByWordId', [wordId]);
     const res = await this._fetch(`cards?word_id=eq.${wordId}&limit=1`);

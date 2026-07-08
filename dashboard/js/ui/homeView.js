@@ -3,9 +3,10 @@ export async function renderHome(container, app) {
 
     // Stats
     const stats = app && app.db ? await app.db.getStats() : { total: 0, due: 0, mature: 0, new: 0 };
-    const xpToday = parseInt(localStorage.getItem('lf_xp_today') || '0');
+    const userStats = app && app.db ? await app.db.getUserStats() : null;
+    const xpToday = userStats ? userStats.xp_today : parseInt(localStorage.getItem('lf_xp_today') || '0');
+    const streak = userStats ? userStats.streak : parseInt(localStorage.getItem('lf_streak') || '0');
 
-    // Quests
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const questKey = `lf_quests_${today}`;
     let quests = JSON.parse(localStorage.getItem(questKey) || 'null');
@@ -44,7 +45,7 @@ export async function renderHome(container, app) {
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon" style="color:#ff9600">🔥</div>
-                        <div class="stat-value" id="stat-streak">${localStorage.getItem('lf_streak') || 0}</div>
+                        <div class="stat-value" id="stat-streak">${streak}</div>
                         <div class="stat-label">Dias de Ofensiva</div>
                     </div>
                 </div>

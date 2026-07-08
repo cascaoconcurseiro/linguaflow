@@ -30,9 +30,24 @@ class App {
     if (!isAuthenticated) {
       this.navigate('login');
     } else {
+      // Update global stats
+      this.updateGlobalStats();
       // Load initial route
       this.navigate('home');
     }
+  }
+
+  async updateGlobalStats() {
+    const stats = await db.getUserStats();
+    if (stats) {
+       const streakEl = document.getElementById('streak-val');
+       if (streakEl) streakEl.textContent = stats.streak;
+    }
+    
+    // Also update due count
+    const dueCards = await db.getCardsDue(50, false);
+    const dueEl = document.getElementById('due-val');
+    if (dueEl) dueEl.textContent = dueCards.length;
   }
 
   navigate(route) {

@@ -586,8 +586,12 @@ async function handleGrade(grade, app) {
   playFeedbackSound(isCorrect ? 'correct' : 'wrong');
 
   if (isCorrect) {
+    lfDb.addXp(10).catch(console.error); // Save to Supabase asynchronously
+    
+    // Fallback local for immediate UI or old logic
     const xp = parseInt(localStorage.getItem('lf_xp_today') || '0') + 10;
     localStorage.setItem('lf_xp_today', xp);
+    
     consecutiveCorrect++;
     showXPAnimation('+10 XP');
     if (consecutiveCorrect === 5) app.showToast('🔥 5 em sequência! Continue!', 'info');

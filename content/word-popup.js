@@ -848,6 +848,8 @@ export class WordPopup {
     // Auto-carrega contexto
     if (this.context && !this._contextExplained) {
       this._explainContext(this.word, this.context);
+    } else if (!this.context) {
+      this._generateContext(this.word);
     }
   }
 
@@ -1162,16 +1164,7 @@ export class WordPopup {
         })
         .catch(() => {});
 
-      // Dispara sync com Supabase (background)
-      chrome.runtime
-        .sendMessage({
-          type: 'SYNC_TO_SUPABASE',
-          word: this.word,
-          translation: translation,
-          context: this.context,
-          deckId: this.activeDeck || deckId,
-        })
-        .catch(() => {});
+
 
       // Notifica dashboard diretamente
       chrome.runtime
@@ -1441,6 +1434,53 @@ export class WordPopup {
     } catch (e) {
       console.error('[WordPopup] Erro geral no contexto:', e);
       el.innerHTML = `<span style="color:#f87171;font-size:12px;">Erro interno ao carregar contexto.</span>`;
+    }
+  }
+
+  async _generateContext(word) {
+    const q = (s) => this._q(s);
+    const el = q('#fctxt');
+    const container = q('#fctx');
+
+    this._contextExplained = true;
+    container.style.display = '';
+
+    el.innerHTML =
+      '<span style="color:#94a3b8;font-size:12px;">Gerando frase natural com IA (sem contexto na origem)...</span>';
+
+    try {
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          {
+            action: 'ai_generate_sentence',
+            word: word,
+          },
+          (r) => {
+            if (chrome.runtime.lastError) resolve(null);
+            else resolve(r);
+          },
+        );
+      });
+
+      if (response?.sentence) {
+        // Save back so the user can save it in flashcards
+        this.context = response.sentence;
+        
+        el.innerHTML = `
+          <div style="background:rgba(56,189,248,0.1); border-left:3px solid #38bdf8; padding:8px; border-radius:4px; margin-bottom:8px;">
+            <b style="color:#38bdf8; font-size:13px;">🤖 Exemplo Gerado (IA)</b><br>
+            <span style="color:#cbd5e1; font-size:12px;">Como você salvou a palavra isolada, geramos um contexto real para você estudar:</span>
+          </div>
+          <b style="color:#e2e8f0; font-size: 15px;">"${response.sentence}"</b><br>
+          <span style="color:#94a3b8; font-size:13px; display:block; margin-top:4px;">${response.translation || ''}</span>
+        `;
+      } else {
+        el.innerHTML =
+          '<span style="color:#f87171;font-size:12px;">Falha ao gerar exemplo. Limite da IA atingido ou sem chave.</span>';
+      }
+    } catch (e) {
+      console.error('[WordPopup] Erro ao gerar contexto:', e);
+      el.innerHTML = `<span style="color:#f87171;font-size:12px;">Erro interno ao gerar contexto.</span>`;
     }
   }
 

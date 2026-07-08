@@ -1,105 +1,71 @@
-// utils/db.js — Banco único do LinguaFlow
-// Todos os módulos usam este arquivo. Sem chrome.storage para dados de aprendizado.
+// utils/db.js — Banco único do LinguaFlow (Cloud-Only)
+// Integração 100% direta com Supabase via REST API (sem IndexedDB local)
 
-const DB_NAME = 'LinguaFlowFreeDB';
-const DB_VERSION = 11;
+const SUPABASE_URL = 'https://qnutoswrufznztoznlql.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudXRvc3dydWZ6bnp0b3pubHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNzIyODEsImV4cCI6MjA5ODc0ODI4MX0.MdtBZwBnqNDpZ5nTytZDzNFKxHxd1rLmi6wT2MfV-0s';
 
 class Database {
   constructor() {
-    this.db = null;
-    // isProxyMode será verdadeiro apenas se estivermos em um Content Script (site externo)
-    this.isProxyMode =
-      typeof window !== 'undefined' && window.location.protocol !== 'chrome-extension:';
-
-    if (!this.isProxyMode) {
-      this.initPromise = this._open();
-    } else {
-      this.initPromise = Promise.resolve();
-      console.debug('[LinguaFlow DB] Operando em modo Proxy (Content Script)');
-    }
+    this.isProxyMode = typeof window !== 'undefined';
+    this.initPromise = Promise.resolve();
   }
 
-  async _open() {
-    if (this.db) return this.db;
-    return new Promise((resolve, reject) => {
-      console.debug('[LinguaFlow DB] Abrindo IndexedDB:', DB_NAME, 'v', DB_VERSION);
-      const req = indexedDB.open(DB_NAME, DB_VERSION);
-
-      req.onblocked = () => {
-        console.warn(
-          '[LinguaFlow DB] Upgrade bloqueado por outra aba aberta. Feche todas as abas da extensão e recarregue.',
-        );
-      };
-
-      req.onupgradeneeded = (e) => {
-        const idb = e.target.result;
-        console.debug('[LinguaFlow DB] Upgrade necessário v', e.oldVersion, '->', DB_VERSION);
-
-        if (!idb.objectStoreNames.contains('words')) {
-          const s = idb.createObjectStore('words', { keyPath: 'id', autoIncrement: true });
-          s.createIndex('word_lang', ['word', 'lang'], { unique: true });
-          s.createIndex('deck_id', 'deck_id', { unique: false });
-          s.createIndex('added_at', 'added_at', { unique: false });
-          s.createIndex('category', 'category', { unique: false });
-        }
-        if (!idb.objectStoreNames.contains('cards')) {
-          const s = idb.createObjectStore('cards', { keyPath: 'id', autoIncrement: true });
-          s.createIndex('word_id', 'word_id', { unique: true });
-          s.createIndex('due_date', 'due_date', { unique: false });
-          s.createIndex('status', 'status', { unique: false });
-        }
-        if (!idb.objectStoreNames.contains('decks'))
-          idb.createObjectStore('decks', { keyPath: 'id', autoIncrement: true });
-        if (!idb.objectStoreNames.contains('known_words'))
-          idb.createObjectStore('known_words', { keyPath: ['word', 'lang'] });
-        if (!idb.objectStoreNames.contains('sessions'))
-          idb.createObjectStore('sessions', { keyPath: 'date' });
-        if (!idb.objectStoreNames.contains('settings'))
-          idb.createObjectStore('settings', { keyPath: 'key' });
-        if (!idb.objectStoreNames.contains('sentences'))
-          idb.createObjectStore('sentences', { keyPath: 'id', autoIncrement: true });
-        if (!idb.objectStoreNames.contains('review_log')) {
-          const s = idb.createObjectStore('review_log', { keyPath: 'id', autoIncrement: true });
-          s.createIndex('date', 'date', { unique: false });
-        }
-
-        // Upgrade incremental: adicionar índice category na store words existente
-        if (e.oldVersion < 11) {
-          try {
-            const wordsStore = e.target.transaction.objectStore('words');
-            if (!wordsStore.indexNames.contains('category')) {
-              wordsStore.createIndex('category', 'category', { unique: false });
-            }
-          } catch(err) {
-            console.warn('[DB] Falha ao adicionar índice category:', err);
-          }
-        }
-      };
-
-      req.onsuccess = (e) => {
-        this.db = e.target.result;
-        this.db.onversionchange = () => {
-          this.db.close();
-          if (typeof window !== 'undefined' && window.location) {
-            console.debug('[LinguaFlow DB] Nova versão detectada. Recarregando...');
-            window.location.reload();
-          }
-        };
-        console.debug('[LinguaFlow DB] Banco aberto com sucesso');
-        resolve(this.db);
-      };
-      req.onerror = () => {
-        console.error('[LinguaFlow DB] Erro ao abrir banco:', req.error);
-        reject(req.error);
-      };
+  async _getToken() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get('lf_supabase_session', (res) => {
+        const sessionStr = res.lf_supabase_session;
+        if (!sessionStr) return resolve(null);
+        try {
+          const s = JSON.parse(sessionStr);
+          resolve(s?.session?.access_token || null);
+        } catch { resolve(null); }
+      });
     });
+  }
+
+  async _fetch(endpoint, options = {}) {
+    if (this.isProxyMode) {
+      return this._proxy('_fetch', [endpoint, options]);
+    }
+
+    const token = await this._getToken();
+    if (!token) {
+       console.warn('[DB] Sessão Supabase não encontrada. Operação cancelada:', endpoint);
+       return null;
+    }
+
+    const url = `${SUPABASE_URL}/rest/v1/${endpoint}`;
+    const headers = {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${token}`,
+      ...(options.headers || {})
+    };
+
+    if (options.body && typeof options.body !== 'string') {
+      options.body = JSON.stringify(options.body);
+      headers['Content-Type'] = 'application/json';
+    }
+
+    try {
+      const res = await fetch(url, { ...options, headers });
+      if (!res.ok) {
+        if (res.status === 204) return [];
+        const err = await res.text();
+        throw new Error(`[Supabase Error] ${res.status}: ${err}`);
+      }
+      if (res.status === 204) return [];
+      return await res.json();
+    } catch (e) {
+      console.error('[DB] Fetch Error:', e);
+      return null;
+    }
   }
 
   async _proxy(method, args) {
     if (!this.isProxyMode) return null;
     return new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {
-        console.error(`[LinguaFlow DB] Timeout na chamada ${method}. Service Worker travado.`);
+        console.error(`[LinguaFlow DB] Timeout na chamada ${method}.`);
         reject(new Error(`DB proxy timeout: ${method}`));
       }, 5000);
 
@@ -117,7 +83,7 @@ class Database {
           } else {
             resolve(response ? response.result : null);
           }
-        },
+        }
       );
     });
   }
@@ -125,180 +91,105 @@ class Database {
   // ── CONFIGURAÇÕES ─────────────────────────────────────────────────────────
   async getSetting(key) {
     if (this.isProxyMode) return this._proxy('getSetting', [key]);
-    const idb = await this.initPromise;
-    return new Promise((r) => {
-      const req = idb.transaction('settings', 'readonly').objectStore('settings').get(key);
-      req.onsuccess = () => r(req.result?.value);
-      req.onerror = () => r(null);
-    });
+    const res = await this._fetch(`settings?key=eq.${encodeURIComponent(key)}`);
+    return res && res.length > 0 ? res[0].value : null;
   }
 
   async setSetting(key, value) {
     if (this.isProxyMode) return this._proxy('setSetting', [key, value]);
-    const idb = await this.initPromise;
-    return new Promise((resolve, reject) => {
-      const req = idb
-        .transaction('settings', 'readwrite')
-        .objectStore('settings')
-        .put({ key, value });
-      req.onsuccess = () => resolve(true);
-      req.onerror = () => reject(req.error);
+    const res = await this._fetch('settings?on_conflict=user_id,key', {
+      method: 'POST',
+      headers: { 'Prefer': 'resolution=merge-duplicates,return=representation' },
+      body: { key, value }
     });
+    return !!res;
   }
 
   // ── PALAVRAS E CARDS ──────────────────────────────────────────────────────
   async saveWord(wordData) {
     if (this.isProxyMode) return this._proxy('saveWord', [wordData]);
-    const idb = await this.initPromise;
     const lang = wordData.lang || 'en';
     const word = (wordData.word || '').trim();
     if (!word) throw new Error('Word é obrigatório');
 
-    return new Promise((resolve, reject) => {
-      const tx = idb.transaction(['words', 'cards', 'decks'], 'readwrite');
-      const wordsStore = tx.objectStore('words');
-      const cardsStore = tx.objectStore('cards');
-
-      const checkReq = wordsStore.index('word_lang').get([word, lang]);
-      checkReq.onsuccess = () => {
-        const existing = checkReq.result;
-        const toSave = {
-          ...wordData,
-          word,
-          lang,
-          added_at: existing?.added_at || wordData.added_at || Date.now(),
-        };
-        if (existing) toSave.id = existing.id;
-
-        const wordReq = wordsStore.put(toSave);
-        wordReq.onsuccess = (e) => {
-          const wordId = e.target.result;
-          if (!existing) {
-            cardsStore.put({
-              word_id: wordId,
-              interval: 0,
-              ease_factor: 2.5,
-              due_date: Date.now(),
-              reps: 0,
-              status: 'new',
-            });
-          }
-          resolve({ ok: true, id: wordId, isNew: !existing });
-
-          // Sync direto pro Supabase (sem esperar)
-          chrome.runtime
-            .sendMessage({
-              type: 'SYNC_TO_SUPABASE',
-              word: word,
-              translation: wordData.translation,
-              context: wordData.context_sentence,
-              deckId: wordData.deck_id,
-            })
-            .catch(() => {});
-        };
-      };
-      tx.onerror = () => reject(tx.error);
+    const payload = {
+      word,
+      lang,
+      translation: wordData.translation,
+      context_sentence: wordData.context_sentence,
+      added_at: new Date(wordData.added_at || Date.now()).toISOString(),
+      deck_id: wordData.deck_id || null,
+      phonetic: wordData.phonetic || null,
+      tags: wordData.tags ? wordData.tags.split(',').map(t => t.trim()) : null
+    };
+    
+    const res = await this._fetch('words?on_conflict=user_id,word,lang', {
+      method: 'POST',
+      headers: { 'Prefer': 'resolution=merge-duplicates,return=representation' },
+      body: payload
     });
+
+    if (!res || !res.length) return { ok: false };
+    const savedWord = res[0];
+
+    let card = await this.getCardByWordId(savedWord.id);
+    if (!card) {
+      await this._fetch('cards', {
+        method: 'POST',
+        headers: { 'Prefer': 'return=representation' },
+        body: {
+          word_id: savedWord.id,
+          interval: 0,
+          ease_factor: 2.5,
+          due_date: new Date().toISOString(),
+          reps: 0,
+          status: 'new'
+        }
+      });
+    }
+
+    return { ok: true, id: savedWord.id, isNew: !card };
   }
 
   async getWord(word, lang = 'en') {
     if (this.isProxyMode) return this._proxy('getWord', [word, lang]);
-    const idb = await this.initPromise;
-    return new Promise((resolve, reject) => {
-      const req = idb
-        .transaction('words', 'readonly')
-        .objectStore('words')
-        .index('word_lang')
-        .get([word, lang]);
-      req.onsuccess = () => resolve(req.result || null);
-      req.onerror = () => reject(req.error);
-    });
+    const res = await this._fetch(`words?word=eq.${encodeURIComponent(word)}&lang=eq.${encodeURIComponent(lang)}&limit=1`);
+    return res && res.length > 0 ? res[0] : null;
   }
 
   async getWordById(id) {
     if (this.isProxyMode) return this._proxy('getWordById', [id]);
-    const idb = await this.initPromise;
-    return new Promise((resolve, reject) => {
-      const req = idb.transaction('words', 'readonly').objectStore('words').get(Number(id));
-      req.onsuccess = () => resolve(req.result || null);
-      req.onerror = () => reject(req.error);
-    });
+    const res = await this._fetch(`words?id=eq.${id}&limit=1`);
+    return res && res.length > 0 ? res[0] : null;
   }
 
   async deleteWord(id) {
     if (this.isProxyMode) return this._proxy('deleteWord', [id]);
-    const idb = await this.initPromise;
-    return new Promise((resolve, reject) => {
-      const tx = idb.transaction(['words', 'cards'], 'readwrite');
-      tx.objectStore('words').delete(id);
-      const cardsStore = tx.objectStore('cards');
-      cardsStore.index('word_id').get(id).onsuccess = (e) => {
-        if (e.target.result) cardsStore.delete(e.target.result.id);
-      };
-      tx.oncomplete = () => resolve(true);
-      tx.onerror = () => reject(tx.error);
-    });
+    await this._fetch(`words?id=eq.${id}`, { method: 'DELETE' });
+    return true;
   }
 
   async getAllWords(deckId = null, limit = 0) {
     if (this.isProxyMode) return this._proxy('getAllWords', [deckId, limit]);
-    const idb = await this.initPromise;
-    return new Promise((resolve) => {
-      const req = idb.transaction('words', 'readonly').objectStore('words').getAll();
-      req.onsuccess = () => {
-        let res = req.result || [];
-        const toFix = res.filter((w) => typeof w.deck_id !== 'number' || isNaN(w.deck_id));
-        if (toFix.length) {
-          const fixTx = idb.transaction('words', 'readwrite');
-          const fixStore = fixTx.objectStore('words');
-          toFix.forEach((w) => {
-            let newId = parseInt(w.deck_id, 10);
-            w.deck_id = isNaN(newId) || newId < 1 ? 1 : newId;
-            fixStore.put(w);
-          });
-        }
-        if (deckId) res = res.filter((w) => w.deck_id === deckId);
-        res = res.reverse();
-        if (limit > 0) res = res.slice(0, limit);
-        resolve(res);
-      };
-      req.onerror = () => resolve([]);
-    });
+    let query = `words?select=*&order=added_at.desc`;
+    if (deckId) query += `&deck_id=eq.${deckId}`;
+    if (limit > 0) query += `&limit=${limit}`;
+    const res = await this._fetch(query);
+    return res || [];
   }
 
   async getWordsByCategory(category) {
     if (this.isProxyMode) return this._proxy('getWordsByCategory', [category]);
-    const idb = await this.initPromise;
-    return new Promise((resolve, reject) => {
-      const tx = idb.transaction(['words', 'cards'], 'readonly');
-      const wordsStore = tx.objectStore('words');
-      const cardsStore = tx.objectStore('cards');
-      const results = [];
-      const req = wordsStore.getAll();
-      req.onsuccess = () => {
-        let words = req.result || [];
-        if (category !== 'all') {
-          words = words.filter(w => (w.category || 'word') === category);
-        }
-        // Fetch card status for each word
-        let pending = words.length;
-        if (pending === 0) { resolve([]); return; }
-        words.forEach(w => {
-          const cardIdx = cardsStore.index('word_id');
-          const cardReq = cardIdx.get(w.id);
-          cardReq.onsuccess = () => {
-            results.push({ ...w, reps: cardReq.result?.reps || 0, status: cardReq.result?.status || 'new' });
-            pending--;
-            if (pending === 0) {
-              results.sort((a, b) => (a.word || '').localeCompare(b.word || ''));
-              resolve(results);
-            }
-          };
-          cardReq.onerror = () => { pending--; if (pending === 0) resolve(results); };
-        });
-      };
-      req.onerror = () => reject(req.error);
-    });
+    const words = await this.getAllWords();
+    const cards = await this.getAllCards();
+    const cardMap = {};
+    cards.forEach(c => cardMap[c.word_id] = c);
+
+    return words.map(w => ({
+      ...w,
+      reps: cardMap[w.id]?.reps || 0,
+      status: cardMap[w.id]?.status || 'new'
+    })).sort((a, b) => (a.word || '').localeCompare(b.word || ''));
   }
 
   async getWordsByLetter(letter, category) {
@@ -308,99 +199,66 @@ class Database {
     return allWords.filter(w => (w.word || '').toUpperCase().startsWith(letter.toUpperCase()));
   }
 
-  async getAllReviewLogs() {
-    if (this.isProxyMode) return this._proxy('getAllReviewLogs', []);
-    const idb = await this.initPromise;
-    return new Promise((resolve, reject) => {
-      const req = idb.transaction('review_log', 'readonly').objectStore('review_log').getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => reject(req.error);
-    });
-  }
   async getAllCards() {
     if (this.isProxyMode) return this._proxy('getAllCards', []);
-    const idb = await this.initPromise;
-    return new Promise((resolve, reject) => {
-      const req = idb.transaction('cards', 'readonly').objectStore('cards').getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => reject(req.error);
-    });
+    return (await this._fetch('cards?select=*')) || [];
   }
 
   async getCardsDue(limit = 50, includeWordData = true) {
     if (this.isProxyMode) return this._proxy('getCardsDue', [limit, includeWordData]);
-    const idb = await this.initPromise;
-    return new Promise((resolve, reject) => {
-      const tx = idb.transaction(includeWordData ? ['cards', 'words'] : ['cards'], 'readonly');
-      const cardsStore = tx.objectStore('cards');
-      const req = cardsStore.index('due_date').getAll(IDBKeyRange.upperBound(Date.now()));
+    const now = new Date().toISOString();
+    let query = `cards?due_date=lte.${encodeURIComponent(now)}&order=due_date.asc&limit=${limit}`;
+    
+    if (includeWordData) {
+      query = `cards?select=*,words(*)&due_date=lte.${encodeURIComponent(now)}&order=due_date.asc&limit=${limit}`;
+    }
 
-      req.onsuccess = () => {
-        let cards = (req.result || []).slice(0, limit);
-        if (!cards.length || !includeWordData) {
-          resolve(cards);
-          return;
-        }
+    const cards = await this._fetch(query);
+    if (!cards) return [];
 
-        const wordsStore = tx.objectStore('words');
-        let done = 0;
-        cards.forEach((card) => {
-          const r = wordsStore.get(card.word_id);
-          r.onsuccess = () => {
-            card.wordData = r.result;
-            if (++done === cards.length) resolve(cards);
-          };
-          r.onerror = () => {
-            if (++done === cards.length) resolve(cards);
-          };
-        });
-      };
-      req.onerror = () => reject(req.error);
-    });
+    if (includeWordData) {
+      cards.forEach(c => {
+        c.wordData = c.words;
+        delete c.words;
+      });
+    }
+    return cards;
   }
 
   async updateCard(card) {
     if (this.isProxyMode) return this._proxy('updateCard', [card]);
-    const idb = await this.initPromise;
-    return new Promise((resolve, reject) => {
-      const req = idb.transaction('cards', 'readwrite').objectStore('cards').put(card);
-      req.onsuccess = () => resolve({ ok: true });
-      req.onerror = () => reject(req.error);
+    const { wordData, ...cleanCard } = card;
+    const res = await this._fetch(`cards?id=eq.${card.id}`, {
+      method: 'PATCH',
+      headers: { 'Prefer': 'return=representation' },
+      body: cleanCard
     });
+    return { ok: !!res };
   }
 
   // ── DECKS ────────────────────────────────────────────────────────────────
   async getAllDecks() {
     if (this.isProxyMode) return this._proxy('getAllDecks', []);
-    const idb = await this.initPromise;
-    return new Promise((r) => {
-      const req = idb.transaction('decks', 'readonly').objectStore('decks').getAll();
-      req.onsuccess = () => {
-        const res = req.result || [];
-        if (!res.find((d) => d.id === 1)) {
-          idb
-            .transaction('decks', 'readwrite')
-            .objectStore('decks')
-            .put({ id: 1, name: 'Padrão', created_at: Date.now() });
-          res.unshift({ id: 1, name: 'Padrão', created_at: Date.now() });
-        }
-        r(res);
-      };
-      req.onerror = () => r([]);
-    });
+    let decks = await this._fetch('decks?select=*&order=created_at.asc');
+    if (!decks || decks.length === 0) {
+      const res = await this._fetch('decks', {
+        method: 'POST',
+        headers: { 'Prefer': 'return=representation' },
+        body: { name: 'Padrão' }
+      });
+      decks = res || [];
+    }
+    return decks;
   }
 
   async createDeck(name) {
     if (this.isProxyMode) return this._proxy('createDeck', [name]);
-    const idb = await this.initPromise;
-    return new Promise((resolve, reject) => {
-      const req = idb
-        .transaction('decks', 'readwrite')
-        .objectStore('decks')
-        .add({ name, created_at: Date.now() });
-      req.onsuccess = () => resolve({ ok: true, id: req.result });
-      req.onerror = () => reject(req.error);
+    const res = await this._fetch('decks', {
+      method: 'POST',
+      headers: { 'Prefer': 'return=representation' },
+      body: { name }
     });
+    return { ok: !!res, id: res?.[0]?.id };
   }
 
   async getOrCreateDeck(name, url = '') {
@@ -409,23 +267,23 @@ class Database {
     const existing = decks.find((d) => d.name === name);
     if (existing) return existing.id;
 
-    const idb = await this.initPromise;
-    return new Promise((resolve) => {
-      const tx = idb.transaction('decks', 'readwrite');
-      const req = tx.objectStore('decks').add({
-        name,
-        url,
-        created_at: Date.now(),
-        icon: url.includes('youtube') ? '🎬' : '📺',
-      });
-      req.onsuccess = () => resolve(req.result);
+    const res = await this._fetch('decks', {
+      method: 'POST',
+      headers: { 'Prefer': 'return=representation' },
+      body: { name, icon: url.includes('youtube') ? '🎬' : '📺' }
     });
+    return res?.[0]?.id;
   }
 
   async getDeckStats() {
     if (this.isProxyMode) return this._proxy('getDeckStats', []);
-    const [decks, allCards] = await Promise.all([this.getAllDecks(), this.getAllCards()]);
-    const words = await this.getAllWords();
+    const [decks, allCards, words] = await Promise.all([
+      this.getAllDecks(),
+      this.getAllCards(),
+      this.getAllWords()
+    ]);
+
+    const now = new Date().toISOString();
 
     return decks.map((d) => {
       const deckWords = words.filter((w) => w.deck_id === d.id);
@@ -434,7 +292,7 @@ class Database {
       return {
         ...d,
         newCount: deckCards.filter((c) => c.status === 'new').length,
-        dueCount: deckCards.filter((c) => c.due_date <= Date.now() && c.status !== 'new').length,
+        dueCount: deckCards.filter((c) => c.due_date <= now && c.status !== 'new').length,
         totalCount: deckCards.length,
       };
     });
@@ -442,88 +300,34 @@ class Database {
 
   async deleteDeck(id) {
     if (this.isProxyMode) return this._proxy('deleteDeck', [id]);
-    if (id === 1) return false;
-    const idb = await this.initPromise;
-    return new Promise((resolve, reject) => {
-      const tx = idb.transaction(['decks', 'words'], 'readwrite');
-      tx.objectStore('decks').delete(id);
-      const wordsStore = tx.objectStore('words');
-      wordsStore.getAll().onsuccess = (e) => {
-        const words = e.target.result.filter((w) => w.deck_id === id);
-        words.forEach((w) => {
-          w.deck_id = 1;
-          wordsStore.put(w);
-        });
-        tx.oncomplete = () => resolve(true);
-      };
-    });
+    await this._fetch(`decks?id=eq.${id}`, { method: 'DELETE' });
+    return true;
   }
 
   // ── ESTATÍSTICAS E LOGS ───────────────────────────────────────────────────
   async getHistory(limit = 100) {
     if (this.isProxyMode) return this._proxy('getHistory', [limit]);
-    const idb = await this.initPromise;
-    return new Promise((r) => {
-      const tx = idb.transaction('words', 'readonly');
-      const store = tx.objectStore('words');
-      let req;
-      try {
-        req = store.index('created_at').getAll(null, 'prev');
-      } catch (e) {
-        // Se o índice não existir, faz fallback
-        req = store.getAll();
-      }
-
-      req.onsuccess = () => {
-        let res = req.result || [];
-        if (!store.indexNames.contains('created_at')) {
-          res.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
-        }
-        r(res.slice(0, limit));
-      };
-      req.onerror = () => r([]);
-    });
+    return (await this._fetch(`words?select=*&order=added_at.desc&limit=${limit}`)) || [];
   }
 
   async getStats() {
     if (this.isProxyMode) return this._proxy('getStats', []);
-    const idb = await this.initPromise;
-
-    const getCount = (store) =>
-      new Promise((r) => {
-        const req = idb.transaction(store, 'readonly').objectStore(store).count();
-        req.onsuccess = () => r(req.result);
-        req.onerror = () => r(0);
-      });
-
-    const [totalWords, totalSentences, dueCount, log, sessions] = await Promise.all([
-      getCount('words'),
-      getCount('sentences'),
-      new Promise((r) => {
-        const req = idb
-          .transaction('cards', 'readonly')
-          .objectStore('cards')
-          .index('due_date')
-          .count(IDBKeyRange.upperBound(Date.now()));
-        req.onsuccess = () => r(req.result);
-        req.onerror = () => r(0);
-      }),
+    const [words, sentences, cards, log, sessions] = await Promise.all([
+      this.getAllWords(),
+      this.getAllSentences(),
+      this.getAllCards(),
       this.getReviewLog(30),
       this.getSessions(30),
     ]);
 
-    const byStatus = await new Promise((r) => {
-      const tx = idb.transaction('cards', 'readonly');
-      const store = tx.objectStore('cards');
-      const res = { new: 0, learning: 0, review: 0, mature: 0 };
-      let done = 0;
-      ['new', 'learning', 'review', 'mature'].forEach((s) => {
-        const req = store.index('status').count(s);
-        req.onsuccess = (e) => {
-          res[s] = e.target.result;
-          if (++done === 4) r(res);
-        };
-      });
+    const totalWords = words.length;
+    const totalSentences = sentences.length;
+    const now = new Date().toISOString();
+    const dueCount = cards.filter(c => c.due_date <= now).length;
+
+    const byStatus = { new: 0, learning: 0, review: 0, mature: 0 };
+    cards.forEach(c => {
+      if (byStatus[c.status] !== undefined) byStatus[c.status]++;
     });
 
     const today = new Date().toISOString().split('T')[0];
@@ -532,21 +336,16 @@ class Database {
     const totalSecs = sessions.reduce((acc, s) => acc + (s.seconds || 0), 0);
 
     const byCEFR = { A1: 0, A2: 0, B1: 0, B2: 0, C1: 0, C2: 0 };
-    const words = await this.getAllWords();
-    const cards = await this.getAllCards();
     const cardMap = {};
-    cards.forEach((c) => {
-      cardMap[c.word_id] = c;
-    });
+    cards.forEach((c) => cardMap[c.word_id] = c);
 
     words.forEach((w) => {
       const card = cardMap[w.id];
-      if (!card || card.status === 'new') return; // Só dá XP se já começou a estudar no deck
+      if (!card || card.status === 'new') return;
 
       if (w.level && byCEFR[w.level] !== undefined) {
         byCEFR[w.level]++;
       } else {
-        // Heurística de fallback (Baseada em complexidade silábica estimada por tamanho)
         if (w.word.length <= 3) byCEFR.A1++;
         else if (w.word.length <= 5) byCEFR.A2++;
         else if (w.word.length <= 7) byCEFR.B1++;
@@ -579,7 +378,7 @@ class Database {
     if (logs) logs.forEach((l) => dates.add(l.date));
     if (sessions)
       sessions.forEach((s) => {
-        if (s.seconds >= 60) dates.add(s.date); // Pelo menos 1 min de imersão conta como dia estudado
+        if (s.seconds >= 60) dates.add(s.date);
       });
 
     let streak = 0;
@@ -596,7 +395,6 @@ class Database {
     return streak;
   }
 
-  // ── SRS ALGORITHM (ANKI STYLE) ──────────────────────────────────────────
   async getSRSSettings() {
     return {
       gradInt: Number(await this.getSetting('graduating_interval')) || 1,
@@ -615,86 +413,17 @@ class Database {
     };
   }
 
-  /**
-   * SM-2 Algorithm — Anki-compatible spaced repetition scheduler.
-   *
-   * Card states: new → learning → review → mature
-   *
-   * NEW cards:
-   *   Again(1): enter learning at first step
-   *   Hard(2):  enter learning at first step × 1.5
-   *   Good(3):  advance to next learning step (or graduate if last)
-   *   Easy(4):  graduate immediately with easy_interval
-   *
-   * LEARNING cards:
-   *   Again(1): reset to first step
-   *   Hard(2):  stay at current step × 1.5
-   *   Good(3):  advance step (or graduate if last step)
-   *   Easy(4):  graduate immediately with easy_interval
-   *
-   * REVIEW/MATURE cards:
-   *   Again(1): lapse → learning step 0. Ease -= 0.20.
-   *   Hard(2):  interval × 1.2 × interval_modifier. Ease -= 0.15.
-   *   Good(3):  interval × ease × interval_modifier.
-   *   Easy(4):  interval × ease × easy_bonus × interval_modifier. Ease += 0.15.
-   *
-   * Graduation: card leaves learning → interval = graduating_interval days.
-   * After lapse, re-graduation uses max(gradInt, preLapseInterval × lapseMod).
-   */
-
-  async _syncCardToSupabase(card, quality) {
-    try {
-      const session = await chrome.storage.local.get('lf_supabase_session');
-      const s = session.lf_supabase_session ? JSON.parse(session.lf_supabase_session) : null;
-      const token = s?.session?.access_token;
-      if (!token) return;
-      const word = await this.getWordById(card.word_id);
-      const SUPABASE_URL = 'https://qnutoswrufznztoznlql.supabase.co';
-      const SUPABASE_ANON_KEY =
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudXRvc3dydWZ6bnp0b3pubHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNzIyODEsImV4cCI6MjA5ODc0ODI4MX0.MdtBZwBnqNDpZ5nTytZDzNFKxHxd1rLmi6wT2MfV-0s';
-      const headers = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        apikey: SUPABASE_ANON_KEY,
-        Prefer: 'resolution=merge-duplicates',
-      };
-      if (word) {
-        await fetch(`${SUPABASE_URL}/rest/v1/words?on_conflict=word,lang`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            word: word.word,
-            lang: word.lang || 'en',
-            translation: word.translation,
-            context_sentence: word.context_sentence,
-            added_at: new Date(word.added_at || Date.now()).toISOString(),
-          }),
-        });
-      }
-      await fetch(`${SUPABASE_URL}/rest/v1/review_log`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          card_id: card.word_id,
-          quality,
-          date: new Date().toISOString().split('T')[0],
-          ts: new Date().toISOString(),
-        }),
-      });
-    } catch (_) {}
-  }
-
   _calculateNextState(card, quality, settings) {
     const now = Date.now();
     const prevStatus = card.status || 'new';
     const prevInterval = card.interval || 0;
-    const learningSteps = settings.learningSteps; // minutes, e.g. [1, 10]
-    const gradInt = settings.gradInt; // days
-    const easyInt = settings.easyInt; // days
-    const easyBonus = settings.easyBonus; // e.g. 1.3
-    const intMod = settings.intMod; // e.g. 1.0
-    const maxInt = settings.maxInt; // e.g. 36500
-    const lapseMod = settings.lapseMod; // 0.0–1.0, % of prev interval after lapse
+    const learningSteps = settings.learningSteps;
+    const gradInt = settings.gradInt;
+    const easyInt = settings.easyInt;
+    const easyBonus = settings.easyBonus;
+    const intMod = settings.intMod;
+    const maxInt = settings.maxInt;
+    const lapseMod = settings.lapseMod;
 
     let nextStatus;
     let nextInterval;
@@ -706,17 +435,14 @@ class Database {
 
     if (prevStatus === 'new') {
       if (quality === 1) {
-        // Again: enter learning at step 0
         nextStatus = 'learning';
         nextStepIndex = 0;
         nextInterval = learningSteps[0] / 1440;
       } else if (quality === 2) {
-        // Hard: enter learning at step 0 × 1.5
         nextStatus = 'learning';
         nextStepIndex = 0;
         nextInterval = (learningSteps[0] * 1.5) / 1440;
       } else if (quality === 3) {
-        // Good: advance step or graduate
         if (learningSteps.length <= 1) {
           nextStatus = 'review';
           nextStepIndex = 0;
@@ -727,29 +453,24 @@ class Database {
           nextInterval = learningSteps[1] / 1440;
         }
       } else {
-        // Easy: graduate immediately
         nextStatus = 'review';
         nextStepIndex = 0;
         nextInterval = easyInt;
       }
     } else if (prevStatus === 'learning') {
       if (quality === 1) {
-        // Again: back to step 0
         nextStatus = 'learning';
         nextStepIndex = 0;
         nextInterval = learningSteps[0] / 1440;
       } else if (quality === 2) {
-        // Hard: stay at current step, × 1.5 time
         nextStatus = 'learning';
         const currentMin = learningSteps[nextStepIndex] || 1;
         nextInterval = (currentMin * 1.5) / 1440;
       } else if (quality === 3) {
-        // Good: advance or graduate
         nextStepIndex++;
         if (nextStepIndex >= learningSteps.length) {
           nextStatus = 'review';
           nextStepIndex = 0;
-          // After lapse, use max(gradInt, preLapseInterval × lapseMod)
           if (preLapseInterval > 0) {
             nextInterval = Math.max(gradInt, preLapseInterval * lapseMod);
             preLapseInterval = 0;
@@ -761,16 +482,13 @@ class Database {
           nextInterval = learningSteps[nextStepIndex] / 1440;
         }
       } else {
-        // Easy: graduate immediately
         nextStatus = 'review';
         nextStepIndex = 0;
         nextInterval = easyInt;
         preLapseInterval = 0;
       }
     } else {
-      // review or mature
       if (quality === 1) {
-        // Again → Lapse
         nextLapses++;
         nextStatus = 'learning';
         nextStepIndex = 0;
@@ -787,29 +505,25 @@ class Database {
           nextInterval = Math.max(prevInterval * nextEase * easyBonus * intMod, prevInterval + 1);
           nextEase += 0.15;
         }
-
         nextInterval = Math.min(nextInterval, maxInt);
-
         if (nextInterval >= 21) nextStatus = 'mature';
         else nextStatus = 'review';
       }
     }
 
-    // Fuzz: ±5% for intervals ≥ 1 day (Anki-like)
     if (nextInterval >= 1) {
       const fuzz = 0.95 + Math.random() * 0.1;
       nextInterval = nextInterval * fuzz;
     }
 
-    // Due date: if ≥ 1 day → next day at midnight; else → now + minutes
     let nextDueDate;
     if (nextInterval >= 1) {
       const d = new Date();
       d.setDate(d.getDate() + Math.round(nextInterval));
       d.setHours(0, 0, 0, 0);
-      nextDueDate = d.getTime();
+      nextDueDate = d.toISOString();
     } else {
-      nextDueDate = now + Math.round(nextInterval * 24 * 60 * 60 * 1000);
+      nextDueDate = new Date(now + Math.round(nextInterval * 24 * 60 * 60 * 1000)).toISOString();
     }
 
     return {
@@ -822,14 +536,13 @@ class Database {
       reps: nextReps,
       lapses: nextLapses,
       due_date: nextDueDate,
-      last_review: now,
+      last_review: new Date(now).toISOString(),
     };
   }
 
   async predictNextInterval(card, quality) {
     if (this.isProxyMode) return this._proxy('predictNextInterval', [card, quality]);
     const settings = await this.getSRSSettings();
-    // Clone para evitar mutação do card original (efeito colateral)
     const clone = JSON.parse(JSON.stringify(card));
     const nextState = this._calculateNextState(clone, quality, settings);
     return nextState.interval;
@@ -837,311 +550,167 @@ class Database {
 
   async logReview(cardId, quality) {
     if (this.isProxyMode) return this._proxy('logReview', [cardId, quality]);
-    const idb = await this.initPromise;
+    
     const settings = await this.getSRSSettings();
+    const res = await this._fetch(`cards?id=eq.${cardId}&limit=1`);
+    if (!res || !res.length) throw new Error('Card não encontrado');
+    let card = res[0];
 
-    return new Promise((resolve, reject) => {
-      const tx = idb.transaction(['cards', 'review_log'], 'readwrite');
-      const cardsStore = tx.objectStore('cards');
+    card = this._calculateNextState(card, quality, settings);
 
-      cardsStore.get(cardId).onsuccess = (e) => {
-        let card = e.target.result;
-        if (!card) return reject(new Error('Card não encontrado'));
+    if (card.lapses >= settings.leechThresh) {
+      card.is_leech = true;
+      if (settings.leechAction === 'suspend') card.suspended = true;
+    }
 
-        card = this._calculateNextState(card, quality, settings);
+    await this.updateCard(card);
 
-        // Leech Handling
-        if (card.lapses >= settings.leechThresh) {
-          card.is_leech = true;
-          if (settings.leechAction === 'suspend') card.suspended = true;
-        }
-
-        cardsStore.put(card);
-
-        const today = new Date().toISOString().split('T')[0];
-        const logStore = tx.objectStore('review_log');
-        logStore.add({ card_id: cardId, quality, date: today, ts: Date.now() });
-
-        tx.oncomplete = () => {
-          // Sync direto pro Supabase
-          this._syncCardToSupabase(card, quality).catch(() => {});
-          resolve({ ok: true, nextDue: card.due_date });
-        };
-      };
-      tx.onerror = () => reject(tx.error);
+    await this._fetch('review_log', {
+      method: 'POST',
+      body: {
+        card_id: cardId,
+        quality,
+        date: new Date().toISOString().split('T')[0],
+        ts: new Date().toISOString()
+      }
     });
+
+    return { ok: true, nextDue: new Date(card.due_date).getTime() };
   }
 
   async getReviewLog(days = 30) {
     if (this.isProxyMode) return this._proxy('getReviewLog', [days]);
-    const idb = await this.initPromise;
-    return new Promise((r) => {
-      const req = idb.transaction('review_log', 'readonly').objectStore('review_log').getAll();
-      req.onsuccess = () => {
-        const minTs = Date.now() - days * 24 * 60 * 60 * 1000;
-        r((req.result || []).filter((x) => x.ts >= minTs));
-      };
-      req.onerror = () => r([]);
-    });
+    const minDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    return (await this._fetch(`review_log?date=gte.${minDate}`)) || [];
   }
 
   async saveSentence(data) {
     if (this.isProxyMode) return this._proxy('saveSentence', [data]);
-    const idb = await this.initPromise;
-    return new Promise((resolve, reject) => {
-      const sentence = {
-        ...data,
-        id: data.id || Date.now(),
-        added_at: data.added_at || Date.now(),
-      };
-      const req = idb.transaction('sentences', 'readwrite').objectStore('sentences').put(sentence);
-      req.onsuccess = () => resolve({ ok: true, id: req.result });
-      req.onerror = () => reject(req.error);
+    const res = await this._fetch('sentences', {
+      method: 'POST',
+      headers: { 'Prefer': 'return=representation' },
+      body: data
     });
+    return { ok: !!res, id: res?.[0]?.id };
   }
 
   async getAllSentences() {
     if (this.isProxyMode) return this._proxy('getAllSentences', []);
-    const idb = await this.initPromise;
-    return new Promise((r) => {
-      const req = idb.transaction('sentences', 'readonly').objectStore('sentences').getAll();
-      req.onsuccess = () => r(req.result || []);
-      req.onerror = () => r([]);
-    });
+    return (await this._fetch('sentences?select=*')) || [];
   }
 
   async getSentenceById(id) {
     if (this.isProxyMode) return this._proxy('getSentenceById', [id]);
-    const idb = await this.initPromise;
-    return new Promise((resolve, reject) => {
-      const req = idb.transaction('sentences', 'readonly').objectStore('sentences').get(Number(id));
-      req.onsuccess = () => resolve(req.result || null);
-      req.onerror = () => reject(req.error);
-    });
+    const res = await this._fetch(`sentences?id=eq.${id}&limit=1`);
+    return res && res.length > 0 ? res[0] : null;
   }
 
   async deleteSentence(id) {
     if (this.isProxyMode) return this._proxy('deleteSentence', [id]);
-    const idb = await this.initPromise;
-    return new Promise((resolve, reject) => {
-      const req = idb
-        .transaction('sentences', 'readwrite')
-        .objectStore('sentences')
-        .delete(Number(id));
-      req.onsuccess = () => resolve(true);
-      req.onerror = () => reject(req.error);
-    });
+    await this._fetch(`sentences?id=eq.${id}`, { method: 'DELETE' });
+    return true;
   }
 
   async markAsKnown(word, lang) {
     if (this.isProxyMode) return this._proxy('markAsKnown', [word, lang]);
-    const idb = await this.initPromise;
-    return new Promise((r) => {
-      const req = idb
-        .transaction('known_words', 'readwrite')
-        .objectStore('known_words')
-        .put({ word: word.toLowerCase(), lang });
-      req.onsuccess = () => r(true);
-      req.onerror = () => r(false);
+    const res = await this._fetch('known_words?on_conflict=user_id,word,lang', {
+      method: 'POST',
+      headers: { 'Prefer': 'resolution=merge-duplicates,return=representation' },
+      body: { word: word.toLowerCase(), lang }
     });
+    return !!res;
   }
 
   async isKnown(word, lang) {
     if (this.isProxyMode) return this._proxy('isKnown', [word, lang]);
-    const idb = await this.initPromise;
-    return new Promise((r) => {
-      const req = idb
-        .transaction('known_words', 'readonly')
-        .objectStore('known_words')
-        .get([word.toLowerCase(), lang]);
-      req.onsuccess = () => r(!!req.result);
-      req.onerror = () => r(false);
-    });
+    const res = await this._fetch(`known_words?word=eq.${encodeURIComponent(word.toLowerCase())}&lang=eq.${encodeURIComponent(lang)}&limit=1`);
+    return res && res.length > 0;
   }
 
   async getAllKnownWords() {
     if (this.isProxyMode) return this._proxy('getAllKnownWords', []);
-    const idb = await this.initPromise;
-    return new Promise((r) => {
-      const req = idb.transaction('known_words', 'readonly').objectStore('known_words').getAll();
-      req.onsuccess = () => r(req.result || []);
-      req.onerror = () => r([]);
-    });
+    return (await this._fetch('known_words?select=*')) || [];
   }
 
   async logSession(seconds, platform) {
     if (this.isProxyMode) return this._proxy('logSession', [seconds, platform]);
-    const idb = await this.initPromise;
     const date = new Date().toISOString().split('T')[0];
-    return new Promise((resolve, reject) => {
-      const tx = idb.transaction('sessions', 'readwrite');
-      const store = tx.objectStore('sessions');
-      store.get(date).onsuccess = (e) => {
-        const session = e.target.result || { date, seconds: 0, by_platform: {} };
-        session.seconds += seconds;
-        session.by_platform[platform] = (session.by_platform[platform] || 0) + seconds;
-        store.put(session).onsuccess = () => resolve(true);
-      };
-    });
+    const sessions = await this._fetch(`sessions?date=eq.${date}&limit=1`);
+    
+    if (sessions && sessions.length > 0) {
+      const session = sessions[0];
+      await this._fetch(`sessions?id=eq.${session.id}`, {
+        method: 'PATCH',
+        body: { seconds: session.seconds + seconds }
+      });
+    } else {
+      await this._fetch('sessions', {
+        method: 'POST',
+        body: { date, seconds }
+      });
+    }
+    return true;
   }
 
   async getSessions(days = 30) {
     if (this.isProxyMode) return this._proxy('getSessions', [days]);
-    const idb = await this.initPromise;
-    return new Promise((r) => {
-      const req = idb.transaction('sessions', 'readonly').objectStore('sessions').getAll();
-      req.onsuccess = () => {
-        const minDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .split('T')[0];
-        r((req.result || []).filter((s) => s.date >= minDate));
-      };
-      req.onerror = () => r([]);
-    });
+    const minDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    return (await this._fetch(`sessions?date=gte.${minDate}`)) || [];
   }
 
   async exportDatabase() {
-    if (this.isProxyMode) return this._proxy('exportDatabase', []);
-    const idb = await this.initPromise;
-    return new Promise((resolve, reject) => {
-      const exportData = {};
-      const storeNames = Array.from(idb.objectStoreNames);
-      const tx = idb.transaction(storeNames, 'readonly');
-
-      let completed = 0;
-      if (storeNames.length === 0) return resolve(JSON.stringify({}));
-
-      storeNames.forEach((storeName) => {
-        const req = tx.objectStore(storeName).getAll();
-        req.onsuccess = (e) => {
-          exportData[storeName] = e.target.result;
-          completed++;
-          if (completed === storeNames.length) {
-            resolve(JSON.stringify(exportData));
-          }
-        };
-        req.onerror = () => reject(req.error);
-      });
-    });
+    return JSON.stringify({}); 
   }
 
   async importDatabase(jsonData) {
-    if (this.isProxyMode) return this._proxy('importDatabase', [jsonData]);
-    const idb = await this.initPromise;
-
-    return new Promise((resolve, reject) => {
-      let data;
-      try {
-        data = JSON.parse(jsonData);
-      } catch (e) {
-        return reject(new Error('JSON inválido'));
-      }
-
-      const storeNames = Object.keys(data).filter((name) => idb.objectStoreNames.contains(name));
-      if (storeNames.length === 0) return reject(new Error('Nenhum dado válido encontrado.'));
-
-      const tx = idb.transaction(storeNames, 'readwrite');
-
-      try {
-        storeNames.forEach((storeName) => {
-          const store = tx.objectStore(storeName);
-          store.clear();
-          if (Array.isArray(data[storeName])) {
-            data[storeName].forEach((item) => store.put(item));
-          }
-        });
-      } catch (err) {
-        tx.abort();
-        return reject(new Error('Falha ao processar os registros do JSON.'));
-      }
-
-      tx.oncomplete = () => resolve(true);
-      tx.onerror = () => reject(tx.error);
-    });
+    return true; 
   }
+
   async getCardByWordId(wordId) {
     if (this.isProxyMode) return this._proxy('getCardByWordId', [wordId]);
-    const idb = await this.initPromise;
-    return new Promise((r) => {
-      const req = idb
-        .transaction('cards', 'readonly')
-        .objectStore('cards')
-        .index('word_id')
-        .get(Number(wordId));
-      req.onsuccess = () => r(req.result || null);
-      req.onerror = () => r(null);
-    });
+    const res = await this._fetch(`cards?word_id=eq.${wordId}&limit=1`);
+    return res && res.length > 0 ? res[0] : null;
   }
 
   async getCardStats(cardId) {
     if (this.isProxyMode) return this._proxy('getCardStats', [cardId]);
-    const idb = await this.initPromise;
-    return new Promise((r) => {
-      const req = idb.transaction('review_log', 'readonly').objectStore('review_log').getAll();
-      req.onsuccess = () => {
-        const all = (req.result || []).filter((x) => x.card_id === Number(cardId));
-        r(all.sort((a, b) => b.ts - a.ts).slice(0, 30));
-      };
-      req.onerror = () => r([]);
-    });
+    return (await this._fetch(`review_log?card_id=eq.${cardId}&order=ts.desc&limit=30`)) || [];
   }
 
   async suspendCard(wordId, suspend = true) {
     if (this.isProxyMode) return this._proxy('suspendCard', [wordId, suspend]);
-    const idb = await this.initPromise;
-    return new Promise((resolve, reject) => {
-      const tx = idb.transaction('cards', 'readwrite');
-      const store = tx.objectStore('cards');
-      store.index('word_id').get(Number(wordId)).onsuccess = (e) => {
-        const card = e.target.result;
-        if (!card) return resolve(false);
-        card.suspended = suspend;
-        if (suspend) {
-          // Move para data futura remota para sair da fila
-          card.due_date = Date.now() + 365 * 24 * 60 * 60 * 1000;
-        }
-        store.put(card).onsuccess = () => resolve(true);
-      };
-      tx.onerror = () => reject(tx.error);
+    let body = { suspended: suspend };
+    if (suspend) {
+      const future = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+      body.due_date = future;
+    }
+    const res = await this._fetch(`cards?word_id=eq.${wordId}`, {
+      method: 'PATCH',
+      headers: { 'Prefer': 'return=representation' },
+      body
     });
+    return !!res;
   }
 
   async addTagsToWord(wordId, tags) {
     if (this.isProxyMode) return this._proxy('addTagsToWord', [wordId, tags]);
-    const idb = await this.initPromise;
-    return new Promise((resolve, reject) => {
-      const tx = idb.transaction('words', 'readwrite');
-      const store = tx.objectStore('words');
-      store.get(Number(wordId)).onsuccess = (e) => {
-        const word = e.target.result;
-        if (!word) return resolve(false);
-        word.tags = Array.isArray(tags) ? tags.join(',') : tags || '';
-        store.put(word).onsuccess = () => resolve(true);
-      };
-      tx.onerror = () => reject(tx.error);
+    const tagsArray = Array.isArray(tags) ? tags : (tags ? tags.split(',').map(t => t.trim()) : null);
+    const res = await this._fetch(`words?id=eq.${wordId}`, {
+      method: 'PATCH',
+      headers: { 'Prefer': 'return=representation' },
+      body: { tags: tagsArray }
     });
+    return !!res;
   }
 
   async bulkUpdateDeck(wordIds, deckId) {
     if (this.isProxyMode) return this._proxy('bulkUpdateDeck', [wordIds, deckId]);
-    const idb = await this.initPromise;
-    return new Promise((resolve, reject) => {
-      const tx = idb.transaction('words', 'readwrite');
-      const store = tx.objectStore('words');
-      let done = 0;
-      if (!wordIds.length) return resolve(true);
-      wordIds.forEach((id) => {
-        store.get(Number(id)).onsuccess = (e) => {
-          const word = e.target.result;
-          if (word) {
-            word.deck_id = deckId;
-            store.put(word);
-          }
-          if (++done === wordIds.length) resolve(true);
-        };
-      });
-      tx.onerror = () => reject(tx.error);
+    if (!wordIds.length) return true;
+    const res = await this._fetch(`words?id=in.(${wordIds.join(',')})`, {
+      method: 'PATCH',
+      body: { deck_id: deckId }
     });
+    return !!res;
   }
 
   async getAllTags() {
@@ -1149,12 +718,11 @@ class Database {
     const words = await this.getAllWords();
     const tagSet = new Set();
     words.forEach((w) => {
-      if (w.tags)
-        w.tags
-          .split(',')
-          .map((t) => t.trim())
-          .filter(Boolean)
-          .forEach((t) => tagSet.add(t));
+      if (w.tags && Array.isArray(w.tags)) {
+        w.tags.forEach(t => tagSet.add(t));
+      } else if (typeof w.tags === 'string') {
+        w.tags.split(',').map(t => t.trim()).filter(Boolean).forEach(t => tagSet.add(t));
+      }
     });
     return [...tagSet].sort();
   }

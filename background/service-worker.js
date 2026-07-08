@@ -60,13 +60,6 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.debug('[LinguaFlow SW] Mensagem recebida:', request.type || request.action);
 
-  // Sync imediato com Supabase ao salvar palavra
-  if (request.type === 'SYNC_TO_SUPABASE') {
-    syncWordToSupabase(request)
-      .then((r) => sendResponse(r))
-      .catch((e) => sendResponse({ error: e.message }));
-    return true;
-  }
 
   // Proxy para chamadas de banco de dados (Sincronização global entre sites)
   if (request.type === 'DB_CALL') {
@@ -191,6 +184,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     explainQuickContext(word, sentence)
       .then((explanation) => sendResponse({ explanation }))
       .catch((err) => sendResponse({ explanation: null, error: err.message }));
+    return true;
+  }
+
+  // Geração de frase de exemplo com IA
+  if (request.action === 'ai_generate_sentence') {
+    generateSentenceWithAI(request.word)
+      .then((data) => sendResponse(data))
+      .catch((err) => sendResponse({ sentence: null, translation: null, error: err.message }));
     return true;
   }
 
@@ -1066,6 +1067,7 @@ Responda em 1 frase curta. Diga o sentido nesta frase. Se o termo isolado costum
     }
 
     clearTimeout(timeoutId);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
 
     if (config.provider === 'gemini') {
@@ -1073,7 +1075,95 @@ Responda em 1 frase curta. Diga o sentido nesta frase. Se o termo isolado costum
     }
     return data.choices?.[0]?.message?.content || null;
   } catch (err) {
-    console.warn('[LinguaFlow IA] Quick Context falhou:', err);
+    console.error('Erro na IA (Contexto Rápido):', err);
+    return null;
+  }
+}
+
+// ============================================================================
+// GERADOR DE FRASE DE EXEMPLO COM IA
+// ============================================================================
+async function generateSentenceWithAI(word) {
+  try {
+    if (!word) return null;
+    const systemPrompt = `Você é um professor de inglês nativo criando material didático.
+Crie UMA única frase curta e natural em inglês usando a palavra/expressão: "${word}".
+A frase deve ser de nível iniciante/intermediário e fácil de entender o contexto.
+Logo na linha de baixo, forneça a tradução exata em português brasileiro.
+Retorne EXATAMENTE neste formato (e nada mais):
+Frase: [frase em inglês]
+Tradução: [tradução em português]`;
+
+    const config = await getApiConfig();
+    if (!config.apiKey && config.provider !== 'gemini') return null;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    let response;
+    if (config.provider === 'gemini') {
+      response = await fetchWithRetry(config.apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: systemPrompt }] }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 150,
+          },
+        }),
+      });
+    } else if (config.provider === 'groq') {
+      response = await fetchWithRetry(config.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${config.apiKey}`,
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: config.model,
+          messages: [{ role: 'system', content: systemPrompt }],
+          temperature: 0.7,
+          max_tokens: 150,
+        }),
+      });
+    }
+
+    clearTimeout(timeoutId);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+
+    let text = '';
+    if (config.provider === 'gemini') {
+      text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    } else {
+      text = data.choices?.[0]?.message?.content || '';
+    }
+
+    text = text.trim();
+    if (!text) return null;
+
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+    let sentence = '';
+    let translation = '';
+    
+    for (const line of lines) {
+      if (line.toLowerCase().startsWith('frase:')) {
+        sentence = line.replace(/^(frase:|\*\*frase:\*\*|frase:)\s*/i, '').trim();
+      } else if (line.toLowerCase().startsWith('tradução:')) {
+        translation = line.replace(/^(tradução:|\*\*tradução:\*\*|tradução:)\s*/i, '').trim();
+      }
+    }
+    
+    if (sentence) {
+      return { sentence, translation };
+    }
+    return null;
+
+  } catch (err) {
+    console.error('Erro na IA (Gerar Frase):', err);
     return null;
   }
 }
@@ -1162,49 +1252,6 @@ Não dê explicações. Responda APENAS com a lista numerada, sendo a frase em i
     : data.choices[0].message.content;
 }
 
-// ── Sync direto com Supabase (word salva → nuvem instantâneo) ─────────────────
-const SUPABASE_URL = 'https://qnutoswrufznztoznlql.supabase.co';
-const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudXRvc3dydWZ6bnp0b3pubHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNzIyODEsImV4cCI6MjA5ODc0ODI4MX0.MdtBZwBnqNDpZ5nTytZDzNFKxHxd1rLmi6wT2MfV-0s';
-
-async function syncWordToSupabase({ word, translation, context, deckId }) {
-  let sessionData = null;
-  try {
-    const session = await chrome.storage.local.get('lf_supabase_session');
-    sessionData = session.lf_supabase_session ? JSON.parse(session.lf_supabase_session) : null;
-  } catch (e) {
-    console.warn('[LinguaFlow] Erro ao carregar sessão do Supabase:', e);
-    return { synced: false, reason: 'invalid_session' };
-  }
-  const token = sessionData?.session?.access_token;
-  if (!token) return { synced: false, reason: 'not_logged_in' };
-
-  const headers = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-    apikey: SUPABASE_ANON_KEY,
-    Prefer: 'resolution=merge-duplicates',
-  };
-
-  const payload = {
-    word: word,
-    lang: 'en',
-    translation: translation,
-    context_sentence: context,
-    added_at: new Date().toISOString(),
-  };
-
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/words?on_conflict=word,lang`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
-    });
-    return { synced: res.ok };
-  } catch (e) {
-    return { synced: false, error: e.message };
-  }
-}
 
 // ── Backfill de Frases com IA (Background Queue) ─────────────────────────────────
 let isBackfilling = false;

@@ -364,33 +364,78 @@ function revealCard() {
   }
 
   if (step === '1') {
-    // Step 1: Reveal context & phonetics, play audio
-    const sentenceEl = document.getElementById('pump-sentence');
-    const phonEl = document.getElementById('pump-phonetics');
-    
-    try {
-      const regex = new RegExp(`(${word})`, 'gi');
-      let clozeHtml = context;
-      if (context.toLowerCase().includes(word.toLowerCase())) {
-        clozeHtml = context.replace(regex, '<span class="cloze-blur">$1</span>');
-      } else {
-        clozeHtml = `<span class="cloze-blur">${word}</span>`;
-      }
-      sentenceEl.innerHTML = clozeHtml;
-    } catch (e) {
-      sentenceEl.innerHTML = `<span class="cloze-blur">${word}</span>`;
-    }
-    
-    if (phonetics !== 'Fale como um nativo') {
-      phonEl.textContent = `🗣️ ${phonetics}`;
-      phonEl.classList.remove('hidden');
-    }
+    const handleStep1Render = (ctx, phn) => {
+        const sentenceEl = document.getElementById('pump-sentence');
+        const phonEl = document.getElementById('pump-phonetics');
+        
+        try {
+          const regex = new RegExp(`(${word})`, 'gi');
+          let clozeHtml = ctx;
+          if (ctx.toLowerCase().includes(word.toLowerCase())) {
+            clozeHtml = ctx.replace(regex, '<span class="cloze-blur">$1</span>');
+          } else {
+            clozeHtml = `<span class="cloze-blur">${word}</span>`;
+          }
+          sentenceEl.innerHTML = clozeHtml;
+        } catch (e) {
+          sentenceEl.innerHTML = `<span class="cloze-blur">${word}</span>`;
+        }
+        
+        if (phn !== 'Fale como um nativo') {
+          phonEl.textContent = `🗣️ ${phn}`;
+          phonEl.classList.remove('hidden');
+        }
 
-    revealBtn.dataset.step = '2';
-    revealBtn.textContent = 'Revelar Tradução (Espaço)';
-    
-    playCurrentAudio();
-    return;
+        revealBtn.dataset.step = '2';
+        revealBtn.textContent = 'Revelar Tradução (Espaço)';
+        revealBtn.disabled = false;
+        
+        playCurrentAudio();
+    };
+
+    // If context is just the word (no context) OR chunks are missing, fetch chunks NOW
+    if (context === word || !ai_chunks) {
+        const sentenceEl = document.getElementById('pump-sentence');
+        sentenceEl.innerHTML = `<div class="loading-spinner" style="margin: 0 auto;"></div><div style="font-size:18px; margin-top:16px;">Gerando contexto real com IA...</div>`;
+        revealBtn.disabled = true;
+
+        chrome.runtime.sendMessage({ action: 'ai_generate_chunks', word: word }, async (res) => {
+            if (res && res.chunks && res.chunks.length > 0) {
+                const generatedChunks = res.chunks;
+                chunks = generatedChunks;
+                // Set context_sentence to first chunk's english if missing
+                if (context === word) {
+                    context = generatedChunks[0].eng || generatedChunks[0].ingles || generatedChunks[0].english;
+                    wordData.context_sentence = context;
+                    currentCard.context = context;
+                }
+                wordData.ai_chunks = JSON.stringify(generatedChunks);
+                currentCard.ai_chunks = wordData.ai_chunks;
+                
+                if (currentCard.wordData) {
+                    // Update in DB so it doesn't need to be fetched again!
+                    await lfDb.saveWord(wordData).catch(console.error);
+                }
+
+                const exactChunk = chunks.find(c =>
+                  (c.eng || c.ingles || c.english || '').toLowerCase() === word.toLowerCase()
+                );
+                if (exactChunk) {
+                    phonetics = exactChunk.phon || exactChunk.fonetica || exactChunk.phonetics || phonetics;
+                } else {
+                    phonetics = chunks[0].phon || chunks[0].fonetica || chunks[0].phonetics || phonetics;
+                }
+
+                handleStep1Render(context, phonetics);
+            } else {
+                handleStep1Render(context, phonetics);
+            }
+        });
+        return;
+    } else {
+        handleStep1Render(context, phonetics);
+        return;
+    }
   }
 
   // Step 2: Reveal translation, Anki grading, sidebar logic
@@ -400,14 +445,12 @@ function revealCard() {
     clozeEl.classList.add('cloze-revealed');
   }
 
-  // Show Translation in the new element
   const transEl = document.getElementById('pump-translation');
   if (wordData.translation || currentCard.translation) {
     transEl.textContent = wordData.translation || currentCard.translation;
     transEl.classList.remove('hidden');
   }
 
-  // Show Isolated Word Box (now at top of sidebar)
   const isoBox = document.getElementById('isolated-word-box');
   document.getElementById('iso-word').textContent = word;
   document.getElementById('iso-trans').textContent = directTrans;
@@ -415,37 +458,22 @@ function revealCard() {
   document.getElementById('youglish-link').href = `https://youglish.com/pronounce/${encodeURIComponent(word)}/english`;
   isoBox.classList.remove('hidden');
 
-  // Render Chunks in Sidebar
   const chunksContainer = document.getElementById('chunks-container');
   if (chunks && chunks.length > 0) {
     chunksContainer.innerHTML = chunks.map((c, i) => renderChunkCard(c, i)).join('');
     attachChunkAudioListeners();
   } else {
-    chunksContainer.innerHTML = '<div style="display:flex; justify-content:center; padding:20px;"><div class="loading-spinner"></div></div>';
-    chrome.runtime.sendMessage({ action: 'ai_generate_chunks', word: wordData.word || currentCard.word }, async (res) => {
-      if (res && res.chunks) {
-        if (currentCard.wordData) {
-          currentCard.wordData.ai_chunks = JSON.stringify(res.chunks);
-          lfDb.saveWord(currentCard.wordData).catch(console.error);
-        }
-        chunksContainer.innerHTML = res.chunks.map((c, i) => renderChunkCard(c, i)).join('');
-        attachChunkAudioListeners();
-      } else {
-        chunksContainer.innerHTML = `
-          <div class="chunk-card" style="opacity:1;">
-            <div class="chunk-en">${wordData.word || currentCard.word}</div>
-            <div class="chunk-br">${wordData.translation || currentCard.translation || ''}</div>
-          </div>
-        `;
-      }
-    });
+    chunksContainer.innerHTML = `
+      <div class="chunk-card" style="opacity:1;">
+        <div class="chunk-en">${wordData.word || currentCard.word}</div>
+        <div class="chunk-br">${wordData.translation || currentCard.translation || ''}</div>
+      </div>
+    `;
   }
 
-  // Toggle buttons
   document.getElementById('reveal-btn').classList.add('hidden');
   document.getElementById('grading-area').classList.remove('hidden');
 
-  // Fetch AI Grammar
   const grammarContainer = document.getElementById('grammar-container');
   grammarContainer.innerHTML = '<div style="display:flex; justify-content:center; padding:20px;"><div class="loading-spinner"></div></div><p style="color:var(--color-primary); font-weight:bold; text-align:center;">A IA está analisando a gramática...</p>';
 

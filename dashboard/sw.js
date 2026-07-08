@@ -42,6 +42,7 @@ self.addEventListener('fetch', (event) => {
         return response || fetch(event.request).catch(() => {
           // Fallback if offline
           console.warn('Network request failed and no cache available for: ', event.request.url);
+          return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
         });
       })
   );

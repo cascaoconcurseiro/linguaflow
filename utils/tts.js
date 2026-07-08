@@ -85,14 +85,25 @@ class TTS {
                 let playableUrl = this.audioCache.get(cacheKey);
                 if (!playableUrl) {
                     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-                        const res = await new Promise(resolve => {
-                            chrome.runtime.sendMessage({ type: 'FETCH_TTS', url }, resolve);
-                        });
-                        if (!res || !res.success) throw new Error('FETCH_TTS failed');
-                        playableUrl = res.dataUrl;
-                    } else {
-                        playableUrl = url;
+                        try {
+                            const res = await new Promise(resolve => {
+                                chrome.runtime.sendMessage({ type: 'FETCH_TTS', url }, resolve);
+                            });
+                            if (res && res.success) {
+                                playableUrl = res.dataUrl;
+                            }
+                        } catch(e) {
+                            console.debug('Chrome messaging failed, falling back...');
+                        }
                     }
+                    
+                    // Se não for extensão ou falhou, usa Proxy para evitar AdBlockers e CORS
+                    if (!playableUrl) {
+                        // Vamos usar o AllOrigins como proxy
+                        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+                        playableUrl = proxyUrl;
+                    }
+                    
                     this.audioCache.set(cacheKey, playableUrl);
                     if (this.audioCache.size > 200) {
                         this.audioCache.delete(this.audioCache.keys().next().value);

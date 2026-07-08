@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LinguaFlow",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Aprenda idiomas assistindo vídeos. Legendas duplas, dicionário, SRS Anki — 100% gratuito e offline.",
   "icons": {
     "16": "icon16.png",
@@ -21,6 +21,9 @@
   "oauth2": {
     "client_id": "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
     "scopes": ["https://www.googleapis.com/auth/drive.appdata"]
+  },
+  "chrome_url_overrides": {
+    "newtab": "dashboard/newtab.html"
   },
   "background": {
     "service_worker": "background/service-worker.js",

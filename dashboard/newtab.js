@@ -1,5 +1,5 @@
 // newtab.js
-import { lfDb } from '../utils/db.js';
+import { db as lfDb } from '../utils/db.js';
 
 let currentCard = null;
 

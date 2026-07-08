@@ -2,7 +2,7 @@
 // Todos os módulos usam este arquivo. Sem chrome.storage para dados de aprendizado.
 
 const DB_NAME = 'LinguaFlowFreeDB';
-const DB_VERSION = 10;
+const DB_VERSION = 11;
 
 class Database {
   constructor() {
@@ -40,6 +40,7 @@ class Database {
           s.createIndex('word_lang', ['word', 'lang'], { unique: true });
           s.createIndex('deck_id', 'deck_id', { unique: false });
           s.createIndex('added_at', 'added_at', { unique: false });
+          s.createIndex('category', 'category', { unique: false });
         }
         if (!idb.objectStoreNames.contains('cards')) {
           const s = idb.createObjectStore('cards', { keyPath: 'id', autoIncrement: true });
@@ -60,6 +61,18 @@ class Database {
         if (!idb.objectStoreNames.contains('review_log')) {
           const s = idb.createObjectStore('review_log', { keyPath: 'id', autoIncrement: true });
           s.createIndex('date', 'date', { unique: false });
+        }
+
+        // Upgrade incremental: adicionar índice category na store words existente
+        if (e.oldVersion < 11) {
+          try {
+            const wordsStore = e.target.transaction.objectStore('words');
+            if (!wordsStore.indexNames.contains('category')) {
+              wordsStore.createIndex('category', 'category', { unique: false });
+            }
+          } catch(err) {
+            console.warn('[DB] Falha ao adicionar índice category:', err);
+          }
         }
       };
 
@@ -88,7 +101,7 @@ class Database {
       const timeoutId = setTimeout(() => {
         console.error(`[LinguaFlow DB] Timeout na chamada ${method}. Service Worker travado.`);
         reject(new Error(`DB proxy timeout: ${method}`));
-      }, 2000);
+      }, 5000);
 
       chrome.runtime.sendMessage(
         {
@@ -251,6 +264,48 @@ class Database {
       };
       req.onerror = () => resolve([]);
     });
+  }
+
+  async getWordsByCategory(category) {
+    if (this.isProxyMode) return this._proxy('getWordsByCategory', [category]);
+    const idb = await this.initPromise;
+    return new Promise((resolve, reject) => {
+      const tx = idb.transaction(['words', 'cards'], 'readonly');
+      const wordsStore = tx.objectStore('words');
+      const cardsStore = tx.objectStore('cards');
+      const results = [];
+      const req = wordsStore.getAll();
+      req.onsuccess = () => {
+        let words = req.result || [];
+        if (category !== 'all') {
+          words = words.filter(w => (w.category || 'word') === category);
+        }
+        // Fetch card status for each word
+        let pending = words.length;
+        if (pending === 0) { resolve([]); return; }
+        words.forEach(w => {
+          const cardIdx = cardsStore.index('word_id');
+          const cardReq = cardIdx.get(w.id);
+          cardReq.onsuccess = () => {
+            results.push({ ...w, reps: cardReq.result?.reps || 0, status: cardReq.result?.status || 'new' });
+            pending--;
+            if (pending === 0) {
+              results.sort((a, b) => (a.word || '').localeCompare(b.word || ''));
+              resolve(results);
+            }
+          };
+          cardReq.onerror = () => { pending--; if (pending === 0) resolve(results); };
+        });
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async getWordsByLetter(letter, category) {
+    if (this.isProxyMode) return this._proxy('getWordsByLetter', [letter, category]);
+    const allWords = await this.getWordsByCategory(category || 'all');
+    if (!letter) return allWords;
+    return allWords.filter(w => (w.word || '').toUpperCase().startsWith(letter.toUpperCase()));
   }
 
   async getAllReviewLogs() {
@@ -791,7 +846,7 @@ class Database {
 
       cardsStore.get(cardId).onsuccess = (e) => {
         let card = e.target.result;
-        if (!card) return reject('Card não encontrado');
+        if (!card) return reject(new Error('Card não encontrado'));
 
         card = this._calculateNextState(card, quality, settings);
 
@@ -979,11 +1034,11 @@ class Database {
       try {
         data = JSON.parse(jsonData);
       } catch (e) {
-        return reject('JSON inválido');
+        return reject(new Error('JSON inválido'));
       }
 
       const storeNames = Object.keys(data).filter((name) => idb.objectStoreNames.contains(name));
-      if (storeNames.length === 0) return reject('Nenhum dado válido encontrado.');
+      if (storeNames.length === 0) return reject(new Error('Nenhum dado válido encontrado.'));
 
       const tx = idb.transaction(storeNames, 'readwrite');
 
@@ -997,7 +1052,7 @@ class Database {
         });
       } catch (err) {
         tx.abort();
-        return reject('Falha ao processar os registros do JSON.');
+        return reject(new Error('Falha ao processar os registros do JSON.'));
       }
 
       tx.oncomplete = () => resolve(true);

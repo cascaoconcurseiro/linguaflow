@@ -1,0 +1,96 @@
+import { renderHome } from '../ui/homeView.js';
+import { renderLibrary } from '../ui/libraryView.js';
+import { renderStudy } from '../ui/studyView.js';
+import { renderSettings } from '../ui/settingsView.js';
+import { renderLeagues } from '../ui/leaguesView.js';
+import { renderGame } from '../ui/gameView.js';
+
+class App {
+  constructor() {
+    this.root = document.getElementById('app-root');
+    this.navBtns = document.querySelectorAll('.nav-btn');
+    this.currentRoute = 'home';
+    
+    this.init();
+  }
+
+  init() {
+    // Setup Navigation Listeners
+    this.navBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const route = e.target.dataset.route;
+        this.navigate(route);
+      });
+    });
+
+    // Load initial route
+    this.navigate('home');
+  }
+
+  navigate(route) {
+    this.currentRoute = route;
+    
+    // Update active state on buttons
+    this.navBtns.forEach(btn => {
+      if(btn.dataset.route === route) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+
+    // Clear root
+    this.root.innerHTML = '';
+
+    // Render corresponding view
+    switch(route) {
+      case 'home':
+        renderHome(this.root, this);
+        break;
+      case 'library':
+        renderLibrary(this.root, this);
+        break;
+      case 'study':
+        renderStudy(this.root, this);
+        break;
+      case 'settings':
+        renderSettings(this.root, this);
+        break;
+      case 'leagues':
+        renderLeagues(this.root, this);
+        break;
+      case 'game':
+        renderGame(this.root, this);
+        break;
+      default:
+        renderHome(this.root, this);
+    }
+  }
+
+  // Global Toast function
+  showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    
+    // basic styling for now
+    toast.style.backgroundColor = type === 'error' ? '#ff4b4b' : '#333';
+    toast.style.color = '#fff';
+    toast.style.padding = '12px 24px';
+    toast.style.borderRadius = '8px';
+    toast.style.fontWeight = '700';
+    toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+    
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transition = 'opacity 0.3s';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+}
+
+// Bootstrap app (module scripts are deferred, DOM is ready)
+window.app = new App();

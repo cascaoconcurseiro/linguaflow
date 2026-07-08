@@ -72,8 +72,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'DB_CALL') {
     const { method, args } = request;
     if (typeof db[method] === 'function') {
-      db[method](...(args || []))
-        .then((result) => {
+      (async () => {
+        try {
+          // Auto-classify word category on saveWord using AI (with static fallback)
+          if (method === 'saveWord' && args && args[0] && !args[0].category) {
+            try {
+              args[0].category = await classifyWordAI(args[0].word || '');
+            } catch (e) {
+              console.warn('[LinguaFlow SW] Classificação de IA falhou, usando estática.', e);
+              args[0].category = classifyWordStatic(args[0].word || '');
+            }
+          }
+
+          const result = await Promise.resolve(db[method](...(args || [])));
+
           // Notificações automáticas para métodos de escrita
           const writeMethods = [
             'saveWord',
@@ -90,11 +102,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             updateBadge();
           }
           sendResponse({ result });
-        })
-        .catch((error) => {
+        } catch (error) {
           console.error(`[LinguaFlow SW] Erro em db.${method}:`, error);
-          sendResponse({ error: error.message });
-        });
+          sendResponse({ error: error?.message || String(error) });
+        }
+      })();
       return true;
     }
   }
@@ -319,6 +331,101 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   return false;
 });
+
+// ── Classificador de Categoria de Palavras ────────────────────────────────
+/**
+ * Classifica automaticamente uma palavra/expressão em uma categoria (versão estática).
+ * Categorias: 'phrasal_verb' | 'idiom' | 'slang' | 'word'
+ */
+function classifyWordStatic(word) {
+  if (!word || typeof word !== 'string') return 'word';
+  const w = word.toLowerCase().trim();
+  const parts = w.split(/\s+/);
+
+  // Phrasal verbs: 2+ palavras onde a última é uma partícula comum
+  const phrasalParticles = ['up','out','in','off','on','away','back','down','over','through','into','around','along','apart','aside','forward','out','away'];
+  if (parts.length >= 2) {
+    const lastWord = parts[parts.length - 1];
+    if (phrasalParticles.includes(lastWord)) return 'phrasal_verb';
+    // Também verificar a segunda palavra se for 3 palavras
+    if (parts.length === 3 && phrasalParticles.includes(parts[1])) return 'phrasal_verb';
+  }
+
+  // Idioms: expressões com palavras de conexão que formam figurações
+  const idiomMarkers = ['kick the', 'bite the', 'break a', 'hit the', 'bite off', 'cost an arm', 'piece of cake', 'under the weather', 'beat around', 'let the cat', 'once in a blue', 'the ball is', 'spill the beans', 'rule of thumb', 'on the fence', 'blessing in disguise'];
+  for (const marker of idiomMarkers) {
+    if (w.includes(marker)) return 'idiom';
+  }
+
+  // Gírias: palavras/expressões informais comuns
+  const slangWords = ['gonna','wanna','gotta','kinda','sorta','ain\'t','y\'all','dunno','lemme','gimme','nope','yep','dude','bro','lit','vibe','legit','sketchy','lowkey','highkey','fomo','tldr','fyi','omg','lol','bruh','bestie','slay','ghosting','flex','goat','salty','extra','basic','stan','ship','tea','woke','receipts','mood','thirsty','triggered','bussin'];
+  if (slangWords.includes(w)) return 'slang';
+
+  // Multi-word expressions que não são phrasal verbs
+  if (parts.length >= 2) return 'idiom';
+
+  return 'word';
+}
+
+/**
+ * Classificador IA (Pilar: Inteligência Automática)
+ */
+async function classifyWordAI(word) {
+  if (!word) return 'word';
+  const config = await getApiConfig();
+  if (!config.apiKey && config.provider !== 'gemini') return classifyWordStatic(word);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 4000); // Fast timeout
+
+  const prompt = `Classifique a seguinte expressão em inglês em EXATAMENTE UMA destas 4 categorias: 'idiom', 'phrasal_verb', 'slang', 'word'.
+Responda APENAS com a categoria, sem pontuação ou texto extra.
+Expressão: "${word}"`;
+
+  try {
+    let responseText = '';
+    if (config.provider === 'gemini') {
+      const res = await fetchWithRetry(config.apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 10 },
+        }),
+      });
+      const data = await res.json();
+      responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    } else {
+      const res = await fetchWithRetry(config.apiUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: config.model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.1,
+          max_tokens: 10,
+        }),
+      });
+      const data = await res.json();
+      responseText = data.choices?.[0]?.message?.content || '';
+    }
+    clearTimeout(timeoutId);
+
+    const cat = responseText.toLowerCase().replace(/[^a-z_]/g, '');
+    const valid = ['idiom', 'phrasal_verb', 'slang', 'word'];
+    if (valid.includes(cat)) return cat;
+    return classifyWordStatic(word);
+  } catch (err) {
+    clearTimeout(timeoutId);
+    console.warn('[LinguaFlow AI] Error classifyWordAI:', err);
+    return classifyWordStatic(word);
+  }
+}
 
 // ── Funções Auxiliares ────────────────────────────────────────────────────────
 
@@ -700,7 +807,7 @@ Exemplo de formato esperado:
 
     let response;
     if (config.provider === 'gemini') {
-      response = await fetch(config.apiUrl, {
+      response = await fetchWithRetry(config.apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
@@ -710,7 +817,7 @@ Exemplo de formato esperado:
         }),
       });
     } else {
-      response = await fetch(config.apiUrl, {
+      response = await fetchWithRetry(config.apiUrl, {
         method: 'POST',
         headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
         signal: controller.signal,
@@ -797,7 +904,7 @@ ESTRUTURA DE RESPOSTA OBRIGATÓRIA:
 
     let response;
     if (config.provider === 'gemini') {
-      response = await fetch(config.apiUrl, {
+      response = await fetchWithRetry(config.apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
@@ -807,7 +914,7 @@ ESTRUTURA DE RESPOSTA OBRIGATÓRIA:
         }),
       });
     } else {
-      response = await fetch(config.apiUrl, {
+      response = await fetchWithRetry(config.apiUrl, {
         method: 'POST',
         headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
         signal: controller.signal,
@@ -864,7 +971,7 @@ async function explainSentenceWithAI(sentence, fullContext = null) {
 
     let response;
     if (config.provider === 'gemini') {
-      response = await fetch(config.apiUrl, {
+      response = await fetchWithRetry(config.apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
@@ -874,7 +981,7 @@ async function explainSentenceWithAI(sentence, fullContext = null) {
         }),
       });
     } else {
-      response = await fetch(config.apiUrl, {
+      response = await fetchWithRetry(config.apiUrl, {
         method: 'POST',
         headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
         signal: controller.signal,
@@ -920,7 +1027,7 @@ Responda em 1 frase curta. Diga o sentido nesta frase. Se o termo isolado costum
 
     let response;
     if (config.provider === 'gemini') {
-      response = await fetch(config.apiUrl, {
+      response = await fetchWithRetry(config.apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
@@ -930,7 +1037,7 @@ Responda em 1 frase curta. Diga o sentido nesta frase. Se o termo isolado costum
         }),
       });
     } else {
-      response = await fetch(config.apiUrl, {
+      response = await fetchWithRetry(config.apiUrl, {
         method: 'POST',
         headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
         signal: controller.signal,
@@ -1049,8 +1156,14 @@ const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudXRvc3dydWZ6bnp0b3pubHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNzIyODEsImV4cCI6MjA5ODc0ODI4MX0.MdtBZwBnqNDpZ5nTytZDzNFKxHxd1rLmi6wT2MfV-0s';
 
 async function syncWordToSupabase({ word, translation, context, deckId }) {
-  const session = await chrome.storage.local.get('lf_supabase_session');
-  const sessionData = session.lf_supabase_session ? JSON.parse(session.lf_supabase_session) : null;
+  let sessionData = null;
+  try {
+    const session = await chrome.storage.local.get('lf_supabase_session');
+    sessionData = session.lf_supabase_session ? JSON.parse(session.lf_supabase_session) : null;
+  } catch (e) {
+    console.warn('[LinguaFlow] Erro ao carregar sessão do Supabase:', e);
+    return { synced: false, reason: 'invalid_session' };
+  }
   const token = sessionData?.session?.access_token;
   if (!token) return { synced: false, reason: 'not_logged_in' };
 

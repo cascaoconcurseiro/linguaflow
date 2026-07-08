@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+      
+      :root {
+        --color-primary: #58cc02;
+        --color-primary-shadow: #58a700;
+        --color-secondary: #1cb0f6;
+        --color-secondary-shadow: #1899d6;
+        --color-text: #3c3c3c;
+        --color-text-light: #777;
+        --color-bg: #ffffff;
+        --radius: 12px;
+      }
+
       * {
         margin: 0;
         padding: 0;
@@ -11,307 +23,96 @@
       }
       body {
         width: 340px;
-        background: #0f172a;
-        color: #f8fafc;
+        background: var(--color-bg);
+        color: var(--color-text);
         font-family: 'Inter', sans-serif;
-        padding: 20px;
+        padding: 24px;
+        text-align: center;
       }
 
       .header {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        margin-bottom: 20px;
-      }
-      .header-left {
-        display: flex;
-        align-items: center;
+        justify-content: center;
         gap: 12px;
+        margin-bottom: 24px;
       }
-      .header-left img {
-        width: 36px;
-        height: 36px;
-        border-radius: 8px;
+      .header img {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
       }
-      .header-left h1 {
-        font-size: 20px;
-        font-weight: 800;
-        color: #38bdf8;
-      }
-      .badge-pro {
-        font-size: 10px;
-        background: linear-gradient(135deg, #f59e0b, #d97706);
-        color: #fff;
-        padding: 3px 6px;
-        border-radius: 4px;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-      }
-      .streak-box {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        background: rgba(245, 158, 11, 0.15);
-        padding: 4px 8px;
-        border-radius: 6px;
-        border: 1px solid rgba(245, 158, 11, 0.3);
-      }
-      .streak-icon {
-        font-size: 14px;
-      }
-      .streak-val {
-        font-size: 14px;
-        font-weight: 800;
-        color: #f59e0b;
-      }
-
-      .level-box {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        padding: 14px;
-        border-radius: 10px;
-        margin-bottom: 16px;
-      }
-      .level-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        margin-bottom: 8px;
-      }
-      .level-title {
-        font-size: 12px;
-        color: #94a3b8;
-        font-weight: 700;
-        text-transform: uppercase;
-      }
-      .level-cefr {
-        font-size: 18px;
-        font-weight: 800;
-        color: #38bdf8;
-      }
-      .progress-bar {
-        width: 100%;
-        height: 8px;
-        background: rgba(0, 0, 0, 0.3);
-        border-radius: 4px;
-        overflow: hidden;
-        margin-bottom: 6px;
-      }
-      .progress-fill {
-        height: 100%;
-        background: linear-gradient(90deg, #38bdf8, #0ea5e9);
-        width: 0%;
-        transition: width 0.5s ease;
-      }
-      .level-desc {
-        font-size: 10px;
-        color: #64748b;
-        text-align: right;
-      }
-
-      .stats {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-        margin-bottom: 16px;
-      }
-      .stat {
-        background: #1e293b;
-        padding: 12px;
-        border-radius: 10px;
-        text-align: center;
-        border: 1px solid rgba(255, 255, 255, 0.05);
-      }
-      .stat .val {
+      .header h1 {
         font-size: 24px;
         font-weight: 800;
-        display: block;
-        line-height: 1.2;
+        color: var(--color-primary);
+        letter-spacing: -0.5px;
       }
-      .stat .lbl {
-        font-size: 10px;
-        color: #64748b;
-        font-weight: 700;
-        text-transform: uppercase;
-        margin-top: 4px;
-        display: block;
-      }
-      .val-yellow {
-        color: #f59e0b;
-      }
-      .val-blue {
-        color: #38bdf8;
-      }
-      .val-green {
-        color: #10b981;
-      }
-      .val-white {
-        color: #fff;
+
+      p {
+        font-size: 14px;
+        color: var(--color-text-light);
+        margin-bottom: 24px;
+        line-height: 1.4;
       }
 
       .btn {
         width: 100%;
-        padding: 13px;
+        padding: 14px;
         border: none;
-        border-radius: 10px;
-        font-size: 14px;
+        border-radius: var(--radius);
+        font-size: 16px;
         font-weight: 700;
         cursor: pointer;
         font-family: inherit;
-        transition: 0.2s;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: transform 0.1s;
       }
+      .btn:active {
+        transform: translateY(4px);
+      }
+      
       .btn-primary {
-        background: linear-gradient(135deg, #38bdf8, #0ea5e9);
-        color: #0f172a;
-        margin-bottom: 8px;
+        background-color: var(--color-primary);
+        color: white;
+        border-bottom: 4px solid var(--color-primary-shadow);
+        margin-bottom: 12px;
       }
       .btn-primary:hover {
-        filter: brightness(1.1);
-        transform: translateY(-1px);
+        filter: brightness(1.05);
       }
+
       .btn-secondary {
-        background: rgba(255, 255, 255, 0.05);
-        color: #94a3b8;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background-color: var(--color-secondary);
+        color: white;
+        border-bottom: 4px solid var(--color-secondary-shadow);
       }
       .btn-secondary:hover {
-        background: rgba(255, 255, 255, 0.1);
-        color: #fff;
+        filter: brightness(1.05);
       }
 
       .tip {
         font-size: 11px;
-        color: #475569;
-        text-align: center;
-        margin-top: 12px;
-        line-height: 1.5;
-      }
-
-      hr {
-        border: none;
-        height: 1px;
-        background: rgba(255, 255, 255, 0.07);
-        margin: 16px 0;
+        color: #afafaf;
+        margin-top: 24px;
       }
     </style>
   </head>
   <body>
     <div class="header">
-      <div class="header-left">
-        <img src="../icon.png" alt="LinguaFlow" />
-        <div>
-          <h1>LinguaFlow</h1>
-        </div>
-      </div>
-      <div
-        id="sync-badge"
-        style="font-size: 10px; padding: 3px 8px; border-radius: 4px; display: none"
-      ></div>
+      <img src="../icon128.png" alt="LF Logo" />
+      <h1>LinguaFlow</h1>
     </div>
 
-    <!-- LOGIN STATE -->
-    <div id="login-state">
-      <div style="text-align: center; padding: 10px 0 16px">
-        <p style="font-size: 13px; color: #94a3b8; margin-bottom: 12px">
-          Conecte-se para sincronizar seus dados entre dispositivos.
-        </p>
-        <input
-          id="popup-email"
-          type="email"
-          placeholder="Email"
-          style="
-            width: 100%;
-            padding: 8px 12px;
-            background: #1e293b;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 6px;
-            color: #f8fafc;
-            font-size: 13px;
-            font-family: inherit;
-            margin-bottom: 6px;
-            outline: none;
-          "
-        />
-        <input
-          id="popup-pass"
-          type="password"
-          placeholder="Senha"
-          style="
-            width: 100%;
-            padding: 8px 12px;
-            background: #1e293b;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 6px;
-            color: #f8fafc;
-            font-size: 13px;
-            font-family: inherit;
-            margin-bottom: 6px;
-            outline: none;
-          "
-        />
-        <div
-          id="popup-error"
-          style="
-            display: none;
-            font-size: 11px;
-            color: #ef4444;
-            margin-bottom: 8px;
-            text-align: left;
-          "
-        ></div>
-        <button
-          id="popup-login-btn"
-          class="btn btn-primary"
-          style="width: 100%; margin-bottom: 4px"
-        >
-          Entrar
-        </button>
-        <button
-          id="popup-register-btn"
-          class="btn btn-secondary"
-          style="width: 100%; font-size: 11px"
-        >
-          Criar Conta
-        </button>
-      </div>
-    </div>
+    <p id="stats-text">
+      Pronto para evoluir?<br>Acesse sua Jornada Fluente e revise seu vocabulário.
+    </p>
 
-    <!-- STATS STATE -->
-    <div id="stats-state" style="display: none">
-      <div class="level-box">
-        <div class="level-header">
-          <span class="level-title" id="stat-lvl-name">Iniciante</span>
-          <span class="level-cefr" id="stat-cefr">A1</span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" id="stat-progress"></div>
-        </div>
-        <div class="level-desc" id="stat-xp-text">0 / 5000 XP</div>
-      </div>
-
-      <div class="stats">
-        <div class="stat">
-          <span class="val val-yellow" id="stat-due">...</span>
-          <span class="lbl">Revisões Hoje</span>
-        </div>
-        <div class="stat">
-          <span class="val val-green" id="stat-learned">...</span>
-          <span class="lbl">Palavras Maduras</span>
-        </div>
-      </div>
-
-      <hr />
-
-      <button class="btn btn-primary" id="btn-dash">🃏 Abrir Dashboard / Revisão →</button>
-      <button class="btn btn-secondary" id="btn-settings">⚙️ Configurações do Player</button>
-      <button class="btn btn-secondary" id="btn-logout" style="font-size: 11px; margin-top: 4px">
-        Sair da Conta
-      </button>
-    </div>
+    <button id="btn-dash" class="btn btn-primary">Abrir Dashboard 🚀</button>
 
     <p class="tip">
-      Pressione <strong>O</strong> no player para abrir as configurações em tempo real.
+      Pressione <strong>O</strong> em qualquer player de vídeo para capturar frases.
     </p>
 
     <script type="module" src="popup.js"></script>

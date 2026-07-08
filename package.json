@@ -1,5 +1,8 @@
 {
   "name": "linguaflow",
   "private": true,
-  "description": "LinguaFlow - Chrome Extension + Web App"
+  "description": "LinguaFlow - Chrome Extension + Web App",
+  "dependencies": {
+    "acorn": "^8.17.0"
+  }
 }

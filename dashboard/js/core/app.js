@@ -4,6 +4,8 @@ import { renderStudy } from '../ui/studyView.js';
 import { renderSettings } from '../ui/settingsView.js';
 import { renderLeagues } from '../ui/leaguesView.js';
 import { renderGame } from '../ui/gameView.js';
+import { renderLogin } from '../ui/loginView.js';
+import { db } from '../../utils/db.js';
 
 class App {
   constructor() {
@@ -14,7 +16,7 @@ class App {
     this.init();
   }
 
-  init() {
+  async init() {
     // Setup Navigation Listeners
     this.navBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -23,8 +25,14 @@ class App {
       });
     });
 
-    // Load initial route
-    this.navigate('home');
+    // Check auth
+    const isAuthenticated = await db.checkSession();
+    if (!isAuthenticated) {
+      this.navigate('login');
+    } else {
+      // Load initial route
+      this.navigate('home');
+    }
   }
 
   navigate(route) {
@@ -44,6 +52,9 @@ class App {
 
     // Render corresponding view
     switch(route) {
+      case 'login':
+        renderLogin(this.root, this);
+        break;
       case 'home':
         renderHome(this.root, this);
         break;
@@ -65,6 +76,11 @@ class App {
       default:
         renderHome(this.root, this);
     }
+  }
+
+  async logout() {
+    await db.logout();
+    this.navigate('login');
   }
 
   // Global Toast function

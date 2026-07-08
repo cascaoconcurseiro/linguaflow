@@ -6,21 +6,32 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 class Database {
   constructor() {
-    this.isProxyMode = typeof window !== 'undefined';
+    this.isExtensionUI = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.sendMessage;
+    this.isBackgroundWorker = typeof window === 'undefined';
+    this.isProxyMode = this.isExtensionUI && !this.isBackgroundWorker;
     this.initPromise = Promise.resolve();
   }
 
   async _getToken() {
-    return new Promise((resolve) => {
-      chrome.storage.local.get('lf_supabase_session', (res) => {
-        const sessionStr = res.lf_supabase_session;
-        if (!sessionStr) return resolve(null);
-        try {
-          const s = JSON.parse(sessionStr);
-          resolve(s?.session?.access_token || null);
-        } catch { resolve(null); }
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      return new Promise((resolve) => {
+        chrome.storage.local.get('lf_supabase_session', (res) => {
+          const sessionStr = res.lf_supabase_session;
+          if (!sessionStr) return resolve(null);
+          try {
+            const s = JSON.parse(sessionStr);
+            resolve(s?.session?.access_token || null);
+          } catch { resolve(null); }
+        });
       });
-    });
+    } else {
+      try {
+        const sessionStr = localStorage.getItem('lf_supabase_session');
+        if (!sessionStr) return null;
+        const s = JSON.parse(sessionStr);
+        return s?.session?.access_token || null;
+      } catch { return null; }
+    }
   }
 
   async _fetch(endpoint, options = {}) {
@@ -86,6 +97,68 @@ class Database {
         }
       );
     });
+  }
+
+  // ── AUTENTICAÇÃO ──────────────────────────────────────────────────────────
+  async login(email, password) {
+    if (this.isProxyMode) return this._proxy('login', [email, password]);
+    const url = `${SUPABASE_URL}/auth/v1/token?grant_type=password`;
+    const headers = { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
+    try {
+      const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify({ email, password }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error_description || data.msg || 'Erro ao fazer login');
+      
+      const sessionStr = JSON.stringify({ session: { access_token: data.access_token, user: data.user } });
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.set({ lf_supabase_session: sessionStr });
+      }
+      localStorage.setItem('lf_supabase_session', sessionStr);
+      
+      return { ok: true, user: data.user };
+    } catch (e) {
+      console.error('Login error:', e);
+      return { ok: false, error: e.message };
+    }
+  }
+
+  async signUp(email, password) {
+    if (this.isProxyMode) return this._proxy('signUp', [email, password]);
+    const url = `${SUPABASE_URL}/auth/v1/signup`;
+    const headers = { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
+    try {
+      const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify({ email, password }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error_description || data.msg || 'Erro ao cadastrar');
+      
+      // Se já retornar sessão (email confirm off):
+      if (data.session && data.session.access_token) {
+        const sessionStr = JSON.stringify({ session: { access_token: data.session.access_token, user: data.user } });
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.set({ lf_supabase_session: sessionStr });
+        }
+        localStorage.setItem('lf_supabase_session', sessionStr);
+      }
+      return { ok: true, user: data.user, session: data.session };
+    } catch (e) {
+      console.error('SignUp error:', e);
+      return { ok: false, error: e.message };
+    }
+  }
+
+  async logout() {
+    if (this.isProxyMode) return this._proxy('logout', []);
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.remove('lf_supabase_session');
+    }
+    localStorage.removeItem('lf_supabase_session');
+    return { ok: true };
+  }
+
+  async checkSession() {
+    if (this.isProxyMode) return this._proxy('checkSession', []);
+    const token = await this._getToken();
+    return !!token;
   }
 
   // ── CONFIGURAÇÕES ─────────────────────────────────────────────────────────

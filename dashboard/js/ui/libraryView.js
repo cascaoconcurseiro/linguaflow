@@ -160,7 +160,13 @@ function renderUI(container, app) {
         bannerText.innerHTML = `Gerando para: <strong>${w.word}</strong> (${count + 1}/${missing.length})... Pode demorar um pouco.`;
         try {
           const res = await new Promise(resolve => {
-            chrome.runtime.sendMessage({ action: 'ai_generate_chunks', word: w.word }, resolve);
+            if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+              chrome.runtime.sendMessage({ action: 'ai_generate_chunks', word: w.word }, resolve);
+            } else {
+              // Web App Fallback: In the future, call Supabase Edge Function. For now, mock or fail gracefully.
+              console.warn("AI Generation is currently only supported in the Extension environment.");
+              resolve({ chunks: [] });
+            }
           });
           if (res && res.chunks && res.chunks.length > 0) {
             const hasGoodVideoContext = w.context_sentence && w.context_sentence !== w.word && w.context_sentence.split(' ').length > 2;

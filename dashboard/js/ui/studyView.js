@@ -237,7 +237,37 @@ function playCurrentAudio() {
   if (wave) wave.style.opacity = '1';
 
   const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(textToPlay)}&tl=en-US&client=tw-ob`;
-  chrome.runtime.sendMessage({ type: 'FETCH_TTS', url }, (response) => {
+  
+  const handleNativeTTSFallback = () => {
+    if (wave) wave.style.opacity = '0.5';
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(textToPlay);
+      utterance.lang = 'en-US';
+      utterance.rate = 0.9;
+      utterance.onend = () => {
+        const revealBtn = document.getElementById('reveal-btn');
+        if (revealBtn && !revealBtn.classList.contains('hidden')) {
+          const shadowingEl = document.getElementById('shadowing-overlay');
+          const progressEl = document.getElementById('shadowing-progress');
+          if (shadowingEl) {
+            shadowingEl.classList.remove('hidden');
+            void progressEl.offsetWidth;
+            progressEl.style.transition = 'width 3s linear';
+            progressEl.style.width = '100%';
+            setTimeout(() => {
+              shadowingEl.classList.add('hidden');
+              progressEl.style.transition = 'none';
+              progressEl.style.width = '0%';
+            }, 3000);
+          }
+        }
+      };
+      speechSynthesis.speak(utterance);
+    }
+  };
+
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+    chrome.runtime.sendMessage({ type: 'FETCH_TTS', url }, (response) => {
     if (response && response.success) {
       const audio = new Audio(response.dataUrl);
       window.currentAudioObj = audio;
@@ -293,6 +323,9 @@ function playCurrentAudio() {
       }
     }
   });
+  } else {
+    handleNativeTTSFallback();
+  }
 }
 
 function renderChunkCard(c, i) {
@@ -322,12 +355,20 @@ function attachChunkAudioListeners() {
       if (text) {
         const lang = localStorage.getItem('lf_tts_lang') || 'en-US';
         const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${lang}&client=tw-ob`;
-        chrome.runtime.sendMessage({ type: 'FETCH_TTS', url }, (res) => {
-          if (res && res.success) {
-            const audio = new Audio(res.dataUrl);
-            audio.play().catch(console.warn);
+        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+          chrome.runtime.sendMessage({ type: 'FETCH_TTS', url }, (res) => {
+            if (res && res.success) {
+              const audio = new Audio(res.dataUrl);
+              audio.play().catch(console.warn);
+            }
+          });
+        } else {
+          if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = lang;
+            speechSynthesis.speak(utterance);
           }
-        });
+        }
       }
     });
   });
@@ -399,38 +440,43 @@ function revealCard() {
         sentenceEl.innerHTML = `<div class="loading-spinner" style="margin: 0 auto;"></div><div style="font-size:18px; margin-top:16px;">Gerando contexto real com IA...</div>`;
         revealBtn.disabled = true;
 
-        chrome.runtime.sendMessage({ action: 'ai_generate_chunks', word: word }, async (res) => {
-            if (res && res.chunks && res.chunks.length > 0) {
-                const generatedChunks = res.chunks;
-                chunks = generatedChunks;
-                // Set context_sentence to first chunk's english if missing
-                if (context === word) {
-                    context = generatedChunks[0].eng || generatedChunks[0].ingles || generatedChunks[0].english;
-                    wordData.context_sentence = context;
-                    currentCard.context = context;
-                }
-                wordData.ai_chunks = JSON.stringify(generatedChunks);
-                currentCard.ai_chunks = wordData.ai_chunks;
-                
-                if (currentCard.wordData) {
-                    // Update in DB so it doesn't need to be fetched again!
-                    await lfDb.saveWord(wordData).catch(console.error);
-                }
+        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+          chrome.runtime.sendMessage({ action: 'ai_generate_chunks', word: word }, async (res) => {
+              if (res && res.chunks && res.chunks.length > 0) {
+                  const generatedChunks = res.chunks;
+                  chunks = generatedChunks;
+                  // Set context_sentence to first chunk's english if missing
+                  if (context === word) {
+                      context = generatedChunks[0].eng || generatedChunks[0].ingles || generatedChunks[0].english;
+                      wordData.context_sentence = context;
+                      currentCard.context = context;
+                  }
+                  wordData.ai_chunks = JSON.stringify(generatedChunks);
+                  currentCard.ai_chunks = wordData.ai_chunks;
+                  
+                  if (currentCard.wordData) {
+                      // Update in DB so it doesn't need to be fetched again!
+                      await lfDb.saveWord(wordData).catch(console.error);
+                  }
 
-                const exactChunk = chunks.find(c =>
-                  (c.eng || c.ingles || c.english || '').toLowerCase() === word.toLowerCase()
-                );
-                if (exactChunk) {
-                    phonetics = exactChunk.phon || exactChunk.fonetica || exactChunk.phonetics || phonetics;
-                } else {
-                    phonetics = chunks[0].phon || chunks[0].fonetica || chunks[0].phonetics || phonetics;
-                }
+                  const exactChunk = chunks.find(c =>
+                    (c.eng || c.ingles || c.english || '').toLowerCase() === word.toLowerCase()
+                  );
+                  if (exactChunk) {
+                      phonetics = exactChunk.phon || exactChunk.fonetica || exactChunk.phonetics || phonetics;
+                  } else {
+                      phonetics = chunks[0].phon || chunks[0].fonetica || chunks[0].phonetics || phonetics;
+                  }
 
-                handleStep1Render(context, phonetics);
-            } else {
-                handleStep1Render(context, phonetics);
-            }
-        });
+                  handleStep1Render(context, phonetics);
+              } else {
+                  handleStep1Render(context, phonetics);
+              }
+          });
+        } else {
+           console.warn("AI Generation is not available in standalone web app without Edge Functions.");
+           handleStep1Render(context, phonetics);
+        }
         return;
     } else {
         handleStep1Render(context, phonetics);
@@ -477,20 +523,24 @@ function revealCard() {
   const grammarContainer = document.getElementById('grammar-container');
   grammarContainer.innerHTML = '<div style="display:flex; justify-content:center; padding:20px;"><div class="loading-spinner"></div></div><p style="color:var(--color-primary); font-weight:bold; text-align:center;">A IA está analisando a gramática...</p>';
 
-  chrome.runtime.sendMessage(
-    {
-      action: 'ai_explain_sentence',
-      sentence: wordData.context_sentence || currentCard.context || currentCard.word,
-      fullContext: null
-    },
-    (response) => {
-      if (response && response.analysis) {
-        grammarContainer.innerHTML = `<p>${response.analysis.replace(/\n/g, '<br>')}</p>`;
-      } else {
-        grammarContainer.innerHTML = '<p style="color:var(--color-danger); text-align:center; font-weight:bold;">Falha ao carregar análise da IA.</p>';
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+    chrome.runtime.sendMessage(
+      {
+        action: 'ai_explain_sentence',
+        sentence: wordData.context_sentence || currentCard.context || currentCard.word,
+        fullContext: null
+      },
+      (response) => {
+        if (response && response.analysis) {
+          grammarContainer.innerHTML = `<p>${response.analysis.replace(/\n/g, '<br>')}</p>`;
+        } else {
+          grammarContainer.innerHTML = '<p style="color:var(--color-danger); text-align:center; font-weight:bold;">Falha ao carregar análise da IA.</p>';
+        }
       }
-    }
-  );
+    );
+  } else {
+    grammarContainer.innerHTML = '<p style="color:var(--color-text-light); text-align:center; font-weight:bold;">Análise gramatical de IA (Disponível apenas na Extensão por enquanto).</p>';
+  }
 }
 
 function playFeedbackSound(type) {

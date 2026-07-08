@@ -23,30 +23,36 @@ export async function playNaturalAudio(text, options = {}, onEndCallback) {
   const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${lang}&client=tw-ob`;
 
   return new Promise((resolve) => {
-    chrome.runtime.sendMessage({ type: 'FETCH_TTS', url }, (response) => {
-      if (response && response.success) {
-        const audio = new Audio(response.dataUrl);
-        currentAudioObj = audio;
-        audio.playbackRate = rate;
-        audio.onended = () => {
-          currentAudioObj = null;
-          if (onEndCallback) onEndCallback();
-          resolve();
-        };
-        audio.onerror = () => {
-          currentAudioObj = null;
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({ type: 'FETCH_TTS', url }, (response) => {
+        if (response && response.success) {
+          const audio = new Audio(response.dataUrl);
+          currentAudioObj = audio;
+          audio.playbackRate = rate;
+          audio.onended = () => {
+            currentAudioObj = null;
+            if (onEndCallback) onEndCallback();
+            resolve();
+          };
+          audio.onerror = () => {
+            currentAudioObj = null;
+            _fallbackTTS(text, lang, rate, onEndCallback);
+            resolve();
+          };
+          audio.play().catch(() => {
+            _fallbackTTS(text, lang, rate, onEndCallback);
+            resolve();
+          });
+        } else {
           _fallbackTTS(text, lang, rate, onEndCallback);
           resolve();
-        };
-        audio.play().catch(() => {
-          _fallbackTTS(text, lang, rate, onEndCallback);
-          resolve();
-        });
-      } else {
-        _fallbackTTS(text, lang, rate, onEndCallback);
-        resolve();
-      }
-    });
+        }
+      });
+    } else {
+      // Standalone Web App: Google TTS REST might block CORS, fallback to browser native TTS
+      _fallbackTTS(text, lang, rate, onEndCallback);
+      resolve();
+    }
   });
 }
 

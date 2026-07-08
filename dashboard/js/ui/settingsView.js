@@ -121,6 +121,18 @@ export function renderSettings(container, app) {
         </div>
         <p id="export-msg" style="color: var(--color-primary); margin-top: 12px; font-weight:bold; display:none;">Exportação concluída!</p>
       </div>
+
+      <!-- Account Section -->
+      <div style="background: white; border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px;">
+        <h2 style="font-size: 20px; color: var(--color-danger); margin-bottom: 16px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">Conta</h2>
+        <p style="color: var(--color-text-light); margin-bottom: 16px; line-height:1.5;">
+          Gerencie sua sessão no aplicativo.
+        </p>
+        
+        <button id="btn-logout" class="btn" style="background-color: var(--color-danger); border-bottom: 4px solid var(--color-danger-shadow); width: 100%;">
+          🚪 Sair da Conta
+        </button>
+      </div>
       
       <div style="text-align:right;">
         <button id="btn-save" class="btn btn-primary" style="padding: 16px 32px; font-size: 16px;">Salvar Todas as Configurações</button>
@@ -231,4 +243,13 @@ export function renderSettings(container, app) {
   document.getElementById('btn-export-anki').addEventListener('click', () => {
     alert("Para importar no Anki: Exporte como CSV acima e no Anki clique em 'Importar Arquivo'. A exportação nativa .apkg requer a ponte Python local que será liberada no próximo patch.");
   });
+
+  const logoutBtn = document.getElementById('btn-logout');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      if (confirm('Tem certeza que deseja sair?')) {
+        app.logout();
+      }
+    });
+  }
 }

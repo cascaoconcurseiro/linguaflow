@@ -113,7 +113,9 @@ class Database {
       if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
         chrome.storage.local.set({ lf_supabase_session: sessionStr });
       }
-      localStorage.setItem('lf_supabase_session', sessionStr);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('lf_supabase_session', sessionStr);
+      }
       
       return { ok: true, user: data.user };
     } catch (e) {
@@ -137,7 +139,9 @@ class Database {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
           chrome.storage.local.set({ lf_supabase_session: sessionStr });
         }
-        localStorage.setItem('lf_supabase_session', sessionStr);
+        if (typeof window !== 'undefined' && window.localStorage) {
+          localStorage.setItem('lf_supabase_session', sessionStr);
+        }
       }
       return { ok: true, user: data.user, session: data.session };
     } catch (e) {
@@ -151,7 +155,9 @@ class Database {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       chrome.storage.local.remove('lf_supabase_session');
     }
-    localStorage.removeItem('lf_supabase_session');
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.removeItem('lf_supabase_session');
+    }
     return { ok: true };
   }
 

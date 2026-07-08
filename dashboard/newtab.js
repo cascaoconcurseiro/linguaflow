@@ -8,6 +8,14 @@ async function init() {
     setInterval(updateClock, 1000);
 
     try {
+        const isLogged = await lfDb.checkSession();
+        if (!isLogged) {
+            document.getElementById('done-area').style.display = 'block';
+            document.querySelector('#done-area h3').textContent = 'Você não está logado.';
+            document.querySelector('#done-area p').textContent = 'Faça login no Dashboard para sincronizar seus cards.';
+            return;
+        }
+
         const due = await lfDb.getCardsDue(50);
         const validDue = due.filter(c => !c.suspended && c.wordData && c.status !== 'new'); // Só revisão rápida
         

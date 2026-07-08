@@ -9,13 +9,18 @@ btnDash.addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('dashboard/dashboard.html') });
 });
 
-// Try to load due stats dynamically from the offline IndexedDB
+// Try to load due stats dynamically from the offline IndexedDB / Supabase
 try {
-  const dueWords = await lfDb.getCardsDue(1000, false);
-  if (dueWords.length > 0) {
-    statsText.innerHTML = `Você tem <strong style="color:var(--color-secondary);">${dueWords.length}</strong> frases pendentes.<br>Abra o Dashboard para estudar!`;
+  const isLogged = await lfDb.checkSession();
+  if (isLogged) {
+    const dueWords = await lfDb.getCardsDue(1000, false);
+    if (dueWords && dueWords.length > 0) {
+      statsText.innerHTML = `Você tem <strong style="color:var(--color-secondary);">${dueWords.length}</strong> frases pendentes.<br>Abra o Dashboard para estudar!`;
+    } else {
+      statsText.innerHTML = `Você não tem cartas atrasadas!<br>Continue assistindo vídeos e adicione mais frases.`;
+    }
   } else {
-    statsText.innerHTML = `Você não tem cartas atrasadas!<br>Continue assistindo vídeos e adicione mais frases.`;
+    statsText.innerHTML = `Faça login no Dashboard para sincronizar seus cards.`;
   }
 } catch (err) {
   console.error("Popup couldn't read DB", err);

@@ -7,6 +7,15 @@ import { renderGame } from '../ui/gameView.js';
 import { renderLogin } from '../ui/loginView.js';
 import { db } from '../../utils/db.js';
 
+// Register Service Worker for PWA (if not running as a Chrome Extension)
+if ('serviceWorker' in navigator && (!window.chrome || !window.chrome.runtime || !window.chrome.runtime.id)) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => console.log('[SW] Registrado com sucesso:', reg.scope))
+      .catch(err => console.error('[SW] Falha no registro:', err));
+  });
+}
+
 class App {
   constructor() {
     this.root = document.getElementById('app-root');

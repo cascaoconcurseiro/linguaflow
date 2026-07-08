@@ -1,14 +1,10 @@
-const CACHE_NAME = 'linguaflow-v1';
+const CACHE_NAME = 'linguaflow-v1.0.1';
 const ASSETS_TO_CACHE = [
   './dashboard.html',
-  './dashboard.css',
+  './css/globals.css',
   './manifest.webmanifest',
   './js/core/app.js',
-  './js/core/router.js',
-  './js/core/tts.js',
-  '../utils/db.js',
-  '../icons/icon128.png',
-  '../icons/icon48.png'
+  '../utils/db.js'
 ];
 
 self.addEventListener('install', (event) => {

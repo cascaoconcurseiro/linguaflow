@@ -30,9 +30,16 @@ class App {
     this.navBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {
         const route = e.target.dataset.route;
-        this.navigate(route);
+        if(route) this.navigate(route);
       });
     });
+
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', () => {
+        this.logout();
+      });
+    }
 
     // Check auth
     let isAuthenticated = false;

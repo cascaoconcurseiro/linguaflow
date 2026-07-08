@@ -1,6 +1,10 @@
 {
-  "buildCommand": "cd web && npx next build",
-  "outputDirectory": "web/.next",
-  "installCommand": "cd web && npm install",
-  "framework": "nextjs"
+  "buildCommand": null,
+  "outputDirectory": "dashboard",
+  "installCommand": null,
+  "framework": null,
+  "rewrites": [
+    { "source": "/", "destination": "/dashboard.html" },
+    { "source": "/(.*)", "destination": "/dashboard.html" }
+  ]
 }

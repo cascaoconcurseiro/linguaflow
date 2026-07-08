@@ -5,7 +5,7 @@ import { renderSettings } from '../ui/settingsView.js';
 import { renderLeagues } from '../ui/leaguesView.js';
 import { renderGame } from '../ui/gameView.js';
 import { renderLogin } from '../ui/loginView.js';
-import { db } from '../../utils/db.js';
+import { db } from '../../../utils/db.js';
 
 // Register Service Worker for PWA (if not running as a Chrome Extension)
 if ('serviceWorker' in navigator && (!window.chrome || !window.chrome.runtime || !window.chrome.runtime.id)) {

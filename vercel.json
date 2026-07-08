@@ -1,10 +1,15 @@
 {
   "buildCommand": null,
-  "outputDirectory": "dashboard",
   "installCommand": null,
   "framework": null,
   "rewrites": [
-    { "source": "/", "destination": "/dashboard.html" },
-    { "source": "/(.*)", "destination": "/dashboard.html" }
+    { "source": "/css/(.*)", "destination": "/dashboard/css/$1" },
+    { "source": "/js/(.*)", "destination": "/dashboard/js/$1" },
+    { "source": "/assets/(.*)", "destination": "/dashboard/assets/$1" },
+    { "source": "/manifest.webmanifest", "destination": "/dashboard/manifest.webmanifest" },
+    { "source": "/sw.js", "destination": "/dashboard/sw.js" },
+    { "source": "/icons/(.*)", "destination": "/dashboard/icons/$1" },
+    { "source": "/", "destination": "/dashboard/dashboard.html" },
+    { "source": "/(login|home|library|study|leagues|settings|game)", "destination": "/dashboard/dashboard.html" }
   ]
 }

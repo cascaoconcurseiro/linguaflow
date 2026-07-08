@@ -1,4 +1,4 @@
-import { db as lfDb } from '../../utils/db.js';
+import { db as lfDb } from '../../../utils/db.js';
 
 export async function renderLeagues(container, app) {
   // 1. Setup Data

@@ -1114,7 +1114,7 @@ Tradução: [tradução em português]`;
           },
         }),
       });
-    } else if (config.provider === 'deepseek') {
+    } else if (config.provider.startsWith('deepseek')) {
       response = await fetchWithRetry(config.apiUrl, {
         method: 'POST',
         headers: {

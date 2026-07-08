@@ -15,7 +15,7 @@ export async function renderLibrary(container, app) {
     allWords = allWords.map(w => ({
       ...w,
       category: w.category || _inferCategory(w.word)
-    }));
+    })).filter(w => w.category !== 'sentence');
   } catch (err) {
     console.error("Failed to load library", err);
   }
@@ -25,7 +25,8 @@ export async function renderLibrary(container, app) {
 
 function _inferCategory(word) {
     const lower = (word||'').toLowerCase();
-    const parts = lower.split(' ');
+    const parts = lower.split(' ').filter(p => p.trim() !== '');
+    if (parts.length > 4) return 'sentence';
     if (parts.length === 1) return 'word';
     const particles = ['up', 'out', 'in', 'off', 'on', 'down', 'away', 'over'];
     if (parts.length === 2 && particles.includes(parts[1])) return 'phrasal';

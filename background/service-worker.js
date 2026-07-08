@@ -342,6 +342,14 @@ function classifyWordStatic(word) {
   const w = word.toLowerCase().trim();
   const parts = w.split(/\s+/);
 
+  if (parts.length > 4) {
+    const idiomMarkers = ['kick the', 'bite the', 'break a', 'hit the', 'bite off', 'cost an arm', 'piece of cake', 'under the weather', 'beat around', 'let the cat', 'once in a blue', 'the ball is', 'spill the beans', 'rule of thumb', 'on the fence', 'blessing in disguise'];
+    for (const marker of idiomMarkers) {
+      if (w.includes(marker)) return 'idiom';
+    }
+    return 'sentence';
+  }
+
   // Phrasal verbs: 2+ palavras onde a última é uma partícula comum
   const phrasalParticles = ['up','out','in','off','on','away','back','down','over','through','into','around','along','apart','aside','forward','out','away'];
   if (parts.length >= 2) {

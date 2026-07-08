@@ -2,10 +2,51 @@ export async function renderHome(container, app) {
     injectStyles();
 
     // Stats
-    const stats = app && app.db ? await app.db.getStats() : { total: 0, due: 0, mature: 0, new: 0 };
+    const stats = app && app.db ? await app.db.getStats() : { totalWords: 0, dueCards: 0, mature: 0, new: 0, sessions: [] };
     const userStats = app && app.db ? await app.db.getUserStats() : null;
     const xpToday = userStats ? userStats.xp_today : parseInt(localStorage.getItem('lf_xp_today') || '0');
     const streak = userStats ? userStats.streak : parseInt(localStorage.getItem('lf_streak') || '0');
+
+    // MODO EMPTY STATE (Onboarding)
+    if (stats.totalWords === 0) {
+        container.innerHTML = `
+            <div class="gamified-home" style="justify-content: center; align-items: center; min-height: calc(100vh - 100px);">
+                <div class="onboarding-card" style="background: white; border-radius: 24px; padding: 48px 32px; box-shadow: 0 8px 24px rgba(0,0,0,0.05); text-align: center; max-width: 600px; width: 100%; border: 2px solid #e5e5e5;">
+                    <div style="font-size: 80px; margin-bottom: 24px; animation: wave 2s infinite; display: inline-block; transform-origin: 70% 70%;">👋</div>
+                    <h2 style="font-size: 32px; color: #4b4b4b; margin: 0 0 16px 0; font-weight: 900;">Bem-vindo ao LinguaFlow!</h2>
+                    <p style="font-size: 18px; color: #afafaf; font-weight: 700; margin: 0 auto 32px; line-height: 1.5;">Seu vocabulário está zerado. Para começar a aprender e ganhar XP, siga estes 3 passos simples usando a nossa Extensão:</p>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 16px; text-align: left; background: #f7f9fa; border: 2px solid #e5e5e5; border-radius: 24px; padding: 24px;">
+                        <div style="display: flex; gap: 16px; align-items: center;">
+                            <div style="background: #58cc02; box-shadow: 0 4px 0 #58a700; color: white; width: 36px; height: 36px; min-width: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px;">1</div>
+                            <div style="font-weight: bold; color: #4b4b4b; font-size: 16px;">Acesse qualquer site em inglês no Google Chrome</div>
+                        </div>
+                        <div style="display: flex; gap: 16px; align-items: center;">
+                            <div style="background: #ce82ff; box-shadow: 0 4px 0 #a561cf; color: white; width: 36px; height: 36px; min-width: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px;">2</div>
+                            <div style="font-weight: bold; color: #4b4b4b; font-size: 16px;">Dê dois cliques em uma palavra desconhecida</div>
+                        </div>
+                        <div style="display: flex; gap: 16px; align-items: center;">
+                            <div style="background: #ffc800; box-shadow: 0 4px 0 #e5b400; color: white; width: 36px; height: 36px; min-width: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px;">3</div>
+                            <div style="font-weight: bold; color: #4b4b4b; font-size: 16px;">Leia a tradução e clique no botão Salvar!</div>
+                        </div>
+                    </div>
+                </div>
+                <style>
+                    @keyframes wave {
+                        0% { transform: rotate(0deg); }
+                        10% { transform: rotate(14deg); }
+                        20% { transform: rotate(-8deg); }
+                        30% { transform: rotate(14deg); }
+                        40% { transform: rotate(-4deg); }
+                        50% { transform: rotate(10deg); }
+                        60% { transform: rotate(0deg); }
+                        100% { transform: rotate(0deg); }
+                    }
+                </style>
+            </div>
+        `;
+        return;
+    }
 
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const questKey = `lf_quests_${today}`;
@@ -30,12 +71,12 @@ export async function renderHome(container, app) {
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-icon" style="color:var(--color-primary)">📚</div>
-                        <div class="stat-value">${stats.due || 0}</div>
+                        <div class="stat-value">${stats.dueCards || 0}</div>
                         <div class="stat-label">Para Revisar</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon" style="color:var(--color-secondary)">⭐</div>
-                        <div class="stat-value">${stats.mature || 0}</div>
+                        <div class="stat-value">${stats.byStatus?.mature || 0}</div>
                         <div class="stat-label">Palavras Maduras</div>
                     </div>
                     <div class="stat-card">
@@ -105,13 +146,27 @@ export async function renderHome(container, app) {
     });
 
     const heatmapGrid = container.querySelector('#heatmap-grid');
-    if (heatmapGrid) {
+    if (heatmapGrid && stats.sessions) {
         let cellsHTML = '';
-        // Mock de 30 dias de histórico (você pode plugar na db depois)
+        const todayDate = new Date();
+        const thirtyDaysAgo = new Date(todayDate.getTime() - 29 * 24 * 60 * 60 * 1000);
+        
         for (let i = 0; i < 30; i++) {
+            const d = new Date(thirtyDaysAgo.getTime() + i * 24 * 60 * 60 * 1000);
+            const dateStr = d.toISOString().split('T')[0];
+            const session = stats.sessions.find(s => s.date === dateStr);
+            let level = 0;
+            if (session) {
+                if (session.seconds > 600) level = 4;
+                else if (session.seconds > 300) level = 3;
+                else if (session.seconds > 60) level = 2;
+                else level = 1;
+            }
+            // Add a special effect for today
             const isToday = i === 29;
-            const level = isToday && xpToday > 0 ? (xpToday > 50 ? 3 : 1) : (Math.random() > 0.5 ? Math.floor(Math.random() * 4) + 1 : 0);
-            cellsHTML += `<div class="heatmap-cell" data-level="${level}" title="Atividade"></div>`;
+            if (isToday && level === 0 && xpToday > 0) level = 1; // Fallback if session didn't save yet but has XP
+            
+            cellsHTML += `<div class="heatmap-cell" data-level="${level}" title="${dateStr}"></div>`;
         }
         heatmapGrid.innerHTML = cellsHTML;
     }

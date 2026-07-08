@@ -1,10 +1,22 @@
 // dashboard/js/core/ai.js
 
 export async function explainGrammar(sentence) {
-  const apiKey = localStorage.getItem('groqApiKey');
+  // Pegamos a sessão do Supabase do localStorage
+  const sessionStr = localStorage.getItem('lf_supabase_session');
+  if (!sessionStr) {
+    throw new Error('Supabase session missing. Please login.');
+  }
   
-  if (!apiKey) {
-    throw new Error('API_KEY_MISSING');
+  let token;
+  try {
+    const sessionData = JSON.parse(sessionStr);
+    token = sessionData?.session?.access_token;
+  } catch (e) {
+    throw new Error('Invalid Supabase session.');
+  }
+
+  if (!token) {
+    throw new Error('Supabase token missing. Please login.');
   }
 
   const prompt = `Você é um professor de inglês nativo e especialista em linguística.
@@ -19,14 +31,15 @@ Responda em Português. Formate sua resposta em HTML limpo (pode usar <b>, <ul>,
 Seja direto ao ponto. Não diga "Aqui está a explicação", vá direto para o ensino.`;
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    // Aponta para a Edge Function segura no Supabase
+    const response = await fetch('https://qnutoswrufznztoznlql.supabase.co/functions/v1/deepseek-chat', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: "llama3-70b-8192",
+        model: "deepseek-chat",
         messages: [{ role: "user", content: prompt }],
         temperature: 0.3,
         max_tokens: 1024

@@ -520,26 +520,26 @@ async function fetchWithRetry(url, options, maxRetries = 3) {
 
 async function getApiConfig() {
   const defaultKey = '';
-  const groqUrl = 'https://api.groq.com/openai/v1/chat/completions';
+  const deepseekEdgeUrl = 'https://qnutoswrufznztoznlql.supabase.co/functions/v1/deepseek-chat';
   const xAiUrl = 'https://api.x.ai/v1/chat/completions';
   const geminiUrl =
     'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
   const openRouterUrl = 'https://openrouter.ai/api/v1/chat/completions';
 
-  const groqModel = 'llama-3.3-70b-versatile';
+  const deepseekModel = 'deepseek-chat'; // ou deepseek-v4-flash se estiver usando v4 flash especifico
   const xAiModel = 'grok-beta';
   const geminiModel = 'gemini-1.5-flash';
   const openRouterModel = 'openrouter/free';
 
   let nativeKey = '';
   try {
-    const envRes = await fetch(chrome.runtime.getURL('background/env.json'));
-    if (envRes.ok) {
-      const env = await envRes.json();
-      nativeKey = env.NATIVE_API_KEY || '';
+    const storedSession = await chrome.storage.local.get(['lf_supabase_session']);
+    if (storedSession?.lf_supabase_session) {
+      const sessionData = JSON.parse(storedSession.lf_supabase_session);
+      nativeKey = sessionData?.session?.access_token || '';
     }
   } catch (e) {
-    // env.json missing, ignore
+    // Session missing
   }
 
   try {
@@ -568,15 +568,15 @@ async function getApiConfig() {
 
       const isXAi = trimmedKey.startsWith('xai-');
       return {
-        provider: isXAi ? 'xai' : 'groq',
+        provider: isXAi ? 'xai' : 'deepseek_custom',
         apiKey: trimmedKey,
-        apiUrl: isXAi ? xAiUrl : groqUrl,
-        model: isXAi ? xAiModel : groqModel,
+        apiUrl: isXAi ? xAiUrl : 'https://api.deepseek.com/chat/completions',
+        model: isXAi ? xAiModel : deepseekModel,
       };
     }
   } catch (e) {}
 
-  return { provider: 'groq', apiKey: defaultKey, apiUrl: groqUrl, model: groqModel };
+  return { provider: 'deepseek', apiKey: nativeKey, apiUrl: deepseekEdgeUrl, model: deepseekModel };
 }
 
 const BASE_PERSONA = `Atue como um professor particular de inglês para brasileiros, com foco em uso real, contexto e clareza.
@@ -1114,7 +1114,7 @@ Tradução: [tradução em português]`;
           },
         }),
       });
-    } else if (config.provider === 'groq') {
+    } else if (config.provider === 'deepseek') {
       response = await fetchWithRetry(config.apiUrl, {
         method: 'POST',
         headers: {

@@ -6,9 +6,9 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 class Database {
   constructor() {
-    this.isExtensionUI = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.sendMessage;
     this.isBackgroundWorker = typeof window === 'undefined';
-    this.isProxyMode = this.isExtensionUI && !this.isBackgroundWorker;
+    this.isChromeContext = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
+    this.isProxyMode = this.isChromeContext && !this.isBackgroundWorker;
     this.initPromise = Promise.resolve();
   }
 

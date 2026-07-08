@@ -13,7 +13,7 @@
     "*://api.mymemory.translated.net/*",
     "*://translate.googleapis.com/*",
     "*://api.dictionaryapi.dev/*",
-    "*://api.groq.com/*",
+    "*://api.deepseek.com/*",
     "*://www.linguee.com.br/*",
     "*://context.reverso.net/*",
     "<all_urls>"

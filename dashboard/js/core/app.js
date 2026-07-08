@@ -35,12 +35,18 @@ class App {
     });
 
     // Check auth
-    const isAuthenticated = await db.checkSession();
+    let isAuthenticated = false;
+    try {
+      isAuthenticated = await db.checkSession();
+    } catch (err) {
+      console.warn('[App] Erro ao verificar sessão, assumindo deslogado:', err);
+    }
+
     if (!isAuthenticated) {
       this.navigate('login');
     } else {
       // Update global stats
-      this.updateGlobalStats();
+      this.updateGlobalStats().catch(e => console.warn('[App] Erro ao atualizar stats:', e));
       // Load initial route
       this.navigate('home');
     }

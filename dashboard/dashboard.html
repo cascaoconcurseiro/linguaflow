@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LinguaFlow V2</title>
+    <link rel="manifest" href="manifest.webmanifest">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="css/globals.css" />
   </head>
@@ -39,5 +40,17 @@
     <div id="toast-container"></div>
 
     <script type="module" src="js/core/app.js?v=3.0.1"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('sw.js')
+            .then(registration => {
+              console.log('ServiceWorker registration successful with scope: ', registration.scope);
+            }, err => {
+              console.log('ServiceWorker registration failed: ', err);
+            });
+        });
+      }
+    </script>
   </body>
 </html>

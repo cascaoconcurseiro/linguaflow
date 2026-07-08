@@ -1220,7 +1220,7 @@ async function backfillMissingSentences() {
     }
 
     const words = await db.getAllWords();
-    const missing = words.filter(w => w.category !== 'sentence' && (!w.context_sentence || w.context_sentence === w.word || w.context_sentence.trim() === ''));
+    const missing = words.filter(w => w.category !== 'sentence' && (!w.context_sentence || w.context_sentence === w.word || w.context_sentence.trim() === '' || !w.ai_chunks));
     
     if (missing.length === 0) {
       isBackfilling = false;
@@ -1233,10 +1233,14 @@ async function backfillMissingSentences() {
         await new Promise(r => setTimeout(r, 6000)); // Espera 6s para respeitar limites da API (Rate Limit)
         const chunks = await generateChunksWithAI(w.word);
         if (chunks && chunks.length > 0) {
-          w.context_sentence = chunks[0].eng || chunks[0].ingles || chunks[0].english;
+          // Mantém a frase do vídeo se existir e tiver mais que 2 palavras, senão sobrescreve
+          const hasGoodVideoContext = w.context_sentence && w.context_sentence !== w.word && w.context_sentence.split(' ').length > 2;
+          if (!hasGoodVideoContext) {
+            w.context_sentence = chunks[0].eng || chunks[0].ingles || chunks[0].english;
+          }
           w.ai_chunks = JSON.stringify(chunks);
           await db.saveWord(w);
-          console.debug(`[LinguaFlow] Auto-generated sentence for: ${w.word}`);
+          console.debug(`[LinguaFlow] Auto-generated chunks for: ${w.word}`);
           notifyDashboards(w.word);
         }
       } catch (e) {

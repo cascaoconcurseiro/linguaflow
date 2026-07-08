@@ -50,14 +50,14 @@ function renderUI(container, app) {
 
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
-  const missingContext = allWords.filter(w => w.category !== 'sentence' && (!w.context_sentence || w.context_sentence === w.word || w.context_sentence.trim() === ''));
+  const missingContext = allWords.filter(w => w.category !== 'sentence' && (!w.context_sentence || w.context_sentence === w.word || w.context_sentence.trim() === '' || !w.ai_chunks));
   let bannerHtml = '';
   if (missingContext.length > 0) {
     bannerHtml = `
       <div id="ai-backfill-banner" style="background: var(--color-primary); color: white; padding: 12px 20px; border-radius: var(--radius-md); margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(88,204,2,0.3);">
         <div style="font-weight: 600; display:flex; align-items:center; gap:8px;">
           <span style="font-size:20px;">✨</span> 
-          <span>Você tem <strong>${missingContext.length} palavras</strong> sem frases reais. Gere com IA para não demorar na hora de estudar!</span>
+          <span>Você tem <strong>${missingContext.length} palavras</strong> (incluindo salvas do vídeo) sem contexto IA preenchido. Gere com IA para não demorar na hora de estudar!</span>
         </div>
         <button id="btn-run-backfill" style="background: white; color: var(--color-primary); border: none; padding: 8px 16px; border-radius: var(--radius-sm); font-weight: 800; cursor: pointer; transition: all 0.2s;">Gerar Agora</button>
       </div>
@@ -153,7 +153,7 @@ function renderUI(container, app) {
       backfillBtn.textContent = 'Gerando...';
       const bannerText = document.querySelector('#ai-backfill-banner span:nth-child(2)');
       
-      const missing = allWords.filter(w => w.category !== 'sentence' && (!w.context_sentence || w.context_sentence === w.word || w.context_sentence.trim() === ''));
+      const missing = allWords.filter(w => w.category !== 'sentence' && (!w.context_sentence || w.context_sentence === w.word || w.context_sentence.trim() === '' || !w.ai_chunks));
       let count = 0;
       
       for (const w of missing) {
@@ -163,7 +163,10 @@ function renderUI(container, app) {
             chrome.runtime.sendMessage({ action: 'ai_generate_chunks', word: w.word }, resolve);
           });
           if (res && res.chunks && res.chunks.length > 0) {
-            w.context_sentence = res.chunks[0].eng || res.chunks[0].ingles || res.chunks[0].english;
+            const hasGoodVideoContext = w.context_sentence && w.context_sentence !== w.word && w.context_sentence.split(' ').length > 2;
+            if (!hasGoodVideoContext) {
+              w.context_sentence = res.chunks[0].eng || res.chunks[0].ingles || res.chunks[0].english;
+            }
             w.ai_chunks = JSON.stringify(res.chunks);
             await lfDb.saveWord(w);
           }

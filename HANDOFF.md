@@ -13,6 +13,8 @@
 - **Nenhuma alteração de código foi feita nesta sessão** — só diagnóstico e alinhamento de plano.
 
 ## Próximo passo
+**CORREÇÕES DO FEEDBACK (commit f684169)**: causa raiz dos bugs relatados era saveWord falhando 100% com 400 silencioso (colunas inexistentes na tabela words — migração aplicada no Supabase: chunks→ai_chunks + synonyms/antonyms/definition/snapshot/category). Corrigidos também: Sair (db.signOut inexistente), áudio robótico na web, contraste dark (backgrounds hardcoded), missões diárias fake (agora dados reais), CEFR dessincronizado entre extensão e dashboard. Gamificação confirmada REAL no backend (trigger calculate_xp). Usuário precisa retestar: salvar palavras, estudar, Sair, dark mode, missões.
+
 **FASES 0 e 1 IMPLEMENTADAS** (2026-07-08, sessão 2):
 - Fase 0 (refresh de token): completa, 6 cenários testados em Node, commit `0574d20`.
 - Fase 1 (limpeza): completa — 9 arquivos mortos removidos, oauth2+identity fora do manifest, `bulkUpdateDeck` removido, condicionais gemini mortas limpas, PWA corrigido (pasta `dashboard/icons/` criada com 192/512, webmanifest com `start_url: "/"`), rota `stories` no vercel.json.

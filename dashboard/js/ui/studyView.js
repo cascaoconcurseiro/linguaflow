@@ -1,17 +1,27 @@
 import { db as lfDb } from '../../../utils/db.js';
-import { playNaturalAudio, stopAudio } from '../core/tts.js';
+import { playNaturalAudio, stopAudio, downloadAudio } from '../core/tts.js';
+import { aiChat, getCefrLevel, grammarTutorPersona, grammarInitialQuestion, enrichCard, generateChunksWeb } from '../core/ai.js';
+
+const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
+
 let dueQueue = [];
 let currentCard = null;
 let consecutiveCorrect = 0;
 let sessionCards = 0;
 let sessionStart = Date.now();
+let chatHistory = [];
+let chatBusy = false;
+let lastReview = null; // { prevCard, card, grade, isCorrect } para o undo
+let ygWidget = null;
+let ygQueuedWord = null;
 
 export async function renderStudy(container, app) {
   injectStyles();
-  // Reset session state on each render
   consecutiveCorrect = 0;
   sessionCards = 0;
   sessionStart = Date.now();
+  lastReview = null;
+  ygWidget = null; // container será recriado
 
   app.showToast('Carregando frases...', 'info');
   try {
@@ -37,7 +47,6 @@ export async function renderStudy(container, app) {
     return;
   }
 
-  // Inject Base Layout
   container.innerHTML = `
     <div class="study-layout">
       <!-- Main Study Area -->
@@ -50,18 +59,17 @@ export async function renderStudy(container, app) {
             <span class="wave-bar"></span>
             <span class="wave-bar"></span>
             <span class="wave-bar"></span>
-            <button class="btn-play-audio" id="play-audio-btn">▶</button>
+            <button class="btn-play-audio" id="play-audio-btn" aria-label="Ouvir a frase">▶</button>
           </div>
         </div>
 
         <div class="sentence-container">
-          <div class="sentence-text" id="pump-sentence">
-            Carregando...
-          </div>
+          <div class="sentence-text" id="pump-sentence">Carregando...</div>
           <div id="pump-phonetics" style="font-size: 18px; color: var(--color-secondary); font-style: italic; margin-top: 12px;" class="hidden"></div>
           <div id="pump-translation" style="font-size: 20px; font-weight: 700; color: var(--color-text); margin-top: 12px; padding-top: 12px; border-top: 2px dashed var(--color-border);" class="hidden"></div>
 
-          <button id="reveal-btn" class="btn btn-primary reveal-btn" data-step="1">Ver Contexto (Espaço)</button>
+          <button id="reveal-btn" class="btn btn-primary reveal-btn">Revelar (Espaço)</button>
+          <button id="improve-btn" class="hidden" style="margin-top:12px; background:none; border:none; color:var(--color-secondary); font-family:var(--font-main); font-weight:700; font-size:14px; cursor:pointer; text-decoration:underline;">✨ Frase estranha? Gerar uma melhor com IA</button>
         </div>
 
         <!-- Anki Grading Buttons -->
@@ -72,13 +80,14 @@ export async function renderStudy(container, app) {
             <button class="grade-btn btn-secondary" data-grade="3">Bom<br><span style="font-size:12px;opacity:0.8">3 dias</span></button>
             <button class="grade-btn btn-primary" data-grade="4">Fácil<br><span style="font-size:12px;opacity:0.8">7 dias</span></button>
           </div>
+          <button id="btn-undo" style="display:none; margin-top:14px; background:none; border:none; color:var(--color-text-light); font-family:var(--font-main); font-weight:700; font-size:13px; cursor:pointer; align-items:center; gap:6px;">↩️ Desfazer última (Z)</button>
         </div>
 
         <!-- Shadowing Engine Overlay -->
         <div id="shadowing-overlay" class="hidden" style="margin-top: 24px; padding: 16px; background: rgba(88, 204, 2, 0.1); border: 2px dashed var(--color-primary); border-radius: var(--radius-md); text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; animation: pulse 2s infinite;">
           <div style="font-size: 24px; margin-bottom: 8px;">⏳</div>
           <div style="font-size: 18px; font-weight: 800; color: var(--color-primary);">Sua vez... Fale em voz alta!</div>
-          <div style="width: 100%; background: #ddd; height: 6px; border-radius: 3px; margin-top: 12px; overflow: hidden;">
+          <div style="width: 100%; background: var(--color-border); height: 6px; border-radius: 3px; margin-top: 12px; overflow: hidden;">
             <div id="shadowing-progress" style="width: 0%; height: 100%; background: var(--color-primary); transition: width 3s linear;"></div>
           </div>
         </div>
@@ -87,36 +96,47 @@ export async function renderStudy(container, app) {
 
       <!-- Right Panel: Sidebar -->
       <div class="study-sidebar">
-        <!-- B3: isolated-word-box at TOP of sidebar -->
         <div id="isolated-word-box" class="hidden" style="margin-bottom: 28px; padding: 24px; background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align:center;">
           <div style="font-size: 28px; font-weight: 900; color: var(--color-primary); margin-bottom: 8px;" id="iso-word"></div>
           <div style="font-size: 18px; color: var(--color-text); font-weight: 700; margin-bottom: 8px;" id="iso-trans"></div>
           <div style="font-size: 14px; color: var(--color-secondary); font-style: italic; background: rgba(28, 176, 246, 0.1); padding: 4px 12px; border-radius: 16px; display: inline-block;" id="iso-phonetics"></div>
-          <div style="margin-top: 16px;">
-            <a id="youglish-link" href="#" target="_blank" style="color: var(--color-secondary); font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
-              📺 Pesquisar no YouGlish
-            </a>
+        </div>
+
+        <h3 class="sidebar-title">Frases úteis (Chunks) ✨</h3>
+        <div class="chunks-list" id="chunks-container"></div>
+
+        <h3 class="sidebar-title" style="margin-top:32px;">Pergunte ao tutor 🎓</h3>
+        <div id="grammar-chat">
+          <div id="grammar-messages" role="log" aria-live="polite">
+            <div class="chat-bubble-ai chat-placeholder">Revele o card e eu te explico a frase — depois pergunte o que quiser. 😉</div>
           </div>
+          <form id="grammar-form">
+            <input id="grammar-input" type="text" placeholder="Sua dúvida sobre a frase..." aria-label="Pergunte sua dúvida sobre a frase" autocomplete="off" maxlength="300" disabled />
+            <button type="submit" id="grammar-send" aria-label="Enviar pergunta" disabled>➤</button>
+          </form>
         </div>
 
-        <h3 class="sidebar-title">Grammar Chunks ✨</h3>
-        <div class="chunks-list" id="chunks-container">
-          <!-- Dynamically populated -->
-        </div>
-
-        <h3 class="sidebar-title" style="margin-top:32px;">AI Grammar ✨</h3>
-        <div id="grammar-container" style="font-size:15px; color:var(--color-text); line-height:1.6; background: var(--color-surface); padding: 20px; border-radius: var(--radius-lg); border: 2px solid var(--color-border); box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-          <p style="color:var(--color-text-light); font-style:italic; text-align:center;">Revise o card para ver a explicação mágica da IA.</p>
+        <h3 class="sidebar-title" style="margin-top:32px;">Nativos falando 📺</h3>
+        <div id="youglish-box" class="hidden">
+          <div id="yg-widget-embed"></div>
+          <a id="youglish-fallback" href="#" target="_blank" rel="noopener" class="hidden" style="color: var(--color-secondary); font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 8px;">📺 Abrir no YouGlish</a>
         </div>
       </div>
     </div>
   `;
 
-  injectStyles();
-
-  // Attach Global Listeners
   document.getElementById('play-audio-btn').addEventListener('click', playCurrentAudio);
   document.getElementById('reveal-btn').addEventListener('click', revealCard);
+  document.getElementById('improve-btn').addEventListener('click', () => improveSentence(app));
+
+  document.getElementById('grammar-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = document.getElementById('grammar-input');
+    const text = (input.value || '').trim();
+    if (!text || chatBusy) return;
+    input.value = '';
+    sendGrammarQuestion(text);
+  });
 
   document.querySelectorAll('.grade-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -125,13 +145,14 @@ export async function renderStudy(container, app) {
     });
   });
 
+  document.getElementById('btn-undo')?.addEventListener('click', () => handleUndo(app));
+
   if (window.currentKeydownHandler) {
     document.removeEventListener('keydown', window.currentKeydownHandler);
   }
   window.currentKeydownHandler = handleKeydown;
   document.addEventListener('keydown', window.currentKeydownHandler);
 
-  // Load first card
   loadNextCard(app);
 }
 
@@ -143,7 +164,7 @@ function handleKeydown(e) {
 
   if (e.code === 'Space') {
     e.preventDefault();
-    if (revealBtn && !revealBtn.classList.contains('hidden')) {
+    if (revealBtn && !revealBtn.classList.contains('hidden') && !revealBtn.disabled) {
       revealBtn.click();
     } else if (gradingArea && !gradingArea.classList.contains('hidden')) {
       playCurrentAudio();
@@ -156,10 +177,79 @@ function handleKeydown(e) {
     if (e.code === 'Digit3') document.querySelector('[data-grade="3"]')?.click();
     if (e.code === 'Digit4') document.querySelector('[data-grade="4"]')?.click();
   }
+
+  // Ctrl+Z / tecla Z: desfazer última revisão (Anki-style)
+  if ((e.code === 'KeyZ') && !e.shiftKey) {
+    document.getElementById('btn-undo')?.click();
+  }
 }
 
-function loadNextCard(app) {
-  const container = document.querySelector('.study-layout')?.parentElement;
+// ── Normalização de chunks ───────────────────────────────────────────────────
+// Aceita os formatos antigos ({eng|ingles|english, pt|portugues, phon|fonetica})
+// e as entradas especiais novas: is_context (a frase do card) e is_word (a palavra).
+function normChunk(c) {
+  return {
+    eng: c.eng || c.ingles || c.english || '',
+    pt: c.pt || c.portugues || c.portuguese || '',
+    phon: c.phon || c.fonetica || c.phonetics || '',
+    is_context: !!c.is_context,
+    is_word: !!c.is_word,
+  };
+}
+
+function parseChunks(card) {
+  const raw = (card.wordData && card.wordData.ai_chunks) || card.ai_chunks;
+  if (!raw) return [];
+  try {
+    const arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Array.isArray(arr) ? arr.map(normChunk).filter(c => c.eng) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function persistChunks(card, chunks, context) {
+  if (!card.wordData) return;
+  card.wordData.ai_chunks = JSON.stringify(chunks);
+  card.ai_chunks = card.wordData.ai_chunks;
+  if (context) {
+    card.wordData.context_sentence = context;
+    card.context = context;
+  }
+  await lfDb.saveWord(card.wordData).catch(console.error);
+}
+
+async function generateChunksForWord(word) {
+  if (isExtension) {
+    const res = await new Promise((resolve) => {
+      try {
+        chrome.runtime.sendMessage({ action: 'ai_generate_chunks', word }, (r) => resolve(r));
+      } catch {
+        resolve(null);
+      }
+    });
+    if (res && Array.isArray(res.chunks)) return res.chunks.map(normChunk).filter(c => c.eng);
+    return [];
+  }
+  try {
+    const chunks = await generateChunksWeb(word);
+    return chunks.map(normChunk).filter(c => c.eng);
+  } catch (e) {
+    console.warn('[Study] Falha ao gerar chunks na web:', e);
+    return [];
+  }
+}
+
+function looksBroken(context, word) {
+  if (!context) return true;
+  const c = context.trim();
+  if (c.toLowerCase() === word.toLowerCase()) return true;
+  return c.split(/\s+/).length < 3;
+}
+
+// ── Fluxo do card ────────────────────────────────────────────────────────────
+async function loadNextCard(app) {
+  stopAudio();
 
   if (dueQueue.length === 0) {
     if (window.currentKeydownHandler) {
@@ -202,41 +292,133 @@ function loadNextCard(app) {
   }
 
   currentCard = dueQueue[0];
+  const card = currentCard;
+  chatHistory = [];
 
   // Reset UI
   const revealBtn = document.getElementById('reveal-btn');
   revealBtn.classList.remove('hidden');
-  revealBtn.dataset.step = '1';
-  revealBtn.textContent = 'Ver Contexto (Espaço)';
-  
+  revealBtn.disabled = true;
+  revealBtn.textContent = 'Revelar (Espaço)';
+
   document.getElementById('grading-area').classList.add('hidden');
   document.getElementById('pump-phonetics').classList.add('hidden');
   document.getElementById('pump-translation').classList.add('hidden');
   document.getElementById('isolated-word-box').classList.add('hidden');
+  document.getElementById('youglish-box').classList.add('hidden');
+  document.getElementById('improve-btn').classList.add('hidden');
   document.getElementById('shadowing-overlay').classList.add('hidden');
   document.getElementById('shadowing-progress').style.width = '0%';
   document.getElementById('shadowing-progress').style.transition = 'none';
   document.getElementById('chunks-container').innerHTML = '';
-  document.getElementById('grammar-container').innerHTML = '<p style="color:var(--color-text-light); font-style:italic; text-align:center;">Revise o card para ver a explicação mágica da IA.</p>';
+  resetChat();
 
+  const wordData = card.wordData || {};
+  const word = wordData.word || card.word || 'Erro';
+
+  let context = wordData.context_sentence || card.context || '';
+  let chunks = parseChunks(card);
+
+  // Sem contexto real ou sem chunks: gera com IA ANTES de mostrar o card,
+  // para que a frente já seja a frase com a lacuna (recall de verdade).
+  if (chunks.filter(c => !c.is_context && !c.is_word).length === 0 || looksBroken(context, word)) {
+    const sentenceEl = document.getElementById('pump-sentence');
+    sentenceEl.innerHTML = `<div class="loading-spinner" style="margin: 0 auto;"></div><div style="font-size:18px; margin-top:16px;">Preparando o card com IA...</div>`;
+
+    const generated = await generateChunksForWord(word);
+    if (currentCard !== card) return; // usuário navegou enquanto gerava
+
+    if (generated.length > 0) {
+      const specials = chunks.filter(c => c.is_context || c.is_word);
+      chunks = [...specials, ...generated];
+      if (looksBroken(context, word)) {
+        // Chunks são frases naturais: usa a primeira como contexto do card
+        context = generated[0].eng;
+        // Fonética/tradução da entrada gerada já valem para o novo contexto
+        chunks = chunks.filter(c => !c.is_context);
+        chunks.unshift({ ...generated[0], is_context: true });
+      }
+      await persistChunks(card, chunks, context);
+    }
+  }
+
+  if (!context) context = word;
+  card._ctx = context;
+  card._chunks = chunks;
+
+  renderFront(card, word, context);
+  playCurrentAudio();
+}
+
+function renderFront(card, word, context) {
   const sentenceEl = document.getElementById('pump-sentence');
 
-  const wordData = currentCard.wordData || {};
-  let word = wordData.word || currentCard.word || 'Erro';
+  // Frente do card: frase com a palavra oculta. NADA de fonética ou tradução
+  // aqui — qualquer pista revelaria a resposta (bug antigo).
+  let clozeHtml;
+  try {
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+    if (context.toLowerCase().includes(word.toLowerCase()) && context.toLowerCase() !== word.toLowerCase()) {
+      clozeHtml = context.replace(regex, '<span class="cloze-blur">$1</span>');
+    } else {
+      clozeHtml = `<span class="cloze-blur">${word}</span>`;
+    }
+  } catch {
+    clozeHtml = `<span class="cloze-blur">${word}</span>`;
+  }
+  sentenceEl.innerHTML = clozeHtml;
 
-  // Step 0: Cego - Show only the word
-  sentenceEl.innerHTML = `<span style="font-size: 40px; font-weight: 900; color: var(--color-primary);">${word}</span>`;
+  const revealBtn = document.getElementById('reveal-btn');
+  revealBtn.disabled = false;
+
+  if (looksBroken(context, word)) {
+    document.getElementById('improve-btn').classList.remove('hidden');
+  }
+}
+
+async function improveSentence(app) {
+  const card = currentCard;
+  if (!card) return;
+  const wordData = card.wordData || {};
+  const word = wordData.word || card.word || '';
+
+  const btn = document.getElementById('improve-btn');
+  btn.disabled = true;
+  btn.textContent = '✨ Gerando frase nova...';
+
+  const generated = await generateChunksForWord(word);
+  if (currentCard !== card) return;
+
+  btn.disabled = false;
+  btn.textContent = '✨ Frase estranha? Gerar uma melhor com IA';
+
+  if (generated.length === 0) {
+    app.showToast('Não consegui gerar uma frase agora. Tente de novo.', 'error');
+    return;
+  }
+
+  const context = generated[0].eng;
+  let chunks = (card._chunks || []).filter(c => !c.is_context && !c.is_word);
+  chunks = [{ ...generated[0], is_context: true }, ...generated.slice(1), ...chunks];
+  card._ctx = context;
+  card._chunks = chunks;
+  await persistChunks(card, chunks, context);
+
+  btn.classList.add('hidden');
+  renderFront(card, word, context);
+  playCurrentAudio();
 }
 
 function playCurrentAudio() {
   if (!currentCard) return;
   const wordData = currentCard.wordData || {};
-  const textToPlay = wordData.context_sentence || wordData.word || currentCard.word;
+  const textToPlay = currentCard._ctx || wordData.context_sentence || wordData.word || currentCard.word;
 
   const wave = document.getElementById('audio-wave');
   if (wave) wave.style.opacity = '1';
 
-  playNaturalAudio(textToPlay, { lang: 'en-US' }, () => {
+  playNaturalAudio(textToPlay, { lang: localStorage.getItem('lf_tts_lang') || 'en-US' }, () => {
     if (wave) wave.style.opacity = '0.5';
 
     const revealBtn = document.getElementById('reveal-btn');
@@ -258,207 +440,327 @@ function playCurrentAudio() {
   });
 }
 
+// ── Revelação (verso do card) ────────────────────────────────────────────────
+async function revealCard() {
+  const card = currentCard;
+  if (!card) return;
+  const wordData = card.wordData || {};
+  const word = wordData.word || card.word || 'Erro';
+  const context = card._ctx || word;
+  let chunks = card._chunks || [];
+
+  // 1. Revela a palavra na frase
+  document.querySelectorAll('.cloze-blur').forEach(el => {
+    el.classList.remove('cloze-blur');
+    el.classList.add('cloze-revealed');
+  });
+
+  document.getElementById('reveal-btn').classList.add('hidden');
+  document.getElementById('improve-btn').classList.add('hidden');
+  document.getElementById('grading-area').classList.remove('hidden');
+
+  // 2. Fonética e tradução DA FRASE DO CARD (não de outra frase — bug antigo)
+  let ctxEntry = chunks.find(c => c.is_context && c.eng.toLowerCase() === context.toLowerCase())
+    || chunks.find(c => !c.is_word && c.eng.toLowerCase() === context.toLowerCase());
+  let wordEntry = chunks.find(c => c.is_word)
+    || chunks.find(c => c.eng.toLowerCase() === word.toLowerCase());
+
+  renderReveal(word, context, ctxEntry, wordEntry, wordData, card);
+  renderChunksList(chunks, context);
+  updateYouglish(word);
+  startGrammarChat(card, word, context);
+
+  // 3. Se faltar fonética/tradução da frase ou da palavra, gera UMA vez e persiste
+  if (!ctxEntry || !wordEntry) {
+    const phonEl = document.getElementById('pump-phonetics');
+    phonEl.textContent = '🗣️ Gerando pronúncia...';
+    phonEl.classList.remove('hidden');
+
+    try {
+      const data = await enrichCard(word, context);
+      if (currentCard !== card || !data) return;
+
+      if (!ctxEntry && data.sentence_phon) {
+        ctxEntry = { eng: context, pt: data.sentence_pt || '', phon: data.sentence_phon, is_context: true, is_word: false };
+        chunks = [ctxEntry, ...chunks.filter(c => !c.is_context)];
+      }
+      if (!wordEntry && data.word_phon) {
+        wordEntry = { eng: word, pt: data.word_pt || '', phon: data.word_phon, is_context: false, is_word: true };
+        chunks = [...chunks, wordEntry];
+      }
+      card._chunks = chunks;
+      await persistChunks(card, chunks, null);
+      if (currentCard !== card) return;
+
+      renderReveal(word, context, ctxEntry, wordEntry, wordData, card);
+      renderChunksList(chunks, context);
+    } catch (e) {
+      if (currentCard === card) phonEl.classList.add('hidden');
+      console.warn('[Study] Enriquecimento falhou:', e);
+    }
+  }
+}
+
+function renderReveal(word, context, ctxEntry, wordEntry, wordData, card) {
+  const phonEl = document.getElementById('pump-phonetics');
+  if (ctxEntry && ctxEntry.phon) {
+    phonEl.textContent = `🗣️ ${ctxEntry.phon}`;
+    phonEl.classList.remove('hidden');
+  } else {
+    phonEl.classList.add('hidden');
+  }
+
+  const transEl = document.getElementById('pump-translation');
+  const sentencePt = (ctxEntry && ctxEntry.pt) || '';
+  const fallbackPt = wordData.translation || card.translation || '';
+  if (sentencePt || fallbackPt) {
+    transEl.textContent = sentencePt || fallbackPt;
+    transEl.classList.remove('hidden');
+  }
+
+  const isoBox = document.getElementById('isolated-word-box');
+  document.getElementById('iso-word').textContent = word;
+  document.getElementById('iso-trans').textContent = (wordEntry && wordEntry.pt) || wordData.translation || card.translation || '';
+  const isoPhon = document.getElementById('iso-phonetics');
+  if (wordEntry && wordEntry.phon) {
+    isoPhon.textContent = `🗣️ Como falam: ${wordEntry.phon}`;
+    isoPhon.style.display = 'inline-block';
+  } else {
+    isoPhon.style.display = 'none';
+  }
+  isoBox.classList.remove('hidden');
+}
+
+// ── Chunks (frases úteis) ────────────────────────────────────────────────────
+function renderChunksList(chunks, context) {
+  const container = document.getElementById('chunks-container');
+  const visible = chunks.filter(c => !c.is_word);
+  // A frase do card sempre primeiro
+  visible.sort((a, b) => (b.is_context ? 1 : 0) - (a.is_context ? 1 : 0));
+
+  if (visible.length === 0) {
+    container.innerHTML = `<div class="chunk-card" style="opacity:1;"><div class="chunk-en">${context}</div></div>`;
+    return;
+  }
+
+  container.innerHTML = visible.map((c, i) => renderChunkCard(c, i)).join('');
+  attachChunkAudioListeners();
+}
+
 function renderChunkCard(c, i) {
-  // B1: try all field name formats
-  const engText = c.eng || c.ingles || c.english || '';
-  const ptText = c.pt || c.portugues || c.portuguese || '';
-  const phonText = c.phon || c.fonetica || c.phonetics || '';
-  const safeEng = engText.replace(/"/g, '&quot;');
+  const safeEng = c.eng.replace(/"/g, '&quot;');
+  const label = c.is_context ? '<div style="font-size:11px; font-weight:800; color:var(--color-primary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">📌 A frase do card</div>' : '';
   return `
     <div class="chunk-card" style="animation: slideIn 0.3s ease forwards; animation-delay: ${i * 0.1}s; opacity:0;">
+      ${label}
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
         <div style="flex:1;">
-          <div class="chunk-en">${engText}</div>
-          <div class="chunk-br">${phonText}</div>
-          <div class="chunk-pt">${ptText}</div>
+          <div class="chunk-en">${c.eng}</div>
+          <div class="chunk-br">${c.phon || ''}</div>
+          <div class="chunk-pt">${c.pt || ''}</div>
         </div>
-        <button class="chunk-audio-btn" data-text="${safeEng}" style="background:var(--color-secondary); color:white; border:none; border-radius:50%; width:36px; height:36px; font-size:16px; cursor:pointer; flex-shrink:0; margin-left:8px; display:flex; align-items:center; justify-content:center;">🔊</button>
+        <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0; margin-left:8px;">
+          <button class="chunk-action-btn chunk-audio-btn" data-text="${safeEng}" aria-label="Ouvir: ${safeEng}" title="Ouvir">🔊</button>
+          <button class="chunk-action-btn chunk-save-btn" data-text="${safeEng}" aria-label="Salvar áudio de: ${safeEng}" title="Salvar áudio (MP3)">⬇️</button>
+        </div>
       </div>
     </div>
   `;
 }
 
 function attachChunkAudioListeners() {
+  const lang = localStorage.getItem('lf_tts_lang') || 'en-US';
   document.querySelectorAll('.chunk-audio-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const text = btn.dataset.text;
-      if (text) {
-        const lang = localStorage.getItem('lf_tts_lang') || 'en-US';
-        playNaturalAudio(text, { lang: lang });
+      if (text) playNaturalAudio(text, { lang });
+    });
+  });
+  document.querySelectorAll('.chunk-save-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const text = btn.dataset.text;
+      if (!text) return;
+      const original = btn.textContent;
+      btn.textContent = '⏳';
+      btn.disabled = true;
+      try {
+        await downloadAudio(text, { lang });
+      } catch (e) {
+        console.warn('[Study] Download de áudio falhou:', e);
       }
+      btn.textContent = original;
+      btn.disabled = false;
     });
   });
 }
 
-function revealCard() {
-  const revealBtn = document.getElementById('reveal-btn');
-  const step = revealBtn.dataset.step;
-  const wordData = currentCard.wordData || {};
-  let word = wordData.word || currentCard.word || 'Erro';
-  let context = wordData.context_sentence || currentCard.context || word;
-  
-  // Extract phonetics & direct translation from chunks
-  let directTrans = 'Ver contexto';
-  let phonetics = 'Fale como um nativo';
-  let chunks = [];
-  const ai_chunks = (currentCard.wordData && currentCard.wordData.ai_chunks) || currentCard.ai_chunks;
-  if (ai_chunks) {
-    try {
-      chunks = typeof ai_chunks === 'string' ? JSON.parse(ai_chunks) : ai_chunks;
-      if (chunks.length > 0) {
-        const exactChunk = chunks.find(c =>
-          (c.eng || c.ingles || c.english || '').toLowerCase() === word.toLowerCase()
-        );
-        if (exactChunk) {
-          directTrans = exactChunk.pt || exactChunk.portugues || exactChunk.portuguese || directTrans;
-          phonetics = exactChunk.phon || exactChunk.fonetica || exactChunk.phonetics || phonetics;
-        } else {
-          directTrans = chunks[0].pt || chunks[0].portugues || chunks[0].portuguese || directTrans;
-          phonetics = chunks[0].phon || chunks[0].fonetica || chunks[0].phonetics || phonetics;
-        }
-      }
-    } catch (e) { console.warn(e); }
+// ── Tutor de gramática (chat) ────────────────────────────────────────────────
+function resetChat() {
+  chatHistory = [];
+  chatBusy = false;
+  const messagesEl = document.getElementById('grammar-messages');
+  if (messagesEl) {
+    messagesEl.innerHTML = '<div class="chat-bubble-ai chat-placeholder">Revele o card e eu te explico a frase — depois pergunte o que quiser. 😉</div>';
   }
+  const input = document.getElementById('grammar-input');
+  const send = document.getElementById('grammar-send');
+  if (input) input.disabled = true;
+  if (send) send.disabled = true;
+}
 
-  if (step === '1') {
-    const handleStep1Render = (ctx, phn) => {
-        const sentenceEl = document.getElementById('pump-sentence');
-        const phonEl = document.getElementById('pump-phonetics');
-        
-        try {
-          const regex = new RegExp(`(${word})`, 'gi');
-          let clozeHtml = ctx;
-          if (ctx.toLowerCase().includes(word.toLowerCase())) {
-            clozeHtml = ctx.replace(regex, '<span class="cloze-blur">$1</span>');
-          } else {
-            clozeHtml = `<span class="cloze-blur">${word}</span>`;
-          }
-          sentenceEl.innerHTML = clozeHtml;
-        } catch (e) {
-          sentenceEl.innerHTML = `<span class="cloze-blur">${word}</span>`;
-        }
-        
-        if (phn !== 'Fale como um nativo') {
-          phonEl.textContent = `🗣️ ${phn}`;
-          phonEl.classList.remove('hidden');
-        }
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
-        revealBtn.dataset.step = '2';
-        revealBtn.textContent = 'Revelar Tradução (Espaço)';
-        revealBtn.disabled = false;
-        
-        playCurrentAudio();
-    };
-
-    // If context is just the word (no context) OR chunks are missing, fetch chunks NOW
-    if (context === word || !ai_chunks) {
-        const sentenceEl = document.getElementById('pump-sentence');
-        sentenceEl.innerHTML = `<div class="loading-spinner" style="margin: 0 auto;"></div><div style="font-size:18px; margin-top:16px;">Gerando contexto real com IA...</div>`;
-        revealBtn.disabled = true;
-
-        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-          chrome.runtime.sendMessage({ action: 'ai_generate_chunks', word: word }, async (res) => {
-              if (res && res.chunks && res.chunks.length > 0) {
-                  const generatedChunks = res.chunks;
-                  chunks = generatedChunks;
-                  // Set context_sentence to first chunk's english if missing
-                  if (context === word) {
-                      context = generatedChunks[0].eng || generatedChunks[0].ingles || generatedChunks[0].english;
-                      wordData.context_sentence = context;
-                      currentCard.context = context;
-                  }
-                  wordData.ai_chunks = JSON.stringify(generatedChunks);
-                  currentCard.ai_chunks = wordData.ai_chunks;
-                  
-                  if (currentCard.wordData) {
-                      // Update in DB so it doesn't need to be fetched again!
-                      await lfDb.saveWord(wordData).catch(console.error);
-                  }
-
-                  const exactChunk = chunks.find(c =>
-                    (c.eng || c.ingles || c.english || '').toLowerCase() === word.toLowerCase()
-                  );
-                  if (exactChunk) {
-                      phonetics = exactChunk.phon || exactChunk.fonetica || exactChunk.phonetics || phonetics;
-                  } else {
-                      phonetics = chunks[0].phon || chunks[0].fonetica || chunks[0].phonetics || phonetics;
-                  }
-
-                  handleStep1Render(context, phonetics);
-              } else {
-                  handleStep1Render(context, phonetics);
-              }
-          });
-        } else {
-           console.warn("AI Generation is not available in standalone web app without Edge Functions.");
-           handleStep1Render(context, phonetics);
-        }
-        return;
-    } else {
-        handleStep1Render(context, phonetics);
-        return;
-    }
-  }
-
-  // Step 2: Reveal translation, Anki grading, sidebar logic
-  const clozeEl = document.querySelector('.cloze-blur');
-  if (clozeEl) {
-    clozeEl.classList.remove('cloze-blur');
-    clozeEl.classList.add('cloze-revealed');
-  }
-
-  const transEl = document.getElementById('pump-translation');
-  if (wordData.translation || currentCard.translation) {
-    transEl.textContent = wordData.translation || currentCard.translation;
-    transEl.classList.remove('hidden');
-  }
-
-  const isoBox = document.getElementById('isolated-word-box');
-  document.getElementById('iso-word').textContent = word;
-  document.getElementById('iso-trans').textContent = directTrans;
-  document.getElementById('iso-phonetics').textContent = `🗣️ Como falam: ${phonetics}`;
-  document.getElementById('youglish-link').href = `https://youglish.com/pronounce/${encodeURIComponent(word)}/english`;
-  isoBox.classList.remove('hidden');
-
-  const chunksContainer = document.getElementById('chunks-container');
-  if (chunks && chunks.length > 0) {
-    chunksContainer.innerHTML = chunks.map((c, i) => renderChunkCard(c, i)).join('');
-    attachChunkAudioListeners();
+function appendChatBubble(role, htmlOrText) {
+  const messagesEl = document.getElementById('grammar-messages');
+  if (!messagesEl) return null;
+  messagesEl.querySelector('.chat-placeholder')?.remove();
+  const div = document.createElement('div');
+  div.className = role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai';
+  if (role === 'user') {
+    div.textContent = htmlOrText;
   } else {
-    chunksContainer.innerHTML = `
-      <div class="chunk-card" style="opacity:1;">
-        <div class="chunk-en">${wordData.word || currentCard.word}</div>
-        <div class="chunk-br">${wordData.translation || currentCard.translation || ''}</div>
-      </div>
-    `;
+    // Resposta da nossa IA (persona restringe a HTML simples)
+    div.innerHTML = htmlOrText;
   }
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return div;
+}
 
-  document.getElementById('reveal-btn').classList.add('hidden');
-  document.getElementById('grading-area').classList.remove('hidden');
+function showTyping() {
+  const messagesEl = document.getElementById('grammar-messages');
+  if (!messagesEl) return null;
+  const div = document.createElement('div');
+  div.className = 'chat-bubble-ai chat-typing';
+  div.textContent = 'digitando...';
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return div;
+}
 
-  const grammarContainer = document.getElementById('grammar-container');
-  grammarContainer.innerHTML = '<div style="display:flex; justify-content:center; padding:20px;"><div class="loading-spinner"></div></div><p style="color:var(--color-primary); font-weight:bold; text-align:center;">A IA está analisando a gramática...</p>';
+async function startGrammarChat(card, word, sentence) {
+  const input = document.getElementById('grammar-input');
+  const send = document.getElementById('grammar-send');
+  const typing = showTyping();
+  chatBusy = true;
 
-  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-    chrome.runtime.sendMessage(
-      {
-        action: 'ai_explain_sentence',
-        sentence: wordData.context_sentence || currentCard.context || currentCard.word,
-        fullContext: null
-      },
-      (response) => {
-        if (response && response.analysis) {
-          grammarContainer.innerHTML = `<p>${response.analysis.replace(/\n/g, '<br>')}</p>`;
-        } else {
-          grammarContainer.innerHTML = '<p style="color:var(--color-danger); text-align:center; font-weight:bold;">Falha ao carregar análise da IA.</p>';
-        }
-      }
+  try {
+    const level = await getCefrLevel();
+    const system = grammarTutorPersona(sentence, word, level);
+    const question = grammarInitialQuestion(sentence, word);
+    const answer = await aiChat(
+      [{ role: 'system', content: system }, { role: 'user', content: question }],
+      { temperature: 0.5, max_tokens: 600 }
     );
-  } else {
-    grammarContainer.innerHTML = '<p style="color:var(--color-text-light); text-align:center; font-weight:bold;">Análise gramatical de IA (Disponível apenas na Extensão por enquanto).</p>';
+    if (currentCard !== card) return;
+
+    chatHistory = [
+      { role: 'system', content: system },
+      { role: 'user', content: question },
+      { role: 'assistant', content: answer },
+    ];
+    typing?.remove();
+    appendChatBubble('ai', answer);
+    if (input) { input.disabled = false; input.placeholder = 'Sua dúvida sobre a frase...'; }
+    if (send) send.disabled = false;
+  } catch (e) {
+    if (currentCard !== card) return;
+    typing?.remove();
+    appendChatBubble('ai', `<span style="color:var(--color-danger); font-weight:700;">${escapeHtml(e.message || 'Falha ao falar com o tutor.')}</span>`);
+  } finally {
+    if (currentCard === card) chatBusy = false;
   }
 }
 
+async function sendGrammarQuestion(text) {
+  const card = currentCard;
+  if (!card || chatHistory.length === 0) return;
+  const input = document.getElementById('grammar-input');
+  const send = document.getElementById('grammar-send');
+
+  appendChatBubble('user', text);
+  chatHistory.push({ role: 'user', content: text });
+  chatBusy = true;
+  if (send) send.disabled = true;
+  const typing = showTyping();
+
+  try {
+    const answer = await aiChat(chatHistory, { temperature: 0.6, max_tokens: 600 });
+    if (currentCard !== card) return;
+    chatHistory.push({ role: 'assistant', content: answer });
+    typing?.remove();
+    appendChatBubble('ai', answer);
+  } catch (e) {
+    if (currentCard !== card) return;
+    chatHistory.pop(); // não deixa a pergunta órfã no histórico
+    typing?.remove();
+    appendChatBubble('ai', `<span style="color:var(--color-danger); font-weight:700;">${escapeHtml(e.message || 'Falha ao falar com o tutor.')}</span>`);
+  } finally {
+    if (currentCard === card) {
+      chatBusy = false;
+      if (send) send.disabled = false;
+      input?.focus();
+    }
+  }
+}
+
+// ── YouGlish embutido ────────────────────────────────────────────────────────
+function updateYouglish(word) {
+  const box = document.getElementById('youglish-box');
+  const fallback = document.getElementById('youglish-fallback');
+  if (!box) return;
+  box.classList.remove('hidden');
+  fallback.href = `https://youglish.com/pronounce/${encodeURIComponent(word)}/english`;
+  fallback.textContent = `📺 Ver "${word}" no YouGlish`;
+
+  // Extensão (MV3): scripts remotos são proibidos pelo CSP → só o link.
+  if (isExtension) {
+    fallback.classList.remove('hidden');
+    return;
+  }
+
+  if (window.YG && window.YG.Widget) {
+    ygFetch(word);
+    return;
+  }
+
+  ygQueuedWord = word;
+  if (document.getElementById('yg-script')) return;
+
+  window.onYouglishAPIReady = () => {
+    if (ygQueuedWord) ygFetch(ygQueuedWord);
+  };
+  const s = document.createElement('script');
+  s.id = 'yg-script';
+  s.async = true;
+  s.src = 'https://youglish.com/public/emb/widget.js';
+  s.charset = 'utf-8';
+  s.onerror = () => document.getElementById('youglish-fallback')?.classList.remove('hidden');
+  document.head.appendChild(s);
+}
+
+function ygFetch(word) {
+  try {
+    if (!ygWidget || !document.getElementById('yg-widget-embed')?.hasChildNodes()) {
+      const box = document.getElementById('yg-widget-embed');
+      ygWidget = new window.YG.Widget('yg-widget-embed', {
+        width: Math.min(box?.clientWidth || 316, 360),
+        components: 88, // legenda + controle de velocidade + navegação
+        events: {
+          onError: () => document.getElementById('youglish-fallback')?.classList.remove('hidden'),
+        },
+      });
+    }
+    ygWidget.fetch(word, 'english');
+  } catch (e) {
+    console.warn('[Study] YouGlish widget falhou:', e);
+    document.getElementById('youglish-fallback')?.classList.remove('hidden');
+  }
+}
+
+// ── Grading / feedback ───────────────────────────────────────────────────────
 function playFeedbackSound(type) {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -500,14 +802,13 @@ function showXPAnimation(text, isPositive = true) {
 async function handleGrade(grade, app) {
   const isCorrect = grade >= 2;
   playFeedbackSound(isCorrect ? 'correct' : 'wrong');
+  stopAudio();
 
   if (isCorrect) {
-    // XP is now automatically added by Supabase Trigger when logReview is called.
-    
-    // Fallback local for immediate UI or old logic
+    // XP real é creditado pelo trigger do Supabase quando logReview roda.
     const xp = parseInt(localStorage.getItem('lf_xp_today') || '0') + 10;
     localStorage.setItem('lf_xp_today', xp);
-    
+
     consecutiveCorrect++;
     showXPAnimation('+10 XP');
     if (consecutiveCorrect === 5) app.showToast('🔥 5 em sequência! Continue!', 'info');
@@ -518,19 +819,56 @@ async function handleGrade(grade, app) {
   }
 
   sessionCards++;
+  const gradedCard = currentCard;
   try {
-    await lfDb.logReview(currentCard.id, grade);
+    const res = await lfDb.logReview(currentCard.id, grade);
+    // Guarda o necessário pra desfazer: estado anterior do card + card da fila
+    lastReview = { prevCard: res?.prevCard || null, card: gradedCard, grade, isCorrect };
+    updateUndoButton();
   } catch (e) {
     console.error('Failed to log review:', e);
+    app.showToast('Erro ao salvar a revisão. Verifique sua conexão.', 'error');
   }
   dueQueue.shift();
   loadNextCard(app);
 }
 
+async function handleUndo(app) {
+  if (!lastReview || !lastReview.prevCard) return;
+  const { prevCard, card, isCorrect } = lastReview;
+  lastReview = null;
+  updateUndoButton();
+
+  try {
+    await lfDb.undoReview(prevCard);
+  } catch (e) {
+    console.error('Falha ao desfazer:', e);
+    app.showToast('Não foi possível desfazer.', 'error');
+    return;
+  }
+
+  // Reverte o progresso da sessão e recoloca o card no topo da fila
+  sessionCards = Math.max(0, sessionCards - 1);
+  if (isCorrect) {
+    consecutiveCorrect = Math.max(0, consecutiveCorrect - 1);
+    const xp = Math.max(0, parseInt(localStorage.getItem('lf_xp_today') || '0') - 10);
+    localStorage.setItem('lf_xp_today', xp);
+  }
+  dueQueue.unshift(card);
+  app.showToast('Revisão desfeita ↩️', 'info');
+  loadNextCard(app);
+}
+
+function updateUndoButton() {
+  const btn = document.getElementById('btn-undo');
+  if (btn) btn.style.display = (lastReview && lastReview.prevCard) ? 'inline-flex' : 'none';
+}
+
 function injectStyles() {
-  if (document.getElementById('study-styles')) return;
+  if (document.getElementById('study-styles-v2')) return;
+  document.getElementById('study-styles')?.remove();
   const style = document.createElement('style');
-  style.id = 'study-styles';
+  style.id = 'study-styles-v2';
   style.innerHTML = `
     .study-layout { display: flex; height: 100%; width: 100%; background-color: var(--color-bg-alt); }
     .study-main { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 40px; position: relative; overflow-y: auto;}
@@ -555,6 +893,7 @@ function injectStyles() {
     .cloze-revealed { background: rgba(88, 204, 2, 0.15); color: var(--color-primary); }
 
     .reveal-btn { font-size: 20px; padding: 16px 40px; width:100%; max-width: 320px; margin: 0 auto; display: block; box-shadow: 0 4px 0 var(--color-primary-shadow);}
+    .reveal-btn:disabled { opacity: 0.6; cursor: default; }
 
     .grading-buttons { margin-top: 16px; width: 100%; max-width: 600px;}
     .grading-row { display: flex; gap: 16px; width: 100%;}
@@ -573,7 +912,29 @@ function injectStyles() {
     .chunk-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--color-primary);}
     .chunk-en { font-weight: 900; font-size: 18px; color: var(--color-text); margin-bottom: 6px; }
     .chunk-br { font-size: 15px; color: var(--color-secondary); font-weight: 800; margin-bottom: 8px; }
-    .chunk-pt { font-size: 14px; color: var(--color-text-light); font-style: italic; background: #f0f0f0; display: inline-block; padding: 4px 10px; border-radius: 12px;}
+    .chunk-pt { font-size: 14px; color: var(--color-text-light); font-style: italic; background: var(--color-bg-alt); display: inline-block; padding: 4px 10px; border-radius: 12px;}
+
+    .chunk-action-btn { background: var(--color-secondary); color: white; border: none; border-radius: 50%; width: 36px; height: 36px; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .chunk-action-btn:disabled { opacity: 0.5; cursor: default; }
+    .chunk-save-btn { background: var(--color-primary); }
+
+    #grammar-chat { background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    #grammar-messages { padding: 16px; max-height: 340px; min-height: 80px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; font-size: 14px; line-height: 1.55; }
+    .chat-bubble-ai { background: var(--color-bg-alt); border-radius: 12px 12px 12px 4px; padding: 10px 12px; color: var(--color-text); }
+    .chat-bubble-ai p { margin: 0 0 8px 0; }
+    .chat-bubble-ai p:last-child { margin-bottom: 0; }
+    .chat-bubble-ai ul { margin: 4px 0; padding-left: 18px; }
+    .chat-bubble-user { background: rgba(28, 176, 246, 0.15); align-self: flex-end; border-radius: 12px 12px 4px 12px; padding: 10px 12px; color: var(--color-text); max-width: 85%; }
+    .chat-typing { font-style: italic; color: var(--color-text-light); }
+    #grammar-form { display: flex; border-top: 2px solid var(--color-border); }
+    #grammar-input { flex: 1; border: none; padding: 12px; background: transparent; color: var(--color-text); font-family: var(--font-main); font-size: 14px; outline: none; }
+    #grammar-input:disabled { opacity: 0.6; }
+    #grammar-send { background: var(--color-primary); color: #fff; border: none; width: 44px; cursor: pointer; font-size: 16px; }
+    #grammar-send:disabled { opacity: 0.5; cursor: default; }
+
+    #youglish-box { background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    #yg-widget-embed { width: 100%; min-height: 0; }
+    #yg-widget-embed iframe { max-width: 100%; border-radius: var(--radius-md); }
 
     @media (max-width: 768px) {
       .study-layout { flex-direction: column; }

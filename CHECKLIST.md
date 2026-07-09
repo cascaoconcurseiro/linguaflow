@@ -109,7 +109,7 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 - [x] A3. Site-only: popup/settings-panel/newtab abrem `linguaflow-web-tau.vercel.app`; `dashboard/*` removido dos web_accessible_resources (grep de getURL confirmou zero uso por content scripts)
 ### Bloco B — Paridade Anki
 - [x] B1. Export Anki .txt (TSV `#separator:tab`/`#html:true`/`#tags column:3`, frente com frase e palavra destacada, verso com tradução+fonética+definição) + backup JSON completo (words/cards/review_log/stats) + restauração (upsert palavras, re-casamento de cards por palavra|idioma). CSV corrigido (campo `context` inexistente → `context_sentence`) — commit dc289a6
-- [ ] B2. Opções de deck (suspender/enterrar/reposicionar) + cartões reversos + stats de retenção
+- [x] B2. Suspender/reativar no Cofre (⏸️/▶️ + badge, studyView filtra suspensos), enterrar ("Deixar pra amanhã"), cartões reversos 🇧🇷→🇺🇸 opt-in (setting lf_reverse_cards, só cards graduados, áudio só ao revelar), painel de memória no Início (retenção 30d real + carga amanhã/7 dias). Bugs corrigidos de passagem: exclusão no Cofre usava parseInt(uuid) e nunca funcionou; "Gerar Agora" na web agora usa generateChunksWeb — commit 6e47341
 ### Bloco C — LingQ
 - [ ] C1. Modo Leitor de verdade (importar texto/URL, palavras clicáveis coloridas, usar `known_words`)
 - [ ] C2. Contador de palavras conhecidas + lemmatização (compromise)

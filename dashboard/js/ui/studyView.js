@@ -1,5 +1,5 @@
 import { db as lfDb } from '../../../utils/db.js';
-
+import { playNaturalAudio, stopAudio } from '../core/tts.js';
 let dueQueue = [];
 let currentCard = null;
 let consecutiveCorrect = 0;
@@ -236,96 +236,26 @@ function playCurrentAudio() {
   const wave = document.getElementById('audio-wave');
   if (wave) wave.style.opacity = '1';
 
-  const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(textToPlay)}&tl=en-US&client=tw-ob`;
-  
-  const handleNativeTTSFallback = () => {
+  playNaturalAudio(textToPlay, { lang: 'en-US' }, () => {
     if (wave) wave.style.opacity = '0.5';
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(textToPlay);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.9;
-      utterance.onend = () => {
-        const revealBtn = document.getElementById('reveal-btn');
-        if (revealBtn && !revealBtn.classList.contains('hidden')) {
-          const shadowingEl = document.getElementById('shadowing-overlay');
-          const progressEl = document.getElementById('shadowing-progress');
-          if (shadowingEl) {
-            shadowingEl.classList.remove('hidden');
-            void progressEl.offsetWidth;
-            progressEl.style.transition = 'width 3s linear';
-            progressEl.style.width = '100%';
-            setTimeout(() => {
-              shadowingEl.classList.add('hidden');
-              progressEl.style.transition = 'none';
-              progressEl.style.width = '0%';
-            }, 3000);
-          }
-        }
-      };
-      speechSynthesis.speak(utterance);
-    }
-  };
 
-  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-    chrome.runtime.sendMessage({ type: 'FETCH_TTS', url }, (response) => {
-    if (response && response.success) {
-      const audio = new Audio(response.dataUrl);
-      window.currentAudioObj = audio;
-      audio.playbackRate = 0.9;
-      audio.onended = () => {
-        if (wave) wave.style.opacity = '0.5';
-
-        const revealBtn = document.getElementById('reveal-btn');
-        if (revealBtn && !revealBtn.classList.contains('hidden')) {
-          const shadowingEl = document.getElementById('shadowing-overlay');
-          const progressEl = document.getElementById('shadowing-progress');
-          if (shadowingEl) {
-            shadowingEl.classList.remove('hidden');
-            void progressEl.offsetWidth;
-            progressEl.style.transition = 'width 3s linear';
-            progressEl.style.width = '100%';
-            setTimeout(() => {
-              shadowingEl.classList.add('hidden');
-              progressEl.style.transition = 'none';
-              progressEl.style.width = '0%';
-            }, 3000);
-          }
-        }
-      };
-      audio.play().catch(e => console.warn('Audio play failed', e));
-    } else {
-      console.error('TTS Fetch failed', response);
-      if (wave) wave.style.opacity = '0.5';
-
-      if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(textToPlay);
-        utterance.lang = 'en-US';
-        utterance.rate = 0.9;
-        utterance.onend = () => {
-          const revealBtn = document.getElementById('reveal-btn');
-          if (revealBtn && !revealBtn.classList.contains('hidden')) {
-            const shadowingEl = document.getElementById('shadowing-overlay');
-            const progressEl = document.getElementById('shadowing-progress');
-            if (shadowingEl) {
-              shadowingEl.classList.remove('hidden');
-              void progressEl.offsetWidth;
-              progressEl.style.transition = 'width 3s linear';
-              progressEl.style.width = '100%';
-              setTimeout(() => {
-                shadowingEl.classList.add('hidden');
-                progressEl.style.transition = 'none';
-                progressEl.style.width = '0%';
-              }, 3000);
-            }
-          }
-        };
-        speechSynthesis.speak(utterance);
+    const revealBtn = document.getElementById('reveal-btn');
+    if (revealBtn && !revealBtn.classList.contains('hidden')) {
+      const shadowingEl = document.getElementById('shadowing-overlay');
+      const progressEl = document.getElementById('shadowing-progress');
+      if (shadowingEl) {
+        shadowingEl.classList.remove('hidden');
+        void progressEl.offsetWidth;
+        progressEl.style.transition = 'width 3s linear';
+        progressEl.style.width = '100%';
+        setTimeout(() => {
+          shadowingEl.classList.add('hidden');
+          progressEl.style.transition = 'none';
+          progressEl.style.width = '0%';
+        }, 3000);
       }
     }
   });
-  } else {
-    handleNativeTTSFallback();
-  }
 }
 
 function renderChunkCard(c, i) {
@@ -354,21 +284,7 @@ function attachChunkAudioListeners() {
       const text = btn.dataset.text;
       if (text) {
         const lang = localStorage.getItem('lf_tts_lang') || 'en-US';
-        const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${lang}&client=tw-ob`;
-        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-          chrome.runtime.sendMessage({ type: 'FETCH_TTS', url }, (res) => {
-            if (res && res.success) {
-              const audio = new Audio(res.dataUrl);
-              audio.play().catch(console.warn);
-            }
-          });
-        } else {
-          if ('speechSynthesis' in window) {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = lang;
-            speechSynthesis.speak(utterance);
-          }
-        }
+        playNaturalAudio(text, { lang: lang });
       }
     });
   });

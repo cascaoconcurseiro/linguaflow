@@ -1,33 +1,36 @@
 export async function renderHome(container, app) {
     injectStyles();
 
-    // Stats
-    const stats = app && app.db ? await app.db.getStats() : { totalWords: 0, dueCards: 0, mature: 0, new: 0, sessions: [] };
-    const userStats = app && app.db ? await app.db.getUserStats() : null;
-    const xpToday = userStats ? userStats.xp_today : parseInt(localStorage.getItem('lf_xp_today') || '0');
-    const streak = userStats ? userStats.streak : parseInt(localStorage.getItem('lf_streak') || '0');
+    // Stats via db unificado (Supabase) exposto em app.db
+    const db = app?.db;
+    const stats = db ? await db.getStats().catch(() => null) : null;
+    const userStats = db ? await db.getUserStats().catch(() => null) : null;
+
+    const safeStats = stats || { totalWords: 0, dueCards: 0, byStatus: {}, sessions: [] };
+    const xpToday = userStats?.xp_today ?? parseInt(localStorage.getItem('lf_xp_today') || '0');
+    const streak = userStats?.streak ?? parseInt(localStorage.getItem('lf_streak') || '0');
 
     // MODO EMPTY STATE (Onboarding)
-    if (stats.totalWords === 0) {
+    if (safeStats.totalWords === 0) {
         container.innerHTML = `
             <div class="gamified-home" style="justify-content: center; align-items: center; min-height: calc(100vh - 100px);">
-                <div class="onboarding-card" style="background: white; border-radius: 24px; padding: 48px 32px; box-shadow: 0 8px 24px rgba(0,0,0,0.05); text-align: center; max-width: 600px; width: 100%; border: 2px solid #e5e5e5;">
+                <div class="onboarding-card" style="background: var(--color-surface); border-radius: 24px; padding: 48px 32px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); text-align: center; max-width: 600px; width: 100%; border: 2px solid var(--color-border);">
                     <div style="font-size: 80px; margin-bottom: 24px; animation: wave 2s infinite; display: inline-block; transform-origin: 70% 70%;">👋</div>
-                    <h2 style="font-size: 32px; color: #4b4b4b; margin: 0 0 16px 0; font-weight: 900;">Bem-vindo ao LinguaFlow!</h2>
-                    <p style="font-size: 18px; color: #afafaf; font-weight: 700; margin: 0 auto 32px; line-height: 1.5;">Seu vocabulário está zerado. Para começar a aprender e ganhar XP, siga estes 3 passos simples usando a nossa Extensão:</p>
+                    <h2 style="font-size: 32px; color: var(--color-text); margin: 0 0 16px 0; font-weight: 900;">Bem-vindo ao LinguaFlow!</h2>
+                    <p style="font-size: 18px; color: var(--color-text-light); font-weight: 700; margin: 0 auto 32px; line-height: 1.5;">Seu vocabulário está zerado. Para começar a aprender e ganhar XP, siga estes 3 passos simples usando a nossa Extensão:</p>
                     
-                    <div style="display: flex; flex-direction: column; gap: 16px; text-align: left; background: #f7f9fa; border: 2px solid #e5e5e5; border-radius: 24px; padding: 24px;">
+                    <div style="display: flex; flex-direction: column; gap: 16px; text-align: left; background: var(--color-bg-alt); border: 2px solid var(--color-border); border-radius: 24px; padding: 24px;">
                         <div style="display: flex; gap: 16px; align-items: center;">
                             <div style="background: #58cc02; box-shadow: 0 4px 0 #58a700; color: white; width: 36px; height: 36px; min-width: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px;">1</div>
-                            <div style="font-weight: bold; color: #4b4b4b; font-size: 16px;">Acesse qualquer site em inglês no Google Chrome</div>
+                            <div style="font-weight: bold; color: var(--color-text); font-size: 16px;">Acesse qualquer site em inglês no Google Chrome</div>
                         </div>
                         <div style="display: flex; gap: 16px; align-items: center;">
                             <div style="background: #ce82ff; box-shadow: 0 4px 0 #a561cf; color: white; width: 36px; height: 36px; min-width: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px;">2</div>
-                            <div style="font-weight: bold; color: #4b4b4b; font-size: 16px;">Dê dois cliques em uma palavra desconhecida</div>
+                            <div style="font-weight: bold; color: var(--color-text); font-size: 16px;">Dê dois cliques em uma palavra desconhecida</div>
                         </div>
                         <div style="display: flex; gap: 16px; align-items: center;">
                             <div style="background: #ffc800; box-shadow: 0 4px 0 #e5b400; color: white; width: 36px; height: 36px; min-width: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px;">3</div>
-                            <div style="font-weight: bold; color: #4b4b4b; font-size: 16px;">Leia a tradução e clique no botão Salvar!</div>
+                            <div style="font-weight: bold; color: var(--color-text); font-size: 16px;">Leia a tradução e clique no botão Salvar!</div>
                         </div>
                     </div>
                 </div>
@@ -71,12 +74,12 @@ export async function renderHome(container, app) {
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-icon" style="color:var(--color-primary)">📚</div>
-                        <div class="stat-value">${stats.dueCards || 0}</div>
+                        <div class="stat-value">${safeStats.dueCards || 0}</div>
                         <div class="stat-label">Para Revisar</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon" style="color:var(--color-secondary)">⭐</div>
-                        <div class="stat-value">${stats.byStatus?.mature || 0}</div>
+                        <div class="stat-value">${safeStats.byStatus?.mature || 0}</div>
                         <div class="stat-label">Palavras Maduras</div>
                     </div>
                     <div class="stat-card">
@@ -146,7 +149,7 @@ export async function renderHome(container, app) {
     });
 
     const heatmapGrid = container.querySelector('#heatmap-grid');
-    if (heatmapGrid && stats.sessions) {
+    if (heatmapGrid && safeStats.sessions) {
         let cellsHTML = '';
         const todayDate = new Date();
         const thirtyDaysAgo = new Date(todayDate.getTime() - 29 * 24 * 60 * 60 * 1000);
@@ -154,7 +157,7 @@ export async function renderHome(container, app) {
         for (let i = 0; i < 30; i++) {
             const d = new Date(thirtyDaysAgo.getTime() + i * 24 * 60 * 60 * 1000);
             const dateStr = d.toISOString().split('T')[0];
-            const session = stats.sessions.find(s => s.date === dateStr);
+            const session = safeStats.sessions.find(s => s.date === dateStr);
             let level = 0;
             if (session) {
                 if (session.seconds > 600) level = 4;
@@ -185,7 +188,7 @@ function injectStyles() {
             max-width: 1200px;
             margin: 0 auto;
             font-family: 'Nunito', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f7f9fa;
+            background: var(--color-bg);
             min-height: 100vh;
         }
 
@@ -198,23 +201,24 @@ function injectStyles() {
 
         .dashboard-main {
             flex: 1;
-            background: white;
+            background: var(--color-surface);
+            border: 2px solid var(--color-border);
             border-radius: 24px;
             padding: 32px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
             display: flex;
             flex-direction: column;
             gap: 32px;
         }
 
         .dashboard-header h2 {
-            color: #4b4b4b;
+            color: var(--color-text);
             font-size: 28px;
             margin: 0 0 8px 0;
         }
 
         .dashboard-header p {
-            color: #afafaf;
+            color: var(--color-text-light);
             font-size: 16px;
             margin: 0;
             font-weight: bold;
@@ -227,8 +231,8 @@ function injectStyles() {
         }
 
         .stat-card {
-            background: #f7f9fa;
-            border: 2px solid #e5e5e5;
+            background: var(--color-bg-alt);
+            border: 2px solid var(--color-border);
             border-radius: 16px;
             padding: 24px;
             text-align: center;
@@ -245,14 +249,14 @@ function injectStyles() {
         .stat-value {
             font-size: 32px;
             font-weight: 900;
-            color: #4b4b4b;
+            color: var(--color-text);
             margin-bottom: 4px;
         }
 
         .stat-label {
             font-size: 14px;
             font-weight: bold;
-            color: #afafaf;
+            color: var(--color-text-light);
         }
 
         .action-buttons {
@@ -328,15 +332,15 @@ function injectStyles() {
         }
 
         .quests-card {
-            background: white;
+            background: var(--color-surface);
             border-radius: 24px;
-            border: 2px solid #e5e5e5;
+            border: 2px solid var(--color-border);
             padding: 24px;
         }
 
         .quests-card h3 {
             margin: 0 0 20px 0;
-            color: #4b4b4b;
+            color: var(--color-text);
             font-size: 20px;
             display: flex;
             align-items: center;
@@ -365,7 +369,7 @@ function injectStyles() {
 
         .quest-text {
             font-weight: bold;
-            color: #4b4b4b;
+            color: var(--color-text);
             margin-bottom: 8px;
             font-size: 15px;
         }
@@ -379,7 +383,7 @@ function injectStyles() {
         .progress-bar {
             flex: 1;
             height: 12px;
-            background: #e5e5e5;
+            background: var(--color-border);
             border-radius: 6px;
             overflow: hidden;
         }
@@ -394,12 +398,12 @@ function injectStyles() {
         .progress-text {
             font-size: 14px;
             font-weight: bold;
-            color: #afafaf;
+            color: var(--color-text-light);
         }
 
         .heatmap-section {
-            background: #f7f9fa;
-            border: 2px solid #e5e5e5;
+            background: var(--color-bg-alt);
+            border: 2px solid var(--color-border);
             border-radius: 16px;
             padding: 24px;
             margin-top: 16px;
@@ -407,7 +411,7 @@ function injectStyles() {
 
         .heatmap-header h3 {
             margin: 0 0 16px 0;
-            color: #4b4b4b;
+            color: var(--color-text);
             font-size: 18px;
         }
 
@@ -421,7 +425,7 @@ function injectStyles() {
             width: 18px;
             height: 18px;
             border-radius: 4px;
-            background: #ebedf0;
+            background: var(--color-border);
             transition: transform 0.1s;
         }
 

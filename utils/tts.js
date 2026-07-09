@@ -53,8 +53,9 @@ class TTS {
             console.debug('[TTS] Google TTS falhou, usando Web Speech API');
         }
 
-        // Prioridade 3: Web Speech API (fallback)
-        return this._playWebSpeech(text, lang, rate);
+        // Prioridade 3 removida: Sem fallback para voz robótica (Web Speech API)
+        console.warn('[TTS] Google TTS falhou, e o áudio robótico foi desativado.');
+        return false;
     }
 
     async _playGoogleTTS(text, lang, rate = 1.0) {
@@ -68,20 +69,19 @@ class TTS {
         };
         const googleLang = langMap[lang] || lang.split('-')[0];
         
-        // Use multiple Google TTS endpoints for reliability
+        // Ordem por qualidade de voz:
+        // gtx e dict-chrome-ex retornam voz WaveNet (neural, natural)
+        // tw-ob retorna voz sintética mais antiga (robótica) — fica por último
         const urls = [
-            // Primary: translate.google.com (most reliable)
-            `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${googleLang}&client=tw-ob`,
-            // Fallback 1: gtx client (alternative endpoint)
             `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${googleLang}&client=gtx`,
-            // Fallback 2: dict-chrome-ex client
             `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${googleLang}&client=dict-chrome-ex`
         ];
 
         // Try each URL until one works
         for (const url of urls) {
             try {
-                const cacheKey = `${text}|${googleLang}`;
+                // Cache inclui o endpoint para evitar guardar URL de voz robótica
+                const cacheKey = `${text}|${googleLang}|${url.split('client=')[1]}`;
                 let playableUrl = this.audioCache.get(cacheKey);
                 if (!playableUrl) {
                     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
@@ -132,9 +132,7 @@ class TTS {
     }
 
     async _playWebSpeech(text, lang, rate = 1.0) {
-        if (!this.synth) return false;
-
-        // Aguarda vozes carregarem (sem setTimeout fixo de 1s)
+        return false;
         if (this.voices.length === 0) {
             this.voices = this.synth.getVoices();
             if (this.voices.length === 0) {

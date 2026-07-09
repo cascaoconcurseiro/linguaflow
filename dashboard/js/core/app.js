@@ -3,6 +3,7 @@ import { renderLibrary } from '../ui/libraryView.js';
 import { renderStudy } from '../ui/studyView.js';
 import { renderSettings } from '../ui/settingsView.js';
 import { renderLeagues } from '../ui/leaguesView.js';
+import { renderStories } from '../ui/storiesView.js';
 import { renderGame } from '../ui/gameView.js';
 import { renderLogin } from '../ui/loginView.js';
 import { db } from '../../../utils/db.js';
@@ -21,6 +22,10 @@ class App {
     this.root = document.getElementById('app-root');
     this.navBtns = document.querySelectorAll('.nav-btn');
     this.currentRoute = 'home';
+    this.viewContainers = {}; // Armazena as telas já carregadas (DOM Caching)
+    this.db = db; // Expomos o db unificado (Supabase) para todas as views
+    
+    this.themeToggleBtn = document.getElementById('theme-toggle-btn');
     
     this.init();
   }
@@ -36,8 +41,20 @@ class App {
 
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
-      logoutBtn.addEventListener('click', () => {
-        this.logout();
+      logoutBtn.addEventListener('click', async () => {
+        await db.signOut();
+        this.navigate('login');
+      });
+    }
+
+    // --- Theme Logic ---
+    const savedTheme = localStorage.getItem('lf_theme') || 'light';
+    this.setTheme(savedTheme);
+
+    if (this.themeToggleBtn) {
+      this.themeToggleBtn.addEventListener('click', () => {
+        const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+        this.setTheme(currentTheme === 'light' ? 'dark' : 'light');
       });
     }
 
@@ -49,13 +66,35 @@ class App {
       console.warn('[App] Erro ao verificar sessão, assumindo deslogado:', err);
     }
 
+    // Auto-logout no caso do token expirar (401)
+    window.addEventListener('lf_auth_expired', () => {
+      this.navigate('login');
+    });
+
     if (!isAuthenticated) {
       this.navigate('login');
     } else {
       // Update global stats
       this.updateGlobalStats().catch(e => console.warn('[App] Erro ao atualizar stats:', e));
+      // Garante perfil de usuário no Supabase (XP/gamificação)
+      db.ensureUserStats().catch(() => {});
       // Load initial route
       this.navigate('home');
+      // Escuta mensagens do service worker (palavra salva no player)
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+        chrome.runtime.onMessage.addListener((msg) => {
+          if (msg.type === 'AUTH_EXPIRED') {
+            this.navigate('login');
+          } else if (msg.type === 'REFRESH_DASHBOARD' || msg.type === 'WORD_SAVED') {
+            this.updateGlobalStats().catch(() => {});
+            // Se a view ativa for home ou library, força re-render
+            if (this.currentRoute === 'home' || this.currentRoute === 'library') {
+              const container = this.viewContainers[this.currentRoute];
+              if (container) this.renderRouteView(this.currentRoute, container);
+            }
+          }
+        });
+      }
     }
   }
 
@@ -84,45 +123,86 @@ class App {
       }
     });
 
-    // Clear root and show loading state
-    this.root.innerHTML = `
-      <div style="display:flex;height:100%;width:100%;justify-content:center;align-items:center;flex-direction:column;color:var(--color-text-light);">
-        <div style="width:40px;height:40px;border:4px solid var(--color-border);border-top-color:var(--color-primary);border-radius:50%;animation:lf-spin 1s linear infinite;"></div>
-        <style>@keyframes lf-spin { to { transform: rotate(360deg); } }</style>
-      </div>
-    `;
+    // Ocultar todas as telas (views) carregadas
+    for (let key in this.viewContainers) {
+      this.viewContainers[key].style.display = 'none';
+    }
 
-    // Render corresponding view
+    // Verifica se a tela (view) já existe no cache
+    let isFirstLoad = false;
+    let targetContainer = this.viewContainers[route];
+
+    if (!targetContainer) {
+      // Primeira vez abrindo esta tela: cria um container vazio e mostra o loading
+      isFirstLoad = true;
+      targetContainer = document.createElement('div');
+      targetContainer.style.width = '100%';
+      targetContainer.style.height = '100%';
+      targetContainer.style.display = 'block';
+      
+      targetContainer.innerHTML = `
+        <div style="display:flex;height:100%;width:100%;justify-content:center;align-items:center;flex-direction:column;color:var(--color-text-light);">
+          <div style="width:40px;height:40px;border:4px solid var(--color-border);border-top-color:var(--color-primary);border-radius:50%;animation:lf-spin 1s linear infinite;"></div>
+          <style>@keyframes lf-spin { to { transform: rotate(360deg); } }</style>
+        </div>
+      `;
+      
+      this.root.appendChild(targetContainer);
+      this.viewContainers[route] = targetContainer;
+    } else {
+      // Tela já existe no cache: mostra instantaneamente com os dados antigos
+      targetContainer.style.display = 'block';
+    }
+
+    // Chama o render para desenhar (se for a primeira vez) ou atualizar "por baixo dos panos"
+    this.renderRouteView(route, targetContainer);
+  }
+
+  renderRouteView(route, container) {
     switch(route) {
       case 'login':
-        renderLogin(this.root, this);
+        renderLogin(container, this);
         break;
       case 'home':
-        renderHome(this.root, this);
+        renderHome(container, this);
         break;
       case 'library':
-        renderLibrary(this.root, this);
+        renderLibrary(container, this);
         break;
       case 'study':
-        renderStudy(this.root, this);
+        renderStudy(container, this);
         break;
       case 'settings':
-        renderSettings(this.root, this);
+        renderSettings(container, this);
         break;
       case 'leagues':
-        renderLeagues(this.root, this);
+        renderLeagues(container, this);
         break;
       case 'game':
-        renderGame(this.root, this);
+        renderGame(container, this);
+        break;
+      case 'stories':
+        renderStories(container, this);
         break;
       default:
-        renderHome(this.root, this);
+        renderHome(container, this);
     }
   }
 
   async logout() {
     await db.logout();
     this.navigate('login');
+  }
+
+  setTheme(theme) {
+    if (theme === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      if (this.themeToggleBtn) this.themeToggleBtn.textContent = '☀️';
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      if (this.themeToggleBtn) this.themeToggleBtn.textContent = '🌙';
+    }
+    localStorage.setItem('lf_theme', theme);
   }
 
   // Global Toast function

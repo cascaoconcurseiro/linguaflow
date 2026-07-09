@@ -20,7 +20,8 @@ export async function playNaturalAudio(text, options = {}, onEndCallback) {
     currentAudioObj = null;
   }
 
-  const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${lang}&client=tw-ob`;
+  const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${lang}&client=gtx`;
+
 
   return new Promise((resolve) => {
     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
@@ -65,9 +66,6 @@ export function stopAudio() {
     currentAudioObj.currentTime = 0;
     currentAudioObj = null;
   }
-  if ('speechSynthesis' in window) {
-    window.speechSynthesis.cancel();
-  }
 }
 
 /**
@@ -95,11 +93,29 @@ function _getTTSRate() {
  * Fallback para voz nativa do browser (último recurso).
  */
 function _fallbackTTS(text, lang, rate, onEndCallback) {
-  if (!('speechSynthesis' in window)) return;
-  window.speechSynthesis.cancel();
+  console.warn('[TTS] Google TTS failed, using Web Speech API fallback.');
+  if (!('speechSynthesis' in window)) {
+    if (onEndCallback) onEndCallback();
+    return;
+  }
+  
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = lang;
   utterance.rate = rate;
-  utterance.onend = () => { if (onEndCallback) onEndCallback(); };
+  
+  const voices = window.speechSynthesis.getVoices();
+  const preferredVoice = voices.find(v => v.lang.startsWith(lang.split('-')[0]) && (v.name.includes('Natural') || v.name.includes('Neural') || v.name.includes('Google')));
+  if (preferredVoice) {
+    utterance.voice = preferredVoice;
+  }
+  
+  utterance.onend = () => {
+    if (onEndCallback) onEndCallback();
+  };
+  
+  utterance.onerror = () => {
+    if (onEndCallback) onEndCallback();
+  };
+  
   window.speechSynthesis.speak(utterance);
 }

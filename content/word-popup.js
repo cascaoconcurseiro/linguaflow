@@ -8,8 +8,7 @@ export class WordPopup {
     this.word = '';
     this.context = '';
     this.cache = {};
-    this.activeDeck = 1;
-    this.decks = [{ id: 1, name: 'Padrão' }];
+
     this._gramBuilt = false;
     this._exBuilt = false;
     this.freqList = null;
@@ -18,7 +17,7 @@ export class WordPopup {
   async init() {
     this._build();
     this._initData();
-    this._loadDecks();
+
     try {
       const res = await fetch(chrome.runtime.getURL('utils/frequency-en.json'));
       this.freqList = await res.json();
@@ -198,6 +197,38 @@ export class WordPopup {
   _escapeRegExp(value) {
     return String(value ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
+
+  _truncateContext(word, fullContext) {
+    if (!fullContext) return '';
+    // if it's already short, keep it
+    if (fullContext.length < 60) return fullContext;
+    
+    // Find sentences using punctuation boundaries
+    const sentences = fullContext.match(/[^.!?]+[.!?]*/g) || [fullContext];
+    
+    // Find the sentence containing the word
+    let targetSentence = sentences.find(s => s.toLowerCase().includes(word.toLowerCase()));
+    
+    if (!targetSentence) targetSentence = fullContext;
+    
+    targetSentence = targetSentence.trim();
+    
+    // If even the target sentence is too long, truncate by words
+    if (targetSentence.length > 80) {
+      const words = targetSentence.split(/\s+/);
+      const wordIdx = words.findIndex(w => w.toLowerCase().includes(word.toLowerCase()));
+      if (wordIdx !== -1) {
+        const start = Math.max(0, wordIdx - 5);
+        const end = Math.min(words.length, wordIdx + 6);
+        let snippet = words.slice(start, end).join(' ');
+        if (start > 0) snippet = '... ' + snippet;
+        if (end < words.length) snippet = snippet + ' ...';
+        return snippet;
+      }
+    }
+    
+    return targetSentence;
+  }
   async _expandTermInContext(word, context) {
     const cleanWord = String(word || '')
       .toLowerCase()
@@ -238,6 +269,7 @@ export class WordPopup {
     return best || word;
   }
   destroy() {
+    this._posObserver?.disconnect();
     this.popup?.remove();
   }
 
@@ -265,7 +297,7 @@ export class WordPopup {
     if (!document.getElementById('lfp-k')) {
       const s = document.createElement('style');
       s.id = 'lfp-k';
-      s.textContent = `@keyframes lfpIn{from{opacity:0;transform:translateY(10px) scale(0.93)}to{opacity:1;transform:translateY(0) scale(1)}}@keyframes lfpSpin{to{transform:rotate(360deg)}}.lfp-spin{width:18px;height:18px;border:2px solid rgba(255,255,255,.1);border-top-color:#a78bfa;border-radius:50%;animation:lfpSpin .6s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px}#lfp *{box-sizing:border-box;margin:0;padding:0}#lfp button,#lfp select,#lfp input{font-family:'Outfit','Segoe UI',sans-serif}.lfp-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:3px 10px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .12s;display:inline-block}.lfp-chip:hover{color:#7dd3fc;border-color:rgba(125,209,252,.35)}.lfp-chip.red{background:rgba(248,113,113,.06);border-color:rgba(248,113,113,.15);color:#f87171}.lfp-panels::-webkit-scrollbar{width:3px}.lfp-panels::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}.lfp-ph{background:rgba(244,114,182,.06);border:1px solid rgba(244,114,182,.15);border-radius:9px;padding:9px 12px;margin-bottom:7px}.lfp-ex{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 13px;margin-bottom:8px}.ai-res{white-space:pre-wrap;word-break:break-word}
+      s.textContent = `@keyframes lfpIn{from{opacity:0;transform:translateY(10px) scale(0.93)}to{opacity:1;transform:translateY(0) scale(1)}}@keyframes lfpSpin{to{transform:rotate(360deg)}}.lfp-spin{width:18px;height:18px;border:2px solid rgba(255,255,255,.1);border-top-color:#a78bfa;border-radius:50%;animation:lfpSpin .6s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px}#lfp *{box-sizing:border-box;margin:0;padding:0}#lfp button,#lfp select,#lfp input{font-family:'Outfit','Segoe UI',sans-serif}.lfp-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:3px 10px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .12s;display:inline-block}.lfp-chip:hover{color:#7dd3fc;border-color:rgba(125,209,252,.35)}.lfp-chip.red{background:rgba(248,113,113,.06);border-color:rgba(248,113,113,.15);color:#f87171}.lfp-panels::-webkit-scrollbar{width:3px}.lfp-panels::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}.lfp-ph{background:rgba(244,114,182,.06);border:1px solid rgba(244,114,182,.15);border-radius:9px;padding:9px 12px;margin-bottom:7px}.lfp-ex{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 13px;margin-bottom:8px}.ai-res{white-space:pre-wrap;word-break:break-word}.lfp-btn-bounce{transition:transform 0.2s cubic-bezier(0.175,0.885,0.32,1.275)}.lfp-btn-bounce:active{transform:scale(0.95)}
 /* CEFR badges */
 .lfp-badge{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:20px;line-height:1.6}
 .lfp-a1{background:rgba(${rA1},.12);color:${cA1};border:1px solid rgba(${rA1},.25)}
@@ -343,12 +375,11 @@ export class WordPopup {
   </div>
   <div style="display:flex;gap:6px;flex-shrink:0;margin-top:2px;">
     <button id="ftts" title="🔊 Ouvir" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#7dd3fc;cursor:pointer;padding:6px 9px;font-size:16px;line-height:1;transition:all .15s;">🔊</button>
-    <button id="fmic" title="🎤 Praticar pronúncia" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#a78bfa;cursor:pointer;padding:6px 9px;font-size:16px;line-height:1;transition:all .15s;">🎤</button>
     <button id="fx" style="background:none;border:none;color:#475569;font-size:18px;cursor:pointer;padding:4px 7px;border-radius:6px;line-height:1;">✕</button>
   </div>
 </div>
 <div style="display:flex;border-bottom:1px solid rgba(255,255,255,.07);margin-top:12px;padding:0 4px;">
-  ${['Tradução', 'Treino de Chunks', 'Exemplos', 'Linguee', 'YouGlish'].map((l, i) => `<button class="ftab" data-i="${i}" style="flex:1;padding:9px 2px;font-size:11px;font-weight:700;color:${i === 0 ? '#7dd3fc' : '#475569'};background:none;border:none;border-bottom:2px solid ${i === 0 ? '#7dd3fc' : 'transparent'};cursor:pointer;letter-spacing:.03em;white-space:nowrap;transition:all .15s;">${l}</button>`).join('')}
+  ${['Tradução', 'Linguee', 'YouGlish'].map((l, i) => `<button class="ftab" data-i="${i}" style="flex:1;padding:9px 2px;font-size:11px;font-weight:700;color:${i === 0 ? '#7dd3fc' : '#475569'};background:none;border:none;border-bottom:2px solid ${i === 0 ? '#7dd3fc' : 'transparent'};cursor:pointer;letter-spacing:.03em;white-space:nowrap;transition:all .15s;">${l}</button>`).join('')}
 </div>
 <div class="lfp-panels" style="padding:14px 18px 18px;max-height:400px;overflow-y:auto;">
 
@@ -361,48 +392,27 @@ export class WordPopup {
     <div id="fsyn" style="display:none;margin-bottom:10px;"><div style="font-size:10px;color:#475569;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px;">Sinônimos</div><div id="fsyns" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
     <div id="fant" style="display:none;margin-bottom:12px;"><div style="font-size:10px;color:#475569;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px;">Antônimos</div><div id="fants" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
     <div style="height:1px;background:rgba(255,255,255,.06);margin-bottom:12px;"></div>
-    <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;">
-      <span style="font-size:11px;color:#475569;font-weight:600;white-space:nowrap;">Deck:</span>
-      <select id="fdeck" style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#94a3b8;font-size:12px;padding:5px 8px;outline:none;cursor:pointer;"></select>
-      <button id="fnewdeck" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#64748b;padding:5px 9px;cursor:pointer;font-size:14px;font-weight:700;transition:all .15s;" title="Novo deck">+</button>
-    </div>
-    <button id="fsave" style="display:block;width:100%;padding:11px;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;transition:all .15s;margin-bottom:8px;letter-spacing:.01em;">+ Salvar nos Flashcards</button>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-      <button id="fknown" style="padding:9px;background:rgba(74,222,128,.08);color:#4ade80;border:1px solid rgba(74,222,128,.25);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;">✓ Já Conheço</button>
-      <button id="fai" style="padding:9px;background:rgba(139,92,246,.08);color:#a78bfa;border:1px solid rgba(139,92,246,.22);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;">✦ Explicar Palavra</button>
-    </div>
-    <button id="faisent" style="display:none;width:100%;padding:9px;background:rgba(251,191,36,.08);color:#fbbf24;border:1px solid rgba(251,191,36,.22);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;margin-bottom:10px;">🔍 Analisar Frase Completa</button>
+
+    <button id="fsave" class="lfp-btn-bounce" style="display:block;width:100%;padding:11px;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;transition:all .15s;margin-bottom:8px;letter-spacing:.01em;">+ Salvar nos Flashcards</button>
+    <button id="faisent" class="lfp-btn-bounce" style="display:none;width:100%;padding:9px;background:rgba(251,191,36,.08);color:#fbbf24;border:1px solid rgba(251,191,36,.22);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;margin-bottom:10px;">🔍 Analisar Frase Completa</button>
     <div id="fair-container" style="display:none;position:relative;">
       <div id="fair" class="ai-res" style="background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:12px;font-size:12px;color:#c4b5fd;line-height:1.7;"></div>
       <button id="fcopy-ai" style="position:absolute;top:8px;right:8px;background:rgba(255,255,255,.1);border:none;border-radius:6px;color:#fff;padding:4px 8px;font-size:10px;cursor:pointer;opacity:0.6;">📋 Copiar</button>
     </div>
   </div>
 
-  <div class="fp" data-p="1" style="display:none;">
-    <div id="fchunks-container"><div style="text-align:center;color:#475569;font-size:13px;padding:16px;">Clique no botão abaixo para gerar 3 chunks de treino.</div></div>
-    <button id="fgenchunks" style="display:block;width:100%;margin-top:12px;padding:10px;background:rgba(139,92,246,.1);color:#a78bfa;border:1px solid rgba(139,92,246,.25);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">✦ Gerar Chunks (Professor IA)</button>
-  </div>
-
-  <div class="fp" data-p="2" style="display:none;">
-    <div id="fexb"><div style="text-align:center;color:#475569;font-size:13px;padding:20px;">Carregando exemplos…</div></div>
-    <div style="margin:12px 0;height:1px;background:rgba(255,255,255,.06);"></div>
-    <div style="font-size:10px;color:#475569;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:7px;">Frase do vídeo</div>
-    <div id="fvctx" style="background:rgba(125,209,252,.04);border-left:3px solid rgba(125,209,252,.3);padding:8px 12px;border-radius:0 8px 8px 0;font-size:12px;color:#94a3b8;font-style:italic;line-height:1.6;"></div>
-    <div id="fvctxtr" style="font-size:11px;color:rgba(125,209,252,.5);font-style:italic;margin-top:5px;line-height:1.5;"></div>
-  </div>
-
-  <div class="fp" data-p="3" style="display:none;padding-top:8px;">
+  <div class="fp" data-p="1" style="display:none;padding-top:8px;">
     <div style="font-size:13px;color:#64748b;line-height:1.8;margin-bottom:14px;text-align:center;">Traduções em contexto real de textos bilíngues — ideal para ver uso nativo.</div>
     <div id="frev" style="display:none;margin-bottom:14px;max-height:280px;overflow-y:auto;"></div>
-    <button id="frevbtn" style="display:block;width:100%;padding:11px;background:linear-gradient(135deg,#0c4a6e,#0369a1);color:#7dd3fc;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;">🔄 Reverso Context — Exemplos Reais</button>
+    <button id="frevbtn" class="lfp-btn-bounce" style="display:block;width:100%;padding:11px;background:linear-gradient(135deg,#0c4a6e,#0369a1);color:#7dd3fc;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;">🔄 Reverso Context — Exemplos Reais</button>
     <button id="fl1" style="display:block;width:100%;padding:10px;background:rgba(74,222,128,.08);color:#4ade80;border:1px solid rgba(74,222,128,.25);border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;">🔗 Linguee — EN ↔ PT</button>
     <button id="fl2" style="display:block;width:100%;padding:9px;background:rgba(74,222,128,.05);color:#4ade80;border:1px solid rgba(74,222,128,.15);border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;">🇬🇧 Linguee — EN definitions</button>
     <button id="fl3" style="display:block;width:100%;padding:9px;background:rgba(74,222,128,.03);color:#4ade80;border:1px solid rgba(74,222,128,.1);border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;">🌐 Google Translate</button>
   </div>
 
-  <div class="fp" data-p="4" style="display:none;text-align:center;padding-top:8px;">
+  <div class="fp" data-p="2" style="display:none;text-align:center;padding-top:8px;">
     <div style="font-size:13px;color:#64748b;line-height:1.8;margin-bottom:14px;">Ouça como nativos pronunciam em vídeos reais do YouTube.</div>
-    <button id="fy1" style="display:block;width:100%;padding:12px;background:linear-gradient(135deg,#7c1010,#b91c1c);color:#f87171;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;">🎬 YouGlish — Qualquer sotaque</button>
+    <button id="fy1" class="lfp-btn-bounce" style="display:block;width:100%;padding:12px;background:linear-gradient(135deg,#7c1010,#b91c1c);color:#f87171;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;">🎬 YouGlish — Qualquer sotaque</button>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
       <button id="fy2" style="padding:10px;background:rgba(248,113,113,.07);color:#f87171;border:1px solid rgba(248,113,113,.2);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🇺🇸 American</button>
       <button id="fy3" style="padding:10px;background:rgba(248,113,113,.07);color:#f87171;border:1px solid rgba(248,113,113,.2);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🇬🇧 British</button>
@@ -417,6 +427,24 @@ export class WordPopup {
     document.body.appendChild(this.popup);
     window.__lfpopup = this;
     this._bind();
+
+    // O conteúdo (dicionário, badges, etc.) chega de forma assíncrona e muda a
+    // altura do popup depois do posicionamento inicial. Reposiciona sempre que
+    // o tamanho mudar para garantir que ele continue acima da legenda.
+    this._posObserver = new ResizeObserver(() => {
+      if (this.popup.style.display !== 'none') this._position();
+    });
+    this._posObserver.observe(this.popup);
+
+    // position: absolute (documento) já rola junto com a página sozinho —
+    // só precisamos recalcular em resize de janela (o player pode mudar de
+    // largura/posição sem gerar scroll).
+    if (!this._scrollBound) {
+      window.addEventListener('resize', () => {
+        if (this.popup && this.popup.style.display !== 'none') this._position();
+      });
+      this._scrollBound = true;
+    }
   }
 
   _q(s) {
@@ -459,8 +487,6 @@ export class WordPopup {
         this.popup
           .querySelectorAll('.fp')
           .forEach((p, j) => (p.style.display = j === i ? '' : 'none'));
-        if (i === 1 && !this._chunksBuilt) this._loadSavedChunks();
-        if (i === 2 && !this._exBuilt) this._buildExamples();
       };
     });
     q('#ftts').onclick = async () => {
@@ -476,11 +502,9 @@ export class WordPopup {
       }
     };
     q('#fsave').onclick = () => this._save();
-    q('#fknown').onclick = () => this._toggleKnown();
-    q('#fai').onclick = () => this._ai();
     q('#faisent').onclick = () => this._aiSentence();
-    q('#fgenchunks').onclick = () => this._generateChunks();
-    q('#frevbtn').onclick = () => this._loadReverso();
+    if (q('#fgenchunks')) q('#fgenchunks').onclick = () => this._generateChunks();
+    if (q('#frevbtn')) q('#frevbtn').onclick = () => this._loadReverso();
     q('#fcopy-ai').onclick = () => {
       const text = q('#fair').textContent;
       navigator.clipboard.writeText(text);
@@ -488,9 +512,6 @@ export class WordPopup {
       btn.textContent = '✅ Copiado!';
       setTimeout(() => (btn.textContent = '📋 Copiar'), 2000);
     };
-    q('#fnewdeck').onclick = () => this._showDeckModal();
-    q('#fmic').onclick = () => this._practicePronunciation();
-    q('#fdeck').onchange = (e) => (this.activeDeck = parseInt(e.target.value, 10));
     // Linguee
     q('#fl1').onclick = () =>
       window.open(
@@ -546,17 +567,16 @@ export class WordPopup {
     const cleanedWord = word.replace(/[.,!?()"]+/g, '').trim();
     this.context = context || '';
     this.word = await this._expandTermInContext(cleanedWord, this.context);
+    this.context = this._truncateContext(this.word, this.context);
     this.currentCue = cue; // Armazena a cue completa com contexto expandido
     this._chunksBuilt = false;
     this._exBuilt = false;
     this._contextExplained = false;
 
-    // Encontra o player container
-    const playerContainer = this._findPlayerContainer();
-    if (playerContainer && this.popup.parentElement !== playerContainer) {
-      playerContainer.appendChild(this.popup);
-      console.debug('[WordPopup] Popup movido para dentro do player');
-    } else if (!playerContainer && this.popup.parentElement !== document.body) {
+    // Sempre mantém o popup em document.body (fora do playerContainer, que o
+    // YouTube às vezes anima com transform/scale — isso distorceria o popup
+    // se ele fosse filho dele).
+    if (this.popup.parentElement !== document.body) {
       document.body.appendChild(this.popup);
     }
     // Reset tabs
@@ -584,19 +604,8 @@ export class WordPopup {
       el.style.display = 'inline-block';
       this.activeLevel = cefr;
 
-      // Auto-selecionar / Criar Deck CEFR + mostrar progresso de nível
+      // Progresso CEFR
       (async () => {
-        const BASE = chrome.runtime.getURL('utils/');
-        const { db } = await import(BASE + 'db.js');
-        let decks = (await db.getSetting('decks')) || ['Default'];
-        if (!decks.includes(cefr)) {
-          decks.push(cefr);
-          await db.setSetting('decks', decks);
-          this.decks = decks;
-        }
-        this.activeDeck = 1;
-        this._renderDecks();
-        // Progresso CEFR
         const progEl = q('#fcefr-prog');
         if (progEl && this.engine?.cefrList) {
           const allLevel = Object.values(this.engine.cefrList).filter((v) => v === cefr).length;
@@ -614,8 +623,6 @@ export class WordPopup {
       })();
     } else {
       this.activeLevel = null;
-      this.activeDeck = 1;
-      this._renderDecks();
     }
 
     // — Expression type badge (async, loads phrasal verbs db) —
@@ -697,22 +704,14 @@ export class WordPopup {
       const { db } = await import(BASE + 'db.js');
       const lang = this.engine?.sourceLang || 'en';
       const saved = await db.getWord(this.word, lang);
-      const known = await db.isKnown(this.word, lang);
       q('#fsave').textContent = saved ? '✅ Salvo nos Flashcards' : '+ Salvar nos Flashcards';
       q('#fsave').style.background = saved
         ? 'linear-gradient(135deg,#15803d,#16a34a)'
         : 'linear-gradient(135deg,#1d4ed8,#2563eb)';
-      q('#fknown').textContent = known ? '✅ Conhecida' : '✓ Já Conheço';
-      q('#fknown').style.background = known ? 'rgba(74,222,128,.18)' : 'rgba(74,222,128,.08)';
     })();
-    this._loadSavedChunks();
-    q('#fexb').innerHTML =
-      '<div style="text-align:center;color:#475569;font-size:13px;padding:20px;">Carregando exemplos…</div>';
-    q('#fvctx').textContent = context || '(sem contexto)';
-    q('#fvctxtr').textContent = '';
 
     this.popup.style.display = 'block';
-    this._position(rect); // Chama após display=block para obter offsetHeight real
+    this._position(); // Chama após display=block para obter offsetHeight real
 
     // Trigger animation
     requestAnimationFrame(() => {
@@ -728,12 +727,7 @@ export class WordPopup {
       this._wasPlayingBefore = true;
     }
     // Tradução do contexto em segundo plano
-    if (context) {
-      this._translate(context).then((tr) => {
-        if (tr) q('#fvctxtr').textContent = '→ ' + tr;
-      });
-      // A explicação contextual agora é disparada apenas se o usuário clicar em "IA" ou após o dicionário carregar
-    }
+    // A explicação contextual agora é disparada apenas se o usuário clicar em "IA" ou após o dicionário carregar
   }
 
   async _loadData(word) {
@@ -1084,6 +1078,19 @@ export class WordPopup {
       const { videoUtils } = await import(BASE + 'video-utils.js');
       const lang = this.engine?.sourceLang || 'en';
 
+      // Verificação de sessão — usuário precisa estar logado
+      const isLoggedIn = await db.checkSession();
+      if (!isLoggedIn) {
+        btn.textContent = '🔒 Faça login no Dashboard';
+        btn.style.background = 'linear-gradient(135deg,#b45309,#d97706)';
+        setTimeout(() => {
+          btn.textContent = '+ Salvar nos Flashcards';
+          btn.style.background = 'linear-gradient(135deg,#1d4ed8,#2563eb)';
+          btn.disabled = false;
+        }, 3000);
+        return;
+      }
+
       // Verifica se já existe
       const existing = await db.getWord(this.word, lang);
       if (existing) {
@@ -1104,7 +1111,6 @@ export class WordPopup {
 
       let translation = d.translation || '';
       if (!translation) {
-        // Tentativa de tradução de última hora se o cache estiver vazio
         translation = (await this._translate(this.word)) || '';
       }
 
@@ -1116,9 +1122,6 @@ export class WordPopup {
       if (!d.phonetic && this.generatedChunks && this.generatedChunks.length > 0) {
         d.phonetic = this.generatedChunks[0].phon;
       }
-
-      const deckName = this.activeLevel || 'Uncategorized';
-      const deckId = await db.getOrCreateDeck(deckName, window.location.href);
 
       const snapshot = videoUtils.captureSnapshot ? videoUtils.captureSnapshot() : null;
 
@@ -1134,7 +1137,6 @@ export class WordPopup {
         video_title: document.title,
         platform: this.platform || 'youtube',
         level: this.activeLevel || '',
-        deck_id: this.activeDeck || deckId,
         synonyms: (d.synonyms || []).join(','),
         antonyms: (d.antonyms || []).join(','),
         snapshot: snapshot,
@@ -1236,42 +1238,6 @@ export class WordPopup {
       toast.style.animation = 'slideOutRight 0.3s ease-out';
       setTimeout(() => (toast.style.display = 'none'), 300);
     }, 3000);
-  }
-
-  async _toggleKnown() {
-    const q = (s) => this._q(s);
-    const btn = q('#fknown');
-    const BASE = chrome.runtime.getURL('utils/');
-    const { db } = await import(BASE + 'db.js');
-    const lang = this.engine?.sourceLang || 'en';
-    const isKnown = await db.isKnown(this.word, lang);
-    if (!isKnown) {
-      await db.markAsKnown(this.word, lang);
-      this.engine?.markWordKnown(this.word);
-      btn.textContent = '✅ Conhecida!';
-      btn.style.background = 'rgba(74,222,128,.18)';
-    } else {
-      this.engine?.knownWords?.delete(this.word.toLowerCase());
-      btn.textContent = '✓ Já Conheço';
-      btn.style.background = 'rgba(74,222,128,.08)';
-    }
-  }
-
-  async _loadDecks() {
-    const BASE = chrome.runtime.getURL('utils/');
-    const { db } = await import(BASE + 'db.js');
-    const decks = await db.getAllDecks();
-    this.decks = decks.length ? decks : [{ id: 1, name: 'Padrão' }];
-    if (!this.decks.find((d) => d.id === this.activeDeck)) this.activeDeck = this.decks[0].id;
-    this._renderDecks();
-  }
-  _renderDecks() {
-    const s = this._q('#fdeck');
-    if (!s) return;
-    s.innerHTML = this.decks
-      .map((d) => `<option value="${d.id}">${d.id === 1 ? '📚 Padrão' : d.name}</option>`)
-      .join('');
-    s.value = this.activeDeck;
   }
 
   _translate(t) {
@@ -1512,104 +1478,7 @@ export class WordPopup {
     return map[pos?.toLowerCase()] || pos || '';
   }
 
-  _showDeckModal() {
-    let modal = this._q('#lfp-deck-modal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'lfp-deck-modal';
-      modal.innerHTML = `
-        <div style="font-size:13px;color:#94a3b8;font-weight:600;margin-bottom:4px;text-align:center;">Nome do novo deck</div>
-        <input id="lfp-deck-input" type="text" placeholder="Ex: Breaking Bad, B2 Vocabulary…" maxlength="40" />
-        <div style="display:flex;gap:8px;width:100%">
-          <button id="lfp-deck-cancel" style="flex:1;padding:9px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:#64748b;cursor:pointer;font-size:13px;">Cancelar</button>
-          <button id="lfp-deck-confirm" style="flex:2;padding:9px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:10px;color:#fff;cursor:pointer;font-size:13px;font-weight:700;">Criar Deck</button>
-        </div>`;
-      this.popup.appendChild(modal);
-      modal.querySelector('#lfp-deck-cancel').onclick = () => (modal.style.display = 'none');
-      modal.querySelector('#lfp-deck-confirm').onclick = async () => {
-        const n = modal.querySelector('#lfp-deck-input').value.trim();
-        if (!n) return;
-        modal.style.display = 'none';
-        const BASE = chrome.runtime.getURL('utils/');
-        const { db } = await import(BASE + 'db.js');
-        const deckId = await db.getOrCreateDeck(n, window.location.href);
-        const decks = await db.getAllDecks();
-        this.decks = decks;
-        this._renderDecks();
-        this._q('#fdeck').value = deckId;
-        this.activeDeck = deckId;
-      };
-      modal.querySelector('#lfp-deck-input').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') modal.querySelector('#lfp-deck-confirm').click();
-        if (e.key === 'Escape') modal.style.display = 'none';
-      });
-    }
-    modal.style.display = 'flex';
-    setTimeout(() => modal.querySelector('#lfp-deck-input').focus(), 50);
-  }
 
-  async _practicePronunciation() {
-    const q = (s) => this._q(s);
-    const btn = q('#fmic');
-    if (!this.word) return;
-    // Navega para a aba Uso Real se não estiver nela (tab index 1)
-    const tabs = [...this.popup.querySelectorAll('.ftab')];
-    tabs.forEach((t, i) => {
-      t.style.color = i === 1 ? '#a78bfa' : '#475569';
-      t.style.borderBottomColor = i === 1 ? '#a78bfa' : 'transparent';
-    });
-    this.popup.querySelectorAll('.fp').forEach((p, i) => (p.style.display = i === 1 ? '' : 'none'));
-    if (!this._gramBuilt) this._aiGrammar();
-
-    // Adiciona painel de pronúncia no topo do tab Uso Real se ainda não existir
-    let pPanel = q('#lfp-pron-panel');
-    if (!pPanel) {
-      pPanel = document.createElement('div');
-      pPanel.id = 'lfp-pron-panel';
-      pPanel.style.cssText =
-        'background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:12px;margin-bottom:12px;';
-      pPanel.innerHTML = `
-        <div style="font-size:10px;color:#a78bfa;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;">🎤 Laboratório de Pronúncia</div>
-        <div style="font-size:22px;font-weight:700;color:#f8fafc;text-align:center;margin-bottom:4px;">${this.word}</div>
-        <div id="lfp-pron-ipa" style="font-size:12px;color:#64748b;text-align:center;font-family:monospace;margin-bottom:10px;"></div>
-        <button id="lfp-pron-btn" style="display:block;width:100%;padding:10px;background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.3);border-radius:10px;color:#a78bfa;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;">🎤 Pressione para falar</button>
-        <div id="lfp-pron-score" style="display:none;text-align:center;font-size:13px;color:#94a3b8;line-height:1.6;"></div>`;
-      const tab1 = q('.fp[data-p="1"]');
-      if (tab1) tab1.insertBefore(pPanel, tab1.firstChild);
-    }
-
-    const ipa = q('#fipa')?.textContent || this.cache[this.word]?.phonetic || '';
-    if (ipa) q('#lfp-pron-ipa').textContent = ipa;
-    q('#lfp-pron-btn').textContent = '🎤 Pressione para falar';
-
-    q('#lfp-pron-btn').onclick = async () => {
-      const pbtn = q('#lfp-pron-btn');
-      const scoreEl = q('#lfp-pron-score');
-      pbtn.textContent = '🔴 Gravando…';
-      pbtn.style.background = 'rgba(248,113,113,.15)';
-      pbtn.style.borderColor = 'rgba(248,113,113,.3)';
-      pbtn.style.color = '#f87171';
-      scoreEl.style.display = 'none';
-      try {
-        const BASE = chrome.runtime.getURL('utils/');
-        const { pronunciationLab } = await import(BASE + 'pronunciation.js');
-        pronunciationLab.assess(this.word, ({ score, transcript, feedback }) => {
-          pbtn.textContent = '🎤 Pressione para falar';
-          pbtn.style.background = 'rgba(167,139,250,.15)';
-          pbtn.style.borderColor = 'rgba(167,139,250,.3)';
-          pbtn.style.color = '#a78bfa';
-          const pct = Math.round(score * 100);
-          const bar = '█'.repeat(Math.round(pct / 10)) + '░'.repeat(10 - Math.round(pct / 10));
-          const color = pct >= 80 ? '#4ade80' : pct >= 50 ? '#fbbf24' : '#f87171';
-          scoreEl.style.display = '';
-          scoreEl.innerHTML = `<div style="font-size:28px;font-weight:800;color:${color};">${pct}%</div><div style="color:${color};font-family:monospace;font-size:13px;letter-spacing:2px;">${bar}</div><div style="margin-top:6px;font-size:12px;color:#94a3b8;">Você disse: <b style="color:#e2e8f0">"${transcript}"</b></div>${feedback ? `<div style="margin-top:6px;font-size:11px;color:#64748b;">💡 ${feedback}</div>` : ''}`;
-        });
-      } catch (e) {
-        pbtn.textContent = '⚠️ Microfone indisponível';
-        setTimeout(() => (pbtn.textContent = '🎤 Pressione para falar'), 2000);
-      }
-    };
-  }
 
   _posDetail(pos, w) {
     const m = {
@@ -1676,71 +1545,69 @@ export class WordPopup {
     return null;
   }
 
-  _position(rect) {
-    const popupMode = this.engine?.popupMode ?? 'floating';
+  _position() {
+    // Primeiro exibe para conseguir calcular o tamanho real
+    this.popup.style.display = 'block';
 
-    // ── MODO DOCK: Barra lateral fixa no canto direito ─────────────────────
-    if (popupMode === 'dock') {
-      Object.assign(this.popup.style, {
-        position: 'fixed',
-        top: '0',
-        right: '0',
-        left: 'auto',
-        bottom: '0',
-        width: '360px',
-        maxWidth: '90vw',
-        height: '100vh',
-        maxHeight: '100vh',
-        borderRadius: '20px 0 0 20px',
-        boxShadow: '-8px 0 40px rgba(0,0,0,0.6), inset 1px 0 0 rgba(255,255,255,0.07)',
-        animation: 'lfpDockIn 0.3s cubic-bezier(0.16,1,0.3,1)',
-        overflowY: 'auto',
-      });
-      // Garante o keyframe de animação dock
-      if (!document.getElementById('lfp-dock-k')) {
-        const s = document.createElement('style');
-        s.id = 'lfp-dock-k';
-        s.textContent =
-          '@keyframes lfpDockIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}';
-        document.head.appendChild(s);
-      }
-      return; // Não aplica posicionamento relativo à palavra
-    }
+    // Grudado no player: usamos `position: absolute` com coordenadas
+    // relativas ao DOCUMENTO (viewport rect + scroll atual). Isso faz o
+    // popup rolar junto com a página naturalmente, sem precisar recalcular
+    // a cada evento de scroll — `position: fixed` foi descartado porque o
+    // YouTube aplica transform/will-change em algum ancestral do <body>,
+    // o que quebra o comportamento de "fixed" e fazia o popup "andar"
+    // (ficar perseguindo a posição certa a cada scroll, com atraso visível).
+    const player = this.engine?._findPlayerContainer?.();
+    const playerRect = player ? player.getBoundingClientRect() : null;
+    const subtitleHost = document.getElementById('linguaflow-subtitle-host');
+    const subtitleRect =
+      subtitleHost && subtitleHost.offsetParent !== null
+        ? subtitleHost.getBoundingClientRect()
+        : null;
 
-    // ── MODO FLUTUANTE (padrão) ──────────────────────────────────────────────
-    // Restaura estilos caso tenha mudado de dock para floating
+    const pw = 340;
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+
+    const centerX = playerRect ? playerRect.left + playerRect.width / 2 : viewportW / 2;
+    let left = centerX - pw / 2;
+    left = Math.max(10, Math.min(left, viewportW - pw - 10)) + scrollX;
+
+    // Teto = topo da legenda (ou base do player, ou viewport, na ausência dela)
+    const ceilingViewport = subtitleRect
+      ? subtitleRect.top
+      : playerRect
+        ? playerRect.bottom
+        : viewportH;
+    let topViewport = ceilingViewport - this.popup.offsetHeight - 16;
+    if (topViewport < 10) topViewport = 10;
+    const top = topViewport + scrollY;
+
     Object.assign(this.popup.style, {
-      bottom: 'auto',
+      position: 'absolute',
+      top: `${top}px`,
+      left: `${left}px`,
       right: 'auto',
+      bottom: 'auto',
+      transform: 'none',
+      width: `${pw}px`,
+      maxWidth: '90vw',
       height: 'auto',
-      maxHeight: '85vh',
-      borderRadius: '24px',
-      display: 'block',
-      visibility: 'visible',
-      opacity: '0',
-      transform: 'translateY(10px) scale(0.95)',
-      animation: '',
-      overflowY: 'visible',
+      maxHeight: '80vh',
+      borderRadius: '16px',
+      boxShadow: '0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
+      animation: 'lfpPopIn 0.2s cubic-bezier(0.16,1,0.3,1)',
+      overflowY: 'auto',
     });
-
-    const player = this._findPlayerContainer();
-    const isFixed = player === document.body;
-    const playerRect = player.getBoundingClientRect();
-
-    const W = 360;
-    this.popup.style.width = W + 'px';
-    this.popup.style.position = isFixed ? 'fixed' : 'absolute';
-
-    const actualH = this.popup.offsetHeight;
-
-    let left = (playerRect.width - W) / 2;
-    let top = (playerRect.height - actualH) / 2;
-
-    // Pequeno ajuste para ele ficar um pouco acima do exato centro (visual mais agradável)
-    top = Math.max(10, top - 30);
-
-    this.popup.style.left = left + 'px';
-    this.popup.style.top = top + 'px';
+    // Garante o keyframe de animação popup
+    if (!document.getElementById('lfp-pop-k')) {
+      const s = document.createElement('style');
+      s.id = 'lfp-pop-k';
+      s.textContent =
+        '@keyframes lfpPopIn{from{transform:translateY(10px) scale(0.95);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}';
+      document.head.appendChild(s);
+    }
   }
 
   hide(resumeVideo = false) {
@@ -1785,110 +1652,6 @@ export class WordPopup {
       this._hideTimeout = null;
     }, 200);
   }
-  async _ai() {
-    const q = (s) => this._q(s);
-    const btn = q('#fai');
-    const resEl = q('#fair');
-    if (btn.disabled) return;
-    btn.innerHTML = '<span class="lfp-spin"></span> Analisando…';
-    btn.disabled = true;
-    resEl.style.display = 'block';
-    resEl.innerHTML =
-      '<div style="padding:10px;text-align:center;"><span class="lfp-spin"></span> A IA está processando uma explicação detalhada...</div>';
-    try {
-      const response = await new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage(
-          {
-            action: 'ai_explain_word',
-            word: this.word,
-            context: this.context,
-            fullContext: this.currentCue?.fullContext || null,
-          },
-          (r) => {
-            if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
-            else resolve(r);
-          },
-        );
-      });
-      if (response?.explanation) {
-        q('#fair-container').style.display = 'block';
-        resEl.innerHTML = this._formatAI(response.explanation);
-
-        // Tenta extrair o nível CEFR (A1-C2) ignorando asteriscos e colchetes (fallback)
-        const cefrMatch = response.explanation.match(
-          /Nível Sugerido \(CEFR\)[^A-Z]*(A1|A2|B1|B2|C1|C2)/i,
-        );
-        let level = null;
-
-        if (cefrMatch) {
-          level = cefrMatch[1].toUpperCase();
-        } else if (this.engine && this.engine.cefrList && this.word) {
-          level = this.engine.cefrList[this.word.toLowerCase()];
-        }
-
-        if (level) {
-          this.activeLevel = level;
-
-          // Atualiza a UI do popup dinamicamente com o nível da IA
-          const cefrBadge = this.popup.querySelector('#fcefr');
-          if (cefrBadge) {
-            cefrBadge.textContent = level;
-            cefrBadge.className = `lfp-badge lfp-${level.toLowerCase()}`;
-            cefrBadge.style.display = 'inline-block';
-          }
-
-          // Atualiza a cor na frase de contexto
-          const colors = {
-            A1: '#60a5fa',
-            A2: '#4ade80',
-            B1: '#facc15',
-            B2: '#fb923c',
-            C1: '#f87171',
-            C2: '#c084fc',
-          };
-          if (colors[level] && this.context) {
-            const safeContext = this._escapeAttr(this.context);
-            const safeTerm = this._escapeAttr(this.word);
-            const fc = this.popup.querySelector('#fc');
-            if (fc) {
-              fc.innerHTML = safeContext.replace(
-                new RegExp(`\\b(${this._escapeRegExp(safeTerm)})\\b`, 'gi'),
-                `<b style="color:${colors[level]}">$1</b>`,
-              );
-            }
-          }
-
-          // Se já estiver salva, atualiza o nível no banco
-          const BASE = chrome.runtime.getURL('utils/');
-          const { db } = await import(BASE + 'db.js');
-          db.getWord(this.word, this.engine?.sourceLang || 'en').then((saved) => {
-            if (saved) {
-              saved.level = level;
-              db.saveWord(saved);
-            }
-          });
-        }
-      } else {
-        resEl.innerHTML = `<div style="color:#f87171;padding:10px;">⚠️ <b>Falha na IA</b><br>${response?.error || 'Não foi possível obter resposta. Verifique sua chave API no Dashboard.'}</div>`;
-      }
-    } catch (e) {
-      resEl.innerHTML =
-        '<div style="color:#f87171;padding:10px;">⚠️ Erro de conexão com o servidor de IA.</div>';
-    } finally {
-      btn.textContent = '✦ Explicar Palavra';
-      btn.disabled = false;
-    }
-
-    // Logic for Copy Popup
-    q('#fcopy-ai').onclick = () => {
-      const text = resEl.textContent;
-      navigator.clipboard.writeText(text);
-      const copyBtn = q('#fcopy-ai');
-      copyBtn.textContent = '✅ Copiado';
-      setTimeout(() => (copyBtn.textContent = '📋 Copiar'), 2000);
-    };
-  }
-
   async _aiSentence() {
     const q = (s) => this._q(s);
     const btn = q('#faisent');
@@ -1961,9 +1724,9 @@ export class WordPopup {
             <div style="font-size:13px;color:#fbbf24;font-family:monospace;font-weight:600;background:rgba(251,191,36,.1);padding:4px 8px;border-radius:6px;display:inline-block;border:1px solid rgba(251,191,36,.3);">${c.phon}</div>
           </div>`;
         });
-        container.innerHTML = html;
+        if (container) container.innerHTML = html;
         if (btn) btn.textContent = '🔄 Regenerar Chunks';
-      } else {
+      } else if (container) {
         container.innerHTML =
           '<div style="text-align:center;color:#475569;font-size:13px;padding:16px;">Clique "Gerar" para criar chunks de treino com IA.</div>';
         if (btn) {
@@ -1972,8 +1735,10 @@ export class WordPopup {
         }
       }
     } catch (e) {
-      container.innerHTML =
-        '<div style="text-align:center;color:#475569;font-size:13px;padding:16px;">Clique "Gerar" para criar chunks de treino com IA.</div>';
+      if (container) {
+        container.innerHTML =
+          '<div style="text-align:center;color:#475569;font-size:13px;padding:16px;">Clique "Gerar" para criar chunks de treino com IA.</div>';
+      }
     }
   }
 
@@ -1981,12 +1746,16 @@ export class WordPopup {
     const q = (s) => this._q(s);
     const btn = q('#fgenchunks');
     const resEl = q('#fchunks-container');
-    if (btn.disabled) return;
+    if (btn?.disabled) return;
 
-    btn.innerHTML = '<span class="lfp-spin"></span> Gerando Chunks…';
-    btn.disabled = true;
-    resEl.innerHTML =
-      '<div style="text-align:center;color:#a78bfa;padding:20px;"><span class="lfp-spin"></span> Professor (IA) está montando os chunks...</div>';
+    if (btn) {
+      btn.innerHTML = '<span class="lfp-spin"></span> Gerando Chunks…';
+      btn.disabled = true;
+    }
+    if (resEl) {
+      resEl.innerHTML =
+        '<div style="text-align:center;color:#a78bfa;padding:20px;"><span class="lfp-spin"></span> Professor (IA) está montando os chunks...</div>';
+    }
 
     try {
       const response = await new Promise((resolve, reject) => {
@@ -2016,18 +1785,24 @@ export class WordPopup {
             </div>`;
         });
 
-        resEl.innerHTML = html;
-        btn.style.display = 'none';
+        if (resEl) resEl.innerHTML = html;
+        if (btn) btn.style.display = 'none';
       } else {
         const errorMsg = response?.error || 'A IA não conseguiu gerar os chunks.';
-        resEl.innerHTML = `<div style="color:#f87171;padding:10px;text-align:center;">⚠️ <b>Erro</b><br>${errorMsg}</div>`;
+        if (resEl) {
+          resEl.innerHTML = `<div style="color:#f87171;padding:10px;text-align:center;">⚠️ <b>Erro</b><br>${errorMsg}</div>`;
+        }
       }
     } catch (e) {
       console.error('[LinguaFlow] Erro ao gerar chunks:', e);
-      resEl.innerHTML = `<div style="color:#f87171;padding:10px;text-align:center;">⚠️ Falha na comunicação: ${e.message}</div>`;
+      if (resEl) {
+        resEl.innerHTML = `<div style="color:#f87171;padding:10px;text-align:center;">⚠️ Falha na comunicação: ${e.message}</div>`;
+      }
     } finally {
-      btn.textContent = '✦ Gerar Chunks (Professor IA)';
-      btn.disabled = false;
+      if (btn) {
+        btn.textContent = '✦ Gerar Chunks (Professor IA)';
+        btn.disabled = false;
+      }
     }
   }
 
@@ -2059,7 +1834,44 @@ export class WordPopup {
   _formatAI(text) {
     if (!text) return '';
     let formatted = text
-      // Emojis Automáticos para os Títulos (Dicionário)
+      // Mapeamento dos novos tópicos para um design mais "Duolingo" (cores suaves, ícones arredondados, bordas de 2px)
+      .replace(
+        /\*\*(.*?A ideia aqui.*?)\*\*(.*?)(?=\n\n\*\*|\n\n$|$)/gis,
+        (match, title, content) => {
+          return `<div style="margin-top:12px;margin-bottom:12px;padding:12px 14px;background:rgba(56,189,248,0.1);border:2px solid rgba(56,189,248,0.3);border-radius:16px;">
+              <b style="color:#38bdf8;display:flex;align-items:center;gap:6px;font-size:14px;"><span style="font-size:18px;">💡</span> ${title.replace(/:/g, '').trim()}</b>
+              <div style="color:#e0f2fe;margin-top:6px;line-height:1.6;font-size:13px;">${content.trim().replace(/\n/g, '<br>')}</div>
+          </div>`;
+        }
+      )
+      .replace(
+        /\*\*(.*?O truque.*?)\*\*(.*?)(?=\n\n\*\*|\n\n$|$)/gis,
+        (match, title, content) => {
+          return `<div style="margin-bottom:12px;padding:12px 14px;background:rgba(250,204,21,0.08);border:2px solid rgba(250,204,21,0.3);border-radius:16px;">
+              <b style="color:#facc15;display:flex;align-items:center;gap:6px;font-size:14px;"><span style="font-size:18px;">✨</span> ${title.replace(/:/g, '').trim()}</b>
+              <div style="color:#fef08a;margin-top:6px;line-height:1.6;font-size:13px;">${content.trim().replace(/\n/g, '<br>')}</div>
+          </div>`;
+        }
+      )
+      .replace(
+        /\*\*(.*?Pronúncia da vida real.*?)\*\*(.*?)(?=\n\n\*\*|\n\n$|$)/gis,
+        (match, title, content) => {
+          return `<div style="margin-bottom:12px;padding:12px 14px;background:rgba(244,114,182,0.08);border:2px solid rgba(244,114,182,0.3);border-radius:16px;">
+              <b style="color:#f472b6;display:flex;align-items:center;gap:6px;font-size:14px;"><span style="font-size:18px;">🗣️</span> ${title.replace(/:/g, '').trim()}</b>
+              <div style="color:#fbcfe8;margin-top:6px;line-height:1.6;font-size:14px;font-weight:600;font-family:'Outfit',sans-serif;letter-spacing:0.5px;">${content.trim().replace(/\n/g, '<br>')}</div>
+          </div>`;
+        }
+      )
+      .replace(
+        /\*\*(.*?Exemplos rápidos.*?)\*\*(.*?)(?=\n\n\*\*|\n\n$|$)/gis,
+        (match, title, content) => {
+          return `<div style="margin-bottom:12px;padding:12px 14px;background:rgba(167,139,250,0.08);border:2px solid rgba(167,139,250,0.3);border-radius:16px;">
+              <b style="color:#a78bfa;display:flex;align-items:center;gap:6px;font-size:14px;"><span style="font-size:18px;">💬</span> ${title.replace(/:/g, '').trim()}</b>
+              <div style="color:#e9d5ff;margin-top:6px;line-height:1.6;font-size:13px;">${content.trim().replace(/\n/g, '<br>')}</div>
+          </div>`;
+        }
+      )
+      // Cabeçalhos antigos mantidos para compatibilidade com respostas já formatadas no histórico.
       .replace(
         /\*\*(.*?Nível Sugerido.*?)\*\*/gi,
         '<b style="color:#fde047;display:block;margin-bottom:8px">⭐ $1</b>',
@@ -2080,8 +1892,6 @@ export class WordPopup {
         /\*\*(.*?Exemplos Reais.*?)\*\*/gi,
         '<b style="color:#d8b4fe;display:block;margin-top:12px">📝 $1</b>',
       )
-
-      // Cabeçalhos antigos mantidos para compatibilidade com respostas já formatadas.
       .replace(
         /\*\*(.*?O Molde.*?)\*\*/gi,
         '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(110,231,183,0.1);border-left:3px solid #6ee7b7;border-radius:4px;color:#6ee7b7;font-weight:bold;font-size:13px;">🧬 $1</div>',
@@ -2102,8 +1912,6 @@ export class WordPopup {
         /\*\*(.*?Nível Nativo.*?)\*\*/gi,
         '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(250,204,21,0.1);border-left:3px solid #facc15;border-radius:4px;color:#facc15;font-weight:bold;font-size:13px;">🔥 $1</div>',
       )
-
-      // Novos cabeçalhos de pronúncia
       .replace(
         /##\s*1\.\s*Pronúncia oficial/gi,
         '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(147,197,253,0.1);border-left:3px solid #93c5fd;border-radius:4px;color:#93c5fd;font-weight:bold;font-size:13px;">🗣️ 1. Pronúncia Oficial</div>',
@@ -2116,17 +1924,14 @@ export class WordPopup {
         /##\s*3\.\s*Como realmente soa para um brasileiro/gi,
         '<div style="margin-top:16px;margin-bottom:8px;padding:6px 12px;background:rgba(249,168,212,0.1);border-left:3px solid #f9a8d4;border-radius:4px;color:#f9a8d4;font-weight:bold;font-size:13px;">🔥 3. Como realmente soa</div>',
       )
-
-      // O Neuro-Hack ganha uma caixa especial (pois é sempre o último, não quebra)
       .replace(
         /\*\*(.*?Associação Mental.*?)\*\*(.*?)(?=\n\n|\*$|$)/gis,
         (match, title, content) => {
           return `<div style="margin-top:16px;padding:10px;background:rgba(167,139,250,0.1);border-left:3px solid #a78bfa;border-radius:4px;">
               <b style="color:#c084fc">🧠 ${title.replace(/:/g, '').trim()}</b><br><span style="color:#e2e8f0">${content.replace(/\n/g, '<br>')}</span>
           </div>`;
-        },
+        }
       )
-
       // Negrito normal
       .replace(/\*\*(.*?)\*\*/g, '<b style="color:#7dd3fc">$1</b>')
       // Itálico
@@ -2137,6 +1942,7 @@ export class WordPopup {
     // Limpar brs colados aos banners e blocos
     formatted = formatted.replace(/<br>\s*<div/g, '<div').replace(/<\/div>\s*<br>/g, '</div>');
     return formatted;
+
   }
   // O hide original com animação está na linha ~734
 

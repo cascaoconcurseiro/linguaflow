@@ -68,7 +68,7 @@ class Translator {
                     return { translation: mymemory, source: 'mymemory_api', cached: false };
                 }
 
-                return { translation: text, source: 'error', cached: false };
+                return { translation: '', source: 'error', cached: false };
             } finally {
                 this.pendingRequests.delete(key);
             }

@@ -62,6 +62,15 @@ class Database {
       if (!res.ok) {
         if (res.status === 204) return [];
         const err = await res.text();
+        if (res.status === 401) {
+          this.logout();
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('lf_auth_expired'));
+          }
+          if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+            chrome.runtime.sendMessage({ type: 'AUTH_EXPIRED' }).catch(() => {});
+          }
+        }
         throw new Error(`[Supabase Error] ${res.status}: ${err}`);
       }
       if (res.status === 204) return [];
@@ -200,10 +209,20 @@ class Database {
       translation: wordData.translation,
       context_sentence: wordData.context_sentence,
       added_at: new Date(wordData.added_at || Date.now()).toISOString(),
-      deck_id: wordData.deck_id || null,
       phonetic: wordData.phonetic || null,
       tags: wordData.tags ? wordData.tags.split(',').map(t => t.trim()) : null
     };
+
+    if (wordData.chunks !== undefined) payload.ai_chunks = wordData.chunks;
+    if (wordData.video_url !== undefined) payload.video_url = wordData.video_url;
+    if (wordData.video_title !== undefined) payload.video_title = wordData.video_title;
+    if (wordData.synonyms !== undefined) payload.synonyms = wordData.synonyms;
+    if (wordData.antonyms !== undefined) payload.antonyms = wordData.antonyms;
+    if (wordData.definition !== undefined) payload.definition = wordData.definition;
+    if (wordData.pronunciation_pt !== undefined) payload.pronunciation_pt = wordData.pronunciation_pt;
+    if (wordData.platform !== undefined) payload.platform = wordData.platform;
+    if (wordData.level !== undefined) payload.level = wordData.level;
+    if (wordData.snapshot !== undefined) payload.snapshot = wordData.snapshot;
     
     const res = await this._fetch('words?on_conflict=user_id,word,lang', {
       method: 'POST',
@@ -251,10 +270,9 @@ class Database {
     return true;
   }
 
-  async getAllWords(deckId = null, limit = 0) {
-    if (this.isProxyMode) return this._proxy('getAllWords', [deckId, limit]);
+  async getAllWords(limit = 0) {
+    if (this.isProxyMode) return this._proxy('getAllWords', [limit]);
     let query = `words?select=*&order=added_at.desc`;
-    if (deckId) query += `&deck_id=eq.${deckId}`;
     if (limit > 0) query += `&limit=${limit}`;
     const res = await this._fetch(query);
     return res || [];
@@ -318,75 +336,8 @@ class Database {
     return { ok: !!res };
   }
 
-  // ── DECKS ────────────────────────────────────────────────────────────────
-  async getAllDecks() {
-    if (this.isProxyMode) return this._proxy('getAllDecks', []);
-    let decks = await this._fetch('decks?select=*&order=created_at.asc');
-    if (!decks || decks.length === 0) {
-      const res = await this._fetch('decks', {
-        method: 'POST',
-        headers: { 'Prefer': 'return=representation' },
-        body: { name: 'Padrão' }
-      });
-      decks = res || [];
-    }
-    return decks;
-  }
-
-  async createDeck(name) {
-    if (this.isProxyMode) return this._proxy('createDeck', [name]);
-    const res = await this._fetch('decks', {
-      method: 'POST',
-      headers: { 'Prefer': 'return=representation' },
-      body: { name }
-    });
-    return { ok: !!res, id: res?.[0]?.id };
-  }
-
-  async getOrCreateDeck(name, url = '') {
-    if (this.isProxyMode) return this._proxy('getOrCreateDeck', [name, url]);
-    const decks = await this.getAllDecks();
-    const existing = decks.find((d) => d.name === name);
-    if (existing) return existing.id;
-
-    const res = await this._fetch('decks', {
-      method: 'POST',
-      headers: { 'Prefer': 'return=representation' },
-      body: { name, icon: url.includes('youtube') ? '🎬' : '📺' }
-    });
-    return res?.[0]?.id;
-  }
-
-  async getDeckStats() {
-    if (this.isProxyMode) return this._proxy('getDeckStats', []);
-    const [decks, allCards, words] = await Promise.all([
-      this.getAllDecks(),
-      this.getAllCards(),
-      this.getAllWords()
-    ]);
-
-    const now = new Date().toISOString();
-
-    return decks.map((d) => {
-      const deckWords = words.filter((w) => w.deck_id === d.id);
-      const deckCards = allCards.filter((c) => deckWords.some((w) => w.id === c.word_id));
-
-      return {
-        ...d,
-        newCount: deckCards.filter((c) => c.status === 'new').length,
-        dueCount: deckCards.filter((c) => c.due_date <= now && c.status !== 'new').length,
-        totalCount: deckCards.length,
-      };
-    });
-  }
-
-  async deleteDeck(id) {
-    if (this.isProxyMode) return this._proxy('deleteDeck', [id]);
-    await this._fetch(`decks?id=eq.${id}`, { method: 'DELETE' });
-    return true;
-  }
-
   // ── ESTATÍSTICAS E LOGS ───────────────────────────────────────────────────
+
   async getHistory(limit = 100) {
     if (this.isProxyMode) return this._proxy('getHistory', [limit]);
     return (await this._fetch(`words?select=*&order=added_at.desc&limit=${limit}`)) || [];

@@ -27,6 +27,7 @@ export class SubtitleEngine {
     this.sourceLang = 'en';
     this.translationSpeed = 100; // Número de legendas traduzidas em paralelo (10-200)
     this.translationAnticipation = 0; // Baseline Zero
+    this.uiTheme = 'light';
     this.autoPause = false;
     this.currentSubtitleTimestamp = 0;
     this.translationDelay = 0;
@@ -116,6 +117,24 @@ export class SubtitleEngine {
         this.renderDual(this._lastOrig, this._lastTrans);
       }
     });
+
+    window.addEventListener('lf_theme_changed', (e) => {
+      this.uiTheme = e.detail.theme;
+      this._applyThemeToPanel();
+    });
+  }
+
+  _applyThemeToPanel() {
+    const panel = document.getElementById('lf-subtitle-panel');
+    if (panel) {
+      if (this.uiTheme === 'dark') {
+        panel.classList.add('theme-dark');
+        panel.classList.remove('theme-light');
+      } else {
+        panel.classList.add('theme-light');
+        panel.classList.remove('theme-dark');
+      }
+    }
   }
 
   _startImmersionLog() {
@@ -742,6 +761,12 @@ export class SubtitleEngine {
         console.debug(`[LinguaFlow] Modo de exibição carregado: ${mode}`);
       }
 
+      const theme = await db.getSetting('uiTheme');
+      if (theme) {
+        this.uiTheme = theme;
+        this._applyThemeToPanel();
+      }
+
       const targetLevel = await db.getSetting('cefrTargetLevel');
       if (targetLevel !== undefined && targetLevel !== null) {
         this.cefrTargetLevel = targetLevel;
@@ -774,9 +799,14 @@ export class SubtitleEngine {
       if (playerContainer && subtitleHost) {
         if (this.resizeObserver) this.resizeObserver.disconnect();
         this.resizeObserver = new ResizeObserver(() => {
-          console.debug('[LinguaFlow] Player redimensionado, ajustando legenda...');
-          // Reaplica posicionamento quando player muda de tamanho
-          this._repositionSubtitle();
+          // Debounce: durante o carregamento da página o player dispara vários
+          // resizes intermediários (anúncios, layout shift) e reposicionar a
+          // cada um deles fazia a fonte da legenda oscilar de tamanho.
+          clearTimeout(this._repositionDebounce);
+          this._repositionDebounce = setTimeout(() => {
+            console.debug('[LinguaFlow] Player redimensionado, ajustando legenda...');
+            this._repositionSubtitle();
+          }, 150);
         });
 
         this.resizeObserver.observe(playerContainer);
@@ -798,7 +828,8 @@ export class SubtitleEngine {
 
     // Listener para resize da janela
     window.addEventListener('resize', () => {
-      this._repositionSubtitle();
+      clearTimeout(this._repositionDebounce);
+      this._repositionDebounce = setTimeout(() => this._repositionSubtitle(), 150);
     });
   }
 
@@ -904,7 +935,7 @@ export class SubtitleEngine {
                 width: 94% !important;
                 max-width: 900px !important;
                 text-align: center !important;
-                pointer-events: none !important;
+                pointer-events: none;
                 padding: 0 !important;
             `;
       document.body.appendChild(host);
@@ -920,7 +951,7 @@ export class SubtitleEngine {
                 width: 94% !important;
                 max-width: 900px !important;
                 text-align: center !important;
-                pointer-events: none !important;
+                pointer-events: none;
                 padding: 0 !important;
                 display: flex !important;
                 justify-content: center !important;
@@ -940,7 +971,7 @@ export class SubtitleEngine {
                 width: 94% !important;
                 max-width: 900px !important;
                 text-align: center !important;
-                pointer-events: none !important;
+                pointer-events: none;
                 padding: 0 !important;
                 display: flex !important;
                 justify-content: center !important;
@@ -957,7 +988,7 @@ export class SubtitleEngine {
     this.shadowContainer = host.attachShadow({ mode: 'open' });
     this.shadowContainer.innerHTML = `
             <style>
-                :host { all: initial; }
+                :host { all: initial; pointer-events: auto; }
                 .lf-wrap {
                     display: inline-flex;
                     flex-direction: column;
@@ -1062,37 +1093,7 @@ export class SubtitleEngine {
                     background: rgba(56,189,248,0.3);
                     transform: translateY(-50%) scale(1.05);
                 }
-                /* Botão de salvar frase */
-                .lf-save-btn {
-                    background: rgba(125,209,252,0.12);
-                    border: 1px solid rgba(125,209,252,0.25);
-                    color: #7dd3fc;
-                    padding: 3px 10px;
-                    border-radius: 16px;
-                    font-size: 11px;
-                    font-weight: 700;
-                    font-family: 'Inter', Arial, sans-serif;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    backdrop-filter: blur(8px);
-                    pointer-events: auto;
-                    display: inline-block;
-                    white-space: nowrap;
-                    position: absolute;
-                    right: calc(100% + 12px);
-                    top: 50%;
-                    transform: translateY(-50%);
-                }
-                .lf-save-btn:hover {
-                    background: rgba(125,209,252,0.28);
-                    border-color: rgba(125,209,252,0.6);
-                    transform: translateY(-50%) scale(1.05);
-                }
-                .lf-save-btn.ok {
-                    color: #4ade80;
-                    border-color: rgba(74,222,128,0.5);
-                    background: rgba(74,222,128,0.15);
-                }
+
 
                 .lf-blur {
                     filter: blur(5px);
@@ -1142,22 +1143,16 @@ export class SubtitleEngine {
             </style>
             <div class="lf-wrap" id="lf-wrap" data-subtitle-mode="native">
                 <div class="lf-orig-row">
-                    <button class="lf-save-btn" id="lf-save-btn" style="display:none;" title="Salvar frase">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg> Salvar
-                    </button>
                     <div class="lf-orig" id="lf-orig"></div>
                     <button class="lf-translate-btn" id="lf-translate-btn" style="display:none;" title="Traduzir frase">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"></path><path d="m4 14 6-6 2-3"></path><path d="M2 5h12"></path><path d="M7 2h1"></path><path d="m22 22-5-10-5 10"></path><path d="M14 18h6"></path></svg> Traduzir
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"></path><path d="m4 14 6-6 2-3"></path><path d="M2 5h12"></path><path d="M7 2h1"></path><path d="m22 22-5-10-5 10"></path><path d="M14 18h6"></path></svg>
                     </button>
                 </div>
-                <div class="lf-trans" id="lf-trans">
+                <div class="lf-trans" id="lf-trans" style="display:none;">
                     <span id="lf-trans-txt"></span>
                 </div>
             </div>
         `;
-
-    // Ativa o observer para esconder/mostrar botão de salvar frase conforme o texto
-    this._setupSaveButtonObserver();
 
     // Aplica as cores carregadas
     this._updateSubtitleColors();
@@ -1255,17 +1250,6 @@ export class SubtitleEngine {
       });
     }
 
-    // Botão de salvar frase
-    const saveBtn = this.shadowContainer.getElementById('lf-save-btn');
-    if (saveBtn) {
-      saveBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        await this._saveSentence();
-      });
-    }
-
-    // Observer para mostrar/esconder botão baseado na presença de legenda
-    this._setupSaveButtonObserver();
   }
 
   // ── Injeção dos Botões na Barra do YouTube ───────────────────────────────
@@ -1414,166 +1398,8 @@ export class SubtitleEngine {
     document.getElementById('lf-deck-host')?.remove();
   }
 
-  // ── Botão Flutuante para plataformas não-YouTube (HBO, Netflix, etc) ──────
   _injectFloatingButton() {
-    if (document.getElementById('lf-float-btn')) return;
-    if (!document.body) {
-      console.warn('[LinguaFlow] document.body não encontrado, adiando criação de botões');
-      setTimeout(() => this._injectFloatingButton(), 500);
-      return;
-    }
-
-    // Botão principal de configurações (todos os sites exceto YouTube)
-    if (this.platform !== 'youtube') {
-      const btn = document.createElement('button');
-      btn.id = 'lf-float-btn';
-      btn.title = 'LinguaFlow — Configurações';
-      btn.style.cssText = `
-                position: fixed;
-                top: 80px;
-                right: 16px;
-                width: 44px;
-                height: 44px;
-                border-radius: 50%;
-                border: none;
-                background: rgba(15,23,42,0.85);
-                backdrop-filter: blur(8px);
-                box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-                cursor: pointer;
-                z-index: 2147483646;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                padding: 0;
-                transition: transform 0.15s, opacity 0.15s;
-                opacity: 0.75;
-            `;
-      btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
-  <defs>
-    <linearGradient id="lf-float-grad" x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#FFD700"/>
-      <stop offset="50%" stop-color="#FF8C00"/>
-      <stop offset="100%" stop-color="#FF3D3D"/>
-    </linearGradient>
-  </defs>
-  <path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z" fill="url(#lf-float-grad)"/>
-</svg>`;
-      btn.onmouseenter = () => {
-        btn.style.opacity = '1';
-        btn.style.transform = 'scale(1.1)';
-      };
-      btn.onmouseleave = () => {
-        btn.style.opacity = '0.75';
-        btn.style.transform = 'scale(1)';
-      };
-      btn.onclick = () => window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
-      document.body.appendChild(btn);
-    }
-
-    // Switch de Ativar/Desativar legendas (HBO/Max)
-    if (this.platform === 'max') {
-      // Injeta CSS se necessário
-      if (!document.getElementById('lf-hbo-styles')) {
-        const style = document.createElement('style');
-        style.id = 'lf-hbo-styles';
-        style.textContent = `
-                    .lf-hbo-switch-wrapper {
-                        position: fixed; top: 132px; right: 16px;
-                        width: 44px; height: 44px; z-index: 2147483646;
-                        display: flex; align-items: center; justify-content: center;
-                        cursor: pointer; opacity: 0.8; transition: opacity 0.2s;
-                    }
-                    .lf-hbo-switch-wrapper:hover { opacity: 1; }
-                    .lf-hbo-switch {
-                        width: 38px; height: 20px;
-                        background: rgba(100, 116, 139, 0.3);
-                        border-radius: 20px; position: relative;
-                        transition: background 0.3s;
-                        border: 1px solid rgba(255,255,255,0.1);
-                    }
-                    .lf-hbo-switch.active { background: rgba(56, 189, 248, 0.4); border-color: rgba(56, 189, 248, 0.5); }
-                    .lf-hbo-slider {
-                        width: 14px; height: 14px;
-                        background: #64748B; border-radius: 50%;
-                        position: absolute; top: 2px; left: 2px;
-                        transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-                    }
-                    .lf-hbo-switch.active .lf-hbo-slider {
-                        left: 20px; background: #38BDF8;
-                        box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
-                    }
-                `;
-        document.head.appendChild(style);
-      }
-
-      // Inicia sempre com o switch DESLIGADO visualmente (HBO)
-      const isSubVisible = false;
-      const switchWrapper = document.createElement('div');
-      switchWrapper.id = 'lf-hbo-toggle-wrapper';
-      switchWrapper.className = 'lf-hbo-switch-wrapper';
-      switchWrapper.title = 'Ativar LinguaFlow (C)';
-      switchWrapper.innerHTML = `
-                <div class="lf-hbo-switch ${isSubVisible ? 'active' : ''}" id="lf-hbo-switch">
-                    <div class="lf-hbo-slider"></div>
-                </div>
-            `;
-
-      switchWrapper.onclick = () => {
-        const sw = document.getElementById('lf-hbo-switch');
-        const nowVisible = !sw.classList.contains('active');
-        sw.classList.toggle('active', nowVisible);
-        localStorage.setItem('lf_sub_visible', nowVisible);
-        this.toggleSubtitles(nowVisible);
-      };
-      document.body.appendChild(switchWrapper);
-
-      // Atalho de teclado para HBO
-      document.addEventListener('keydown', (e) => {
-        if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
-        if (e.key.toLowerCase() === 'c') switchWrapper.click();
-      });
-
-      // Inicia sempre DESLIGADO (OFF by default)
-      this.toggleSubtitles(false);
-    }
-
-    // Botão do painel de legendas (todos os sites exceto YouTube)
-    if (this.platform !== 'youtube') {
-      const btnPanel = document.createElement('button');
-      btnPanel.id = 'lf-float-panel-btn';
-      btnPanel.title = 'LinguaFlow — Painel de Legendas';
-      btnPanel.style.cssText = `
-                position: fixed;
-                top: 184px;
-                right: 16px;
-                width: 44px;
-                height: 44px;
-                border-radius: 50%;
-                border: none;
-                background: rgba(15,23,42,0.85);
-                backdrop-filter: blur(8px);
-                box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-                cursor: pointer;
-                z-index: 2147483646;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 20px;
-                transition: transform 0.15s, opacity 0.15s;
-                opacity: 0.75;
-            `;
-      btnPanel.textContent = '📜';
-      btnPanel.onmouseenter = () => {
-        btnPanel.style.opacity = '1';
-        btnPanel.style.transform = 'scale(1.1)';
-      };
-      btnPanel.onmouseleave = () => {
-        btnPanel.style.opacity = '0.75';
-        btnPanel.style.transform = 'scale(1)';
-      };
-      btnPanel.onclick = () => this.toggleSubtitlePanel();
-      document.body.appendChild(btnPanel);
-    }
+    // Floating button logic removed as per user request (only player settings UI allowed)
   }
 
   // ── Controles de Navegação (Removidos a pedido do usuário) ──────────
@@ -1776,18 +1602,12 @@ export class SubtitleEngine {
 
     const panel = document.createElement('div');
     panel.id = 'lf-subtitle-panel';
+    panel.className = this.uiTheme === 'dark' ? 'theme-dark' : 'theme-light';
     panel.style.cssText = `
             width: 420px;
             height: 100%;
-            background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border-left: 1px solid rgba(255,255,255,0.05);
-            color: #F1F5F9;
-            box-shadow: -20px 0 60px rgba(0,0,0,0.6);
             display: flex;
             flex-direction: column;
-            font-family: 'Inter', sans-serif;
             position: relative;
             z-index: 2;
             pointer-events: auto;
@@ -1815,22 +1635,77 @@ export class SubtitleEngine {
             #lf-subtitle-panel .lf-learning { color: #FBBF24; text-decoration: underline dashed; }
             #lf-subtitle-panel .lf-saved { color: #93C5FD; text-decoration: underline dashed; }
             #lf-subtitle-panel .lf-expression { border-bottom: 2px dotted rgba(56, 189, 248, 0.6); }
-            #lf-subtitle-panel .lf-new { color: #E2E8F0; }
+            #lf-subtitle-panel .lf-new { color: #f8fafc; }
 
             #lf-subtitle-panel .lf-subtitle-item.active {
-                background: rgba(56, 189, 248, 0.15) !important;
-                border-left-color: #38BDF8 !important;
-                box-shadow: inset 4px 0 12px rgba(56, 189, 248, 0.2);
-                text-shadow: 0 0 8px rgba(255,255,255,0.4);
+                background: rgba(28, 176, 246, 0.2) !important;
+                border-left-color: #1cb0f6 !important;
                 transform: scale(1.02);
                 z-index: 10;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             }
             #lf-subtitle-panel .lf-subtitle-item {
-                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                transition: all 0.1s;
             }
             #lf-subtitle-panel .lf-subtitle-item:not(.active) {
-                opacity: 0.6;
+                opacity: 0.8;
             }
+
+            /* --- THEME STYLES --- */
+            #lf-subtitle-panel {
+                font-family: 'Nunito', sans-serif;
+                box-shadow: -2px 0 12px rgba(0,0,0,0.5);
+            }
+            #lf-subtitle-panel.theme-light {
+                background: #ffffff;
+                border-left: 1px solid #d1d5db;
+                color: #3c3c3c;
+            }
+            #lf-subtitle-panel.theme-dark {
+                background: #0f172a;
+                border-left: 1px solid #1e293b;
+                color: #f8fafc;
+            }
+            
+            #lf-subtitle-panel.theme-light .lf-panel-header { background: #ffffff; border-bottom: 2px solid #e5e5e5; }
+            #lf-subtitle-panel.theme-dark .lf-panel-header { background: #0f172a; border-bottom: 2px solid #1e293b; }
+            
+            #lf-subtitle-panel.theme-light .lf-panel-title { color: #3c3c3c; }
+            #lf-subtitle-panel.theme-dark .lf-panel-title { color: #f8fafc; }
+            
+            #lf-subtitle-panel.theme-light .lf-close-btn { color: #afafaf; }
+            #lf-subtitle-panel.theme-light .lf-close-btn:hover { background: #f7f7f7; color: #777777; }
+            #lf-subtitle-panel.theme-dark .lf-close-btn { color: #64748B; }
+            #lf-subtitle-panel.theme-dark .lf-close-btn:hover { background: #1e293b; color: #f8fafc; }
+
+            #lf-subtitle-panel.theme-light .lf-tabs { background: #f7f7f7; border-bottom: 2px solid #e5e5e5; }
+            #lf-subtitle-panel.theme-dark .lf-tabs { background: #0f172a; border-bottom: 2px solid #1e293b; }
+            
+            #lf-subtitle-panel.theme-light .lf-toolbar { background: #f7f7f7; border-bottom: 1px solid #e5e5e5; }
+            #lf-subtitle-panel.theme-dark .lf-toolbar { background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.08); }
+            
+            #lf-subtitle-panel.theme-light .lf-search-input { background: #ffffff; border: 1px solid #d1d5db; color: #3c3c3c; }
+            #lf-subtitle-panel.theme-dark .lf-search-input { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #E2E8F0; }
+
+            #lf-subtitle-panel.theme-light .lf-search-input::placeholder { color: #afafaf; }
+            
+            #lf-subtitle-panel.theme-light .lf-subtitle-list { background: #ffffff; }
+            #lf-subtitle-panel.theme-dark .lf-subtitle-list { background: #0f172a; }
+
+            #lf-subtitle-panel.theme-light .lf-subtitle-item { border-bottom: 1px solid #e5e5e5; border-left: 4px solid transparent; }
+            #lf-subtitle-panel.theme-dark .lf-subtitle-item { border-bottom: 1px solid #1e293b; border-left: 4px solid transparent; }
+            
+            #lf-subtitle-panel.theme-light .lf-subtitle-item:hover { background: #f7f7f7; }
+            #lf-subtitle-panel.theme-dark .lf-subtitle-item:hover { background: #1e293b; }
+            
+            #lf-subtitle-panel.theme-light .lf-time { color: #afafaf; }
+            #lf-subtitle-panel.theme-dark .lf-time { color: #64748B; }
+            
+            #lf-subtitle-panel.theme-light .lf-trans-text { color: #1cb0f6; }
+            #lf-subtitle-panel.theme-dark .lf-trans-text { color: #38BDF8; }
+
+            #lf-subtitle-panel.theme-light .lf-checkbox-label { color: #777777; }
+            #lf-subtitle-panel.theme-dark .lf-checkbox-label { color: #94a3b8; }
         `;
     panel.appendChild(panelStyle);
 
@@ -1859,38 +1734,33 @@ export class SubtitleEngine {
     overlay.onclick = closePanel;
 
     const header = document.createElement('div');
+    header.className = 'lf-panel-header';
     header.style.cssText =
-      'padding:20px 24px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:linear-gradient(135deg, #0F172A, #0A1628);';
+      'padding:20px 24px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;';
     header.innerHTML = `
-            <div style="display:flex;align-items:center;gap:10px;">
+            <div class="lf-panel-title" style="display:flex;align-items:center;gap:10px;font-size:20px;font-weight:800;">
               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none">
                 <defs><linearGradient id="lf-hdr-grad" x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stop-color="#FFD700"/><stop offset="50%" stop-color="#FF8C00"/><stop offset="100%" stop-color="#FF3D3D"/>
+                  <stop offset="0%" stop-color="#58cc02"/><stop offset="100%" stop-color="#58a700"/>
                 </linearGradient></defs>
                 <path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z" fill="url(#lf-hdr-grad)"/>
               </svg>
-              <span style="font-size:18px;font-weight:700;color:#F1F5F9;">⚡ <span style="color:#38BDF8;">LinguaFlow</span> — Painel</span>
+              <span>LinguaFlow</span>
             </div>
-            <button id="lf-close-panel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#94A3B8;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:0.2s;">✕</button>
+            <button id="lf-close-panel" class="lf-close-btn" style="background:transparent;border:none;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;transition:0.2s;">✕</button>
         `;
 
     const closeBtn = header.querySelector('#lf-close-panel');
-    closeBtn.onmouseenter = () => {
-      closeBtn.style.background = 'rgba(255,255,255,0.12)';
-      closeBtn.style.color = '#FFF';
-    };
-    closeBtn.onmouseleave = () => {
-      closeBtn.style.background = 'rgba(255,255,255,0.06)';
-      closeBtn.style.color = '#94A3B8';
-    };
+    closeBtn.onclick = closePanel;
 
     // ── Abas Subtitles / Words ────────────────────────────────────────────
     const tabs = document.createElement('div');
+    tabs.className = 'lf-tabs';
     tabs.style.cssText =
-      'display:flex;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;';
+      'display:flex;flex-shrink:0;';
     tabs.innerHTML = `
-            <button id="lf-tab-subtitles" style="flex:1;padding:12px;background:transparent;border:none;border-bottom:2px solid #38BDF8;color:#38BDF8;font-size:13px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;transition:all 0.2s;">Subtitles</button>
-            <button id="lf-tab-words" style="flex:1;padding:12px;background:transparent;border:none;border-bottom:2px solid transparent;color:#64748B;font-size:13px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;transition:all 0.2s;">Words</button>
+            <button id="lf-tab-subtitles" style="flex:1;padding:14px;background:transparent;border:none;border-bottom:4px solid #1cb0f6;color:#1cb0f6;font-size:14px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;transition:all 0.1s;text-transform:uppercase;">Subtitles</button>
+            <button id="lf-tab-words" class="lf-checkbox-label" style="flex:1;padding:14px;background:transparent;border:none;border-bottom:4px solid transparent;font-size:14px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;transition:all 0.1s;text-transform:uppercase;">Words</button>
         `;
 
     // ── Painel Subtitles ──────────────────────────────────────────────────
@@ -1899,23 +1769,24 @@ export class SubtitleEngine {
     subtitlePane.style.cssText = 'flex:1;display:flex;flex-direction:column;overflow:hidden;';
 
     const toolbar = document.createElement('div');
+    toolbar.className = 'lf-toolbar';
     toolbar.style.cssText =
-      'padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:10px;flex-shrink:0;background:rgba(255,255,255,0.02);';
+      'padding:12px 16px;display:flex;flex-direction:column;gap:10px;flex-shrink:0;';
     toolbar.innerHTML = `
             <div style="display:flex;gap:8px;align-items:center;">
                 <div style="position:relative;flex:1;">
-                    <input id="lf-panel-search" type="search" placeholder="Buscar no script..." style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#E2E8F0;border-radius:8px;padding:8px 12px 8px 32px;font-size:12px;outline:none;transition:border-color 0.2s;">
+                    <input id="lf-panel-search" class="lf-search-input" type="search" placeholder="Buscar no script..." style="width:100%;border-radius:8px;padding:8px 12px 8px 32px;font-size:12px;outline:none;transition:border-color 0.2s;">
                     <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#64748B;font-size:14px;">🔍</span>
                 </div>
                 <button id="lf-follow-btn" title="Seguir legenda atual" style="background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.3);color:#38BDF8;width:34px;height:34px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;">📍</button>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <div style="display:flex;gap:12px;">
-                    <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94A3B8;cursor:pointer;">
-                        <input type="checkbox" id="lf-show-translation" checked style="cursor:pointer;accent-color:#38BDF8;">
+                    <label class="lf-checkbox-label" style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;">
+                        <input type="checkbox" id="lf-show-translation" ${this.displayMode === 'bilingual' ? 'checked' : ''} style="cursor:pointer;accent-color:#38BDF8;">
                         <span>Tradução</span>
                     </label>
-                    <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94A3B8;cursor:pointer;">
+                    <label class="lf-checkbox-label" style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;">
                         <input type="checkbox" id="lf-autoscroll-panel" checked style="cursor:pointer;accent-color:#38BDF8;">
                         <span>Auto-scroll</span>
                     </label>
@@ -2587,51 +2458,6 @@ export class SubtitleEngine {
     });
   }
 
-  async _saveCueAsPhrase(cue, item) {
-    const btn = item.querySelector('.lf-save-line');
-    if (btn) btn.disabled = true;
-
-    try {
-      const { db } = await import('../utils/db.js');
-      if (!cue.translatedText) {
-        const { translator } = await import('../utils/translator.js');
-        const result = await translator.translate(cue.text, 'auto', this.targetLang || 'pt');
-        cue.translatedText = result.translation;
-      }
-      const data = {
-        item_type: 'phrase',
-        word: cue.text,
-        lang: 'en',
-        translation: cue.translatedText || '',
-        phrase_text: cue.text,
-        phrase_translation: cue.translatedText || '',
-        context_sentence: cue.text,
-        deck_id: 1,
-        video_url: videoUtils.getVideoUrlWithTimestamp(),
-        timestamp: cue.start,
-        platform: this.platform,
-        tags: ['phrase'],
-      };
-      const saveRes = await db.saveSentence(data);
-      if (!saveRes || !saveRes.ok) throw new Error('Falha ao salvar frase');
-
-      // Notifica o Dashboard para atualizar contadores e listas
-      chrome.runtime.sendMessage({ type: 'REFRESH_DASHBOARD' }).catch(() => {});
-
-      if (btn) {
-        btn.textContent = 'Salva';
-        btn.style.background = 'rgba(16,185,129,0.18)';
-        btn.style.color = '#86EFAC';
-      }
-    } catch (e) {
-      console.error('[LinguaFlow] Erro ao salvar frase do painel:', e);
-      if (btn) {
-        btn.textContent = 'Erro';
-        btn.disabled = false;
-      }
-    }
-  }
-
   // Removido _formatTime duplicado e assíncrono (usando a versão síncrona no fim do arquivo)
 
   // ── VTT Parser (HBO Max) — V5 version ────────────────────────────────────
@@ -2672,7 +2498,7 @@ export class SubtitleEngine {
       if (!videoId) return;
 
       // Filtra URLs que pertencem ao vídeo atual
-      const matchingUrls = urls
+      let matchingUrls = urls
         .filter((r) => {
           try {
             return new URL(r).searchParams.get('v') === videoId;
@@ -2687,7 +2513,25 @@ export class SubtitleEngine {
         return;
       }
 
-      for (const url of matchingUrls) {
+      // Prioriza URLs no idioma original do vídeo (sourceLang) para evitar pegar
+      // traduções automáticas (ex: legenda PT quando o vídeo é em inglês)
+      const srcLang = this.sourceLang || 'en';
+      const preferredUrls = matchingUrls.filter((r) => {
+        try {
+          const u = new URL(r);
+          const lang = u.searchParams.get('lang') || u.searchParams.get('tlang') || '';
+          // Aceita se não tiver tlang (é original) OU se o lang bater com sourceLang
+          return !u.searchParams.has('tlang') && (lang === '' || lang.startsWith(srcLang));
+        } catch {
+          return false;
+        }
+      });
+
+      // Usa as preferidas ou cai de volta para qualquer URL do vídeo
+      const urlsToTry = preferredUrls.length > 0 ? preferredUrls : matchingUrls;
+      console.debug(`[LinguaFlow] Legendas: ${urlsToTry.length} candidatas (lang=${srcLang})`);
+
+      for (const url of urlsToTry) {
         console.debug('[LinguaFlow] Tentando carregar legendas de:', url);
         const response = await fetch(new URL(url).toString());
         if (!response.ok) continue;
@@ -2708,7 +2552,6 @@ export class SubtitleEngine {
             this.xhrCues = cues;
             this.usingXhr = true;
             this._renderVideoWordPrep();
-            // this.toggleSubtitles(); // Removido: Não forçar ativação automática
             console.debug(
               '[LinguaFlow] Legendas carregadas com sucesso (' + cues.length + ' frases)',
             );
@@ -3079,7 +2922,7 @@ export class SubtitleEngine {
                                 width: 80% !important;
                                 max-width: 900px !important;
                                 text-align: center !important;
-                                pointer-events: none !important;
+                                pointer-events: none;
                                 padding: 0 !important;
                             `;
               player.appendChild(host);
@@ -3530,42 +3373,6 @@ export class SubtitleEngine {
     }
   }
 
-  async _saveCueAsPhrase(cue, item) {
-    const btn = item.querySelector('.lf-save-line');
-    if (btn) btn.disabled = true;
-
-    try {
-      const { db } = await import('../utils/db.js');
-      if (!cue.translatedText) {
-        const { translator } = await import('../utils/translator.js');
-        const result = await translator.translate(cue.text, 'auto', this.targetLang);
-        cue.translatedText = result.translation;
-      }
-      const data = {
-        item_type: 'phrase',
-        word: cue.text,
-        lang: 'en',
-        translation: cue.translatedText || '',
-        phrase_text: cue.text,
-        phrase_translation: cue.translatedText || '',
-        context_sentence: cue.text,
-        deck_id: 1,
-        video_url: await this._getVideoUrlWithTimestamp(),
-        timestamp: cue.start > 100000 ? cue.start / 1000 : cue.start,
-        platform: this.platform,
-        tags: ['phrase'],
-      };
-      const saveRes = await db.saveSentence(data);
-      if (btn) {
-        btn.textContent = '★';
-        btn.style.color = '#FBBF24';
-      }
-    } catch (e) {
-      console.error('[LinguaFlow] Erro ao salvar frase do painel:', e);
-      if (btn) btn.disabled = false;
-    }
-  }
-
   // ── Motor de Renderização de Elite (onSubtitle) ──────────────────────────
   onSubtitle(cue) {
     if (!cue) return;
@@ -3640,7 +3447,6 @@ export class SubtitleEngine {
     const wrap = this.shadowContainer.getElementById('lf-wrap');
     const origDiv = this.shadowContainer.getElementById('lf-orig');
     const transDiv = this.shadowContainer.getElementById('lf-trans');
-    const saveBtn = this.shadowContainer.getElementById('lf-save-btn');
     if (!wrap || !origDiv || !transDiv) return;
 
     // Verifica se há legenda válida (texto não vazio após trim)
@@ -3651,24 +3457,10 @@ export class SubtitleEngine {
       origDiv.style.display = 'none';
       transDiv.style.display = 'none';
       if (wrap) wrap.style.display = 'none';
-      if (saveBtn) {
-        saveBtn.style.display = 'none';
-        saveBtn.textContent = '+ Salvar frase';
-      }
       return;
     }
 
-    // Reseta botão de salvar se for uma nova legenda
-    if (saveBtn && orig !== this._lastOrig) {
-      saveBtn.textContent = '+ Salvar frase';
-      saveBtn.classList.remove('ok');
-      this._lastOrig = orig;
-    }
-
-    // Mostra botão salvar APENAS quando há legenda ativa, válida e engine ligado
-    if (saveBtn) {
-      saveBtn.style.display = hasValidSubtitle && this.isActivated ? 'inline-block' : 'none';
-    }
+    // (O _lastOrig e a visibilidade do transDiv serão atualizados na lógica do modo de exibição mais abaixo)
 
     origDiv.innerHTML = '';
     // Força recriação do nó clicável para garantir que ele pertença ao Shadow Root atual
@@ -3704,15 +3496,29 @@ export class SubtitleEngine {
 
     const hasTrans = decodedTrans && decodedTrans.trim().length > 0;
 
-    origDiv.style.display = mode === 'translated' || !orig ? 'none' : 'block';
-    transDiv.style.display = mode === 'native' || !hasTrans ? 'none' : 'block';
+    // Lógica de visibilidade baseada no modo
+    if (mode === 'translated') {
+      origDiv.style.display = 'none';
+      if (transDiv && hasTrans) transDiv.style.display = 'block';
+    } else if (mode === 'bilingual' || mode === 'blur') {
+      origDiv.style.display = 'block';
+      if (transDiv && hasTrans) transDiv.style.display = 'block';
+    } else {
+      // mode === 'native'
+      origDiv.style.display = 'block';
+      // No modo nativo, transDiv fica oculto por padrão (até clicar em Traduzir)
+      if (orig !== this._lastOrig && transDiv) {
+         transDiv.style.display = 'none';
+      }
+    }
+
+    this._lastOrig = orig;
 
     // Esconde o container principal se não houver nada para mostrar
     if (wrap) {
-      wrap.style.display =
-        origDiv.style.display === 'none' && transDiv.style.display === 'none'
-          ? 'none'
-          : 'inline-flex';
+      const isOrigVisible = origDiv.style.display !== 'none';
+      const isTransVisible = transDiv && transDiv.style.display !== 'none';
+      wrap.style.display = (isOrigVisible || isTransVisible) ? 'inline-flex' : 'none';
     }
 
     console.debug(
@@ -3724,7 +3530,6 @@ export class SubtitleEngine {
     if (translateBtn) {
       const showBtn = orig && mode === 'native' && this.isActivated;
       translateBtn.style.display = showBtn ? 'block' : 'none';
-      if (showBtn) translateBtn.textContent = '🌐 Traduzir';
     }
 
     if (mode === 'blur') wrap.classList.add('mode-blur');
@@ -3998,26 +3803,26 @@ export class SubtitleEngine {
       if (fixed.includes('Ã') || fixed.includes('â€')) {
         fixed = fixed
           // Minúsculas com acentos
-          .replace(/Ã§/g, 'ç')
-          .replace(/Ã£/g, 'ã')
-          .replace(/Ã¡/g, 'á')
-          .replace(/Ã©/g, 'é')
-          .replace(/Ã­/g, 'í')
-          .replace(/Ã³/g, 'ó')
-          .replace(/Ãº/g, 'ú')
-          .replace(/Ã¢/g, 'â')
-          .replace(/Ãª/g, 'ê')
-          .replace(/Ã´/g, 'ô')
-          .replace(/Ã /g, 'à')
+          .replace(/ç/g, 'ç')
+          .replace(/ã/g, 'ã')
+          .replace(/á/g, 'á')
+          .replace(/é/g, 'é')
+          .replace(/í/g, 'í')
+          .replace(/ó/g, 'ó')
+          .replace(/ú/g, 'ú')
+          .replace(/â/g, 'â')
+          .replace(/ê/g, 'ê')
+          .replace(/ô/g, 'ô')
+          .replace(/à/g, 'à')
           .replace(/Ã¹/g, 'ù')
           .replace(/Ã¨/g, 'è')
           .replace(/Ã¬/g, 'ì')
           .replace(/Ã²/g, 'ò')
           // Maiúsculas com acentos
-          .replace(/Ã‡/g, 'Ç')
+          .replace(/Ç/g, 'Ç')
           .replace(/Ã/g, 'Ã')
           .replace(/Ã�/g, 'Á')
-          .replace(/Ã‰/g, 'É')
+          .replace(/É/g, 'É')
           .replace(/Ã�/g, 'Í')
           .replace(/Ã"/g, 'Ó')
           .replace(/Ãš/g, 'Ú')
@@ -4138,10 +3943,8 @@ export class SubtitleEngine {
       item.dataset.index = idx;
       item.style.cssText = `
                 padding: 12px 16px;
-                border-bottom: 1px solid rgba(255,255,255,0.04);
-                border-left: 3px solid transparent;
                 cursor: pointer;
-                transition: all 0.2s;
+                transition: all 0.1s;
                 position: relative;
                 display: flex;
                 flex-direction: column;
@@ -4153,15 +3956,14 @@ export class SubtitleEngine {
 
       item.innerHTML = `
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
-                    <span class="lf-sub-time" style="font-size:10px;color:#475569;font-family:monospace;flex-shrink:0;margin-top:3px;">${this._formatTime(startTime)}</span>
-                    <div class="lf-sub-text" style="flex:1;font-size:13px;line-height:1.4;color:#E2E8F0;font-weight:500;">${escapeHTML(cue.text)}</div>
+                    <span class="lf-time lf-sub-time" style="font-size:11px;font-family:'Nunito',monospace;font-weight:700;flex-shrink:0;margin-top:3px;">${this._formatTime(startTime)}</span>
+                    <div class="lf-sub-text" style="flex:1;font-size:15px;line-height:1.4;font-weight:700;">${escapeHTML(cue.text)}</div>
                     <div style="display:flex;gap:4px;">
-                        <button class="lf-loop-cue" title="Repetir frase" style="background:transparent;border:none;color:#475569;cursor:pointer;font-size:12px;padding:0 2px;">🔁</button>
-                        <button class="lf-save-line" title="Salvar frase" style="background:transparent;border:none;color:#475569;cursor:pointer;font-size:14px;padding:0 2px;transition:color 0.2s;">☆</button>
+                        <button class="lf-loop-cue" title="Repetir frase" style="background:transparent;border:none;color:inherit;cursor:pointer;font-size:14px;padding:0 2px;">🔁</button>
                     </div>
                 </div>
-                <div class="lf-translation-text" style="font-size:12px;color:#94A3B8;padding-left:42px;display:${showTrans ? 'block' : 'none'};">
-                    ${cue.translatedText || '<span style="color:#334155;font-style:italic;">traduzindo...</span>'}
+                <div class="lf-translation-text lf-trans-text" style="font-size:13px;padding-left:42px;font-weight:600;display:${showTrans ? 'block' : 'none'};">
+                    ${cue.translatedText || '<span style="opacity:0.6;font-style:italic;">traduzindo...</span>'}
                 </div>
             `;
 
@@ -4183,10 +3985,7 @@ export class SubtitleEngine {
       }
 
       item.onclick = (e) => {
-        if (e.target.classList.contains('lf-save-line')) {
-          this._saveCueAsPhrase(cue, item);
-          return;
-        }
+
         if (e.target.classList.contains('lf-loop-cue')) {
           this._toggleCueLoop(idx, e.target);
           return;
@@ -4198,10 +3997,10 @@ export class SubtitleEngine {
       };
 
       item.onmouseenter = () => {
-        if (this.currentCueIndex !== idx) item.style.background = 'rgba(255,255,255,0.03)';
+        if (this.currentCueIndex !== idx) item.style.background = '#f7f7f7';
       };
       item.onmouseleave = () => {
-        if (this.currentCueIndex !== idx) item.style.background = 'transparent';
+        if (this.currentCueIndex !== idx) item.style.background = '#ffffff';
       };
 
       container.appendChild(item);

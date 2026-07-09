@@ -2,15 +2,15 @@ import { db } from '../../../utils/db.js';
 
 export function renderLogin(container, app) {
   container.innerHTML = `
-    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 24px; max-width: 400px; margin: 0 auto; width: 100%;">
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; max-width: 400px; margin: 0 auto; width: 100%;">
       
       <div style="text-align: center; margin-bottom: 32px;">
-        <div class="logo-icon" style="margin: 0 auto 16px auto; width: 64px; height: 64px; font-size: 32px; border-radius: var(--radius-md);">L</div>
+        <img src="../../icon_full.png" alt="LinguaFlow Logo" style="width: 80px; height: 80px; margin: 0 auto 16px auto; display: block; object-fit: contain;" onerror="this.src='../icon_full.png'" />
         <h1 style="color: var(--color-primary); font-size: 28px; margin-bottom: 8px;">LinguaFlow</h1>
         <p style="color: var(--color-text-light); font-size: 16px;">Aprenda idiomas no seu ritmo</p>
       </div>
 
-      <div style="background: var(--color-surface); width: 100%; border: 2px solid var(--color-border); border-radius: var(--radius-md); padding: 24px;">
+      <div style="background: var(--color-surface); width: 100%; border: 2px solid var(--color-border); border-radius: var(--radius-md); padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
         <h2 id="auth-title" style="margin-bottom: 24px; text-align: center; font-size: 20px;">Entrar</h2>
         
         <form id="auth-form" style="display: flex; flex-direction: column; gap: 16px;">

@@ -64,8 +64,10 @@
 - [x] `getApiConfig()` no service worker migrado: sem `aiApiKey` → Edge Function com token de sessão; TODAS as funções de IA cobertas de uma vez (explicação, chunks, fonética, histórias, classificação, backfill)
 - [x] BYOK mantido como override (chave própria → DeepSeek direto, não gasta cota compartilhada)
 - [x] Testado: anon key → 401; origem estranha → Allow-Origin null; origem Vercel → ecoada
-- [ ] **PENDENTE (usuário)**: adicionar secret `DEEPSEEK_API_KEY` no Supabase (Dashboard → Edge Functions → Secrets) — sem ele o modo compartilhado retorna erro e só BYOK funciona
-- [ ] Teste manual: recarregar extensão, sem chave BYOK configurada, clicar palavra → explicação da IA deve vir via Edge Function; simular 21 chamadas num minuto → 429
+- [x] Chave DeepSeek configurada no **Vault** do Supabase; Edge Function v3 lê via RPC `get_deepseek_key` (SECURITY DEFINER, só service_role — anon/authenticated levam 403, testado)
+- [x] **Teste E2E completo passou**: usuário real → Edge Function → resposta da IA via chave compartilhada, sem BYOK (usuários de teste removidos após)
+- [ ] Teste manual na extensão: sem chave BYOK, clicar palavra → explicação da IA via Edge Function — **PENDENTE: usuário**
+- [ ] Recomendação de segurança: a chave foi colada no chat — considerar rotacionar a chave DeepSeek depois e atualizar só o Vault (update em vault.secrets)
 
 ## FASE 3 — Confirmação final dos 3 fluxos
 - [ ] Tradução de legenda funciona com sessão expirada

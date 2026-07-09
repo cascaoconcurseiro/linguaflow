@@ -56,16 +56,16 @@
 - [ ] Teste manual: salvar palavras novas num vídeo, estudar (fila deve variar), Sair, dark mode, missões subindo — **PENDENTE: usuário**
 - [ ] Gamificação (XP/ligas/streak) é REAL no backend (trigger calculate_xp em review_log) — validar que XP sobe após revisões agora que reviews gravam
 
-## FASE 2 — Migrar IA contextual para proxy seguro
-- [ ] Corrigir `supabase/functions/deepseek-chat/index.ts`: validação real de JWT (`supabase.auth.getUser`)
-- [ ] Corrigir CORS: origem da extensão + domínio Vercel, nunca `*`
-- [ ] Criar tabela `api_usage_log` + índice (SQL em `D:\Downloads\prompt-linguaflow-arquitetura.md`)
-- [ ] Implementar rate-limit por `user_id` na Edge Function (retornar 429 acima do limite)
-- [ ] Migrar `explainWordWithAI` (`background/service-worker.js`) para chamar Edge Function com `access_token` da sessão
-- [ ] Migrar `generateChunksWithAI` (`background/service-worker.js`) para o mesmo padrão
-- [ ] Migrar `getPTPhoneticWithAI` (`background/service-worker.js`) para o mesmo padrão
-- [ ] Manter BYOK (`aiApiKey`) como override opcional (se setado, usa direto; senão usa Edge Function)
-- [ ] Testar: token inválido/expirado → 401; origem não permitida → bloqueado; excesso de requisições → 429
+## FASE 2 — Migrar IA contextual para proxy seguro (commit a756403)
+- [x] `supabase/functions/deepseek-chat/index.ts` v2: validação real de JWT (`supabase.auth.getUser`) — anon key pública agora leva 401
+- [x] CORS restrito: `chrome-extension://*`, `*.vercel.app`, localhost — nunca `*`
+- [x] Tabela `api_usage_log` + índice criados (migração `create_api_usage_log_rate_limit`, RLS sem policies — só service role)
+- [x] Rate-limit 20 req/min por `user_id` na Edge Function (429 acima) + modelo fixo + teto max_tokens 2048
+- [x] `getApiConfig()` no service worker migrado: sem `aiApiKey` → Edge Function com token de sessão; TODAS as funções de IA cobertas de uma vez (explicação, chunks, fonética, histórias, classificação, backfill)
+- [x] BYOK mantido como override (chave própria → DeepSeek direto, não gasta cota compartilhada)
+- [x] Testado: anon key → 401; origem estranha → Allow-Origin null; origem Vercel → ecoada
+- [ ] **PENDENTE (usuário)**: adicionar secret `DEEPSEEK_API_KEY` no Supabase (Dashboard → Edge Functions → Secrets) — sem ele o modo compartilhado retorna erro e só BYOK funciona
+- [ ] Teste manual: recarregar extensão, sem chave BYOK configurada, clicar palavra → explicação da IA deve vir via Edge Function; simular 21 chamadas num minuto → 429
 
 ## FASE 3 — Confirmação final dos 3 fluxos
 - [ ] Tradução de legenda funciona com sessão expirada

@@ -13,8 +13,9 @@
 - **Nenhuma alteração de código foi feita nesta sessão** — só diagnóstico e alinhamento de plano.
 
 ## Próximo passo
-**Arquivo:** `utils/db.js` (funções `login()`, `signUp()`, `_getToken()`) e `background/service-worker.js`
-**Ação:** Implementar Fase 0 — capturar `refresh_token`/`expires_in`, calcular e salvar `expires_at` em `lf_supabase_session`, criar `_refreshTokenIfNeeded()` chamado no início de `_getToken()`, testar expiração simulada antes de avançar para a Fase 1.
+**FASE 0 IMPLEMENTADA** (2026-07-08, sessão 2): `utils/db.js` ganhou `_readSession()`/`_saveSession()`/`_refreshTokenIfNeeded()` (mutex contra refresh duplo), `login()`/`signUp()` salvam `refresh_token`+`expires_at`, timeout do proxy 5s→10s. Testado com 6 cenários mockados em Node — todos passaram. **Falta só o teste manual no navegador** (usuário precisa: recarregar extensão, deslogar/logar de novo — sessões antigas não têm refresh_token — e opcionalmente editar `expires_at` no chrome.storage.local pra ver o refresh no Network).
+**Arquivo:** após confirmação do teste manual → Fase 1 (limpeza: ver CHECKLIST.md)
+**Ação:** Fase 1 depois do aceite; bugs encontrados durante a Fase 0 anotados no CHECKLIST (seção nova).
 
 ## Bloqueios
 - Não confirmado se a coluna `deck_id` em `words` é `NOT NULL` no schema Postgres atual — `saveWord()` já não envia mais esse campo (só `bulkUpdateDeck()` ainda usa). Precisa de uma query no Supabase antes de mexer nisso na Fase 1, para não quebrar salvamento de palavra.

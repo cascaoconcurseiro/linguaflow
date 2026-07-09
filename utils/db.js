@@ -12,15 +12,15 @@ class Database {
     this.initPromise = Promise.resolve();
   }
 
-  async _getToken() {
+  // Lê o objeto de sessão completo ({ access_token, refresh_token, expires_at, user })
+  async _readSession() {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       return new Promise((resolve) => {
         chrome.storage.local.get('lf_supabase_session', (res) => {
           const sessionStr = res.lf_supabase_session;
           if (!sessionStr) return resolve(null);
           try {
-            const s = JSON.parse(sessionStr);
-            resolve(s?.session?.access_token || null);
+            resolve(JSON.parse(sessionStr)?.session || null);
           } catch { resolve(null); }
         });
       });
@@ -28,10 +28,89 @@ class Database {
       try {
         const sessionStr = localStorage.getItem('lf_supabase_session');
         if (!sessionStr) return null;
-        const s = JSON.parse(sessionStr);
-        return s?.session?.access_token || null;
+        return JSON.parse(sessionStr)?.session || null;
       } catch { return null; }
     }
+  }
+
+  // Grava a sessão nos dois storages (extensão e web compartilham a mesma chave)
+  async _saveSession(session) {
+    const sessionStr = JSON.stringify({ session });
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      await new Promise((resolve) => {
+        chrome.storage.local.set({ lf_supabase_session: sessionStr }, () => resolve());
+      });
+    }
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem('lf_supabase_session', sessionStr);
+    }
+  }
+
+  // Renova o access_token se estiver a menos de 5 min de expirar.
+  // Mutex (_refreshPromise): o Supabase rotaciona o refresh_token — dois
+  // refreshes simultâneos com o mesmo token invalidariam a sessão inteira.
+  async _refreshTokenIfNeeded() {
+    if (this._refreshPromise) return this._refreshPromise;
+
+    const session = await this._readSession();
+    if (!session) return null;
+
+    // Sessão legada (salva antes do refresh existir): usa como está;
+    // se o token já venceu, o tratamento de 401 em _fetch desloga.
+    if (!session.refresh_token || !session.expires_at) return session;
+
+    const FIVE_MIN = 5 * 60 * 1000;
+    if (session.expires_at - Date.now() > FIVE_MIN) return session;
+
+    // Re-checa o mutex: outra chamada pode ter iniciado o refresh enquanto
+    // esta aguardava o _readSession (o trecho abaixo é síncrono, então é seguro)
+    if (this._refreshPromise) return this._refreshPromise;
+
+    this._refreshPromise = (async () => {
+      try {
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: session.refresh_token }),
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          // Refresh token inválido/expirado: sessão morta de verdade — logout explícito
+          console.warn('[DB] Refresh de sessão rejeitado. Deslogando.', data.error_description || res.status);
+          await this.logout();
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('lf_auth_expired'));
+          }
+          if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+            chrome.runtime.sendMessage({ type: 'AUTH_EXPIRED' }).catch(() => {});
+          }
+          return null;
+        }
+
+        const newSession = {
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+          expires_at: Date.now() + ((data.expires_in || 3600) * 1000),
+          user: data.user || session.user,
+        };
+        await this._saveSession(newSession);
+        return newSession;
+      } catch (e) {
+        // Erro de rede (offline etc.): NÃO desloga — mantém a sessão atual
+        console.warn('[DB] Falha de rede no refresh, mantendo sessão atual:', e.message);
+        return session;
+      } finally {
+        this._refreshPromise = null;
+      }
+    })();
+
+    return this._refreshPromise;
+  }
+
+  async _getToken() {
+    const session = await this._refreshTokenIfNeeded();
+    return session?.access_token || null;
   }
 
   async _fetch(endpoint, options = {}) {
@@ -87,7 +166,7 @@ class Database {
       const timeoutId = setTimeout(() => {
         console.error(`[LinguaFlow DB] Timeout na chamada ${method}.`);
         reject(new Error(`DB proxy timeout: ${method}`));
-      }, 5000);
+      }, 10000); // 10s: o refresh automático de token pode adicionar uma ida à rede
 
       chrome.runtime.sendMessage(
         {
@@ -121,14 +200,13 @@ class Database {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error_description || data.msg || 'Erro ao fazer login');
       
-      const sessionStr = JSON.stringify({ session: { access_token: data.access_token, user: data.user } });
-      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.set({ lf_supabase_session: sessionStr });
-      }
-      if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem('lf_supabase_session', sessionStr);
-      }
-      
+      await this._saveSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        expires_at: Date.now() + ((data.expires_in || 3600) * 1000),
+        user: data.user,
+      });
+
       return { ok: true, user: data.user };
     } catch (e) {
       console.error('Login error:', e);
@@ -147,13 +225,12 @@ class Database {
       
       // Se já retornar sessão (email confirm off):
       if (data.session && data.session.access_token) {
-        const sessionStr = JSON.stringify({ session: { access_token: data.session.access_token, user: data.user } });
-        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.set({ lf_supabase_session: sessionStr });
-        }
-        if (typeof window !== 'undefined' && window.localStorage) {
-          localStorage.setItem('lf_supabase_session', sessionStr);
-        }
+        await this._saveSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+          expires_at: Date.now() + ((data.session.expires_in || 3600) * 1000),
+          user: data.user,
+        });
       }
       return { ok: true, user: data.user, session: data.session };
     } catch (e) {

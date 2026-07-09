@@ -8,12 +8,21 @@
 - [x] Criar MASTER_BLUEPRINT.md / CHECKLIST.md / HANDOFF.md
 
 ## FASE 0 — Refresh de token (prioridade máxima)
-- [ ] Capturar `refresh_token` e calcular `expires_at` em `login()` (`utils/db.js`)
-- [ ] Capturar `refresh_token` e calcular `expires_at` em `signUp()` (`utils/db.js`)
-- [ ] Criar `_refreshTokenIfNeeded()` em `utils/db.js`
-- [ ] Chamar `_refreshTokenIfNeeded()` no início de `_getToken()` / dentro do Service Worker
-- [ ] Tratar falha de refresh (refresh_token também expirado) como logout explícito
-- [ ] Testar: expirar `expires_at` manualmente, disparar ação autenticada, confirmar refresh automático no Network do DevTools
+- [x] Capturar `refresh_token` e calcular `expires_at` em `login()` (`utils/db.js`)
+- [x] Capturar `refresh_token` e calcular `expires_at` em `signUp()` (`utils/db.js`)
+- [x] Criar `_refreshTokenIfNeeded()` em `utils/db.js` (com mutex contra refresh duplo — Supabase rotaciona o refresh_token)
+- [x] Chamar `_refreshTokenIfNeeded()` no início de `_getToken()` (cobre SW e web direto; proxy delega pro SW)
+- [x] Tratar falha de refresh (refresh_token também expirado) como logout explícito + eventos `lf_auth_expired`/`AUTH_EXPIRED`
+- [x] Falha de REDE no refresh não desloga (mantém sessão — offline não pode destruir login)
+- [x] Testado em Node com mocks: 6 cenários (válida, concorrência 5x→1 refresh, legada, refresh morto→logout, offline→preserva, login salva formato novo)
+- [ ] Teste manual no navegador: recarregar extensão, logar de novo (sessões antigas são legadas, sem refresh_token), editar `expires_at` no chrome.storage e confirmar refresh no Network — **PENDENTE: precisa do usuário**
+
+## Bugs encontrados durante a Fase 0 (revisão da equipe)
+- [x] `chrome.storage.local.set` não era aguardado no login — chamada logo após podia não ver o token (corrigido via `_saveSession` await)
+- [x] Timeout do proxy (5s) ficaria apertado com refresh na frente da chamada (corrigido → 10s)
+- [ ] `_fetch()` engole TODOS os erros no catch e retorna `null` — chamador não distingue "lista vazia" de "erro de rede/servidor". Views podem mostrar "nenhuma palavra" quando na verdade a chamada falhou. Corrigir na Fase 1 ou 2 (mudança de contrato, precisa cuidado)
+- [ ] Condicionais mortas `config.provider !== 'gemini'` no service-worker (resíduo do cleanup.py) — remover na Fase 1
+- [ ] `dashboard/newtab.js` usa `lfDb` — confirmar se newtab está declarado no manifest e funcional (visto de passagem, não inspecionado)
 
 ## FASE 1 — Limpeza (escopo expandido)
 - [ ] Remover `dashboard/js/core/db.js` (IndexedDB órfão)

@@ -36,7 +36,7 @@ async function readAllSettings() {
   const obj = {};
   for (const key of settings) {
     const val = await db.getSetting(key);
-    if (val !== undefined) obj[key] = val;
+    if (val !== undefined && val !== null) obj[key] = val;
   }
   return obj;
 }
@@ -58,7 +58,7 @@ export class SettingsPanel {
       sourceLang: 'en',
       subtitleMode: 'native',
       bgOpacity: 0.45,
-      fontSize: 31, // tamanho legenda original
+      fontSize: 35, // tamanho legenda original
       fontSizeTrans: 18, // tamanho legenda tradução (NOVO)
       wordColorKnown: '#86EFAC',
       wordColorSaved: '#93C5FD',
@@ -518,7 +518,7 @@ export class SettingsPanel {
             <div class="panel">
                 <div class="panel-header">
                     <h2 class="panel-title">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.22A4.91 4.91 0 0 0 17 5c-2.22 0-4 1.44-5 2-1-.56-2.78-2-5-2a4.9 4.9 0 0 0-5 4.78C2 14 5 22 8 22c1.25 0 2.5-1.06 4-1.06Z"/><path d="M10 2c1 .5 2 2 2 5"/></svg>
+                        <img src="${chrome.runtime.getURL('icon128.png')}" alt="LinguaFlow" style="width:22px;height:22px;border-radius:6px;" />
                         LinguaFlow
                     </h2>
                     <button class="close-btn" id="btn-close">
@@ -576,6 +576,13 @@ export class SettingsPanel {
                                     <option value="OpenDyslexic">OpenDyslexic (Acessibilidade)</option>
                                 </select>
                             </div>
+                            <div class="group">
+                                <label>Tema da Interface</label>
+                                <select id="sel-theme">
+                                    <option value="light">Modo Claro</option>
+                                    <option value="dark">Modo Escuro</option>
+                                </select>
+                            </div>
                             <div class="group" style="display:none;">
                                 <label>Paleta de Cores Semântica</label>
                                 <select id="sel-palette">
@@ -594,15 +601,8 @@ export class SettingsPanel {
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg>
                             Exibição de Legendas
                         </div>
-                        
+
                         <div class="card">
-                            <div class="group">
-                                <label>Tema da Interface</label>
-                                <select id="sel-theme">
-                                    <option value="light">Modo Claro</option>
-                                    <option value="dark">Modo Escuro</option>
-                                </select>
-                            </div>
                             <div class="group">
                                 <label>Modo de Exibição</label>
                                 <select id="sel-mode">
@@ -616,8 +616,8 @@ export class SettingsPanel {
                             <div class="group">
                                 <label>Tamanho: Idioma Original</label>
                                 <div class="slider-row">
-                                    <input type="range" id="rng-font" min="14" max="72" step="1" value="31">
-                                    <span class="slider-val" id="val-font">31px</span>
+                                    <input type="range" id="rng-font" min="14" max="72" step="1" value="35">
+                                    <span class="slider-val" id="val-font">35px</span>
                                 </div>
                             </div>
 
@@ -628,7 +628,7 @@ export class SettingsPanel {
                                     <span class="slider-val" id="val-font-trans">18px</span>
                                 </div>
                             </div>
-                            
+
                             <div class="group" style="margin-top:20px;">
                                 <label>Opacidade do Fundo</label>
                                 <div class="slider-row">
@@ -654,7 +654,7 @@ export class SettingsPanel {
                             </div>
 
                             <div class="preview-box" id="preview-box">
-                                <div class="preview-orig" id="preview-orig" style="font-size:31px;">Hello world</div>
+                                <div class="preview-orig" id="preview-orig" style="font-size:35px;">Hello world</div>
                                 <div class="preview-trans" id="preview-trans" style="font-size:18px;">Olá mundo</div>
                             </div>
                         </div>

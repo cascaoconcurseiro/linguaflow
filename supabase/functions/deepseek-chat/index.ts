@@ -86,10 +86,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 4. Encaminha ao DeepSeek com a chave do servidor
-    const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
+    // 4. Encaminha ao DeepSeek com a chave do servidor.
+    //    Ordem: env (Edge Function Secrets) -> Vault via RPC restrita à service role.
+    let DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
     if (!DEEPSEEK_API_KEY) {
-      return new Response(JSON.stringify({ error: "DEEPSEEK_API_KEY não configurada nos Secrets do Supabase." }), {
+      const { data: vaultKey } = await admin.rpc("get_deepseek_key");
+      DEEPSEEK_API_KEY = vaultKey || undefined;
+    }
+    if (!DEEPSEEK_API_KEY) {
+      return new Response(JSON.stringify({ error: "Chave DeepSeek não configurada no servidor (Secrets/Vault)." }), {
         status: 500, headers: cors,
       });
     }

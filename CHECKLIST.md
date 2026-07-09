@@ -78,6 +78,18 @@
 - [x] `ai.js` reescrito como cliente unificado (extensão → SW `ai_chat` com BYOK; web → Edge Function); tutor de gramática do dashboard reativado
 - [x] `dashboard/newtab.js` confirmado: declarado no manifest (chrome_url_overrides) — não é código morto
 
+## Cards v2 — estudo funcional de verdade (commit 1f5bba6, 2026-07-09)
+- [x] **Bug do vazamento**: fonética abrasileirada aparecia ANTES da revelação e vinha de outra frase (`chunks[0]`) — agora só aparece após revelar e é da frase exata do card
+- [x] Fonética + tradução da frase e da palavra geradas em 1 chamada de IA (`enrichCard`) e persistidas em `ai_chunks` (entradas `is_context`/`is_word`) — nunca regeradas
+- [x] **Tutor de gramática em chat**: persona didática (professor brasileiro poliglota), adaptada ao `lf_cefr_level`, multi-turno com histórico; funciona na web (Edge Function direto) e na extensão (`ai_chat` no SW, respeita BYOK)
+- [x] Chunks com botão 🔊 (cache IndexedDB) e ⬇️ salvar MP3; frase do card como primeiro chunk rotulado
+- [x] **YouGlish embutido** na sidebar (widget oficial, só na web — na extensão MV3 o CSP proíbe script remoto → link externo)
+- [x] Botão "✨ Frase estranha? Gerar melhor com IA" para contextos capturados quebrados (fragmentos de legenda)
+- [x] Geração de chunks agora funciona na web também (`generateChunksWeb`)
+- [x] Tradução da palavra isolada corrigida (mostrava a tradução da frase do chunk)
+- [ ] Teste manual: estudar cards no site e na extensão — fluxo cloze → revelar → chat do tutor → salvar áudio — **PENDENTE: usuário**
+- [ ] YouGlish widget: validar limite diário do modo anônimo; se estourar, avaliar API key gratuita do YouGlish
+
 ## Roadmap MELHORIAS.md — pendente (próximas sessões)
 - [ ] Kokoro-82M TTS local (WebGPU/WASM) como voz neural premium offline
 - [ ] Exercícios variados no studyView (cloze, montar frase, ditado — dados já existem em ai_chunks)

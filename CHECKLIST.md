@@ -103,12 +103,12 @@
 
 ## PLANO-MESTRE FABLE 5 (2026-07-09) — ver `PLANO_MESTRE_FABLE5.md`
 Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rápida; login próprio no popup. Roadmap priorizado:
-### Bloco A — Consolidação (destrava tudo)
-- [ ] A1. Corrigir Histórias no site (`storiesView.js` usa `chrome.runtime` inexistente na web → criar `generateStoryWeb` em ai.js + rotear tradução)
-- [ ] A2. Login próprio no popup da extensão (`popup/popup.js` + `.html`); botão Dashboard abre o site
-- [ ] A3. Consolidar dashboard site-only (popup/newtab abrem o site; reduzir bundle da extensão)
+### Bloco A — Consolidação (destrava tudo) — CONCLUÍDO (commit bca3ad5)
+- [x] A1. Histórias no site: `generateStoryWeb` em ai.js (Edge Function, mesmo prompt do SW) + `translateText` roteado (extensão→SW; web→translator.js client-side, CORS do GTX/MyMemory verificado com curl). Testado em Node
+- [x] A2. Login próprio no popup: form email/senha (via proxy→SW), estados carregando/deslogado/logado, chip de e-mail, cards devidos, logout, "Criar conta" abre o site
+- [x] A3. Site-only: popup/settings-panel/newtab abrem `linguaflow-web-tau.vercel.app`; `dashboard/*` removido dos web_accessible_resources (grep de getURL confirmou zero uso por content scripts)
 ### Bloco B — Paridade Anki
-- [ ] B1. Export/Import Anki (.txt/CSV, idealmente .apkg) + backup completo JSON
+- [x] B1. Export Anki .txt (TSV `#separator:tab`/`#html:true`/`#tags column:3`, frente com frase e palavra destacada, verso com tradução+fonética+definição) + backup JSON completo (words/cards/review_log/stats) + restauração (upsert palavras, re-casamento de cards por palavra|idioma). CSV corrigido (campo `context` inexistente → `context_sentence`) — commit dc289a6
 - [ ] B2. Opções de deck (suspender/enterrar/reposicionar) + cartões reversos + stats de retenção
 ### Bloco C — LingQ
 - [ ] C1. Modo Leitor de verdade (importar texto/URL, palavras clicáveis coloridas, usar `known_words`)

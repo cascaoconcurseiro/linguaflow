@@ -140,13 +140,23 @@ export async function renderSettings(container, app) {
           Você é dono dos seus dados. Baixe seu progresso para formato Anki ou CSV.
         </p>
         
-        <div style="display: flex; gap: 16px;">
-          <button id="btn-export-csv" class="btn btn-outline" style="flex:1;">
+        <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+          <button id="btn-export-csv" class="btn btn-outline" style="flex:1; min-width:160px;">
             📄 Exportar CSV
           </button>
-          <button id="btn-export-anki" class="btn btn-secondary" style="flex:1;">
-            📦 Exportar .apkg (Anki)
+          <button id="btn-export-anki" class="btn btn-secondary" style="flex:1; min-width:160px;">
+            📦 Exportar pro Anki (.txt)
           </button>
+        </div>
+        <p style="font-size:12px; color:var(--color-text-light); margin-top:8px;">No Anki: Arquivo → Importar → selecione o .txt. Os campos (frente com frase, verso com tradução/fonética) e as etiquetas já vão prontos.</p>
+        <div style="display:flex; gap:16px; flex-wrap:wrap; margin-top:16px; padding-top:16px; border-top:1px dashed var(--color-border);">
+          <button id="btn-backup-json" class="btn btn-outline" style="flex:1; min-width:160px;">
+            💾 Backup completo (.json)
+          </button>
+          <button id="btn-restore-json" class="btn btn-outline" style="flex:1; min-width:160px;">
+            ♻️ Restaurar backup
+          </button>
+          <input type="file" id="restore-file-input" accept=".json,application/json" style="display:none;">
         </div>
         <p id="export-msg" style="color: var(--color-primary); margin-top: 12px; font-weight:bold; display:none;">Exportação concluída!</p>
       </div>
@@ -291,30 +301,184 @@ export async function renderSettings(container, app) {
     setTimeout(() => btnSave.innerHTML = originalText, 500);
   });
 
+  function downloadFile(content, filename, mime) {
+    const blob = new Blob([content], { type: mime });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 5000);
+  }
+
+  function flashExportMsg(text = 'Exportação concluída!') {
+    const el = document.getElementById('export-msg');
+    el.textContent = text;
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 4000);
+  }
+
   document.getElementById('btn-export-csv').addEventListener('click', async () => {
     try {
       const words = await lfDb.getAllWords();
-      let csvContent = "data:text/csv;charset=utf-8,Word,Translation,Context\n";
+      const esc = (s) => `"${String(s ?? '').replace(/"/g, '""')}"`;
+      let csv = 'Word,Translation,Context\n';
       words.forEach(w => {
-        csvContent += `"${w.word}","${w.translation}","${w.context}"\n`;
+        csv += `${esc(w.word)},${esc(w.translation)},${esc(w.context_sentence)}\n`;
       });
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", "linguaflow_export.csv");
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      document.getElementById('export-msg').style.display = 'block';
-      setTimeout(() => { document.getElementById('export-msg').style.display = 'none'; }, 3000);
+      downloadFile(csv, 'linguaflow_export.csv', 'text/csv;charset=utf-8');
+      flashExportMsg();
     } catch(e) {
       console.error(e);
-      alert("Erro ao exportar");
+      app.showToast('Erro ao exportar CSV.', 'error');
     }
   });
 
-  document.getElementById('btn-export-anki').addEventListener('click', () => {
-    alert("Para importar no Anki: Exporte como CSV acima e no Anki clique em 'Importar Arquivo'. A exportação nativa .apkg requer a ponte Python local que será liberada no próximo patch.");
+  // Export no formato de importação nativo do Anki (TSV com cabeçalhos):
+  // frente = palavra + frase; verso = tradução + fonética + definição; etiquetas.
+  document.getElementById('btn-export-anki').addEventListener('click', async () => {
+    try {
+      const words = await lfDb.getAllWords();
+      if (!words.length) { app.showToast('Nenhuma palavra para exportar.', 'info'); return; }
+      const clean = (s) => String(s ?? '').replace(/\t/g, ' ').replace(/\n/g, '<br>');
+      const lines = [
+        '#separator:tab',
+        '#html:true',
+        '#tags column:3',
+      ];
+      const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      words.forEach(w => {
+        const sentence = w.context_sentence && w.context_sentence !== w.word
+          ? `<br><i>${clean(w.context_sentence).replace(new RegExp(`\\b${escRe(w.word)}\\b`, 'i'), `<b>${w.word}</b>`)}</i>`
+          : '';
+        const front = `<b>${clean(w.word)}</b>${sentence}`;
+        const backParts = [clean(w.translation)];
+        if (w.pronunciation_pt) backParts.push(`<i>[${clean(w.pronunciation_pt)}]</i>`);
+        if (w.definition) backParts.push(clean(w.definition));
+        const back = backParts.filter(Boolean).join('<br>');
+        const tags = ['linguaflow', w.category, w.level].filter(Boolean).join(' ');
+        lines.push(`${front}\t${back}\t${tags}`);
+      });
+      downloadFile(lines.join('\n'), 'linguaflow_anki.txt', 'text/plain;charset=utf-8');
+      flashExportMsg(`${words.length} notas exportadas pro Anki!`);
+    } catch(e) {
+      console.error(e);
+      app.showToast('Erro ao exportar pro Anki.', 'error');
+    }
+  });
+
+  // Backup completo: tudo que é preciso pra reconstruir o progresso.
+  document.getElementById('btn-backup-json').addEventListener('click', async () => {
+    try {
+      const [words, cards, reviewLog, stats] = await Promise.all([
+        lfDb.getAllWords(),
+        lfDb.getAllCards(),
+        lfDb.getReviewLog(3650),
+        lfDb.getUserStats(),
+      ]);
+      const backup = {
+        app: 'linguaflow',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        words, cards, review_log: reviewLog, user_stats: stats,
+      };
+      const stamp = new Date().toISOString().slice(0, 10);
+      downloadFile(JSON.stringify(backup, null, 2), `linguaflow_backup_${stamp}.json`, 'application/json');
+      flashExportMsg(`Backup salvo: ${words.length} palavras, ${cards.length} cards.`);
+    } catch(e) {
+      console.error(e);
+      app.showToast('Erro ao gerar o backup.', 'error');
+    }
+  });
+
+  // Restauração: re-salva cada palavra (upsert por user_id+word+lang) e
+  // reaplica o estado de agendamento FSRS no card correspondente.
+  // review_log não é restaurado (os ids de card mudam entre contas) — o
+  // histórico segue preservado dentro do arquivo de backup.
+  document.getElementById('btn-restore-json').addEventListener('click', () => {
+    document.getElementById('restore-file-input').click();
+  });
+
+  document.getElementById('restore-file-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+
+    let backup;
+    try {
+      backup = JSON.parse(await file.text());
+    } catch {
+      app.showToast('Arquivo inválido: não é um JSON.', 'error');
+      return;
+    }
+    if (backup.app !== 'linguaflow' || !Array.isArray(backup.words)) {
+      app.showToast('Arquivo inválido: não é um backup do LinguaFlow.', 'error');
+      return;
+    }
+    if (!confirm(`Restaurar ${backup.words.length} palavras do backup de ${(backup.exportedAt || '').slice(0, 10)}? Palavras existentes serão atualizadas.`)) return;
+
+    const btn = document.getElementById('btn-restore-json');
+    btn.disabled = true;
+    let okCount = 0;
+    let failCount = 0;
+
+    try {
+      // 1. Palavras (upsert preserva added_at do backup)
+      for (const w of backup.words) {
+        try {
+          await lfDb.saveWord(w);
+          okCount++;
+        } catch (err) {
+          console.warn('[Restore] Falha na palavra', w.word, err);
+          failCount++;
+        }
+        btn.textContent = `♻️ Restaurando… ${okCount + failCount}/${backup.words.length}`;
+      }
+
+      // 2. Estado FSRS dos cards: casa card antigo -> palavra -> card novo
+      if (Array.isArray(backup.cards) && backup.cards.length) {
+        const freshWords = await lfDb.getAllWords();
+        const wordIdByKey = {};
+        freshWords.forEach(w => { wordIdByKey[`${w.word}|${w.lang}`] = w.id; });
+        const oldWordById = {};
+        backup.words.forEach(w => { oldWordById[w.id] = w; });
+
+        for (const oldCard of backup.cards) {
+          const oldWord = oldWordById[oldCard.word_id];
+          if (!oldWord) continue;
+          const newWordId = wordIdByKey[`${oldWord.word}|${oldWord.lang}`];
+          if (!newWordId) continue;
+          try {
+            const newCard = await lfDb.getCardByWordId(newWordId);
+            if (!newCard) continue;
+            await lfDb.updateCard({
+              ...newCard,
+              status: oldCard.status,
+              interval: oldCard.interval,
+              ease_factor: oldCard.ease_factor,
+              step_index: oldCard.step_index,
+              reps: oldCard.reps,
+              lapses: oldCard.lapses,
+              stability: oldCard.stability,
+              difficulty: oldCard.difficulty,
+              pre_lapse_interval: oldCard.pre_lapse_interval,
+              due_date: oldCard.due_date,
+              last_review: oldCard.last_review,
+              suspended: oldCard.suspended,
+              is_leech: oldCard.is_leech,
+            });
+          } catch (err) {
+            console.warn('[Restore] Falha no card de', oldWord.word, err);
+          }
+        }
+      }
+
+      app.showToast(`Backup restaurado: ${okCount} palavras${failCount ? ` (${failCount} falharam)` : ''}. ✅`, failCount ? 'info' : 'success');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '♻️ Restaurar backup';
+    }
   });
 
   const logoutBtn = document.getElementById('btn-logout');

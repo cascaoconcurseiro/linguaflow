@@ -46,6 +46,10 @@
   border-bottom-color: #e2e8f0;
 }
 
+:root[data-theme="dark"] .logo-img {
+  filter: drop-shadow(0 0 3px rgba(248, 250, 252, 0.35));
+}
+
 :root[data-theme="dark"] input,
 :root[data-theme="dark"] select,
 :root[data-theme="dark"] textarea {

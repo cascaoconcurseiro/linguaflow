@@ -19,6 +19,8 @@ export async function renderSettings(container, app) {
   const srsRetention = Math.round(((Number(await lfDb.getSetting('lf_srs_retention')) || 0.9)) * 100);
   const srsReverseRaw = await lfDb.getSetting('lf_reverse_cards');
   const srsReverse = srsReverseRaw === true || srsReverseRaw === 'true';
+  const srsVariedRaw = await lfDb.getSetting('lf_varied_exercises');
+  const srsVaried = srsVariedRaw === null || srsVariedRaw === true || srsVariedRaw === 'true';
 
   container.innerHTML = `
     <div style="padding: 40px; max-width: 800px; margin: 0 auto; padding-bottom:100px;">
@@ -96,6 +98,11 @@ export async function renderSettings(container, app) {
           Cartões reversos (🇧🇷→🇺🇸): às vezes mostrar a tradução e pedir o inglês
         </label>
         <p style="font-size:12px; color:var(--color-text-light); margin-top:6px; margin-left:28px;">Só para cards já graduados — dobra o valor de cada palavra, como as notas de 2 cartões do Anki.</p>
+        <label style="display:flex; align-items:center; gap:10px; margin-top:14px; font-weight:bold; color:var(--color-text); cursor:pointer;">
+          <input type="checkbox" id="srs-varied-exercises" ${srsVaried ? 'checked' : ''} style="width:18px; height:18px;">
+          Exercícios variados (🧩 montar frase e 🎧 ditado) no estudo
+        </label>
+        <p style="font-size:12px; color:var(--color-text-light); margin-top:6px; margin-left:28px;">Estilo Duolingo, só para cards já graduados: acertou vale "Bom", errou vale "Errei" — o agendamento FSRS continua mandando.</p>
       </div>
 
       <!-- Audio Options -->
@@ -305,6 +312,8 @@ export async function renderSettings(container, app) {
     if (retention) await lfDb.setSetting('lf_srs_retention', (Number(retention) / 100).toFixed(2));
     const reverseChk = document.getElementById('srs-reverse-cards');
     if (reverseChk) await lfDb.setSetting('lf_reverse_cards', reverseChk.checked ? 'true' : '');
+    const variedChk = document.getElementById('srs-varied-exercises');
+    if (variedChk) await lfDb.setSetting('lf_varied_exercises', variedChk.checked ? 'true' : 'false');
     
     app.showToast('Configurações salvas com sucesso! ✅', 'success');
     setTimeout(() => btnSave.innerHTML = originalText, 500);

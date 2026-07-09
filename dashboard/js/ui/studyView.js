@@ -13,6 +13,7 @@ let chatHistory = [];
 let chatBusy = false;
 let lastReview = null; // { prevCard, card, grade, isCorrect } para o undo
 let reverseEnabled = false; // cartões reversos PT→EN (setting lf_reverse_cards)
+let variedEnabled = true;   // exercícios variados: montar frase/ditado (lf_varied_exercises, ON por padrão)
 let ygWidget = null;
 let ygQueuedWord = null;
 
@@ -22,11 +23,14 @@ export async function renderStudy(container, app) {
   sessionCards = 0;
   sessionStart = Date.now();
   lastReview = null;
+  exerciseApp = app;
   ygWidget = null; // container será recriado
 
   app.showToast('Carregando frases...', 'info');
   try {
     reverseEnabled = !!(await lfDb.getSetting('lf_reverse_cards').catch(() => null));
+    const variedRaw = await lfDb.getSetting('lf_varied_exercises').catch(() => null);
+    variedEnabled = variedRaw === null || variedRaw === true || variedRaw === 'true';
     dueQueue = await lfDb.getCardsDue(50, true);
     // Cards suspensos (manual ou por leech) ficam fora da fila, como no Anki
     dueQueue = dueQueue.filter(c => !c.suspended);
@@ -352,15 +356,30 @@ async function loadNextCard(app) {
   card._ctx = context;
   card._chunks = chunks;
 
-  // Cartão reverso PT→EN (opcional, só pra cards já graduados — como no Anki
-  // a direção nova só entra depois que a EN→PT está estabelecida)
-  card._reverse = reverseEnabled &&
-    (card.status === 'review' || card.status === 'mature') &&
-    Math.random() < 0.4;
+  // Sorteio do tipo de exercício — só pra cards já graduados (card novo
+  // aprende primeiro no modo clássico, produção vem depois, como no Anki/Duolingo)
+  card._mode = 'classic';
+  card._reverse = false;
+  const graduated = card.status === 'review' || card.status === 'mature';
+  if (graduated) {
+    const wordCount = context.split(/\s+/).length;
+    const canBuild = variedEnabled && wordCount >= 3 && wordCount <= 12;
+    const canDictate = variedEnabled && wordCount >= 2 && wordCount <= 12;
+    const roll = Math.random();
+    if (reverseEnabled && roll < 0.3) {
+      card._mode = 'reverse';
+      card._reverse = true;
+    } else if (canBuild && roll < 0.55) {
+      card._mode = 'builder';
+    } else if (canDictate && roll < 0.75) {
+      card._mode = 'dictation';
+    }
+  }
 
   renderFront(card, word, context);
-  // No reverso o áudio da frase EM INGLÊS entregaria a resposta — só toca ao revelar
-  if (!card._reverse) playCurrentAudio();
+  // Reverso: o áudio EN entrega a resposta. Builder: entrega a ORDEM das palavras.
+  // Ditado: o próprio renderFront toca (é o exercício).
+  if (card._mode === 'classic') playCurrentAudio();
 }
 
 function renderFront(card, word, context) {
@@ -376,6 +395,9 @@ function renderFront(card, word, context) {
     document.getElementById('reveal-btn').disabled = false;
     return;
   }
+
+  if (card._mode === 'builder') { renderBuilder(card, context); return; }
+  if (card._mode === 'dictation') { renderDictation(card, context); return; }
 
   // Frente do card: frase com a palavra oculta. NADA de fonética ou tradução
   // aqui — qualquer pista revelaria a resposta (bug antigo).
@@ -399,6 +421,106 @@ function renderFront(card, word, context) {
   if (looksBroken(context, word)) {
     document.getElementById('improve-btn').classList.remove('hidden');
   }
+}
+
+// ── Exercícios ativos (montar frase / ditado) ────────────────────────────────
+// Verificação objetiva: acerto agenda como "Bom" (3), erro como "Errei" (1) —
+// mesma filosofia do Duolingo, e o FSRS/undo continuam valendo.
+
+let exerciseApp = null; // referência do app pro auto-grade
+
+function normalizeAnswer(s) {
+  return String(s || '').toLowerCase().replace(/[^a-z0-9' ]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function exerciseFinish(correct, context) {
+  const sentenceEl = document.getElementById('pump-sentence');
+  const feedback = correct
+    ? `<div style="color:var(--color-primary); font-weight:900; font-size:22px; margin-bottom:12px;">✅ Perfeito!</div>`
+    : `<div style="color:var(--color-danger); font-weight:900; font-size:22px; margin-bottom:12px;">A resposta era:</div>`;
+  sentenceEl.innerHTML = `${feedback}<div style="font-size:26px;">${context}</div>`;
+  if (correct) playCurrentAudio();
+  setTimeout(() => {
+    if (exerciseApp) handleGrade(correct ? 3 : 1, exerciseApp);
+  }, correct ? 1400 : 2600);
+}
+
+// Montar frase (word bank estilo Duolingo): tradução PT + chips EN embaralhados
+function renderBuilder(card, context) {
+  const sentenceEl = document.getElementById('pump-sentence');
+  document.getElementById('reveal-btn').classList.add('hidden');
+
+  const ctxEntry = (card._chunks || []).find(c => c.is_context && c.pt);
+  const pt = (ctxEntry && ctxEntry.pt) || '';
+  const tokens = context.replace(/[.!?,;:]+$/, '').split(/\s+/);
+  const shuffled = [...tokens].sort(() => 0.5 - Math.random());
+
+  sentenceEl.innerHTML = `
+    <div style="font-size:14px; font-weight:800; color:var(--color-secondary); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">🧩 Monte a frase em inglês</div>
+    ${pt ? `<div style="font-size:18px; color:var(--color-text-light); margin-bottom:16px;">"${pt}"</div>` : ''}
+    <div id="ex-answer" style="min-height:52px; border-bottom:2px solid var(--color-border); margin-bottom:16px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding:8px;"></div>
+    <div id="ex-bank" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:16px;">
+      ${shuffled.map((t, i) => `<button class="ex-chip" data-i="${i}" data-t="${t}">${t}</button>`).join('')}
+    </div>
+    <button id="ex-check" class="btn btn-primary" style="padding:12px 32px; font-size:15px;" disabled>Verificar</button>
+  `;
+
+  const answer = [];
+  const answerEl = document.getElementById('ex-answer');
+  const checkBtn = document.getElementById('ex-check');
+
+  function redraw() {
+    answerEl.innerHTML = answer.map((a, idx) => `<button class="ex-chip ex-chip-used" data-idx="${idx}">${a.t}</button>`).join('');
+    checkBtn.disabled = answer.length !== tokens.length;
+  }
+
+  document.getElementById('ex-bank').addEventListener('click', (e) => {
+    const chip = e.target.closest('.ex-chip');
+    if (!chip || chip.disabled) return;
+    answer.push({ t: chip.dataset.t, bankBtn: chip });
+    chip.disabled = true;
+    chip.style.visibility = 'hidden';
+    redraw();
+  });
+
+  answerEl.addEventListener('click', (e) => {
+    const chip = e.target.closest('.ex-chip-used');
+    if (!chip) return;
+    const [removed] = answer.splice(Number(chip.dataset.idx), 1);
+    removed.bankBtn.disabled = false;
+    removed.bankBtn.style.visibility = 'visible';
+    redraw();
+  });
+
+  checkBtn.addEventListener('click', () => {
+    const got = normalizeAnswer(answer.map(a => a.t).join(' '));
+    const want = normalizeAnswer(tokens.join(' '));
+    exerciseFinish(got === want, context);
+  });
+}
+
+// Ditado (escute e escreva): áudio toca sozinho, usuário digita a frase
+function renderDictation(card, context) {
+  const sentenceEl = document.getElementById('pump-sentence');
+  document.getElementById('reveal-btn').classList.add('hidden');
+
+  sentenceEl.innerHTML = `
+    <div style="font-size:14px; font-weight:800; color:var(--color-secondary); margin-bottom:16px; text-transform:uppercase; letter-spacing:0.5px;">🎧 Escute e escreva em inglês</div>
+    <button id="ex-replay" class="btn btn-secondary" style="padding:10px 24px; font-size:14px; margin-bottom:16px;">🔊 Ouvir de novo</button>
+    <input id="ex-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Digite o que você ouviu…"
+      style="width:100%; max-width:560px; padding:14px; font-size:18px; border:2px solid var(--color-border); border-radius:var(--radius-md); font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text); text-align:center;">
+    <button id="ex-check" class="btn btn-primary" style="padding:12px 32px; font-size:15px; margin-top:16px;">Verificar</button>
+  `;
+
+  const play = () => playNaturalAudio(context, { lang: localStorage.getItem('lf_tts_lang') || 'en-US' });
+  play();
+  document.getElementById('ex-replay').addEventListener('click', play);
+
+  const input = document.getElementById('ex-input');
+  setTimeout(() => input.focus(), 100);
+  const check = () => exerciseFinish(normalizeAnswer(input.value) === normalizeAnswer(context), context);
+  document.getElementById('ex-check').addEventListener('click', check);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') check(); });
 }
 
 async function improveSentence(app) {
@@ -950,6 +1072,11 @@ function injectStyles() {
 
     .cloze-blur { background: var(--color-border); color: transparent; padding: 0 16px; border-radius: var(--radius-md); user-select: none; transition: all 0.3s; display: inline-block; min-width: 60px;}
     .cloze-revealed { background: rgba(88, 204, 2, 0.15); color: var(--color-primary); }
+
+    .ex-chip { background: var(--color-surface); border: 2px solid var(--color-border); border-bottom-width: 4px; border-radius: 12px; padding: 10px 16px; font-family: var(--font-main); font-weight: 800; font-size: 16px; color: var(--color-text); cursor: pointer; transition: transform 0.1s; }
+    .ex-chip:hover { border-color: var(--color-secondary); }
+    .ex-chip:active { transform: translateY(2px); }
+    .ex-chip-used { background: rgba(28,176,246,0.12); border-color: var(--color-secondary); }
 
     .reveal-btn { font-size: 20px; padding: 16px 40px; width:100%; max-width: 320px; margin: 0 auto; display: block; box-shadow: 0 4px 0 var(--color-primary-shadow);}
     .reveal-btn:disabled { opacity: 0.6; cursor: default; }

@@ -76,13 +76,12 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "dashboard/*",
         "content/*",
         "utils/*",
-        "icon.png",
         "icon16.png",
         "icon48.png",
         "icon128.png",
+        "icon_full.png",
         "assets/*"
       ],
       "matches": ["<all_urls>"]

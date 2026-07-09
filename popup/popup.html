@@ -4,14 +4,16 @@
     <meta charset="UTF-8" />
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
-      
+
       :root {
         --color-primary: #58cc02;
         --color-primary-shadow: #58a700;
         --color-secondary: #1cb0f6;
         --color-secondary-shadow: #1899d6;
+        --color-danger: #ff4b4b;
         --color-text: #3c3c3c;
         --color-text-light: #777;
+        --color-border: #d1d5db;
         --color-bg: #ffffff;
         --radius: 12px;
       }
@@ -35,7 +37,7 @@
         align-items: center;
         justify-content: center;
         gap: 12px;
-        margin-bottom: 24px;
+        margin-bottom: 20px;
       }
       .header img {
         width: 48px;
@@ -52,16 +54,38 @@
       p {
         font-size: 14px;
         color: var(--color-text-light);
-        margin-bottom: 24px;
+        margin-bottom: 20px;
         line-height: 1.4;
       }
+
+      .hidden { display: none !important; }
+
+      label {
+        display: block;
+        text-align: left;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--color-text-light);
+        margin-bottom: 4px;
+      }
+      input {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid var(--color-border);
+        border-radius: var(--radius);
+        font-family: inherit;
+        font-size: 14px;
+        margin-bottom: 12px;
+        outline: none;
+      }
+      input:focus { border-color: var(--color-secondary); }
 
       .btn {
         width: 100%;
         padding: 14px;
         border: none;
         border-radius: var(--radius);
-        font-size: 16px;
+        font-size: 15px;
         font-weight: 700;
         cursor: pointer;
         font-family: inherit;
@@ -69,33 +93,62 @@
         letter-spacing: 0.5px;
         transition: transform 0.1s;
       }
-      .btn:active {
-        transform: translateY(4px);
-      }
-      
+      .btn:active { transform: translateY(4px); }
+      .btn:disabled { opacity: 0.6; cursor: wait; }
+
       .btn-primary {
         background-color: var(--color-primary);
         color: white;
         border-bottom: 4px solid var(--color-primary-shadow);
         margin-bottom: 12px;
       }
-      .btn-primary:hover {
-        filter: brightness(1.05);
-      }
+      .btn-primary:hover { filter: brightness(1.05); }
 
       .btn-secondary {
         background-color: var(--color-secondary);
         color: white;
         border-bottom: 4px solid var(--color-secondary-shadow);
+        margin-bottom: 12px;
       }
-      .btn-secondary:hover {
-        filter: brightness(1.05);
+      .btn-secondary:hover { filter: brightness(1.05); }
+
+      .btn-ghost {
+        background: none;
+        border: none;
+        color: var(--color-danger);
+        font-weight: 700;
+        font-size: 13px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+
+      .error {
+        color: var(--color-danger);
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 12px;
+        min-height: 16px;
+      }
+
+      .user-chip {
+        display: inline-block;
+        background: rgba(88, 204, 2, 0.12);
+        color: var(--color-primary-shadow);
+        border-radius: 999px;
+        padding: 6px 14px;
+        font-size: 13px;
+        font-weight: 700;
+        margin-bottom: 16px;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .tip {
         font-size: 11px;
         color: #afafaf;
-        margin-top: 24px;
+        margin-top: 20px;
       }
     </style>
   </head>
@@ -105,11 +158,32 @@
       <h1>LinguaFlow</h1>
     </div>
 
-    <p id="stats-text">
-      Pronto para evoluir?<br>Acesse sua Jornada Fluente e revise seu vocabulário.
-    </p>
+    <!-- Estado: carregando -->
+    <div id="area-loading">
+      <p>Carregando…</p>
+    </div>
 
-    <button id="btn-dash" class="btn btn-primary">Abrir Dashboard 🚀</button>
+    <!-- Estado: deslogado (login próprio da extensão) -->
+    <div id="area-login" class="hidden">
+      <p>Entre para salvar palavras, usar a IA e sincronizar seu progresso.</p>
+      <form id="login-form">
+        <label for="login-email">E-mail</label>
+        <input type="email" id="login-email" autocomplete="email" required />
+        <label for="login-password">Senha</label>
+        <input type="password" id="login-password" autocomplete="current-password" required />
+        <div id="login-error" class="error" role="alert" aria-live="polite"></div>
+        <button type="submit" id="btn-login" class="btn btn-primary">Entrar</button>
+      </form>
+      <button id="btn-signup-link" class="btn btn-secondary">Criar conta no site</button>
+    </div>
+
+    <!-- Estado: logado -->
+    <div id="area-logged" class="hidden">
+      <div class="user-chip" id="user-email"></div>
+      <p id="stats-text">Pronto para evoluir?</p>
+      <button id="btn-dash" class="btn btn-primary">Abrir Dashboard 🚀</button>
+      <button id="btn-logout" class="btn-ghost">Sair da conta</button>
+    </div>
 
     <p class="tip">
       Pressione <strong>O</strong> em qualquer player de vídeo para capturar frases.

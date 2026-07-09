@@ -12,7 +12,7 @@ async function init() {
         if (!isLogged) {
             document.getElementById('done-area').style.display = 'block';
             document.querySelector('#done-area h3').textContent = 'Você não está logado.';
-            document.querySelector('#done-area p').textContent = 'Faça login no Dashboard para sincronizar seus cards.';
+            document.querySelector('#done-area p').textContent = 'Faça login clicando no ícone do LinguaFlow na barra do navegador.';
             return;
         }
 

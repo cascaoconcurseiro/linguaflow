@@ -122,6 +122,26 @@ Retorne exatamente este JSON:
   }
 }
 
+// Geração de história na web (na extensão o service worker tem 'ai_generate_story').
+// Mesmo prompt e mesma resposta { story, level } do service worker — comportamento idêntico.
+export async function generateStoryWeb(genre) {
+  const cefr = (await getCefrLevel()) || 'B1';
+  const prompt = `Você é um gerador de histórias curtas para estudantes de inglês.
+Nível do Estudante: CEFR ${cefr}.
+Tema/Gênero da História: ${genre}.
+
+Por favor, escreva uma história curta (cerca de 200 a 300 palavras) em inglês, adequada para o nível ${cefr}.
+A história deve conter vocabulário útil e natural, com frases bem construídas.
+Não traduza a história. Apenas escreva a história em inglês, usando quebras de linha normais para parágrafos.
+NÃO use formatação markdown, NÃO coloque um título, apenas o texto da história.`;
+
+  const story = await aiChat(
+    [{ role: 'user', content: prompt }],
+    { temperature: 0.8, max_tokens: 900 }
+  );
+  return { story, level: cefr };
+}
+
 // Geração de chunks na web (na extensão o service worker já tem essa rotina).
 export async function generateChunksWeb(word) {
   const system = `Você é um professor de inglês para brasileiros focando no aprendizado por 'chunks' (blocos léxicos).

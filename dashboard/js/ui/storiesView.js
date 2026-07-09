@@ -1,5 +1,37 @@
 ﻿import { db } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio } from '../core/tts.js';
+import { generateStoryWeb } from '../core/ai.js';
+import { translator } from '../../../utils/translator.js';
+
+const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
+
+// Roteadores extensão/web: na extensão o service worker faz o trabalho;
+// no site (Vercel) chamamos a Edge Function (história) e o translator
+// client-side (Google GTX/MyMemory têm CORS liberado — verificado).
+function generateStory(genre) {
+  if (isExtension) {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'ai_generate_story', genre }, resolve);
+    });
+  }
+  return generateStoryWeb(genre).catch((e) => ({ error: e.message }));
+}
+
+async function translateText(text) {
+  if (isExtension) {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'translate', text, from: 'en', to: 'pt' }, (res) => {
+        resolve(res?.translation || null);
+      });
+    });
+  }
+  try {
+    const res = await translator.translate(text, 'en', 'pt');
+    return res?.translation || null;
+  } catch {
+    return null;
+  }
+}
 
 export function renderStories(container, app) {
   container.innerHTML = `
@@ -301,9 +333,7 @@ export function renderStories(container, app) {
     stopFullStoryTTS();
     
     try {
-      const response = await new Promise((resolve) => {
-        chrome.runtime.sendMessage({ action: 'ai_generate_story', genre }, resolve);
-      });
+      const response = await generateStory(genre);
 
       if (!response || !response.story || response.error) {
         throw new Error(response?.error || 'Failed to generate story.');
@@ -440,14 +470,9 @@ export function renderStories(container, app) {
     modalExplanation.innerHTML = '';
     btnSaveWord.style.display = 'none';
 
-    chrome.runtime.sendMessage({ action: 'translate', text: cleanWord, from: 'en', to: 'pt' }, (resWord) => {
-      if (currentSelectedSentence) {
-        chrome.runtime.sendMessage({ action: 'translate', text: currentSelectedSentence, from: 'en', to: 'pt' }, (resSent) => {
-          showModalContent(resWord?.translation, resSent?.translation);
-        });
-      } else {
-        showModalContent(resWord?.translation, null);
-      }
+    translateText(cleanWord).then(async (wordTrans) => {
+      const sentTrans = currentSelectedSentence ? await translateText(currentSelectedSentence) : null;
+      showModalContent(wordTrans, sentTrans);
     });
 
     function showModalContent(wordTrans, sentTrans) {
@@ -559,12 +584,8 @@ export function renderStories(container, app) {
     tbTranslationResult.style.display = 'block';
     tbTranslationResult.innerHTML = '<span class="lf-spin" style="width:14px; height:14px; border-width:2px; display:inline-block;"></span> Traduzindo...';
     
-    chrome.runtime.sendMessage({ action: 'translate', text: currentSelectionText, from: 'en', to: 'pt' }, (res) => {
-      if (res && res.translation) {
-        tbTranslationResult.textContent = res.translation;
-      } else {
-        tbTranslationResult.textContent = 'Erro ao traduzir.';
-      }
+    translateText(currentSelectionText).then((translation) => {
+      tbTranslationResult.textContent = translation || 'Erro ao traduzir.';
     });
   });
 

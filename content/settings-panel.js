@@ -204,6 +204,7 @@ export class SettingsPanel {
       selBlurEl.onchange = (e) => {
         const val = e.target.value === 'on';
         this._save('blurSubtitles', val);
+        if (this.engine) this.engine.blurSubtitles = val;
       };
     }
     s.getElementById('sel-font-family').onchange = (e) => this._save('fontFamily', e.target.value);
@@ -305,7 +306,8 @@ export class SettingsPanel {
     };
 
     s.getElementById('btn-export-data').onclick = () => {
-      window.open(chrome.runtime.getURL('dashboard/dashboard.html'), '_blank');
+      // Dashboard mora no site (arquitetura site-only)
+      window.open('https://linguaflow-web-tau.vercel.app/', '_blank');
     };
   }
 

@@ -115,9 +115,9 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 - [x] C2. Lematizador de regras próprio (`utils/lemma.js`, zero deps, 18 casos testados; interface pronta pra trocar por compromise) + contador de "Palavras conhecidas" (famílias) no painel de memória do Início
 - [ ] C-futuro: importar por URL (CORS exige proxy), epub, e importar textos capturados pelo web-reader da extensão
 ### Bloco D — Duolingo + avaliação oficial
-- [ ] D1. Exercícios variados (cloze/montar frase/ditado usando ai_chunks)
+- [x] D1. Exercícios variados no estudo (commit 57c965d): 🧩 montar frase (word bank) + 🎧 ditado (escute e escreva) + 🇧🇷→🇺🇸 reverso no mesmo sorteio; só cards graduados; acerto=Bom(3)/erro=Errei(1) alimentando o FSRS; áudio nunca vaza resposta; toggle lf_varied_exercises (ON por padrão)
 - [ ] D2. Avaliação oficial CEFR/Cambridge + placement test (usar cefr-wordlist.json + frequency-en.json)
-- [ ] D3. Mais mini-jogos + streak freeze + notificações de revisão
+- [ ] D3. Mais mini-jogos + streak freeze (exige mexer no trigger calculate_xp do banco) + notificações de revisão
 ### Bloco E — Qualidade
 - [ ] E1. Cadeia TTS Kokoro-82M (voz neural offline)
 - [ ] E2. Limpeza: remover `utils/fsrs.js` (morto), tabela `decks` (migração), corrigir grade do newtab, ícones PWA originais, remover `icon.png` corrompido

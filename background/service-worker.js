@@ -641,7 +641,7 @@ Frase/contexto: "${context || 'sem contexto'}"
 Gere a explicação amigável seguindo a estrutura obrigatória (A ideia aqui, O truque, Pronúncia da vida real, Exemplos rápidos).`;
 
     const config = await getApiConfig();
-    if (!config.apiKey && config.provider !== 'gemini')
+    if (!config.apiKey)
       return 'Por favor, configure sua chave de API no Dashboard para usar recursos de IA.';
 
     const controller = new AbortController();
@@ -1013,7 +1013,7 @@ async function generateStoryWithAI(genre) {
   try {
     const cefr = await db.getSetting('lf_cefr_level') || 'B1';
     const config = await getApiConfig();
-    if (!config.apiKey && config.provider !== 'gemini') {
+    if (!config.apiKey) {
       throw new Error('Configure sua chave de API para gerar histórias.');
     }
 
@@ -1120,19 +1120,13 @@ Não dê explicações. Responda APENAS com a lista numerada, sendo a frase em i
     max_tokens: 300,
   };
 
-  if (config.provider !== 'gemini') {
-    payload.model = config.model;
-  } else {
-    delete payload.model;
-    delete payload.messages;
-    payload.contents = [{ parts: [{ text: prompt }] }];
-  }
+  payload.model = config.model;
 
   const res = await fetch(config.apiUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(config.provider !== 'gemini' && { Authorization: `Bearer ${config.apiKey}` }),
+      Authorization: `Bearer ${config.apiKey}`,
     },
     body: JSON.stringify(payload),
   });

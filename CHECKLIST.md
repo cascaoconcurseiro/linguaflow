@@ -28,17 +28,21 @@
 - [ ] Relatório completo de melhorias criado: ver `MELHORIAS.md` (FSRS, Kokoro TTS, modo leitor, exercícios, PWA offline)
 
 ## FASE 1 — Limpeza (escopo expandido)
-- [ ] Remover `dashboard/js/core/db.js` (IndexedDB órfão)
-- [ ] Remover `utils/sync.js`
-- [ ] Remover `utils/cloud-sync.js` (já quebrado — chama `db.getAllDecks()` inexistente)
-- [ ] Remover seção `oauth2`/`drive.appdata` do `manifest.json`
-- [ ] Remover `bulkUpdateDeck()` e referências residuais a `deck_id` em `utils/db.js`
-- [ ] Confirmar que `studyView.js`/`homeView.js` não referenciam mais decks
-- [ ] Remover `background/service-worker.js_temp`, `cleanup.py`, `fix_enc_test.py`, `fix_mojibake.js`, `scratch/check.js`, `scratch/diff.txt`
-- [ ] Resolver `popup/popup.html` → `icon_full.png` (commitar asset ou reverter para `icon128.png`)
-- [ ] Adicionar `dashboard/js/ui/storiesView.js` ao git (feature legítima, já importada em `app.js`)
-- [ ] Decidir destino de `dashboard/js/core/ai.js::explainGrammar()` (código morto — remover ou reativar)
-- [ ] Extensão e dashboard continuam funcionando normalmente após limpeza (login, salvar palavra, IA contextual), sem erro novo no console
+- [x] Remover `dashboard/js/core/db.js` (IndexedDB órfão — grep confirmou zero imports)
+- [x] Remover `utils/sync.js`
+- [x] Remover `utils/cloud-sync.js` (já quebrado — chamava `db.getAllDecks()` inexistente)
+- [x] Remover seção `oauth2`/`drive.appdata` do `manifest.json` + permissão `identity` (também sem uso)
+- [x] Remover `bulkUpdateDeck()` de `utils/db.js` e `deck_id: 1` de `content/web-reader.js`
+- [x] Confirmar que views não referenciam mais decks (só sobraram comentários/CSS inertes)
+- [x] Remover `background/service-worker.js_temp`, `cleanup.py`, `fix_enc_test.py`, `fix_mojibake.js`, `scratch/check.js`, `scratch/diff.txt`
+- [x] Resolver `popup/popup.html` → `icon_full.png` (asset foi commitado no backup — resolvido)
+- [x] Adicionar `dashboard/js/ui/storiesView.js` ao git (feito no commit de backup)
+- [x] `dashboard/js/core/ai.js::explainGrammar()`: MANTIDO — é o padrão de referência pra migração da Fase 2 (único código que chama a Edge Function corretamente)
+- [x] Remover condicionais mortas `config.provider !== 'gemini'` do service-worker (4 pontos)
+- [x] **PWA**: criada `dashboard/icons/` (16/48/128 + 192/512 gerados por upscale), webmanifest corrigido (`start_url: "/"` — o antigo `./dashboard.html` dava 404 na Vercel; ícones 192+512 destravam o prompt de instalação do Chrome)
+- [x] **Rota `stories`** adicionada aos 6 grupos de rewrite do `vercel.json`
+- [ ] Teste manual pós-limpeza: extensão e dashboard funcionando (login, salvar palavra, IA contextual), sem erro novo no console — **PENDENTE: usuário**
+- [ ] Substituir ícones 192/512 por arte original (os atuais são upscale do 128 — funcionais, mas suaves demais); `icon.png` da raiz tem header PNG corrompido, avaliar remoção
 
 ## FASE 2 — Migrar IA contextual para proxy seguro
 - [ ] Corrigir `supabase/functions/deepseek-chat/index.ts`: validação real de JWT (`supabase.auth.getUser`)

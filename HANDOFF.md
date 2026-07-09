@@ -13,9 +13,14 @@
 - **Nenhuma alteração de código foi feita nesta sessão** — só diagnóstico e alinhamento de plano.
 
 ## Próximo passo
-**FASE 0 IMPLEMENTADA** (2026-07-08, sessão 2): `utils/db.js` ganhou `_readSession()`/`_saveSession()`/`_refreshTokenIfNeeded()` (mutex contra refresh duplo), `login()`/`signUp()` salvam `refresh_token`+`expires_at`, timeout do proxy 5s→10s. Testado com 6 cenários mockados em Node — todos passaram. **Falta só o teste manual no navegador** (usuário precisa: recarregar extensão, deslogar/logar de novo — sessões antigas não têm refresh_token — e opcionalmente editar `expires_at` no chrome.storage.local pra ver o refresh no Network).
-**Arquivo:** após confirmação do teste manual → Fase 1 (limpeza: ver CHECKLIST.md)
-**Ação:** Fase 1 depois do aceite; bugs encontrados durante a Fase 0 anotados no CHECKLIST (seção nova).
+**FASES 0 e 1 IMPLEMENTADAS** (2026-07-08, sessão 2):
+- Fase 0 (refresh de token): completa, 6 cenários testados em Node, commit `0574d20`.
+- Fase 1 (limpeza): completa — 9 arquivos mortos removidos, oauth2+identity fora do manifest, `bulkUpdateDeck` removido, condicionais gemini mortas limpas, PWA corrigido (pasta `dashboard/icons/` criada com 192/512, webmanifest com `start_url: "/"`), rota `stories` no vercel.json.
+- Relatório de melhorias: `MELHORIAS.md` (FSRS, Kokoro TTS, modo leitor, PWA offline).
+
+**Falta (usuário):** teste manual — recarregar extensão, **deslogar/logar de novo** (sessão antiga não tem refresh_token), salvar palavra, conferir IA contextual, e testar o site na Vercel após o deploy (rota /stories, instalação PWA).
+**Arquivo:** próximo passo de código é a Fase 2 — `supabase/functions/deepseek-chat/index.ts` (JWT real + CORS restrito + rate-limit `api_usage_log`) e depois migrar `explainWordWithAI`/`generateChunksWithAI`/`getPTPhoneticWithAI` no `background/service-worker.js` pra chamar a Edge Function com o token de sessão (BYOK como override). Padrão de chamada: ver `dashboard/js/core/ai.js`.
+**Ação:** começar pela Edge Function (hardening) porque ela pode ser deployada e testada isoladamente sem tocar na extensão.
 
 ## Bloqueios
 - Não confirmado se a coluna `deck_id` em `words` é `NOT NULL` no schema Postgres atual — `saveWord()` já não envia mais esse campo (só `bulkUpdateDeck()` ainda usa). Precisa de uma query no Supabase antes de mexer nisso na Fase 1, para não quebrar salvamento de palavra.

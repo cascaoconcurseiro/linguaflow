@@ -9,12 +9,12 @@
     { "source": "/icons/(.*)", "destination": "/dashboard/icons/$1" },
     { "source": "/sw.js", "destination": "/dashboard/sw.js" },
     { "source": "/manifest.webmanifest", "destination": "/dashboard/manifest.webmanifest" },
-    { "source": "/:route(login|home|library|study|leagues|settings|game)/css/(.*)", "destination": "/dashboard/css/$2" },
-    { "source": "/:route(login|home|library|study|leagues|settings|game)/js/(.*)", "destination": "/dashboard/js/$2" },
-    { "source": "/:route(login|home|library|study|leagues|settings|game)/assets/(.*)", "destination": "/dashboard/assets/$2" },
-    { "source": "/:route(login|home|library|study|leagues|settings|game)/icons/(.*)", "destination": "/dashboard/icons/$2" },
-    { "source": "/:route(login|home|library|study|leagues|settings|game)/utils/(.*)", "destination": "/utils/$2" },
+    { "source": "/:route(login|home|library|study|leagues|settings|game|stories)/css/(.*)", "destination": "/dashboard/css/$2" },
+    { "source": "/:route(login|home|library|study|leagues|settings|game|stories)/js/(.*)", "destination": "/dashboard/js/$2" },
+    { "source": "/:route(login|home|library|study|leagues|settings|game|stories)/assets/(.*)", "destination": "/dashboard/assets/$2" },
+    { "source": "/:route(login|home|library|study|leagues|settings|game|stories)/icons/(.*)", "destination": "/dashboard/icons/$2" },
+    { "source": "/:route(login|home|library|study|leagues|settings|game|stories)/utils/(.*)", "destination": "/utils/$2" },
     { "source": "/", "destination": "/dashboard/dashboard.html" },
-    { "source": "/(login|home|library|study|leagues|settings|game)", "destination": "/dashboard/dashboard.html" }
+    { "source": "/(login|home|library|study|leagues|settings|game|stories)", "destination": "/dashboard/dashboard.html" }
   ]
 }

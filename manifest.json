@@ -8,7 +8,7 @@
     "48": "icon48.png",
     "128": "icon128.png"
   },
-  "permissions": ["storage", "alarms", "scripting", "contextMenus", "tabs", "identity"],
+  "permissions": ["storage", "alarms", "scripting", "contextMenus", "tabs"],
   "host_permissions": [
     "*://api.mymemory.translated.net/*",
     "*://translate.googleapis.com/*",
@@ -18,10 +18,6 @@
     "*://context.reverso.net/*",
     "<all_urls>"
   ],
-  "oauth2": {
-    "client_id": "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
-    "scopes": ["https://www.googleapis.com/auth/drive.appdata"]
-  },
   "chrome_url_overrides": {
     "newtab": "dashboard/newtab.html"
   },

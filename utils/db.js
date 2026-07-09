@@ -837,16 +837,6 @@ class Database {
     return !!res;
   }
 
-  async bulkUpdateDeck(wordIds, deckId) {
-    if (this.isProxyMode) return this._proxy('bulkUpdateDeck', [wordIds, deckId]);
-    if (!wordIds.length) return true;
-    const res = await this._fetch(`words?id=in.(${wordIds.join(',')})`, {
-      method: 'PATCH',
-      body: { deck_id: deckId }
-    });
-    return !!res;
-  }
-
   async getAllTags() {
     if (this.isProxyMode) return this._proxy('getAllTags', []);
     const words = await this.getAllWords();

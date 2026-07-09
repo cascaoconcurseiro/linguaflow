@@ -198,7 +198,6 @@
         lang: 'en',
         context_sentence: currentContext || '',
         added_at: Date.now(),
-        deck_id: 1,
       });
       btn.textContent = '✅ Salvo!';
       btn.style.background = '#10b981';

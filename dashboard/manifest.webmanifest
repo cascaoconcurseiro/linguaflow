@@ -2,18 +2,29 @@
   "name": "LinguaFlow",
   "short_name": "LinguaFlow",
   "description": "Seu ambiente completo de estudo de idiomas, inspirado no Anki e Duolingo.",
-  "start_url": "./dashboard.html",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#58cc02",
   "icons": [
     {
-      "src": "../icons/icon128.png",
+      "src": "icons/icon192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon128.png",
       "sizes": "128x128",
       "type": "image/png"
     },
     {
-      "src": "../icons/icon48.png",
+      "src": "icons/icon48.png",
       "sizes": "48x48",
       "type": "image/png"
     }

@@ -156,6 +156,11 @@ class Database {
       return await res.json();
     } catch (e) {
       console.error('[DB] Fetch Error:', e);
+      // Escritas NÃO podem falhar em silêncio: o chamador precisa saber
+      // (word-popup mostra erro, handleGrade loga, backfill pula a palavra).
+      // Leituras seguem retornando null (views tratam como vazio).
+      const method = (options.method || 'GET').toUpperCase();
+      if (method !== 'GET') throw e;
       return null;
     }
   }
@@ -521,6 +526,8 @@ class Database {
       intMod: (Number(await this.getSetting('interval_modifier')) || 100) / 100,
       lapseMod: (Number(await this.getSetting('lapse_modifier')) || 0) / 100,
       leechAction: (await this.getSetting('leech_action')) || 'tag',
+      // Retenção desejada do FSRS (0.7-0.97): mais alto = revisões mais frequentes
+      retention: Math.min(0.97, Math.max(0.7, Number(await this.getSetting('lf_srs_retention')) || 0.9)),
       learningSteps: ((await this.getSetting('learning_steps')) || '1 10')
         .split(' ')
         .map(Number)
@@ -528,107 +535,129 @@ class Database {
     };
   }
 
+  // ── FSRS-4.5 (algoritmo do Anki moderno) ─────────────────────────────────
+  // Parâmetros default publicados do FSRS-4.5. quality: 1=Errei 2=Difícil 3=Bom 4=Fácil
+  // Cards novos/em aprendizado seguem learning steps (como no Anki); FSRS
+  // governa o agendamento de review/mature e é semeado na graduação.
+  static FSRS_W = [0.4872, 1.4003, 3.7145, 13.8206, 5.1618, 1.2298, 0.8975, 0.031,
+    1.6474, 0.1367, 1.0461, 2.1072, 0.0793, 0.3246, 1.587, 0.2272, 2.8755];
+  static FSRS_DECAY = -0.5;
+  static FSRS_FACTOR = Math.pow(0.9, 1 / -0.5) - 1; // 19/81
+
+  _fsrsInitDifficulty(q) {
+    const w = Database.FSRS_W;
+    return Math.min(10, Math.max(1, w[4] - (q - 3) * w[5]));
+  }
+
+  _fsrsInitStability(q) {
+    return Math.max(0.1, Database.FSRS_W[q - 1]);
+  }
+
+  _fsrsRetrievability(elapsedDays, stability) {
+    return Math.pow(1 + Database.FSRS_FACTOR * elapsedDays / stability, Database.FSRS_DECAY);
+  }
+
+  _fsrsInterval(stability, retention) {
+    return (stability / Database.FSRS_FACTOR) * (Math.pow(retention, 1 / Database.FSRS_DECAY) - 1);
+  }
+
+  _fsrsNextDifficulty(d, q) {
+    const w = Database.FSRS_W;
+    const dPrime = d - w[6] * (q - 3);
+    const meanReverted = w[7] * this._fsrsInitDifficulty(4) + (1 - w[7]) * dPrime;
+    return Math.min(10, Math.max(1, meanReverted));
+  }
+
+  _fsrsNextStability(d, s, r, q) {
+    const w = Database.FSRS_W;
+    if (q === 1) {
+      // Esqueceu: estabilidade pós-lapso
+      return Math.max(0.1, w[11] * Math.pow(d, -w[12]) * (Math.pow(s + 1, w[13]) - 1) * Math.exp(w[14] * (1 - r)));
+    }
+    const hardPenalty = q === 2 ? w[15] : 1;
+    const easyBonus = q === 4 ? w[16] : 1;
+    return Math.max(0.1, s * (1 + Math.exp(w[8]) * (11 - d) * Math.pow(s, -w[9]) *
+      (Math.exp(w[10] * (1 - r)) - 1) * hardPenalty * easyBonus));
+  }
+
   _calculateNextState(card, quality, settings) {
     const now = Date.now();
     const prevStatus = card.status || 'new';
-    const prevInterval = card.interval || 0;
     const learningSteps = settings.learningSteps;
-    const gradInt = settings.gradInt;
-    const easyInt = settings.easyInt;
-    const easyBonus = settings.easyBonus;
-    const intMod = settings.intMod;
+    const retention = settings.retention;
     const maxInt = settings.maxInt;
-    const lapseMod = settings.lapseMod;
 
     let nextStatus;
     let nextInterval;
     let nextStepIndex = card.step_index || 0;
-    let nextEase = card.ease_factor || 2.5;
     let nextLapses = card.lapses || 0;
-    let nextReps = (card.reps || 0) + 1;
-    let preLapseInterval = card.pre_lapse_interval || 0;
+    const nextReps = (card.reps || 0) + 1;
 
-    if (prevStatus === 'new') {
+    // Estado FSRS: semeia a partir do histórico se o card veio do SM-2 antigo
+    let stability = card.stability || null;
+    let difficulty = card.difficulty || null;
+
+    const elapsedDays = card.last_review
+      ? Math.max(0, (now - new Date(card.last_review).getTime()) / 86400000)
+      : 0;
+
+    if (prevStatus === 'new' || prevStatus === 'learning') {
+      // Learning steps (minutos), como no Anki com FSRS habilitado
+      if (difficulty === null) difficulty = this._fsrsInitDifficulty(quality);
+      if (stability === null) stability = this._fsrsInitStability(quality);
+
       if (quality === 1) {
         nextStatus = 'learning';
         nextStepIndex = 0;
         nextInterval = learningSteps[0] / 1440;
       } else if (quality === 2) {
         nextStatus = 'learning';
-        nextStepIndex = 0;
-        nextInterval = (learningSteps[0] * 1.5) / 1440;
-      } else if (quality === 3) {
-        if (learningSteps.length <= 1) {
-          nextStatus = 'review';
-          nextStepIndex = 0;
-          nextInterval = gradInt;
-        } else {
-          nextStatus = 'learning';
-          nextStepIndex = 1;
-          nextInterval = learningSteps[1] / 1440;
-        }
-      } else {
+        const cur = learningSteps[Math.min(nextStepIndex, learningSteps.length - 1)] || 1;
+        nextInterval = (cur * 1.5) / 1440;
+      } else if (quality === 4) {
+        // Fácil: gradua direto com bônus do FSRS
+        stability = this._fsrsInitStability(4);
+        difficulty = this._fsrsInitDifficulty(4);
         nextStatus = 'review';
         nextStepIndex = 0;
-        nextInterval = easyInt;
-      }
-    } else if (prevStatus === 'learning') {
-      if (quality === 1) {
-        nextStatus = 'learning';
-        nextStepIndex = 0;
-        nextInterval = learningSteps[0] / 1440;
-      } else if (quality === 2) {
-        nextStatus = 'learning';
-        const currentMin = learningSteps[nextStepIndex] || 1;
-        nextInterval = (currentMin * 1.5) / 1440;
-      } else if (quality === 3) {
-        nextStepIndex++;
+        nextInterval = Math.max(1, this._fsrsInterval(stability, retention));
+      } else {
+        // Bom: avança um step; gradua no fim dos steps
+        nextStepIndex = prevStatus === 'new' ? 1 : nextStepIndex + 1;
         if (nextStepIndex >= learningSteps.length) {
           nextStatus = 'review';
           nextStepIndex = 0;
-          if (preLapseInterval > 0) {
-            nextInterval = Math.max(gradInt, preLapseInterval * lapseMod);
-            preLapseInterval = 0;
-          } else {
-            nextInterval = gradInt;
-          }
+          nextInterval = Math.max(1, this._fsrsInterval(stability, retention));
         } else {
           nextStatus = 'learning';
           nextInterval = learningSteps[nextStepIndex] / 1440;
         }
-      } else {
-        nextStatus = 'review';
-        nextStepIndex = 0;
-        nextInterval = easyInt;
-        preLapseInterval = 0;
       }
     } else {
+      // review/mature: FSRS puro
+      if (stability === null) stability = Math.max(card.interval || 1, 0.1); // legado SM-2
+      if (difficulty === null) difficulty = this._fsrsInitDifficulty(3);
+
+      const r = this._fsrsRetrievability(Math.max(elapsedDays, 0.01), stability);
+      difficulty = this._fsrsNextDifficulty(difficulty, quality);
+      stability = this._fsrsNextStability(difficulty, stability, r, quality);
+
       if (quality === 1) {
         nextLapses++;
         nextStatus = 'learning';
         nextStepIndex = 0;
         nextInterval = learningSteps[0] / 1440;
-        nextEase = Math.max(1.3, nextEase - 0.2);
-        preLapseInterval = prevInterval;
       } else {
-        if (quality === 2) {
-          nextInterval = Math.max(prevInterval * 1.2 * intMod, prevInterval + 1);
-          nextEase = Math.max(1.3, nextEase - 0.15);
-        } else if (quality === 3) {
-          nextInterval = Math.max(prevInterval * nextEase * intMod, prevInterval + 1);
-        } else {
-          nextInterval = Math.max(prevInterval * nextEase * easyBonus * intMod, prevInterval + 1);
-          nextEase += 0.15;
-        }
+        nextInterval = Math.max(1, this._fsrsInterval(stability, retention));
         nextInterval = Math.min(nextInterval, maxInt);
-        if (nextInterval >= 21) nextStatus = 'mature';
-        else nextStatus = 'review';
+        nextStatus = nextInterval >= 21 ? 'mature' : 'review';
       }
     }
 
+    // Fuzz de ±5% pra não empilhar revisões no mesmo dia (só intervalos >= 1d)
     if (nextInterval >= 1) {
       const fuzz = 0.95 + Math.random() * 0.1;
-      nextInterval = nextInterval * fuzz;
+      nextInterval = Math.min(nextInterval * fuzz, maxInt);
     }
 
     let nextDueDate;
@@ -646,8 +675,10 @@ class Database {
       interval: nextInterval,
       status: nextStatus,
       step_index: nextStepIndex,
-      ease_factor: nextEase,
-      pre_lapse_interval: preLapseInterval,
+      ease_factor: card.ease_factor || 2.5, // mantido por compat; FSRS não usa
+      stability,
+      difficulty,
+      pre_lapse_interval: card.pre_lapse_interval || 0,
       reps: nextReps,
       lapses: nextLapses,
       due_date: nextDueDate,

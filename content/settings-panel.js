@@ -43,7 +43,9 @@ async function readAllSettings() {
 
 async function writeSetting(key, value) {
   const { db } = await import('../utils/db.js');
-  return db.setSetting(key, value);
+  return db.setSetting(key, value).catch((e) => {
+    console.warn('[LinguaFlow Settings] Falha ao salvar', key, e?.message);
+  });
 }
 
 export class SettingsPanel {

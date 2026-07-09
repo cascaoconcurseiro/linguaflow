@@ -14,7 +14,7 @@ export function renderStories(container, app) {
       </div>
 
       <!-- Control Panel (New Story) -->
-      <div id="panel-new" style="background: white; border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px;" class="lf-card-hover">
+      <div id="panel-new" style="background: var(--color-surface); border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px;" class="lf-card-hover">
         <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Escolha o Tema da História</label>
         <div style="display:flex; gap: 16px; flex-wrap:wrap;">
           <select id="story-genre" style="flex:1; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); font-size:16px; min-width: 200px; cursor: pointer; transition: border-color 0.2s;">
@@ -41,7 +41,7 @@ export function renderStories(container, app) {
       </div>
 
       <!-- Story Reader Container -->
-      <div id="story-reader-container" style="display:none; background: white; border-radius: var(--radius-md); padding: 32px; border: 2px solid var(--color-border); box-shadow: 0 4px 12px rgba(0,0,0,0.05); position:relative;">
+      <div id="story-reader-container" style="display:none; background: var(--color-surface); border-radius: var(--radius-md); padding: 32px; border: 2px solid var(--color-border); box-shadow: 0 4px 12px rgba(0,0,0,0.05); position:relative;">
         <div id="story-loading" style="display:none; text-align:center; padding: 40px; color:var(--color-text-light);">
           <div class="lf-spin" style="width: 40px; height: 40px; border: 4px solid var(--color-border); border-top-color: var(--color-primary); border-radius: 50%; margin: 0 auto 16px;"></div>
           <p style="font-size: 16px; font-weight:bold;">A IA está escrevendo sua história sob medida...</p>
@@ -73,7 +73,7 @@ export function renderStories(container, app) {
     
     <!-- Word Popup Modal (Simplified LingQ style) -->
     <div id="lf-story-word-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(2px); animation: fadeIn 0.2s ease-out;">
-      <div style="background:white; border-radius:var(--radius-md); width:90%; max-width:350px; padding:20px; position:relative; box-shadow: 0 8px 24px rgba(0,0,0,0.15); animation: slideUp 0.2s ease-out;">
+      <div style="background:var(--color-surface); border-radius:var(--radius-md); width:90%; max-width:350px; padding:20px; position:relative; box-shadow: 0 8px 24px rgba(0,0,0,0.15); animation: slideUp 0.2s ease-out;">
         <button id="lf-close-modal" style="position:absolute; top:12px; right:12px; background:none; border:none; font-size:20px; color:var(--color-text-light); cursor:pointer; padding:4px;">&times;</button>
         
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -96,7 +96,7 @@ export function renderStories(container, app) {
     </div>
 
     <!-- Floating Selection Toolbar -->
-    <div id="lf-floating-toolbar" style="display:none; position:absolute; z-index:9000; background:white; border:2px solid var(--color-border); border-radius:var(--radius-sm); padding:6px; box-shadow:0 4px 12px rgba(0,0,0,0.1); flex-direction:column; gap:4px; animation:fadeIn 0.15s ease-out;">
+    <div id="lf-floating-toolbar" style="display:none; position:absolute; z-index:9000; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-sm); padding:6px; box-shadow:0 4px 12px rgba(0,0,0,0.1); flex-direction:column; gap:4px; animation:fadeIn 0.15s ease-out;">
       <div style="display:flex; gap:6px;">
         <button id="lf-tb-translate" style="background:var(--color-bg); border:1px solid var(--color-border); border-radius:4px; padding:6px 12px; cursor:pointer; font-weight:bold; color:var(--color-text); display:flex; align-items:center; gap:6px; font-size:14px;" class="lf-card-hover">ðŸ‡§ðŸ‡· Traduzir</button>
         <button id="lf-tb-tts" style="background:var(--color-bg); border:1px solid var(--color-border); border-radius:4px; padding:6px 12px; cursor:pointer; font-weight:bold; color:var(--color-text); display:flex; align-items:center; gap:6px; font-size:14px;" class="lf-card-hover">🔊 Ouvir</button>
@@ -114,7 +114,7 @@ export function renderStories(container, app) {
       .story-word { cursor: pointer; transition: all 0.2s; border-radius: 4px; padding: 0 1px; }
       .story-word:hover { background-color: rgba(88,204,2,0.2); color: var(--color-primary); font-weight: 600; }
       .story-word.saved { border-bottom: 2px dashed var(--color-primary); color: var(--color-primary); }
-      .history-item { padding: 16px; border: 2px solid var(--color-border); border-radius: var(--radius-sm); background: white; cursor: pointer; display:flex; justify-content:space-between; align-items:center; }
+      .history-item { padding: 16px; border: 2px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); cursor: pointer; display:flex; justify-content:space-between; align-items:center; }
       .history-item:hover { border-color: var(--color-primary); }
       .history-item .level-tag { font-size:11px; font-weight:bold; padding:2px 6px; border-radius:8px; background:var(--color-primary); color:white; margin-left:8px; vertical-align:middle; }
     `;

@@ -41,10 +41,7 @@ class App {
 
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
-      logoutBtn.addEventListener('click', async () => {
-        await db.signOut();
-        this.navigate('login');
-      });
+      logoutBtn.addEventListener('click', () => this.logout());
     }
 
     // --- Theme Logic ---

@@ -208,8 +208,14 @@ export class SettingsPanel {
     s.getElementById('sel-palette').onchange = (e) => this._save('colorPalette', e.target.value);
     s.getElementById('sel-tts-speed').onchange = (e) =>
       this._save('ttsPlaybackRate', parseFloat(e.target.value));
-    s.getElementById('sel-cefr-level').onchange = (e) =>
+    s.getElementById('sel-cefr-level').onchange = (e) => {
       this._save('cefrTargetLevel', e.target.value);
+      // Sincroniza com a chave que a IA/histórias do dashboard usam —
+      // um nível só, definido em qualquer lugar, vale pro sistema inteiro
+      if (e.target.value && e.target.value !== 'none' && e.target.value !== 'all') {
+        db.setSetting('lf_cefr_level', e.target.value).catch(() => {});
+      }
+    };
 
     s.getElementById('sel-cefr-colors').onchange = (e) => {
       this._save('cefrColorsEnabled', e.target.value === 'on');

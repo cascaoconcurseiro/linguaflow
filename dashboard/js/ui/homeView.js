@@ -51,17 +51,24 @@ export async function renderHome(container, app) {
         return;
     }
 
-    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const questKey = `lf_quests_${today}`;
-    let quests = JSON.parse(localStorage.getItem(questKey) || 'null');
-    if (!quests) {
-        quests = [
-            { id: 1, text: "Ganhar 50 XP", target: 50, current: 0, done: false },
-            { id: 2, text: "Revisar 20 cartas", target: 20, current: 0, done: false },
-            { id: 3, text: "Aprender 5 novas palavras", target: 5, current: 0, done: false }
-        ];
-        localStorage.setItem(questKey, JSON.stringify(quests));
-    }
+    // Missões diárias calculadas de dados REAIS (não mais localStorage estático)
+    const todayISO = new Date().toISOString().slice(0, 10);
+    let reviewsToday = 0;
+    let wordsToday = 0;
+    try {
+        const [log, allWords] = await Promise.all([
+            db ? db.getReviewLog(1) : [],
+            db ? db.getAllWords() : []
+        ]);
+        reviewsToday = (log || []).filter(r => r.date === todayISO).length;
+        wordsToday = (allWords || []).filter(w => (w.added_at || '').slice(0, 10) === todayISO).length;
+    } catch (e) { console.warn('[Home] Erro ao calcular missões:', e); }
+
+    const quests = [
+        { id: 1, text: "Ganhar 50 XP", target: 50, current: Math.min(xpToday, 50) },
+        { id: 2, text: "Revisar 20 cartas", target: 20, current: Math.min(reviewsToday, 20) },
+        { id: 3, text: "Aprender 5 novas palavras", target: 5, current: Math.min(wordsToday, 5) }
+    ].map(q => ({ ...q, done: q.current >= q.target }));
 
     container.innerHTML = `
         <div class="gamified-home">

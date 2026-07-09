@@ -185,6 +185,8 @@ export async function renderSettings(container, app) {
       btn.style.color = 'white';
       btn.style.borderColor = 'var(--color-primary)';
       await lfDb.setSetting('lf_cefr_level', btn.dataset.level);
+      // Espelha na chave usada pela extensão (coloração de palavras na legenda)
+      lfDb.setSetting('cefrTargetLevel', btn.dataset.level).catch(() => {});
       app.showToast(`Nível ${btn.dataset.level} selecionado! A IA foi atualizada.`, 'success');
     });
   });

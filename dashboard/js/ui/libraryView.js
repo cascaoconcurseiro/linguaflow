@@ -59,7 +59,7 @@ function renderUI(container, app) {
           <span style="font-size:20px;">✨</span> 
           <span>Você tem <strong>${missingContext.length} palavras</strong> (incluindo salvas do vídeo) sem contexto IA preenchido. Gere com IA para não demorar na hora de estudar!</span>
         </div>
-        <button id="btn-run-backfill" style="background: white; color: var(--color-primary); border: none; padding: 8px 16px; border-radius: var(--radius-sm); font-weight: 800; cursor: pointer; transition: all 0.2s;">Gerar Agora</button>
+        <button id="btn-run-backfill" style="background: var(--color-surface); color: var(--color-primary); border: none; padding: 8px 16px; border-radius: var(--radius-sm); font-weight: 800; cursor: pointer; transition: all 0.2s;">Gerar Agora</button>
       </div>
     `;
   }
@@ -225,7 +225,7 @@ function injectStyles() {
             margin: 0;
         }
         .lib-stats {
-            background: white;
+            background: var(--color-surface);
             border: 2px solid var(--color-border);
             border-radius: var(--radius-md);
             padding: 16px 24px;
@@ -253,7 +253,7 @@ function injectStyles() {
             padding: 12px 24px;
             border-radius: 20px;
             border: 2px solid var(--color-border);
-            background: white;
+            background: var(--color-surface);
             color: var(--color-text-light);
             font-weight: bold;
             cursor: pointer;
@@ -270,7 +270,7 @@ function injectStyles() {
             flex-wrap: wrap;
             gap: 8px;
             margin-bottom: 32px;
-            background: white;
+            background: var(--color-surface);
             padding: 16px;
             border-radius: var(--radius-lg);
             border: 2px solid var(--color-border);
@@ -301,7 +301,7 @@ function injectStyles() {
             gap: 16px;
         }
         .word-card {
-            background: white;
+            background: var(--color-surface);
             border: 2px solid var(--color-border);
             border-radius: var(--radius-md);
             padding: 20px;
@@ -354,7 +354,7 @@ function injectStyles() {
             padding: 60px;
             color: var(--color-text-light);
             font-weight: bold;
-            background: white;
+            background: var(--color-surface);
             border: 2px dashed var(--color-border);
             border-radius: var(--radius-lg);
         }

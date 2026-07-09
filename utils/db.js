@@ -287,10 +287,15 @@ class Database {
       context_sentence: wordData.context_sentence,
       added_at: new Date(wordData.added_at || Date.now()).toISOString(),
       phonetic: wordData.phonetic || null,
-      tags: wordData.tags ? wordData.tags.split(',').map(t => t.trim()) : null
+      tags: Array.isArray(wordData.tags)
+        ? wordData.tags
+        : (wordData.tags ? wordData.tags.split(',').map(t => t.trim()) : null)
     };
 
-    if (wordData.chunks !== undefined) payload.ai_chunks = wordData.chunks;
+    // Aceita tanto 'chunks' (word-popup) quanto 'ai_chunks' (backfill/re-save)
+    if (wordData.ai_chunks !== undefined) payload.ai_chunks = wordData.ai_chunks;
+    else if (wordData.chunks !== undefined) payload.ai_chunks = wordData.chunks;
+    if (wordData.category !== undefined) payload.category = wordData.category;
     if (wordData.video_url !== undefined) payload.video_url = wordData.video_url;
     if (wordData.video_title !== undefined) payload.video_title = wordData.video_title;
     if (wordData.synonyms !== undefined) payload.synonyms = wordData.synonyms;

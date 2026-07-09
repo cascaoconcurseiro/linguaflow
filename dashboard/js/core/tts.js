@@ -50,9 +50,26 @@ export async function playNaturalAudio(text, options = {}, onEndCallback) {
         }
       });
     } else {
-      // Standalone Web App: Google TTS REST might block CORS, fallback to browser native TTS
-      _fallbackTTS(text, lang, rate, onEndCallback);
-      resolve();
+      // Web App puro (Vercel): <audio> não sofre CORS para reprodução —
+      // toca a URL do Google TTS direto; voz robótica só como último recurso
+      const audio = new Audio(url);
+      currentAudioObj = audio;
+      audio.playbackRate = rate;
+      audio.onended = () => {
+        currentAudioObj = null;
+        if (onEndCallback) onEndCallback();
+        resolve();
+      };
+      audio.onerror = () => {
+        currentAudioObj = null;
+        _fallbackTTS(text, lang, rate, onEndCallback);
+        resolve();
+      };
+      audio.play().catch(() => {
+        currentAudioObj = null;
+        _fallbackTTS(text, lang, rate, onEndCallback);
+        resolve();
+      });
     }
   });
 }

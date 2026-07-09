@@ -23,8 +23,8 @@ export async function renderStudy(container, app) {
 
   if (dueQueue.length === 0) {
     container.innerHTML = `
-      <div class="study-layout" style="display: flex; height: 100%; width: 100%; justify-content: center; align-items: center; background-color: #f7f9fa;">
-        <div class="study-main" style="text-align:center; padding: 60px; background: white; border-radius: var(--radius-lg); box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 2px solid var(--color-border);">
+      <div class="study-layout" style="display: flex; height: 100%; width: 100%; justify-content: center; align-items: center; background-color: var(--color-bg-alt);">
+        <div class="study-main" style="text-align:center; padding: 60px; background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 2px solid var(--color-border);">
           <h2 style="color:var(--color-primary); font-size: 32px; margin-bottom:16px;">Tudo feito por hoje! 🎉</h2>
           <p style="color:var(--color-text-light); font-size: 18px;">Você revisou todas as suas frases pendentes.</p>
           <button class="btn btn-primary" id="back-home-btn" style="margin-top:32px; padding: 16px 32px; font-size: 18px;">Voltar ao Início</button>
@@ -88,7 +88,7 @@ export async function renderStudy(container, app) {
       <!-- Right Panel: Sidebar -->
       <div class="study-sidebar">
         <!-- B3: isolated-word-box at TOP of sidebar -->
-        <div id="isolated-word-box" class="hidden" style="margin-bottom: 28px; padding: 24px; background: white; border: 2px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align:center;">
+        <div id="isolated-word-box" class="hidden" style="margin-bottom: 28px; padding: 24px; background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align:center;">
           <div style="font-size: 28px; font-weight: 900; color: var(--color-primary); margin-bottom: 8px;" id="iso-word"></div>
           <div style="font-size: 18px; color: var(--color-text); font-weight: 700; margin-bottom: 8px;" id="iso-trans"></div>
           <div style="font-size: 14px; color: var(--color-secondary); font-style: italic; background: rgba(28, 176, 246, 0.1); padding: 4px 12px; border-radius: 16px; display: inline-block;" id="iso-phonetics"></div>
@@ -105,7 +105,7 @@ export async function renderStudy(container, app) {
         </div>
 
         <h3 class="sidebar-title" style="margin-top:32px;">AI Grammar ✨</h3>
-        <div id="grammar-container" style="font-size:15px; color:var(--color-text); line-height:1.6; background: white; padding: 20px; border-radius: var(--radius-lg); border: 2px solid var(--color-border); box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+        <div id="grammar-container" style="font-size:15px; color:var(--color-text); line-height:1.6; background: var(--color-surface); padding: 20px; border-radius: var(--radius-lg); border: 2px solid var(--color-border); box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
           <p style="color:var(--color-text-light); font-style:italic; text-align:center;">Revise o card para ver a explicação mágica da IA.</p>
         </div>
       </div>
@@ -169,8 +169,8 @@ function loadNextCard(app) {
     const sessionTime = Math.round((Date.now() - sessionStart) / 60000);
     const rootContainer = document.getElementById('app-view') || document.body;
     rootContainer.innerHTML = `
-      <div style="display:flex; height:100%; align-items:center; justify-content:center; background:#f7f9fa;">
-        <div style="text-align:center; padding:60px; background:white; border-radius:var(--radius-lg); border:2px solid var(--color-border); box-shadow:0 10px 40px rgba(0,0,0,0.08); max-width:500px;">
+      <div style="display:flex; height:100%; align-items:center; justify-content:center; background:var(--color-bg-alt);">
+        <div style="text-align:center; padding:60px; background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-border); box-shadow:0 10px 40px rgba(0,0,0,0.08); max-width:500px;">
           <div style="font-size:64px; margin-bottom:16px;">🎉</div>
           <h2 style="color:var(--color-primary); font-size:32px; margin-bottom:8px;">Sessão Concluída!</h2>
           <p style="color:var(--color-text-light); margin-bottom:32px;">Continue assim e você será fluente!</p>
@@ -532,10 +532,10 @@ function injectStyles() {
   const style = document.createElement('style');
   style.id = 'study-styles';
   style.innerHTML = `
-    .study-layout { display: flex; height: 100%; width: 100%; background-color: #f7f9fa; }
+    .study-layout { display: flex; height: 100%; width: 100%; background-color: var(--color-bg-alt); }
     .study-main { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 40px; position: relative; overflow-y: auto;}
 
-    .media-container { width: 100%; max-width: 800px; height: 100px; background: white; border: 2px solid var(--color-border); border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; margin-bottom: 32px; }
+    .media-container { width: 100%; max-width: 800px; height: 100px; background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; margin-bottom: 32px; }
 
     .audio-wave-placeholder { display: flex; align-items: center; gap: 8px; opacity: 0.5; transition: opacity 0.3s; }
     .wave-bar { width: 8px; height: 30px; background: var(--color-secondary); border-radius: 4px; animation: wave 1s infinite alternate; }
@@ -565,11 +565,11 @@ function injectStyles() {
     .btn-warning { background: #ff9600; box-shadow: 0 4px 0 #cc7800; }
     .btn-secondary { background: var(--color-secondary); box-shadow: 0 4px 0 var(--color-secondary-shadow); }
 
-    .study-sidebar { width: 380px; background: white; border-left: 2px solid var(--color-border); padding: 32px; overflow-y: auto; }
+    .study-sidebar { width: 380px; background: var(--color-surface); border-left: 2px solid var(--color-border); padding: 32px; overflow-y: auto; }
     .sidebar-title { font-size: 22px; font-weight: 900; margin-bottom: 24px; color: var(--color-text); display:flex; align-items:center; gap:8px;}
     .chunks-list { display: flex; flex-direction: column; gap: 16px; }
 
-    .chunk-card { background: white; border: 2px solid var(--color-border); border-radius: var(--radius-lg); padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); position: relative; overflow: hidden;}
+    .chunk-card { background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); position: relative; overflow: hidden;}
     .chunk-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--color-primary);}
     .chunk-en { font-weight: 900; font-size: 18px; color: var(--color-text); margin-bottom: 6px; }
     .chunk-br { font-size: 15px; color: var(--color-secondary); font-weight: 800; margin-bottom: 8px; }

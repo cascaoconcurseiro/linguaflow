@@ -1143,6 +1143,9 @@ export class WordPopup {
         chunks: this.generatedChunks || null,
       });
 
+      if (!result || result.ok === false) {
+        throw new Error('Falha ao salvar no servidor. Verifique login e conexão.');
+      }
       console.debug('[WordPopup] ✅ Palavra salva:', result);
 
       btn.textContent = '✅ Salvo!';

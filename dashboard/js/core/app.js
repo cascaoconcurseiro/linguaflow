@@ -4,6 +4,7 @@ import { renderStudy } from '../ui/studyView.js';
 import { renderSettings } from '../ui/settingsView.js';
 import { renderLeagues } from '../ui/leaguesView.js';
 import { renderStories } from '../ui/storiesView.js';
+import { renderReader } from '../ui/readerView.js';
 import { renderGame } from '../ui/gameView.js';
 import { renderLogin } from '../ui/loginView.js';
 import { db } from '../../../utils/db.js';
@@ -180,6 +181,9 @@ class App {
         break;
       case 'stories':
         renderStories(container, this);
+        break;
+      case 'reader':
+        renderReader(container, this);
         break;
       default:
         renderHome(container, this);

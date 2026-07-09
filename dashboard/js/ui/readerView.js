@@ -1,0 +1,298 @@
+// dashboard/js/ui/readerView.js — Modo Leitor estilo LingQ.
+// Cole qualquer texto em inglês e leia com palavras coloridas por status:
+// azul = nova, amarelo = aprendendo (tem card), sem cor = conhecida.
+// Clique numa palavra: tradução + salvar card + marcar como conhecida.
+// Fonte de verdade: words/cards (aprendendo) e known_words (conhecidas),
+// agrupadas por família via utils/lemma.js (run/running/ran = 1).
+import { db as lfDb } from '../../../utils/db.js';
+import { playNaturalAudio } from '../core/tts.js';
+import { translator } from '../../../utils/translator.js';
+import { lemma } from '../../../utils/lemma.js';
+
+const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
+const TEXTS_KEY = 'lf_reader_texts';
+
+let knownLemmas = new Set();
+let learningLemmas = new Set();
+let currentText = null; // { id, title, content, addedAt }
+
+async function translateText(text) {
+  if (isExtension) {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'translate', text, from: 'en', to: 'pt' }, (res) => {
+        resolve(res?.translation || null);
+      });
+    });
+  }
+  try {
+    const res = await translator.translate(text, 'en', 'pt');
+    return res?.translation || null;
+  } catch { return null; }
+}
+
+function loadTexts() {
+  try { return JSON.parse(localStorage.getItem(TEXTS_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function saveTexts(texts) {
+  localStorage.setItem(TEXTS_KEY, JSON.stringify(texts));
+}
+
+async function loadStatusSets() {
+  knownLemmas = new Set();
+  learningLemmas = new Set();
+  try {
+    const [known, words, cards] = await Promise.all([
+      lfDb.getAllKnownWords(),
+      lfDb.getAllWords(),
+      lfDb.getAllCards(),
+    ]);
+    const matureByWordId = {};
+    (cards || []).forEach(c => { matureByWordId[c.word_id] = c.status === 'mature'; });
+    (known || []).forEach(k => knownLemmas.add(lemma(k.word)));
+    (words || []).forEach(w => {
+      const l = lemma(w.word);
+      if (!l) return;
+      if (matureByWordId[w.id]) knownLemmas.add(l);
+      else learningLemmas.add(l);
+    });
+  } catch (e) {
+    console.warn('[Reader] Erro ao carregar status das palavras:', e);
+  }
+}
+
+function wordStatus(word) {
+  const l = lemma(word);
+  if (!l || l.length <= 1) return 'known'; // "a", "I" etc não contam
+  if (knownLemmas.has(l)) return 'known';
+  if (learningLemmas.has(l)) return 'learning';
+  return 'new';
+}
+
+// Tokeniza preservando espaços/pontuação; palavras viram spans clicáveis
+function renderTokens(content) {
+  const parts = content.split(/([a-zA-Z][a-zA-Z'-]*)/g);
+  return parts.map((p, i) => {
+    if (i % 2 === 1) { // grupos ímpares são as palavras capturadas
+      const st = wordStatus(p);
+      return `<span class="rw rw-${st}" data-w="${p}">${p}</span>`;
+    }
+    return p.replace(/\n/g, '<br>');
+  }).join('');
+}
+
+// Frase ao redor de uma palavra (para o context_sentence do card)
+function sentenceAround(content, word) {
+  const sentences = content.split(/(?<=[.!?])\s+/);
+  const re = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+  return sentences.find(s => re.test(s))?.trim().slice(0, 300) || '';
+}
+
+function textStats(content) {
+  const words = content.match(/[a-zA-Z][a-zA-Z'-]*/g) || [];
+  const fams = new Set(words.map(lemma).filter(l => l && l.length > 1));
+  let known = 0;
+  fams.forEach(l => { if (knownLemmas.has(l)) known++; });
+  return { total: fams.size, known, pct: fams.size ? Math.round((known / fams.size) * 100) : 0 };
+}
+
+export async function renderReader(container, app) {
+  injectStyles();
+  container.innerHTML = '<div style="padding:40px; text-align:center; color:var(--color-text-light);">Carregando leitor…</div>';
+  await loadStatusSets();
+
+  const texts = loadTexts();
+  container.innerHTML = `
+    <div style="padding:40px; max-width:900px; margin:0 auto; padding-bottom:100px;">
+      <h1 style="font-size:32px; color:var(--color-text); margin-bottom:8px;">📖 Leitor</h1>
+      <p style="color:var(--color-text-light); margin-bottom:24px;">Leia qualquer texto com palavras coloridas pelo seu nível, estilo LingQ. <span class="rw rw-new" style="cursor:default;">azul = nova</span> · <span class="rw rw-learning" style="cursor:default;">amarela = aprendendo</span> · sem cor = conhecida.</p>
+
+      <div id="reader-import" style="background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:24px; margin-bottom:24px;">
+        <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Importar novo texto</label>
+        <input id="rd-title" type="text" placeholder="Título (ex: Artigo sobre viagem)" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); margin-bottom:12px; background:var(--color-bg-alt); color:var(--color-text);">
+        <textarea id="rd-content" rows="5" placeholder="Cole aqui o texto em inglês (letra de música, artigo, roteiro, legenda…)" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text); resize:vertical;"></textarea>
+        <button id="rd-add" class="btn btn-primary" style="margin-top:12px;">Adicionar à biblioteca</button>
+      </div>
+
+      <div id="reader-shelf">
+        <h3 style="color:var(--color-text); margin-bottom:12px;">Minha biblioteca (${texts.length})</h3>
+        <div id="rd-list">
+          ${texts.length === 0 ? '<p style="color:var(--color-text-light);">Nenhum texto ainda. Cole o primeiro acima! 👆</p>' : texts.map(t => `
+            <div class="rd-item" data-id="${t.id}" style="display:flex; justify-content:space-between; align-items:center; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:14px 18px; margin-bottom:10px; cursor:pointer;">
+              <div>
+                <div style="font-weight:800; color:var(--color-text);">${t.title}</div>
+                <div style="font-size:12px; color:var(--color-text-light);">${(t.content.match(/[a-zA-Z][a-zA-Z'-]*/g) || []).length} palavras · ${new Date(t.addedAt).toLocaleDateString('pt-BR')}</div>
+              </div>
+              <button class="rd-del" data-id="${t.id}" style="background:none; border:none; cursor:pointer; font-size:16px;" title="Excluir texto">🗑️</button>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <div id="reader-view" class="hidden">
+        <button id="rd-back" style="background:none; border:none; color:var(--color-secondary); font-family:var(--font-main); font-weight:800; cursor:pointer; margin-bottom:16px;">← Voltar à biblioteca</button>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:16px;">
+          <h2 id="rd-view-title" style="color:var(--color-text);"></h2>
+          <div id="rd-view-stats" style="font-size:13px; font-weight:700; color:var(--color-text-light);"></div>
+        </div>
+        <div id="rd-view-body" style="background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:28px; font-size:20px; line-height:2.0; color:var(--color-text);"></div>
+      </div>
+
+      <div id="rd-popup" class="hidden" style="position:fixed; z-index:9999; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:16px; width:260px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <strong id="rdp-word" style="color:var(--color-text); font-size:18px;"></strong>
+          <button id="rdp-audio" style="background:none; border:none; cursor:pointer; font-size:18px;" title="Ouvir">🔊</button>
+        </div>
+        <div id="rdp-trans" style="color:var(--color-text-light); font-size:14px; margin-bottom:12px; min-height:18px;">…</div>
+        <div style="display:flex; gap:8px;">
+          <button id="rdp-save" class="btn btn-primary" style="flex:1; padding:8px; font-size:12px;">💾 Salvar</button>
+          <button id="rdp-known" class="btn btn-secondary" style="flex:1; padding:8px; font-size:12px;">✓ Já sei</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const shelf = document.getElementById('reader-shelf');
+  const importBox = document.getElementById('reader-import');
+  const view = document.getElementById('reader-view');
+  const popup = document.getElementById('rd-popup');
+  let popupWord = null;
+
+  function openText(t) {
+    currentText = t;
+    shelf.classList.add('hidden');
+    importBox.classList.add('hidden');
+    view.classList.remove('hidden');
+    document.getElementById('rd-view-title').textContent = t.title;
+    document.getElementById('rd-view-body').innerHTML = renderTokens(t.content);
+    refreshStats();
+  }
+
+  function refreshStats() {
+    if (!currentText) return;
+    const s = textStats(currentText.content);
+    document.getElementById('rd-view-stats').textContent = `Você conhece ${s.known}/${s.total} famílias de palavras (${s.pct}%)`;
+  }
+
+  function recolor(word) {
+    const l = lemma(word);
+    document.querySelectorAll('.rw').forEach(el => {
+      if (lemma(el.dataset.w) === l) {
+        el.classList.remove('rw-new', 'rw-learning', 'rw-known');
+        el.classList.add(`rw-${wordStatus(el.dataset.w)}`);
+      }
+    });
+    refreshStats();
+  }
+
+  document.getElementById('rd-add').addEventListener('click', () => {
+    const title = document.getElementById('rd-title').value.trim();
+    const content = document.getElementById('rd-content').value.trim();
+    if (!content) { app.showToast('Cole um texto primeiro.', 'info'); return; }
+    const texts = loadTexts();
+    const t = { id: Date.now().toString(36), title: title || `Texto ${texts.length + 1}`, content, addedAt: Date.now() };
+    texts.unshift(t);
+    saveTexts(texts);
+    openText(t);
+  });
+
+  document.getElementById('rd-list').addEventListener('click', (e) => {
+    const del = e.target.closest('.rd-del');
+    if (del) {
+      e.stopPropagation();
+      const texts = loadTexts().filter(t => t.id !== del.dataset.id);
+      saveTexts(texts);
+      renderReader(container, app);
+      return;
+    }
+    const item = e.target.closest('.rd-item');
+    if (item) {
+      const t = loadTexts().find(x => x.id === item.dataset.id);
+      if (t) openText(t);
+    }
+  });
+
+  document.getElementById('rd-back').addEventListener('click', () => renderReader(container, app));
+
+  // Clique numa palavra: popup com tradução + ações
+  document.getElementById('rd-view-body').addEventListener('click', async (e) => {
+    const el = e.target.closest('.rw');
+    if (!el) return;
+    popupWord = el.dataset.w;
+    document.getElementById('rdp-word').textContent = popupWord;
+    document.getElementById('rdp-trans').textContent = '…';
+
+    const rect = el.getBoundingClientRect();
+    popup.style.left = `${Math.min(rect.left, window.innerWidth - 280)}px`;
+    popup.style.top = `${rect.bottom + 8}px`;
+    popup.classList.remove('hidden');
+
+    const trans = await translateText(popupWord.toLowerCase());
+    if (popupWord === el.dataset.w) {
+      document.getElementById('rdp-trans').textContent = trans || 'Sem tradução.';
+    }
+  });
+
+  document.addEventListener('mousedown', (e) => {
+    if (!popup.contains(e.target) && !e.target.closest('.rw')) popup.classList.add('hidden');
+  });
+
+  document.getElementById('rdp-audio').addEventListener('click', () => {
+    if (popupWord) playNaturalAudio(popupWord, { lang: localStorage.getItem('lf_tts_lang') || 'en-US' });
+  });
+
+  document.getElementById('rdp-save').addEventListener('click', async () => {
+    if (!popupWord) return;
+    const w = popupWord.toLowerCase();
+    const trans = document.getElementById('rdp-trans').textContent;
+    try {
+      await lfDb.saveWord({
+        word: w,
+        lang: 'en',
+        translation: trans && trans !== '…' && trans !== 'Sem tradução.' ? trans : '',
+        context_sentence: currentText ? sentenceAround(currentText.content, popupWord) : '',
+        platform: 'reader',
+      });
+      learningLemmas.add(lemma(w));
+      knownLemmas.delete(lemma(w));
+      recolor(w);
+      app.showToast(`"${w}" salva nos flashcards! 💾`, 'success');
+    } catch (err) {
+      console.error(err);
+      app.showToast('Erro ao salvar. Está logado?', 'error');
+    }
+    popup.classList.add('hidden');
+  });
+
+  document.getElementById('rdp-known').addEventListener('click', async () => {
+    if (!popupWord) return;
+    const w = popupWord.toLowerCase();
+    try {
+      await lfDb.markAsKnown(w, 'en');
+      knownLemmas.add(lemma(w));
+      learningLemmas.delete(lemma(w));
+      recolor(w);
+      app.showToast(`"${w}" marcada como conhecida ✓`, 'success');
+    } catch (err) {
+      console.error(err);
+      app.showToast('Erro ao marcar. Está logado?', 'error');
+    }
+    popup.classList.add('hidden');
+  });
+}
+
+function injectStyles() {
+  if (document.getElementById('reader-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'reader-styles';
+  style.innerHTML = `
+    .rw { cursor: pointer; border-radius: 4px; padding: 0 2px; transition: background 0.15s; }
+    .rw:hover { outline: 2px solid var(--color-secondary); }
+    .rw-new { background: rgba(28, 176, 246, 0.18); }
+    .rw-learning { background: rgba(255, 200, 0, 0.25); }
+    .rw-known { background: transparent; }
+    :root[data-theme="dark"] .rw-new { background: rgba(28, 176, 246, 0.28); }
+    :root[data-theme="dark"] .rw-learning { background: rgba(255, 200, 0, 0.22); }
+  `;
+  document.head.appendChild(style);
+}

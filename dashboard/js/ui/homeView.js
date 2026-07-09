@@ -1,3 +1,5 @@
+import { lemma } from '../../../utils/lemma.js';
+
 export async function renderHome(container, app) {
     injectStyles();
 
@@ -58,15 +60,25 @@ export async function renderHome(container, app) {
     let retention30 = null;   // % de acertos (não-"Errei") nos últimos 30 dias
     let dueTomorrow = 0;      // carga de amanhã
     let dueWeek = 0;          // carga dos próximos 7 dias
+    let knownFamilies = 0;  // famílias de palavras conhecidas (métrica LingQ)
     try {
-        const [logToday, log30, allWords, allCards] = await Promise.all([
+        const [logToday, log30, allWords, allCards, knownWords] = await Promise.all([
             db ? db.getReviewLog(1) : [],
             db ? db.getReviewLog(30) : [],
             db ? db.getAllWords() : [],
-            db ? db.getAllCards() : []
+            db ? db.getAllCards() : [],
+            db ? db.getAllKnownWords().catch(() => []) : []
         ]);
         reviewsToday = (logToday || []).filter(r => r.date === todayISO).length;
         wordsToday = (allWords || []).filter(w => (w.added_at || '').slice(0, 10) === todayISO).length;
+
+        // Conhecidas = marcadas no Leitor + cards maduros, agrupadas por família
+        const matureByWordId = {};
+        (allCards || []).forEach(c => { matureByWordId[c.word_id] = c.status === 'mature'; });
+        const fams = new Set();
+        (knownWords || []).forEach(k => { const l = lemma(k.word); if (l) fams.add(l); });
+        (allWords || []).forEach(w => { if (matureByWordId[w.id]) { const l = lemma(w.word); if (l) fams.add(l); } });
+        knownFamilies = fams.size;
 
         if (log30 && log30.length >= 5) {
             const hits = log30.filter(r => r.quality >= 2).length;
@@ -123,6 +135,7 @@ export async function renderHome(container, app) {
 
                 <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:24px; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:14px 18px; align-items:center;">
                     <div style="font-weight:800; color:var(--color-text); font-size:14px;">📈 Memória:</div>
+                    <div style="font-size:14px; color:var(--color-text-light);">Palavras conhecidas: <strong style="color:var(--color-primary);">${knownFamilies}</strong></div>
                     <div style="font-size:14px; color:var(--color-text-light);">Retenção 30d: <strong style="color:${retention30 === null ? 'var(--color-text-light)' : retention30 >= 85 ? 'var(--color-primary)' : retention30 >= 70 ? '#ffc800' : 'var(--color-danger)'};">${retention30 === null ? '—' : retention30 + '%'}</strong></div>
                     <div style="font-size:14px; color:var(--color-text-light);">Amanhã: <strong style="color:var(--color-text);">${dueTomorrow} ${dueTomorrow === 1 ? 'card' : 'cards'}</strong></div>
                     <div style="font-size:14px; color:var(--color-text-light);">Próximos 7 dias: <strong style="color:var(--color-text);">${dueWeek}</strong></div>

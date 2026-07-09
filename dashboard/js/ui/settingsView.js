@@ -16,6 +16,7 @@ export async function renderSettings(container, app) {
   const srsEase = (await lfDb.getSetting('lf_srs_ease')) || '2.5';
   const srsPenalty = (await lfDb.getSetting('lf_srs_penalty')) || '0.2';
   const srsSuspend = (await lfDb.getSetting('lf_srs_suspend')) || '8';
+  const srsRetention = Math.round(((Number(await lfDb.getSetting('lf_srs_retention')) || 0.9)) * 100);
 
   container.innerHTML = `
     <div style="padding: 40px; max-width: 800px; margin: 0 auto; padding-bottom:100px;">
@@ -58,8 +59,9 @@ export async function renderSettings(container, app) {
           Otimizador de repetição espaçada. Substitui os multiplicadores fixos do Anki por um modelo de probabilidade de retenção de memória.
         </p>
         
-        <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Retenção Desejada (Recomendado: 90%): <span id="retention-val" style="color:var(--color-primary);">90%</span></label>
-        <input type="range" id="retention-slider" min="80" max="99" value="90" style="width:100%; margin-bottom: 16px;">
+        <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Retenção Desejada (Recomendado: 90%): <span id="retention-val" style="color:var(--color-primary);">${srsRetention}%</span></label>
+        <input type="range" id="retention-slider" min="80" max="97" value="${srsRetention}" style="width:100%; margin-bottom: 8px;">
+        <p style="font-size:12px; color:var(--color-text-light); margin-bottom:16px;">Mais alto = você revisa com mais frequência e esquece menos. Mais baixo = menos revisões, mais esquecimento. 90% é o equilíbrio ideal.</p>
         
         <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Passos de Aprendizagem (minutos)</label>
         <input type="text" value="1m 10m" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; margin-bottom:16px; background:var(--color-bg-alt); color:var(--color-text);">
@@ -260,6 +262,14 @@ export async function renderSettings(container, app) {
     setTimeout(() => btn.innerHTML = 'Salvar Chave de API', 600);
   });
 
+  const retentionSlider = document.getElementById('retention-slider');
+  if (retentionSlider) {
+    retentionSlider.addEventListener('input', (e) => {
+      const el = document.getElementById('retention-val');
+      if (el) el.textContent = `${e.target.value}%`;
+    });
+  }
+
   document.getElementById('btn-save').addEventListener('click', async () => {
     const btnSave = document.getElementById('btn-save');
     const originalText = btnSave.innerHTML;
@@ -269,11 +279,13 @@ export async function renderSettings(container, app) {
     const ease = document.getElementById('srs-ease')?.value;
     const penalty = document.getElementById('srs-lapse-penalty')?.value;
     const suspend = document.getElementById('srs-suspend')?.value;
-    
+    const retention = document.getElementById('retention-slider')?.value;
+
     if (minInt) await lfDb.setSetting('lf_srs_min_interval', minInt);
     if (ease) await lfDb.setSetting('lf_srs_ease', ease);
     if (penalty) await lfDb.setSetting('lf_srs_penalty', penalty);
     if (suspend) await lfDb.setSetting('lf_srs_suspend', suspend);
+    if (retention) await lfDb.setSetting('lf_srs_retention', (Number(retention) / 100).toFixed(2));
     
     app.showToast('Configurações salvas com sucesso! ✅', 'success');
     setTimeout(() => btnSave.innerHTML = originalText, 500);

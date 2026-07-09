@@ -696,13 +696,13 @@ class Database {
 
   async logReview(cardId, quality) {
     if (this.isProxyMode) return this._proxy('logReview', [cardId, quality]);
-    
+
     const settings = await this.getSRSSettings();
     const res = await this._fetch(`cards?id=eq.${cardId}&limit=1`);
     if (!res || !res.length) throw new Error('Card não encontrado');
-    let card = res[0];
+    const prevCard = { ...res[0] }; // snapshot para o undo (paridade Anki)
 
-    card = this._calculateNextState(card, quality, settings);
+    let card = this._calculateNextState(res[0], quality, settings);
 
     if (card.lapses >= settings.leechThresh) {
       card.is_leech = true;
@@ -721,7 +721,24 @@ class Database {
       }
     });
 
-    return { ok: true, nextDue: new Date(card.due_date).getTime() };
+    // prevCard permite reverter todo o estado do agendamento (undoReview)
+    return { ok: true, nextDue: new Date(card.due_date).getTime(), prevCard };
+  }
+
+  // Desfaz a última revisão: restaura o card ao estado anterior e apaga o
+  // registro mais recente de review_log daquele card (Ctrl+Z do Anki).
+  async undoReview(prevCard) {
+    if (this.isProxyMode) return this._proxy('undoReview', [prevCard]);
+    if (!prevCard || !prevCard.id) return { ok: false };
+
+    await this.updateCard(prevCard);
+
+    // Remove o log mais recente desse card (o que acabou de ser criado)
+    const logs = await this._fetch(`review_log?card_id=eq.${prevCard.id}&order=ts.desc&limit=1`);
+    if (logs && logs.length) {
+      await this._fetch(`review_log?id=eq.${logs[0].id}`, { method: 'DELETE' });
+    }
+    return { ok: true };
   }
 
   async getReviewLog(days = 30) {

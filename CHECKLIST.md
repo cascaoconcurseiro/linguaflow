@@ -101,6 +101,27 @@
 - [ ] Contador de palavras conhecidas + lemmatização (compromise)
 - [ ] Cartões reversos (PT→EN), estatísticas de retenção reais, streak freeze
 
+## PLANO-MESTRE FABLE 5 (2026-07-09) — ver `PLANO_MESTRE_FABLE5.md`
+Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rápida; login próprio no popup. Roadmap priorizado:
+### Bloco A — Consolidação (destrava tudo)
+- [ ] A1. Corrigir Histórias no site (`storiesView.js` usa `chrome.runtime` inexistente na web → criar `generateStoryWeb` em ai.js + rotear tradução)
+- [ ] A2. Login próprio no popup da extensão (`popup/popup.js` + `.html`); botão Dashboard abre o site
+- [ ] A3. Consolidar dashboard site-only (popup/newtab abrem o site; reduzir bundle da extensão)
+### Bloco B — Paridade Anki
+- [ ] B1. Export/Import Anki (.txt/CSV, idealmente .apkg) + backup completo JSON
+- [ ] B2. Opções de deck (suspender/enterrar/reposicionar) + cartões reversos + stats de retenção
+### Bloco C — LingQ
+- [ ] C1. Modo Leitor de verdade (importar texto/URL, palavras clicáveis coloridas, usar `known_words`)
+- [ ] C2. Contador de palavras conhecidas + lemmatização (compromise)
+### Bloco D — Duolingo + avaliação oficial
+- [ ] D1. Exercícios variados (cloze/montar frase/ditado usando ai_chunks)
+- [ ] D2. Avaliação oficial CEFR/Cambridge + placement test (usar cefr-wordlist.json + frequency-en.json)
+- [ ] D3. Mais mini-jogos + streak freeze + notificações de revisão
+### Bloco E — Qualidade
+- [ ] E1. Cadeia TTS Kokoro-82M (voz neural offline)
+- [ ] E2. Limpeza: remover `utils/fsrs.js` (morto), tabela `decks` (migração), corrigir grade do newtab, ícones PWA originais, remover `icon.png` corrompido
+- [ ] E3. Onboarding + Tatoeba + acessibilidade
+
 ## FASE 3 — Confirmação final dos 3 fluxos
 - [ ] Tradução de legenda funciona com sessão expirada
 - [ ] Dicionário de palavra clicada funciona com sessão expirada

@@ -220,6 +220,15 @@ Sentido: [Uma única frase super curta explicando o sentido neste contexto]
     return true;
   }
 
+  // Chat genérico com a IA (tutor de gramática do dashboard).
+  // Passa pelo getApiConfig: respeita BYOK e o proxy seguro (Edge Function).
+  if (request.action === 'ai_chat') {
+    aiChatPassthrough(request.messages, request.options || {})
+      .then((content) => sendResponse({ content }))
+      .catch((err) => sendResponse({ content: null, error: err.message }));
+    return true;
+  }
+
   if (request.type === 'FETCH_TTS') {
     fetch(request.url)
       .then((r) => {
@@ -703,6 +712,38 @@ Gere a explicação amigável seguindo a estrutura obrigatória (A ideia aqui, O
     console.error('[LinguaFlow IA] Erro:', err);
     throw err;
   }
+}
+
+async function aiChatPassthrough(messages, options = {}) {
+  if (!Array.isArray(messages) || messages.length === 0) throw new Error('Mensagens vazias.');
+  const config = await getApiConfig();
+  if (!config.apiKey) throw new Error('Faça login no LinguaFlow (ou configure sua API Key própria).');
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+  const response = await fetchWithRetry(config.apiUrl, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
+    signal: controller.signal,
+    body: JSON.stringify({
+      model: config.model,
+      messages,
+      temperature: typeof options.temperature === 'number' ? options.temperature : 0.6,
+      max_tokens: Math.min(Number(options.max_tokens) || 800, 1200),
+    }),
+  });
+
+  clearTimeout(timeoutId);
+  if (!response.ok) {
+    const errBody = await response.text().catch(() => '');
+    throw new Error(`Erro API (${response.status}): ${errBody}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new Error('IA não retornou conteúdo.');
+  return content;
 }
 
 async function generateChunksWithAI(word) {

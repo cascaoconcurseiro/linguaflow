@@ -1,59 +1,156 @@
-// dashboard/js/core/ai.js
+// dashboard/js/core/ai.js — cliente de IA do dashboard.
+// Na extensão: passa pelo service worker (action 'ai_chat'), que respeita BYOK.
+// Na web (Vercel): chama a Edge Function segura direto com o token de sessão.
 
-export async function explainGrammar(sentence) {
-  // Pegamos a sessão do Supabase do localStorage
-  const sessionStr = localStorage.getItem('lf_supabase_session');
-  if (!sessionStr) {
-    throw new Error('Supabase session missing. Please login.');
-  }
-  
-  let token;
+import { db as lfDb } from '../../../utils/db.js';
+
+const EDGE_URL = 'https://qnutoswrufznztoznlql.supabase.co/functions/v1/deepseek-chat';
+const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
+
+let _cefrCache;
+
+export async function getCefrLevel() {
+  if (_cefrCache !== undefined) return _cefrCache;
   try {
-    const sessionData = JSON.parse(sessionStr);
-    token = sessionData?.session?.access_token;
-  } catch (e) {
-    throw new Error('Invalid Supabase session.');
+    _cefrCache = (await lfDb.getSetting('lf_cefr_level')) || null;
+  } catch {
+    _cefrCache = null;
   }
+  return _cefrCache;
+}
 
-  if (!token) {
-    throw new Error('Supabase token missing. Please login.');
-  }
-
-  const prompt = `Você é um professor de inglês nativo e especialista em linguística.
-O aluno está estudando a seguinte frase: "${sentence}"
-
-Sua tarefa:
-1. Identifique a estrutura gramatical PRINCIPAL (ex: Present Perfect, Phrasal Verb, Condicional) usada nessa frase.
-2. Explique de forma EXTREMAMENTE didática e curta como essa estrutura funciona, usando analogias se necessário.
-3. Crie um "Mapa Visual" em texto usando blocos HTML simples (ex: <div style="padding:10px; background:#f0f0f0; border-radius:5px;">...</div>) separando os pedaços da frase e o que cada um significa estruturalmente.
-
-Responda em Português. Formate sua resposta em HTML limpo (pode usar <b>, <ul>, <li>, <div>, <p>). Não use Markdown no retorno, apenas HTML.
-Seja direto ao ponto. Não diga "Aqui está a explicação", vá direto para o ensino.`;
-
-  try {
-    // Aponta para a Edge Function segura no Supabase
-    const response = await fetch('https://qnutoswrufznztoznlql.supabase.co/functions/v1/deepseek-chat', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: "deepseek-chat",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.3,
-        max_tokens: 1024
-      })
+export async function aiChat(messages, options = {}) {
+  if (isExtension) {
+    const res = await new Promise((resolve) => {
+      try {
+        chrome.runtime.sendMessage({ action: 'ai_chat', messages, options }, (r) => resolve(r));
+      } catch {
+        resolve(null);
+      }
     });
+    if (res && res.content) return res.content;
+    // Service worker antigo (sem 'ai_chat') ou erro: tenta a Edge Function direto
+  }
 
-    if (!response.ok) {
-      throw new Error('API_ERROR');
-    }
+  const token = await lfDb._getToken();
+  if (!token) throw new Error('Faça login para usar a IA.');
 
-    const data = await response.json();
-    return data.choices[0].message.content;
-  } catch (error) {
-    console.error("AI Error:", error);
-    throw error;
+  const response = await fetch(EDGE_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages,
+      temperature: options.temperature ?? 0.6,
+      max_tokens: options.max_tokens ?? 800,
+    }),
+  });
+
+  if (!response.ok) {
+    let msg = 'IA indisponível no momento. Tente de novo em instantes.';
+    try {
+      const err = await response.json();
+      if (err && err.error) msg = err.error;
+    } catch { /* mantém msg genérica */ }
+    throw new Error(msg);
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new Error('A IA não retornou resposta.');
+  return content;
+}
+
+function levelNote(level) {
+  if (!level) return 'Nível do aluno desconhecido: assuma A2/B1 e evite termos técnicos sem explicar.';
+  const styles = {
+    A1: 'Use frases curtíssimas, vocabulário mínimo e muitos exemplos traduzidos. Zero jargão.',
+    A2: 'Frases curtas, exemplos do dia a dia, sempre com tradução. Jargão só se explicado com analogia.',
+    B1: 'Pode usar termos simples (ex: "passado", "verbo"), sempre amarrados a um exemplo prático.',
+    B2: 'Explique nuances e registro (formal/informal). Exemplos sem tradução quando forem óbvios.',
+    C1: 'Foque em nuance, colocações e naturalidade. Compare alternativas que um nativo usaria.',
+    C2: 'Trate como quase-nativo: registro, ironia, variações regionais, sutilezas de uso.',
+  };
+  return `O aluno tem nível CEFR ${level}. ${styles[level] || ''}`;
+}
+
+export function grammarTutorPersona(sentence, word, level) {
+  return `Você é um professor particular de inglês: brasileiro, poliglota, apaixonado por ensinar e NADA robótico. Você conversa como gente, não como manual de gramática.
+A frase que o aluno está estudando agora é: "${sentence}" (palavra-foco: "${word}").
+${levelNote(level)}
+
+REGRAS DA CONVERSA:
+- Responda SEMPRE em português brasileiro informal e acolhedor.
+- Curto: no máximo ~120 palavras por resposta. Um conceito por vez.
+- Didático de verdade: analogia do cotidiano ANTES do nome técnico. Se usar um termo (ex: "present perfect"), explique em 1 linha o que ele significa na prática.
+- Sempre ancore a explicação NA FRASE do aluno, não em teoria solta.
+- Se o aluno perguntar algo fora da frase, responda mesmo assim (a dúvida dele manda).
+- Feche convidando a próxima dúvida quando fizer sentido (sem repetir sempre a mesma frase).
+- Formato: HTML simples (<b>, <p>, <ul>, <li>). NUNCA markdown, NUNCA blocos de código.`;
+}
+
+export function grammarInitialQuestion(sentence, word) {
+  return `Me explica essa frase: "${sentence}". O que ela quer dizer de verdade, e qual é a estrutura mais importante nela (se "${word}" fizer parte disso, foque nela)? Bem curto e didático.`;
+}
+
+// Fonética BR + traduções da frase e da palavra em UMA chamada só (economiza rate-limit).
+export async function enrichCard(word, sentence) {
+  const system = `Você é um professor de inglês para brasileiros. Responda APENAS com JSON válido, sem nenhum texto extra.
+REGRAS para os campos "*_phon" (Fonética Brasileira = inglês escrito como um brasileiro leria):
+- NUNCA traduza palavras dentro da fonética (ex: "should" -> "xud", nunca "deve").
+- NUNCA use símbolos IPA (ə, ʃ, θ...). Só letras comuns do português.
+- Marque a sílaba tônica com acento (ex: "I think you should call her" -> "Ai fínk iú xud cól rrâr").`;
+  const user = `Palavra-foco: "${word}"
+Frase: "${sentence}"
+Retorne exatamente este JSON:
+{
+  "sentence_phon": "fonética brasileira da frase inteira",
+  "sentence_pt": "tradução natural da frase para português brasileiro",
+  "word_phon": "fonética brasileira só da palavra-foco",
+  "word_pt": "tradução da palavra-foco NESTE contexto"
+}`;
+
+  const content = await aiChat(
+    [{ role: 'system', content: system }, { role: 'user', content: user }],
+    { temperature: 0.3, max_tokens: 500 }
+  );
+  const clean = content.replace(/```json/g, '').replace(/```/g, '').trim();
+  try {
+    return JSON.parse(clean);
+  } catch {
+    return null;
+  }
+}
+
+// Geração de chunks na web (na extensão o service worker já tem essa rotina).
+export async function generateChunksWeb(word) {
+  const system = `Você é um professor de inglês para brasileiros focando no aprendizado por 'chunks' (blocos léxicos).
+Seu objetivo é criar 3 frases curtas e muito úteis do dia a dia contendo a palavra ou expressão fornecida.
+
+Para cada frase (chunk), você deve fornecer:
+1. "eng": A frase em inglês.
+2. "pt": A tradução natural para português brasileiro.
+3. "phon": A pronúncia da frase inteira usando EXCLUSIVAMENTE 'Fonética Brasileira' (Inglês escrito como se fala em português).
+REGRAS CRÍTICAS PARA "phon":
+- NUNCA traduza nenhuma palavra para o português no meio da pronúncia (ex: NUNCA use "deve" para "should", use "xud").
+- NUNCA use símbolos do Alfabeto Fonético Internacional (AFI/IPA) como ə, ʌ, ɔ, ʃ, θ. Use apenas letras comuns do alfabeto português.
+- Exemplo: "I think you should call her" -> "Ai fink iú xud cól râr".
+- Dê bastante ênfase (acentuação) na sílaba tônica.
+
+Responda ÚNICA E EXCLUSIVAMENTE com um objeto JSON válido contendo uma chave "chunks" que guarda o array com os 3 objetos. Nada de texto antes ou depois.`;
+
+  const content = await aiChat(
+    [{ role: 'system', content: system }, { role: 'user', content: `Gere os 3 chunks para a palavra/expressão: "${word}"` }],
+    { temperature: 0.7, max_tokens: 1000 }
+  );
+  const clean = content.replace(/```json/g, '').replace(/```/g, '').trim();
+  try {
+    const parsed = JSON.parse(clean);
+    if (Array.isArray(parsed)) return parsed;
+    const firstKey = Object.keys(parsed)[0];
+    if (Array.isArray(parsed[firstKey])) return parsed[firstKey];
+    return [];
+  } catch {
+    return [];
   }
 }

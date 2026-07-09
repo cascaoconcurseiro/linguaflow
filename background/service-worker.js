@@ -538,10 +538,25 @@ async function getApiConfig() {
     userKey = stored?.aiApiKey || '';
   } catch (e) {}
 
+  // BYOK: usuário com chave própria fala direto com o DeepSeek (não gasta a cota compartilhada)
+  if (userKey.trim()) {
+    return {
+      provider: 'deepseek',
+      mode: 'byok',
+      apiKey: userKey.trim(),
+      apiUrl: 'https://api.deepseek.com/chat/completions',
+      model: 'deepseek-chat'
+    };
+  }
+
+  // Sem chave própria: proxy seguro (Edge Function) autenticado com o token de sessão.
+  // A chave DeepSeek compartilhada vive só no servidor (Supabase Secrets).
+  const sessionToken = await db._getToken();
   return {
     provider: 'deepseek',
-    apiKey: userKey.trim(),
-    apiUrl: 'https://api.deepseek.com/chat/completions',
+    mode: 'proxy',
+    apiKey: sessionToken || '',
+    apiUrl: 'https://qnutoswrufznztoznlql.supabase.co/functions/v1/deepseek-chat',
     model: 'deepseek-chat'
   };
 }
@@ -585,7 +600,7 @@ async function getPTPhoneticWithAI(word) {
 
     const config = await getApiConfig();
     if (!config.apiKey) {
-      console.warn('[LinguaFlow] API Key vazia. Não é possível gerar transliteração PT-BR.');
+      console.warn('[LinguaFlow] Sem sessão nem API key. Não é possível gerar transliteração PT-BR.');
       return '';
     }
 
@@ -642,7 +657,7 @@ Gere a explicação amigável seguindo a estrutura obrigatória (A ideia aqui, O
 
     const config = await getApiConfig();
     if (!config.apiKey)
-      return 'Por favor, configure sua chave de API no Dashboard para usar recursos de IA.';
+      return 'Faça login no LinguaFlow para usar a IA (ou configure uma chave de API própria nas Configurações).';
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
@@ -694,7 +709,7 @@ async function generateChunksWithAI(word) {
   try {
     if (!word) return [];
     const config = await getApiConfig();
-    if (!config.apiKey) throw new Error('Configure sua API Key.');
+    if (!config.apiKey) throw new Error('Faça login no LinguaFlow (ou configure sua API Key própria).');
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -780,7 +795,7 @@ async function analyzeGrammarWithAI(sentence) {
   try {
     if (!sentence) return 'Frase vazia.';
     const config = await getApiConfig();
-    if (!config.apiKey) throw new Error('Configure sua API Key.');
+    if (!config.apiKey) throw new Error('Faça login no LinguaFlow (ou configure sua API Key própria).');
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -840,7 +855,7 @@ async function explainSentenceWithAI(sentence, fullContext = null) {
   try {
     if (!sentence) return 'Frase vazia.';
     const config = await getApiConfig();
-    if (!config.apiKey) throw new Error('Configure sua API Key.');
+    if (!config.apiKey) throw new Error('Faça login no LinguaFlow (ou configure sua API Key própria).');
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -1014,7 +1029,7 @@ async function generateStoryWithAI(genre) {
     const cefr = await db.getSetting('lf_cefr_level') || 'B1';
     const config = await getApiConfig();
     if (!config.apiKey) {
-      throw new Error('Configure sua chave de API para gerar histórias.');
+      throw new Error('Faça login no LinguaFlow para gerar histórias (ou configure sua chave de API própria).');
     }
 
     const prompt = `Você é um gerador de histórias curtas para estudantes de inglês.

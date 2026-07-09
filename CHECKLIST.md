@@ -90,13 +90,16 @@
 - [ ] Teste manual: estudar cards no site e na extensão — fluxo cloze → revelar → chat do tutor → salvar áudio — **PENDENTE: usuário**
 - [ ] YouGlish widget: validar limite diário do modo anônimo; se estourar, avaliar API key gratuita do YouGlish
 
+## Roadmap MELHORIAS.md — executado (commit aeaec0b, 2026-07-09)
+- [x] **Slider de retenção FSRS** nas Configurações: o controle existia no HTML mas era morto (não lia nem salvava) — agora lê/grava `lf_srs_retention`, label ao vivo, faixa 80-97%
+- [x] **Undo na revisão (Ctrl+Z do Anki)**: `logReview` retorna `prevCard` (snapshot); `undoReview` restaura o card e apaga o último `review_log`; botão "Desfazer última (Z)" + tecla Z no studyView; reverte progresso da sessão e recoloca o card na fila. Testado em Node (estado idêntico ao original, log removido)
+
 ## Roadmap MELHORIAS.md — pendente (próximas sessões)
 - [ ] Kokoro-82M TTS local (WebGPU/WASM) como voz neural premium offline
 - [ ] Exercícios variados no studyView (cloze, montar frase, ditado — dados já existem em ai_chunks)
 - [ ] Modo Leitor estilo LingQ (evolução do storiesView: importar texto/URL, palavras clicáveis coloridas)
 - [ ] Contador de palavras conhecidas + lemmatização (compromise)
-- [ ] Undo na revisão, cartões reversos, estatísticas de retenção, streak freeze
-- [ ] Slider de retenção FSRS nas Configurações (setting `lf_srs_retention` já é lida pelo scheduler)
+- [ ] Cartões reversos (PT→EN), estatísticas de retenção reais, streak freeze
 
 ## FASE 3 — Confirmação final dos 3 fluxos
 - [ ] Tradução de legenda funciona com sessão expirada

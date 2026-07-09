@@ -69,6 +69,23 @@
 - [ ] Teste manual na extensão: sem chave BYOK, clicar palavra → explicação da IA via Edge Function — **PENDENTE: usuário**
 - [ ] Recomendação de segurança: a chave foi colada no chat — considerar rotacionar a chave DeepSeek depois e atualizar só o Vault (update em vault.secrets)
 
+## Roadmap MELHORIAS.md — executado nesta sessão (commits 745ff18 + 26762d4)
+- [x] **FSRS-4.5** no lugar do SM-2: `_calculateNextState` reescrita com o algoritmo do Anki moderno (stability/difficulty — colunas já existiam), retenção configurável (`lf_srs_retention`, default 0.9), learning steps mantidos, cards legados semeados sem quebrar. Testado: 7 cenários em Node (crescimento 12→43→129→375→929 dias)
+- [x] **PWA offline real**: sw.js antigo pré-cacheava URLs 404 e a instalação abortava (nunca cacheou nada). Reescrito: app shell + stale-while-revalidate + navegação com fallback; Supabase nunca cacheado
+- [x] **`_fetch` não engole mais erros de escrita**: POST/PATCH/DELETE relançam (como o saveWord 400 passou despercebido); GETs seguem null
+- [x] **TTS com cache IndexedDB + download de MP3** (sessão paralela, integrado): mesmo áudio nunca baixado 2x; estudo offline de áudios já ouvidos; `downloadAudio()` exportado
+- [x] **Edge Function `tts` deployada** (v1): proxy autenticado do Google TTS — JWT real, rate-limit 60/min, texto ≤300 chars, CORS restrito; anon key → 401 (testado)
+- [x] `ai.js` reescrito como cliente unificado (extensão → SW `ai_chat` com BYOK; web → Edge Function); tutor de gramática do dashboard reativado
+- [x] `dashboard/newtab.js` confirmado: declarado no manifest (chrome_url_overrides) — não é código morto
+
+## Roadmap MELHORIAS.md — pendente (próximas sessões)
+- [ ] Kokoro-82M TTS local (WebGPU/WASM) como voz neural premium offline
+- [ ] Exercícios variados no studyView (cloze, montar frase, ditado — dados já existem em ai_chunks)
+- [ ] Modo Leitor estilo LingQ (evolução do storiesView: importar texto/URL, palavras clicáveis coloridas)
+- [ ] Contador de palavras conhecidas + lemmatização (compromise)
+- [ ] Undo na revisão, cartões reversos, estatísticas de retenção, streak freeze
+- [ ] Slider de retenção FSRS nas Configurações (setting `lf_srs_retention` já é lida pelo scheduler)
+
 ## FASE 3 — Confirmação final dos 3 fluxos
 - [ ] Tradução de legenda funciona com sessão expirada
 - [ ] Dicionário de palavra clicada funciona com sessão expirada

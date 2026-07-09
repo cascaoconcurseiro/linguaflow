@@ -110,9 +110,10 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 ### Bloco B — Paridade Anki
 - [x] B1. Export Anki .txt (TSV `#separator:tab`/`#html:true`/`#tags column:3`, frente com frase e palavra destacada, verso com tradução+fonética+definição) + backup JSON completo (words/cards/review_log/stats) + restauração (upsert palavras, re-casamento de cards por palavra|idioma). CSV corrigido (campo `context` inexistente → `context_sentence`) — commit dc289a6
 - [x] B2. Suspender/reativar no Cofre (⏸️/▶️ + badge, studyView filtra suspensos), enterrar ("Deixar pra amanhã"), cartões reversos 🇧🇷→🇺🇸 opt-in (setting lf_reverse_cards, só cards graduados, áudio só ao revelar), painel de memória no Início (retenção 30d real + carga amanhã/7 dias). Bugs corrigidos de passagem: exclusão no Cofre usava parseInt(uuid) e nunca funcionou; "Gerar Agora" na web agora usa generateChunksWeb — commit 6e47341
-### Bloco C — LingQ
-- [ ] C1. Modo Leitor de verdade (importar texto/URL, palavras clicáveis coloridas, usar `known_words`)
-- [ ] C2. Contador de palavras conhecidas + lemmatização (compromise)
+### Bloco C — LingQ — CONCLUÍDO (commit 37311e1)
+- [x] C1. Modo Leitor (`readerView.js`, rota /reader): colar texto, palavras coloridas por status (azul nova / amarelo aprendendo / sem cor conhecida), popup com tradução+áudio+salvar card+marcar conhecida (`known_words` finalmente em uso — RLS e constraint verificadas), biblioteca em localStorage, % de famílias conhecidas por texto
+- [x] C2. Lematizador de regras próprio (`utils/lemma.js`, zero deps, 18 casos testados; interface pronta pra trocar por compromise) + contador de "Palavras conhecidas" (famílias) no painel de memória do Início
+- [ ] C-futuro: importar por URL (CORS exige proxy), epub, e importar textos capturados pelo web-reader da extensão
 ### Bloco D — Duolingo + avaliação oficial
 - [ ] D1. Exercícios variados (cloze/montar frase/ditado usando ai_chunks)
 - [ ] D2. Avaliação oficial CEFR/Cambridge + placement test (usar cefr-wordlist.json + frequency-en.json)

@@ -12,6 +12,7 @@ let sessionStart = Date.now();
 let chatHistory = [];
 let chatBusy = false;
 let lastReview = null; // { prevCard, card, grade, isCorrect } para o undo
+let reverseEnabled = false; // cartões reversos PT→EN (setting lf_reverse_cards)
 let ygWidget = null;
 let ygQueuedWord = null;
 
@@ -25,7 +26,10 @@ export async function renderStudy(container, app) {
 
   app.showToast('Carregando frases...', 'info');
   try {
+    reverseEnabled = !!(await lfDb.getSetting('lf_reverse_cards').catch(() => null));
     dueQueue = await lfDb.getCardsDue(50, true);
+    // Cards suspensos (manual ou por leech) ficam fora da fila, como no Anki
+    dueQueue = dueQueue.filter(c => !c.suspended);
   } catch (e) {
     console.error('DB Error:', e);
     dueQueue = [];
@@ -70,6 +74,7 @@ export async function renderStudy(container, app) {
 
           <button id="reveal-btn" class="btn btn-primary reveal-btn">Revelar (Espaço)</button>
           <button id="improve-btn" class="hidden" style="margin-top:12px; background:none; border:none; color:var(--color-secondary); font-family:var(--font-main); font-weight:700; font-size:14px; cursor:pointer; text-decoration:underline;">✨ Frase estranha? Gerar uma melhor com IA</button>
+          <button id="bury-btn" style="margin-top:12px; background:none; border:none; color:var(--color-text-light); font-family:var(--font-main); font-weight:700; font-size:13px; cursor:pointer;" title="Adia este card para amanhã sem afetar o agendamento">💤 Deixar pra amanhã</button>
         </div>
 
         <!-- Anki Grading Buttons -->
@@ -146,6 +151,7 @@ export async function renderStudy(container, app) {
   });
 
   document.getElementById('btn-undo')?.addEventListener('click', () => handleUndo(app));
+  document.getElementById('bury-btn')?.addEventListener('click', () => buryCard(app));
 
   if (window.currentKeydownHandler) {
     document.removeEventListener('keydown', window.currentKeydownHandler);
@@ -346,12 +352,30 @@ async function loadNextCard(app) {
   card._ctx = context;
   card._chunks = chunks;
 
+  // Cartão reverso PT→EN (opcional, só pra cards já graduados — como no Anki
+  // a direção nova só entra depois que a EN→PT está estabelecida)
+  card._reverse = reverseEnabled &&
+    (card.status === 'review' || card.status === 'mature') &&
+    Math.random() < 0.4;
+
   renderFront(card, word, context);
-  playCurrentAudio();
+  // No reverso o áudio da frase EM INGLÊS entregaria a resposta — só toca ao revelar
+  if (!card._reverse) playCurrentAudio();
 }
 
 function renderFront(card, word, context) {
   const sentenceEl = document.getElementById('pump-sentence');
+
+  // Cartão reverso: frente em PORTUGUÊS, o aluno lembra o inglês
+  if (card._reverse) {
+    const ctxEntry = (card._chunks || []).find(c => c.is_context && c.pt);
+    const pt = (ctxEntry && ctxEntry.pt) || (card.wordData && card.wordData.translation) || '';
+    sentenceEl.innerHTML = `
+      <div style="font-size:14px; font-weight:800; color:var(--color-secondary); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">🇧🇷 → 🇺🇸 Como se diz em inglês?</div>
+      <div>${pt || word}</div>`;
+    document.getElementById('reveal-btn').disabled = false;
+    return;
+  }
 
   // Frente do card: frase com a palavra oculta. NADA de fonética ou tradução
   // aqui — qualquer pista revelaria a resposta (bug antigo).
@@ -450,6 +474,20 @@ async function revealCard() {
   let chunks = card._chunks || [];
 
   // 1. Revela a palavra na frase
+  if (card._reverse) {
+    // Reverso: a resposta é a frase em inglês inteira — mostra e toca o áudio agora
+    const sentenceEl = document.getElementById('pump-sentence');
+    try {
+      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(${escaped})`, 'gi');
+      sentenceEl.innerHTML = context.toLowerCase() !== word.toLowerCase()
+        ? context.replace(regex, '<span class="cloze-revealed">$1</span>')
+        : `<span class="cloze-revealed">${word}</span>`;
+    } catch {
+      sentenceEl.innerHTML = `<span class="cloze-revealed">${word}</span>`;
+    }
+    playCurrentAudio();
+  }
   document.querySelectorAll('.cloze-blur').forEach(el => {
     el.classList.remove('cloze-blur');
     el.classList.add('cloze-revealed');
@@ -862,6 +900,27 @@ async function handleUndo(app) {
 function updateUndoButton() {
   const btn = document.getElementById('btn-undo');
   if (btn) btn.style.display = (lastReview && lastReview.prevCard) ? 'inline-flex' : 'none';
+}
+
+// Enterrar (bury do Anki): adia pra amanhã sem contar como revisão
+async function buryCard(app) {
+  const card = currentCard;
+  if (!card) return;
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+  try {
+    // Remove props de runtime (_ctx/_chunks/_reverse não são colunas do banco)
+    const { wordData, _ctx, _chunks, _reverse, ...clean } = card;
+    await lfDb.updateCard({ ...clean, due_date: tomorrow.toISOString() });
+  } catch (e) {
+    console.error('Falha ao enterrar:', e);
+    app.showToast('Erro ao adiar o card.', 'error');
+    return;
+  }
+  app.showToast('Card adiado pra amanhã 💤', 'info');
+  dueQueue.shift();
+  loadNextCard(app);
 }
 
 function injectStyles() {

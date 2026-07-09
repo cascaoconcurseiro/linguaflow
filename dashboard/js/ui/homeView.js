@@ -55,13 +55,33 @@ export async function renderHome(container, app) {
     const todayISO = new Date().toISOString().slice(0, 10);
     let reviewsToday = 0;
     let wordsToday = 0;
+    let retention30 = null;   // % de acertos (não-"Errei") nos últimos 30 dias
+    let dueTomorrow = 0;      // carga de amanhã
+    let dueWeek = 0;          // carga dos próximos 7 dias
     try {
-        const [log, allWords] = await Promise.all([
+        const [logToday, log30, allWords, allCards] = await Promise.all([
             db ? db.getReviewLog(1) : [],
-            db ? db.getAllWords() : []
+            db ? db.getReviewLog(30) : [],
+            db ? db.getAllWords() : [],
+            db ? db.getAllCards() : []
         ]);
-        reviewsToday = (log || []).filter(r => r.date === todayISO).length;
+        reviewsToday = (logToday || []).filter(r => r.date === todayISO).length;
         wordsToday = (allWords || []).filter(w => (w.added_at || '').slice(0, 10) === todayISO).length;
+
+        if (log30 && log30.length >= 5) {
+            const hits = log30.filter(r => r.quality >= 2).length;
+            retention30 = Math.round((hits / log30.length) * 100);
+        }
+
+        const startTomorrow = new Date(); startTomorrow.setDate(startTomorrow.getDate() + 1); startTomorrow.setHours(0, 0, 0, 0);
+        const endTomorrow = new Date(startTomorrow); endTomorrow.setDate(endTomorrow.getDate() + 1);
+        const endWeek = new Date(startTomorrow); endWeek.setDate(endWeek.getDate() + 7);
+        (allCards || []).forEach(c => {
+            if (c.suspended) return;
+            const due = new Date(c.due_date);
+            if (due >= startTomorrow && due < endTomorrow) dueTomorrow++;
+            if (due >= startTomorrow && due < endWeek) dueWeek++;
+        });
     } catch (e) { console.warn('[Home] Erro ao calcular missões:', e); }
 
     const quests = [
@@ -99,6 +119,13 @@ export async function renderHome(container, app) {
                         <div class="stat-value" id="stat-streak">${streak}</div>
                         <div class="stat-label">Dias de Ofensiva</div>
                     </div>
+                </div>
+
+                <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:24px; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:14px 18px; align-items:center;">
+                    <div style="font-weight:800; color:var(--color-text); font-size:14px;">📈 Memória:</div>
+                    <div style="font-size:14px; color:var(--color-text-light);">Retenção 30d: <strong style="color:${retention30 === null ? 'var(--color-text-light)' : retention30 >= 85 ? 'var(--color-primary)' : retention30 >= 70 ? '#ffc800' : 'var(--color-danger)'};">${retention30 === null ? '—' : retention30 + '%'}</strong></div>
+                    <div style="font-size:14px; color:var(--color-text-light);">Amanhã: <strong style="color:var(--color-text);">${dueTomorrow} ${dueTomorrow === 1 ? 'card' : 'cards'}</strong></div>
+                    <div style="font-size:14px; color:var(--color-text-light);">Próximos 7 dias: <strong style="color:var(--color-text);">${dueWeek}</strong></div>
                 </div>
 
                 <div class="action-buttons">

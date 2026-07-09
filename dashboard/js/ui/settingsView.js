@@ -17,6 +17,8 @@ export async function renderSettings(container, app) {
   const srsPenalty = (await lfDb.getSetting('lf_srs_penalty')) || '0.2';
   const srsSuspend = (await lfDb.getSetting('lf_srs_suspend')) || '8';
   const srsRetention = Math.round(((Number(await lfDb.getSetting('lf_srs_retention')) || 0.9)) * 100);
+  const srsReverseRaw = await lfDb.getSetting('lf_reverse_cards');
+  const srsReverse = srsReverseRaw === true || srsReverseRaw === 'true';
 
   container.innerHTML = `
     <div style="padding: 40px; max-width: 800px; margin: 0 auto; padding-bottom:100px;">
@@ -89,6 +91,11 @@ export async function renderSettings(container, app) {
             <input type="number" id="srs-suspend" value="${srsSuspend}" min="1" max="50" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
           </div>
         </div>
+        <label style="display:flex; align-items:center; gap:10px; margin-top:20px; font-weight:bold; color:var(--color-text); cursor:pointer;">
+          <input type="checkbox" id="srs-reverse-cards" ${srsReverse ? 'checked' : ''} style="width:18px; height:18px;">
+          Cartões reversos (🇧🇷→🇺🇸): às vezes mostrar a tradução e pedir o inglês
+        </label>
+        <p style="font-size:12px; color:var(--color-text-light); margin-top:6px; margin-left:28px;">Só para cards já graduados — dobra o valor de cada palavra, como as notas de 2 cartões do Anki.</p>
       </div>
 
       <!-- Audio Options -->
@@ -296,6 +303,8 @@ export async function renderSettings(container, app) {
     if (penalty) await lfDb.setSetting('lf_srs_penalty', penalty);
     if (suspend) await lfDb.setSetting('lf_srs_suspend', suspend);
     if (retention) await lfDb.setSetting('lf_srs_retention', (Number(retention) / 100).toFixed(2));
+    const reverseChk = document.getElementById('srs-reverse-cards');
+    if (reverseChk) await lfDb.setSetting('lf_reverse_cards', reverseChk.checked ? 'true' : '');
     
     app.showToast('Configurações salvas com sucesso! ✅', 'success');
     setTimeout(() => btnSave.innerHTML = originalText, 500);

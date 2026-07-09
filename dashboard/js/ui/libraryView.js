@@ -1,18 +1,24 @@
 import { db as lfDb } from '../../../utils/db.js';
+import { generateChunksWeb } from '../core/ai.js';
 
 let allWords = [];
 let filteredWords = [];
+let cardByWordId = {};
 let currentCategory = 'all'; // all, words, phrasal, slang, idioms
 let currentLetter = null; // 'A', 'B', etc. or null for all
+
+const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
 export async function renderLibrary(container, app) {
   injectStyles();
   container.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--color-text-light);">Carregando cofre...</div>';
-  
+
   try {
-    allWords = await lfDb.getAllWords();
+    const [words, cards] = await Promise.all([lfDb.getAllWords(), lfDb.getAllCards()]);
+    cardByWordId = {};
+    cards.forEach(c => { cardByWordId[c.word_id] = c; });
     // Default to 'words' if category doesn't exist to avoid empty states
-    allWords = allWords.map(w => ({
+    allWords = words.map(w => ({
       ...w,
       category: w.category || _inferCategory(w.word)
     })).filter(w => w.category !== 'sentence');
@@ -100,18 +106,22 @@ function renderUI(container, app) {
         ${filteredWords.length === 0 ? `
           <div class="empty-state">Nenhum item encontrado nesta categoria/letra.</div>
         ` : `
-          ${filteredWords.map(w => `
-            <div class="word-card">
+          ${filteredWords.map(w => {
+            const card = cardByWordId[w.id];
+            const suspended = !!(card && card.suspended);
+            return `
+            <div class="word-card" style="${suspended ? 'opacity:0.55;' : ''}">
               <div class="word-info">
-                <div class="word-main">${w.word}</div>
+                <div class="word-main">${w.word} ${suspended ? '<span style="font-size:11px; font-weight:800; color:var(--color-warning); border:1px solid var(--color-warning); border-radius:6px; padding:1px 6px; vertical-align:middle;">SUSPENSO</span>' : ''}</div>
                 <div class="word-trans">${w.translation}</div>
               </div>
               <div class="word-actions">
                 ${renderStatus(w.reps)}
+                ${card ? `<button class="btn-suspend" data-card-id="${card.id}" title="${suspended ? 'Reativar o card no estudo' : 'Suspender: some do estudo até reativar'}">${suspended ? '▶️' : '⏸️'}</button>` : ''}
                 <button class="btn-delete" data-id="${w.id}" title="Excluir">🗑️</button>
               </div>
             </div>
-          `).join('')}
+          `;}).join('')}
         `}
       </div>
     </div>
@@ -136,11 +146,36 @@ function renderUI(container, app) {
   document.querySelectorAll('.btn-delete').forEach(btn => {
       btn.addEventListener('click', async (e) => {
           if(confirm('Tem certeza que deseja excluir este item?')) {
-              const id = parseInt(e.currentTarget.dataset.id, 10);
-              await lfDb.deleteWord(id);
+              // IDs são UUIDs — o parseInt antigo quebrava a exclusão
+              const id = e.currentTarget.dataset.id;
+              try {
+                await lfDb.deleteWord(id);
+              } catch (err) {
+                console.error(err);
+                app.showToast('Erro ao excluir.', 'error');
+                return;
+              }
               allWords = allWords.filter(w => w.id !== id);
               renderUI(container, app);
               app.showToast('Item excluído.', 'info');
+          }
+      });
+  });
+
+  // Suspender/reativar card (pausa do estudo sem perder o progresso — Anki)
+  document.querySelectorAll('.btn-suspend').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+          const cardId = e.currentTarget.dataset.cardId;
+          const card = Object.values(cardByWordId).find(c => c.id === cardId);
+          if (!card) return;
+          try {
+            await lfDb.updateCard({ ...card, suspended: !card.suspended });
+            card.suspended = !card.suspended;
+            renderUI(container, app);
+            app.showToast(card.suspended ? 'Card suspenso ⏸️' : 'Card reativado ▶️', 'info');
+          } catch (err) {
+            console.error(err);
+            app.showToast('Erro ao alterar o card.', 'error');
           }
       });
   });
@@ -159,15 +194,11 @@ function renderUI(container, app) {
       for (const w of missing) {
         bannerText.innerHTML = `Gerando para: <strong>${w.word}</strong> (${count + 1}/${missing.length})... Pode demorar um pouco.`;
         try {
-          const res = await new Promise(resolve => {
-            if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-              chrome.runtime.sendMessage({ action: 'ai_generate_chunks', word: w.word }, resolve);
-            } else {
-              // Web App Fallback: In the future, call Supabase Edge Function. For now, mock or fail gracefully.
-              console.warn("AI Generation is currently only supported in the Extension environment.");
-              resolve({ chunks: [] });
-            }
-          });
+          const res = isExtension
+            ? await new Promise(resolve => {
+                chrome.runtime.sendMessage({ action: 'ai_generate_chunks', word: w.word }, resolve);
+              })
+            : { chunks: await generateChunksWeb(w.word).catch(() => []) };
           if (res && res.chunks && res.chunks.length > 0) {
             const hasGoodVideoContext = w.context_sentence && w.context_sentence !== w.word && w.context_sentence.split(' ').length > 2;
             if (!hasGoodVideoContext) {

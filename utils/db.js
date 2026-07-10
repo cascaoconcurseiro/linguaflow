@@ -153,7 +153,12 @@ class Database {
         throw new Error(`[Supabase Error] ${res.status}: ${err}`);
       }
       if (res.status === 204) return [];
-      return await res.json();
+      // POST/PATCH sem 'Prefer: return=representation' respondem 200/201 com
+      // corpo VAZIO — res.json() estourava "Unexpected end of JSON input"
+      // (a escrita tinha funcionado; só o parse quebrava).
+      const text = await res.text();
+      if (!text) return [];
+      return JSON.parse(text);
     } catch (e) {
       console.error('[DB] Fetch Error:', e);
       // Escritas NÃO podem falhar em silêncio: o chamador precisa saber

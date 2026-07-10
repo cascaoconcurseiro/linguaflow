@@ -19,6 +19,7 @@
 - **2026-07-10 — P0 / limites diários:** a fila de estudo passou a aplicar a cota de revisões apenas a cards de revisão, sem esconder cards novos ou passos de aprendizagem. O recorte anterior usava uma única lista e podia bloquear conteúdo indevidamente.
 - **2026-07-10 — P0 / undo íntegro:** criada e aplicada a migration `20260710173541_reversible_review_events`. O `review_log` agora registra o XP e um snapshot das estatísticas anteriores; `revert_card_review` restaura card + XP + streak como uma transação e só permite desfazer a última atividade. O cliente não pode mais apagar logs diretamente.
 - **2026-07-10 — P0 / recuperação de migrations:** os scripts históricos de `security_hardening_e0`, `translation_cache_e2`, `learning_engine_e4`, `league_rollover_e5` e `harden_ensure_user_stats` foram recuperados para `supabase/migrations/` a partir do schema e funções efetivamente inspecionados na produção. Eles não foram reaplicados (já constam no histórico do Supabase); a próxima validação é executá-los num banco efêmero antes de considerar a reprodução integral concluída.
+- **2026-07-10 — P1 / nivelamento confiável:** o resultado combinado agora exige refazer o teste quando o controle de pseudo-palavras aponta chute. Antes, alguém podia obter um nível alto acertando alternativas de cloze/listening apesar de invalidar o vocabulário; agora o nível fica limitado à base verificada e não pode ser aplicado.
 
 ### Plano de conclusão (ordem obrigatória)
 

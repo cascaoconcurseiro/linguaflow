@@ -151,9 +151,14 @@ export function scoreListening(clozeLevel, correct, total) {
 }
 
 // Combina as 3 habilidades: vocabulário 40%, gramática/leitura 40%, escuta 20%
-export function combinePlacement(vocabLevel, clozeLevel, listeningLevel) {
+export function combinePlacement(vocabLevel, clozeLevel, listeningLevel, honesty = 100) {
   const v = levelIndex(vocabLevel), c = levelIndex(clozeLevel), l = levelIndex(listeningLevel);
-  const finalIdx = Math.round(0.4 * v + 0.4 * c + 0.2 * l);
+  const rawIdx = Math.round(0.4 * v + 0.4 * c + 0.2 * l);
+  // Marcar pseudo-palavras como conhecidas invalida a base de vocabulário.
+  // Nesse caso não é honesto aplicar um nível alto apenas por chutes nas
+  // alternativas de cloze/listening: exige refazer o diagnóstico.
+  const retestRequired = honesty < 60;
+  const finalIdx = retestRequired ? Math.min(rawIdx, v) : rawIdx;
   const gaps = [];
   if (v < finalIdx) gaps.push('vocabulário');
   if (c < finalIdx) gaps.push('gramática/leitura');
@@ -162,6 +167,7 @@ export function combinePlacement(vocabLevel, clozeLevel, listeningLevel) {
     level: LEVELS[Math.max(0, Math.min(LEVELS.length - 1, finalIdx))],
     breakdown: { vocab: vocabLevel, cloze: clozeLevel, listening: listeningLevel },
     gaps,
+    retestRequired,
   };
 }
 

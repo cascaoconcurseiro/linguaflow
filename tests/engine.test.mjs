@@ -114,6 +114,9 @@ test('combinePlacement: 40/40/20 com diagnóstico de lacunas', () => {
   const r2 = P.combinePlacement('B1', 'B1', 'B1');
   assert.equal(r2.level, 'B1');
   assert.deepEqual(r2.gaps, []);
+  const cheated = P.combinePlacement('A1', 'C1', 'C1', 0);
+  assert.equal(cheated.level, 'A1');
+  assert.equal(cheated.retestRequired, true);
 });
 
 test('shuffleItem preserva a resposta correta', () => {

@@ -145,7 +145,7 @@ async function runPlacementTest(app, onDone) {
 
   // ── Resultado combinado + lacunas ──────────────────────────────────────────
   function finish(vocabResult, clozeLevel, listeningLevel) {
-    const combo = combinePlacement(vocabResult.level, clozeLevel, listeningLevel);
+    const combo = combinePlacement(vocabResult.level, clozeLevel, listeningLevel, vocabResult.honesty);
     const levelNames = { A1: 'Iniciante', A2: 'Básico', B1: 'Intermediário', B2: 'Fluente Base', C1: 'Avançado' };
     const skillRow = (label, lvl) => `
       <div style="display:flex; justify-content:space-between; padding:8px 12px; background:var(--color-bg-alt); border-radius:8px; font-size:14px;">
@@ -162,11 +162,12 @@ async function runPlacementTest(app, onDone) {
         ${skillRow('🎧 Escuta', combo.breakdown.listening)}
       </div>
       ${combo.gaps.length ? `<p style="color:#ff9600; font-size:13px; font-weight:700; margin-bottom:12px;">💡 Ponto a reforçar: ${combo.gaps.join(', ')}.</p>` : ''}
-      ${vocabResult.honesty < 60 ? '<p style="color:var(--color-danger); font-size:13px; margin-bottom:16px;">Você marcou "conheço" em palavras que não existem — o vocabulário foi ajustado pra baixo. Refaça com calma!</p>' : '<p style="color:var(--color-text-light); font-size:13px; margin-bottom:16px;">Nível aplicado em todo o sistema: IA, histórias e legendas.</p>'}
-      <button id="pl-apply" class="btn btn-primary" style="width:100%; padding:14px;">Usar este nível</button>
+      ${combo.retestRequired ? '<p style="color:var(--color-danger); font-size:13px; margin-bottom:16px;">As pseudo-palavras indicam respostas por chute. Por segurança, este resultado não será aplicado: refaça o teste com calma.</p>' : '<p style="color:var(--color-text-light); font-size:13px; margin-bottom:16px;">Nível aplicado em todo o sistema: IA, histórias e legendas.</p>'}
+      <button id="pl-apply" class="btn btn-primary" style="width:100%; padding:14px;" ${combo.retestRequired ? 'disabled aria-disabled="true" title="Refaça o teste para aplicar um resultado confiável"' : ''}>Usar este nível</button>
       <button id="pl-redo" style="background:none; border:none; color:var(--color-text-light); font-family:var(--font-main); font-weight:700; font-size:13px; cursor:pointer; margin-top:12px;">Refazer o teste</button>`;
 
     box.querySelector('#pl-apply').addEventListener('click', async () => {
+      if (combo.retestRequired) return;
       try {
         await lfDb.setSetting('lf_cefr_level', combo.level);
         lfDb.setSetting('cefrTargetLevel', combo.level).catch(() => {});

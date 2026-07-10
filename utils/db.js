@@ -477,10 +477,13 @@ class Database {
   // Contadores do dia para os limites diários (novas/dia e revisões/dia)
   async getTodayCounts() {
     if (this.isProxyMode) return this._proxy('getTodayCounts', []);
-    const today = new Date().toISOString().split('T')[0];
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
     const [logToday, introduced] = await Promise.all([
-      this._fetch(`review_log?date=eq.${today}&select=id`),
-      this._fetch(`cards?introduced_at=gte.${today}T00:00:00Z&select=id`),
+      this._fetch(`review_log?ts=gte.${encodeURIComponent(start.toISOString())}&ts=lt.${encodeURIComponent(end.toISOString())}&select=id`),
+      this._fetch(`cards?introduced_at=gte.${encodeURIComponent(start.toISOString())}&introduced_at=lt.${encodeURIComponent(end.toISOString())}&select=id`),
     ]);
     return {
       reviewsToday: (logToday || []).length,
@@ -932,7 +935,8 @@ class Database {
 
   async logSession(seconds, platform) {
     if (this.isProxyMode) return this._proxy('logSession', [seconds, platform]);
-    const date = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const date = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
     const sessions = await this._fetch(`sessions?date=eq.${date}&limit=1`);
     
     if (sessions && sessions.length > 0) {
@@ -999,9 +1003,13 @@ class Database {
     if (this.isProxyMode) return this._proxy('ensureUserStats', []);
     
     // Apenas garante que o perfil exista via backend (XP agora é automático por Triggers)
-    const res = await this._fetch('rpc/ensure_user_stats', {
+    await this._fetch('rpc/ensure_user_stats', {
       method: 'POST'
     });
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (timezone) {
+      await this._fetch('rpc/set_user_timezone', { method: 'POST', body: { p_timezone: timezone } });
+    }
     
     return { ok: true };
   }

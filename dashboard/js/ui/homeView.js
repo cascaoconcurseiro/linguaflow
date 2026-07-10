@@ -1,13 +1,170 @@
 import { lemma } from '../../../utils/lemma.js';
+import { addLocalDays, daysBetweenLocalKeys, localDateKey } from '../../../utils/local-day.js';
 import { runPlacementTest } from './settingsView.js';
+
+// Fiação REAL do onboarding (nada decorativo): a escolha rápida vira um CEFR
+// de partida, o teste de 3 fases refina, e a meta grava a cota de cartas
+// novas/dia na MESMA chave que a fila de estudo lê.
+const LEVEL_TO_CEFR = { beginner: 'A1', intermediate: 'B1', advanced: 'B2' };
+const GOAL_TO_NEW_PER_DAY = { 10: 5, 20: 10, 40: 20 };
+
+const ONBOARDING_KEY = 'onboarding_v1';
+const ONBOARDING_LEVELS = new Set(['beginner', 'intermediate', 'advanced']);
+
+function parseOnboarding(value) {
+    if (typeof value !== 'string') return null;
+    try {
+        const parsed = JSON.parse(value);
+        const dailyGoal = Number(parsed?.dailyGoal);
+        if (parsed?.version !== 1 || !ONBOARDING_LEVELS.has(parsed.level)
+            || !Number.isInteger(dailyGoal) || dailyGoal < 1 || dailyGoal > 200) return null;
+        return {
+            version: 1,
+            completed: parsed.completed === true,
+            level: parsed.level,
+            dailyGoal,
+            updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : null,
+        };
+    } catch {
+        return null;
+    }
+}
+
+function renderHomeLoadError(container, app) {
+    container.innerHTML = `
+        <section class="onboarding-shell" aria-labelledby="home-load-error-title">
+            <div class="onboarding-card" role="alert">
+                <p class="onboarding-kicker">CONEXÃO</p>
+                <h2 id="home-load-error-title">Não foi possível carregar seus dados</h2>
+                <p>Seus cards não foram apagados. Verifique a conexão e tente novamente.</p>
+                <button type="button" class="btn-action btn-study" id="btn-retry-home">Tentar novamente</button>
+            </div>
+        </section>`;
+    container.querySelector('#btn-retry-home')?.addEventListener('click', () => renderHome(container, app));
+}
+
+function renderOnboarding(container, app, initial = {}) {
+    let step = 1;
+    let level = initial.level || null;
+    let dailyGoal = initial.dailyGoal || null;
+    let placementCefr = null; // CEFR medido pelo teste de 3 fases (já persistido)
+
+    const levels = [
+        ['beginner', 'Começando', 'Ainda formo frases curtas.'],
+        ['intermediate', 'Intermediário', 'Entendo a ideia geral de textos e vídeos.'],
+        ['advanced', 'Avançado', 'Quero ganhar precisão e vocabulário.'],
+    ];
+    const goals = [10, 20, 40];
+
+    const draw = () => {
+        const content = step === 1 ? `
+            <p class="onboarding-kicker">PASSO 1 DE 3</p>
+            <h2 id="onboarding-title">Como você se sente no inglês?</h2>
+            <p>Isso personaliza o seu ponto de partida; você pode ajustar depois.</p>
+            <div class="onboarding-options" role="radiogroup" aria-label="Nível atual de inglês">
+                ${levels.map(([value, title, description]) => `<button type="button" class="onboarding-option ${level === value ? 'selected' : ''}" role="radio" aria-checked="${level === value}" data-level="${value}"><strong>${title}</strong><span>${description}</span></button>`).join('')}
+            </div>
+            <button type="button" class="onboarding-back" id="btn-onboarding-placement" style="margin-top:12px;">🎯 Prefiro medir com o teste de nivelamento (3 fases, ~4 min)</button>` : step === 2 ? `
+            <p class="onboarding-kicker">PASSO 2 DE 3</p>
+            <h2 id="onboarding-title">Qual é sua meta diária?</h2>
+            <p>Ela passa a ser sua missão diária de revisões. Comece leve: consistência vence intensidade.</p>
+            <div class="onboarding-options" role="radiogroup" aria-label="Meta diária de revisões">
+                ${goals.map(goal => `<button type="button" class="onboarding-option ${dailyGoal === goal ? 'selected' : ''}" role="radio" aria-checked="${dailyGoal === goal}" data-goal="${goal}"><strong>${goal} revisões</strong><span>${goal === 10 ? 'Cerca de 5 minutos' : goal === 20 ? 'Cerca de 10 minutos' : 'Cerca de 20 minutos'}</span></button>`).join('')}
+            </div>` : `
+            <p class="onboarding-kicker">PASSO 3 DE 3</p>
+            <h2 id="onboarding-title">Seu plano está pronto</h2>
+            <p><strong>${dailyGoal} revisões por dia</strong>, no ritmo ${levels.find(item => item[0] === level)?.[1].toLowerCase() || 'escolhido'}.</p>
+            <p>Comece por uma história curta e salve a primeira palavra que quiser praticar. Ela aparecerá nos seus flashcards.</p>`;
+        container.innerHTML = `
+            <section class="onboarding-shell" aria-labelledby="onboarding-title">
+                <div class="onboarding-card">
+                    ${content}
+                    <p class="onboarding-status" id="onboarding-status" role="status" aria-live="polite"></p>
+                    <div class="onboarding-actions">
+                        ${step > 1 ? '<button type="button" class="onboarding-back" id="btn-onboarding-back">Voltar</button>' : ''}
+                        ${step < 3 ? `<button type="button" class="btn-action btn-study" id="btn-onboarding-next" ${step === 1 && !level || step === 2 && !dailyGoal ? 'disabled' : ''}>Continuar</button>` : '<button type="button" class="btn-action btn-study" id="btn-onboarding-finish">Começar pela história</button>'}
+                    </div>
+                </div>
+            </section>`;
+
+        container.querySelectorAll('[data-level]').forEach(button => button.addEventListener('click', () => {
+            level = button.dataset.level;
+            draw();
+        }));
+        container.querySelectorAll('[data-goal]').forEach(button => button.addEventListener('click', () => {
+            dailyGoal = Number(button.dataset.goal);
+            draw();
+        }));
+        container.querySelector('#btn-onboarding-back')?.addEventListener('click', () => { step -= 1; draw(); });
+        container.querySelector('#btn-onboarding-next')?.addEventListener('click', () => { step += 1; draw(); });
+        // Teste de 3 fases: mede de verdade e já grava o CEFR real
+        container.querySelector('#btn-onboarding-placement')?.addEventListener('click', () => {
+            runPlacementTest(app, (cefr) => {
+                level = cefr === 'A1' || cefr === 'A2' ? 'beginner' : cefr === 'B1' ? 'intermediate' : 'advanced';
+                placementCefr = cefr; // o teste já gravou lf_cefr_level; não sobrescrever
+                step = 2;
+                draw();
+            });
+        });
+        container.querySelector('#btn-onboarding-finish')?.addEventListener('click', async (event) => {
+            const button = event.currentTarget;
+            const status = container.querySelector('#onboarding-status');
+            button.disabled = true;
+            status.textContent = 'Salvando seu plano…';
+            const record = JSON.stringify({ version: 1, completed: true, level, dailyGoal, updatedAt: new Date().toISOString() });
+            try {
+                const saved = await app.db.setSetting(ONBOARDING_KEY, record);
+                if (!saved) throw new Error('Configuração não confirmada');
+                // Fiação real: CEFR (se o teste não gravou) + cota de novas/dia
+                if (!placementCefr && LEVEL_TO_CEFR[level]) {
+                    app.db.setSetting('lf_cefr_level', LEVEL_TO_CEFR[level]).catch(() => {});
+                    app.db.setSetting('cefrTargetLevel', LEVEL_TO_CEFR[level]).catch(() => {});
+                }
+                const newPerDay = GOAL_TO_NEW_PER_DAY[dailyGoal];
+                if (newPerDay) app.db.setSetting('new_per_day', String(newPerDay)).catch(() => {});
+                app.navigate?.('stories');
+            } catch (error) {
+                console.warn('[Onboarding] Não foi possível salvar:', error);
+                status.textContent = 'Não foi possível salvar seu plano. Tente novamente.';
+                button.disabled = false;
+            }
+        });
+    };
+    draw();
+}
 
 export async function renderHome(container, app) {
     injectStyles();
 
     // Stats via db unificado (Supabase) exposto em app.db
     const db = app?.db;
-    const stats = db ? await db.getStats().catch(() => null) : null;
-    const userStats = db ? await db.getUserStats().catch(() => null) : null;
+    container.setAttribute('aria-busy', 'true');
+    container.innerHTML = '<p class="home-loading" role="status">Carregando seu painel…</p>';
+    if (!db) {
+        container.removeAttribute('aria-busy');
+        renderHomeLoadError(container, app);
+        return;
+    }
+    const [statsResult, userStatsResult, onboardingResult] = await Promise.allSettled([
+        db.getStats(), db.getUserStats(), db.getSetting(ONBOARDING_KEY),
+    ]);
+    container.removeAttribute('aria-busy');
+    if (statsResult.status !== 'fulfilled') {
+        renderHomeLoadError(container, app);
+        return;
+    }
+    const stats = statsResult.value;
+    const userStats = userStatsResult.status === 'fulfilled' ? userStatsResult.value : null;
+    if (onboardingResult.status !== 'fulfilled') {
+        // Sem confirmação do estado persistido, não assumimos que seja uma conta vazia.
+        renderHomeLoadError(container, app);
+        return;
+    }
+    const onboarding = parseOnboarding(onboardingResult.value);
+    if (!onboarding?.completed) {
+        renderOnboarding(container, app, onboarding || {});
+        return;
+    }
 
     const safeStats = stats || { totalWords: 0, dueCards: 0, byStatus: {}, sessions: [] };
     // FONTE ÚNICA: user_stats (Postgres). O localStorage paralelo foi removido —
@@ -15,59 +172,8 @@ export async function renderHome(container, app) {
     const xpToday = userStats?.xp_today ?? 0;
     const streak = userStats?.streak ?? 0;
 
-    // ── ONBOARDING DE PRIMEIRO ACESSO (P1 da auditoria) ─────────────────────
-    // Novo usuário sai do wizard com: nível CEFR definido (teste ou escolha),
-    // meta diária REAL (grava new_per_day, a mesma chave que a fila de estudo
-    // lê) e uma primeira ação útil. Roda uma vez (lf_onboarding_done).
-    const onboardingDone = db ? await db.getSetting('lf_onboarding_done').catch(() => null) : null;
-    if (safeStats.totalWords === 0 && !onboardingDone && db) {
-        renderOnboarding(container, app, db);
-        return;
-    }
-
-    // MODO EMPTY STATE (fez onboarding mas ainda não salvou palavras)
-    if (safeStats.totalWords === 0) {
-        container.innerHTML = `
-            <div class="gamified-home" style="justify-content: center; align-items: center; min-height: calc(100vh - 100px);">
-                <div class="onboarding-card" style="background: var(--color-surface); border-radius: 24px; padding: 48px 32px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); text-align: center; max-width: 600px; width: 100%; border: 2px solid var(--color-border);">
-                    <div style="font-size: 80px; margin-bottom: 24px; animation: wave 2s infinite; display: inline-block; transform-origin: 70% 70%;">👋</div>
-                    <h2 style="font-size: 32px; color: var(--color-text); margin: 0 0 16px 0; font-weight: 900;">Bem-vindo ao LinguaFlow!</h2>
-                    <p style="font-size: 18px; color: var(--color-text-light); font-weight: 700; margin: 0 auto 32px; line-height: 1.5;">Seu vocabulário está zerado. Para começar a aprender e ganhar XP, siga estes 3 passos simples usando a nossa Extensão:</p>
-                    
-                    <div style="display: flex; flex-direction: column; gap: 16px; text-align: left; background: var(--color-bg-alt); border: 2px solid var(--color-border); border-radius: 24px; padding: 24px;">
-                        <div style="display: flex; gap: 16px; align-items: center;">
-                            <div style="background: #58cc02; box-shadow: 0 4px 0 #58a700; color: white; width: 36px; height: 36px; min-width: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px;">1</div>
-                            <div style="font-weight: bold; color: var(--color-text); font-size: 16px;">Acesse qualquer site em inglês no Google Chrome</div>
-                        </div>
-                        <div style="display: flex; gap: 16px; align-items: center;">
-                            <div style="background: #ce82ff; box-shadow: 0 4px 0 #a561cf; color: white; width: 36px; height: 36px; min-width: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px;">2</div>
-                            <div style="font-weight: bold; color: var(--color-text); font-size: 16px;">Dê dois cliques em uma palavra desconhecida</div>
-                        </div>
-                        <div style="display: flex; gap: 16px; align-items: center;">
-                            <div style="background: #ffc800; box-shadow: 0 4px 0 #e5b400; color: white; width: 36px; height: 36px; min-width: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px;">3</div>
-                            <div style="font-weight: bold; color: var(--color-text); font-size: 16px;">Leia a tradução e clique no botão Salvar!</div>
-                        </div>
-                    </div>
-                </div>
-                <style>
-                    @keyframes wave {
-                        0% { transform: rotate(0deg); }
-                        10% { transform: rotate(14deg); }
-                        20% { transform: rotate(-8deg); }
-                        30% { transform: rotate(14deg); }
-                        40% { transform: rotate(-4deg); }
-                        50% { transform: rotate(10deg); }
-                        60% { transform: rotate(0deg); }
-                        100% { transform: rotate(0deg); }
-                    }
-                </style>
-            </div>
-        `;
-        return;
-    }
-
     // Missões diárias calculadas de dados REAIS (não mais localStorage estático)
-    const todayISO = new Date().toISOString().slice(0, 10);
+    const todayISO = localDateKey();
     let reviewsToday = 0;
     let wordsToday = 0;
     let retention30 = null;   // % de acertos (não-"Errei") nos últimos 30 dias
@@ -85,8 +191,9 @@ export async function renderHome(container, app) {
             db ? db.getAllCards() : [],
             db ? db.getAllKnownWords().catch(() => []) : []
         ]);
-        reviewsToday = (logToday || []).filter(r => r.date === todayISO).length;
-        wordsToday = (allWords || []).filter(w => (w.added_at || '').slice(0, 10) === todayISO).length;
+        const activityDate = (row) => row?.ts ? localDateKey(row.ts) : row?.date;
+        reviewsToday = (logToday || []).filter(r => activityDate(r) === todayISO).length;
+        wordsToday = (allWords || []).filter(w => w.added_at && localDateKey(w.added_at) === todayISO).length;
 
         // Conhecidas = marcadas no Leitor + cards maduros, agrupadas por família
         const matureByWordId = {};
@@ -102,18 +209,17 @@ export async function renderHome(container, app) {
         }
 
         // Ritmo dos últimos 7 dias: é o que torna as missões ADAPTATIVAS
-        const sevenAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
-        const last7 = (log30 || []).filter(r => r.date >= sevenAgo);
+        const sevenAgo = localDateKey(addLocalDays(-6));
+        const last7 = (log30 || []).filter(r => activityDate(r) >= sevenAgo);
         avgReviews7 = last7.length / 7;
-        avgWords7 = (allWords || []).filter(w => (w.added_at || '').slice(0, 10) >= sevenAgo).length / 7;
+        avgWords7 = (allWords || []).filter(w => w.added_at && localDateKey(w.added_at) >= sevenAgo).length / 7;
 
         // Forecast: quantos cards vencem em cada um dos próximos 7 dias
-        const startTomorrow = new Date(); startTomorrow.setDate(startTomorrow.getDate() + 1); startTomorrow.setHours(0, 0, 0, 0);
+        const tomorrow = localDateKey(addLocalDays(1));
         forecast = Array(7).fill(0);
         (allCards || []).forEach(c => {
-            if (c.suspended) return;
-            const due = new Date(c.due_date);
-            const dayIdx = Math.floor((due - startTomorrow) / 86400000);
+            if (c.suspended || !c.due_date) return;
+            const dayIdx = daysBetweenLocalKeys(tomorrow, localDateKey(c.due_date));
             if (dayIdx >= 0 && dayIdx < 7) forecast[dayIdx]++;
         });
         dueTomorrow = forecast[0];
@@ -125,10 +231,12 @@ export async function renderHome(container, app) {
     // Quem sumiu ganha uma missão de RETORNO leve em vez de meta alta.
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v)));
     const lastStudy = userStats?.last_study_date || null;
-    const daysAway = lastStudy ? Math.floor((Date.now() - new Date(lastStudy + 'T00:00:00Z').getTime()) / 86400000) : 0;
+    const daysAway = lastStudy ? Math.max(0, daysBetweenLocalKeys(lastStudy, todayISO)) : 0;
     const isReturning = daysAway >= 2; // sumiu 2+ dias
 
-    const revTarget = isReturning ? 5 : clamp(avgReviews7 * 1.2, 5, 50);
+    // A meta escolhida no onboarding é a missão principal. Em retorno após
+    // ausência, reduzimos apenas essa primeira missão para evitar fricção.
+    const revTarget = isReturning ? Math.min(onboarding.dailyGoal, 5) : onboarding.dailyGoal;
     const xpTarget = isReturning ? 30 : clamp((avgReviews7 * 1.2 * 10) / 10, 3, 20) * 10;
     const newTarget = isReturning ? 2 : clamp(avgWords7 * 1.2, 2, 10);
 
@@ -206,7 +314,7 @@ export async function renderHome(container, app) {
                         ${forecast.map((n, i) => {
                             const max = Math.max(...forecast, 1);
                             const h = Math.max(4, Math.round((n / max) * 34));
-                            const d = new Date(Date.now() + (i + 1) * 86400000);
+                            const d = addLocalDays(i + 1);
                             const label = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'][d.getDay()];
                             return `<div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;">
                                 <div style="font-size:9px; color:var(--color-text-light); font-weight:700;">${n || ''}</div>
@@ -306,12 +414,10 @@ export async function renderHome(container, app) {
     const heatmapGrid = container.querySelector('#heatmap-grid');
     if (heatmapGrid && safeStats.sessions) {
         let cellsHTML = '';
-        const todayDate = new Date();
-        const thirtyDaysAgo = new Date(todayDate.getTime() - 29 * 24 * 60 * 60 * 1000);
+        const thirtyDaysAgo = addLocalDays(-29);
         
         for (let i = 0; i < 30; i++) {
-            const d = new Date(thirtyDaysAgo.getTime() + i * 24 * 60 * 60 * 1000);
-            const dateStr = d.toISOString().split('T')[0];
+            const dateStr = localDateKey(addLocalDays(i, thirtyDaysAgo));
             const session = safeStats.sessions.find(s => s.date === dateStr);
             let level = 0;
             if (session) {
@@ -330,103 +436,28 @@ export async function renderHome(container, app) {
     }
 }
 
-// ── Wizard de onboarding (3 passos) ─────────────────────────────────────────
-function renderOnboarding(container, app, db) {
-    const state = { level: null, goal: null };
-    const LEVELS = [
-        ['A1', 'Iniciante'], ['A2', 'Básico'], ['B1', 'Intermediário'],
-        ['B2', 'Fluente Base'], ['C1', 'Avançado'],
-    ];
-    const GOALS = [
-        { id: 'leve', label: '🌱 Leve', desc: '5 palavras novas/dia · ~10 min', newPerDay: 5 },
-        { id: 'normal', label: '🎯 Normal', desc: '10 palavras novas/dia · ~20 min', newPerDay: 10 },
-        { id: 'intenso', label: '🔥 Intenso', desc: '20 palavras novas/dia · ~40 min', newPerDay: 20 },
-    ];
-
-    function shell(step, inner) {
-        container.innerHTML = `
-        <div class="gamified-home" style="justify-content:center; align-items:center; min-height:calc(100vh - 100px);">
-            <div style="background:var(--color-surface); border-radius:24px; padding:40px 32px; box-shadow:0 8px 24px rgba(0,0,0,0.08); text-align:center; max-width:620px; width:100%; border:2px solid var(--color-border);">
-                <div style="display:flex; justify-content:center; gap:8px; margin-bottom:24px;" aria-label="Passo ${step} de 3">
-                    ${[1, 2, 3].map(i => `<div style="width:${i === step ? 28 : 10}px; height:10px; border-radius:5px; background:${i <= step ? 'var(--color-primary)' : 'var(--color-border)'}; transition:all 0.3s;"></div>`).join('')}
-                </div>
-                ${inner}
-            </div>
-        </div>`;
-    }
-
-    function step1() {
-        shell(1, `
-            <div style="font-size:64px; margin-bottom:16px;">👋</div>
-            <h2 style="font-size:28px; color:var(--color-text); margin:0 0 8px 0; font-weight:900;">Bem-vindo ao LinguaFlow!</h2>
-            <p style="font-size:16px; color:var(--color-text-light); font-weight:700; margin:0 0 24px;">Primeiro: qual é o seu nível de inglês? Isso calibra a IA, as histórias e as legendas.</p>
-            <button id="ob-test" class="btn btn-primary" style="width:100%; padding:16px; font-size:16px; margin-bottom:16px;">🎯 Descobrir meu nível (teste de 3 fases, ~4 min)</button>
-            <p style="font-size:13px; color:var(--color-text-light); margin-bottom:12px;">Ou, se você já sabe:</p>
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                ${LEVELS.map(([lv, name]) => `<button class="ob-level btn" data-level="${lv}" style="flex:1; min-width:90px; padding:12px 8px; background:var(--color-bg-alt); color:var(--color-text); border:2px solid var(--color-border); font-weight:800;">${lv}<br><span style="font-size:11px; font-weight:600; color:var(--color-text-light);">${name}</span></button>`).join('')}
-            </div>`);
-        document.getElementById('ob-test').addEventListener('click', () => {
-            runPlacementTest(app, (level) => { state.level = level; step2(); });
-        });
-        container.querySelectorAll('.ob-level').forEach(btn => btn.addEventListener('click', async () => {
-            state.level = btn.dataset.level;
-            await db.setSetting('lf_cefr_level', state.level).catch(() => {});
-            db.setSetting('cefrTargetLevel', state.level).catch(() => {});
-            step2();
-        }));
-    }
-
-    function step2() {
-        shell(2, `
-            <div style="font-size:64px; margin-bottom:16px;">${state.level ? '🎓' : '🎯'}</div>
-            <h2 style="font-size:28px; color:var(--color-text); margin:0 0 8px 0; font-weight:900;">${state.level ? `Nível ${state.level} definido!` : 'Quase lá!'}</h2>
-            <p style="font-size:16px; color:var(--color-text-light); font-weight:700; margin:0 0 24px;">Qual ritmo você quer manter? (Isso define de verdade quantas cartas novas entram por dia — dá pra mudar nas Configurações.)</p>
-            <div style="display:flex; flex-direction:column; gap:12px;">
-                ${GOALS.map(g => `
-                <button class="ob-goal btn" data-goal="${g.id}" style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; background:var(--color-bg-alt); color:var(--color-text); border:2px solid var(--color-border); font-weight:800; font-size:16px;">
-                    <span>${g.label}</span><span style="font-size:13px; font-weight:600; color:var(--color-text-light);">${g.desc}</span>
-                </button>`).join('')}
-            </div>`);
-        container.querySelectorAll('.ob-goal').forEach(btn => btn.addEventListener('click', async () => {
-            const goal = GOALS.find(g => g.id === btn.dataset.goal);
-            state.goal = goal;
-            // Meta REAL: mesma chave que a fila de estudo respeita (new_per_day)
-            await db.setSetting('new_per_day', String(goal.newPerDay)).catch(() => {});
-            step3();
-        }));
-    }
-
-    function step3() {
-        shell(3, `
-            <div style="font-size:64px; margin-bottom:16px;">🚀</div>
-            <h2 style="font-size:28px; color:var(--color-text); margin:0 0 8px 0; font-weight:900;">Tudo pronto!</h2>
-            <p style="font-size:16px; color:var(--color-text-light); font-weight:700; margin:0 0 24px;">Escolha sua primeira ação — cada palavra que você salvar vira um card inteligente que o sistema agenda pra você nunca esquecer.</p>
-            <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px;">
-                <button id="ob-story" class="btn btn-primary" style="padding:16px; font-size:16px;">📚 Gerar minha primeira história (no meu nível)</button>
-                <button id="ob-reader" class="btn btn-secondary" style="padding:16px; font-size:16px;">📖 Experimentar o Leitor (colar um texto)</button>
-            </div>
-            <div style="text-align:left; background:var(--color-bg-alt); border:2px solid var(--color-border); border-radius:16px; padding:16px 20px; margin-bottom:20px;">
-                <div style="font-weight:900; color:var(--color-text); margin-bottom:8px;">🎬 E nos vídeos (YouTube, Netflix…):</div>
-                <div style="font-size:14px; color:var(--color-text-light); font-weight:600; line-height:1.6;">Instale a extensão LinguaFlow no Chrome → dê play num vídeo em inglês → clique em qualquer palavra da legenda pra salvar. É o jeito mais poderoso de aprender aqui.</div>
-            </div>
-            <button id="ob-done" style="background:none; border:none; color:var(--color-text-light); font-family:var(--font-main); font-weight:700; font-size:13px; cursor:pointer;">Pular por agora →</button>`);
-        const finish = async (dest) => {
-            await db.setSetting('lf_onboarding_done', 'true').catch(() => {});
-            if (dest) app.navigate(dest); else renderHome(container, app);
-        };
-        document.getElementById('ob-story').addEventListener('click', () => finish('stories'));
-        document.getElementById('ob-reader').addEventListener('click', () => finish('reader'));
-        document.getElementById('ob-done').addEventListener('click', () => finish(null));
-    }
-
-    step1();
-}
-
 function injectStyles() {
     if (document.getElementById('gamified-home-styles')) return;
     const style = document.createElement('style');
     style.id = 'gamified-home-styles';
     style.textContent = `
+        .home-loading { padding: 32px; color: var(--color-text-light); font-weight: 700; }
+        .onboarding-shell { min-height: calc(100vh - 150px); display: grid; place-items: center; padding: 24px; }
+        .onboarding-card { width: min(100%, 620px); background: var(--color-surface); border: 2px solid var(--color-border); border-radius: 24px; padding: clamp(24px, 6vw, 48px); box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+        .onboarding-card h2 { color: var(--color-text); font-size: clamp(26px, 5vw, 34px); margin: 0 0 12px; }
+        .onboarding-card p { color: var(--color-text-light); font-size: 16px; line-height: 1.55; }
+        .onboarding-kicker { color: var(--color-primary) !important; font-size: 12px !important; font-weight: 900; letter-spacing: .08em; margin: 0 0 10px; }
+        .onboarding-options { display: grid; gap: 12px; margin: 26px 0; }
+        .onboarding-option { appearance: none; width: 100%; text-align: left; background: var(--color-bg-alt); border: 2px solid var(--color-border); border-radius: 14px; color: var(--color-text); cursor: pointer; font: inherit; padding: 16px; }
+        .onboarding-option strong, .onboarding-option span { display: block; }
+        .onboarding-option span { color: var(--color-text-light); font-size: 14px; margin-top: 4px; }
+        .onboarding-option.selected { border-color: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 22%, transparent); }
+        .onboarding-option:focus-visible, .onboarding-actions button:focus-visible { outline: 3px solid #1cb0f6; outline-offset: 3px; }
+        .onboarding-actions { display: flex; align-items: center; gap: 12px; justify-content: flex-end; margin-top: 28px; }
+        .onboarding-actions .btn-action { flex: 0 1 auto; min-height: 52px; padding: 12px 20px; }
+        .onboarding-back { background: transparent; border: 0; color: var(--color-text-light); cursor: pointer; font: inherit; font-weight: 800; padding: 12px; }
+        .onboarding-status { min-height: 1.5em; color: #d9534f !important; font-weight: 700; }
+        @media (max-width: 480px) { .onboarding-shell { padding: 16px; } .onboarding-actions { align-items: stretch; flex-direction: column-reverse; } .onboarding-actions .btn-action { width: 100%; } }
         .gamified-home {
             display: flex;
             flex-direction: column;

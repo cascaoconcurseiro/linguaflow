@@ -1,6 +1,7 @@
 import { db as lfDb } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio, downloadAudio } from '../core/tts.js';
 import { aiChat, aiChatStream, getCefrLevel, grammarTutorPersona, grammarInitialQuestion, enrichCard, generateChunksWeb } from '../core/ai.js';
+import { attachVideoContext, renderVideoContext } from '../core/videoContext.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
@@ -150,6 +151,8 @@ export async function renderStudy(container, app) {
           <div style="font-size: 18px; color: var(--color-text); font-weight: 700; margin-bottom: 8px;" id="iso-trans"></div>
           <div style="font-size: 14px; color: var(--color-secondary); font-style: italic; background: rgba(28, 176, 246, 0.1); padding: 4px 12px; border-radius: 16px; display: inline-block;" id="iso-phonetics"></div>
         </div>
+
+        <div id="saved-video-context"></div>
 
         <h3 class="sidebar-title">Nativos falando 📺</h3>
         <div id="youglish-box" class="hidden">
@@ -444,6 +447,7 @@ async function loadNextCard(app) {
   document.getElementById('pump-phonetics').classList.add('hidden');
   document.getElementById('pump-translation').classList.add('hidden');
   document.getElementById('isolated-word-box').classList.add('hidden');
+  document.getElementById('saved-video-context').replaceChildren();
   document.getElementById('youglish-box').classList.add('hidden');
   document.getElementById('improve-btn').classList.add('hidden');
   document.getElementById('shadowing-overlay').classList.add('hidden');
@@ -855,6 +859,10 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card) {
     isoPhon.style.display = 'none';
   }
   isoBox.classList.remove('hidden');
+
+  const videoContainer = document.getElementById('saved-video-context');
+  videoContainer.innerHTML = renderVideoContext(wordData, 'study-video-context');
+  attachVideoContext(videoContainer);
 }
 
 // ── Chunks (frases úteis) ────────────────────────────────────────────────────
@@ -1331,6 +1339,14 @@ function injectStyles() {
     #youglish-box { background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
     #yg-widget-embed { width: 100%; min-height: 0; }
     #yg-widget-embed iframe { max-width: 100%; border-radius: var(--radius-md); }
+    #saved-video-context { margin-bottom: 24px; }
+    .video-context { max-width: 560px; }
+    .video-context-label { color: var(--color-text-light); font-size: 12px; font-weight: 800; }
+    .video-context-title { display: block; color: var(--color-text); font-size: 13px; margin: 3px 0 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .video-context-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .video-context-actions a, .video-context-embed { color: var(--color-secondary); background: transparent; border: 0; cursor: pointer; font: inherit; font-size: 13px; font-weight: 800; padding: 0; text-decoration: underline; }
+    .video-context-frame { margin-top: 12px; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; }
+    .video-context-frame iframe { width: 100%; height: 100%; border: 0; }
 
     @media (max-width: 768px) {
       .study-layout { flex-direction: column; }

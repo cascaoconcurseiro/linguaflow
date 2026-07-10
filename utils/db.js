@@ -1,5 +1,6 @@
 // utils/db.js — Banco único do LinguaFlow (Cloud-Only)
 // Integração 100% direta com Supabase via REST API (sem IndexedDB local)
+import { addLocalDays, localDateKey, localDayBounds } from './local-day.js';
 
 const SUPABASE_URL = 'https://qnutoswrufznztoznlql.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudXRvc3dydWZ6bnp0b3pubHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNzIyODEsImV4cCI6MjA5ODc0ODI4MX0.MdtBZwBnqNDpZ5nTytZDzNFKxHxd1rLmi6wT2MfV-0s';
@@ -477,10 +478,7 @@ class Database {
   // Contadores do dia para os limites diários (novas/dia e revisões/dia)
   async getTodayCounts() {
     if (this.isProxyMode) return this._proxy('getTodayCounts', []);
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
+    const { start, end } = localDayBounds();
     const [logToday, introduced] = await Promise.all([
       this._fetch(`review_log?ts=gte.${encodeURIComponent(start.toISOString())}&ts=lt.${encodeURIComponent(end.toISOString())}&select=id`),
       this._fetch(`cards?introduced_at=gte.${encodeURIComponent(start.toISOString())}&introduced_at=lt.${encodeURIComponent(end.toISOString())}&select=id`),
@@ -531,7 +529,7 @@ class Database {
       if (byStatus[c.status] !== undefined) byStatus[c.status]++;
     });
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = localDateKey();
     const todaySession = sessions.find((s) => s.date === today);
     const todaySecs = todaySession ? todaySession.seconds : 0;
     const totalSecs = sessions.reduce((acc, s) => acc + (s.seconds || 0), 0);
@@ -578,7 +576,7 @@ class Database {
 
   _calculateStreak(logs, sessions) {
     const dates = new Set();
-    if (logs) logs.forEach((l) => dates.add(l.date));
+    if (logs) logs.forEach((l) => dates.add(l.ts ? localDateKey(l.ts) : l.date));
     if (sessions)
       sessions.forEach((s) => {
         if (s.seconds >= 60) dates.add(s.date);
@@ -587,7 +585,7 @@ class Database {
     let streak = 0;
     let d = new Date();
     for (let i = 0; i < 365; i++) {
-      const ds = d.toISOString().split('T')[0];
+      const ds = localDateKey(d);
       if (dates.has(ds)) {
         streak++;
       } else if (i > 0) {
@@ -880,8 +878,8 @@ class Database {
 
   async getReviewLog(days = 30) {
     if (this.isProxyMode) return this._proxy('getReviewLog', [days]);
-    const minDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    return (await this._fetch(`review_log?date=gte.${minDate}`)) || [];
+    const start = localDayBounds(addLocalDays(-(Math.max(1, days) - 1))).start;
+    return (await this._fetch(`review_log?ts=gte.${encodeURIComponent(start.toISOString())}`)) || [];
   }
 
   async saveSentence(data) {
@@ -935,8 +933,7 @@ class Database {
 
   async logSession(seconds, platform) {
     if (this.isProxyMode) return this._proxy('logSession', [seconds, platform]);
-    const now = new Date();
-    const date = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+    const date = localDateKey();
     const sessions = await this._fetch(`sessions?date=eq.${date}&limit=1`);
     
     if (sessions && sessions.length > 0) {
@@ -956,7 +953,7 @@ class Database {
 
   async getSessions(days = 30) {
     if (this.isProxyMode) return this._proxy('getSessions', [days]);
-    const minDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const minDate = localDateKey(addLocalDays(-(Math.max(1, days) - 1)));
     return (await this._fetch(`sessions?date=gte.${minDate}`)) || [];
   }
 

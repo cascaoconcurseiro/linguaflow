@@ -2,6 +2,11 @@
   "name": "linguaflow",
   "private": true,
   "description": "LinguaFlow - Chrome Extension + Web App",
+  "scripts": {
+    "test:engine": "node tests/engine.test.mjs",
+    "test:local-day": "node tests/local-day.test.mjs",
+    "test:release": "node tests/release-smoke.mjs"
+  },
   "dependencies": {
     "acorn": "^8.17.0"
   }

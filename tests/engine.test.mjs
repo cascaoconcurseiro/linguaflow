@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const tmp = mkdtempSync(join(tmpdir(), 'lf-test-'));
 copyFileSync(join(root, 'utils/db.js'), join(tmp, 'db.mjs'));
+copyFileSync(join(root, 'utils/local-day.js'), join(tmp, 'local-day.js'));
 copyFileSync(join(root, 'dashboard/js/core/placement.js'), join(tmp, 'placement.mjs'));
 
 const { db } = await import(pathToFileURL(join(tmp, 'db.mjs')).href);

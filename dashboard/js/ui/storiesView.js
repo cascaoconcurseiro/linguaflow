@@ -51,11 +51,11 @@ export function renderStories(container, app) {
         <div style="display:flex; gap: 16px; flex-wrap:wrap;">
           <select id="story-genre" style="flex:1; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); font-size:16px; min-width: 200px; cursor: pointer; transition: border-color 0.2s;">
             <option value="Dia a Dia">☕ Dia a Dia</option>
-            <option value="Viagens">âœˆï¸ Viagens</option>
+            <option value="Viagens">✈️ Viagens</option>
             <option value="Ficção Científica">🚀 Ficção Científica</option>
             <option value="Negócios">💼 Negócios</option>
-            <option value="Mistério">ðŸ•µï¸ Mistério</option>
-            <option value="Romance">â¤ï¸ Romance</option>
+            <option value="Mistério">🕵️ Mistério</option>
+            <option value="Romance">❤️ Romance</option>
             <option value="Aventura">🌋 Aventura</option>
             <option value="História (Fatos reais)">📜 Fatos Históricos</option>
           </select>
@@ -88,10 +88,10 @@ export function renderStories(container, app) {
             
             <div style="display:flex; gap:8px;">
               <button id="btn-play-story" class="btn btn-primary lf-btn-bounce" style="padding: 8px 16px; font-size: 14px; display:flex; align-items:center; gap:6px;">
-                â–¶ï¸ Ouvir Tudo
+                ▶️ Ouvir Tudo
               </button>
               <button id="btn-stop-story" class="btn" style="padding: 8px 16px; font-size: 14px; display:none; align-items:center; gap:6px; background:#f44336; color:white; border:none;">
-                â¹ Parar
+                ⏹ Parar
               </button>
             </div>
           </div>
@@ -130,7 +130,7 @@ export function renderStories(container, app) {
     <!-- Floating Selection Toolbar -->
     <div id="lf-floating-toolbar" style="display:none; position:absolute; z-index:9000; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-sm); padding:6px; box-shadow:0 4px 12px rgba(0,0,0,0.1); flex-direction:column; gap:4px; animation:fadeIn 0.15s ease-out;">
       <div style="display:flex; gap:6px;">
-        <button id="lf-tb-translate" style="background:var(--color-bg); border:1px solid var(--color-border); border-radius:4px; padding:6px 12px; cursor:pointer; font-weight:bold; color:var(--color-text); display:flex; align-items:center; gap:6px; font-size:14px;" class="lf-card-hover">ðŸ‡§ðŸ‡· Traduzir</button>
+        <button id="lf-tb-translate" style="background:var(--color-bg); border:1px solid var(--color-border); border-radius:4px; padding:6px 12px; cursor:pointer; font-weight:bold; color:var(--color-text); display:flex; align-items:center; gap:6px; font-size:14px;" class="lf-card-hover">🇧🇷 Traduzir</button>
         <button id="lf-tb-tts" style="background:var(--color-bg); border:1px solid var(--color-border); border-radius:4px; padding:6px 12px; cursor:pointer; font-weight:bold; color:var(--color-text); display:flex; align-items:center; gap:6px; font-size:14px;" class="lf-card-hover">🔊 Ouvir</button>
       </div>
       <div id="lf-tb-translation-result" style="display:none; padding:8px; background:var(--color-bg); border-radius:4px; font-size:14px; color:var(--color-text); max-width:250px; line-height:1.4;"></div>
@@ -284,7 +284,13 @@ export function renderStories(container, app) {
     else localStorage.setItem(key, JSON.stringify(stories));
   }
 
-  async function saveStoryLocal(title, text, level) {
+  async function saveStoryLocal(title, text, level, genre) {
+    // BANCO primeiro (história = tokens gastos, nunca pode se perder;
+    // sincroniza entre dispositivos). Local fica como espelho offline.
+    db.saveStory({ title, content: text, level, genre })
+      .then((r) => { if (!r?.ok) console.warn('[Stories] Falha ao salvar no banco'); })
+      .catch((e) => console.warn('[Stories] Erro ao salvar no banco:', e.message));
+
     readStories((stories) => {
       stories.unshift({
         id: Date.now().toString(),
@@ -298,8 +304,23 @@ export function renderStories(container, app) {
     });
   }
 
-  function loadHistory() {
-    readStories((stories) => {
+  async function loadHistory() {
+    // Fonte da verdade: banco (sincroniza entre dispositivos); local = fallback
+    let stories = [];
+    try {
+      const rows = await db.getStories(50);
+      stories = (rows || []).map(r => ({ id: r.id, title: r.title, text: r.content, level: r.level || 'N/A', date: r.created_at }));
+    } catch (e) {
+      console.warn('[Stories] Banco indisponível, usando histórico local:', e.message);
+    }
+    if (stories.length === 0) {
+      stories = await new Promise((resolve) => readStories(resolve));
+    }
+    renderHistoryItems(stories);
+  }
+
+  function renderHistoryItems(stories) {
+    {
       historyList.innerHTML = '';
       if (stories.length === 0) {
         historyList.innerHTML = '<p style="color:var(--color-text-light); text-align:center; padding:20px;">Nenhuma história salva ainda. Gere sua primeira!</p>';
@@ -332,7 +353,7 @@ export function renderStories(container, app) {
         });
         historyList.appendChild(div);
       });
-    });
+    }
   }
 
   // Generation
@@ -374,7 +395,7 @@ export function renderStories(container, app) {
       storyLevelBadge.textContent = storyLevel;
       storyHeader.style.display = 'block';
 
-      saveStoryLocal(title, contentToRender, storyLevel);
+      saveStoryLocal(title, contentToRender, storyLevel, genre);
       renderStoryText(contentToRender, true);
     } catch (err) {
       app.showToast('Erro ao gerar história: ' + err.message, 'error');
@@ -410,13 +431,12 @@ export function renderStories(container, app) {
     paragraphs.forEach(p => {
       const pEl = document.createElement('p');
       pEl.style.marginBottom = '20px';
-      
-      const delimRegex = /([\s.,!?;:"'()\[\]{}*#â€”â€“\-â€œâ€â€˜â€™]+)/;
+      const delimRegex = /([\s.,!?;:"'()\[\]{}*#—–\-“”‘’]+)/;
       const tokens = p.split(delimRegex);
       const tokenNodes = [];
 
       tokens.forEach(token => {
-        if (/^[\s.,!?;:"'()\[\]{}*#â€”â€“\-â€œâ€â€˜â€™]+$/.test(token) || token.trim() === '') {
+        if (/^[s.,!?;:"'()[]{}*#—–-“”‘’]+$/.test(token) || token.trim() === '') {
           const textNode = document.createTextNode(token);
           if (animate) {
             const wrapper = document.createElement('span');

@@ -152,6 +152,15 @@ export async function renderHome(container, app) {
                     </div>
                 </div>
 
+                ${streak > 0 && reviewsToday === 0 ? `
+                <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px; background:rgba(255,150,0,0.1); border:2px solid #ff9600; border-radius:var(--radius-md); padding:14px 18px;">
+                    <span style="font-size:28px;">🔥</span>
+                    <div style="flex:1;">
+                        <div style="font-weight:900; color:var(--color-text);">Sua ofensiva de ${streak} ${streak === 1 ? 'dia' : 'dias'} está em risco!</div>
+                        <div style="font-size:13px; color:var(--color-text-light);">Revise 1 card hoje pra não perder o fogo.</div>
+                    </div>
+                    <button class="btn btn-primary" id="btn-save-streak" style="padding:10px 18px; font-size:13px;">Salvar ofensiva</button>
+                </div>` : ''}
                 <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:24px; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:14px 18px; align-items:center;">
                     <div style="font-weight:800; color:var(--color-text); font-size:14px;">📈 Memória:</div>
                     <div style="font-size:14px; color:var(--color-text-light);">Palavras conhecidas: <strong style="color:var(--color-primary);">${knownFamilies}</strong></div>
@@ -206,6 +215,9 @@ export async function renderHome(container, app) {
     `;
 
     // Events
+    document.getElementById('btn-save-streak')?.addEventListener('click', () => {
+        if (app && app.navigate) app.navigate('study');
+    });
     document.getElementById('btn-study-now')?.addEventListener('click', () => {
         if (app && app.navigate) app.navigate('study');
     });

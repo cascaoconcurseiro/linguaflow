@@ -122,16 +122,18 @@ export async function renderStudy(container, app) {
         <h3 class="sidebar-title" style="margin-top:32px;">Frases úteis (Chunks) ✨</h3>
         <div class="chunks-list" id="chunks-container"></div>
 
-        <h3 class="sidebar-title" style="margin-top:32px;">Pergunte ao tutor 🎓</h3>
-        <div id="grammar-chat">
-          <div id="grammar-messages" role="log" aria-live="polite">
-            <div class="chat-bubble-ai chat-placeholder">Revele o card e eu te explico a frase — depois pergunte o que quiser. 😉</div>
+        <details id="tutor-details" style="margin-top:32px;">
+          <summary class="sidebar-title" style="cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px;">🎓 Tem dúvida? Pergunte ao tutor <span style="font-size:12px; color:var(--color-text-light); font-weight:600;">(clique pra abrir)</span></summary>
+          <div id="grammar-chat">
+            <div id="grammar-messages" role="log" aria-live="polite">
+              <div class="chat-bubble-ai chat-placeholder">Só respondo quando você perguntar. 😉 Manda sua dúvida sobre a frase.</div>
+            </div>
+            <form id="grammar-form">
+              <input id="grammar-input" type="text" placeholder="Revele o card primeiro…" aria-label="Pergunte sua dúvida sobre a frase" autocomplete="off" maxlength="140" disabled />
+              <button type="submit" id="grammar-send" aria-label="Enviar pergunta" disabled>➤</button>
+            </form>
           </div>
-          <form id="grammar-form">
-            <input id="grammar-input" type="text" placeholder="Sua dúvida sobre a frase..." aria-label="Pergunte sua dúvida sobre a frase" autocomplete="off" maxlength="300" disabled />
-            <button type="submit" id="grammar-send" aria-label="Enviar pergunta" disabled>➤</button>
-          </form>
-        </div>
+        </details>
 
       </div>
     </div>
@@ -336,27 +338,32 @@ async function loadNextCard(app) {
   let context = wordData.context_sentence || card.context || '';
   let chunks = parseChunks(card);
 
-  // Sem contexto real ou sem chunks: gera com IA ANTES de mostrar o card,
-  // para que a frente já seja a frase com a lacuna (recall de verdade).
+  // NÃO-BLOQUEANTE: o card aparece IMEDIATAMENTE com o que tem (era a demora
+  // que restava — esperar a IA gerar chunks antes de mostrar). A geração roda
+  // em segundo plano e atualiza a frente se o usuário ainda estiver no card.
   if (chunks.filter(c => !c.is_context && !c.is_word).length === 0 || looksBroken(context, word)) {
-    const sentenceEl = document.getElementById('pump-sentence');
-    sentenceEl.innerHTML = `<div class="loading-spinner" style="margin: 0 auto;"></div><div style="font-size:18px; margin-top:16px;">Preparando o card com IA...</div>`;
+    generateChunksForWord(word).then(async (generated) => {
+      if (currentCard !== card || generated.length === 0) return;
 
-    const generated = await generateChunksForWord(word);
-    if (currentCard !== card) return; // usuário navegou enquanto gerava
-
-    if (generated.length > 0) {
-      const specials = chunks.filter(c => c.is_context || c.is_word);
-      chunks = [...specials, ...generated];
-      if (looksBroken(context, word)) {
-        // Chunks são frases naturais: usa a primeira como contexto do card
-        context = generated[0].eng;
-        // Fonética/tradução da entrada gerada já valem para o novo contexto
-        chunks = chunks.filter(c => !c.is_context);
-        chunks.unshift({ ...generated[0], is_context: true });
+      const specials = (card._chunks || []).filter(c => c.is_context || c.is_word);
+      let newChunks = [...specials, ...generated];
+      let newContext = card._ctx;
+      if (looksBroken(newContext, word)) {
+        newContext = generated[0].eng;
+        newChunks = newChunks.filter(c => !c.is_context);
+        newChunks.unshift({ ...generated[0], is_context: true });
       }
-      await persistChunks(card, chunks, context);
-    }
+      card._ctx = newContext;
+      card._chunks = newChunks;
+      persistChunks(card, newChunks, newContext).catch(() => {});
+
+      // Atualiza a frente só se ainda não revelou (o botão Revelar está visível)
+      const revealVisible = !document.getElementById('reveal-btn')?.classList.contains('hidden');
+      if (revealVisible && card._mode === 'classic') {
+        renderFront(card, word, newContext);
+        playCurrentAudio();
+      }
+    }).catch(() => {});
   }
 
   if (!context) context = word;
@@ -809,52 +816,27 @@ function showTyping() {
 }
 
 async function startGrammarChat(card, word, sentence) {
+  // SOB DEMANDA: o tutor NÃO explica nada sozinho — só responde quando o
+  // aluno pergunta (pedido do dono + economia real de tokens: antes, TODA
+  // revelação de card gastava uma chamada de IA que ninguém pediu).
   const input = document.getElementById('grammar-input');
   const send = document.getElementById('grammar-send');
-  const typing = showTyping();
-  chatBusy = true;
+  chatBusy = false;
 
-  try {
-    const level = await getCefrLevel();
-    const system = grammarTutorPersona(sentence, word, level);
-    const question = grammarInitialQuestion(sentence, word);
-    // STREAMING: a explicação vai aparecendo enquanto a IA escreve
-    let liveBubble = null;
-    const answer = await aiChatStream(
-      [{ role: 'system', content: system }, { role: 'user', content: question }],
-      { temperature: 0.5, max_tokens: 600 },
-      (_delta, full) => {
-        if (currentCard !== card) return;
-        if (!liveBubble) { typing?.remove(); liveBubble = appendChatBubble('ai', ''); }
-        if (liveBubble) {
-          liveBubble.innerHTML = full;
-          liveBubble.parentElement.scrollTop = liveBubble.parentElement.scrollHeight;
-        }
-      }
-    );
-    if (currentCard !== card) return;
+  const level = await getCefrLevel().catch(() => null);
+  chatHistory = [{ role: 'system', content: grammarTutorPersona(sentence, word, level) }];
 
-    chatHistory = [
-      { role: 'system', content: system },
-      { role: 'user', content: question },
-      { role: 'assistant', content: answer },
-    ];
-    typing?.remove();
-    if (!liveBubble) appendChatBubble('ai', answer);
-    if (input) { input.disabled = false; input.placeholder = 'Sua dúvida sobre a frase...'; }
-    if (send) send.disabled = false;
-  } catch (e) {
-    if (currentCard !== card) return;
-    typing?.remove();
-    appendChatBubble('ai', `<span style="color:var(--color-danger); font-weight:700;">${escapeHtml(e.message || 'Falha ao falar com o tutor.')}</span>`);
-  } finally {
-    if (currentCard === card) chatBusy = false;
+  if (input) {
+    input.disabled = false;
+    input.placeholder = 'Ficou com dúvida? Pergunte aqui…';
   }
+  if (send) send.disabled = false;
 }
 
 async function sendGrammarQuestion(text) {
   const card = currentCard;
   if (!card || chatHistory.length === 0) return;
+  text = text.slice(0, 140); // pergunta curta = resposta focada e barata
   const input = document.getElementById('grammar-input');
   const send = document.getElementById('grammar-send');
 
@@ -866,7 +848,7 @@ async function sendGrammarQuestion(text) {
 
   try {
     let liveBubble = null;
-    const answer = await aiChatStream(chatHistory, { temperature: 0.6, max_tokens: 600 }, (_delta, full) => {
+    const answer = await aiChatStream(chatHistory, { temperature: 0.6, max_tokens: 320 }, (_delta, full) => {
       if (currentCard !== card) return;
       if (!liveBubble) { typing?.remove(); liveBubble = appendChatBubble('ai', ''); }
       if (liveBubble) {

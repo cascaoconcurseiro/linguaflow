@@ -287,6 +287,7 @@ class Database {
 
   // ── PALAVRAS E CARDS ──────────────────────────────────────────────────────
   async saveWord(wordData) {
+    this._invalidateReadCache();
     if (this.isProxyMode) return this._proxy('saveWord', [wordData]);
     const lang = wordData.lang || 'en';
     const word = (wordData.word || '').trim();
@@ -359,17 +360,33 @@ class Database {
   }
 
   async deleteWord(id) {
+    this._invalidateReadCache();
     if (this.isProxyMode) return this._proxy('deleteWord', [id]);
     await this._fetch(`words?id=eq.${id}`, { method: 'DELETE' });
     return true;
   }
 
   async getAllWords(limit = 0) {
-    if (this.isProxyMode) return this._proxy('getAllWords', [limit]);
+    // Cache curto (30s): as views re-buscam a mesma lista ao navegar entre
+    // abas — era parte da sensação de site lento. Invalidado em toda escrita.
+    if (limit === 0 && this._wordsCache && Date.now() - this._wordsCache.ts < 30000) {
+      return this._wordsCache.data;
+    }
+    if (this.isProxyMode) {
+      const data = await this._proxy('getAllWords', [limit]);
+      if (limit === 0) this._wordsCache = { data: data || [], ts: Date.now() };
+      return data || [];
+    }
     let query = `words?select=*&order=added_at.desc`;
     if (limit > 0) query += `&limit=${limit}`;
     const res = await this._fetch(query);
+    if (limit === 0) this._wordsCache = { data: res || [], ts: Date.now() };
     return res || [];
+  }
+
+  _invalidateReadCache() {
+    this._wordsCache = null;
+    this._cardsCache = null;
   }
 
   async getWordsByCategory(category) {
@@ -394,8 +411,41 @@ class Database {
   }
 
   async getAllCards() {
-    if (this.isProxyMode) return this._proxy('getAllCards', []);
-    return (await this._fetch('cards?select=*')) || [];
+    if (this._cardsCache && Date.now() - this._cardsCache.ts < 30000) {
+      return this._cardsCache.data;
+    }
+    let data;
+    if (this.isProxyMode) data = await this._proxy('getAllCards', []);
+    else data = await this._fetch('cards?select=*');
+    this._cardsCache = { data: data || [], ts: Date.now() };
+    return data || [];
+  }
+
+  // ── HISTÓRIAS (biblioteca permanente — história gerada nunca se perde) ────
+  async saveStory(story) {
+    if (this.isProxyMode) return this._proxy('saveStory', [story]);
+    const res = await this._fetch('stories', {
+      method: 'POST',
+      headers: { 'Prefer': 'return=representation' },
+      body: {
+        title: story.title,
+        content: story.content,
+        level: story.level || null,
+        genre: story.genre || null,
+      }
+    });
+    return { ok: !!res, id: res?.[0]?.id };
+  }
+
+  async getStories(limit = 50) {
+    if (this.isProxyMode) return this._proxy('getStories', [limit]);
+    return (await this._fetch(`stories?select=*&order=created_at.desc&limit=${limit}`)) || [];
+  }
+
+  async deleteStory(id) {
+    if (this.isProxyMode) return this._proxy('deleteStory', [id]);
+    await this._fetch(`stories?id=eq.${id}`, { method: 'DELETE' });
+    return true;
   }
 
   async getCardsDue(limit = 50, includeWordData = true) {
@@ -420,6 +470,7 @@ class Database {
   }
 
   async updateCard(card) {
+    this._invalidateReadCache();
     if (this.isProxyMode) return this._proxy('updateCard', [card]);
     const { wordData, ...cleanCard } = card;
     const res = await this._fetch(`cards?id=eq.${card.id}`, {
@@ -723,6 +774,7 @@ class Database {
   }
 
   async logReview(cardId, quality) {
+    this._invalidateReadCache();
     if (this.isProxyMode) return this._proxy('logReview', [cardId, quality]);
 
     const settings = await this.getSRSSettings();
@@ -756,6 +808,7 @@ class Database {
   // Desfaz a última revisão: restaura o card ao estado anterior e apaga o
   // registro mais recente de review_log daquele card (Ctrl+Z do Anki).
   async undoReview(prevCard) {
+    this._invalidateReadCache();
     if (this.isProxyMode) return this._proxy('undoReview', [prevCard]);
     if (!prevCard || !prevCard.id) return { ok: false };
 
@@ -803,6 +856,7 @@ class Database {
   }
 
   async markAsKnown(word, lang) {
+    this._invalidateReadCache();
     if (this.isProxyMode) return this._proxy('markAsKnown', [word, lang]);
     const res = await this._fetch('known_words?on_conflict=user_id,word,lang', {
       method: 'POST',

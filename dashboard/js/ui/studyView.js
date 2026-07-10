@@ -95,9 +95,10 @@ export async function renderStudy(container, app) {
   }
 
   container.innerHTML = `
-    <div class="study-layout">
+    <div class="study-layout" role="main" aria-label="Sessão de estudo">
       <!-- Main Study Area -->
-      <div class="study-main">
+      <div class="study-main" tabindex="-1">
+        <div id="study-status" class="sr-only" role="status" aria-live="polite"></div>
 
         <div class="media-container">
           <div class="audio-wave-placeholder" id="audio-wave">
@@ -123,10 +124,10 @@ export async function renderStudy(container, app) {
         <!-- Anki Grading Buttons -->
         <div class="grading-buttons hidden" id="grading-area">
           <div class="grading-row">
-            <button class="grade-btn btn-danger" data-grade="1">Errei<br><span id="grade-ivl-1" style="font-size:12px;opacity:0.8">…</span></button>
-            <button class="grade-btn btn-warning" data-grade="2">Difícil<br><span id="grade-ivl-2" style="font-size:12px;opacity:0.8">…</span></button>
-            <button class="grade-btn btn-secondary" data-grade="3">Bom<br><span id="grade-ivl-3" style="font-size:12px;opacity:0.8">…</span></button>
-            <button class="grade-btn btn-primary" data-grade="4">Fácil<br><span id="grade-ivl-4" style="font-size:12px;opacity:0.8">…</span></button>
+            <button class="grade-btn btn-danger" data-grade="1" aria-label="Errei; agendar novamente"><span aria-hidden="true">Errei</span><br><span id="grade-ivl-1" style="font-size:12px;opacity:0.8">…</span></button>
+            <button class="grade-btn btn-warning" data-grade="2" aria-label="Difícil; agendar com intervalo curto"><span aria-hidden="true">Difícil</span><br><span id="grade-ivl-2" style="font-size:12px;opacity:0.8">…</span></button>
+            <button class="grade-btn btn-secondary" data-grade="3" aria-label="Bom; agendar no intervalo recomendado"><span aria-hidden="true">Bom</span><br><span id="grade-ivl-3" style="font-size:12px;opacity:0.8">…</span></button>
+            <button class="grade-btn btn-primary" data-grade="4" aria-label="Fácil; agendar com intervalo longo"><span aria-hidden="true">Fácil</span><br><span id="grade-ivl-4" style="font-size:12px;opacity:0.8">…</span></button>
           </div>
           <button id="btn-undo" style="display:none; margin-top:14px; background:none; border:none; color:var(--color-text-light); font-family:var(--font-main); font-weight:700; font-size:13px; cursor:pointer; align-items:center; gap:6px;">↩️ Desfazer última (Z)</button>
         </div>
@@ -510,6 +511,10 @@ async function loadNextCard(app) {
   }
 
   renderFront(card, word, context);
+  const liveStatus = document.getElementById('study-status');
+  if (liveStatus) {
+    liveStatus.textContent = `Novo card: ${word}. Revele a resposta quando estiver pronto.`;
+  }
   // Reverso: o áudio EN entrega a resposta. Builder: entrega a ORDEM das palavras.
   // Ditado: o próprio renderFront toca (é o exercício).
   // lf_audio_auto_front agora é uma config REAL (antes o checkbox era enfeite).
@@ -1288,6 +1293,8 @@ function injectStyles() {
     .grading-row { display: flex; gap: 16px; width: 100%;}
     .grade-btn { flex: 1; font-family: var(--font-main); font-weight: 800; font-size: 18px; padding: 16px 8px; border-radius: var(--radius-md); border: none; cursor: pointer; color: white; display: flex; flex-direction: column; align-items: center; gap: 6px; transition: transform 0.1s, box-shadow 0.1s; }
     .grade-btn:active { transform: translateY(4px); box-shadow: 0 0 0 transparent !important; }
+    button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--color-secondary); outline-offset: 3px; }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 
     .btn-danger { background: #ff4b4b; box-shadow: 0 4px 0 #cc3c3c; }
     .btn-warning { background: #ff9600; box-shadow: 0 4px 0 #cc7800; }
@@ -1327,9 +1334,17 @@ function injectStyles() {
 
     @media (max-width: 768px) {
       .study-layout { flex-direction: column; }
-      .study-sidebar { width: 100%; border-left: none; border-top: 2px solid var(--color-border); }
+      .study-main { padding: 20px 16px; }
+      .study-sidebar { width: 100%; padding: 20px 16px; border-left: none; border-top: 2px solid var(--color-border); }
       .grading-row { flex-wrap: wrap; }
       .grade-btn { flex: 1 1 40%; }
+      .sentence-text { font-size: 26px; }
+    }
+    @media (max-width: 380px) {
+      .study-main { padding: 16px 12px; }
+      .media-container { height: 76px; margin-bottom: 20px; }
+      .sentence-text { font-size: 22px; margin-bottom: 22px; }
+      .grade-btn { font-size: 16px; min-height: 74px; }
     }
 
     @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }

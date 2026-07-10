@@ -22,6 +22,7 @@
 - **2026-07-10 — P1 / nivelamento confiável:** o resultado combinado agora exige refazer o teste quando o controle de pseudo-palavras aponta chute. Antes, alguém podia obter um nível alto acertando alternativas de cloze/listening apesar de invalidar o vocabulário; agora o nível fica limitado à base verificada e não pode ser aplicado.
 - **2026-07-10 — P0 / autorização de revisão:** validação de grants revelou que `anon` ainda podia executar as novas RPCs apesar do revoke genérico. A migration `20260710174406_revoke_anon_review_rpcs` foi aplicada e confirmada: somente `authenticated`, `service_role` e `postgres` mantêm execução.
 - **2026-07-10 — P1 / observabilidade:** aplicada a migration `20260710174601_client_error_telemetry`. O dashboard captura erros não tratados de forma deduplicada e grava apenas metadados técnicos mínimos em `client_errors`, protegido por RLS de inserção do próprio usuário. Nenhum texto de card, prompt, token, e-mail ou stack trace é enviado.
+- **2026-07-10 — P1 / estudo acessível e mobile:** `studyView` recebeu região principal identificada, anúncio discreto do novo card para leitor de tela, rótulos explícitos nos quatro botões de avaliação e foco visível por teclado. Em telas de até 768 px a lateral passa abaixo do card e os botões quebram em grade; em 380 px reduzem espaçamentos e tipografia sem perder a área de toque. Validação: sintaxe JavaScript e testes do motor. Uma inspeção visual do preview em dispositivo real ainda faz parte da validação final.
 
 ### Plano de conclusão (ordem obrigatória)
 
@@ -31,7 +32,7 @@
 | P0 | Corrigir/validar segurança e permissões de RPC | Codex | Pendente | Advisors sem alerta acionável; cada RPC só expõe a autoridade necessária. |
 | P0 | Revisão e testes integrados do PR #3 | Codex | Em andamento | Testes automatizados, validação do banco e smoke test do preview passam. |
 | P1 | Observabilidade de erros | Codex | Pendente | Falhas de cliente/Edge Function são capturadas sem vazar dados pessoais. |
-| P1 | Acessibilidade e responsividade do estudo | Codex | Pendente | Uso por teclado, ARIA, contraste e mobile validados. |
+| P1 | Acessibilidade e responsividade do estudo | Codex | Em validação | Uso por teclado e ARIA implementados; falta inspeção visual do preview em dispositivo real. |
 | P1 | Onboarding de primeiro acesso | Codex | Pendente | Novo usuário conclui nível, meta e primeira ação útil. |
 | P2 | Web Push do PWA com consentimento | Codex | Pendente | Lembretes funcionam apenas após opt-in e respeitam preferência do usuário. |
 | P2 | Player YouTube contextual reutilizável | Codex | Pendente | Um player global reproduz o trecho do card com fallback seguro. |

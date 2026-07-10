@@ -1,5 +1,95 @@
 // dashboard/js/ui/settingsView.js
 import { db as lfDb } from '../../../utils/db.js';
+import { buildPlacementTest, scorePlacement } from '../core/placement.js';
+
+const isExtensionCtx = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
+
+// ── Teste de nivelamento CEFR (modal) ────────────────────────────────────────
+async function runPlacementTest(app, onDone) {
+  let cefrMap, freqMap;
+  try {
+    const base = isExtensionCtx ? chrome.runtime.getURL('utils/') : '/utils/';
+    [cefrMap, freqMap] = await Promise.all([
+      fetch(`${base}cefr-wordlist.json`).then(r => r.json()),
+      fetch(`${base}frequency-en.json`).then(r => r.json()),
+    ]);
+  } catch (e) {
+    console.error('[Placement] Erro ao carregar wordlists:', e);
+    app.showToast('Não consegui carregar o teste. Tente recarregar.', 'error');
+    return;
+  }
+
+  const items = buildPlacementTest(cefrMap, freqMap);
+  const answers = [];
+  let idx = 0;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'placement-overlay';
+  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(2,6,23,0.75); z-index:99999; display:flex; align-items:center; justify-content:center; padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-border); max-width:440px; width:100%; padding:32px; text-align:center;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <strong style="color:var(--color-text); font-size:14px;">🎯 Teste de nivelamento</strong>
+        <button id="pl-close" style="background:none; border:none; font-size:18px; cursor:pointer; color:var(--color-text-light);">✕</button>
+      </div>
+      <div style="width:100%; background:var(--color-border); height:8px; border-radius:4px; overflow:hidden; margin-bottom:24px;">
+        <div id="pl-progress" style="width:0%; height:100%; background:var(--color-primary); transition:width 0.2s;"></div>
+      </div>
+      <p style="color:var(--color-text-light); font-size:13px; margin-bottom:8px;">Você conhece o significado desta palavra?</p>
+      <div id="pl-word" style="font-size:34px; font-weight:900; color:var(--color-text); margin-bottom:28px; min-height:44px;"></div>
+      <div style="display:flex; gap:12px;">
+        <button id="pl-no" class="btn" style="flex:1; background:var(--color-danger); color:white; border-bottom:4px solid var(--color-danger-shadow); padding:14px;">Não sei</button>
+        <button id="pl-yes" class="btn btn-primary" style="flex:1; padding:14px;">✓ Conheço</button>
+      </div>
+      <p style="font-size:11px; color:var(--color-text-light); margin-top:16px;">Seja honesto: algumas palavras não existem — marcar "conheço" nelas derruba seu resultado.</p>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  function show() {
+    document.getElementById('pl-progress').style.width = `${Math.round((idx / items.length) * 100)}%`;
+    document.getElementById('pl-word').textContent = items[idx].word;
+  }
+
+  async function finish() {
+    const result = scorePlacement(answers);
+    const levelNames = { A1: 'Iniciante', A2: 'Básico', B1: 'Intermediário', B2: 'Fluente Base', C1: 'Avançado' };
+    overlay.querySelector('div').innerHTML = `
+      <div style="font-size:56px; margin-bottom:12px;">${result.honesty < 60 ? '🤨' : '🎓'}</div>
+      <h2 style="color:var(--color-primary); font-size:40px; margin-bottom:4px;">${result.level}</h2>
+      <p style="color:var(--color-text); font-weight:800; margin-bottom:8px;">${levelNames[result.level] || ''}</p>
+      ${result.honesty < 60 ? '<p style="color:var(--color-danger); font-size:13px; margin-bottom:16px;">Você marcou "conheço" em palavras que não existem — o resultado foi ajustado pra baixo. Refaça com calma!</p>' : '<p style="color:var(--color-text-light); font-size:13px; margin-bottom:16px;">Nível aplicado em todo o sistema: IA, histórias e legendas.</p>'}
+      <button id="pl-apply" class="btn btn-primary" style="width:100%; padding:14px;">Usar este nível</button>
+      <button id="pl-redo" style="background:none; border:none; color:var(--color-text-light); font-family:var(--font-main); font-weight:700; font-size:13px; cursor:pointer; margin-top:12px;">Refazer o teste</button>`;
+
+    document.getElementById('pl-apply').addEventListener('click', async () => {
+      try {
+        await lfDb.setSetting('lf_cefr_level', result.level);
+        lfDb.setSetting('cefrTargetLevel', result.level).catch(() => {});
+        app.showToast(`Nível ${result.level} aplicado! 🎓`, 'success');
+      } catch {
+        app.showToast('Erro ao salvar o nível.', 'error');
+      }
+      overlay.remove();
+      if (onDone) onDone(result.level);
+    });
+    document.getElementById('pl-redo').addEventListener('click', () => {
+      overlay.remove();
+      runPlacementTest(app, onDone);
+    });
+  }
+
+  function answer(known) {
+    answers.push({ band: items[idx].band, known });
+    idx++;
+    if (idx >= items.length) finish();
+    else show();
+  }
+
+  document.getElementById('pl-yes').addEventListener('click', () => answer(true));
+  document.getElementById('pl-no').addEventListener('click', () => answer(false));
+  document.getElementById('pl-close').addEventListener('click', () => overlay.remove());
+  show();
+}
 
 export async function renderSettings(container, app) {
   // Carrega API key salva
@@ -39,6 +129,8 @@ export async function renderSettings(container, app) {
           <button class="cefr-btn lf-btn-bounce" data-level="C1" style="flex:1; min-width:80px; padding:12px 8px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); color:var(--color-text); font-family:var(--font-main); font-weight:800; font-size:16px; cursor:pointer; transition:all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);">C1<br><span style="font-size:11px; font-weight:600; color:var(--color-text-light);">Avançado</span></button>
           <button class="cefr-btn lf-btn-bounce" data-level="C2" style="flex:1; min-width:80px; padding:12px 8px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); color:var(--color-text); font-family:var(--font-main); font-weight:800; font-size:16px; cursor:pointer; transition:all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);">C2<br><span style="font-size:11px; font-weight:600; color:var(--color-text-light);">Maestria</span></button>
         </div>
+        <button id="btn-placement" class="btn btn-secondary" style="margin-top:16px; width:100%;">🎯 Não sei meu nível — fazer o teste de nivelamento (1 min)</button>
+        <p style="font-size:12px; color:var(--color-text-light); margin-top:8px;">36 palavras por faixa de dificuldade, com controle anti-chute. Estima de A1 a C1 e configura o sistema inteiro (IA, histórias, legendas).</p>
       </div>
 
       <!-- Daily Limits -->
@@ -497,6 +589,18 @@ export async function renderSettings(container, app) {
       btn.disabled = false;
       btn.textContent = '♻️ Restaurar backup';
     }
+  });
+
+  document.getElementById('btn-placement')?.addEventListener('click', () => {
+    runPlacementTest(app, (level) => {
+      // Reflete o nível novo nos botões da tela sem recarregar
+      document.querySelectorAll('.cefr-btn').forEach(b => {
+        const active = b.dataset.level === level;
+        b.style.background = active ? 'var(--color-primary)' : 'var(--color-surface)';
+        b.style.color = active ? 'white' : 'var(--color-text)';
+        b.style.borderColor = active ? 'var(--color-primary)' : 'var(--color-border)';
+      });
+    });
   });
 
   const logoutBtn = document.getElementById('btn-logout');

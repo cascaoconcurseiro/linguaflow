@@ -1135,9 +1135,37 @@ function updateBadge() {
       const due = stats.dueCards || 0;
       chrome.action.setBadgeText({ text: due > 0 ? String(due) : '' });
       chrome.action.setBadgeBackgroundColor({ color: '#EF4444' }); // Vermelho de alerta (Gamification)
+      maybeNotifyDue(due);
     })
     .catch(() => {});
 }
+
+// Lembrete de revisão (Duolingo-style): no máximo 1 notificação a cada 20h,
+// e só quando há cards devidos de verdade.
+async function maybeNotifyDue(due) {
+  if (!due || due < 1 || !chrome.notifications) return;
+  try {
+    const { lf_last_notify } = await chrome.storage.local.get('lf_last_notify');
+    if (lf_last_notify && Date.now() - lf_last_notify < 20 * 60 * 60 * 1000) return;
+    await chrome.storage.local.set({ lf_last_notify: Date.now() });
+    chrome.notifications.create('lf-due-reminder', {
+      type: 'basic',
+      iconUrl: chrome.runtime.getURL('icon128.png'),
+      title: 'LinguaFlow 🔥',
+      message: `Você tem ${due} ${due === 1 ? 'card esperando' : 'cards esperando'}. 5 minutinhos salvam sua ofensiva!`,
+      priority: 1,
+    });
+  } catch (e) {
+    console.debug('[LinguaFlow] Notificação indisponível:', e?.message);
+  }
+}
+
+chrome.notifications?.onClicked?.addListener((id) => {
+  if (id === 'lf-due-reminder') {
+    chrome.tabs.create({ url: 'https://linguaflow-web-tau.vercel.app/' });
+    chrome.notifications.clear(id);
+  }
+});
 
 function clearBadLingueeCache() {
   chrome.storage.local.get(null, (items) => {

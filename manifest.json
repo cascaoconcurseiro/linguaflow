@@ -8,7 +8,7 @@
     "48": "icon48.png",
     "128": "icon128.png"
   },
-  "permissions": ["storage", "alarms", "scripting", "contextMenus", "tabs"],
+  "permissions": ["storage", "alarms", "scripting", "contextMenus", "tabs", "notifications"],
   "host_permissions": [
     "*://api.mymemory.translated.net/*",
     "*://translate.googleapis.com/*",

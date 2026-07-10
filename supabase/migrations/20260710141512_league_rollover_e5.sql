@@ -1,6 +1,13 @@
 -- Recuperação Codex: rollover semanal já aplicado em produção.
+-- pg_cron pode não existir fora do Supabase (ex.: validação local) — o
+-- agendamento degrada graciosamente; o rollover lazy cobre o resto.
 
-create extension if not exists pg_cron;
+do $cron_ext$
+begin
+  create extension if not exists pg_cron;
+exception when others then
+  raise notice 'pg_cron indisponível (%), agendamento fica só no modo lazy', sqlerrm;
+end $cron_ext$;
 
 create table if not exists public.league_meta (
   id boolean primary key default true check (id),
@@ -71,5 +78,10 @@ revoke all on function public.run_league_rollover() from public;
 revoke all on function public.maybe_league_rollover() from public;
 grant execute on function public.maybe_league_rollover() to authenticated;
 
-select cron.unschedule(jobid) from cron.job where jobname = 'league-weekly-rollover';
-select cron.schedule('league-weekly-rollover', '5 0 * * 1', 'select public.run_league_rollover()');
+do $cron_job$
+begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    perform cron.unschedule(jobid) from cron.job where jobname = 'league-weekly-rollover';
+    perform cron.schedule('league-weekly-rollover', '5 0 * * 1', 'select public.run_league_rollover()');
+  end if;
+end $cron_job$;

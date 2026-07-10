@@ -1,4 +1,5 @@
 import { lemma } from '../../../utils/lemma.js';
+import { runPlacementTest } from './settingsView.js';
 
 export async function renderHome(container, app) {
     injectStyles();
@@ -14,7 +15,17 @@ export async function renderHome(container, app) {
     const xpToday = userStats?.xp_today ?? 0;
     const streak = userStats?.streak ?? 0;
 
-    // MODO EMPTY STATE (Onboarding)
+    // ── ONBOARDING DE PRIMEIRO ACESSO (P1 da auditoria) ─────────────────────
+    // Novo usuário sai do wizard com: nível CEFR definido (teste ou escolha),
+    // meta diária REAL (grava new_per_day, a mesma chave que a fila de estudo
+    // lê) e uma primeira ação útil. Roda uma vez (lf_onboarding_done).
+    const onboardingDone = db ? await db.getSetting('lf_onboarding_done').catch(() => null) : null;
+    if (safeStats.totalWords === 0 && !onboardingDone && db) {
+        renderOnboarding(container, app, db);
+        return;
+    }
+
+    // MODO EMPTY STATE (fez onboarding mas ainda não salvou palavras)
     if (safeStats.totalWords === 0) {
         container.innerHTML = `
             <div class="gamified-home" style="justify-content: center; align-items: center; min-height: calc(100vh - 100px);">
@@ -317,6 +328,98 @@ export async function renderHome(container, app) {
         }
         heatmapGrid.innerHTML = cellsHTML;
     }
+}
+
+// ── Wizard de onboarding (3 passos) ─────────────────────────────────────────
+function renderOnboarding(container, app, db) {
+    const state = { level: null, goal: null };
+    const LEVELS = [
+        ['A1', 'Iniciante'], ['A2', 'Básico'], ['B1', 'Intermediário'],
+        ['B2', 'Fluente Base'], ['C1', 'Avançado'],
+    ];
+    const GOALS = [
+        { id: 'leve', label: '🌱 Leve', desc: '5 palavras novas/dia · ~10 min', newPerDay: 5 },
+        { id: 'normal', label: '🎯 Normal', desc: '10 palavras novas/dia · ~20 min', newPerDay: 10 },
+        { id: 'intenso', label: '🔥 Intenso', desc: '20 palavras novas/dia · ~40 min', newPerDay: 20 },
+    ];
+
+    function shell(step, inner) {
+        container.innerHTML = `
+        <div class="gamified-home" style="justify-content:center; align-items:center; min-height:calc(100vh - 100px);">
+            <div style="background:var(--color-surface); border-radius:24px; padding:40px 32px; box-shadow:0 8px 24px rgba(0,0,0,0.08); text-align:center; max-width:620px; width:100%; border:2px solid var(--color-border);">
+                <div style="display:flex; justify-content:center; gap:8px; margin-bottom:24px;" aria-label="Passo ${step} de 3">
+                    ${[1, 2, 3].map(i => `<div style="width:${i === step ? 28 : 10}px; height:10px; border-radius:5px; background:${i <= step ? 'var(--color-primary)' : 'var(--color-border)'}; transition:all 0.3s;"></div>`).join('')}
+                </div>
+                ${inner}
+            </div>
+        </div>`;
+    }
+
+    function step1() {
+        shell(1, `
+            <div style="font-size:64px; margin-bottom:16px;">👋</div>
+            <h2 style="font-size:28px; color:var(--color-text); margin:0 0 8px 0; font-weight:900;">Bem-vindo ao LinguaFlow!</h2>
+            <p style="font-size:16px; color:var(--color-text-light); font-weight:700; margin:0 0 24px;">Primeiro: qual é o seu nível de inglês? Isso calibra a IA, as histórias e as legendas.</p>
+            <button id="ob-test" class="btn btn-primary" style="width:100%; padding:16px; font-size:16px; margin-bottom:16px;">🎯 Descobrir meu nível (teste de 3 fases, ~4 min)</button>
+            <p style="font-size:13px; color:var(--color-text-light); margin-bottom:12px;">Ou, se você já sabe:</p>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                ${LEVELS.map(([lv, name]) => `<button class="ob-level btn" data-level="${lv}" style="flex:1; min-width:90px; padding:12px 8px; background:var(--color-bg-alt); color:var(--color-text); border:2px solid var(--color-border); font-weight:800;">${lv}<br><span style="font-size:11px; font-weight:600; color:var(--color-text-light);">${name}</span></button>`).join('')}
+            </div>`);
+        document.getElementById('ob-test').addEventListener('click', () => {
+            runPlacementTest(app, (level) => { state.level = level; step2(); });
+        });
+        container.querySelectorAll('.ob-level').forEach(btn => btn.addEventListener('click', async () => {
+            state.level = btn.dataset.level;
+            await db.setSetting('lf_cefr_level', state.level).catch(() => {});
+            db.setSetting('cefrTargetLevel', state.level).catch(() => {});
+            step2();
+        }));
+    }
+
+    function step2() {
+        shell(2, `
+            <div style="font-size:64px; margin-bottom:16px;">${state.level ? '🎓' : '🎯'}</div>
+            <h2 style="font-size:28px; color:var(--color-text); margin:0 0 8px 0; font-weight:900;">${state.level ? `Nível ${state.level} definido!` : 'Quase lá!'}</h2>
+            <p style="font-size:16px; color:var(--color-text-light); font-weight:700; margin:0 0 24px;">Qual ritmo você quer manter? (Isso define de verdade quantas cartas novas entram por dia — dá pra mudar nas Configurações.)</p>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                ${GOALS.map(g => `
+                <button class="ob-goal btn" data-goal="${g.id}" style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; background:var(--color-bg-alt); color:var(--color-text); border:2px solid var(--color-border); font-weight:800; font-size:16px;">
+                    <span>${g.label}</span><span style="font-size:13px; font-weight:600; color:var(--color-text-light);">${g.desc}</span>
+                </button>`).join('')}
+            </div>`);
+        container.querySelectorAll('.ob-goal').forEach(btn => btn.addEventListener('click', async () => {
+            const goal = GOALS.find(g => g.id === btn.dataset.goal);
+            state.goal = goal;
+            // Meta REAL: mesma chave que a fila de estudo respeita (new_per_day)
+            await db.setSetting('new_per_day', String(goal.newPerDay)).catch(() => {});
+            step3();
+        }));
+    }
+
+    function step3() {
+        shell(3, `
+            <div style="font-size:64px; margin-bottom:16px;">🚀</div>
+            <h2 style="font-size:28px; color:var(--color-text); margin:0 0 8px 0; font-weight:900;">Tudo pronto!</h2>
+            <p style="font-size:16px; color:var(--color-text-light); font-weight:700; margin:0 0 24px;">Escolha sua primeira ação — cada palavra que você salvar vira um card inteligente que o sistema agenda pra você nunca esquecer.</p>
+            <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px;">
+                <button id="ob-story" class="btn btn-primary" style="padding:16px; font-size:16px;">📚 Gerar minha primeira história (no meu nível)</button>
+                <button id="ob-reader" class="btn btn-secondary" style="padding:16px; font-size:16px;">📖 Experimentar o Leitor (colar um texto)</button>
+            </div>
+            <div style="text-align:left; background:var(--color-bg-alt); border:2px solid var(--color-border); border-radius:16px; padding:16px 20px; margin-bottom:20px;">
+                <div style="font-weight:900; color:var(--color-text); margin-bottom:8px;">🎬 E nos vídeos (YouTube, Netflix…):</div>
+                <div style="font-size:14px; color:var(--color-text-light); font-weight:600; line-height:1.6;">Instale a extensão LinguaFlow no Chrome → dê play num vídeo em inglês → clique em qualquer palavra da legenda pra salvar. É o jeito mais poderoso de aprender aqui.</div>
+            </div>
+            <button id="ob-done" style="background:none; border:none; color:var(--color-text-light); font-family:var(--font-main); font-weight:700; font-size:13px; cursor:pointer;">Pular por agora →</button>`);
+        const finish = async (dest) => {
+            await db.setSetting('lf_onboarding_done', 'true').catch(() => {});
+            if (dest) app.navigate(dest); else renderHome(container, app);
+        };
+        document.getElementById('ob-story').addEventListener('click', () => finish('stories'));
+        document.getElementById('ob-reader').addEventListener('click', () => finish('reader'));
+        document.getElementById('ob-done').addEventListener('click', () => finish(null));
+    }
+
+    step1();
 }
 
 function injectStyles() {

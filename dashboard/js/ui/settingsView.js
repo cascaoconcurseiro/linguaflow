@@ -14,7 +14,7 @@ const isExtensionCtx = typeof chrome !== 'undefined' && !!chrome.runtime && !!ch
 // Fase 2: gramática/leitura em contexto (cloze ADAPTATIVO por banda — Oxford)
 // Fase 3: escuta (frase falada → sentido, estilo Duolingo English Test)
 // Resultado: combinação ponderada + diagnóstico de lacunas por habilidade.
-async function runPlacementTest(app, onDone) {
+export async function runPlacementTest(app, onDone) {
   let cefrMap, freqMap;
   try {
     const base = isExtensionCtx ? chrome.runtime.getURL('utils/') : '/utils/';

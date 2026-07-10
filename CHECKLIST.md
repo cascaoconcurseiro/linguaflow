@@ -134,7 +134,8 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 - [ ] Gargalos restantes mapeados: getWordsByCategory carrega words+cards inteiros; heatmap refaz getStats; sem cache HTTP nos GETs REST (candidato: stale-while-revalidate no db)
 
 ### Bloco E — Qualidade
-- [ ] E1. Cadeia TTS Kokoro-82M (voz neural offline)
+- [x] E1 (commit 694f131). Kokoro-82M opt-in no site: lazy via CDN, WebGPU/WASM, vozes US/GB pelo sotaque, entra antes do Google TTS só pra inglês com fallback total, cache IndexedDB com motor na chave, toggle nas Configurações com aviso do download (~90MB, 1x)
+- [ ] E1-melhoria: indicador de progresso do download do modelo na 1ª geração
 - [x] E2 (commit e0bab0e). Limpeza: `utils/fsrs.js` removido (FSRS duplicado morto), `icon.png` corrompido removido, tabela `decks` + `words.deck_id` DROPados (migração); grade 1/3 do newtab conferida — 1=Errei/3=Bom são valores válidos do FSRS, sem bug
 - [ ] E2-restante: ícones PWA 192/512 com arte original (hoje upscale do 128)
 - [ ] E3. Onboarding + Tatoeba + acessibilidade

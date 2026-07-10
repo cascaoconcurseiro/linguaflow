@@ -207,16 +207,33 @@ export async function renderGame(container, app) {
     }
   }
 
-  function finishGame() {
+  async function finishGame() {
+    // XP REAL via Learning Engine (RPC no banco, com cap diário anti-farm).
+    // A tela antiga dizia "Você ganhou XP!" e não dava nada — era decorativa.
     container.innerHTML = `
       <div class="game-container">
-        <h2>Você ganhou XP! 🎉</h2>
+        <h2 id="game-result">Calculando XP... ⏳</h2>
         <p>Ótimo trabalho revisando essas palavras.</p>
       </div>
     `;
+    let msg = 'Jogo concluído! 🎉';
+    try {
+      const res = await lfDb.recordEvent('game_match', words.length);
+      if (res && res.xp_awarded > 0) {
+        msg = `+${res.xp_awarded} XP de verdade! 🎉`;
+        if (res.first_of_day) msg += ' (inclui bônus do primeiro estudo do dia)';
+      } else if (res && res.capped) {
+        msg = 'Jogo concluído! 🎮 (limite diário de XP do jogo já atingido)';
+      }
+    } catch (e) {
+      console.warn('[Game] Falha ao registrar XP:', e);
+      msg = 'Jogo concluído! (XP não registrado — sem conexão?)';
+    }
+    const el = document.getElementById('game-result');
+    if (el) el.textContent = msg;
     setTimeout(() => {
       app.navigate('home');
-    }, 2000);
+    }, 2500);
   }
 
   leftItems.forEach(item => {

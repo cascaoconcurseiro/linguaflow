@@ -1,6 +1,30 @@
 # Handoff — LinguaFlow
 
-## Última sessão
+## Última sessão — 2026-07-10 (IMPLEMENTAÇÃO DA AUDITORIA GERAL)
+**Referência:** `docs/AUDITORIA_GERAL_2026-07-10.md` (etapas 0–7 implementadas nesta sessão, branch `claude/learning-system-audit-4uwb83`, PR #3).
+
+**Banco (6 migrations aplicadas via MCP no projeto `qnutoswrufznztoznlql`):**
+- `security_hardening_e0`: search_path fixo, REVOKE de anon nas SECURITY DEFINER, RLS com `(select auth.uid())` em todas as tabelas, índices `cards(word_id)` e `cards(user_id, due_date) WHERE NOT suspended`, policy em api_usage_log, DROP da RPC morta `get_due_cards`, coluna `cards.introduced_at`.
+- `translation_cache_e2`: tabela própria pro cache de tradução; **3.155 linhas `trans_*` migradas pra fora de `settings` (3.195 → 40 linhas)**. `prune_translation_cache()` pra expurgo.
+- `learning_engine_e4`: `apply_learning_xp()` (núcleo compartilhado de XP/streak/freeze + bônus de +15 na 1ª atividade do dia), trigger `calculate_xp_on_activity` reescrito (XP escala com a nota: 8/10/12), RPC `record_learning_event(type, amount)` com caps diários anti-farm em `user_stats.daily_counters` (game_match 40/dia, story_read 3/dia, story_quiz 30/dia, quests_complete 1/dia, video_session 30/dia).
+- `league_rollover_e5`: `run_league_rollover()` (top 5 com XP sobem, inativos descem, zera xp_week) + **pg_cron agendado (`league-weekly-rollover`, seg 00:05 UTC)** + `maybe_league_rollover()` lazy idempotente (advisory lock) chamado pela tela de Ligas.
+- `harden_ensure_user_stats`: logado não cria stats de outro usuário.
+- Validação: `apply_learning_xp` e `run_league_rollover` executados em transação com ROLLBACK (sem sujar dados). Advisors: só restam WARNs intencionais (RPCs de authenticated) + "leaked password protection" que **só se ativa no dashboard do Supabase Auth (ação manual do dono)**.
+
+**Cliente (todos com `node --check` ok + 14 testes em `tests/engine.test.mjs` verdes — rodar `node tests/engine.test.mjs`):**
+- `utils/db.js`: `_calculateNextState` agora RESPEITA `graduating_interval`/`easy_interval`/`interval_modifier` (eram lidos e ignorados); `getCardsDue(limit, withWords, minutesAhead)` filtra suspended NO BANCO; `getTodayCounts()`; `logReview` grava `introduced_at` na 1ª revisão de card novo e retorna o card NOVO (pra fila de sessão); `suspendCard` não corrompe mais due_date (+365d); streak do `getStats` unificada com `user_stats`; novos: `recordEvent`, `maybeLeagueRollover`, `get/setTranslationCache`; `getSRSSettings` lê `new_per_day`/`max_reviews_per_day` e aceita learning steps "1m 10m".
+- `dashboard/js/ui/studyView.js` (**o fix do bug nº1 da auditoria**): fila de sessão com REENTRADA de cards em learning (voltam quando o step vence), learn-ahead de 20 min, tela de espera com countdown ("Antecipar agora"/"Encerrar"), conclusão só quando NÃO há mais nada; no último card espera o logReview (senão concluía antes do learning entrar na fila); **rótulos dos botões de nota mostram o intervalo REAL via `predictNextInterval()`**; limites diários aplicados na montagem da fila; `lf_audio_auto_front/back` respeitados; XP paralelo em localStorage REMOVIDO.
+- `dashboard/js/ui/settingsView.js`: os controles SRS gravam nas chaves QUE O MOTOR LÊ (`graduating_interval`, `max_interval`, `interval_modifier`, `leech_threshold` + select `leech_action`); fantasmas ganharam vida (novas/dia, revisões/dia, learning steps, áudio frente/verso); controles que o FSRS não usa (ease inicial, penalidade) REMOVIDOS; **teste de nivelamento em 3 FASES**: vocabulário (anti-chute) + cloze adaptativo por banda + listening com TTS, resultado combinado 40/40/20 com diagnóstico de lacunas.
+- `dashboard/js/core/placement.js`: `CLOZE_BANK`/`LISTENING_BANK` (3 e 2 itens por banda A1–C1), `shuffleItem`, `clozeStartBand`, `scoreClozeLadder`, `listeningBands`, `scoreListening`, `combinePlacement`.
+- `dashboard/js/ui/homeView.js`: missões ADAPTATIVAS (alvo = média 7d × 1.2 com clamp), missão de RETORNO leve pra quem sumiu 2+ dias (banner "Sentimos sua falta"), recompensa reivindicável +30 XP (`quests_complete`, cap no banco), forecast de 7 dias em barras (estilo Anki), XP/streak SÓ do servidor.
+- `dashboard/js/ui/gameView.js`: Match dá XP REAL via `recordEvent('game_match')` (a tela antiga dizia "ganhou XP" e não dava nada).
+- `dashboard/js/ui/leaguesView.js`: botão "Simular Fim da Semana" REMOVIDO; chama `maybeLeagueRollover()` no load; countdown real até segunda.
+- `dashboard/js/ui/storiesView.js`: FIX do card quebrado (salvava translation placeholder e campo `context` errado → agora tradução real + `context_sentence`); status por palavra estilo LingQ (aprendendo=amarelo, conhecida=verde) + **badge "% conhecido"**; **quiz de compreensão** (3 MCQs geradas da própria história, XP por acerto); botão "Marcar como lida" (+20 XP, cap 3/dia).
+- `utils/translator.js`: cache via `translation_cache` (NUNCA mais `setSetting` — cada legenda traduzida invalidava o cache do SRS e deixava tudo lento).
+
+**Teste manual pro dono:** (1) estudar um card novo com "Bom" → ele volta na MESMA sessão em ~10 min (ou tela de espera com countdown); (2) mudar "Passos de aprendizagem" pra "1 3" nas Configurações → os botões de nota mostram os minutos novos; (3) jogar o Match → XP de verdade no Início; (4) fazer o teste de nivelamento novo (3 fases); (5) salvar palavra numa História → card nasce com tradução e frase. **Ação manual:** ativar "Leaked password protection" no dashboard do Supabase (Auth → Settings).
+
+## Sessão anterior
 **Data:** 2026-07-08
 **O que foi feito:**
 - Revisão multi-especialista completa do estado atual do repositório (havia diff massivo não commitado: 22 arquivos modificados, +1327/-1658 linhas, mais 8 arquivos untracked) antes de iniciar qualquer implementação nova.

@@ -9,8 +9,10 @@ export async function renderHome(container, app) {
     const userStats = db ? await db.getUserStats().catch(() => null) : null;
 
     const safeStats = stats || { totalWords: 0, dueCards: 0, byStatus: {}, sessions: [] };
-    const xpToday = userStats?.xp_today ?? parseInt(localStorage.getItem('lf_xp_today') || '0');
-    const streak = userStats?.streak ?? parseInt(localStorage.getItem('lf_streak') || '0');
+    // FONTE ÚNICA: user_stats (Postgres). O localStorage paralelo foi removido —
+    // eram duas verdades de XP/streak que divergiam (achado da auditoria).
+    const xpToday = userStats?.xp_today ?? 0;
+    const streak = userStats?.streak ?? 0;
 
     // MODO EMPTY STATE (Onboarding)
     if (safeStats.totalWords === 0) {
@@ -60,7 +62,10 @@ export async function renderHome(container, app) {
     let retention30 = null;   // % de acertos (não-"Errei") nos últimos 30 dias
     let dueTomorrow = 0;      // carga de amanhã
     let dueWeek = 0;          // carga dos próximos 7 dias
-    let knownFamilies = 0;  // famílias de palavras conhecidas (métrica LingQ)
+    let knownFamilies = 0;    // famílias de palavras conhecidas (métrica LingQ)
+    let forecast = [];        // cards vencendo por dia, próximos 7 dias
+    let avgReviews7 = 0;      // média de revisões/dia (7 dias) — calibra as missões
+    let avgWords7 = 0;
     try {
         const [logToday, log30, allWords, allCards, knownWords] = await Promise.all([
             db ? db.getReviewLog(1) : [],
@@ -85,41 +90,50 @@ export async function renderHome(container, app) {
             retention30 = Math.round((hits / log30.length) * 100);
         }
 
+        // Ritmo dos últimos 7 dias: é o que torna as missões ADAPTATIVAS
+        const sevenAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+        const last7 = (log30 || []).filter(r => r.date >= sevenAgo);
+        avgReviews7 = last7.length / 7;
+        avgWords7 = (allWords || []).filter(w => (w.added_at || '').slice(0, 10) >= sevenAgo).length / 7;
+
+        // Forecast: quantos cards vencem em cada um dos próximos 7 dias
         const startTomorrow = new Date(); startTomorrow.setDate(startTomorrow.getDate() + 1); startTomorrow.setHours(0, 0, 0, 0);
-        const endTomorrow = new Date(startTomorrow); endTomorrow.setDate(endTomorrow.getDate() + 1);
-        const endWeek = new Date(startTomorrow); endWeek.setDate(endWeek.getDate() + 7);
+        forecast = Array(7).fill(0);
         (allCards || []).forEach(c => {
             if (c.suspended) return;
             const due = new Date(c.due_date);
-            if (due >= startTomorrow && due < endTomorrow) dueTomorrow++;
-            if (due >= startTomorrow && due < endWeek) dueWeek++;
+            const dayIdx = Math.floor((due - startTomorrow) / 86400000);
+            if (dayIdx >= 0 && dayIdx < 7) forecast[dayIdx]++;
         });
+        dueTomorrow = forecast[0];
+        dueWeek = forecast.reduce((a, b) => a + b, 0);
     } catch (e) { console.warn('[Home] Erro ao calcular missões:', e); }
 
-    // Pool de missões: 3 sorteadas por dia (seed = data — todo dia muda,
-    // mas fica estável ao longo do mesmo dia)
-    const QUEST_POOL = [
-        { id: 'xp50', text: "Ganhar 50 XP", target: 50, value: () => xpToday },
-        { id: 'xp80', text: "Ganhar 80 XP", target: 80, value: () => xpToday },
-        { id: 'rev10', text: "Revisar 10 cartas", target: 10, value: () => reviewsToday },
-        { id: 'rev20', text: "Revisar 20 cartas", target: 20, value: () => reviewsToday },
-        { id: 'new3', text: "Aprender 3 novas palavras", target: 3, value: () => wordsToday },
-        { id: 'new5', text: "Aprender 5 novas palavras", target: 5, value: () => wordsToday },
-        { id: 'new8', text: "Caçar 8 palavras novas", target: 8, value: () => wordsToday },
-    ];
-    let seed = todayISO.split('-').reduce((a, n) => a + Number(n), 0);
-    const seededRand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
-    const pool = [...QUEST_POOL].sort(() => seededRand() - 0.5);
-    // Garante variedade: uma missão de cada tipo (xp/revisão/palavras novas)
-    const picked = [
-        pool.find(q => q.id.startsWith('xp')),
-        pool.find(q => q.id.startsWith('rev')),
-        pool.find(q => q.id.startsWith('new')),
-    ].filter(Boolean);
-    const quests = picked.map(q => {
-        const current = Math.min(q.value(), q.target);
-        return { ...q, current, done: current >= q.target };
-    });
+    // ── Missões ADAPTATIVAS ──────────────────────────────────────────────────
+    // Alvo = ritmo real do aluno (média 7d) + ~20% de desafio, com piso e teto.
+    // Quem sumiu ganha uma missão de RETORNO leve em vez de meta alta.
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v)));
+    const lastStudy = userStats?.last_study_date || null;
+    const daysAway = lastStudy ? Math.floor((Date.now() - new Date(lastStudy + 'T00:00:00Z').getTime()) / 86400000) : 0;
+    const isReturning = daysAway >= 2; // sumiu 2+ dias
+
+    const revTarget = isReturning ? 5 : clamp(avgReviews7 * 1.2, 5, 50);
+    const xpTarget = isReturning ? 30 : clamp((avgReviews7 * 1.2 * 10) / 10, 3, 20) * 10;
+    const newTarget = isReturning ? 2 : clamp(avgWords7 * 1.2, 2, 10);
+
+    const quests = [
+        isReturning
+            ? { id: 'comeback', text: `De volta! Revise ${revTarget} cartas pra reacender o fogo 🔥`, target: revTarget, current: Math.min(reviewsToday, revTarget) }
+            : { id: 'rev', text: `Revisar ${revTarget} cartas`, target: revTarget, current: Math.min(reviewsToday, revTarget) },
+        { id: 'xp', text: `Ganhar ${xpTarget} XP`, target: xpTarget, current: Math.min(xpToday, xpTarget) },
+        { id: 'new', text: `Aprender ${newTarget} novas palavras`, target: newTarget, current: Math.min(wordsToday, newTarget) },
+    ].map(q => ({ ...q, done: q.current >= q.target }));
+
+    // Recompensa REAL por fechar as 3 missões: +30 XP via Learning Engine
+    // (RPC com cap 1x/dia no banco — não dá pra farmar).
+    const allQuestsDone = quests.every(q => q.done);
+    const countersToday = userStats?.counters_date === todayISO ? (userStats?.daily_counters || {}) : {};
+    const questRewardClaimed = (countersToday.quests_complete || 0) > 0;
 
     container.innerHTML = `
         <div class="gamified-home">
@@ -152,7 +166,16 @@ export async function renderHome(container, app) {
                     </div>
                 </div>
 
-                ${streak > 0 && reviewsToday === 0 ? `
+                ${isReturning ? `
+                <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px; background:rgba(28,176,246,0.1); border:2px solid var(--color-secondary); border-radius:var(--radius-md); padding:14px 18px;">
+                    <span style="font-size:28px;">👋</span>
+                    <div style="flex:1;">
+                        <div style="font-weight:900; color:var(--color-text);">Sentimos sua falta! Você ficou ${daysAway} dias fora.</div>
+                        <div style="font-size:13px; color:var(--color-text-light);">Sua missão de hoje é leve: só ${revTarget} cartas pra voltar ao ritmo. O primeiro estudo do dia dá bônus de XP.</div>
+                    </div>
+                    <button class="btn btn-primary" id="btn-comeback" style="padding:10px 18px; font-size:13px;">Voltar agora</button>
+                </div>` : ''}
+                ${streak > 0 && reviewsToday === 0 && !isReturning ? `
                 <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px; background:rgba(255,150,0,0.1); border:2px solid #ff9600; border-radius:var(--radius-md); padding:14px 18px;">
                     <span style="font-size:28px;">🔥</span>
                     <div style="flex:1;">
@@ -168,6 +191,19 @@ export async function renderHome(container, app) {
                     <div style="font-size:14px; color:var(--color-text-light);">Amanhã: <strong style="color:var(--color-text);">${dueTomorrow} ${dueTomorrow === 1 ? 'card' : 'cards'}</strong></div>
                     <div style="font-size:14px; color:var(--color-text-light);">Próximos 7 dias: <strong style="color:var(--color-text);">${dueWeek}</strong></div>
                     <div style="font-size:14px; color:var(--color-text-light);" title="Protege sua ofensiva se você pular 1 dia. Ganhe 1 a cada 7 dias de ofensiva.">🧊 Freezes: <strong style="color:var(--color-secondary);">${userStats?.streak_freezes ?? 1}</strong></div>
+                    <div style="flex-basis:100%; display:flex; align-items:flex-end; gap:4px; height:42px; margin-top:4px;" title="Previsão de revisões (estilo Anki): quantos cards vencem em cada um dos próximos 7 dias">
+                        ${forecast.map((n, i) => {
+                            const max = Math.max(...forecast, 1);
+                            const h = Math.max(4, Math.round((n / max) * 34));
+                            const d = new Date(Date.now() + (i + 1) * 86400000);
+                            const label = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'][d.getDay()];
+                            return `<div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;">
+                                <div style="font-size:9px; color:var(--color-text-light); font-weight:700;">${n || ''}</div>
+                                <div style="width:100%; max-width:26px; height:${h}px; background:${n ? 'var(--color-secondary)' : 'var(--color-border)'}; border-radius:3px;"></div>
+                                <div style="font-size:9px; color:var(--color-text-light);">${label}</div>
+                            </div>`;
+                        }).join('')}
+                    </div>
                 </div>
 
                 <div class="action-buttons">
@@ -193,11 +229,11 @@ export async function renderHome(container, app) {
 
             <div class="sidebar">
                 <div class="quests-card">
-                    <h3>Missões Diárias</h3>
+                    <h3>Missões Diárias <span style="font-size:11px; font-weight:700; color:var(--color-text-light);">(no seu ritmo${isReturning ? ' — modo retorno' : ''})</span></h3>
                     <div class="quests-list">
                         ${quests.map(q => `
                             <div class="quest-item ${q.done ? 'quest-done' : ''}">
-                                <div class="quest-icon">🎯</div>
+                                <div class="quest-icon">${q.done ? '✅' : '🎯'}</div>
                                 <div class="quest-details">
                                     <div class="quest-text">${q.text}</div>
                                     <div class="quest-progress">
@@ -210,6 +246,12 @@ export async function renderHome(container, app) {
                             </div>
                         `).join('')}
                     </div>
+                    ${allQuestsDone && !questRewardClaimed ? `
+                    <button id="btn-claim-quests" class="btn btn-primary" style="width:100%; margin-top:16px; padding:14px; font-size:15px;">🎁 Resgatar recompensa: +30 XP</button>
+                    ` : ''}
+                    ${allQuestsDone && questRewardClaimed ? `
+                    <div style="text-align:center; margin-top:16px; font-weight:800; color:var(--color-primary); font-size:14px;">🏅 Missões do dia completas — recompensa resgatada!</div>
+                    ` : ''}
                 </div>
             </div>
         </div>
@@ -218,6 +260,29 @@ export async function renderHome(container, app) {
     // Events
     document.getElementById('btn-save-streak')?.addEventListener('click', () => {
         if (app && app.navigate) app.navigate('study');
+    });
+    document.getElementById('btn-comeback')?.addEventListener('click', () => {
+        if (app && app.navigate) app.navigate('study');
+    });
+    document.getElementById('btn-claim-quests')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        btn.textContent = 'Resgatando...';
+        try {
+            const res = await db.recordEvent('quests_complete');
+            if (res && res.xp_awarded > 0) {
+                app.showToast?.(`🎁 +${res.xp_awarded} XP pela dedicação de hoje!`, 'success');
+            } else {
+                app.showToast?.('Recompensa de hoje já foi resgatada. 😉', 'info');
+            }
+        } catch (err) {
+            console.error('[Home] Falha ao resgatar:', err);
+            app.showToast?.('Erro ao resgatar. Tente de novo.', 'error');
+            btn.disabled = false;
+            btn.textContent = '🎁 Resgatar recompensa: +30 XP';
+            return;
+        }
+        renderHome(container, app); // re-render com XP/estado novos
     });
     document.getElementById('btn-study-now')?.addEventListener('click', () => {
         if (app && app.navigate) app.navigate('study');

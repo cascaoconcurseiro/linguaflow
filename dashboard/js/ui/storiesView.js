@@ -1,7 +1,8 @@
 ﻿import { db } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio } from '../core/tts.js';
-import { generateStoryWeb } from '../core/ai.js';
+import { generateStoryWeb, aiChat } from '../core/ai.js';
 import { translator } from '../../../utils/translator.js';
+import { lemma } from '../../../utils/lemma.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
@@ -84,18 +85,28 @@ export function renderStories(container, app) {
             <div>
               <h2 id="story-title-display" style="margin-top:0; color:var(--color-text); font-size:24px; margin-bottom:8px;"></h2>
               <span id="story-level-badge" style="background:var(--color-primary); color:white; font-size:12px; font-weight:bold; padding:4px 8px; border-radius:12px;">B1</span>
+              <span id="story-known-badge" style="background:var(--color-secondary); color:white; font-size:12px; font-weight:bold; padding:4px 8px; border-radius:12px; margin-left:6px; display:none;" title="Percentual de palavras desta história que você já conhece (métrica LingQ)"></span>
             </div>
-            
-            <div style="display:flex; gap:8px;">
+
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
               <button id="btn-play-story" class="btn btn-primary lf-btn-bounce" style="padding: 8px 16px; font-size: 14px; display:flex; align-items:center; gap:6px;">
                 ▶️ Ouvir Tudo
               </button>
               <button id="btn-stop-story" class="btn" style="padding: 8px 16px; font-size: 14px; display:none; align-items:center; gap:6px; background:#f44336; color:white; border:none;">
                 ⏹ Parar
               </button>
+              <button id="btn-quiz-story" class="btn btn-secondary lf-btn-bounce" style="padding: 8px 16px; font-size: 14px; display:flex; align-items:center; gap:6px;">
+                🧠 Testar compreensão
+              </button>
+              <button id="btn-story-done" class="btn lf-btn-bounce" style="padding: 8px 16px; font-size: 14px; display:flex; align-items:center; gap:6px; background:#ffc800; color:#3c3c3c; border:none; font-weight:800;">
+                ✅ Marcar como lida
+              </button>
             </div>
           </div>
         </div>
+
+        <!-- Quiz de compreensão (estilo LingQ): perguntas geradas da própria história -->
+        <div id="story-quiz-box" style="display:none; margin-bottom:24px; padding:20px; background:var(--color-bg-alt); border:2px dashed var(--color-secondary); border-radius:var(--radius-md);"></div>
         
         <div id="story-content" style="font-size: 20px; line-height: 1.8; color: var(--color-text); font-family: var(--font-main);">
           <!-- Words will be injected here -->
@@ -145,7 +156,12 @@ export function renderStories(container, app) {
       @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       .story-word { cursor: pointer; transition: all 0.2s; border-radius: 4px; padding: 0 1px; }
       .story-word:hover { background-color: rgba(88,204,2,0.2); color: var(--color-primary); font-weight: 600; }
-      .story-word.saved { border-bottom: 2px dashed var(--color-primary); color: var(--color-primary); }
+      .story-word.saved { border-bottom: 2px dashed #ffc800; background: rgba(255,200,0,0.12); } /* aprendendo (LingQ amarelo) */
+      .story-word.known { color: var(--color-primary); } /* conhecida (madura ou marcada) */
+      .quiz-opt { display:block; width:100%; text-align:left; margin:6px 0; padding:10px 14px; border:2px solid var(--color-border); border-radius:8px; background:var(--color-surface); color:var(--color-text); font-family:var(--font-main); font-size:14px; font-weight:600; cursor:pointer; }
+      .quiz-opt:hover { border-color: var(--color-secondary); }
+      .quiz-opt.correct { border-color: var(--color-primary); background: rgba(88,204,2,0.15); }
+      .quiz-opt.wrong { border-color: #f44336; background: rgba(244,67,54,0.1); }
       .history-item { padding: 16px; border: 2px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); cursor: pointer; display:flex; justify-content:space-between; align-items:center; }
       .history-item:hover { border-color: var(--color-primary); }
       .history-item .level-tag { font-size:11px; font-weight:bold; padding:2px 6px; border-radius:8px; background:var(--color-primary); color:white; margin-left:8px; vertical-align:middle; }
@@ -190,8 +206,11 @@ export function renderStories(container, app) {
 
   let currentSelectedWord = '';
   let currentSelectedSentence = '';
+  let currentWordTranslation = '';   // tradução REAL exibida no modal (fix da auditoria)
+  let currentStoryText = '';         // texto da história atual (pro quiz)
   let currentStorySentences = []; // This will also be used by the TTS chunker
   let currentSelectionText = '';
+  let storyDoneAwarded = false;      // evita duplo clique em "Marcar como lida"
 
   // --- Audio Player Logic (TTS Chunker) ---
   let ttsQueue = [];
@@ -233,6 +252,120 @@ export function renderStories(container, app) {
 
   btnPlayStory.addEventListener('click', playFullStory);
   btnStopStory.addEventListener('click', stopFullStoryTTS);
+
+  // ── Quiz de compreensão (LingQ-style) ─────────────────────────────────────
+  // 3 perguntas geradas DA PRÓPRIA história; acertos valem XP real via
+  // Learning Engine (story_quiz, cap diário no banco).
+  const btnQuizStory = document.getElementById('btn-quiz-story');
+  const quizBox = document.getElementById('story-quiz-box');
+
+  async function generateQuiz(storyText) {
+    const system = `Você cria perguntas de compreensão de leitura para estudantes de inglês.
+Responda APENAS com JSON válido, sem texto extra, neste formato:
+{"questions":[{"q":"pergunta em inglês simples","options":["A","B","C","D"],"answer":0}]}
+REGRAS: exatamente 3 perguntas SOBRE O CONTEÚDO da história (fatos, intenções, sequência).
+As opções devem ser curtas. "answer" é o índice (0-3) da correta. Nível das perguntas: um pouco mais simples que o texto.`;
+    const content = await aiChat(
+      [{ role: 'system', content: system }, { role: 'user', content: `História:\n"""${storyText.slice(0, 2500)}"""` }],
+      { temperature: 0.4, max_tokens: 600 }
+    );
+    const clean = content.replace(/```json/g, '').replace(/```/g, '').trim();
+    const parsed = JSON.parse(clean);
+    const qs = (parsed.questions || []).filter(q => q.q && Array.isArray(q.options) && q.options.length >= 2);
+    if (!qs.length) throw new Error('Quiz vazio');
+    return qs.slice(0, 3);
+  }
+
+  function renderQuiz(questions) {
+    let answered = 0;
+    let correct = 0;
+    quizBox.style.display = 'block';
+    quizBox.innerHTML = `<h3 style="margin:0 0 12px 0; color:var(--color-text); font-size:18px;">🧠 Você entendeu a história?</h3>` +
+      questions.map((q, qi) => `
+        <div style="margin-bottom:16px;" data-qi="${qi}">
+          <div style="font-weight:800; color:var(--color-text); margin-bottom:6px;">${qi + 1}. ${q.q}</div>
+          ${q.options.map((opt, oi) => `<button class="quiz-opt" data-qi="${qi}" data-oi="${oi}">${String.fromCharCode(65 + oi)}) ${opt}</button>`).join('')}
+        </div>`).join('') +
+      `<div id="quiz-result" style="font-weight:900; color:var(--color-primary); font-size:16px; margin-top:8px;"></div>`;
+    quizBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    quizBox.querySelectorAll('.quiz-opt').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const qi = Number(btn.dataset.qi), oi = Number(btn.dataset.oi);
+        const block = quizBox.querySelector(`div[data-qi="${qi}"]`);
+        if (!block || block.dataset.done) return;
+        block.dataset.done = '1';
+        const isRight = oi === Number(questions[qi].answer);
+        if (isRight) correct++;
+        block.querySelectorAll('.quiz-opt').forEach(b => {
+          const bi = Number(b.dataset.oi);
+          if (bi === Number(questions[qi].answer)) b.classList.add('correct');
+          else if (bi === oi && !isRight) b.classList.add('wrong');
+          b.disabled = true;
+        });
+        answered++;
+        if (answered === questions.length) {
+          const resultEl = document.getElementById('quiz-result');
+          resultEl.textContent = `Você acertou ${correct} de ${questions.length}! `;
+          if (correct > 0) {
+            try {
+              const res = await db.recordEvent('story_quiz', correct);
+              if (res && res.xp_awarded > 0) resultEl.textContent += `+${res.xp_awarded} XP 🎉`;
+              else if (res?.capped) resultEl.textContent += '(limite diário de XP do quiz atingido)';
+            } catch (e) { console.warn('[Stories] XP do quiz falhou:', e); }
+          }
+        }
+      });
+    });
+  }
+
+  btnQuizStory.addEventListener('click', async () => {
+    if (!currentStoryText) { app.showToast('Gere ou abra uma história primeiro.', 'info'); return; }
+    btnQuizStory.disabled = true;
+    btnQuizStory.textContent = '🧠 Gerando perguntas...';
+    try {
+      const questions = await generateQuiz(currentStoryText);
+      renderQuiz(questions);
+    } catch (e) {
+      console.error('[Stories] Quiz falhou:', e);
+      app.showToast('Não consegui gerar o quiz agora. Tente de novo.', 'error');
+    } finally {
+      btnQuizStory.disabled = false;
+      btnQuizStory.textContent = '🧠 Testar compreensão';
+    }
+  });
+
+  // "Marcar como lida": XP real de leitura (story_read, cap 3/dia no banco)
+  const btnStoryDone = document.getElementById('btn-story-done');
+  btnStoryDone.addEventListener('click', async () => {
+    if (!currentStoryText) { app.showToast('Gere ou abra uma história primeiro.', 'info'); return; }
+    if (storyDoneAwarded) { app.showToast('Esta história já foi marcada. 😉', 'info'); return; }
+    btnStoryDone.disabled = true;
+    try {
+      const res = await db.recordEvent('story_read');
+      storyDoneAwarded = true;
+      if (res && res.xp_awarded > 0) {
+        btnStoryDone.textContent = `✅ Lida! +${res.xp_awarded} XP`;
+        app.showToast(`📚 +${res.xp_awarded} XP por leitura!`, 'success');
+      } else {
+        btnStoryDone.textContent = '✅ Lida!';
+        app.showToast('História marcada. (Limite diário de XP de leitura atingido.)', 'info');
+      }
+    } catch (e) {
+      console.error('[Stories] XP de leitura falhou:', e);
+      app.showToast('Erro ao registrar. Tente de novo.', 'error');
+      btnStoryDone.disabled = false;
+    }
+  });
+
+  function setCurrentStory(text) {
+    currentStoryText = text || '';
+    storyDoneAwarded = false;
+    btnStoryDone.disabled = false;
+    btnStoryDone.textContent = '✅ Marcar como lida';
+    quizBox.style.display = 'none';
+    quizBox.innerHTML = '';
+  }
   
   // Cleanup TTS on tab close or navigation
   window.addEventListener('beforeunload', stopFullStoryTTS);
@@ -348,6 +481,7 @@ export function renderStories(container, app) {
           storyContainer.style.display = 'block';
           storyLoading.style.display = 'none';
           storyContent.style.display = 'block';
+          setCurrentStory(story.text);
           renderStoryText(story.text, false);
           storyContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
@@ -396,6 +530,7 @@ export function renderStories(container, app) {
       storyHeader.style.display = 'block';
 
       saveStoryLocal(title, contentToRender, storyLevel, genre);
+      setCurrentStory(contentToRender);
       renderStoryText(contentToRender, true);
     } catch (err) {
       app.showToast('Erro ao gerar história: ' + err.message, 'error');
@@ -407,17 +542,38 @@ export function renderStories(container, app) {
     }
   });
 
-  async function getSavedWordsSet() {
+  // Status por palavra, estilo LingQ: "aprendendo" (salva, card ainda não
+  // maduro) vs "conhecida" (card maduro OU marcada como conhecida no Leitor).
+  async function getWordStatusSets() {
     try {
-      const words = await db.getAllWords();
-      return new Set(words.map(w => w.word.toLowerCase()));
+      const [words, cards, knownWords] = await Promise.all([
+        db.getAllWords(),
+        db.getAllCards().catch(() => []),
+        db.getAllKnownWords().catch(() => []),
+      ]);
+      const matureByWordId = {};
+      (cards || []).forEach(c => { matureByWordId[c.word_id] = c.status === 'mature'; });
+      const learning = new Set();
+      const known = new Set();
+      (words || []).forEach(w => {
+        const key = (w.word || '').toLowerCase();
+        if (matureByWordId[w.id]) known.add(key); else learning.add(key);
+        const l = lemma(key); if (l && l !== key) (matureByWordId[w.id] ? known : learning).add(l);
+      });
+      (knownWords || []).forEach(k => {
+        known.add((k.word || '').toLowerCase());
+        const l = lemma(k.word); if (l) known.add(l);
+      });
+      return { learning, known };
     } catch(e) {
-      return new Set();
+      return { learning: new Set(), known: new Set() };
     }
   }
 
   async function renderStoryText(text, animate = false) {
-    const savedWordsSet = await getSavedWordsSet();
+    const { learning: savedWordsSet, known: knownWordsSet } = await getWordStatusSets();
+    let knownCount = 0;   // % conhecido da história (o número que engaja no LingQ)
+    let totalTokens = 0;
     const paragraphs = text.split('\\n').filter(p => p.trim().length > 0);
     
     storyContent.innerHTML = '';
@@ -452,10 +608,15 @@ export function renderStories(container, app) {
           span.className = 'story-word';
           span.textContent = token;
           const cleanToken = token.replace(/[^a-zA-Z0-9'-]/g, '').toLowerCase();
-          
-          if (savedWordsSet.has(cleanToken)) {
+          const tokenLemma = lemma(cleanToken) || cleanToken;
+
+          if (knownWordsSet.has(cleanToken) || knownWordsSet.has(tokenLemma)) {
+            span.classList.add('known');
+            knownCount++;
+          } else if (savedWordsSet.has(cleanToken) || savedWordsSet.has(tokenLemma)) {
             span.classList.add('saved');
           }
+          if (cleanToken) totalTokens++;
           span.addEventListener('click', (e) => handleWordClick(cleanToken, token, e.target));
           
           if (animate) {
@@ -472,7 +633,7 @@ export function renderStories(container, app) {
 
     if (animate) {
       let delay = 0;
-      const baseDelay = 15; 
+      const baseDelay = 15;
       pElements.forEach(({ tokenNodes }) => {
         tokenNodes.forEach(node => {
           setTimeout(() => {
@@ -482,6 +643,14 @@ export function renderStories(container, app) {
           delay += baseDelay;
         });
       });
+    }
+
+    // Badge "% conhecido" (LingQ): mede o quão compreensível a história é pra VOCÊ
+    const knownBadge = document.getElementById('story-known-badge');
+    if (knownBadge && totalTokens > 0) {
+      const pct = Math.round((knownCount / totalTokens) * 100);
+      knownBadge.textContent = `📖 ${pct}% conhecido`;
+      knownBadge.style.display = 'inline';
     }
   }
 
@@ -516,6 +685,7 @@ export function renderStories(container, app) {
 
     function showModalContent(wordTrans, sentTrans) {
       modalLoading.style.display = 'none';
+      currentWordTranslation = wordTrans || '';
       if (wordTrans) {
         let html = `<strong>Tradução:</strong> ${wordTrans}<br>`;
         if (sentTrans) {
@@ -544,11 +714,14 @@ export function renderStories(container, app) {
       const btnOriginalText = btnSaveWord.innerHTML;
       btnSaveWord.innerHTML = '<span class="lf-spin"></span> Salvando...';
       
+      // FIX (auditoria): salvava com translation placeholder e o campo errado
+      // ('context' em vez de 'context_sentence') → o card nascia quebrado,
+      // sem tradução e sem frase. Agora vai a tradução REAL do modal.
       const newCard = {
         word: currentSelectedWord,
-        translation: '[Salvo via História]', 
-        context: currentSelectedSentence,
-        source_url: 'linguaflow://story',
+        translation: currentWordTranslation || null,
+        context_sentence: currentSelectedSentence,
+        platform: 'story',
       };
 
       await db.saveWord(newCard);

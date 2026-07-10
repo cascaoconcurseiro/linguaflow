@@ -5,6 +5,7 @@ import { aiChat, aiChatStream, getCefrLevel, grammarTutorPersona, grammarInitial
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
 let dueQueue = [];
+let pendingLearning = []; // cards em learning steps que voltam DENTRO da sessão
 let currentCard = null;
 let consecutiveCorrect = 0;
 let sessionCards = 0;
@@ -14,8 +15,13 @@ let chatBusy = false;
 let lastReview = null; // { prevCard, card, grade, isCorrect } para o undo
 let reverseEnabled = false; // cartões reversos PT→EN (setting lf_reverse_cards)
 let variedEnabled = true;   // exercícios variados: montar frase/ditado (lf_varied_exercises, ON por padrão)
+let audioAutoFront = true;  // lf_audio_auto_front — agora respeitado de verdade
+let audioAutoBack = true;   // lf_audio_auto_back
 let ygWidget = null;
 let ygQueuedWord = null;
+let waitTimer = null;       // countdown da tela "aguardando learning steps"
+
+const LEARN_AHEAD_MS = 20 * 60 * 1000; // learn-ahead do Anki: 20 min
 
 export async function renderStudy(container, app) {
   injectStyles();
@@ -28,13 +34,36 @@ export async function renderStudy(container, app) {
   ygWidget = null; // container será recriado
 
   app.showToast('Carregando frases...', 'info');
+  pendingLearning = [];
+  if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
   try {
-    reverseEnabled = !!(await lfDb.getSetting('lf_reverse_cards').catch(() => null));
-    const variedRaw = await lfDb.getSetting('lf_varied_exercises').catch(() => null);
+    const [reverseRaw, variedRaw, audioFrontRaw, audioBackRaw, srs, counts, cards] = await Promise.all([
+      lfDb.getSetting('lf_reverse_cards').catch(() => null),
+      lfDb.getSetting('lf_varied_exercises').catch(() => null),
+      lfDb.getSetting('lf_audio_auto_front').catch(() => null),
+      lfDb.getSetting('lf_audio_auto_back').catch(() => null),
+      lfDb.getSRSSettings().catch(() => null),
+      lfDb.getTodayCounts().catch(() => ({ reviewsToday: 0, newIntroducedToday: 0 })),
+      lfDb.getCardsDue(200, true),
+    ]);
+    reverseEnabled = reverseRaw === true || reverseRaw === 'true';
     variedEnabled = variedRaw === null || variedRaw === true || variedRaw === 'true';
-    dueQueue = await lfDb.getCardsDue(50, true);
-    // Cards suspensos (manual ou por leech) ficam fora da fila, como no Anki
-    dueQueue = dueQueue.filter(c => !c.suspended);
+    audioAutoFront = audioFrontRaw === null || audioFrontRaw === true || audioFrontRaw === 'true';
+    audioAutoBack = audioBackRaw === null || audioBackRaw === true || audioBackRaw === 'true';
+
+    // LIMITES DIÁRIOS REAIS (paridade Anki): "novas cartas/dia" corta os cards
+    // novos além da cota; "revisões máx/dia" limita o tamanho da sessão.
+    const newAllowed = Math.max(0, (srs?.newPerDay ?? 20) - counts.newIntroducedToday);
+    const revAllowed = Math.max(0, (srs?.maxRevPerDay ?? 200) - counts.reviewsToday);
+    let newSeen = 0;
+    dueQueue = (cards || []).filter(c => {
+      if (c.suspended) return false;
+      if (c.status === 'new') {
+        newSeen++;
+        return newSeen <= newAllowed;
+      }
+      return true;
+    }).slice(0, revAllowed);
   } catch (e) {
     console.error('DB Error:', e);
     dueQueue = [];
@@ -85,10 +114,10 @@ export async function renderStudy(container, app) {
         <!-- Anki Grading Buttons -->
         <div class="grading-buttons hidden" id="grading-area">
           <div class="grading-row">
-            <button class="grade-btn btn-danger" data-grade="1">Errei<br><span style="font-size:12px;opacity:0.8">&lt; 1 min</span></button>
-            <button class="grade-btn btn-warning" data-grade="2">Difícil<br><span style="font-size:12px;opacity:0.8">1 dia</span></button>
-            <button class="grade-btn btn-secondary" data-grade="3">Bom<br><span style="font-size:12px;opacity:0.8">3 dias</span></button>
-            <button class="grade-btn btn-primary" data-grade="4">Fácil<br><span style="font-size:12px;opacity:0.8">7 dias</span></button>
+            <button class="grade-btn btn-danger" data-grade="1">Errei<br><span id="grade-ivl-1" style="font-size:12px;opacity:0.8">…</span></button>
+            <button class="grade-btn btn-warning" data-grade="2">Difícil<br><span id="grade-ivl-2" style="font-size:12px;opacity:0.8">…</span></button>
+            <button class="grade-btn btn-secondary" data-grade="3">Bom<br><span id="grade-ivl-3" style="font-size:12px;opacity:0.8">…</span></button>
+            <button class="grade-btn btn-primary" data-grade="4">Fácil<br><span id="grade-ivl-4" style="font-size:12px;opacity:0.8">…</span></button>
           </div>
           <button id="btn-undo" style="display:none; margin-top:14px; background:none; border:none; color:var(--color-text-light); font-family:var(--font-main); font-weight:700; font-size:13px; cursor:pointer; align-items:center; gap:6px;">↩️ Desfazer última (Z)</button>
         </div>
@@ -262,52 +291,133 @@ function looksBroken(context, word) {
   return c.split(/\s+/).length < 3;
 }
 
+// ── Fila de sessão (paridade Anki) ───────────────────────────────────────────
+// Cards em learning steps (intervalo em minutos) NÃO somem da sessão: voltam
+// pra fila quando vencem. A sessão só termina de verdade quando não há mais
+// nada vencido nem chegando (learn-ahead de 20 min). Era o bug nº1 da
+// auditoria: "concluí a sessão mas os cards voltam no dashboard".
+
+function promoteDuePending() {
+  const now = Date.now();
+  const ready = pendingLearning.filter(p => p.dueAt <= now);
+  if (ready.length === 0) return;
+  pendingLearning = pendingLearning.filter(p => p.dueAt > now);
+  ready.sort((a, b) => a.dueAt - b.dueAt);
+  ready.forEach(p => dueQueue.push(p.card));
+}
+
+function takeEarliestPending() {
+  if (pendingLearning.length === 0) return;
+  pendingLearning.sort((a, b) => a.dueAt - b.dueAt);
+  dueQueue.push(pendingLearning.shift().card);
+}
+
+function renderSessionComplete(app) {
+  if (window.currentKeydownHandler) {
+    document.removeEventListener('keydown', window.currentKeydownHandler);
+  }
+  const sessionTime = Math.round((Date.now() - sessionStart) / 60000);
+  const laterCount = pendingLearning.length;
+  // BUG antigo: escrevia em #app-view, que não existe → caía no <body> e
+  // destruía o app inteiro. Usa o container real da view de estudo.
+  const rootContainer = studyContainer || document.getElementById('app-view') || document.body;
+  rootContainer.innerHTML = `
+    <div style="display:flex; height:100%; align-items:center; justify-content:center; background:var(--color-bg-alt);">
+      <div style="text-align:center; padding:60px; background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-border); box-shadow:0 10px 40px rgba(0,0,0,0.08); max-width:500px;">
+        <div style="font-size:64px; margin-bottom:16px;">🎉</div>
+        <h2 style="color:var(--color-primary); font-size:32px; margin-bottom:8px;">Sessão Concluída!</h2>
+        <p style="color:var(--color-text-light); margin-bottom:32px;">Continue assim e você será fluente!</p>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:${laterCount ? '16px' : '32px'};">
+          <div style="background:var(--color-bg-alt); border-radius:var(--radius-md); padding:16px;">
+            <div style="font-size:28px; font-weight:900; color:var(--color-text);">${sessionCards}</div>
+            <div style="font-size:13px; color:var(--color-text-light);">Cartas</div>
+          </div>
+          <div style="background:rgba(88,204,2,0.1); border-radius:var(--radius-md); padding:16px;">
+            <div style="font-size:28px; font-weight:900; color:var(--color-primary);" id="session-xp">+${sessionCards * 10} XP</div>
+            <div style="font-size:13px; color:var(--color-text-light);">XP Ganho</div>
+          </div>
+          <div style="background:rgba(28,176,246,0.1); border-radius:var(--radius-md); padding:16px;">
+            <div style="font-size:28px; font-weight:900; color:var(--color-secondary);">${sessionTime}min</div>
+            <div style="font-size:13px; color:var(--color-text-light);">Tempo</div>
+          </div>
+        </div>
+        ${laterCount ? `<p style="font-size:13px; color:var(--color-text-light); margin-bottom:24px;">💤 ${laterCount} ${laterCount === 1 ? 'card em aprendizado volta' : 'cards em aprendizado voltam'} mais tarde — o agendamento continua valendo.</p>` : ''}
+        <button id="session-done-btn" class="btn btn-primary" style="padding:16px 48px; font-size:18px;">Continuar →</button>
+      </div>
+    </div>
+  `;
+  setTimeout(() => {
+    document.getElementById('session-done-btn')?.addEventListener('click', () => {
+      if (window.currentKeydownHandler) document.removeEventListener('keydown', window.currentKeydownHandler);
+      app.navigate('home');
+    });
+  }, 0);
+}
+
+// Tela de espera: há cards em learning vencendo em breve (> learn-ahead).
+// Countdown real; quando zera, o card entra sozinho.
+function renderWaitingScreen(app, nextAt) {
+  const rootContainer = studyContainer || document.body;
+  rootContainer.innerHTML = `
+    <div style="display:flex; height:100%; align-items:center; justify-content:center; background:var(--color-bg-alt);">
+      <div style="text-align:center; padding:60px; background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-border); max-width:500px;">
+        <div style="font-size:56px; margin-bottom:16px;">⏳</div>
+        <h2 style="color:var(--color-text); font-size:26px; margin-bottom:8px;">Cards em aprendizado</h2>
+        <p style="color:var(--color-text-light); margin-bottom:8px;">${pendingLearning.length} ${pendingLearning.length === 1 ? 'card volta' : 'cards voltam'} em</p>
+        <div id="wait-countdown" style="font-size:40px; font-weight:900; color:var(--color-primary); margin-bottom:24px;">--:--</div>
+        <div style="display:flex; gap:12px; justify-content:center;">
+          <button id="wait-now-btn" class="btn btn-secondary" style="padding:12px 24px;">⚡ Antecipar agora</button>
+          <button id="wait-end-btn" class="btn btn-primary" style="padding:12px 24px;">Encerrar por hoje</button>
+        </div>
+      </div>
+    </div>
+  `;
+  const tick = () => {
+    const ms = Math.max(0, nextAt - Date.now());
+    const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000);
+    const el = document.getElementById('wait-countdown');
+    if (el) el.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    if (ms <= 0) {
+      clearInterval(waitTimer); waitTimer = null;
+      loadNextCard(app);
+    }
+  };
+  waitTimer = setInterval(tick, 1000);
+  tick();
+  setTimeout(() => {
+    document.getElementById('wait-now-btn')?.addEventListener('click', () => {
+      if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
+      takeEarliestPending();
+      loadNextCard(app);
+    });
+    document.getElementById('wait-end-btn')?.addEventListener('click', () => {
+      if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
+      renderSessionComplete(app);
+    });
+  }, 0);
+}
+
 // ── Fluxo do card ────────────────────────────────────────────────────────────
 async function loadNextCard(app) {
   stopAudio();
   pauseYouglish();
+  if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
+
+  promoteDuePending();
 
   if (dueQueue.length === 0) {
-    if (window.currentKeydownHandler) {
-      document.removeEventListener('keydown', window.currentKeydownHandler);
+    if (pendingLearning.length > 0) {
+      const nextAt = Math.min(...pendingLearning.map(p => p.dueAt));
+      if (nextAt - Date.now() <= LEARN_AHEAD_MS) {
+        takeEarliestPending(); // learn-ahead: nada mais a fazer → antecipa
+      } else {
+        renderWaitingScreen(app, nextAt);
+        return;
+      }
+    } else {
+      renderSessionComplete(app);
+      return;
     }
-
-    const sessionTime = Math.round((Date.now() - sessionStart) / 60000);
-    // BUG antigo: escrevia em #app-view, que não existe → caía no <body> e
-    // destruía o app inteiro (o botão "Continuar" navegava pra um container
-    // fora do DOM). Usa o container real da view de estudo.
-    const rootContainer = studyContainer || document.getElementById('app-view') || document.body;
-    rootContainer.innerHTML = `
-      <div style="display:flex; height:100%; align-items:center; justify-content:center; background:var(--color-bg-alt);">
-        <div style="text-align:center; padding:60px; background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-border); box-shadow:0 10px 40px rgba(0,0,0,0.08); max-width:500px;">
-          <div style="font-size:64px; margin-bottom:16px;">🎉</div>
-          <h2 style="color:var(--color-primary); font-size:32px; margin-bottom:8px;">Sessão Concluída!</h2>
-          <p style="color:var(--color-text-light); margin-bottom:32px;">Continue assim e você será fluente!</p>
-          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:32px;">
-            <div style="background:var(--color-bg-alt); border-radius:var(--radius-md); padding:16px;">
-              <div style="font-size:28px; font-weight:900; color:var(--color-text);">${sessionCards}</div>
-              <div style="font-size:13px; color:var(--color-text-light);">Cartas</div>
-            </div>
-            <div style="background:rgba(88,204,2,0.1); border-radius:var(--radius-md); padding:16px;">
-              <div style="font-size:28px; font-weight:900; color:var(--color-primary);">+${sessionCards * 10} XP</div>
-              <div style="font-size:13px; color:var(--color-text-light);">XP Ganho</div>
-            </div>
-            <div style="background:rgba(28,176,246,0.1); border-radius:var(--radius-md); padding:16px;">
-              <div style="font-size:28px; font-weight:900; color:var(--color-secondary);">${sessionTime}min</div>
-              <div style="font-size:13px; color:var(--color-text-light);">Tempo</div>
-            </div>
-          </div>
-          <button id="session-done-btn" class="btn btn-primary" style="padding:16px 48px; font-size:18px;">Continuar →</button>
-        </div>
-      </div>
-    `;
-    setTimeout(() => {
-      document.getElementById('session-done-btn')?.addEventListener('click', () => {
-        if (window.currentKeydownHandler) document.removeEventListener('keydown', window.currentKeydownHandler);
-        app.navigate('home');
-      });
-    }, 0);
-    return;
   }
 
   currentCard = dueQueue[0];
@@ -361,7 +471,7 @@ async function loadNextCard(app) {
       const revealVisible = !document.getElementById('reveal-btn')?.classList.contains('hidden');
       if (revealVisible && card._mode === 'classic') {
         renderFront(card, word, newContext);
-        playCurrentAudio();
+        if (audioAutoFront) playCurrentAudio();
       }
     }).catch(() => {});
   }
@@ -393,7 +503,34 @@ async function loadNextCard(app) {
   renderFront(card, word, context);
   // Reverso: o áudio EN entrega a resposta. Builder: entrega a ORDEM das palavras.
   // Ditado: o próprio renderFront toca (é o exercício).
-  if (card._mode === 'classic') playCurrentAudio();
+  // lf_audio_auto_front agora é uma config REAL (antes o checkbox era enfeite).
+  if (card._mode === 'classic' && audioAutoFront) playCurrentAudio();
+
+  // Rótulos REAIS dos botões de nota: o intervalo que o FSRS vai aplicar de
+  // verdade — os rótulos fixos antigos ("Bom = 3 dias") mentiam pro aluno.
+  updateGradeLabels(card);
+}
+
+function formatInterval(ivl) {
+  if (ivl == null || isNaN(ivl)) return '—';
+  if (ivl < 1) return `${Math.max(1, Math.round(ivl * 1440))} min`;
+  if (ivl < 30) return `${Math.round(ivl)} ${Math.round(ivl) === 1 ? 'dia' : 'dias'}`;
+  if (ivl < 365) return `${(ivl / 30.4).toFixed(1).replace('.0', '')} mes.`;
+  return `${(ivl / 365).toFixed(1).replace('.0', '')} ano${ivl >= 730 ? 's' : ''}`;
+}
+
+async function updateGradeLabels(card) {
+  const { wordData, _chunks, ...clean } = card;
+  try {
+    const ivls = await Promise.all([1, 2, 3, 4].map(g =>
+      lfDb.predictNextInterval(clean, g).catch(() => null)
+    ));
+    if (currentCard !== card) return; // usuário já avançou
+    ivls.forEach((ivl, i) => {
+      const el = document.getElementById(`grade-ivl-${i + 1}`);
+      if (el) el.textContent = formatInterval(ivl);
+    });
+  } catch { /* rótulos ficam em "…" — melhor que mentir */ }
 }
 
 function renderFront(card, word, context) {
@@ -623,7 +760,7 @@ async function revealCard() {
     } catch {
       sentenceEl.innerHTML = `<span class="cloze-revealed">${word}</span>`;
     }
-    playCurrentAudio();
+    if (audioAutoBack) playCurrentAudio(); // lf_audio_auto_back: config real
   }
   document.querySelectorAll('.cloze-blur').forEach(el => {
     el.classList.remove('cloze-blur');
@@ -996,10 +1133,8 @@ async function handleGrade(grade, app) {
   stopAudio();
 
   if (isCorrect) {
-    // XP real é creditado pelo trigger do Supabase quando logReview roda.
-    const xp = parseInt(localStorage.getItem('lf_xp_today') || '0') + 10;
-    localStorage.setItem('lf_xp_today', xp);
-
+    // XP real vem SÓ do backend (trigger no review_log). Nada de contador
+    // paralelo em localStorage — era uma segunda fonte de verdade divergente.
     consecutiveCorrect++;
     showXPAnimation('+10 XP');
     if (consecutiveCorrect === 5) app.showToast('🔥 5 em sequência! Continue!', 'info');
@@ -1011,21 +1146,35 @@ async function handleGrade(grade, app) {
 
   sessionCards++;
   const gradedCard = currentCard;
-
-  // OTIMISTA: o próximo card aparece JÁ — o logReview (que faz várias idas
-  // ao servidor) roda em segundo plano. Era a causa da demora ao avaliar.
   dueQueue.shift();
-  loadNextCard(app);
 
-  lfDb.logReview(gradedCard.id, grade)
+  const logPromise = lfDb.logReview(gradedCard.id, grade)
     .then((res) => {
       lastReview = { prevCard: res?.prevCard || null, card: gradedCard, grade, isCorrect };
       updateUndoButton();
+      // REENTRADA NA SESSÃO (o fix do bug nº1): card que ficou em learning
+      // (intervalo em minutos) volta pra fila da PRÓPRIA sessão quando vencer.
+      if (res?.card && res.card.status === 'learning' && res.nextDue) {
+        pendingLearning.push({
+          card: { ...res.card, wordData: gradedCard.wordData },
+          dueAt: res.nextDue,
+        });
+      }
+      return res;
     })
     .catch((e) => {
       console.error('Failed to log review:', e);
       app.showToast('Erro ao salvar a revisão. Verifique sua conexão.', 'error');
+      return null;
     });
+
+  // OTIMISTA: com fila ainda cheia, o próximo card aparece JÁ e o logReview
+  // roda em fundo. No ÚLTIMO card, espera o resultado — senão a tela de
+  // "Sessão Concluída" apareceria antes do card de learning entrar na fila.
+  if (dueQueue.length === 0) {
+    await logPromise;
+  }
+  loadNextCard(app);
 }
 
 async function handleUndo(app) {
@@ -1042,13 +1191,13 @@ async function handleUndo(app) {
     return;
   }
 
-  // Reverte o progresso da sessão e recoloca o card no topo da fila
+  // Reverte o progresso da sessão e recoloca o card no topo da fila.
+  // Se o card tinha sido reagendado como learning, sai da fila de espera.
   sessionCards = Math.max(0, sessionCards - 1);
   if (isCorrect) {
     consecutiveCorrect = Math.max(0, consecutiveCorrect - 1);
-    const xp = Math.max(0, parseInt(localStorage.getItem('lf_xp_today') || '0') - 10);
-    localStorage.setItem('lf_xp_today', xp);
   }
+  pendingLearning = pendingLearning.filter(p => p.card.id !== card.id);
   dueQueue.unshift(card);
   app.showToast('Revisão desfeita ↩️', 'info');
   loadNextCard(app);

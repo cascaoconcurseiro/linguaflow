@@ -453,14 +453,14 @@ class Database {
     return true;
   }
 
-  async getCardsDue(limit = 50, includeWordData = true) {
-    if (this.isProxyMode) return this._proxy('getCardsDue', [limit, includeWordData]);
-    const now = new Date().toISOString();
-    let query = `cards?due_date=lte.${encodeURIComponent(now)}&order=due_date.asc&limit=${limit}`;
-    
-    if (includeWordData) {
-      query = `cards?select=*,words(*)&due_date=lte.${encodeURIComponent(now)}&order=due_date.asc&limit=${limit}`;
-    }
+  // minutesAhead: "learn ahead" do Anki — inclui cards de aprendizado que
+  // vencem nos próximos N minutos (permite fechar a sessão de verdade).
+  async getCardsDue(limit = 50, includeWordData = true, minutesAhead = 0) {
+    if (this.isProxyMode) return this._proxy('getCardsDue', [limit, includeWordData, minutesAhead]);
+    const horizon = new Date(Date.now() + minutesAhead * 60000).toISOString();
+    const select = includeWordData ? 'select=*,words(*)&' : '';
+    // suspended filtrado NO BANCO (antes vinha tudo e filtrava no cliente)
+    const query = `cards?${select}due_date=lte.${encodeURIComponent(horizon)}&suspended=is.false&order=due_date.asc&limit=${limit}`;
 
     const cards = await this._fetch(query);
     if (!cards) return [];
@@ -472,6 +472,20 @@ class Database {
       });
     }
     return cards;
+  }
+
+  // Contadores do dia para os limites diários (novas/dia e revisões/dia)
+  async getTodayCounts() {
+    if (this.isProxyMode) return this._proxy('getTodayCounts', []);
+    const today = new Date().toISOString().split('T')[0];
+    const [logToday, introduced] = await Promise.all([
+      this._fetch(`review_log?date=eq.${today}&select=id`),
+      this._fetch(`cards?introduced_at=gte.${today}T00:00:00Z&select=id`),
+    ]);
+    return {
+      reviewsToday: (logToday || []).length,
+      newIntroducedToday: (introduced || []).length,
+    };
   }
 
   async updateCard(card) {
@@ -495,12 +509,13 @@ class Database {
 
   async getStats() {
     if (this.isProxyMode) return this._proxy('getStats', []);
-    const [words, sentences, cards, log, sessions] = await Promise.all([
+    const [words, sentences, cards, log, sessions, userStats] = await Promise.all([
       this.getAllWords(),
       this.getAllSentences(),
       this.getAllCards(),
       this.getReviewLog(30),
       this.getSessions(30),
+      this.getUserStats().catch(() => null),
     ]);
 
     const totalWords = words.length;
@@ -545,7 +560,9 @@ class Database {
       totalWords,
       totalSentences,
       dueCards: dueCount,
-      streak: this._calculateStreak(log, sessions),
+      // Fonte única da ofensiva: user_stats (trigger do Postgres). O cálculo
+      // local é só fallback offline — eram DUAS verdades divergentes.
+      streak: userStats?.streak ?? this._calculateStreak(log, sessions),
       retention,
       byStatus,
       todaySecs,
@@ -588,7 +605,8 @@ class Database {
 
     const keys = ['graduating_interval', 'easy_interval', 'initial_ease', 'max_interval',
       'leech_threshold', 'easy_bonus', 'interval_modifier', 'lapse_modifier',
-      'leech_action', 'lf_srs_retention', 'learning_steps'];
+      'leech_action', 'lf_srs_retention', 'learning_steps',
+      'new_per_day', 'max_reviews_per_day'];
     const map = {};
     if (this.isProxyMode) {
       const rows = await this._proxy('_fetch', [`settings?key=in.(${keys.join(',')})`, {}]);
@@ -610,11 +628,16 @@ class Database {
       leechAction: map.leech_action || 'tag',
       // Retenção desejada do FSRS (0.7-0.97): mais alto = revisões mais frequentes
       retention: Math.min(0.97, Math.max(0.7, Number(map.lf_srs_retention) || 0.9)),
-      learningSteps: (map.learning_steps || '1 10')
-        .split(' ')
+      learningSteps: String(map.learning_steps || '1 10')
+        .replace(/m/gi, '')
+        .split(/[\s,]+/)
         .map(Number)
         .filter((n) => n > 0),
+      // Limites diários (paridade Anki): controlam a fila de estudo
+      newPerDay: Math.max(0, Number(map.new_per_day ?? 20)),
+      maxRevPerDay: Math.max(1, Number(map.max_reviews_per_day ?? 200)),
     };
+    if (value.learningSteps.length === 0) value.learningSteps = [1, 10];
     this._srsCache = { value, ts: Date.now() };
     return value;
   }
@@ -699,19 +722,23 @@ class Database {
         const cur = learningSteps[Math.min(nextStepIndex, learningSteps.length - 1)] || 1;
         nextInterval = (cur * 1.5) / 1440;
       } else if (quality === 4) {
-        // Fácil: gradua direto com bônus do FSRS
+        // Fácil: gradua direto com bônus do FSRS.
+        // easy_interval (config) é o piso; interval_modifier escala tudo.
         stability = this._fsrsInitStability(4);
         difficulty = this._fsrsInitDifficulty(4);
         nextStatus = 'review';
         nextStepIndex = 0;
-        nextInterval = Math.max(1, this._fsrsInterval(stability, retention));
+        nextInterval = Math.max(settings.easyInt || 4,
+          this._fsrsInterval(stability, retention) * settings.intMod);
       } else {
-        // Bom: avança um step; gradua no fim dos steps
+        // Bom: avança um step; gradua no fim dos steps.
+        // graduating_interval (config) é o piso da graduação.
         nextStepIndex = prevStatus === 'new' ? 1 : nextStepIndex + 1;
         if (nextStepIndex >= learningSteps.length) {
           nextStatus = 'review';
           nextStepIndex = 0;
-          nextInterval = Math.max(1, this._fsrsInterval(stability, retention));
+          nextInterval = Math.max(settings.gradInt || 1,
+            this._fsrsInterval(stability, retention) * settings.intMod);
         } else {
           nextStatus = 'learning';
           nextInterval = learningSteps[nextStepIndex] / 1440;
@@ -732,7 +759,8 @@ class Database {
         nextStepIndex = 0;
         nextInterval = learningSteps[0] / 1440;
       } else {
-        nextInterval = Math.max(1, this._fsrsInterval(stability, retention));
+        // interval_modifier (config) escala o intervalo do FSRS (100% = neutro)
+        nextInterval = Math.max(1, this._fsrsInterval(stability, retention) * settings.intMod);
         nextInterval = Math.min(nextInterval, maxInt);
         nextStatus = nextInterval >= 21 ? 'mature' : 'review';
       }
@@ -789,6 +817,12 @@ class Database {
 
     let card = this._calculateNextState(res[0], quality, settings);
 
+    // Marca a introdução do card (1ª revisão de um card novo) — é o que faz
+    // o limite "novas cartas/dia" ser real, não decorativo.
+    if (prevCard.status === 'new' && !prevCard.introduced_at) {
+      card.introduced_at = new Date().toISOString();
+    }
+
     if (card.lapses >= settings.leechThresh) {
       card.is_leech = true;
       if (settings.leechAction === 'suspend') card.suspended = true;
@@ -806,8 +840,9 @@ class Database {
       }
     });
 
-    // prevCard permite reverter todo o estado do agendamento (undoReview)
-    return { ok: true, nextDue: new Date(card.due_date).getTime(), prevCard };
+    // prevCard permite reverter o agendamento (undo); card é o estado NOVO —
+    // a fila de sessão usa pra reagendar cards em aprendizado (learning steps)
+    return { ok: true, nextDue: new Date(card.due_date).getTime(), prevCard, card };
   }
 
   // Desfaz a última revisão: restaura o card ao estado anterior e apaga o
@@ -940,6 +975,44 @@ class Database {
     return { ok: true };
   }
 
+  // ── LEARNING ENGINE (portão único de eventos de aprendizado) ─────────────
+  // Tipos: game_match, story_read, story_quiz, quests_complete, video_session.
+  // O XP/streak é calculado NO BANCO (record_learning_event), com caps diários
+  // anti-farm. Retorna { xp_awarded, xp_today, streak, capped }.
+  async recordEvent(type, amount = 1) {
+    if (this.isProxyMode) return this._proxy('recordEvent', [type, amount]);
+    const res = await this._fetch('rpc/record_learning_event', {
+      method: 'POST',
+      body: { p_type: type, p_amount: amount },
+    });
+    return res || { xp_awarded: 0 };
+  }
+
+  // Rollover semanal das ligas (lazy, idempotente — o pg_cron é o titular)
+  async maybeLeagueRollover() {
+    if (this.isProxyMode) return this._proxy('maybeLeagueRollover', []);
+    try {
+      return await this._fetch('rpc/maybe_league_rollover', { method: 'POST', body: {} });
+    } catch { return { ran: false }; }
+  }
+
+  // ── CACHE DE TRADUÇÃO (tabela própria — NUNCA mais dentro de settings) ────
+  async getTranslationCache(cacheKey) {
+    if (this.isProxyMode) return this._proxy('getTranslationCache', [cacheKey]);
+    const res = await this._fetch(`translation_cache?cache_key=eq.${encodeURIComponent(cacheKey)}&select=value&limit=1`);
+    return res && res.length > 0 ? res[0].value : null;
+  }
+
+  async setTranslationCache(cacheKey, value) {
+    if (this.isProxyMode) return this._proxy('setTranslationCache', [cacheKey, value]);
+    const res = await this._fetch('translation_cache?on_conflict=user_id,cache_key', {
+      method: 'POST',
+      headers: { 'Prefer': 'resolution=merge-duplicates' },
+      body: { cache_key: cacheKey, value },
+    });
+    return !!res;
+  }
+
   async getCardByWordId(wordId) {
     if (this.isProxyMode) return this._proxy('getCardByWordId', [wordId]);
     const res = await this._fetch(`cards?word_id=eq.${wordId}&limit=1`);
@@ -952,11 +1025,17 @@ class Database {
   }
 
   async suspendCard(wordId, suspend = true) {
+    this._invalidateReadCache();
     if (this.isProxyMode) return this._proxy('suspendCard', [wordId, suspend]);
+    // BUG antigo: suspender empurrava due_date +365d (corrompia o agendamento).
+    // Agora a fila filtra suspended no banco; due_date fica intacto. Ao
+    // reativar, cards corrompidos pelo sistema antigo voltam pra "agora".
     let body = { suspended: suspend };
-    if (suspend) {
-      const future = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
-      body.due_date = future;
+    if (!suspend) {
+      const card = await this.getCardByWordId(wordId);
+      if (card && new Date(card.due_date).getTime() - Date.now() > 180 * 86400000) {
+        body.due_date = new Date().toISOString();
+      }
     }
     const res = await this._fetch(`cards?word_id=eq.${wordId}`, {
       method: 'PATCH',

@@ -3,11 +3,19 @@ import { db as lfDb } from '../../../utils/db.js';
 export async function renderLeagues(container, app) {
   // 1. Setup Data
   const leagues = ['Bronze', 'Prata', 'Ouro', 'Safira', 'Rubi', 'Diamante'];
-  
+
+  // Rollover REAL: o pg_cron roda toda segunda 00:05 UTC; esta chamada lazy é
+  // a rede de segurança (idempotente no banco). Fim do "Simular Fim da Semana".
+  const rollover = await lfDb.maybeLeagueRollover().catch(() => null);
+  if (rollover?.ran) {
+    app.showToast?.('🏆 Nova semana de liga começou! Placar semanal zerado.', 'info');
+  }
+
   // Ensure user has a profile
-  const userStats = await lfDb.getUserStats();
+  let userStats = await lfDb.getUserStats();
   if (!userStats) {
       await lfDb.ensureUserStats(); // Will create the profile if missing via backend
+      userStats = await lfDb.getUserStats();
   }
 
   let currentLeagueIndex = userStats ? (userStats.league_index || 0) : 0;
@@ -215,43 +223,23 @@ export async function renderLeagues(container, app) {
         }).join('')}
       </div>
 
-      <div class="league-nav">
-          <button class="btn-league" id="btnSimulateEnd">Simular Fim da Semana</button>
+      <div class="league-nav" style="flex-direction:column; align-items:center; gap:6px;">
+          <div style="font-size:13px; color:#777; font-weight:bold;">⏰ A semana vira automaticamente toda segunda-feira</div>
+          <div id="league-countdown" style="font-size:13px; color:#999;"></div>
       </div>
     </div>
   `;
 
-  // 4. Attach Events
-  const btnSimulateEnd = container.querySelector('#btnSimulateEnd');
-  if (btnSimulateEnd) {
-      btnSimulateEnd.addEventListener('click', async () => {
-          if (userRank <= 5) {
-              if (currentLeagueIndex < leagues.length - 1) {
-                  currentLeagueIndex++;
-                  app.showToast?.(`Parabéns! Você foi promovido para a Liga ${leagues[currentLeagueIndex]}!`, 'success');
-              } else {
-                  app.showToast?.('Incrível! Você se manteve no topo da Liga Diamante!', 'success');
-              }
-          } else if (userRank >= allEntries.length - 4) { // Bottom 5
-              if (currentLeagueIndex > 0) {
-                  currentLeagueIndex--;
-                  app.showToast?.(`Poxa! Você caiu para a Liga ${leagues[currentLeagueIndex]}.`, 'error');
-              } else {
-                   app.showToast?.('Você continua na Liga Bronze. Tente estudar mais na próxima semana!', 'info');
-              }
-          } else {
-              app.showToast?.(`Você permaneceu na Liga ${currentLeague}.`, 'info');
-          }
-          
-          // Force UI transition (in a real backend, a cron job would run weekly to promote/demote)
-          if (userStats) {
-             const payload = { league_index: currentLeagueIndex, xp_week: 0 };
-             await lfDb._fetch(`user_stats?user_id=eq.${userStats.user_id}`, { method: 'PATCH', body: payload });
-          }
-          
-          // Re-render
-          setTimeout(() => renderLeagues(container, app), 1500);
-      });
+  // 4. Countdown real até o fim da semana (segunda 00:00 UTC)
+  const cdEl = container.querySelector('#league-countdown');
+  if (cdEl) {
+      const now = new Date();
+      const daysToMonday = (8 - now.getUTCDay()) % 7 || 7;
+      const nextMonday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysToMonday));
+      const msLeft = nextMonday.getTime() - now.getTime();
+      const d = Math.floor(msLeft / 86400000);
+      const h = Math.floor((msLeft % 86400000) / 3600000);
+      cdEl.textContent = `Faltam ${d}d ${h}h — top 5 com XP sobem; inativos descem.`;
   }
 
   // Scroll to user item

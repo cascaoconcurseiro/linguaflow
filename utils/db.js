@@ -861,19 +861,18 @@ class Database {
 
   // Desfaz a última revisão: restaura o card ao estado anterior e apaga o
   // registro mais recente de review_log daquele card (Ctrl+Z do Anki).
-  async undoReview(prevCard) {
+  async undoReview(prevCard, reviewLogId) {
     this._invalidateReadCache();
-    if (this.isProxyMode) return this._proxy('undoReview', [prevCard]);
-    if (!prevCard || !prevCard.id) return { ok: false };
+    if (this.isProxyMode) return this._proxy('undoReview', [prevCard, reviewLogId]);
+    if (!prevCard || !prevCard.id || !reviewLogId) return { ok: false };
 
-    await this.updateCard(prevCard);
-
-    // Remove o log mais recente desse card (o que acabou de ser criado)
-    const logs = await this._fetch(`review_log?card_id=eq.${prevCard.id}&order=ts.desc&limit=1`);
-    if (logs && logs.length) {
-      await this._fetch(`review_log?id=eq.${logs[0].id}`, { method: 'DELETE' });
-    }
-    return { ok: true };
+    // XP/streak e agendamento precisam voltar juntos. O cliente não pode mais
+    // apagar o log diretamente, pois isso deixava XP creditado para trás.
+    const res = await this._fetch('rpc/revert_card_review', {
+      method: 'POST',
+      body: { p_review_log_id: reviewLogId, p_previous_card: prevCard },
+    });
+    return { ok: true, xpReverted: Number(res?.xp_reverted || 0) };
   }
 
   async getReviewLog(days = 30) {

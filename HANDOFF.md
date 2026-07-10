@@ -5,6 +5,7 @@
 - Branch de trabalho: `codex/auditoria-completa`, derivada do PR #3 (`e43fad1`).
 - Validação inicial: `node tests/engine.test.mjs` passou 14/14; preview do PR está pronto na Vercel; produção permanece em `main` até integração explícita.
 - Banco: a migration `20260710173210_record_card_review_atomically` foi aplicada e versionada em `supabase/migrations/`. Ela substitui o fluxo vulnerável PATCH-do-card + INSERT-do-log por `record_card_review`, uma RPC transacional e idempotente. Cliente atualizado em `utils/db.js`.
+- Banco: a migration `20260710173541_reversible_review_events` foi aplicada e versionada. Undo agora restaura o snapshot de card/XP/streak pela RPC `revert_card_review`; `review_log` é append-only para o cliente.
 - Estudo: avaliação ficou protegida contra duplo clique; XP exibido é o confirmado pelo servidor; limite de revisões não esconde mais cards novos/learning.
 - P0 ainda aberto: recuperar no Git as cinco migrations históricas do PR #3 e auditar permissões das RPCs. Não fazer merge em `main` antes disso.
 

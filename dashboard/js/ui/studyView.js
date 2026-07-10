@@ -1160,7 +1160,13 @@ async function handleGrade(grade, app) {
 
   const logPromise = lfDb.logReview(gradedCard.id, grade)
     .then((res) => {
-      lastReview = { prevCard: res?.prevCard || null, card: gradedCard, grade, isCorrect };
+      lastReview = {
+        prevCard: res?.prevCard || null,
+        card: gradedCard,
+        reviewLogId: res?.reviewLogId || null,
+        grade,
+        isCorrect,
+      };
       updateUndoButton();
       if (res?.xpAwarded) {
         sessionXp += res.xpAwarded;
@@ -1191,12 +1197,13 @@ async function handleGrade(grade, app) {
 
 async function handleUndo(app) {
   if (!lastReview || !lastReview.prevCard) return;
-  const { prevCard, card, isCorrect } = lastReview;
+  const { prevCard, card, reviewLogId, isCorrect } = lastReview;
   lastReview = null;
   updateUndoButton();
 
   try {
-    await lfDb.undoReview(prevCard);
+    const undone = await lfDb.undoReview(prevCard, reviewLogId);
+    sessionXp = Math.max(0, sessionXp - (undone?.xpReverted || 0));
   } catch (e) {
     console.error('Falha ao desfazer:', e);
     app.showToast('Não foi possível desfazer.', 'error');

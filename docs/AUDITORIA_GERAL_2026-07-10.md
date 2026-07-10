@@ -17,6 +17,7 @@
 
 - **2026-07-10 — P0 / integridade da revisão:** criada e aplicada no Supabase a migration `20260710173210_record_card_review_atomically`. Ela adiciona chave de idempotência ao `review_log` e a RPC `record_card_review`, que grava estado do card + histórico + trigger de XP na mesma transação. O cliente agora usa essa RPC, bloqueia duplo clique de avaliação e mostra somente XP confirmado pelo servidor. A migration foi confirmada no histórico do Supabase e `node --check` + 14 testes do motor passaram.
 - **2026-07-10 — P0 / limites diários:** a fila de estudo passou a aplicar a cota de revisões apenas a cards de revisão, sem esconder cards novos ou passos de aprendizagem. O recorte anterior usava uma única lista e podia bloquear conteúdo indevidamente.
+- **2026-07-10 — P0 / undo íntegro:** criada e aplicada a migration `20260710173541_reversible_review_events`. O `review_log` agora registra o XP e um snapshot das estatísticas anteriores; `revert_card_review` restaura card + XP + streak como uma transação e só permite desfazer a última atividade. O cliente não pode mais apagar logs diretamente.
 
 ### Plano de conclusão (ordem obrigatória)
 

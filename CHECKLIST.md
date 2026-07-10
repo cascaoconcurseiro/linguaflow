@@ -119,6 +119,18 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 - [x] D2. Teste de nivelamento CEFR (commit e186cee): 36 palavras por faixa + 6 pseudo-palavras anti-chute (honestidade desconta o score), modal nas Configurações, resultado aplica lf_cefr_level+cefrTargetLevel no sistema inteiro. Achado: cefr-wordlist só tem A1-B2 — C1 estimado via palavras raras (rank≥8500); C2 não é estimável com os dados atuais
 - [ ] D3. Mais mini-jogos + streak freeze (exige mexer no trigger calculate_xp do banco) + notificações de revisão
 - [ ] D2-futuro: teste com verificação ativa (múltipla escolha de tradução) e avaliação de listening/gramática pra rigor Cambridge de verdade
+### HOTFIX pós-feedback do usuário (commit 3a61e4f, 2026-07-10)
+- [x] Demora ao avaliar: getSRSSettings 11 requests→1 em lote+cache 60s; grade otimista (próximo card na hora, gravação em background)
+- [x] Tela final não finalizava: escrevia no body via #app-view inexistente → container real da view
+- [x] YouGlish: topo da sidebar, lazy (só no clique — sem autoplay), pausado ao trocar de card
+- [x] Salvar no popup: imediato — chunks via backfill em background (não espera mais a IA)
+- [x] Ligas: bots fantasmas removidos — só usuários reais
+- [x] Histórias: histórico funcionava só na extensão (chrome.storage) → localStorage na web; nível cacheado pra sempre → TTL 30s
+- [x] Missões: pool de 7 sorteadas por dia (1 XP + 1 revisão + 1 palavras novas)
+- [x] Leitor: onboarding em 3 passos + texto de exemplo com 1 clique
+- [ ] IA mais rápida de verdade = STREAMING na Edge Function (SSE) — resposta aparece enquanto gera; anotado como prioridade do próximo ciclo
+- [ ] Gargalos restantes mapeados: getWordsByCategory carrega words+cards inteiros; heatmap refaz getStats; sem cache HTTP nos GETs REST (candidato: stale-while-revalidate no db)
+
 ### Bloco E — Qualidade
 - [ ] E1. Cadeia TTS Kokoro-82M (voz neural offline)
 - [ ] E2. Limpeza: remover `utils/fsrs.js` (morto), tabela `decks` (migração), corrigir grade do newtab, ícones PWA originais, remover `icon.png` corrompido

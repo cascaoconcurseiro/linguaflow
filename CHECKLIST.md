@@ -117,7 +117,8 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 ### Bloco D — Duolingo + avaliação oficial
 - [x] D1. Exercícios variados no estudo (commit 57c965d): 🧩 montar frase (word bank) + 🎧 ditado (escute e escreva) + 🇧🇷→🇺🇸 reverso no mesmo sorteio; só cards graduados; acerto=Bom(3)/erro=Errei(1) alimentando o FSRS; áudio nunca vaza resposta; toggle lf_varied_exercises (ON por padrão)
 - [x] D2. Teste de nivelamento CEFR (commit e186cee): 36 palavras por faixa + 6 pseudo-palavras anti-chute (honestidade desconta o score), modal nas Configurações, resultado aplica lf_cefr_level+cefrTargetLevel no sistema inteiro. Achado: cefr-wordlist só tem A1-B2 — C1 estimado via palavras raras (rank≥8500); C2 não é estimável com os dados atuais
-- [ ] D3. Mais mini-jogos + streak freeze (exige mexer no trigger calculate_xp do banco) + notificações de revisão
+- [x] D3 (parcial, commit e0bab0e): **streak freeze** (coluna streak_freezes + trigger perdoa 1 dia pulado; +1 freeze a cada 7 dias, máx 2; 🧊 no Início) + **notificações de revisão** (chrome.notifications, 1/20h, clique abre o site; permissão no manifest)
+- [ ] D3-restante: mini-jogos novos (ditado relâmpago, ouça-e-escolha) — gameView tem só "Ligar Colunas"
 - [ ] D2-futuro: teste com verificação ativa (múltipla escolha de tradução) e avaliação de listening/gramática pra rigor Cambridge de verdade
 ### HOTFIX pós-feedback do usuário (commit 3a61e4f, 2026-07-10)
 - [x] Demora ao avaliar: getSRSSettings 11 requests→1 em lote+cache 60s; grade otimista (próximo card na hora, gravação em background)
@@ -134,7 +135,8 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 
 ### Bloco E — Qualidade
 - [ ] E1. Cadeia TTS Kokoro-82M (voz neural offline)
-- [ ] E2. Limpeza: remover `utils/fsrs.js` (morto), tabela `decks` (migração), corrigir grade do newtab, ícones PWA originais, remover `icon.png` corrompido
+- [x] E2 (commit e0bab0e). Limpeza: `utils/fsrs.js` removido (FSRS duplicado morto), `icon.png` corrompido removido, tabela `decks` + `words.deck_id` DROPados (migração); grade 1/3 do newtab conferida — 1=Errei/3=Bom são valores válidos do FSRS, sem bug
+- [ ] E2-restante: ícones PWA 192/512 com arte original (hoje upscale do 128)
 - [ ] E3. Onboarding + Tatoeba + acessibilidade
 
 ## FASE 3 — Confirmação final dos 3 fluxos

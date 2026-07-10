@@ -128,6 +128,7 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 - [x] Histórias: histórico funcionava só na extensão (chrome.storage) → localStorage na web; nível cacheado pra sempre → TTL 30s
 - [x] Missões: pool de 7 sorteadas por dia (1 XP + 1 revisão + 1 palavras novas)
 - [x] Leitor: onboarding em 3 passos + texto de exemplo com 1 clique
+- [x] **RODADA SÊNIOR (commit 303e0bc)**: loadNextCard não-bloqueante; cache 30s words/cards (site fluido); tutor sob demanda (zero IA sem pergunta, 140 chars, 320 tokens, persona fluência, colapsado); tabela `stories` no banco (histórico sincronizado, história nunca se perde); mojibake das Histórias corrigido; banner ofensiva em risco
 - [x] **STREAMING da IA (commit 3e81581)**: Edge Function v4 repassa SSE do DeepSeek (deployada, E2E testado); aiChatStream com parser incremental (linha quebrada entre chunks testada); tutor de gramática e histórias mostram o texto AO VIVO. Espera percebida ~8s → ~1s
 - [ ] Gargalos restantes mapeados: getWordsByCategory carrega words+cards inteiros; heatmap refaz getStats; sem cache HTTP nos GETs REST (candidato: stale-while-revalidate no db)
 

@@ -116,8 +116,9 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 - [ ] C-futuro: importar por URL (CORS exige proxy), epub, e importar textos capturados pelo web-reader da extensão
 ### Bloco D — Duolingo + avaliação oficial
 - [x] D1. Exercícios variados no estudo (commit 57c965d): 🧩 montar frase (word bank) + 🎧 ditado (escute e escreva) + 🇧🇷→🇺🇸 reverso no mesmo sorteio; só cards graduados; acerto=Bom(3)/erro=Errei(1) alimentando o FSRS; áudio nunca vaza resposta; toggle lf_varied_exercises (ON por padrão)
-- [ ] D2. Avaliação oficial CEFR/Cambridge + placement test (usar cefr-wordlist.json + frequency-en.json)
+- [x] D2. Teste de nivelamento CEFR (commit e186cee): 36 palavras por faixa + 6 pseudo-palavras anti-chute (honestidade desconta o score), modal nas Configurações, resultado aplica lf_cefr_level+cefrTargetLevel no sistema inteiro. Achado: cefr-wordlist só tem A1-B2 — C1 estimado via palavras raras (rank≥8500); C2 não é estimável com os dados atuais
 - [ ] D3. Mais mini-jogos + streak freeze (exige mexer no trigger calculate_xp do banco) + notificações de revisão
+- [ ] D2-futuro: teste com verificação ativa (múltipla escolha de tradução) e avaliação de listening/gramática pra rigor Cambridge de verdade
 ### Bloco E — Qualidade
 - [ ] E1. Cadeia TTS Kokoro-82M (voz neural offline)
 - [ ] E2. Limpeza: remover `utils/fsrs.js` (morto), tabela `decks` (migração), corrigir grade do newtab, ícones PWA originais, remover `icon.png` corrompido

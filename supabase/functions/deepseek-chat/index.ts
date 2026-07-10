@@ -74,11 +74,13 @@ Deno.serve(async (req) => {
 
     // 3. Sanitiza o body: modelo fixo e teto de tokens — cliente não dita custo
     const body = await req.json();
+    const wantStream = body.stream === true;
     const payload = {
       model: "deepseek-chat",
       messages: body.messages,
       temperature: typeof body.temperature === "number" ? Math.min(Math.max(body.temperature, 0), 1.5) : 0.7,
       max_tokens: Math.min(Number(body.max_tokens) || 800, MAX_TOKENS_CAP),
+      stream: wantStream,
     };
     if (!Array.isArray(payload.messages) || payload.messages.length === 0) {
       return new Response(JSON.stringify({ error: "Body inválido: messages obrigatório." }), {
@@ -107,6 +109,19 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify(payload),
     });
+
+    // STREAMING: repassa o SSE do DeepSeek direto pro cliente sem buffering —
+    // a resposta aparece na tela enquanto é gerada (espera percebida ~1s).
+    if (wantStream && response.ok && response.body) {
+      return new Response(response.body, {
+        status: 200,
+        headers: {
+          ...cors,
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+        },
+      });
+    }
 
     const data = await response.json();
     return new Response(JSON.stringify(data), { status: response.status, headers: cors });

@@ -1,6 +1,6 @@
 import { db as lfDb } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio, downloadAudio } from '../core/tts.js';
-import { aiChat, getCefrLevel, grammarTutorPersona, grammarInitialQuestion, enrichCard, generateChunksWeb } from '../core/ai.js';
+import { aiChat, aiChatStream, getCefrLevel, grammarTutorPersona, grammarInitialQuestion, enrichCard, generateChunksWeb } from '../core/ai.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
@@ -818,9 +818,19 @@ async function startGrammarChat(card, word, sentence) {
     const level = await getCefrLevel();
     const system = grammarTutorPersona(sentence, word, level);
     const question = grammarInitialQuestion(sentence, word);
-    const answer = await aiChat(
+    // STREAMING: a explicação vai aparecendo enquanto a IA escreve
+    let liveBubble = null;
+    const answer = await aiChatStream(
       [{ role: 'system', content: system }, { role: 'user', content: question }],
-      { temperature: 0.5, max_tokens: 600 }
+      { temperature: 0.5, max_tokens: 600 },
+      (_delta, full) => {
+        if (currentCard !== card) return;
+        if (!liveBubble) { typing?.remove(); liveBubble = appendChatBubble('ai', ''); }
+        if (liveBubble) {
+          liveBubble.innerHTML = full;
+          liveBubble.parentElement.scrollTop = liveBubble.parentElement.scrollHeight;
+        }
+      }
     );
     if (currentCard !== card) return;
 
@@ -830,7 +840,7 @@ async function startGrammarChat(card, word, sentence) {
       { role: 'assistant', content: answer },
     ];
     typing?.remove();
-    appendChatBubble('ai', answer);
+    if (!liveBubble) appendChatBubble('ai', answer);
     if (input) { input.disabled = false; input.placeholder = 'Sua dúvida sobre a frase...'; }
     if (send) send.disabled = false;
   } catch (e) {
@@ -855,11 +865,19 @@ async function sendGrammarQuestion(text) {
   const typing = showTyping();
 
   try {
-    const answer = await aiChat(chatHistory, { temperature: 0.6, max_tokens: 600 });
+    let liveBubble = null;
+    const answer = await aiChatStream(chatHistory, { temperature: 0.6, max_tokens: 600 }, (_delta, full) => {
+      if (currentCard !== card) return;
+      if (!liveBubble) { typing?.remove(); liveBubble = appendChatBubble('ai', ''); }
+      if (liveBubble) {
+        liveBubble.innerHTML = full;
+        liveBubble.parentElement.scrollTop = liveBubble.parentElement.scrollHeight;
+      }
+    });
     if (currentCard !== card) return;
     chatHistory.push({ role: 'assistant', content: answer });
     typing?.remove();
-    appendChatBubble('ai', answer);
+    if (!liveBubble) appendChatBubble('ai', answer);
   } catch (e) {
     if (currentCard !== card) return;
     chatHistory.pop(); // não deixa a pergunta órfã no histórico

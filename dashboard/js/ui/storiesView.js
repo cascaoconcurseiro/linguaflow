@@ -8,13 +8,13 @@ const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrom
 // Roteadores extensão/web: na extensão o service worker faz o trabalho;
 // no site (Vercel) chamamos a Edge Function (história) e o translator
 // client-side (Google GTX/MyMemory têm CORS liberado — verificado).
-function generateStory(genre) {
+function generateStory(genre, onChunk) {
   if (isExtension) {
     return new Promise((resolve) => {
       chrome.runtime.sendMessage({ action: 'ai_generate_story', genre }, resolve);
     });
   }
-  return generateStoryWeb(genre).catch((e) => ({ error: e.message }));
+  return generateStoryWeb(genre, onChunk).catch((e) => ({ error: e.message }));
 }
 
 async function translateText(text) {
@@ -347,7 +347,12 @@ export function renderStories(container, app) {
     stopFullStoryTTS();
     
     try {
-      const response = await generateStory(genre);
+      // STREAMING (web): o texto da história aparece enquanto é gerado
+      const response = await generateStory(genre, (_delta, full) => {
+        storyLoading.style.display = 'none';
+        storyContent.style.display = 'block';
+        storyContent.textContent = full;
+      });
 
       if (!response || !response.story || response.error) {
         throw new Error(response?.error || 'Failed to generate story.');

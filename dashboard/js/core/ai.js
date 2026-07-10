@@ -65,6 +65,67 @@ export async function aiChat(messages, options = {}) {
   return content;
 }
 
+// Streaming: o texto aparece ENQUANTO a IA gera (espera percebida ~1s).
+// onChunk(delta, fullSoFar) é chamado a cada pedaço. Na extensão (sem stream
+// via sendMessage) cai no aiChat normal e entrega tudo de uma vez no final.
+export async function aiChatStream(messages, options = {}, onChunk) {
+  if (isExtension) {
+    const content = await aiChat(messages, options);
+    if (onChunk) onChunk(content, content);
+    return content;
+  }
+
+  const token = await lfDb._getToken();
+  if (!token) throw new Error('Faça login para usar a IA.');
+
+  const response = await fetch(EDGE_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages,
+      temperature: options.temperature ?? 0.6,
+      max_tokens: options.max_tokens ?? 800,
+      stream: true,
+    }),
+  });
+
+  if (!response.ok || !response.body) {
+    // Fallback: modo normal (erro vira mensagem legível lá dentro)
+    const content = await aiChat(messages, options);
+    if (onChunk) onChunk(content, content);
+    return content;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let full = '';
+  let buf = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop(); // linha possivelmente incompleta fica pro próximo chunk
+    for (const line of lines) {
+      const t = line.trim();
+      if (!t.startsWith('data:')) continue;
+      const data = t.slice(5).trim();
+      if (!data || data === '[DONE]') continue;
+      try {
+        const delta = JSON.parse(data).choices?.[0]?.delta?.content;
+        if (delta) {
+          full += delta;
+          if (onChunk) onChunk(delta, full);
+        }
+      } catch { /* chunk parcial — ignora */ }
+    }
+  }
+
+  if (!full) throw new Error('A IA não retornou resposta.');
+  return full;
+}
+
 function levelNote(level) {
   if (!level) return 'Nível do aluno desconhecido: assuma A2/B1 e evite termos técnicos sem explicar.';
   const styles = {
@@ -127,8 +188,9 @@ Retorne exatamente este JSON:
 }
 
 // Geração de história na web (na extensão o service worker tem 'ai_generate_story').
-// Mesmo prompt e mesma resposta { story, level } do service worker — comportamento idêntico.
-export async function generateStoryWeb(genre) {
+// Mesmo prompt e mesma resposta { story, level } do service worker.
+// onChunk opcional: o texto vai aparecendo enquanto a IA escreve (streaming).
+export async function generateStoryWeb(genre, onChunk) {
   const cefr = (await getCefrLevel()) || 'B1';
   const prompt = `Você é um gerador de histórias curtas para estudantes de inglês.
 Nível do Estudante: CEFR ${cefr}.
@@ -139,9 +201,10 @@ A história deve conter vocabulário útil e natural, com frases bem construída
 Não traduza a história. Apenas escreva a história em inglês, usando quebras de linha normais para parágrafos.
 NÃO use formatação markdown, NÃO coloque um título, apenas o texto da história.`;
 
-  const story = await aiChat(
+  const story = await aiChatStream(
     [{ role: 'user', content: prompt }],
-    { temperature: 0.8, max_tokens: 900 }
+    { temperature: 0.8, max_tokens: 900 },
+    onChunk
   );
   return { story, level: cefr };
 }

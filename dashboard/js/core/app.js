@@ -25,13 +25,24 @@ class App {
     this.currentRoute = 'home';
     this.viewContainers = {}; // Armazena as telas já carregadas (DOM Caching)
     this.db = db; // Expomos o db unificado (Supabase) para todas as views
+    this._reportedErrors = new Set();
     
     this.themeToggleBtn = document.getElementById('theme-toggle-btn');
     
     this.init();
   }
 
+  reportUnexpectedError(source, error) {
+    const name = error?.name || 'Error';
+    const key = `${source}:${name}:${this.currentRoute}`;
+    if (this._reportedErrors.has(key)) return;
+    this._reportedErrors.add(key);
+    this.db.reportClientError(source, name, this.currentRoute);
+  }
+
   async init() {
+    window.addEventListener('error', event => this.reportUnexpectedError('window.error', event.error));
+    window.addEventListener('unhandledrejection', event => this.reportUnexpectedError('window.rejection', event.reason));
     // Setup Navigation Listeners
     this.navBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {

@@ -971,6 +971,24 @@ class Database {
     return res && res.length > 0 ? res[0] : null;
   }
 
+  // Telemetria mínima: nunca envia texto do card, pergunta, token, e-mail ou
+  // stack trace. É só o suficiente para detectar uma tela/fluxo quebrado.
+  async reportClientError(source, errorName, route = '') {
+    if (this.isProxyMode) return this._proxy('reportClientError', [source, errorName, route]);
+    const safe = value => String(value || 'Error').replace(/[^a-zA-Z0-9_.:/ -]/g, '').slice(0, 120);
+    try {
+      await this._fetch('client_errors', {
+        method: 'POST',
+        body: {
+          source: safe(source).slice(0, 80),
+          error_name: safe(errorName),
+          route: safe(route).slice(0, 80) || null,
+          app_version: 'dashboard-2026-07-10',
+        },
+      });
+    } catch { /* telemetria nunca interrompe o produto */ }
+  }
+
   async getLeaderboard(leagueIndex = 0, limit = 20) {
     if (this.isProxyMode) return this._proxy('getLeaderboard', [leagueIndex, limit]);
     const res = await this._fetch(`user_stats?league_index=eq.${leagueIndex}&order=xp_week.desc&limit=${limit}`);

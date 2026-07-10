@@ -21,6 +21,7 @@
 - **2026-07-10 — P0 / recuperação de migrations:** os scripts históricos de `security_hardening_e0`, `translation_cache_e2`, `learning_engine_e4`, `league_rollover_e5` e `harden_ensure_user_stats` foram recuperados para `supabase/migrations/` a partir do schema e funções efetivamente inspecionados na produção. Eles não foram reaplicados (já constam no histórico do Supabase); a próxima validação é executá-los num banco efêmero antes de considerar a reprodução integral concluída.
 - **2026-07-10 — P1 / nivelamento confiável:** o resultado combinado agora exige refazer o teste quando o controle de pseudo-palavras aponta chute. Antes, alguém podia obter um nível alto acertando alternativas de cloze/listening apesar de invalidar o vocabulário; agora o nível fica limitado à base verificada e não pode ser aplicado.
 - **2026-07-10 — P0 / autorização de revisão:** validação de grants revelou que `anon` ainda podia executar as novas RPCs apesar do revoke genérico. A migration `20260710174406_revoke_anon_review_rpcs` foi aplicada e confirmada: somente `authenticated`, `service_role` e `postgres` mantêm execução.
+- **2026-07-10 — P1 / observabilidade:** aplicada a migration `20260710174601_client_error_telemetry`. O dashboard captura erros não tratados de forma deduplicada e grava apenas metadados técnicos mínimos em `client_errors`, protegido por RLS de inserção do próprio usuário. Nenhum texto de card, prompt, token, e-mail ou stack trace é enviado.
 
 ### Plano de conclusão (ordem obrigatória)
 

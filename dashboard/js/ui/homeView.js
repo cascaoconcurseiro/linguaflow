@@ -1,59 +1,150 @@
 import { lemma } from '../../../utils/lemma.js';
 
+const ONBOARDING_KEY = 'onboarding_v1';
+const ONBOARDING_LEVELS = new Set(['beginner', 'intermediate', 'advanced']);
+
+function parseOnboarding(value) {
+    if (typeof value !== 'string') return null;
+    try {
+        const parsed = JSON.parse(value);
+        const dailyGoal = Number(parsed?.dailyGoal);
+        if (parsed?.version !== 1 || !ONBOARDING_LEVELS.has(parsed.level)
+            || !Number.isInteger(dailyGoal) || dailyGoal < 1 || dailyGoal > 200) return null;
+        return {
+            version: 1,
+            completed: parsed.completed === true,
+            level: parsed.level,
+            dailyGoal,
+            updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : null,
+        };
+    } catch {
+        return null;
+    }
+}
+
+function renderHomeLoadError(container, app) {
+    container.innerHTML = `
+        <section class="onboarding-shell" aria-labelledby="home-load-error-title">
+            <div class="onboarding-card" role="alert">
+                <p class="onboarding-kicker">CONEXÃO</p>
+                <h2 id="home-load-error-title">Não foi possível carregar seus dados</h2>
+                <p>Seus cards não foram apagados. Verifique a conexão e tente novamente.</p>
+                <button type="button" class="btn-action btn-study" id="btn-retry-home">Tentar novamente</button>
+            </div>
+        </section>`;
+    container.querySelector('#btn-retry-home')?.addEventListener('click', () => renderHome(container, app));
+}
+
+function renderOnboarding(container, app, initial = {}) {
+    let step = 1;
+    let level = initial.level || null;
+    let dailyGoal = initial.dailyGoal || null;
+
+    const levels = [
+        ['beginner', 'Começando', 'Ainda formo frases curtas.'],
+        ['intermediate', 'Intermediário', 'Entendo a ideia geral de textos e vídeos.'],
+        ['advanced', 'Avançado', 'Quero ganhar precisão e vocabulário.'],
+    ];
+    const goals = [10, 20, 40];
+
+    const draw = () => {
+        const content = step === 1 ? `
+            <p class="onboarding-kicker">PASSO 1 DE 3</p>
+            <h2 id="onboarding-title">Como você se sente no inglês?</h2>
+            <p>Isso personaliza o seu ponto de partida; você pode ajustar depois.</p>
+            <div class="onboarding-options" role="radiogroup" aria-label="Nível atual de inglês">
+                ${levels.map(([value, title, description]) => `<button type="button" class="onboarding-option ${level === value ? 'selected' : ''}" role="radio" aria-checked="${level === value}" data-level="${value}"><strong>${title}</strong><span>${description}</span></button>`).join('')}
+            </div>` : step === 2 ? `
+            <p class="onboarding-kicker">PASSO 2 DE 3</p>
+            <h2 id="onboarding-title">Qual é sua meta diária?</h2>
+            <p>Ela passa a ser sua missão diária de revisões. Comece leve: consistência vence intensidade.</p>
+            <div class="onboarding-options" role="radiogroup" aria-label="Meta diária de revisões">
+                ${goals.map(goal => `<button type="button" class="onboarding-option ${dailyGoal === goal ? 'selected' : ''}" role="radio" aria-checked="${dailyGoal === goal}" data-goal="${goal}"><strong>${goal} revisões</strong><span>${goal === 10 ? 'Cerca de 5 minutos' : goal === 20 ? 'Cerca de 10 minutos' : 'Cerca de 20 minutos'}</span></button>`).join('')}
+            </div>` : `
+            <p class="onboarding-kicker">PASSO 3 DE 3</p>
+            <h2 id="onboarding-title">Seu plano está pronto</h2>
+            <p><strong>${dailyGoal} revisões por dia</strong>, no ritmo ${levels.find(item => item[0] === level)?.[1].toLowerCase() || 'escolhido'}.</p>
+            <p>Comece por uma história curta e salve a primeira palavra que quiser praticar. Ela aparecerá nos seus flashcards.</p>`;
+        container.innerHTML = `
+            <section class="onboarding-shell" aria-labelledby="onboarding-title">
+                <div class="onboarding-card">
+                    ${content}
+                    <p class="onboarding-status" id="onboarding-status" role="status" aria-live="polite"></p>
+                    <div class="onboarding-actions">
+                        ${step > 1 ? '<button type="button" class="onboarding-back" id="btn-onboarding-back">Voltar</button>' : ''}
+                        ${step < 3 ? `<button type="button" class="btn-action btn-study" id="btn-onboarding-next" ${step === 1 && !level || step === 2 && !dailyGoal ? 'disabled' : ''}>Continuar</button>` : '<button type="button" class="btn-action btn-study" id="btn-onboarding-finish">Começar pela história</button>'}
+                    </div>
+                </div>
+            </section>`;
+
+        container.querySelectorAll('[data-level]').forEach(button => button.addEventListener('click', () => {
+            level = button.dataset.level;
+            draw();
+        }));
+        container.querySelectorAll('[data-goal]').forEach(button => button.addEventListener('click', () => {
+            dailyGoal = Number(button.dataset.goal);
+            draw();
+        }));
+        container.querySelector('#btn-onboarding-back')?.addEventListener('click', () => { step -= 1; draw(); });
+        container.querySelector('#btn-onboarding-next')?.addEventListener('click', () => { step += 1; draw(); });
+        container.querySelector('#btn-onboarding-finish')?.addEventListener('click', async (event) => {
+            const button = event.currentTarget;
+            const status = container.querySelector('#onboarding-status');
+            button.disabled = true;
+            status.textContent = 'Salvando seu plano…';
+            const record = JSON.stringify({ version: 1, completed: true, level, dailyGoal, updatedAt: new Date().toISOString() });
+            try {
+                const saved = await app.db.setSetting(ONBOARDING_KEY, record);
+                if (!saved) throw new Error('Configuração não confirmada');
+                app.navigate?.('stories');
+            } catch (error) {
+                console.warn('[Onboarding] Não foi possível salvar:', error);
+                status.textContent = 'Não foi possível salvar seu plano. Tente novamente.';
+                button.disabled = false;
+            }
+        });
+    };
+    draw();
+}
+
 export async function renderHome(container, app) {
     injectStyles();
 
     // Stats via db unificado (Supabase) exposto em app.db
     const db = app?.db;
-    const stats = db ? await db.getStats().catch(() => null) : null;
-    const userStats = db ? await db.getUserStats().catch(() => null) : null;
+    container.setAttribute('aria-busy', 'true');
+    container.innerHTML = '<p class="home-loading" role="status">Carregando seu painel…</p>';
+    if (!db) {
+        container.removeAttribute('aria-busy');
+        renderHomeLoadError(container, app);
+        return;
+    }
+    const [statsResult, userStatsResult, onboardingResult] = await Promise.allSettled([
+        db.getStats(), db.getUserStats(), db.getSetting(ONBOARDING_KEY),
+    ]);
+    container.removeAttribute('aria-busy');
+    if (statsResult.status !== 'fulfilled') {
+        renderHomeLoadError(container, app);
+        return;
+    }
+    const stats = statsResult.value;
+    const userStats = userStatsResult.status === 'fulfilled' ? userStatsResult.value : null;
+    if (onboardingResult.status !== 'fulfilled') {
+        // Sem confirmação do estado persistido, não assumimos que seja uma conta vazia.
+        renderHomeLoadError(container, app);
+        return;
+    }
+    const onboarding = parseOnboarding(onboardingResult.value);
+    if (!onboarding?.completed) {
+        renderOnboarding(container, app, onboarding || {});
+        return;
+    }
 
     const safeStats = stats || { totalWords: 0, dueCards: 0, byStatus: {}, sessions: [] };
     // FONTE ÚNICA: user_stats (Postgres). O localStorage paralelo foi removido —
     // eram duas verdades de XP/streak que divergiam (achado da auditoria).
     const xpToday = userStats?.xp_today ?? 0;
     const streak = userStats?.streak ?? 0;
-
-    // MODO EMPTY STATE (Onboarding)
-    if (safeStats.totalWords === 0) {
-        container.innerHTML = `
-            <div class="gamified-home" style="justify-content: center; align-items: center; min-height: calc(100vh - 100px);">
-                <div class="onboarding-card" style="background: var(--color-surface); border-radius: 24px; padding: 48px 32px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); text-align: center; max-width: 600px; width: 100%; border: 2px solid var(--color-border);">
-                    <div style="font-size: 80px; margin-bottom: 24px; animation: wave 2s infinite; display: inline-block; transform-origin: 70% 70%;">👋</div>
-                    <h2 style="font-size: 32px; color: var(--color-text); margin: 0 0 16px 0; font-weight: 900;">Bem-vindo ao LinguaFlow!</h2>
-                    <p style="font-size: 18px; color: var(--color-text-light); font-weight: 700; margin: 0 auto 32px; line-height: 1.5;">Seu vocabulário está zerado. Para começar a aprender e ganhar XP, siga estes 3 passos simples usando a nossa Extensão:</p>
-                    
-                    <div style="display: flex; flex-direction: column; gap: 16px; text-align: left; background: var(--color-bg-alt); border: 2px solid var(--color-border); border-radius: 24px; padding: 24px;">
-                        <div style="display: flex; gap: 16px; align-items: center;">
-                            <div style="background: #58cc02; box-shadow: 0 4px 0 #58a700; color: white; width: 36px; height: 36px; min-width: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px;">1</div>
-                            <div style="font-weight: bold; color: var(--color-text); font-size: 16px;">Acesse qualquer site em inglês no Google Chrome</div>
-                        </div>
-                        <div style="display: flex; gap: 16px; align-items: center;">
-                            <div style="background: #ce82ff; box-shadow: 0 4px 0 #a561cf; color: white; width: 36px; height: 36px; min-width: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px;">2</div>
-                            <div style="font-weight: bold; color: var(--color-text); font-size: 16px;">Dê dois cliques em uma palavra desconhecida</div>
-                        </div>
-                        <div style="display: flex; gap: 16px; align-items: center;">
-                            <div style="background: #ffc800; box-shadow: 0 4px 0 #e5b400; color: white; width: 36px; height: 36px; min-width: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px;">3</div>
-                            <div style="font-weight: bold; color: var(--color-text); font-size: 16px;">Leia a tradução e clique no botão Salvar!</div>
-                        </div>
-                    </div>
-                </div>
-                <style>
-                    @keyframes wave {
-                        0% { transform: rotate(0deg); }
-                        10% { transform: rotate(14deg); }
-                        20% { transform: rotate(-8deg); }
-                        30% { transform: rotate(14deg); }
-                        40% { transform: rotate(-4deg); }
-                        50% { transform: rotate(10deg); }
-                        60% { transform: rotate(0deg); }
-                        100% { transform: rotate(0deg); }
-                    }
-                </style>
-            </div>
-        `;
-        return;
-    }
 
     // Missões diárias calculadas de dados REAIS (não mais localStorage estático)
     const todayISO = new Date().toISOString().slice(0, 10);
@@ -117,7 +208,9 @@ export async function renderHome(container, app) {
     const daysAway = lastStudy ? Math.floor((Date.now() - new Date(lastStudy + 'T00:00:00Z').getTime()) / 86400000) : 0;
     const isReturning = daysAway >= 2; // sumiu 2+ dias
 
-    const revTarget = isReturning ? 5 : clamp(avgReviews7 * 1.2, 5, 50);
+    // A meta escolhida no onboarding é a missão principal. Em retorno após
+    // ausência, reduzimos apenas essa primeira missão para evitar fricção.
+    const revTarget = isReturning ? Math.min(onboarding.dailyGoal, 5) : onboarding.dailyGoal;
     const xpTarget = isReturning ? 30 : clamp((avgReviews7 * 1.2 * 10) / 10, 3, 20) * 10;
     const newTarget = isReturning ? 2 : clamp(avgWords7 * 1.2, 2, 10);
 
@@ -324,6 +417,23 @@ function injectStyles() {
     const style = document.createElement('style');
     style.id = 'gamified-home-styles';
     style.textContent = `
+        .home-loading { padding: 32px; color: var(--color-text-light); font-weight: 700; }
+        .onboarding-shell { min-height: calc(100vh - 150px); display: grid; place-items: center; padding: 24px; }
+        .onboarding-card { width: min(100%, 620px); background: var(--color-surface); border: 2px solid var(--color-border); border-radius: 24px; padding: clamp(24px, 6vw, 48px); box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+        .onboarding-card h2 { color: var(--color-text); font-size: clamp(26px, 5vw, 34px); margin: 0 0 12px; }
+        .onboarding-card p { color: var(--color-text-light); font-size: 16px; line-height: 1.55; }
+        .onboarding-kicker { color: var(--color-primary) !important; font-size: 12px !important; font-weight: 900; letter-spacing: .08em; margin: 0 0 10px; }
+        .onboarding-options { display: grid; gap: 12px; margin: 26px 0; }
+        .onboarding-option { appearance: none; width: 100%; text-align: left; background: var(--color-bg-alt); border: 2px solid var(--color-border); border-radius: 14px; color: var(--color-text); cursor: pointer; font: inherit; padding: 16px; }
+        .onboarding-option strong, .onboarding-option span { display: block; }
+        .onboarding-option span { color: var(--color-text-light); font-size: 14px; margin-top: 4px; }
+        .onboarding-option.selected { border-color: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 22%, transparent); }
+        .onboarding-option:focus-visible, .onboarding-actions button:focus-visible { outline: 3px solid #1cb0f6; outline-offset: 3px; }
+        .onboarding-actions { display: flex; align-items: center; gap: 12px; justify-content: flex-end; margin-top: 28px; }
+        .onboarding-actions .btn-action { flex: 0 1 auto; min-height: 52px; padding: 12px 20px; }
+        .onboarding-back { background: transparent; border: 0; color: var(--color-text-light); cursor: pointer; font: inherit; font-weight: 800; padding: 12px; }
+        .onboarding-status { min-height: 1.5em; color: #d9534f !important; font-weight: 700; }
+        @media (max-width: 480px) { .onboarding-shell { padding: 16px; } .onboarding-actions { align-items: stretch; flex-direction: column-reverse; } .onboarding-actions .btn-action { width: 100%; } }
         .gamified-home {
             display: flex;
             flex-direction: column;

@@ -130,6 +130,18 @@ if (pushMigration) {
   pass('Web Push ainda não versionado; invariantes de Push não se aplicam');
 }
 
+const pushPublicKeyMigration = migrationContaining('get_push_public_key');
+assert(Boolean(pushPublicKeyMigration), 'migration de chave VAPID pública está presente');
+if (pushPublicKeyMigration) {
+  const [name, content] = pushPublicKeyMigration;
+  assert(/auth\.uid\(\)/i.test(content) &&
+    /WHERE\s+name\s*=\s*'lf_vapid_public'/i.test(content) &&
+    /REVOKE\s+EXECUTE[\s\S]*get_push_public_key[\s\S]*FROM\s+PUBLIC,\s*anon/i.test(content) &&
+    /GRANT\s+EXECUTE[\s\S]*get_push_public_key[\s\S]*TO\s+authenticated/i.test(content),
+  `${name} expõe somente a chave VAPID pública a usuários autenticados`);
+  assert(!/lf_vapid_private|lf_push_cron_key/i.test(content), `${name} não menciona segredo privado ou chave do cron`);
+}
+
 if (failures > 0) {
   console.error(`\nRelease smoke falhou: ${failures} problema(s).`);
   process.exitCode = 1;

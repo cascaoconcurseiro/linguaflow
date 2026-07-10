@@ -1,4 +1,5 @@
 import { lemma } from '../../../utils/lemma.js';
+import { addLocalDays, daysBetweenLocalKeys, localDateKey } from '../../../utils/local-day.js';
 
 const ONBOARDING_KEY = 'onboarding_v1';
 const ONBOARDING_LEVELS = new Set(['beginner', 'intermediate', 'advanced']);
@@ -147,7 +148,7 @@ export async function renderHome(container, app) {
     const streak = userStats?.streak ?? 0;
 
     // Missões diárias calculadas de dados REAIS (não mais localStorage estático)
-    const todayISO = new Date().toISOString().slice(0, 10);
+    const todayISO = localDateKey();
     let reviewsToday = 0;
     let wordsToday = 0;
     let retention30 = null;   // % de acertos (não-"Errei") nos últimos 30 dias
@@ -165,8 +166,9 @@ export async function renderHome(container, app) {
             db ? db.getAllCards() : [],
             db ? db.getAllKnownWords().catch(() => []) : []
         ]);
-        reviewsToday = (logToday || []).filter(r => r.date === todayISO).length;
-        wordsToday = (allWords || []).filter(w => (w.added_at || '').slice(0, 10) === todayISO).length;
+        const activityDate = (row) => row?.ts ? localDateKey(row.ts) : row?.date;
+        reviewsToday = (logToday || []).filter(r => activityDate(r) === todayISO).length;
+        wordsToday = (allWords || []).filter(w => w.added_at && localDateKey(w.added_at) === todayISO).length;
 
         // Conhecidas = marcadas no Leitor + cards maduros, agrupadas por família
         const matureByWordId = {};
@@ -182,18 +184,17 @@ export async function renderHome(container, app) {
         }
 
         // Ritmo dos últimos 7 dias: é o que torna as missões ADAPTATIVAS
-        const sevenAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
-        const last7 = (log30 || []).filter(r => r.date >= sevenAgo);
+        const sevenAgo = localDateKey(addLocalDays(-6));
+        const last7 = (log30 || []).filter(r => activityDate(r) >= sevenAgo);
         avgReviews7 = last7.length / 7;
-        avgWords7 = (allWords || []).filter(w => (w.added_at || '').slice(0, 10) >= sevenAgo).length / 7;
+        avgWords7 = (allWords || []).filter(w => w.added_at && localDateKey(w.added_at) >= sevenAgo).length / 7;
 
         // Forecast: quantos cards vencem em cada um dos próximos 7 dias
-        const startTomorrow = new Date(); startTomorrow.setDate(startTomorrow.getDate() + 1); startTomorrow.setHours(0, 0, 0, 0);
+        const tomorrow = localDateKey(addLocalDays(1));
         forecast = Array(7).fill(0);
         (allCards || []).forEach(c => {
-            if (c.suspended) return;
-            const due = new Date(c.due_date);
-            const dayIdx = Math.floor((due - startTomorrow) / 86400000);
+            if (c.suspended || !c.due_date) return;
+            const dayIdx = daysBetweenLocalKeys(tomorrow, localDateKey(c.due_date));
             if (dayIdx >= 0 && dayIdx < 7) forecast[dayIdx]++;
         });
         dueTomorrow = forecast[0];
@@ -205,7 +206,7 @@ export async function renderHome(container, app) {
     // Quem sumiu ganha uma missão de RETORNO leve em vez de meta alta.
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v)));
     const lastStudy = userStats?.last_study_date || null;
-    const daysAway = lastStudy ? Math.floor((Date.now() - new Date(lastStudy + 'T00:00:00Z').getTime()) / 86400000) : 0;
+    const daysAway = lastStudy ? Math.max(0, daysBetweenLocalKeys(lastStudy, todayISO)) : 0;
     const isReturning = daysAway >= 2; // sumiu 2+ dias
 
     // A meta escolhida no onboarding é a missão principal. Em retorno após
@@ -288,7 +289,7 @@ export async function renderHome(container, app) {
                         ${forecast.map((n, i) => {
                             const max = Math.max(...forecast, 1);
                             const h = Math.max(4, Math.round((n / max) * 34));
-                            const d = new Date(Date.now() + (i + 1) * 86400000);
+                            const d = addLocalDays(i + 1);
                             const label = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'][d.getDay()];
                             return `<div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;">
                                 <div style="font-size:9px; color:var(--color-text-light); font-weight:700;">${n || ''}</div>
@@ -388,12 +389,10 @@ export async function renderHome(container, app) {
     const heatmapGrid = container.querySelector('#heatmap-grid');
     if (heatmapGrid && safeStats.sessions) {
         let cellsHTML = '';
-        const todayDate = new Date();
-        const thirtyDaysAgo = new Date(todayDate.getTime() - 29 * 24 * 60 * 60 * 1000);
+        const thirtyDaysAgo = addLocalDays(-29);
         
         for (let i = 0; i < 30; i++) {
-            const d = new Date(thirtyDaysAgo.getTime() + i * 24 * 60 * 60 * 1000);
-            const dateStr = d.toISOString().split('T')[0];
+            const dateStr = localDateKey(addLocalDays(i, thirtyDaysAgo));
             const session = safeStats.sessions.find(s => s.date === dateStr);
             let level = 0;
             if (session) {

@@ -1,5 +1,6 @@
 import { db as lfDb } from '../../../utils/db.js';
 import { generateChunksWeb } from '../core/ai.js';
+import { attachVideoContext, renderVideoContext } from '../core/videoContext.js';
 
 let allWords = [];
 let filteredWords = [];
@@ -114,6 +115,7 @@ function renderUI(container, app) {
               <div class="word-info">
                 <div class="word-main">${w.word} ${suspended ? '<span style="font-size:11px; font-weight:800; color:var(--color-warning); border:1px solid var(--color-warning); border-radius:6px; padding:1px 6px; vertical-align:middle;">SUSPENSO</span>' : ''}</div>
                 <div class="word-trans">${w.translation}</div>
+                ${renderVideoContext(w, `library-video-${w.id}`)}
               </div>
               <div class="word-actions">
                 ${renderStatus(w.reps)}
@@ -179,6 +181,8 @@ function renderUI(container, app) {
           }
       });
   });
+
+  attachVideoContext(container);
 
   // Backfill btn logic
   const backfillBtn = document.getElementById('btn-run-backfill');
@@ -355,6 +359,13 @@ function injectStyles() {
             font-size: 15px;
             color: var(--color-text-light);
         }
+        .video-context { margin-top: 10px; max-width: 560px; }
+        .video-context-label { color: var(--color-text-light); font-size: 12px; font-weight: 800; }
+        .video-context-title { display: block; color: var(--color-text); font-size: 13px; margin: 3px 0 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .video-context-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .video-context-actions a, .video-context-embed { color: var(--color-secondary); background: transparent; border: 0; cursor: pointer; font: inherit; font-size: 13px; font-weight: 800; padding: 0; text-decoration: underline; }
+        .video-context-frame { margin-top: 12px; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; }
+        .video-context-frame iframe { width: 100%; height: 100%; border: 0; }
         .word-actions {
             display: flex;
             align-items: center;

@@ -8,14 +8,18 @@ const EDGE_URL = 'https://qnutoswrufznztoznlql.supabase.co/functions/v1/deepseek
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
 let _cefrCache;
+let _cefrCacheTs = 0;
 
 export async function getCefrLevel() {
-  if (_cefrCache !== undefined) return _cefrCache;
+  // BUG antigo: cacheava pra sempre — mudar o nível (Configurações/teste de
+  // nivelamento) não afetava as histórias até recarregar a página. TTL 30s.
+  if (_cefrCache !== undefined && Date.now() - _cefrCacheTs < 30000) return _cefrCache;
   try {
     _cefrCache = (await lfDb.getSetting('lf_cefr_level')) || null;
   } catch {
     _cefrCache = null;
   }
+  _cefrCacheTs = Date.now();
   return _cefrCache;
 }
 

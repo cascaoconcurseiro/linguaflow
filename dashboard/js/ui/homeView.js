@@ -96,11 +96,30 @@ export async function renderHome(container, app) {
         });
     } catch (e) { console.warn('[Home] Erro ao calcular missões:', e); }
 
-    const quests = [
-        { id: 1, text: "Ganhar 50 XP", target: 50, current: Math.min(xpToday, 50) },
-        { id: 2, text: "Revisar 20 cartas", target: 20, current: Math.min(reviewsToday, 20) },
-        { id: 3, text: "Aprender 5 novas palavras", target: 5, current: Math.min(wordsToday, 5) }
-    ].map(q => ({ ...q, done: q.current >= q.target }));
+    // Pool de missões: 3 sorteadas por dia (seed = data — todo dia muda,
+    // mas fica estável ao longo do mesmo dia)
+    const QUEST_POOL = [
+        { id: 'xp50', text: "Ganhar 50 XP", target: 50, value: () => xpToday },
+        { id: 'xp80', text: "Ganhar 80 XP", target: 80, value: () => xpToday },
+        { id: 'rev10', text: "Revisar 10 cartas", target: 10, value: () => reviewsToday },
+        { id: 'rev20', text: "Revisar 20 cartas", target: 20, value: () => reviewsToday },
+        { id: 'new3', text: "Aprender 3 novas palavras", target: 3, value: () => wordsToday },
+        { id: 'new5', text: "Aprender 5 novas palavras", target: 5, value: () => wordsToday },
+        { id: 'new8', text: "Caçar 8 palavras novas", target: 8, value: () => wordsToday },
+    ];
+    let seed = todayISO.split('-').reduce((a, n) => a + Number(n), 0);
+    const seededRand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+    const pool = [...QUEST_POOL].sort(() => seededRand() - 0.5);
+    // Garante variedade: uma missão de cada tipo (xp/revisão/palavras novas)
+    const picked = [
+        pool.find(q => q.id.startsWith('xp')),
+        pool.find(q => q.id.startsWith('rev')),
+        pool.find(q => q.id.startsWith('new')),
+    ].filter(Boolean);
+    const quests = picked.map(q => {
+        const current = Math.min(q.value(), q.target);
+        return { ...q, current, done: current >= q.target };
+    });
 
     container.innerHTML = `
         <div class="gamified-home">

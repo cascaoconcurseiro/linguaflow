@@ -25,20 +25,8 @@ export async function renderLeagues(container, app) {
       isUser: userStats && u.user_id === userStats.user_id
   }));
 
-  // If there are less than 20 users, let's fill with some "ghost" bots for visual aesthetics
-  if (allEntries.length < 20) {
-      const firstNames = ['Ana', 'João', 'Maria', 'Pedro', 'Lucas', 'Julia', 'Carlos', 'Mariana', 'Paulo', 'Fernanda'];
-      const currentXP = userStats ? userStats.xp_week : 0;
-      
-      for (let i = allEntries.length; i < 20; i++) {
-          allEntries.push({
-              id: `bot_${i}`,
-              name: firstNames[Math.floor(Math.random() * firstNames.length)],
-              xp: Math.max(0, currentXP + Math.floor((Math.random() - 0.5) * 200)),
-              isUser: false
-          });
-      }
-  }
+  // Só usuários REAIS — os "bots fantasmas" antigos eram dados falsos que
+  // minavam a confiança no app. Liga pequena é honesta; ela cresce com a base.
 
   allEntries.sort((a, b) => b.xp - a.xp);
 

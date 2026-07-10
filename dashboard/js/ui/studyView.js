@@ -24,6 +24,7 @@ export async function renderStudy(container, app) {
   sessionStart = Date.now();
   lastReview = null;
   exerciseApp = app;
+  studyContainer = container;
   ygWidget = null; // container será recriado
 
   app.showToast('Carregando frases...', 'info');
@@ -111,7 +112,14 @@ export async function renderStudy(container, app) {
           <div style="font-size: 14px; color: var(--color-secondary); font-style: italic; background: rgba(28, 176, 246, 0.1); padding: 4px 12px; border-radius: 16px; display: inline-block;" id="iso-phonetics"></div>
         </div>
 
-        <h3 class="sidebar-title">Frases úteis (Chunks) ✨</h3>
+        <h3 class="sidebar-title">Nativos falando 📺</h3>
+        <div id="youglish-box" class="hidden">
+          <button id="yg-load-btn" class="btn btn-secondary" style="width:100%; padding:10px; font-size:13px;">▶ Ver nativos falando esta palavra</button>
+          <div id="yg-widget-embed"></div>
+          <a id="youglish-fallback" href="#" target="_blank" rel="noopener" class="hidden" style="color: var(--color-secondary); font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 8px;">📺 Abrir no YouGlish</a>
+        </div>
+
+        <h3 class="sidebar-title" style="margin-top:32px;">Frases úteis (Chunks) ✨</h3>
         <div class="chunks-list" id="chunks-container"></div>
 
         <h3 class="sidebar-title" style="margin-top:32px;">Pergunte ao tutor 🎓</h3>
@@ -125,11 +133,6 @@ export async function renderStudy(container, app) {
           </form>
         </div>
 
-        <h3 class="sidebar-title" style="margin-top:32px;">Nativos falando 📺</h3>
-        <div id="youglish-box" class="hidden">
-          <div id="yg-widget-embed"></div>
-          <a id="youglish-fallback" href="#" target="_blank" rel="noopener" class="hidden" style="color: var(--color-secondary); font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 8px;">📺 Abrir no YouGlish</a>
-        </div>
       </div>
     </div>
   `;
@@ -260,6 +263,7 @@ function looksBroken(context, word) {
 // ── Fluxo do card ────────────────────────────────────────────────────────────
 async function loadNextCard(app) {
   stopAudio();
+  pauseYouglish();
 
   if (dueQueue.length === 0) {
     if (window.currentKeydownHandler) {
@@ -267,7 +271,10 @@ async function loadNextCard(app) {
     }
 
     const sessionTime = Math.round((Date.now() - sessionStart) / 60000);
-    const rootContainer = document.getElementById('app-view') || document.body;
+    // BUG antigo: escrevia em #app-view, que não existe → caía no <body> e
+    // destruía o app inteiro (o botão "Continuar" navegava pra um container
+    // fora do DOM). Usa o container real da view de estudo.
+    const rootContainer = studyContainer || document.getElementById('app-view') || document.body;
     rootContainer.innerHTML = `
       <div style="display:flex; height:100%; align-items:center; justify-content:center; background:var(--color-bg-alt);">
         <div style="text-align:center; padding:60px; background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-border); box-shadow:0 10px 40px rgba(0,0,0,0.08); max-width:500px;">
@@ -428,6 +435,7 @@ function renderFront(card, word, context) {
 // mesma filosofia do Duolingo, e o FSRS/undo continuam valendo.
 
 let exerciseApp = null; // referência do app pro auto-grade
+let studyContainer = null; // container real da view (tela final escrevia no body)
 
 function normalizeAnswer(s) {
   return String(s || '').toLowerCase().replace(/[^a-z0-9' ]/g, '').replace(/\s+/g, ' ').trim();
@@ -867,9 +875,13 @@ async function sendGrammarQuestion(text) {
 }
 
 // ── YouGlish embutido ────────────────────────────────────────────────────────
+// Lazy por design: o widget do YouGlish dá autoplay e é pesado — só carrega
+// quando o usuário CLICA. Ao trocar de card, o vídeo é pausado (bug antigo:
+// continuava tocando no card seguinte).
 function updateYouglish(word) {
   const box = document.getElementById('youglish-box');
   const fallback = document.getElementById('youglish-fallback');
+  const loadBtn = document.getElementById('yg-load-btn');
   if (!box) return;
   box.classList.remove('hidden');
   fallback.href = `https://youglish.com/pronounce/${encodeURIComponent(word)}/english`;
@@ -877,15 +889,29 @@ function updateYouglish(word) {
 
   // Extensão (MV3): scripts remotos são proibidos pelo CSP → só o link.
   if (isExtension) {
+    if (loadBtn) loadBtn.classList.add('hidden');
     fallback.classList.remove('hidden');
     return;
   }
 
+  // Widget escondido até o clique; botão volta a aparecer a cada card novo
+  document.getElementById('yg-widget-embed')?.classList.add('hidden');
+  if (loadBtn) {
+    loadBtn.classList.remove('hidden');
+    loadBtn.textContent = `▶ Ver nativos falando "${word}"`;
+    loadBtn.onclick = () => {
+      loadBtn.classList.add('hidden');
+      document.getElementById('yg-widget-embed')?.classList.remove('hidden');
+      loadYouglishAnd(word);
+    };
+  }
+}
+
+function loadYouglishAnd(word) {
   if (window.YG && window.YG.Widget) {
     ygFetch(word);
     return;
   }
-
   ygQueuedWord = word;
   if (document.getElementById('yg-script')) return;
 
@@ -899,6 +925,11 @@ function updateYouglish(word) {
   s.charset = 'utf-8';
   s.onerror = () => document.getElementById('youglish-fallback')?.classList.remove('hidden');
   document.head.appendChild(s);
+}
+
+// Pausa o vídeo do YouGlish (chamado ao trocar de card / sair da sessão)
+function pauseYouglish() {
+  try { ygWidget?.pause?.(); } catch { /* widget pode não estar pronto */ }
 }
 
 function ygFetch(word) {
@@ -980,17 +1011,21 @@ async function handleGrade(grade, app) {
 
   sessionCards++;
   const gradedCard = currentCard;
-  try {
-    const res = await lfDb.logReview(currentCard.id, grade);
-    // Guarda o necessário pra desfazer: estado anterior do card + card da fila
-    lastReview = { prevCard: res?.prevCard || null, card: gradedCard, grade, isCorrect };
-    updateUndoButton();
-  } catch (e) {
-    console.error('Failed to log review:', e);
-    app.showToast('Erro ao salvar a revisão. Verifique sua conexão.', 'error');
-  }
+
+  // OTIMISTA: o próximo card aparece JÁ — o logReview (que faz várias idas
+  // ao servidor) roda em segundo plano. Era a causa da demora ao avaliar.
   dueQueue.shift();
   loadNextCard(app);
+
+  lfDb.logReview(gradedCard.id, grade)
+    .then((res) => {
+      lastReview = { prevCard: res?.prevCard || null, card: gradedCard, grade, isCorrect };
+      updateUndoButton();
+    })
+    .catch((e) => {
+      console.error('Failed to log review:', e);
+      app.showToast('Erro ao salvar a revisão. Verifique sua conexão.', 'error');
+    });
 }
 
 async function handleUndo(app) {

@@ -265,10 +265,17 @@ class Database {
   async getSetting(key) {
     if (this.isProxyMode) return this._proxy('getSetting', [key]);
     const res = await this._fetch(`settings?key=eq.${encodeURIComponent(key)}`);
-    return res && res.length > 0 ? res[0].value : null;
+    if (res && res.length > 0) {
+      const val = res[0].value;
+      if (val === 'true') return true;
+      if (val === 'false') return false;
+      return val;
+    }
+    return null;
   }
 
   async setSetting(key, value) {
+    this._srsCache = null; // qualquer setting nova invalida o cache do SRS
     if (this.isProxyMode) return this._proxy('setSetting', [key, value]);
     const res = await this._fetch('settings?on_conflict=user_id,key', {
       method: 'POST',
@@ -516,23 +523,44 @@ class Database {
   }
 
   async getSRSSettings() {
-    return {
-      gradInt: Number(await this.getSetting('graduating_interval')) || 1,
-      easyInt: Number(await this.getSetting('easy_interval')) || 4,
-      initEase: (Number(await this.getSetting('initial_ease')) || 250) / 100,
-      maxInt: Number(await this.getSetting('max_interval')) || 36500,
-      leechThresh: Number(await this.getSetting('leech_threshold')) || 8,
-      easyBonus: (Number(await this.getSetting('easy_bonus')) || 130) / 100,
-      intMod: (Number(await this.getSetting('interval_modifier')) || 100) / 100,
-      lapseMod: (Number(await this.getSetting('lapse_modifier')) || 0) / 100,
-      leechAction: (await this.getSetting('leech_action')) || 'tag',
+    // GARGALO CORRIGIDO: eram 11 chamadas REST sequenciais A CADA avaliação
+    // de card (a "demora ao clicar em Difícil"). Agora: 1 request em lote +
+    // cache de 60s, invalidado quando qualquer setting é gravada.
+    if (this._srsCache && Date.now() - this._srsCache.ts < 60000) {
+      return this._srsCache.value;
+    }
+
+    const keys = ['graduating_interval', 'easy_interval', 'initial_ease', 'max_interval',
+      'leech_threshold', 'easy_bonus', 'interval_modifier', 'lapse_modifier',
+      'leech_action', 'lf_srs_retention', 'learning_steps'];
+    const map = {};
+    if (this.isProxyMode) {
+      const rows = await this._proxy('_fetch', [`settings?key=in.(${keys.join(',')})`, {}]);
+      (rows || []).forEach(r => { map[r.key] = r.value; });
+    } else {
+      const rows = await this._fetch(`settings?key=in.(${keys.join(',')})`);
+      (rows || []).forEach(r => { map[r.key] = r.value; });
+    }
+
+    const value = {
+      gradInt: Number(map.graduating_interval) || 1,
+      easyInt: Number(map.easy_interval) || 4,
+      initEase: (Number(map.initial_ease) || 250) / 100,
+      maxInt: Number(map.max_interval) || 36500,
+      leechThresh: Number(map.leech_threshold) || 8,
+      easyBonus: (Number(map.easy_bonus) || 130) / 100,
+      intMod: (Number(map.interval_modifier) || 100) / 100,
+      lapseMod: (Number(map.lapse_modifier) || 0) / 100,
+      leechAction: map.leech_action || 'tag',
       // Retenção desejada do FSRS (0.7-0.97): mais alto = revisões mais frequentes
-      retention: Math.min(0.97, Math.max(0.7, Number(await this.getSetting('lf_srs_retention')) || 0.9)),
-      learningSteps: ((await this.getSetting('learning_steps')) || '1 10')
+      retention: Math.min(0.97, Math.max(0.7, Number(map.lf_srs_retention) || 0.9)),
+      learningSteps: (map.learning_steps || '1 10')
         .split(' ')
         .map(Number)
         .filter((n) => n > 0),
     };
+    this._srsCache = { value, ts: Date.now() };
+    return value;
   }
 
   // ── FSRS-4.5 (algoritmo do Anki moderno) ─────────────────────────────────

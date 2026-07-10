@@ -106,7 +106,15 @@ export async function renderReader(container, app) {
   container.innerHTML = `
     <div style="padding:40px; max-width:900px; margin:0 auto; padding-bottom:100px;">
       <h1 style="font-size:32px; color:var(--color-text); margin-bottom:8px;">📖 Leitor</h1>
-      <p style="color:var(--color-text-light); margin-bottom:24px;">Leia qualquer texto com palavras coloridas pelo seu nível, estilo LingQ. <span class="rw rw-new" style="cursor:default;">azul = nova</span> · <span class="rw rw-learning" style="cursor:default;">amarela = aprendendo</span> · sem cor = conhecida.</p>
+      <div style="background:rgba(28,176,246,0.08); border:2px solid var(--color-secondary); border-radius:var(--radius-md); padding:16px 20px; margin-bottom:24px;">
+        <p style="color:var(--color-text); font-weight:700; margin-bottom:8px;">Como funciona (3 passos):</p>
+        <p style="color:var(--color-text-light); font-size:14px; line-height:1.7; margin:0;">
+          <strong>1.</strong> Cole qualquer texto em inglês (letra de música, artigo, roteiro de série).<br>
+          <strong>2.</strong> Leia — cada palavra ganha uma cor: <span class="rw rw-new" style="cursor:default;">azul = você nunca viu</span> · <span class="rw rw-learning" style="cursor:default;">amarela = está aprendendo</span> · sem cor = já conhece.<br>
+          <strong>3.</strong> Clique numa palavra pra ver a tradução, ouvir, <strong>salvar como flashcard</strong> ou marcar <strong>"já sei"</strong>. Quanto mais você lê, mais o app conhece seu vocabulário real.
+        </p>
+        <button id="rd-try-sample" style="margin-top:12px; background:none; border:none; color:var(--color-secondary); font-family:var(--font-main); font-weight:800; font-size:14px; cursor:pointer; text-decoration:underline;">✨ Experimentar com um texto de exemplo</button>
+      </div>
 
       <div id="reader-import" style="background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:24px; margin-bottom:24px;">
         <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Importar novo texto</label>
@@ -184,6 +192,15 @@ export async function renderReader(container, app) {
     });
     refreshStats();
   }
+
+  document.getElementById('rd-try-sample')?.addEventListener('click', () => {
+    openText({
+      id: 'sample',
+      title: 'Texto de exemplo — Morning Routine',
+      content: `Every morning, I wake up early and make a cup of coffee. I usually check my phone while I eat breakfast, even though I know it is a bad habit. After that, I take a quick shower and get dressed for work.\n\nOn my way to the office, I listen to podcasts about science and technology. It helps me learn something new every single day. When I arrive, I say hello to my coworkers and start planning my tasks.\n\nThe most difficult part of my day is the afternoon meeting. Everyone talks fast, and sometimes I struggle to follow the conversation. But I never give up — little by little, I am getting better.`,
+      addedAt: Date.now(),
+    });
+  });
 
   document.getElementById('rd-add').addEventListener('click', () => {
     const title = document.getElementById('rd-title').value.trim();

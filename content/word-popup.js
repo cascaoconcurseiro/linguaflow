@@ -428,23 +428,9 @@ export class WordPopup {
     window.__lfpopup = this;
     this._bind();
 
-    // O conteúdo (dicionário, badges, etc.) chega de forma assíncrona e muda a
-    // altura do popup depois do posicionamento inicial. Reposiciona sempre que
-    // o tamanho mudar para garantir que ele continue acima da legenda.
-    this._posObserver = new ResizeObserver(() => {
-      if (this.popup.style.display !== 'none') this._position();
-    });
-    this._posObserver.observe(this.popup);
-
-    // position: absolute (documento) já rola junto com a página sozinho —
-    // só precisamos recalcular em resize de janela (o player pode mudar de
-    // largura/posição sem gerar scroll).
-    if (!this._scrollBound) {
-      window.addEventListener('resize', () => {
-        if (this.popup && this.popup.style.display !== 'none') this._position();
-      });
-      this._scrollBound = true;
-    }
+    // Em vez de ResizeObserver e scroll/resize events que podem causar
+    // loops infinitos ou ajustes bruscos (especialmente no mobile),
+    // usamos um requestAnimationFrame loop leve enquanto o popup estiver visível.
   }
 
   _q(s) {
@@ -573,11 +559,12 @@ export class WordPopup {
     this._exBuilt = false;
     this._contextExplained = false;
 
-    // Sempre mantém o popup em document.body (fora do playerContainer, que o
-    // YouTube às vezes anima com transform/scale — isso distorceria o popup
-    // se ele fosse filho dele).
-    if (this.popup.parentElement !== document.body) {
-      document.body.appendChild(this.popup);
+    // Sempre mantém o popup grudado no player para que siga miniplayer/PiP nativamente
+    const player = this._findPlayerContainer();
+    const targetParent = player || document.body;
+
+    if (this.popup.parentElement !== targetParent) {
+      targetParent.appendChild(this.popup);
     }
     // Reset tabs
     this.popup.querySelectorAll('.ftab').forEach((t, i) => {
@@ -711,7 +698,7 @@ export class WordPopup {
     })();
 
     this.popup.style.display = 'block';
-    this._position(); // Chama após display=block para obter offsetHeight real
+    this._startPosLoop(); // Inicia o loop rAF para posicionamento
 
     // Trigger animation
     requestAnimationFrame(() => {
@@ -1114,11 +1101,9 @@ export class WordPopup {
         translation = (await this._translate(this.word)) || '';
       }
 
-      if (!this._chunksBuilt && !this.generatedChunks) {
-        btn.innerHTML = '<span class="lfp-spin"></span> Gerando Chunks (IA)...';
-        await this._generateChunks();
-      }
-
+      // SALVA JÁ — nada de esperar a IA gerar chunks (era a "demora ao salvar").
+      // O backfill do service worker roda em background depois do saveWord e
+      // completa chunks/frases sozinho.
       if (!d.phonetic && this.generatedChunks && this.generatedChunks.length > 0) {
         d.phonetic = this.generatedChunks[0].phon;
       }
@@ -1548,61 +1533,110 @@ export class WordPopup {
     return null;
   }
 
+  _startPosLoop() {
+    if (this._posLoopRunning) return;
+    this._posLoopRunning = true;
+    
+    const loop = () => {
+      if (!this.popup || this.popup.style.display === 'none') {
+        this._posLoopRunning = false;
+        return;
+      }
+      this._position();
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  }
+
   _position() {
-    // Primeiro exibe para conseguir calcular o tamanho real
     this.popup.style.display = 'block';
 
-    // Grudado no player: usamos `position: absolute` com coordenadas
-    // relativas ao DOCUMENTO (viewport rect + scroll atual). Isso faz o
-    // popup rolar junto com a página naturalmente, sem precisar recalcular
-    // a cada evento de scroll — `position: fixed` foi descartado porque o
-    // YouTube aplica transform/will-change em algum ancestral do <body>,
-    // o que quebra o comportamento de "fixed" e fazia o popup "andar"
-    // (ficar perseguindo a posição certa a cada scroll, com atraso visível).
     const player = this.engine?._findPlayerContainer?.();
-    const playerRect = player ? player.getBoundingClientRect() : null;
     const subtitleHost = document.getElementById('linguaflow-subtitle-host');
-    const subtitleRect =
-      subtitleHost && subtitleHost.offsetParent !== null
-        ? subtitleHost.getBoundingClientRect()
-        : null;
 
     const pw = 340;
-    const viewportW = window.innerWidth;
-    const viewportH = window.innerHeight;
-    const scrollX = window.scrollX;
-    const scrollY = window.scrollY;
+    
+    if (player && this.popup.parentElement === player) {
+      // Relative to player
+      const playerW = player.offsetWidth || player.clientWidth;
+      const playerH = player.offsetHeight || player.clientHeight;
 
-    const centerX = playerRect ? playerRect.left + playerRect.width / 2 : viewportW / 2;
-    let left = centerX - pw / 2;
-    left = Math.max(10, Math.min(left, viewportW - pw - 10)) + scrollX;
+      const centerX = playerW / 2;
+      let localLeft = centerX - pw / 2;
+      localLeft = Math.max(10, Math.min(localLeft, playerW - pw - 10));
 
-    // Teto = topo da legenda (ou base do player, ou viewport, na ausência dela)
-    const ceilingViewport = subtitleRect
-      ? subtitleRect.top
-      : playerRect
-        ? playerRect.bottom
-        : viewportH;
-    let topViewport = ceilingViewport - this.popup.offsetHeight - 16;
-    if (topViewport < 10) topViewport = 10;
-    const top = topViewport + scrollY;
+      let ceilingLocal = playerH;
+      if (subtitleHost && subtitleHost.offsetParent) {
+        // Obter posição relativa ao player subtraindo os tops
+        const playerRect = player.getBoundingClientRect();
+        const subRect = subtitleHost.getBoundingClientRect();
+        ceilingLocal = subRect.top - playerRect.top;
+      }
 
-    Object.assign(this.popup.style, {
-      position: 'absolute',
-      top: `${top}px`,
-      left: `${left}px`,
-      right: 'auto',
-      bottom: 'auto',
-      transform: 'none',
-      width: `${pw}px`,
-      maxWidth: '90vw',
-      height: 'auto',
-      maxHeight: '80vh',
-      borderRadius: '16px',
-      boxShadow: '0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
-      animation: 'lfpPopIn 0.2s cubic-bezier(0.16,1,0.3,1)',
-      overflowY: 'auto',
-    });
+      let localTop = ceilingLocal - this.popup.offsetHeight - 16;
+      if (localTop < 10) localTop = 10;
+
+      const newTop = `${localTop}px`;
+      const newLeft = `${localLeft}px`;
+
+      if (this._lastTop !== newTop || this._lastLeft !== newLeft) {
+        this._lastTop = newTop;
+        this._lastLeft = newLeft;
+        Object.assign(this.popup.style, {
+          position: 'absolute',
+          top: newTop,
+          left: newLeft,
+          right: 'auto',
+          bottom: 'auto',
+          transform: 'none',
+          width: `${pw}px`,
+          maxWidth: '90%',
+          height: 'auto',
+          maxHeight: '80%',
+          borderRadius: '16px',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
+          overflowY: 'auto',
+        });
+      }
+    } else {
+      // Fallback relative to viewport
+      const viewportW = window.innerWidth;
+      const viewportH = window.innerHeight;
+      const centerX = viewportW / 2;
+      let leftViewport = centerX - pw / 2;
+      leftViewport = Math.max(10, Math.min(leftViewport, viewportW - pw - 10));
+
+      let ceilingViewport = viewportH;
+      if (subtitleHost && subtitleHost.offsetParent) {
+        ceilingViewport = subtitleHost.getBoundingClientRect().top;
+      }
+
+      let topViewport = ceilingViewport - this.popup.offsetHeight - 16;
+      if (topViewport < 10) topViewport = 10;
+
+      const newTop = `${topViewport}px`;
+      const newLeft = `${leftViewport}px`;
+
+      if (this._lastTop !== newTop || this._lastLeft !== newLeft) {
+        this._lastTop = newTop;
+        this._lastLeft = newLeft;
+        Object.assign(this.popup.style, {
+          position: 'fixed',
+          top: newTop,
+          left: newLeft,
+          right: 'auto',
+          bottom: 'auto',
+          transform: 'none',
+          width: `${pw}px`,
+          maxWidth: '90vw',
+          height: 'auto',
+          maxHeight: '80vh',
+          borderRadius: '16px',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
+          overflowY: 'auto',
+        });
+      }
+    }
     // Garante o keyframe de animação popup
     if (!document.getElementById('lfp-pop-k')) {
       const s = document.createElement('style');

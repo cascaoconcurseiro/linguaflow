@@ -266,10 +266,26 @@ export function renderStories(container, app) {
   btnTtsWord.addEventListener('click', () => playTTS(currentSelectedWord));
 
   // Story Saving/Loading
-  async function saveStoryLocal(title, text, level) {
+  // BUG antigo: usava chrome.storage — no SITE não existe, então o histórico
+  // nunca salvava. Agora: localStorage na web, chrome.storage na extensão.
+  function readStories(cb) {
     const key = 'lf_saved_stories';
-    chrome.storage.local.get([key], (res) => {
-      let stories = res[key] || [];
+    if (isExtension) {
+      chrome.storage.local.get([key], (res) => cb(res[key] || []));
+    } else {
+      try { cb(JSON.parse(localStorage.getItem(key) || '[]')); }
+      catch { cb([]); }
+    }
+  }
+
+  function writeStories(stories) {
+    const key = 'lf_saved_stories';
+    if (isExtension) chrome.storage.local.set({ [key]: stories });
+    else localStorage.setItem(key, JSON.stringify(stories));
+  }
+
+  async function saveStoryLocal(title, text, level) {
+    readStories((stories) => {
       stories.unshift({
         id: Date.now().toString(),
         title: title,
@@ -278,14 +294,12 @@ export function renderStories(container, app) {
         date: new Date().toISOString()
       });
       if (stories.length > 50) stories = stories.slice(0, 50);
-      chrome.storage.local.set({ [key]: stories });
+      writeStories(stories);
     });
   }
 
   function loadHistory() {
-    const key = 'lf_saved_stories';
-    chrome.storage.local.get([key], (res) => {
-      const stories = res[key] || [];
+    readStories((stories) => {
       historyList.innerHTML = '';
       if (stories.length === 0) {
         historyList.innerHTML = '<p style="color:var(--color-text-light); text-align:center; padding:20px;">Nenhuma história salva ainda. Gere sua primeira!</p>';

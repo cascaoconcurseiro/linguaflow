@@ -1,5 +1,38 @@
 # Auditoria Arquitetural Geral — LinguaFlow
-**Data:** 2026-07-10 · **Feita por:** leitura linha-a-linha do código real + inspeção do banco Supabase de produção (`qnutoswrufznztoznlql`) via MCP (tabelas, triggers, funções, advisors). Nada aqui é suposição — cada achado tem evidência no arquivo/linha ou numa query executada.
+**Data:** 2026-07-10 · **Auditoria original:** leitura linha-a-linha do código real + inspeção do banco Supabase de produção (`qnutoswrufznztoznlql`) via MCP (tabelas, triggers, funções, advisors).
+
+## Livro de execução — Codex
+
+> Esta seção é mantida por **Codex** a partir de 2026-07-10. Ela não substitui a auditoria original: registra, com evidência, o que foi validado, alterado e ainda falta concluir. Nenhum item é marcado como concluído apenas por declaração de outro agente.
+
+### Linha de base validada (2026-07-10)
+
+- **Branch de trabalho:** `codex/auditoria-completa`, criada a partir do PR #3 (`claude/learning-system-audit-4uwb83`, commit `e43fad1`).
+- **Código:** `node tests/engine.test.mjs` executado por Codex: **14/14 testes passaram**.
+- **Vercel:** preview do PR #3 está `READY`; produção permanece na `main` (`d7ae137`) até revisão e merge explícitos.
+- **Supabase produção:** migrations `security_hardening_e0`, `translation_cache_e2`, `learning_engine_e4`, `league_rollover_e5` e `harden_ensure_user_stats` existem e as tabelas `translation_cache`, `league_meta`, coluna `cards.introduced_at` e `user_stats.daily_counters` foram confirmadas.
+- **Divergências confirmadas:** as migrations aplicadas não existem no Git; `settings` possui 104 linhas (não aproximadamente 40); ainda há avisos para quatro funções `SECURITY DEFINER` executáveis por `authenticated` e para a proteção de senhas vazadas desativada.
+
+### Execuções registradas por Codex
+
+- **2026-07-10 — P0 / integridade da revisão:** criada e aplicada no Supabase a migration `20260710173210_record_card_review_atomically`. Ela adiciona chave de idempotência ao `review_log` e a RPC `record_card_review`, que grava estado do card + histórico + trigger de XP na mesma transação. O cliente agora usa essa RPC, bloqueia duplo clique de avaliação e mostra somente XP confirmado pelo servidor. A migration foi confirmada no histórico do Supabase e `node --check` + 14 testes do motor passaram.
+- **2026-07-10 — P0 / limites diários:** a fila de estudo passou a aplicar a cota de revisões apenas a cards de revisão, sem esconder cards novos ou passos de aprendizagem. O recorte anterior usava uma única lista e podia bloquear conteúdo indevidamente.
+
+### Plano de conclusão (ordem obrigatória)
+
+| Prioridade | Bloco | Responsável | Situação | Critério de aceite |
+|---|---|---|---|---|
+| P0 | Versionar migrations já aplicadas e eliminar divergência Git↔Supabase | Codex | Em andamento | A migration nova está versionada; falta recuperar as cinco migrations históricas já aplicadas. |
+| P0 | Corrigir/validar segurança e permissões de RPC | Codex | Pendente | Advisors sem alerta acionável; cada RPC só expõe a autoridade necessária. |
+| P0 | Revisão e testes integrados do PR #3 | Codex | Em andamento | Testes automatizados, validação do banco e smoke test do preview passam. |
+| P1 | Observabilidade de erros | Codex | Pendente | Falhas de cliente/Edge Function são capturadas sem vazar dados pessoais. |
+| P1 | Acessibilidade e responsividade do estudo | Codex | Pendente | Uso por teclado, ARIA, contraste e mobile validados. |
+| P1 | Onboarding de primeiro acesso | Codex | Pendente | Novo usuário conclui nível, meta e primeira ação útil. |
+| P2 | Web Push do PWA com consentimento | Codex | Pendente | Lembretes funcionam apenas após opt-in e respeitam preferência do usuário. |
+| P2 | Player YouTube contextual reutilizável | Codex | Pendente | Um player global reproduz o trecho do card com fallback seguro. |
+| P2 | Consolidação/faxina final | Codex | Pendente | Site e extensão têm responsabilidades sem rotas/código duplicado. |
+
+---
 
 > **Escopo:** este documento é o "raio-X" pedido pelo dono. Ele responde a UMA pergunta central, lista TODOS os problemas por criticidade, faz o benchmark contra Anki/SuperMemo/LingQ/Duolingo/Language Reactor/Readlang/Mochi/Memrise, aponta o que NÃO foi pedido mas deveria existir, e termina com um **roadmap em etapas para o Fable 5 executar**. Nenhuma alteração de código foi feita — só diagnóstico.
 

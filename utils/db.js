@@ -828,21 +828,35 @@ class Database {
       if (settings.leechAction === 'suspend') card.suspended = true;
     }
 
-    await this.updateCard(card);
-
-    await this._fetch('review_log', {
+    // A revisão é uma única operação transacional no Postgres. Antes desta
+    // RPC o PATCH do card e o INSERT em review_log podiam divergir em falha
+    // de rede, deixando o agendamento sem histórico/XP/undo.
+    const clientReviewId = globalThis.crypto?.randomUUID?.()
+      || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.floor(Math.random() * 16);
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+      });
+    const saved = await this._fetch('rpc/record_card_review', {
       method: 'POST',
       body: {
-        card_id: cardId,
-        quality,
-        date: new Date().toISOString().split('T')[0],
-        ts: new Date().toISOString()
-      }
+        p_card_id: cardId,
+        p_quality: quality,
+        p_state: card,
+        p_client_review_id: clientReviewId,
+      },
     });
+    const savedCard = saved?.card || card;
 
     // prevCard permite reverter o agendamento (undo); card é o estado NOVO —
     // a fila de sessão usa pra reagendar cards em aprendizado (learning steps)
-    return { ok: true, nextDue: new Date(card.due_date).getTime(), prevCard, card };
+    return {
+      ok: true,
+      nextDue: new Date(savedCard.due_date).getTime(),
+      prevCard,
+      card: savedCard,
+      reviewLogId: saved?.review_log_id || null,
+      xpAwarded: Number(saved?.xp_awarded || 0),
+    };
   }
 
   // Desfaz a última revisão: restaura o card ao estado anterior e apaga o

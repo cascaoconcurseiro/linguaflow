@@ -1,5 +1,13 @@
 # Handoff — LinguaFlow
 
+## Execução Codex — 2026-07-10
+
+- Branch de trabalho: `codex/auditoria-completa`, derivada do PR #3 (`e43fad1`).
+- Validação inicial: `node tests/engine.test.mjs` passou 14/14; preview do PR está pronto na Vercel; produção permanece em `main` até integração explícita.
+- Banco: a migration `20260710173210_record_card_review_atomically` foi aplicada e versionada em `supabase/migrations/`. Ela substitui o fluxo vulnerável PATCH-do-card + INSERT-do-log por `record_card_review`, uma RPC transacional e idempotente. Cliente atualizado em `utils/db.js`.
+- Estudo: avaliação ficou protegida contra duplo clique; XP exibido é o confirmado pelo servidor; limite de revisões não esconde mais cards novos/learning.
+- P0 ainda aberto: recuperar no Git as cinco migrations históricas do PR #3 e auditar permissões das RPCs. Não fazer merge em `main` antes disso.
+
 ## Última sessão — 2026-07-10 (IMPLEMENTAÇÃO DA AUDITORIA GERAL)
 **Referência:** `docs/AUDITORIA_GERAL_2026-07-10.md` (etapas 0–7 implementadas nesta sessão, branch `claude/learning-system-audit-4uwb83`, PR #3).
 

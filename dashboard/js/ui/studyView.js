@@ -9,6 +9,7 @@ let pendingLearning = []; // cards em learning steps que voltam DENTRO da sessã
 let currentCard = null;
 let consecutiveCorrect = 0;
 let sessionCards = 0;
+let sessionXp = 0;
 let sessionStart = Date.now();
 let chatHistory = [];
 let chatBusy = false;
@@ -20,6 +21,7 @@ let audioAutoBack = true;   // lf_audio_auto_back
 let ygWidget = null;
 let ygQueuedWord = null;
 let waitTimer = null;       // countdown da tela "aguardando learning steps"
+let gradeBusy = false;      // impede duas avaliações concorrentes do mesmo card
 
 const LEARN_AHEAD_MS = 20 * 60 * 1000; // learn-ahead do Anki: 20 min
 
@@ -27,8 +29,10 @@ export async function renderStudy(container, app) {
   injectStyles();
   consecutiveCorrect = 0;
   sessionCards = 0;
+  sessionXp = 0;
   sessionStart = Date.now();
   lastReview = null;
+  gradeBusy = false;
   exerciseApp = app;
   studyContainer = container;
   ygWidget = null; // container será recriado
@@ -56,14 +60,19 @@ export async function renderStudy(container, app) {
     const newAllowed = Math.max(0, (srs?.newPerDay ?? 20) - counts.newIntroducedToday);
     const revAllowed = Math.max(0, (srs?.maxRevPerDay ?? 200) - counts.reviewsToday);
     let newSeen = 0;
+    let reviewSeen = 0;
     dueQueue = (cards || []).filter(c => {
       if (c.suspended) return false;
       if (c.status === 'new') {
         newSeen++;
         return newSeen <= newAllowed;
       }
-      return true;
-    }).slice(0, revAllowed);
+      // A cota de revisões não pode esconder cards novos. Learning também é
+      // revisão em curso: ele deve continuar na sessão que o introduziu.
+      if (c.status === 'learning') return true;
+      reviewSeen++;
+      return reviewSeen <= revAllowed;
+    });
   } catch (e) {
     console.error('DB Error:', e);
     dueQueue = [];
@@ -333,8 +342,8 @@ function renderSessionComplete(app) {
             <div style="font-size:13px; color:var(--color-text-light);">Cartas</div>
           </div>
           <div style="background:rgba(88,204,2,0.1); border-radius:var(--radius-md); padding:16px;">
-            <div style="font-size:28px; font-weight:900; color:var(--color-primary);" id="session-xp">+${sessionCards * 10} XP</div>
-            <div style="font-size:13px; color:var(--color-text-light);">XP Ganho</div>
+            <div style="font-size:28px; font-weight:900; color:var(--color-primary);" id="session-xp">+${sessionXp} XP</div>
+            <div style="font-size:13px; color:var(--color-text-light);">XP confirmado</div>
           </div>
           <div style="background:rgba(28,176,246,0.1); border-radius:var(--radius-md); padding:16px;">
             <div style="font-size:28px; font-weight:900; color:var(--color-secondary);">${sessionTime}min</div>
@@ -1128,6 +1137,8 @@ function showXPAnimation(text, isPositive = true) {
 }
 
 async function handleGrade(grade, app) {
+  if (gradeBusy || !currentCard) return;
+  gradeBusy = true;
   const isCorrect = grade >= 2;
   playFeedbackSound(isCorrect ? 'correct' : 'wrong');
   stopAudio();
@@ -1136,7 +1147,6 @@ async function handleGrade(grade, app) {
     // XP real vem SÓ do backend (trigger no review_log). Nada de contador
     // paralelo em localStorage — era uma segunda fonte de verdade divergente.
     consecutiveCorrect++;
-    showXPAnimation('+10 XP');
     if (consecutiveCorrect === 5) app.showToast('🔥 5 em sequência! Continue!', 'info');
     if (consecutiveCorrect === 10) app.showToast('🚀 Você está em chamas! 10 seguidos!', 'info');
   } else {
@@ -1152,6 +1162,10 @@ async function handleGrade(grade, app) {
     .then((res) => {
       lastReview = { prevCard: res?.prevCard || null, card: gradedCard, grade, isCorrect };
       updateUndoButton();
+      if (res?.xpAwarded) {
+        sessionXp += res.xpAwarded;
+        showXPAnimation(`+${res.xpAwarded} XP`);
+      }
       // REENTRADA NA SESSÃO (o fix do bug nº1): card que ficou em learning
       // (intervalo em minutos) volta pra fila da PRÓPRIA sessão quando vencer.
       if (res?.card && res.card.status === 'learning' && res.nextDue) {
@@ -1168,12 +1182,10 @@ async function handleGrade(grade, app) {
       return null;
     });
 
-  // OTIMISTA: com fila ainda cheia, o próximo card aparece JÁ e o logReview
-  // roda em fundo. No ÚLTIMO card, espera o resultado — senão a tela de
-  // "Sessão Concluída" apareceria antes do card de learning entrar na fila.
-  if (dueQueue.length === 0) {
-    await logPromise;
-  }
+  // A persistência precisa terminar antes de o próximo card ser exposto. Isso
+  // evita duas avaliações concorrentes e mantém a fila consistente em falha.
+  await logPromise;
+  gradeBusy = false;
   loadNextCard(app);
 }
 

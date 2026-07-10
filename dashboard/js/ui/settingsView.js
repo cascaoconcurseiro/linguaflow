@@ -207,6 +207,13 @@ export async function renderSettings(container, app) {
           <label style="display:flex; align-items:center; gap:8px;">
             <input type="checkbox" id="audio-auto-back" checked style="width:18px; height:18px;"> Reproduzir áudio automaticamente no Verso
           </label>
+          <label style="display:flex; align-items:flex-start; gap:8px; padding-top:8px; border-top:1px dashed var(--color-border);">
+            <input type="checkbox" id="audio-kokoro" style="width:18px; height:18px; margin-top:2px;">
+            <span>
+              <strong>🎙️ Voz neural premium (Kokoro) — grátis e offline</strong><br>
+              <span style="font-size:12px; color:var(--color-text-light);">Qualidade acima do Google TTS. Baixa ~90 MB na primeira vez e depois funciona até sem internet. Só no site (não na extensão). Requer navegador moderno.</span>
+            </span>
+          </label>
           <div style="display:flex; gap:16px; flex-wrap:wrap; margin-top:8px;">
             <div style="flex:1; min-width:200px;">
               <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Sotaque</label>
@@ -590,6 +597,23 @@ export async function renderSettings(container, app) {
       btn.textContent = '♻️ Restaurar backup';
     }
   });
+
+  // Voz premium Kokoro (localStorage: o tts.js lê síncrono)
+  const kokoroChk = document.getElementById('audio-kokoro');
+  if (kokoroChk) {
+    try { kokoroChk.checked = localStorage.getItem('lf_kokoro') === '1'; } catch { /* sem storage */ }
+    kokoroChk.addEventListener('change', () => {
+      try {
+        if (kokoroChk.checked) {
+          localStorage.setItem('lf_kokoro', '1');
+          app.showToast('Voz premium ativada! O modelo (~90 MB) baixa no primeiro áudio — pode demorar um pouco só na primeira vez. 🎙️', 'info');
+        } else {
+          localStorage.removeItem('lf_kokoro');
+          app.showToast('Voz premium desativada. Voltando ao Google TTS.', 'info');
+        }
+      } catch { app.showToast('Não consegui salvar a preferência.', 'error'); }
+    });
+  }
 
   document.getElementById('btn-placement')?.addEventListener('click', () => {
     runPlacementTest(app, (level) => {

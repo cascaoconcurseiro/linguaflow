@@ -45,7 +45,55 @@ async function idbSet(key, blob) {
   } catch { /* cache é opcional */ }
 }
 
+// ── Kokoro-82M: voz neural premium LOCAL (opcional) ──────────────────────────
+// Roda no navegador (WebGPU/WASM), modelo ~90MB baixado 1x (cache do browser).
+// Só no site (extensão MV3 proíbe script remoto) e só se o usuário ativar
+// nas Configurações (localStorage lf_kokoro = '1'). Qualquer falha cai na
+// cadeia normal (Google TTS) — nunca quebra o áudio.
+let _kokoro = null;
+let _kokoroLoading = null;
+
+function kokoroEnabled() {
+  try { return !isExtension && localStorage.getItem('lf_kokoro') === '1'; }
+  catch { return false; }
+}
+
+async function getKokoro() {
+  if (_kokoro) return _kokoro;
+  if (_kokoroLoading) return _kokoroLoading;
+  _kokoroLoading = (async () => {
+    const mod = await import('https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+esm');
+    const device = navigator.gpu ? 'webgpu' : 'wasm';
+    _kokoro = await mod.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
+      dtype: device === 'webgpu' ? 'fp32' : 'q8',
+      device,
+    });
+    console.debug('[TTS] Kokoro pronto via', device);
+    return _kokoro;
+  })().catch((e) => {
+    console.warn('[TTS] Kokoro indisponível, usando Google TTS:', e?.message);
+    _kokoroLoading = null;
+    throw e;
+  });
+  return _kokoroLoading;
+}
+
+async function kokoroBlob(text, lang) {
+  const tts = await getKokoro();
+  // af_heart = americana (melhor avaliada); bf_emma = britânica
+  const voice = String(lang).startsWith('en-GB') ? 'bf_emma' : 'af_heart';
+  const audio = await tts.generate(text, { voice });
+  return await audio.toBlob();
+}
+
 async function fetchTTSBlob(text, lang) {
+  // Voz premium local primeiro (se ativada): grátis, offline e melhor que
+  // Google TTS em inglês. Cache IndexedDB por chave diferente (qualidade ≠).
+  if (kokoroEnabled() && String(lang).startsWith('en')) {
+    try {
+      return await kokoroBlob(text, lang);
+    } catch { /* cai na cadeia normal abaixo */ }
+  }
   if (isExtension) {
     const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${lang}&client=gtx`;
     const res = await new Promise((resolve) => {
@@ -77,7 +125,8 @@ async function fetchTTSBlob(text, lang) {
  * Retorna o Blob do áudio (cache IndexedDB primeiro, depois rede).
  */
 export async function getAudioBlob(text, lang) {
-  const key = `${lang}|${text}`;
+  // Motor na chave: áudio Kokoro e Google são qualidades diferentes
+  const key = `${kokoroEnabled() ? 'kk' : 'g'}|${lang}|${text}`;
   const cached = await idbGet(key);
   if (cached) return cached;
   const blob = await fetchTTSBlob(text, lang).catch(() => null);

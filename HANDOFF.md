@@ -9,6 +9,7 @@
 - Estudo: avaliação ficou protegida contra duplo clique; XP exibido é o confirmado pelo servidor; limite de revisões não esconde mais cards novos/learning.
 - Estudo (P1): acessibilidade e mobile iniciados em `dashboard/js/ui/studyView.js`: landmarks/ARIA, anúncio do card para leitor de tela, foco visível e grade responsiva dos botões. Falta apenas inspeção visual em dispositivo real antes de marcar o item como aceito.
 - Banco (P1): `20260710181500_timezone_daily_semantics.sql` foi aplicada. O cliente sincroniza `Intl.DateTimeFormat().resolvedOptions().timeZone`; o servidor calcula XP, streak, freeze e caps pela data daquele fuso. `getTodayCounts()` passou a consultar a janela local por timestamps. O CLI do Supabase não existe neste ambiente, então o arquivo foi criado no repositório e a mesma migration foi aplicada pelo conector oficial. Conferido: `anon` não executa `set_user_timezone`, `authenticated` executa e a função usa o próprio `auth.uid()`.
+- Retomada Fable (P0): foi achada na produção a migration não versionada `20260710190558_web_push`, com tabela, Vault e cron, mas sem Edge Function `push-reminder` e sem cliente PWA. Para não gerar 404 diário, Codex pausou o job `push-daily-reminder` (`active=false`). Não reativar antes de publicar e testar a função, o Service Worker e o opt-in; a auditoria contém o status e a evidência.
 - P0 ainda aberto: recuperar no Git as cinco migrations históricas do PR #3 e auditar permissões das RPCs. Não fazer merge em `main` antes disso.
 
 ## Última sessão — 2026-07-10 (IMPLEMENTAÇÃO DA AUDITORIA GERAL)

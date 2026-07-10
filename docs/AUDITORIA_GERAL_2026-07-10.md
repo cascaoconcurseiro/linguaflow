@@ -24,19 +24,20 @@
 - **2026-07-10 — P1 / observabilidade:** aplicada a migration `20260710174601_client_error_telemetry`. O dashboard captura erros não tratados de forma deduplicada e grava apenas metadados técnicos mínimos em `client_errors`, protegido por RLS de inserção do próprio usuário. Nenhum texto de card, prompt, token, e-mail ou stack trace é enviado.
 - **2026-07-10 — P1 / estudo acessível e mobile:** `studyView` recebeu região principal identificada, anúncio discreto do novo card para leitor de tela, rótulos explícitos nos quatro botões de avaliação e foco visível por teclado. Em telas de até 768 px a lateral passa abaixo do card e os botões quebram em grade; em 380 px reduzem espaçamentos e tipografia sem perder a área de toque. Validação: sintaxe JavaScript e testes do motor. Uma inspeção visual do preview em dispositivo real ainda faz parte da validação final.
 - **2026-07-10 — P1 / semântica diária por fuso:** aplicada a migration `20260710181500_timezone_daily_semantics`. `user_stats.timezone` armazena o identificador IANA sincronizado após o login; XP, streak, freeze e limites anti-farm passam a usar a data desse fuso, não `CURRENT_DATE` em UTC. O dashboard conta revisões e cards introduzidos entre o início e o fim do dia local. A RPC `set_user_timezone` valida o IANA, exige autenticação e só atualiza o próprio perfil; `anon` não tem execução. Evidência: grants conferidos e cálculo de São Paulo/Tóquio retornou dias distintos na produção. O advisor ainda lista a RPC como `SECURITY DEFINER` por ela ser intencionalmente a porta estreita para essa atualização sob RLS.
+- **2026-07-10 — P0 / retomada do Web Push iniciado por Fable:** a revisão sênior encontrou a migration `20260710190558_web_push` aplicada diretamente na produção, com `push_subscriptions`, chaves VAPID no Vault e cron diário. Porém a Edge Function `push-reminder` não foi publicada e nenhum fonte/migration estava no Git; o cron chamava endpoint inexistente. **Codex desativou o job `push-daily-reminder`** antes de qualquer novo deploy (confirmado `active=false`) para eliminar chamadas 404. A recuperação do schema, a função de envio e o opt-in do PWA serão versionados antes de reativá-lo. Não marcar Web Push como entregue até existir inscrição real e teste de notificação.
 
 ### Plano de conclusão (ordem obrigatória)
 
 | Prioridade | Bloco | Responsável | Situação | Critério de aceite |
 |---|---|---|---|---|
-| P0 | Versionar migrations já aplicadas e eliminar divergência Git↔Supabase | Codex | Em andamento | A migration nova está versionada; falta recuperar as cinco migrations históricas já aplicadas. |
+| P0 | Versionar migrations já aplicadas e eliminar divergência Git↔Supabase | Codex | Em andamento | As cinco migrations históricas e as de Codex já foram recuperadas; falta replay em banco efêmero e recuperar a migration Web Push aplicada por Fable fora do Git. |
 | P0 | Corrigir/validar segurança e permissões de RPC | Codex | Pendente | Advisors sem alerta acionável; cada RPC só expõe a autoridade necessária. |
 | P0 | Revisão e testes integrados do PR #3 | Codex | Em andamento | Testes automatizados, validação do banco e smoke test do preview passam. |
 | P1 | Observabilidade de erros | Codex | Pendente | Falhas de cliente/Edge Function são capturadas sem vazar dados pessoais. |
 | P1 | Acessibilidade e responsividade do estudo | Codex | Em validação | Uso por teclado e ARIA implementados; falta inspeção visual do preview em dispositivo real. |
 | P1 | Dia local, streak e limites | Codex | Implementado | Fuso IANA por usuário aplicado a XP/streak/caps e aos contadores do dashboard; validar em uma conta real perto da meia-noite. |
 | P1 | Onboarding de primeiro acesso | Codex | Pendente | Novo usuário conclui nível, meta e primeira ação útil. |
-| P2 | Web Push do PWA com consentimento | Codex | Pendente | Lembretes funcionam apenas após opt-in e respeitam preferência do usuário. |
+| P2 | Web Push do PWA com consentimento | Codex | Em correção | Schema/Vault/cron foram iniciados por Fable na produção; cron foi pausado pois a função de envio não existe. Falta cliente, Service Worker, Edge Function e teste real. |
 | P2 | Player YouTube contextual reutilizável | Codex | Pendente | Um player global reproduz o trecho do card com fallback seguro. |
 | P2 | Consolidação/faxina final | Codex | Pendente | Site e extensão têm responsabilidades sem rotas/código duplicado. |
 

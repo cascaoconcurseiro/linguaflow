@@ -377,6 +377,24 @@ class Database {
     return true;
   }
 
+  // Editor do Cofre (Onda 2.3): corrige tradução/frase/categoria/nível SEM
+  // apagar o card — PATCH por id (não é upsert por word/lang) pra nunca
+  // arriscar duplicar a palavra nem perder o histórico FSRS do card.
+  async updateWord(id, patch) {
+    this._invalidateReadCache();
+    if (this.isProxyMode) return this._proxy('updateWord', [id, patch]);
+    const allowed = ['translation', 'context_sentence', 'category', 'level', 'phonetic'];
+    const body = {};
+    allowed.forEach(k => { if (patch && patch[k] !== undefined) body[k] = patch[k]; });
+    if (Object.keys(body).length === 0) return { ok: true };
+    await this._fetch(`words?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: { 'Prefer': 'return=minimal' },
+      body,
+    });
+    return { ok: true };
+  }
+
   async getAllWords(limit = 0) {
     // Cache curto (30s): as views re-buscam a mesma lista ao navegar entre
     // abas — era parte da sensação de site lento. Invalidado em toda escrita.

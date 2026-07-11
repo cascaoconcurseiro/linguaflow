@@ -92,6 +92,7 @@ function renderUI(container, app) {
         <button class="cat-tab ${currentCategory === 'phrasal' ? 'active' : ''}" data-cat="phrasal">Phrasal Verbs</button>
         <button class="cat-tab ${currentCategory === 'slang' ? 'active' : ''}" data-cat="slang">Gírias</button>
         <button class="cat-tab ${currentCategory === 'idioms' ? 'active' : ''}" data-cat="idioms">Expressões</button>
+        ${currentCategory !== 'all' ? `<button class="btn btn-secondary" id="btn-review-topic" style="margin-left:auto; padding:8px 16px; font-size:13px;" title="Estudar só os cards desta categoria">🧠 Revisar este tópico</button>` : ''}
       </div>
 
       <!-- A-Z Calendar Grid -->
@@ -119,6 +120,7 @@ function renderUI(container, app) {
               </div>
               <div class="word-actions">
                 ${renderStatus(w.reps)}
+                <button class="btn-edit-word" data-id="${w.id}" title="Editar tradução, frase, categoria e nível">✏️</button>
                 ${card ? `<button class="btn-suspend" data-card-id="${card.id}" title="${suspended ? 'Reativar o card no estudo' : 'Suspender: some do estudo até reativar'}">${suspended ? '▶️' : '⏸️'}</button>` : ''}
                 <button class="btn-delete" data-id="${w.id}" title="Excluir">🗑️</button>
               </div>
@@ -137,11 +139,28 @@ function renderUI(container, app) {
       });
   });
 
+  // Onda 2.2: "Revisar este tópico" manda pro Estudo já filtrado pela
+  // categoria selecionada — mesma chave 'category' que o card carrega
+  // (word/phrasal/slang/idiom), não o rótulo da aba.
+  document.getElementById('btn-review-topic')?.addEventListener('click', () => {
+      const catMap = { 'words': 'word', 'phrasal': 'phrasal', 'slang': 'slang', 'idioms': 'idiom' };
+      const category = catMap[currentCategory];
+      if (category) app.navigate('study', { category });
+  });
+
   document.querySelectorAll('.az-letter').forEach(btn => {
       btn.addEventListener('click', (e) => {
           const l = e.target.dataset.letter;
           currentLetter = l === 'ALL' ? null : l;
           renderUI(container, app);
+      });
+  });
+
+  document.querySelectorAll('.btn-edit-word').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+          const id = e.currentTarget.dataset.id;
+          const w = allWords.find(x => x.id === id);
+          if (w) openWordEditor(w, app, container);
       });
   });
 
@@ -224,6 +243,83 @@ function renderUI(container, app) {
       setTimeout(() => renderLibrary(container, app), 2000);
     });
   }
+}
+
+// Editor do Cofre (Onda 2.3): corrige tradução/frase/categoria/nível sem
+// apagar o card — o histórico FSRS (interval/ease/lapses) fica intocado,
+// só os metadados da palavra mudam. Modal anexado ao <body> pra sobreviver
+// aos re-renders de renderUI().
+const CATEGORY_OPTIONS = [['word', 'Palavra'], ['phrasal', 'Phrasal Verb'], ['slang', 'Gíria'], ['idiom', 'Expressão']];
+const LEVEL_OPTIONS = ['', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
+function openWordEditor(w, app, container) {
+  document.getElementById('lf-word-edit-modal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'lf-word-edit-modal';
+  modal.style.cssText = 'display:flex; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(2px);';
+  modal.innerHTML = `
+    <div style="background:var(--color-surface); border-radius:var(--radius-md); width:90%; max-width:420px; padding:24px; position:relative; box-shadow:0 8px 24px rgba(0,0,0,0.15); max-height:85vh; overflow-y:auto;">
+      <button id="lf-edit-close" style="position:absolute; top:12px; right:12px; background:none; border:none; font-size:20px; color:var(--color-text-light); cursor:pointer; padding:4px;">&times;</button>
+      <h2 style="font-size:20px; font-weight:800; color:var(--color-text); margin:0 0 16px 0;">✏️ ${w.word}</h2>
+
+      <label style="display:block; font-size:12px; font-weight:700; color:var(--color-text-light); margin-bottom:4px;">Tradução</label>
+      <input id="lf-edit-translation" type="text" value="${(w.translation || '').replace(/"/g, '&quot;')}" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:8px; background:var(--color-bg); color:var(--color-text); font-size:14px; margin-bottom:14px;" />
+
+      <label style="display:block; font-size:12px; font-weight:700; color:var(--color-text-light); margin-bottom:4px;">Frase de contexto</label>
+      <textarea id="lf-edit-sentence" rows="3" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:8px; background:var(--color-bg); color:var(--color-text); font-size:14px; margin-bottom:14px; resize:vertical; font-family:inherit;">${(w.context_sentence || '').replace(/</g, '&lt;')}</textarea>
+
+      <div style="display:flex; gap:12px; margin-bottom:14px;">
+        <div style="flex:1;">
+          <label style="display:block; font-size:12px; font-weight:700; color:var(--color-text-light); margin-bottom:4px;">Categoria</label>
+          <select id="lf-edit-category" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:8px; background:var(--color-bg); color:var(--color-text); font-size:14px;">
+            ${CATEGORY_OPTIONS.map(([v, label]) => `<option value="${v}" ${w.category === v ? 'selected' : ''}>${label}</option>`).join('')}
+          </select>
+        </div>
+        <div style="flex:1;">
+          <label style="display:block; font-size:12px; font-weight:700; color:var(--color-text-light); margin-bottom:4px;">Nível CEFR</label>
+          <select id="lf-edit-level" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:8px; background:var(--color-bg); color:var(--color-text); font-size:14px;">
+            ${LEVEL_OPTIONS.map(v => `<option value="${v}" ${((w.level || '') === v) ? 'selected' : ''}>${v || '—'}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <button id="lf-edit-save" class="btn btn-primary" style="width:100%; padding:12px; font-size:15px;">💾 Salvar</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  const close = () => modal.remove();
+  modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+  modal.querySelector('#lf-edit-close').addEventListener('click', close);
+
+  modal.querySelector('#lf-edit-save').addEventListener('click', async () => {
+    const saveBtn = modal.querySelector('#lf-edit-save');
+    const patch = {
+      translation: modal.querySelector('#lf-edit-translation').value.trim(),
+      context_sentence: modal.querySelector('#lf-edit-sentence').value.trim(),
+      category: modal.querySelector('#lf-edit-category').value,
+      level: modal.querySelector('#lf-edit-level').value || null,
+    };
+    if (!patch.translation) {
+      app.showToast('A tradução não pode ficar vazia.', 'error');
+      return;
+    }
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Salvando...';
+    try {
+      await lfDb.updateWord(w.id, patch);
+      Object.assign(w, patch);
+      close();
+      renderUI(container, app);
+      app.showToast('Card atualizado ✅', 'info');
+    } catch (err) {
+      console.error(err);
+      app.showToast('Erro ao salvar as alterações.', 'error');
+      saveBtn.disabled = false;
+      saveBtn.textContent = '💾 Salvar';
+    }
+  });
 }
 
 function renderStatus(reps) {

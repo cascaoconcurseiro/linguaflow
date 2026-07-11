@@ -81,6 +81,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
           const writeMethods = [
             'saveWord',
+            'updateWord',
             'updateCard',
             'logReview',
             'createDeck',

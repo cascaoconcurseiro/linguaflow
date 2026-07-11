@@ -2,7 +2,7 @@
 // teste de nivelamento em 3 fases. Rodar: node tests/engine.test.mjs
 // (Copia os módulos pra .mjs porque o package.json não tem "type": "module".)
 
-import { copyFileSync, mkdtempSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -14,10 +14,16 @@ copyFileSync(join(root, 'utils/db.js'), join(tmp, 'db.mjs'));
 copyFileSync(join(root, 'utils/local-day.js'), join(tmp, 'local-day.js'));
 copyFileSync(join(root, 'dashboard/js/core/placement.js'), join(tmp, 'placement.mjs'));
 copyFileSync(join(root, 'dashboard/js/core/sessionQueue.js'), join(tmp, 'sessionQueue.mjs'));
+{
+  const statsSrc = readFileSync(join(root, 'dashboard/js/core/statsEngine.js'), 'utf8')
+    .replace("'../../../utils/local-day.js'", "'./local-day.js'");
+  writeFileSync(join(tmp, 'statsEngine.mjs'), statsSrc);
+}
 
 const { db } = await import(pathToFileURL(join(tmp, 'db.mjs')).href);
 const P = await import(pathToFileURL(join(tmp, 'placement.mjs')).href);
 const Q = await import(pathToFileURL(join(tmp, 'sessionQueue.mjs')).href);
+const S = await import(pathToFileURL(join(tmp, 'statsEngine.mjs')).href);
 
 let passed = 0;
 function test(name, fn) {
@@ -259,5 +265,60 @@ await (async () => {
     db.getReviewLog = origLog; db.getAllCards = origCards; db.getAllWords = origWords;
   }
 })();
+
+console.log('── Estatísticas (statsEngine) ──');
+
+test('retentionByDay: agrega por dia local, dias sem revisão ficam null', () => {
+  const today = new Date();
+  const key = (d) => new Date(today.getFullYear(), today.getMonth(), today.getDate() - d).toISOString().slice(0, 10);
+  const log = [
+    { date: key(0), quality: 3 }, { date: key(0), quality: 1 },
+    { date: key(1), quality: 4 },
+  ];
+  const rows = S.retentionByDay(log, 3);
+  assert.equal(rows.length, 3);
+  const todayRow = rows[rows.length - 1];
+  assert.equal(todayRow.total, 2);
+  assert.equal(todayRow.hits, 1);
+  assert.equal(todayRow.retention, 50);
+  const noDataRow = rows[0];
+  assert.equal(noDataRow.retention, null);
+});
+
+test('studyTimeByDay: soma segundos por dia e converte pra minutos', () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = S.studyTimeByDay([{ date: today, seconds: 90 }, { date: today, seconds: 30 }], 2);
+  assert.equal(rows[rows.length - 1].minutes, 2);
+});
+
+test('maturityDistribution: separa suspenso antes do status', () => {
+  const dist = S.maturityDistribution([
+    { status: 'new' }, { status: 'review', suspended: true }, { status: 'mature' },
+  ]);
+  assert.deepEqual(dist, { new: 1, learning: 0, review: 0, mature: 1, suspended: 1 });
+});
+
+test('forecastByDay: só conta a partir de amanhã, ignora vencidos', () => {
+  const yesterday = new Date(Date.now() - 86400000).toISOString();
+  const inThreeDays = new Date(Date.now() + 3 * 86400000).toISOString();
+  const rows = S.forecastByDay([
+    { due_date: yesterday, suspended: false },
+    { due_date: inThreeDays, suspended: false },
+  ], 7);
+  const total = rows.reduce((a, r) => a + r.count, 0);
+  assert.equal(total, 1, 'só o card de daqui a 3 dias entra no forecast');
+});
+
+test('summarize: retenção geral e totais', () => {
+  const sum = S.summarize(
+    [{ id: 1 }, { id: 2 }],
+    [{ seconds: 120 }],
+    [{ quality: 3 }, { quality: 1 }],
+  );
+  assert.equal(sum.totalCards, 2);
+  assert.equal(sum.totalMinutes, 2);
+  assert.equal(sum.totalReviews, 2);
+  assert.equal(sum.overallRetention, 50);
+});
 
 console.log(`\n${passed} testes passaram${process.exitCode ? ' (com falhas!)' : ' — tudo verde ✅'}`);

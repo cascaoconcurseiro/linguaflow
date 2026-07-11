@@ -36,12 +36,12 @@
 - [x] [Prof. didático] Reencontro nas histórias na **extensão**: `generateStoryWithAI` computa `getReencounterWordsSW` e injeta no prompt (paridade com a web); retorna `requestedWords` pro badge.
 - [x] [Prof. didático] **Missões semanais**: migration `weekly_quest` (RPC `claim_weekly_quest`, anti-farm 1x/semana pelo fuso) + painel "🗓️ Missão da Semana" (500 XP → +100 XP).
 
-#### 🟡 ONDA 2 — Experiência de estudo completa (paridade Anki que falta)
-- [ ] [Gerente+Eng. SRS] **Tela de Estatísticas** de verdade (a auditoria pediu, nunca foi feita): retenção por dia, tempo de estudo, curva de maturação, forecast 30d, histórico por palavra — os dados JÁ existem em review_log/sessions
-- [ ] [Eng. SRS] **Estudo filtrado por tópico/categoria/tag** (revisão por assunto — Anki filtered decks): o Cofre já filtra, o ESTUDO não
-- [ ] [Prof. didático] **Editor de card** no Cofre (corrigir tradução/frase sem deletar e recriar)
-- [ ] [Prof. didático] Mini-jogo "ouça-e-escolha" (listening) no gameView
-- [ ] [Eng. SRS] Player YouTube **instância única global** no estudo (a ideia do dono; base `videoContext` pronta)
+#### 🟡 ONDA 2 — ✅ CONCLUÍDA (2026-07-11) — Experiência de estudo completa (paridade Anki)
+- [x] [Gerente+Eng. SRS] **Tela de Estatísticas** de verdade: `core/statsEngine.js` (puro, 5 funções: retenção/dia, tempo de estudo/dia, maturidade, forecast 14d, resumo) + `ui/statsView.js` (barras inline, sem lib externa) + rota `/stats` (nav, `vercel.json`, `app.js`). Dados 100% reais de `review_log`/`sessions`/`cards`. Evidência: 5 testes Node.
+- [x] [Eng. SRS] **Estudo filtrado por tópico**: `app.navigate(route, params)` agora aceita parâmetros; botão "🧠 Revisar este tópico" no Cofre manda `{category}` pro Estudo; `renderStudy` filtra o pool ANTES da cota diária (mesmo orçamento global, só restrito à categoria); banner "Ver tudo" pra sair do filtro.
+- [x] [Prof. didático] **Editor de card** no Cofre: `db.updateWord(id, patch)` (PATCH por id — nunca upsert por word/lang, então nunca duplica nem perde histórico FSRS do card); modal ✏️ edita tradução/frase/categoria/nível CEFR.
+- [x] [Prof. didático] Mini-jogo **"Ouça e Escolha"** (listening): tela de Jogo virou menu (Ligar Colunas + Ouça e Escolha); toca a palavra (TTS canônico) e o aluno escolhe a tradução entre 4 opções; XP via `recordEvent('game_match', acertos)` — mesmo teto diário do jogo existente (sem brecha de farm trocando de modo).
+- [x] [Eng. SRS] Player YouTube **instância única global** no estudo: `core/ytPlayer.js` — UMA `YT.Player` (API oficial) por sessão; trocar de card troca só o vídeo (`cueVideoById`), nunca recria o iframe; wrapper estável sobrevive à substituição de elemento que a própria API do YouTube faz; TTS continua canônico (sem autoplay do vídeo); degrada pro link externo se não for YouTube/não carregar.
 
 #### 🟢 ONDA 3 — Conteúdo e alcance (benchmark LingQ/Readlang)
 - [ ] [Prof. didático] Leitor: **importar por URL** (via proxy p/ CORS) e epub — hoje só colar texto

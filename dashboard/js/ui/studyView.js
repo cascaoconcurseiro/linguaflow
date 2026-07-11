@@ -1,8 +1,9 @@
 import { db as lfDb } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio, downloadAudio } from '../core/tts.js';
 import { aiChat, aiChatStream, getCefrLevel, grammarTutorPersona, grammarInitialQuestion, enrichCard, generateChunksWeb } from '../core/ai.js';
-import { attachVideoContext, renderVideoContext } from '../core/videoContext.js';
+import { attachVideoContext, renderVideoContext, getVideoContext } from '../core/videoContext.js';
 import { buildSessionQueue, isWeakCard } from '../core/sessionQueue.js';
+import { loadVideo, hidePlayer } from '../core/ytPlayer.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
@@ -26,8 +27,9 @@ let waitTimer = null;       // countdown da tela "aguardando learning steps"
 let gradeBusy = false;      // impede duas avaliações concorrentes do mesmo card
 
 const LEARN_AHEAD_MS = 20 * 60 * 1000; // learn-ahead do Anki: 20 min
+const TOPIC_LABELS = { word: 'Palavras', phrasal: 'Phrasal Verbs', slang: 'Gírias', idiom: 'Expressões' };
 
-export async function renderStudy(container, app) {
+export async function renderStudy(container, app, params = {}) {
   injectStyles();
   consecutiveCorrect = 0;
   sessionCards = 0;
@@ -38,6 +40,8 @@ export async function renderStudy(container, app) {
   exerciseApp = app;
   studyContainer = container;
   ygWidget = null; // container será recriado
+  hidePlayer(); // qualquer vídeo de uma sessão anterior não deve tocar ao fundo
+  const topicFilter = params?.category || null; // Onda 2.2: "Revisar por tópico" vindo do Cofre
 
   app.showToast('Carregando frases...', 'info');
   pendingLearning = [];
@@ -64,7 +68,13 @@ export async function renderStudy(container, app) {
     const revAllowed = Math.max(0, (srs?.maxRevPerDay ?? 200) - counts.reviewsToday);
     let newSeen = 0;
     let reviewSeen = 0;
-    const limited = (cards || []).filter(c => {
+    // Onda 2.2: "Revisar por tópico" — filtra o pool ANTES da cota diária, que
+    // continua sendo o mesmo orçamento global (é a mesma sessão de estudo,
+    // só restrita a uma categoria).
+    const topicPool = topicFilter
+      ? (cards || []).filter(c => (c.wordData?.category || c.category) === topicFilter)
+      : (cards || []);
+    const limited = topicPool.filter(c => {
       if (c.suspended) return false;
       if (c.status === 'new') {
         newSeen++;
@@ -92,17 +102,20 @@ export async function renderStudy(container, app) {
   }
 
   if (dueQueue.length === 0) {
+    const topicLabel = topicFilter ? (TOPIC_LABELS[topicFilter] || topicFilter) : null;
     container.innerHTML = `
       <div class="study-layout" style="display: flex; height: 100%; width: 100%; justify-content: center; align-items: center; background-color: var(--color-bg-alt);">
         <div class="study-main" style="text-align:center; padding: 60px; background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 2px solid var(--color-border);">
-          <h2 style="color:var(--color-primary); font-size: 32px; margin-bottom:16px;">Tudo feito por hoje! 🎉</h2>
-          <p style="color:var(--color-text-light); font-size: 18px;">Você revisou todas as suas frases pendentes.</p>
-          <button class="btn btn-primary" id="back-home-btn" style="margin-top:32px; padding: 16px 32px; font-size: 18px;">Voltar ao Início</button>
+          <h2 style="color:var(--color-primary); font-size: 32px; margin-bottom:16px;">${topicLabel ? `Nada de "${topicLabel}" pra revisar agora 🎉` : 'Tudo feito por hoje! 🎉'}</h2>
+          <p style="color:var(--color-text-light); font-size: 18px;">${topicLabel ? `Todos os cards de ${topicLabel} já estão em dia.` : 'Você revisou todas as suas frases pendentes.'}</p>
+          ${topicLabel ? `<button class="btn btn-secondary" id="study-all-btn" style="margin-top:20px; padding: 14px 28px; font-size: 16px;">Estudar tudo</button>` : ''}
+          <button class="btn btn-primary" id="back-home-btn" style="margin-top:12px; padding: 16px 32px; font-size: 18px;">Voltar ao Início</button>
         </div>
       </div>
     `;
     setTimeout(() => {
       document.getElementById('back-home-btn')?.addEventListener('click', () => app.navigate('home'));
+      document.getElementById('study-all-btn')?.addEventListener('click', () => app.navigate('study'));
     }, 0);
     return;
   }
@@ -112,6 +125,12 @@ export async function renderStudy(container, app) {
       <!-- Main Study Area -->
       <div class="study-main" tabindex="-1">
         <div id="study-status" class="sr-only" role="status" aria-live="polite"></div>
+
+        ${topicFilter ? `
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; background:rgba(28,176,246,0.1); border:2px solid var(--color-secondary); border-radius:var(--radius-md); padding:8px 14px; font-size:13px;">
+          <span>🧭 Revisando: <strong style="color:var(--color-secondary);">${TOPIC_LABELS[topicFilter] || topicFilter}</strong> (${dueQueue.length} ${dueQueue.length === 1 ? 'card' : 'cards'})</span>
+          <button id="clear-topic-filter-btn" style="margin-left:auto; background:none; border:none; color:var(--color-text-light); font-weight:700; font-size:12px; cursor:pointer; text-decoration:underline;">Ver tudo</button>
+        </div>` : ''}
 
         <div class="media-container">
           <div class="audio-wave-placeholder" id="audio-wave">
@@ -165,6 +184,7 @@ export async function renderStudy(container, app) {
         </div>
 
         <div id="saved-video-context"></div>
+        <div id="study-yt-mount" class="hidden" style="margin-bottom:20px; border-radius:var(--radius-md); overflow:hidden;"></div>
 
         <h3 class="sidebar-title">Nativos falando 📺</h3>
         <div id="youglish-box" class="hidden">
@@ -196,6 +216,7 @@ export async function renderStudy(container, app) {
   document.getElementById('play-audio-btn').addEventListener('click', playCurrentAudio);
   document.getElementById('reveal-btn').addEventListener('click', revealCard);
   document.getElementById('improve-btn').addEventListener('click', () => improveSentence(app));
+  document.getElementById('clear-topic-filter-btn')?.addEventListener('click', () => app.navigate('study'));
 
   document.getElementById('grammar-form').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -341,6 +362,7 @@ function renderSessionComplete(app) {
   if (window.currentKeydownHandler) {
     document.removeEventListener('keydown', window.currentKeydownHandler);
   }
+  hidePlayer(); // a sessão acabou — nenhum vídeo deve continuar tocando ao fundo
   const sessionTime = Math.round((Date.now() - sessionStart) / 60000);
   const laterCount = pendingLearning.length;
   // BUG antigo: escrevia em #app-view, que não existe → caía no <body> e
@@ -460,6 +482,8 @@ async function loadNextCard(app) {
   document.getElementById('pump-translation').classList.add('hidden');
   document.getElementById('isolated-word-box').classList.add('hidden');
   document.getElementById('saved-video-context').replaceChildren();
+  document.getElementById('study-yt-mount').classList.add('hidden');
+  hidePlayer(); // troca de card: o vídeo do card anterior não deve tocar ao fundo
   document.getElementById('youglish-box').classList.add('hidden');
   document.getElementById('improve-btn').classList.add('hidden');
   document.getElementById('shadowing-overlay').classList.add('hidden');
@@ -878,9 +902,38 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card) {
   }
   isoBox.classList.remove('hidden');
 
+  // Onda 2.5: player YouTube único e reutilizável — trocar de card troca só
+  // o vídeo carregado (cueVideoById), nunca recria o iframe do zero.
   const videoContainer = document.getElementById('saved-video-context');
-  videoContainer.innerHTML = renderVideoContext(wordData, 'study-video-context');
-  attachVideoContext(videoContainer);
+  const ytMount = document.getElementById('study-yt-mount');
+  const vctx = getVideoContext(wordData.video_url);
+  if (vctx && vctx.videoId) {
+    const title = escapeHtml(wordData.video_title || 'vídeo de origem');
+    const platform = escapeHtml(wordData.platform || 'YouTube');
+    videoContainer.innerHTML = `
+      <section class="video-context" aria-label="Contexto do vídeo">
+        <span class="video-context-label">🎬 Salvo de ${platform}</span>
+        <span class="video-context-title" title="${title}">${title}</span>
+        <div class="video-context-actions">
+          <a href="${escapeHtml(vctx.externalUrl)}" target="_blank" rel="noopener noreferrer">Abrir no YouTube ↗</a>
+        </div>
+      </section>`;
+    ytMount.classList.remove('hidden');
+    loadVideo(ytMount, vctx.videoId, { start: vctx.start }).then(ok => {
+      if (!ok) ytMount.classList.add('hidden');
+    });
+  } else if (vctx && vctx.externalUrl) {
+    // Não é YouTube (ou sem videoId extraível): sem player, só o link no
+    // ponto salvo — degradação graciosa, DRM/bloqueio de embed não quebra nada.
+    videoContainer.innerHTML = renderVideoContext(wordData, 'study-video-context');
+    attachVideoContext(videoContainer);
+    ytMount.classList.add('hidden');
+    hidePlayer();
+  } else {
+    videoContainer.innerHTML = '';
+    ytMount.classList.add('hidden');
+    hidePlayer();
+  }
 }
 
 // ── Chunks (frases úteis) ────────────────────────────────────────────────────
@@ -1365,6 +1418,8 @@ function injectStyles() {
     .video-context-actions a, .video-context-embed { color: var(--color-secondary); background: transparent; border: 0; cursor: pointer; font: inherit; font-size: 13px; font-weight: 800; padding: 0; text-decoration: underline; }
     .video-context-frame { margin-top: 12px; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; }
     .video-context-frame iframe { width: 100%; height: 100%; border: 0; }
+    #study-yt-mount { aspect-ratio: 16 / 9; background: #000; }
+    #study-yt-mount iframe { width: 100%; height: 100%; border: 0; }
 
     @media (max-width: 768px) {
       .study-layout { flex-direction: column; }

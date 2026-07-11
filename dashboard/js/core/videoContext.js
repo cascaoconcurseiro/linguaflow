@@ -41,7 +41,7 @@ export function getVideoContext(videoUrl) {
   const embedUrl = new URL(`https://www.youtube-nocookie.com/embed/${videoId}`);
   embedUrl.searchParams.set('start', String(seconds));
   embedUrl.searchParams.set('rel', '0');
-  return { externalUrl: url.toString(), embedUrl: embedUrl.toString() };
+  return { externalUrl: url.toString(), embedUrl: embedUrl.toString(), videoId, start: seconds };
 }
 
 export function renderVideoContext(wordData = {}, id) {

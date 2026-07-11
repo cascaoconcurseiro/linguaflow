@@ -7,6 +7,7 @@ import { renderStories } from '../ui/storiesView.js';
 import { renderReader } from '../ui/readerView.js';
 import { renderGame } from '../ui/gameView.js';
 import { renderLogin } from '../ui/loginView.js';
+import { renderStats } from '../ui/statsView.js';
 import { db } from '../../../utils/db.js';
 
 // Register Service Worker for PWA (if not running as a Chrome Extension)
@@ -128,9 +129,10 @@ class App {
     if (dueEl) dueEl.textContent = dueCards.length;
   }
 
-  navigate(route) {
+  navigate(route, params = {}) {
     this.currentRoute = route;
-    
+    this.routeParams = params || {};
+
     // Update active state on buttons
     this.navBtns.forEach(btn => {
       if(btn.dataset.route === route) {
@@ -172,10 +174,10 @@ class App {
     }
 
     // Chama o render para desenhar (se for a primeira vez) ou atualizar "por baixo dos panos"
-    this.renderRouteView(route, targetContainer);
+    this.renderRouteView(route, targetContainer, this.routeParams);
   }
 
-  renderRouteView(route, container) {
+  renderRouteView(route, container, params = {}) {
     switch(route) {
       case 'login':
         renderLogin(container, this);
@@ -187,7 +189,7 @@ class App {
         renderLibrary(container, this);
         break;
       case 'study':
-        renderStudy(container, this);
+        renderStudy(container, this, params);
         break;
       case 'settings':
         renderSettings(container, this);
@@ -203,6 +205,9 @@ class App {
         break;
       case 'reader':
         renderReader(container, this);
+        break;
+      case 'stats':
+        renderStats(container, this);
         break;
       default:
         renderHome(container, this);

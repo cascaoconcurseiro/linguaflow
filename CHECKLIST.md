@@ -1,6 +1,5 @@
 # Checklist — LinguaFlow
 
-<<<<<<< HEAD
 ## 🎛️ QUADRO VIVO DA EQUIPE — 2026-07-11 (gerente: Fable)
 > Regra da equipe: cada frente tem UM responsável sênior; toda decisão relevante é registrada aqui e no HANDOFF.md (é assim que os papéis "conversam" entre sessões e entre agentes — Fable, Codex e quem vier). Nada é marcado feito sem evidência (teste, query ou arquivo).
 
@@ -58,6 +57,19 @@
 - [x] [QA] FASE 3 antiga: **3 fluxos com sessão expirada — já se recuperam sozinhos, verificado por inspeção de código**: Tradução (`utils/translator.js`) e Dicionário (`api.dictionaryapi.dev`, `service-worker.js:487`) usam APIs públicas sem token do Supabase — sessão expirada não afeta nenhuma das duas. IA (`ai.js`) e TTS premium (`tts.js`) passam por `db._getToken()` → `_refreshTokenIfNeeded()`: refresh proativo 5min antes de vencer (com mutex contra corrida), e se o refresh_token já morreu de vez, faz `logout()` + dispara `lf_auth_expired` (que `app.js` escuta e redireciona pro login) ANTES de qualquer chamada de IA/TTS falhar — nunca fica travado, sempre volta pro login sozinho. TTS ainda tem uma segunda rede de segurança: se `_getToken()` falhar, cai no fallback direto do Google TTS sem token nenhum.
 - [ ] [Gerente] Ícones PWA 192/512 com arte original — **precisa do dono**: já existem ícones funcionais em todos os tamanhos (16/48/128/192/512, PNGs válidos, manifest correto), mas são um mascote de tucano genérico (provavelmente clipart de banco de imagens), não arte de marca original. Não tenho ferramenta de geração de imagem neste ambiente — preciso que você forneça uma logo/arte real (ou aprove manter o mascote atual).
 - [ ] [QA+Dono] Inspeção visual mobile/a11y em celular real; validar virada de dia no fuso à meia-noite; observar limite do YouGlish — **precisa do dono**: exige um celular físico de verdade, não dá pra simular com confiança no meu ambiente.
+
+#### 🟣 ONDA 5 — ✅ CONCLUÍDA (2026-07-12) — Nova auditoria completa (infra viva + revisão de código)
+> Pedido do dono: "Faça uma nova auditoria com todos seniors em busca de erros, bugs, coisas não implantadas". Relatório completo em `docs/AUDITORIA_2026-07-12.md`. Toda correção em Supabase/GitHub foi autorizada explicitamente pelo dono.
+- [x] [Backend] **IDOR crítico corrigido**: `get_user_stats(p_user_id)` era `SECURITY DEFINER` sem checar `auth.uid()=p_user_id` — qualquer usuário logado lia stats de qualquer outro. Função morta (zero chamadores), removida.
+- [x] [Backend] Índice duplicado (`idx_cards_due`) removido; migrations recentes renomeadas pra bater com o histórico real do Supabase (evita reaplicação futura via CLI).
+- [x] [Eng. Backend/Segurança] **SSRF crítico corrigido no `url-import`**: o filtro anti-SSRF nunca resolvia DNS, só olhava a string do hostname — um domínio próprio com registro A pra rede interna passava batido. Agora resolve `A`/`AAAA` via `Deno.resolveDns()` e valida os IPs antes de cada fetch/redirect. Deployado.
+- [x] [Linguista] **2 bugs corrigidos no algoritmo de Placement v3**: `scoreClozeLadder` caía sempre pra A1 ao reprovar a primeira banda (agora cai só 1 abaixo de onde a escada começou); `listeningBands` duplicava a banda de ponta nos extremos da escala (agora sempre 3 bandas distintas). 2 testes de regressão novos.
+- [x] [Eng. SRS] **Corrida de cache corrigida**: uma escrita (editar/suspender/excluir card) podia "sumir" por até 30s se corresse contra um refresh SWR em voo. Contador de geração (`_cacheGeneration`) agora invalida writes obsoletos.
+- [x] [Eng. SRS] **Corrida no Undo corrigida**: apertar "Desfazer" (Z) logo após avaliar podia desfazer a nota do card ANTERIOR em vez da atual. Guard `gradeBusy` adicionado.
+- [x] [Prof. didático] Vídeo de card anterior podia esconder o vídeo válido do card atual (guard de identidade de card adicionado); `AudioContext` dos mini-jogos agora é fechado ao terminar a partida.
+- [x] [Gerente] PR #2 (obsoleta desde 04/07, superada pela #3) fechada com autorização do dono. Marca de conflito de merge (`<<<<<<< HEAD`) esquecida no topo deste arquivo desde uma sessão anterior, removida.
+- [x] [QA] 30/30 testes `engine.test.mjs` (2 novos de regressão), 5/5 `local-day.test.mjs`, migrations replayadas do zero em banco efêmero, `release-smoke` verde.
+- [ ] [Dono] Branches obsoletas (`master`, `codex/auditoria-completa`) identificadas mas não removidas — sem ferramenta de delete de branch disponível; avisar se quiser que eu remova via git direto.
 
 #### ✅ Fechado da tabela-mestra da auditoria (com evidência): #1-8, #10-20, #22
 Fila learning/rótulos reais · settings→translation_cache · configs reais · limites diários · XP jogo/história/quiz/missões · ligas cron · streak unificada+fuso · card de história consertado · placement 3 fases · push · missões adaptativas+retorno · LingQ (%conhecido/status/quiz/reencontro) · RPC morta · advisors · índices · revisão atômica+undo íntegro · telemetria · onboarding real · XP localStorage removido · Difícil gradua.

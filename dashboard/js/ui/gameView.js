@@ -155,6 +155,7 @@ async function renderMatchGame(container, app) {
   }
 
   async function finishGame() {
+    audioCtx.close().catch(() => {}); // libera o AudioContext ao terminar a partida
     // XP REAL via Learning Engine (RPC no banco, com cap diário anti-farm).
     // A tela antiga dizia "Você ganhou XP!" e não dava nada — era decorativa.
     container.innerHTML = `
@@ -396,6 +397,7 @@ async function renderListenGame(container, app) {
   }
 
   async function finishListenGame() {
+    audioCtx.close().catch(() => {}); // libera o AudioContext ao terminar a partida
     container.innerHTML = `
       <div class="game-container">
         <h2 id="listen-result">Calculando XP... ⏳</h2>

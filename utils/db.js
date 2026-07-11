@@ -11,6 +11,7 @@ class Database {
     this.isChromeContext = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
     this.isProxyMode = this.isChromeContext && !this.isBackgroundWorker;
     this.initPromise = Promise.resolve();
+    this._cacheGeneration = 0;
   }
 
   // Lê o objeto de sessão completo ({ access_token, refresh_token, expires_at, user })
@@ -414,6 +415,14 @@ class Database {
   }
 
   async _fetchWords(limit) {
+    // Auditoria 2026-07-12: uma escrita (updateWord/deleteWord/logReview…)
+    // chama _invalidateReadCache() enquanto um refresh SWR desta MESMA
+    // lista já estava em voo. Sem o check de geração abaixo, esse fetch
+    // antigo resolvia DEPOIS da invalidação e reescrevia o cache com dado
+    // pré-escrita, marcado como "fresco" por mais 30s — a edição "sumia"
+    // até o cache vencer nauralmente. _cacheGeneration captura o snapshot
+    // no início do fetch; só grava se nada invalidou nesse meio-tempo.
+    const gen = this._cacheGeneration;
     let data;
     if (this.isProxyMode) data = await this._proxy('getAllWords', [limit]);
     else {
@@ -421,11 +430,12 @@ class Database {
       if (limit > 0) query += `&limit=${limit}`;
       data = await this._fetch(query);
     }
-    if (limit === 0) this._wordsCache = { data: data || [], ts: Date.now() };
+    if (limit === 0 && gen === this._cacheGeneration) this._wordsCache = { data: data || [], ts: Date.now() };
     return data || [];
   }
 
   _invalidateReadCache() {
+    this._cacheGeneration = (this._cacheGeneration || 0) + 1;
     this._wordsCache = null;
     this._cardsCache = null;
   }
@@ -488,9 +498,11 @@ class Database {
   }
 
   async _fetchCards() {
+    const gen = this._cacheGeneration; // ver comentário em _fetchWords
     let data;
     if (this.isProxyMode) data = await this._proxy('getAllCards', []);
     else data = await this._fetch('cards?select=*');
+    if (gen !== this._cacheGeneration) return data || [];
     this._cardsCache = { data: data || [], ts: Date.now() };
     return data || [];
   }

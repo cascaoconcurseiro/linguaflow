@@ -1,5 +1,30 @@
 # Handoff — LinguaFlow
 
+## Execução Fable — 2026-07-12 (ONDA 5 — nova auditoria completa, "todos seniors")
+> Pedido do dono: revisitar auditoria+checklist, nova auditoria caçando bugs/erros/coisas não implantadas, com autorização explícita pra corrigir qualquer problema em Supabase/GitHub. Relatório completo em `docs/AUDITORIA_2026-07-12.md`.
+
+**Infra viva (Supabase)**:
+- **[Backend] IDOR crítico**: `get_user_stats(p_user_id uuid)` — `SECURITY DEFINER`, `EXECUTE` liberado pra `authenticated`, nunca checava `auth.uid()=p_user_id`. Qualquer usuário logado podia ler stats de qualquer outro via REST direto. Função morta (zero chamadores, `by_cefr`/`streak` hardcoded), `DROP FUNCTION`.
+- **[Backend] Índice duplicado**: `idx_cards_due` era cópia byte-a-byte de `idx_cards_user_due` (a versionada). Removido.
+- **[Backend] Migrations desalinhadas**: as últimas 6 migrations tinham timestamp de arquivo diferente do timestamp real de aplicação no Supabase (`apply_migration` atribui na hora, não usa o nome do arquivo) — quebraria `supabase db push` no futuro. Renomeadas via `git mv` pros valores reais (`list_migrations`), replay completo validado do zero.
+- Investigado sem ação: `pg_net` no schema public (extensão não suporta `ALTER EXTENSION ... SET SCHEMA`, testado em produção — `0A000`); ~10 avisos de "SECURITY DEFINER + authenticated" são todos RPCs legítimas com `auth.uid()` correto.
+
+**Infra viva (GitHub)**: PR #2 (obsoleta desde 04/07, superada pela #3) fechada com comentário explicando o motivo, autorizado pelo dono ("deixo na decisão da equipe"). Branches `master`/`codex/auditoria-completa` identificadas como obsoletas mas não removidas (sem tool de delete-branch disponível; só via git direto, fica pendente de confirmação).
+
+**Revisão de código** (2 agentes paralelos, um por área de maior risco — Onda 2 e Onda 3 — cada um lendo o diff completo, rastreando call sites, e testando "isso é alcançável de verdade?" antes de reportar):
+- **[Eng. Backend/Segurança] SSRF crítico no `url-import`**: o filtro anti-SSRF só olhava a STRING do hostname — nunca resolvia DNS. Um domínio próprio com registro A pra rede interna (`169.254.169.254`, `10.x`) passava batido, explorável hoje via "colar uma URL" no Leitor, sem corrida nenhuma. Reescrito: resolve `A`/`AAAA` via `Deno.resolveDns()` e valida antes de CADA fetch/redirect; parser IPv6 próprio cobre `fe80::/10`, `fc00::/7`, mapeamento IPv4. Risco residual de DNS rebinding documentado e aceito (sem pinagem de IP no `fetch()` do Deno). Deployado v2.
+- **[Linguista] 2 bugs no algoritmo de Placement v3**: `scoreClozeLadder` sempre caía pra 'A1' hardcoded ao reprovar a PRIMEIRA banda testada, ignorando que a escada começa uma banda abaixo do vocabulário (aluno B2 que reprova B1 de cara virava 'A1', dois níveis errado — derrubava o resultado inteiro, já que cloze pesa 40%). `listeningBands` duplicava a banda de ponta nos extremos (`clozeLevel='A1'` gerava `['A1','A1','A2']`, repetindo as mesmas 4 frases). Ambos corrigidos com 2 testes de regressão.
+- **[Eng. SRS] Corrida de cache em `db.js`**: `getAllWords`/`getAllCards` (SWR da Onda 4) escreviam incondicionalmente no cache quando o fetch resolvia — uma escrita (`updateWord`/`logReview`/etc.) invalidando o cache ENQUANTO um refresh em segundo plano já estava em voo fazia esse refresh antigo "ressuscitar" dado obsoleto e marcá-lo fresco por mais 30s. Corrigido com contador de geração (`_cacheGeneration`).
+- **[Eng. SRS] Corrida no Undo em `studyView.js`**: `handleGrade` só atualiza `lastReview` depois que `logReview` termina de salvar — apertar Z (atalho de Desfazer) logo após avaliar, o uso mais natural do recurso, desfazia a nota do card ANTERIOR em vez da atual. Corrigido com guard `gradeBusy`.
+- **[Prof. didático] Vídeo de card anterior escondendo vídeo do atual**: falha assíncrona atrasada de `loadVideo()` sem guard de identidade de card. Corrigido. `AudioContext` dos mini-jogos nunca fechado — agora fecha ao terminar a partida.
+- Descartado (investigado, não é bug real): call sites de `app.navigate()`, consistência `statsEngine.js`↔`statsView.js`, corrida em `ytPlayer.js`, `JSON.parse` sem try/catch em `gradeWriting`/`generateMnemonic` (chamadores já protegem), `candidate.email` nulo em email-reengagement (RPC já filtra), cadeia de parâmetros da Fase 4 do Placement, EPUBs malformados.
+
+**[Gerente]**: marca de conflito de merge (`<<<<<<< HEAD`) esquecida no topo do CHECKLIST.md desde uma sessão anterior, removida.
+
+**[QA]**: 30/30 `engine.test.mjs` (2 novos de regressão do Placement), 5/5 `local-day.test.mjs`, migrations replayadas do zero em banco efêmero, `test:release` verde (à parte do check de árvore suja, esperado em WIP).
+
+**Pendências que ficam com o dono**: branches obsoletas (confirmar se posso remover), ícones PWA com arte original, QA mobile/a11y em device real, chave do provedor de e-mail (Onda 3.4), e o roteiro de teste manual do preview + merge do PR #3 (Onda 0, nunca mudou).
+
 ## Execução Fable — 2026-07-11g (ONDA 4 — infra e polimento, roadmap-mestre fechado)
 > Última onda do "ROADMAP-MESTRE PRIORIZADO". Das 6 pendências, 4 foram resolvidas (2 já estavam prontas de sessões anteriores e só não tinham sido marcadas; 2 exigiram código novo) e 2 ficam explicitamente com o dono (exigem ativo físico/criativo que eu não tenho neste ambiente).
 

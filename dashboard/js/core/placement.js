@@ -187,8 +187,17 @@ export function clozePassThreshold(total) {
 }
 
 // results: [{ band, correct, total }] em ordem crescente → banda final
+//
+// Auditoria 2026-07-12: a versão anterior sempre caía pra 'A1' quando a
+// PRIMEIRA banda testada era reprovada — errado, porque a escada NUNCA
+// começa em A1 pra quem tem vocabulário melhor (clozeStartBand começa uma
+// banda abaixo do vocabulário). Um aluno com vocabulário B2 começa o cloze
+// em B1; se reprovar B1, o resultado correto é "uma banda abaixo de onde
+// começou" (A2), não "A1" — dois níveis errado, e isso derrubava listening
+// e o resultado final junto (o algoritmo inteiro pesa 40% nisso).
 export function scoreClozeLadder(results) {
-  let level = 'A1';
+  if (!results.length) return 'A1';
+  let level = LEVELS[Math.max(0, levelIndex(results[0].band) - 1)];
   for (const r of results) {
     if (r.correct >= clozePassThreshold(r.total)) level = r.band;
     else break;
@@ -196,10 +205,16 @@ export function scoreClozeLadder(results) {
   return level;
 }
 
-// Listening: 6 itens (2 na banda do cloze, 2 abaixo, 2 acima, com clamp)
+// Listening: 3 bandas DISTINTAS ao redor do nível do cloze (não 2 abaixo/
+// acima fixo — nos extremos da escala isso duplicava a banda de ponta,
+// ex. clozeLevel='A1' gerava ['A1','A1','A2'] e repetia as 4 mesmas frases
+// de A1 duas vezes em vez de testar 3 níveis de verdade). Janela de 3
+// índices consecutivos, deslizada pra dentro dos limites do array.
 export function listeningBands(clozeLevel) {
   const i = levelIndex(clozeLevel);
-  return [LEVELS[Math.max(0, i - 1)], LEVELS[i], LEVELS[Math.min(LEVELS.length - 1, i + 1)]];
+  const maxIdx = LEVELS.length - 1;
+  const lo = Math.max(0, Math.min(i - 1, maxIdx - 2));
+  return [LEVELS[lo], LEVELS[lo + 1], LEVELS[lo + 2]];
 }
 
 export function scoreListening(clozeLevel, correct, total) {

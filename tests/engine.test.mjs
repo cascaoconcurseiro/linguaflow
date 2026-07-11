@@ -105,6 +105,23 @@ test('scoreClozeLadder: para na primeira banda reprovada (Onda 3.2: corte propor
   assert.equal(P.clozePassThreshold(5), 3); // 60% de 5, arredondado pra cima
 });
 
+test('scoreClozeLadder: reprovar a PRIMEIRA banda cai uma abaixo de onde começou, não sempre A1 (regressão auditoria 2026-07-12)', () => {
+  // Vocabulário B2 → escada começa em B1 (clozeStartBand). Reprovar B1 de
+  // cara deve dar A2 (uma banda abaixo de onde a escada começou), nunca A1
+  // — o bug antigo sempre retornava 'A1' aqui, dois níveis errado.
+  assert.equal(P.scoreClozeLadder([{ band: 'B1', correct: 1, total: 5 }]), 'A2');
+  // Vocabulário C1 → escada começa em B2; reprova B2 de cara → cai pra B1.
+  assert.equal(P.scoreClozeLadder([{ band: 'B2', correct: 0, total: 5 }]), 'B1');
+});
+
+test('listeningBands: 3 bandas distintas mesmo nos extremos da escala (regressão auditoria 2026-07-12)', () => {
+  assert.deepEqual(P.listeningBands('A1'), ['A1', 'A2', 'B1']); // não duplica A1
+  assert.deepEqual(P.listeningBands('C2'), ['B2', 'C1', 'C2']); // não duplica C2
+  assert.deepEqual(P.listeningBands('B1'), ['A2', 'B1', 'B2']); // centrado, igual antes
+  assert.equal(new Set(P.listeningBands('A1')).size, 3);
+  assert.equal(new Set(P.listeningBands('C2')).size, 3);
+});
+
 test('clozeStartBand: começa uma banda abaixo do vocabulário', () => {
   assert.equal(P.clozeStartBand('B1'), 'A2');
   assert.equal(P.clozeStartBand('A1'), 'A1');

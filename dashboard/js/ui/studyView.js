@@ -972,8 +972,11 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card) {
         </div>
       </section>`;
     ytMount.classList.remove('hidden');
+    // Auditoria 2026-07-12: sem o guard de card, um vídeo de um card ANTERIOR
+    // que demora pra falhar (ex: embed bloqueado) podia resolver depois que o
+    // aluno já avançou — escondendo o vídeo válido do card atual por engano.
     loadVideo(ytMount, vctx.videoId, { start: vctx.start }).then(ok => {
-      if (!ok) ytMount.classList.add('hidden');
+      if (!ok && currentCard === card) ytMount.classList.add('hidden');
     });
   } else if (vctx && vctx.externalUrl) {
     // Não é YouTube (ou sem videoId extraível): sem player, só o link no
@@ -1369,6 +1372,13 @@ async function handleGrade(grade, app) {
 }
 
 async function handleUndo(app) {
+  // Auditoria 2026-07-12: handleGrade só atualiza `lastReview` DEPOIS que o
+  // logReview termina de salvar (await logPromise), mas o botão/atalho de
+  // Undo não checava isso — apertar Z logo após avaliar (o uso mais natural
+  // do atalho) desfazia a revisão ANTERIOR (lastReview ainda apontava pro
+  // card N-1) em vez da que acabou de ser dada. gradeBusy fica true durante
+  // toda essa janela, então é a mesma trava que já protege handleGrade.
+  if (gradeBusy) return;
   if (!lastReview || !lastReview.prevCard) return;
   const { prevCard, card, reviewLogId, isCorrect } = lastReview;
   lastReview = null;

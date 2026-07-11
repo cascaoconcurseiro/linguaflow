@@ -396,21 +396,33 @@ class Database {
   }
 
   async getAllWords(limit = 0) {
-    // Cache curto (30s): as views re-buscam a mesma lista ao navegar entre
-    // abas — era parte da sensação de site lento. Invalidado em toda escrita.
-    if (limit === 0 && this._wordsCache && Date.now() - this._wordsCache.ts < 30000) {
+    // Stale-while-revalidate (Onda 4): cache "fresco" (<30s) serve na hora
+    // sem rede nenhuma, igual antes. A diferença é o que acontece quando o
+    // cache VENCEU: antes disso bloqueava a tela esperando a rede de novo —
+    // era o gargalo real ao trocar de aba depois de 30s parado. Agora serve
+    // o dado antigo IMEDIATAMENTE e revalida em segundo plano (deduplicado
+    // por _wordsRefreshing, pra não disparar N requests em paralelo se a
+    // view chamar getAllWords() várias vezes enquanto ainda está stale).
+    if (limit === 0 && this._wordsCache) {
+      if (Date.now() - this._wordsCache.ts >= 30000 && !this._wordsRefreshing) {
+        this._wordsRefreshing = this._fetchWords(0).finally(() => { this._wordsRefreshing = null; });
+        this._wordsRefreshing.catch(() => {});
+      }
       return this._wordsCache.data;
     }
-    if (this.isProxyMode) {
-      const data = await this._proxy('getAllWords', [limit]);
-      if (limit === 0) this._wordsCache = { data: data || [], ts: Date.now() };
-      return data || [];
+    return this._fetchWords(limit);
+  }
+
+  async _fetchWords(limit) {
+    let data;
+    if (this.isProxyMode) data = await this._proxy('getAllWords', [limit]);
+    else {
+      let query = `words?select=*&order=added_at.desc`;
+      if (limit > 0) query += `&limit=${limit}`;
+      data = await this._fetch(query);
     }
-    let query = `words?select=*&order=added_at.desc`;
-    if (limit > 0) query += `&limit=${limit}`;
-    const res = await this._fetch(query);
-    if (limit === 0) this._wordsCache = { data: res || [], ts: Date.now() };
-    return res || [];
+    if (limit === 0) this._wordsCache = { data: data || [], ts: Date.now() };
+    return data || [];
   }
 
   _invalidateReadCache() {
@@ -418,14 +430,38 @@ class Database {
     this._cardsCache = null;
   }
 
-  async getWordsByCategory(category) {
-    if (this.isProxyMode) return this._proxy('getWordsByCategory', [category]);
+  // Onda 4: aceita paginação real (limit/offset viram LIMIT/OFFSET no
+  // Postgres) — sem eles, mantém o comportamento antigo (lista completa via
+  // cache SWR de getAllWords/getAllCards), usado por getWordsByLetter.
+  // Também corrige um bug latente: a versão anterior ignorava o `category`
+  // por completo (retornava tudo, sem filtrar) — nunca foi notado porque
+  // não tinha nenhum chamador na UI ainda.
+  async getWordsByCategory(category, { limit, offset } = {}) {
+    if (this.isProxyMode) return this._proxy('getWordsByCategory', [category, { limit, offset }]);
+
+    if (typeof limit === 'number') {
+      let query = `words?select=*&order=word.asc&limit=${limit}&offset=${offset || 0}`;
+      if (category && category !== 'all') query += `&category=eq.${encodeURIComponent(category)}`;
+      const words = await this._fetch(query) || [];
+      if (words.length === 0) return [];
+      const ids = words.map(w => w.id);
+      const cards = await this._fetch(`cards?word_id=in.(${ids.join(',')})&select=word_id,status,reps`) || [];
+      const cardMap = {};
+      cards.forEach(c => cardMap[c.word_id] = c);
+      return words.map(w => ({
+        ...w,
+        reps: cardMap[w.id]?.reps || 0,
+        status: cardMap[w.id]?.status || 'new'
+      }));
+    }
+
     const words = await this.getAllWords();
     const cards = await this.getAllCards();
     const cardMap = {};
     cards.forEach(c => cardMap[c.word_id] = c);
+    const filtered = category && category !== 'all' ? words.filter(w => w.category === category) : words;
 
-    return words.map(w => ({
+    return filtered.map(w => ({
       ...w,
       reps: cardMap[w.id]?.reps || 0,
       status: cardMap[w.id]?.status || 'new'
@@ -440,9 +476,18 @@ class Database {
   }
 
   async getAllCards() {
-    if (this._cardsCache && Date.now() - this._cardsCache.ts < 30000) {
+    // Mesma estratégia SWR de getAllWords (Onda 4) — ver comentário lá.
+    if (this._cardsCache) {
+      if (Date.now() - this._cardsCache.ts >= 30000 && !this._cardsRefreshing) {
+        this._cardsRefreshing = this._fetchCards().finally(() => { this._cardsRefreshing = null; });
+        this._cardsRefreshing.catch(() => {});
+      }
       return this._cardsCache.data;
     }
+    return this._fetchCards();
+  }
+
+  async _fetchCards() {
     let data;
     if (this.isProxyMode) data = await this._proxy('getAllCards', []);
     else data = await this._fetch('cards?select=*');

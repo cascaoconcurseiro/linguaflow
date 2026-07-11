@@ -5,7 +5,7 @@ import {
   CLOZE_BANK, LISTENING_BANK, clozeStartBand, scoreClozeLadder, clozePassThreshold,
   levelIndex, listeningBands, scoreListening, combinePlacement, writingPromptFor,
 } from '../core/placement.js';
-import { playNaturalAudio, stopAudio } from '../core/tts.js';
+import { playNaturalAudio, stopAudio, preloadKokoro } from '../core/tts.js';
 import { gradeWriting } from '../core/ai.js';
 
 const isExtensionCtx = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
@@ -392,6 +392,12 @@ export async function renderSettings(container, app) {
               <span style="font-size:12px; color:var(--color-text-light);">Qualidade acima do Google TTS. Baixa ~90 MB na primeira vez e depois funciona até sem internet. Só no site (não na extensão). Requer navegador moderno.</span>
             </span>
           </label>
+          <div id="kokoro-progress-box" class="hidden" style="margin-left:26px;">
+            <div style="width:100%; background:var(--color-border); height:8px; border-radius:4px; overflow:hidden;">
+              <div id="kokoro-progress-bar" style="width:0%; height:100%; background:var(--color-primary); transition:width 0.2s;"></div>
+            </div>
+            <p id="kokoro-progress-text" style="font-size:12px; color:var(--color-text-light); margin-top:6px;">Baixando modelo… 0%</p>
+          </div>
           <div style="display:flex; gap:16px; flex-wrap:wrap; margin-top:8px;">
             <div style="flex:1; min-width:200px;">
               <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Sotaque</label>
@@ -822,13 +828,40 @@ export async function renderSettings(container, app) {
   const kokoroChk = document.getElementById('audio-kokoro');
   if (kokoroChk) {
     try { kokoroChk.checked = localStorage.getItem('lf_kokoro') === '1'; } catch { /* sem storage */ }
+
+    // Onda 4: barra de progresso real do download (~90MB), em vez de só um
+    // toast dizendo "pode demorar". O tts.js emite lf_kokoro_progress.
+    const progressBox = document.getElementById('kokoro-progress-box');
+    const progressBar = document.getElementById('kokoro-progress-bar');
+    const progressText = document.getElementById('kokoro-progress-text');
+    const onKokoroProgress = (e) => {
+      const { status, progress, error } = e.detail || {};
+      if (!progressBox) return;
+      if (status === 'done') {
+        progressText.textContent = 'Modelo pronto! 🎉';
+        progressBar.style.width = '100%';
+        setTimeout(() => progressBox.classList.add('hidden'), 2500);
+      } else if (status === 'error') {
+        progressText.textContent = `⚠️ ${error || 'Falha ao baixar — usando Google TTS por enquanto.'}`;
+        setTimeout(() => progressBox.classList.add('hidden'), 4000);
+      } else {
+        progressBox.classList.remove('hidden');
+        progressBar.style.width = `${progress || 0}%`;
+        progressText.textContent = `Baixando modelo… ${progress || 0}%`;
+      }
+    };
+    window.addEventListener('lf_kokoro_progress', onKokoroProgress);
+
     kokoroChk.addEventListener('change', () => {
       try {
         if (kokoroChk.checked) {
           localStorage.setItem('lf_kokoro', '1');
-          app.showToast('Voz premium ativada! O modelo (~90 MB) baixa no primeiro áudio — pode demorar um pouco só na primeira vez. 🎙️', 'info');
+          app.showToast('Voz premium ativando… acompanhe o progresso do download abaixo. 🎙️', 'info');
+          progressBox?.classList.remove('hidden');
+          preloadKokoro();
         } else {
           localStorage.removeItem('lf_kokoro');
+          progressBox?.classList.add('hidden');
           app.showToast('Voz premium desativada. Voltando ao Google TTS.', 'info');
         }
       } catch { app.showToast('Não consegui salvar a preferência.', 'error'); }

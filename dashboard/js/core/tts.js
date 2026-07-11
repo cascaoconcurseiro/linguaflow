@@ -58,24 +58,56 @@ function kokoroEnabled() {
   catch { return false; }
 }
 
+// Progresso do download (~90MB, 1x só — cache do browser depois). Onda 4:
+// antes era "pode demorar um pouco" sem feedback nenhum; agora emite um
+// evento global que a tela de Configurações escuta pra desenhar uma barra
+// real. Cada arquivo do modelo reporta seu próprio progresso (0-100), então
+// agregamos por bytes carregados/total quando disponível.
+function reportKokoroProgress(detail) {
+  try { window.dispatchEvent(new CustomEvent('lf_kokoro_progress', { detail })); } catch { /* sem window (worker?) */ }
+}
+
 async function getKokoro() {
   if (_kokoro) return _kokoro;
   if (_kokoroLoading) return _kokoroLoading;
+  const filesTotal = {};
+  const filesLoaded = {};
   _kokoroLoading = (async () => {
     const mod = await import('https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+esm');
     const device = navigator.gpu ? 'webgpu' : 'wasm';
+    reportKokoroProgress({ status: 'start', progress: 0 });
     _kokoro = await mod.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
       dtype: device === 'webgpu' ? 'fp32' : 'q8',
       device,
+      progress_callback: (data) => {
+        if (!data || typeof data !== 'object') return;
+        if (data.status === 'progress' && data.file) {
+          filesTotal[data.file] = data.total || filesTotal[data.file] || 0;
+          filesLoaded[data.file] = data.loaded || 0;
+          const total = Object.values(filesTotal).reduce((a, b) => a + b, 0);
+          const loaded = Object.values(filesLoaded).reduce((a, b) => a + b, 0);
+          const progress = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : (data.progress || 0);
+          reportKokoroProgress({ status: 'progress', progress, loaded, total, file: data.file });
+        }
+      },
     });
     console.debug('[TTS] Kokoro pronto via', device);
+    reportKokoroProgress({ status: 'done', progress: 100 });
     return _kokoro;
   })().catch((e) => {
     console.warn('[TTS] Kokoro indisponível, usando Google TTS:', e?.message);
+    reportKokoroProgress({ status: 'error', error: e?.message || 'Falha ao carregar o modelo.' });
     _kokoroLoading = null;
     throw e;
   });
   return _kokoroLoading;
+}
+
+// Onda 4: dispara o download/carregamento do modelo assim que o usuário
+// ativa o toggle, em vez de esperar o primeiro áudio — a tela de
+// Configurações usa isso pra mostrar uma barra de progresso real na hora.
+export function preloadKokoro() {
+  return getKokoro().catch(() => null);
 }
 
 async function kokoroBlob(text, lang) {

@@ -264,3 +264,9 @@ Resumindo: o código não é mais o gargalo. O gargalo agora é uma rodada de de
 **[Linguista] Reengajamento por e-mail (Onda 3.4)**: fica pausado por enquanto, por decisão do dono — a função já existe no código (`supabase/functions/email-reengagement`) mas continua inerte até haver uma chave de provedor configurada. Nenhuma ação necessária agora.
 
 Nenhuma mudança de código resultou desta rodada — PR #3 já está mergeado em `main`/produção desde o commit `63adfb0`.
+
+---
+
+## Atualização — 2026-07-12: Leaked Password Protection não se aplica (plano Free)
+
+Dono confirmou que usa o plano **Free** do Supabase. Segundo a documentação oficial ("Leaked password protection is available on the Pro Plan and above"), esse recurso nem aparece como opção pra ativar num projeto Free — não é só limitação de ferramental minha, é limitação do plano. Item removido da lista de pendências; não é um bloqueio de segurança acionável no momento (upgrade de plano é decisão de custo do dono, fora de escopo técnico).

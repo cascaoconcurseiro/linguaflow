@@ -11,6 +11,11 @@
 
 **[Gerente] Veredito de produção**: ver seção "🎯 Pode ir pra produção?" no fim deste arquivo.
 
+**Atualização — mesmo dia**: dono pediu pra fazer tudo que estivesse ao alcance no Supabase, trocar o ícone pro pássaro inteiro e liberar pra produção.
+- **[Gerente] Ícone**: recuperei o círculo branco de fundo do design original (era invisível contra fundo branco, só visível compondo sobre outra cor) e recompus com o pássaro INTEIRO no lugar do crop de cabeça, em todos os 9 arquivos de ícone (extensão + PWA).
+- **[Backend] Supabase**: revisão final dos advisors — nada novo corrigível. Os WARNs restantes são ou por design (RPCs `SECURITY DEFINER` que checam `auth.uid()` internamente) ou fora do alcance de qualquer ferramenta que eu tenha (Leaked Password Protection é Dashboard/Management-API-only, confirmado na doc oficial; `pg_net` não é relocável, testado).
+- **[Gerente] Produção**: PR #3 tirado de draft e mergeado em `main` por autorização explícita do dono ("pode mandar pra produção").
+
 ---
 
 ## Execução Fable — 2026-07-12 (ONDA 5 — nova auditoria completa, "todos seniors")

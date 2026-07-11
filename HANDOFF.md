@@ -252,3 +252,15 @@
 8. Branches obsoletas (`master`, `codex/auditoria-completa`) — cosmético, não bloqueia produção, só perguntando se quer que eu remova.
 
 Resumindo: o código não é mais o gargalo. O gargalo agora é uma rodada de decisões/testes que dependem de você.
+
+---
+
+## Atualização — 2026-07-12, resposta sobre e-mail / Leaked Password / chave DeepSeek
+
+**[Gerente] Verifiquei de novo, com calma, se existia algum jeito de ativar "Leaked Password Protection" pelas ferramentas que tenho** (o dono pediu explicitamente, achando que eu tinha acesso). Confirmei que não é possível: não é uma configuração que mora no banco Postgres do projeto (rodei uma query em `information_schema.tables` procurando qualquer tabela de config em `auth`/`extensions`/`public` — não existe nenhuma) nem existe nenhuma ferramenta de MCP disponível pra chamar a Management API do Supabase (que é o único outro caminho, e exige um Personal Access Token que eu não tenho). Isso é uma limitação real de ferramental, não falta de permissão. **Só dá pra ativar em 1 clique no Dashboard**: Authentication → Settings → em "Password Security", ligar "Leaked password protection" (exige plano Pro ou superior).
+
+**[Backend] Chave DeepSeek**: mantida como está, por decisão do dono — não vou rotacionar.
+
+**[Linguista] Reengajamento por e-mail (Onda 3.4)**: fica pausado por enquanto, por decisão do dono — a função já existe no código (`supabase/functions/email-reengagement`) mas continua inerte até haver uma chave de provedor configurada. Nenhuma ação necessária agora.
+
+Nenhuma mudança de código resultou desta rodada — PR #3 já está mergeado em `main`/produção desde o commit `63adfb0`.

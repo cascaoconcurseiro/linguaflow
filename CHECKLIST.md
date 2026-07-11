@@ -1,5 +1,8 @@
 # Checklist — LinguaFlow
 
+## 🚀 PRODUÇÃO — PR #3 mergeado em `main` (2026-07-12, autorização explícita do dono: "pode mandar pra produção")
+> Squash merge `63adfb0`. A partir daqui, `main` tem: motor FSRS/learning engine real, configs 100% reais, gamificação (ligas/missões/XP), histórias LingQ, nivelamento 3 fases, import de texto/EPUB, IA (mnemônicos + correção de redação), reengajamento por e-mail, auditoria de segurança (IDOR/SSRF corrigidos) e responsividade mobile. Itens que continuam sendo só do dono (não corrigíveis por mim): teste manual em celular real, Web Push ponta a ponta, "Leaked Password Protection" no Supabase (Dashboard/Management API only), rotação da chave DeepSeek, chave de provedor de e-mail para o reengajamento funcionar de verdade.
+
 ## 🎛️ QUADRO VIVO DA EQUIPE — 2026-07-11 (gerente: Fable)
 > Regra da equipe: cada frente tem UM responsável sênior; toda decisão relevante é registrada aqui e no HANDOFF.md (é assim que os papéis "conversam" entre sessões e entre agentes — Fable, Codex e quem vier). Nada é marcado feito sem evidência (teste, query ou arquivo).
 

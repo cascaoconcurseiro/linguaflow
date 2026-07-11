@@ -70,3 +70,34 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// ── WEB PUSH (lembrete diário — opt-in nas Configurações) ────────────────────
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { /* payload não-JSON */ }
+  const title = data.title || 'LinguaFlow';
+  event.waitUntil(self.registration.showNotification(title, {
+    body: data.body || 'Você tem revisões esperando.',
+    tag: data.tag || 'linguaflow-reminder',
+    icon: '/icons/icon192.png',
+    badge: '/icons/icon128.png',
+    data: { url: data.url || '/study' },
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = event.notification.data?.url || '/study';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ('focus' in client) {
+          client.focus();
+          if ('navigate' in client) client.navigate(target).catch(() => {});
+          return;
+        }
+      }
+      return self.clients.openWindow(target);
+    })
+  );
+});

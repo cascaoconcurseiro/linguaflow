@@ -1,5 +1,25 @@
 # Handoff — LinguaFlow
 
+## Execução Fable — 2026-07-11 (integração + feedback de uso real do dono)
+
+**Merge:** `codex/auditoria-completa` (4 commits paralelos do Codex) unificado no PR #3. Conflitos resolvidos: onboarding = estrutura ARIA do Codex + fiação REAL (teste de nivelamento no passo 1 grava `lf_cefr_level`; escolha rápida mapeia beginner→A1/intermediate→B1/advanced→B2; meta 10/20/40 grava `new_per_day` 5/10/20). Edge Function = versão endurecida do Codex + subject com fallback + throttle 20h POR assinatura.
+
+**Bugs do feedback do dono — diagnóstico com dados de produção:**
+1. **"Cards sempre voltam" (CONFIRMADO)**: card "statement" tinha **16 revisões "Difícil" e nunca graduou** — no motor, Difícil em learning repetia o step pra sempre (loop de ~2 min eterno). FIX em `_calculateNextState`: Difícil agora AVANÇA o step (1,5x o intervalo) e gradua no fim com intervalo 20% menor que Bom. Os 2 cards presos ("statement", "stick around") foram graduados por reparo de dados (mereciam há muito).
+2. **Contador "Para Revisar" nunca zerava**: somava cards de learning que vencem em minutos. `getStats` agora separa `dueLearning` de `dueCards` (e exclui suspensos — bug antigo); o Início mostra "💭 N em aprendizado" à parte.
+3. **Quiz das histórias repetia perguntas**: agora sorteia 3 focos (fatos/intenções/sequência/inferência/vocabulário), temperatura 0.85, proíbe repetir perguntas anteriores da mesma história e embaralha as alternativas.
+4. **Tradução da frase vazava no clique**: modal mostra SÓ a palavra; frase atrás de "👁 Ver tradução da frase".
+5. **Hover**: tooltip de tradução da palavra ao passar o mouse (250ms, cache do translator).
+6. **Áudio do modal**: blindado — stopAudio + fallback pra speechSynthesis nativa; nunca falha em silêncio.
+
+**"Cérebro professor" (v1)**: painel "🧑‍🏫 Plano de hoje" no Início — 100% dados do banco: revisões agora vs em aprendizado, palavras fracas (3+ lapsos/leech) no radar, e dica pedagógica condicional (retenção <70% → só revisar; fila >15 → 2 sessões; palavra fraca → ler em voz alta; tudo em dia → história). Base para o motor pedagógico completo (ver plano no fim da auditoria).
+
+**Web Push LIGADO ponta a ponta**: sw.js com handlers push/notificationclick; toggle de opt-in nas Configurações (subscribe real com VAPID via `get_push_public_key`); Edge Function v2 deployada (subject fallback, constant-time key); **testado E2E via pg_net: chave errada→401, certa→200**; cron `push-daily-reminder` REATIVADO (17:30 UTC). Falta só o teste com uma assinatura real do navegador do dono (ativar o toggle e esperar o próximo disparo).
+
+**Mais:** falha de LEITURA agora avisa na tela (`lf_read_error` → toast, fim do "vazio" mentiroso); validação efêmera das migrations em Postgres local (`tests/db/validate-migrations.sh` — baseline `00000000000000` + shim de auth; smoke do Learning Engine verde); dependências npm instaladas pro `test:release` do Codex.
+
+**Não feito (registrado):** mini-jogo "ouça-e-escolha" (gameView segue só com Match), indicador de progresso do download do Kokoro, ícones PWA com arte original, rotação da chave DeepSeek (ação do dono), Leaked Password Protection (dashboard Supabase, ação do dono).
+
 ## Execução Codex — 2026-07-10
 
 - Branch de trabalho: `codex/auditoria-completa`, derivada do PR #3 (`e43fad1`).

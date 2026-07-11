@@ -43,6 +43,14 @@ class App {
   async init() {
     window.addEventListener('error', event => this.reportUnexpectedError('window.error', event.error));
     window.addEventListener('unhandledrejection', event => this.reportUnexpectedError('window.rejection', event.reason));
+    // Falha de LEITURA não pode virar "lista vazia" silenciosa (auditoria):
+    // avisa o usuário uma vez a cada 30s, sem spam.
+    window.addEventListener('lf_read_error', () => {
+      const now = Date.now();
+      if (this._lastReadErrorToast && now - this._lastReadErrorToast < 30000) return;
+      this._lastReadErrorToast = now;
+      this.showToast?.('⚠️ Falha de conexão ao carregar dados — a tela pode estar incompleta.', 'error');
+    });
     // Setup Navigation Listeners
     this.navBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {

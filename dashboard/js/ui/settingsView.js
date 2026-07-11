@@ -378,6 +378,17 @@ export async function renderSettings(container, app) {
         <button id="btn-save-api-key" class="btn btn-primary" style="margin-top:16px; width:100%;">Salvar Chave de API</button>
       </div>
 
+      <!-- Lembretes (Web Push REAL — opt-in explícito) -->
+      <div id="push-section" style="background: var(--color-surface); border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px; display:none;">
+        <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 8px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">🔔 Lembretes diários</h2>
+        <p style="color:var(--color-text-light); margin-bottom:16px; font-size:14px;">Uma notificação por dia (no máximo) quando houver revisões pendentes ou sua ofensiva estiver em risco — mesmo com o site fechado. Você pode desativar quando quiser.</p>
+        <label style="display:flex; align-items:center; gap:10px; font-weight:bold; color:var(--color-text); cursor:pointer;">
+          <input type="checkbox" id="push-toggle" style="width:18px; height:18px;">
+          Ativar lembretes de revisão neste dispositivo
+        </label>
+        <p id="push-status" style="font-size:12px; color:var(--color-text-light); margin-top:8px;"></p>
+      </div>
+
       <!-- Export Section -->
       <div style="background: var(--color-surface); border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px;">
         <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 16px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">Dados e Portabilidade</h2>
@@ -766,6 +777,67 @@ export async function renderSettings(container, app) {
       } catch { app.showToast('Não consegui salvar a preferência.', 'error'); }
     });
   }
+
+  // ── Web Push: assinatura REAL no push service do navegador ────────────────
+  // Só no site (extensão MV3 tem o próprio sistema de notificações) e só se o
+  // navegador suportar. O toggle cria/destrói a assinatura de verdade.
+  (async () => {
+    const supported = !isExtensionCtx && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+    const section = document.getElementById('push-section');
+    if (!supported || !section) return;
+    section.style.display = 'block';
+    const toggle = document.getElementById('push-toggle');
+    const status = document.getElementById('push-status');
+
+    const b64ToU8 = (b64) => {
+      const pad = '='.repeat((4 - (b64.length % 4)) % 4);
+      const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+      return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+    };
+
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const existing = await reg.pushManager.getSubscription();
+      toggle.checked = !!existing;
+      status.textContent = existing ? '✅ Lembretes ativos neste dispositivo.' : '';
+    } catch { /* sw ainda não pronto */ }
+
+    toggle.addEventListener('change', async () => {
+      toggle.disabled = true;
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        if (toggle.checked) {
+          const perm = await Notification.requestPermission();
+          if (perm !== 'granted') throw new Error('Permissão de notificação negada.');
+          const publicKey = await lfDb.getPushPublicKey();
+          if (!publicKey) throw new Error('Chave de push indisponível no servidor.');
+          const sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: b64ToU8(publicKey),
+          });
+          const saved = await lfDb.savePushSubscription(sub.toJSON());
+          if (!saved?.ok) { await sub.unsubscribe(); throw new Error('Falha ao registrar no servidor.'); }
+          status.textContent = '✅ Lembretes ativos neste dispositivo.';
+          app.showToast('🔔 Lembretes ativados! No máximo 1 por dia.', 'success');
+        } else {
+          const sub = await reg.pushManager.getSubscription();
+          if (sub) {
+            await lfDb.deletePushSubscription(sub.endpoint).catch(() => {});
+            await sub.unsubscribe();
+          }
+          status.textContent = 'Lembretes desativados.';
+          app.showToast('Lembretes desativados.', 'info');
+        }
+      } catch (e) {
+        console.warn('[Push] Falha no opt-in:', e);
+        toggle.checked = false;
+        status.textContent = `⚠️ ${e.message || 'Não foi possível ativar.'}`;
+        app.showToast('Não consegui ativar os lembretes: ' + (e.message || ''), 'error');
+      } finally {
+        toggle.disabled = false;
+      }
+    });
+  })();
 
   document.getElementById('btn-placement')?.addEventListener('click', () => {
     runPlacementTest(app, (level) => {

@@ -183,6 +183,7 @@ export async function renderHome(container, app) {
     let forecast = [];        // cards vencendo por dia, próximos 7 dias
     let avgReviews7 = 0;      // média de revisões/dia (7 dias) — calibra as missões
     let avgWords7 = 0;
+    let weakWords = [];       // palavras com 3+ lapsos/leech — o "professor" de olho
     try {
         const [logToday, log30, allWords, allCards, knownWords] = await Promise.all([
             db ? db.getReviewLog(1) : [],
@@ -224,7 +225,32 @@ export async function renderHome(container, app) {
         });
         dueTomorrow = forecast[0];
         dueWeek = forecast.reduce((a, b) => a + b, 0);
+
+        // Palavras fracas: o insumo do "plano do professor" (leeches em formação)
+        const wordById = {};
+        (allWords || []).forEach(w => { wordById[w.id] = w; });
+        weakWords = (allCards || [])
+            .filter(c => !c.suspended && ((c.lapses || 0) >= 3 || c.is_leech))
+            .sort((a, b) => (b.lapses || 0) - (a.lapses || 0))
+            .slice(0, 3)
+            .map(c => ({ word: wordById[c.word_id]?.word || '?', lapses: c.lapses || 0 }));
     } catch (e) { console.warn('[Home] Erro ao calcular missões:', e); }
+
+    // ── PLANO DO PROFESSOR (dados 100% do banco, zero enfeite) ──────────────
+    const dueLearningNow = safeStats.dueLearning || 0;
+    const dueReviewNow = Math.max(0, (safeStats.dueCards || 0) - dueLearningNow);
+    let professorTip;
+    if (retention30 !== null && retention30 < 70) {
+        professorTip = `Sua retenção está em ${retention30}% — hoje o foco é REVISAR o que já existe, não adicionar palavras novas. Qualidade antes de volume.`;
+    } else if (dueReviewNow >= 15) {
+        professorTip = 'A fila cresceu: divida em 2 sessões curtas (agora e à noite). Sessões curtas fixam melhor que uma maratona.';
+    } else if (weakWords.length > 0) {
+        professorTip = `Atenção especial a "${weakWords[0].word}" (${weakWords[0].lapses} erros): antes de responder, leia a frase EM VOZ ALTA — produção fixa mais que reconhecimento.`;
+    } else if ((safeStats.dueCards || 0) === 0 && dueTomorrow === 0) {
+        professorTip = 'Tudo em dia! Gere uma história no seu nível, leia com áudio e salve 3 palavras que não conhecia.';
+    } else {
+        professorTip = 'Ritmo saudável. Faça a sessão de hoje e feche com uma história curta — rever a palavra EM CONTEXTO é o que gradua a memória.';
+    }
 
     // ── Missões ADAPTATIVAS ──────────────────────────────────────────────────
     // Alvo = ritmo real do aluno (média 7d) + ~20% de desafio, com piso e teto.
@@ -267,6 +293,7 @@ export async function renderHome(container, app) {
                         <div class="stat-icon" style="color:var(--color-primary)">📚</div>
                         <div class="stat-value">${safeStats.dueCards || 0}</div>
                         <div class="stat-label">Para Revisar</div>
+                        ${dueLearningNow > 0 ? `<div style="font-size:11px; color:var(--color-text-light); margin-top:2px;" title="Cards em learning steps: voltam em minutos dentro da sessão — não são dívida acumulada">💭 ${dueLearningNow} em aprendizado</div>` : ''}
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon" style="color:var(--color-secondary)">⭐</div>
@@ -303,6 +330,16 @@ export async function renderHome(container, app) {
                     </div>
                     <button class="btn btn-primary" id="btn-save-streak" style="padding:10px 18px; font-size:13px;">Salvar ofensiva</button>
                 </div>` : ''}
+                <div style="display:flex; gap:10px; margin-bottom:16px; background:linear-gradient(135deg, rgba(88,204,2,0.08), rgba(28,176,246,0.08)); border:2px solid var(--color-primary); border-radius:var(--radius-md); padding:16px 18px; align-items:flex-start;">
+                    <span style="font-size:26px;">🧑‍🏫</span>
+                    <div style="flex:1;">
+                        <div style="font-weight:900; color:var(--color-text); font-size:14px; margin-bottom:4px;">Plano de hoje
+                            <span style="font-weight:700; color:var(--color-text-light); font-size:12px;">— ${dueReviewNow} ${dueReviewNow === 1 ? 'revisão' : 'revisões'}${dueLearningNow ? ` · ${dueLearningNow} em aprendizado` : ''}${weakWords.length ? ` · ${weakWords.length} ${weakWords.length === 1 ? 'palavra fraca' : 'palavras fracas'}` : ''}</span>
+                        </div>
+                        <div style="font-size:13px; color:var(--color-text); line-height:1.5;">${professorTip}</div>
+                        ${weakWords.length ? `<div style="font-size:12px; color:var(--color-text-light); margin-top:6px;">🔎 No radar: ${weakWords.map(w => `<strong>${w.word}</strong> (${w.lapses}x)`).join(' · ')}</div>` : ''}
+                    </div>
+                </div>
                 <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:24px; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:14px 18px; align-items:center;">
                     <div style="font-weight:800; color:var(--color-text); font-size:14px;">📈 Memória:</div>
                     <div style="font-size:14px; color:var(--color-text-light);">Palavras conhecidas: <strong style="color:var(--color-primary);">${knownFamilies}</strong></div>

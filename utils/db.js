@@ -167,6 +167,11 @@ class Database {
       // Leituras seguem retornando null (views tratam como vazio).
       const method = (options.method || 'GET').toUpperCase();
       if (method !== 'GET') throw e;
+      // Leitura falhou: retorna null (views tratam como vazio) MAS avisa a UI
+      // — "nenhuma palavra" quando na verdade a rede caiu era mentira na tela.
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('lf_read_error', { detail: { endpoint } }));
+      }
       return null;
     }
   }
@@ -522,7 +527,12 @@ class Database {
     const totalWords = words.length;
     const totalSentences = sentences.length;
     const now = new Date().toISOString();
-    const dueCount = cards.filter(c => c.due_date <= now).length;
+    // "Para revisar" separa learning (volta em minutos — NÃO é dívida do dia)
+    // de review/new. Era a sensação de "sempre cobrando": o contador somava
+    // cards de learning steps que venciam minutos depois da sessão.
+    const dueAll = cards.filter(c => !c.suspended && c.due_date <= now);
+    const dueLearning = dueAll.filter(c => c.status === 'learning').length;
+    const dueCount = dueAll.length;
 
     const byStatus = { new: 0, learning: 0, review: 0, mature: 0 };
     cards.forEach(c => {
@@ -561,6 +571,7 @@ class Database {
       totalWords,
       totalSentences,
       dueCards: dueCount,
+      dueLearning,
       // Fonte única da ofensiva: user_stats (trigger do Postgres). O cálculo
       // local é só fallback offline — eram DUAS verdades divergentes.
       streak: userStats?.streak ?? this._calculateStreak(log, sessions),
@@ -719,9 +730,21 @@ class Database {
         nextStepIndex = 0;
         nextInterval = learningSteps[0] / 1440;
       } else if (quality === 2) {
-        nextStatus = 'learning';
-        const cur = learningSteps[Math.min(nextStepIndex, learningSteps.length - 1)] || 1;
-        nextInterval = (cur * 1.5) / 1440;
+        // Difícil = ACERTOU com esforço → progride devagar, mas PROGRIDE.
+        // Bug real de produção: "Difícil" repetia o step pra sempre — um card
+        // levou 16 "Difícil" e nunca graduou (loop de ~2 min eterno pro aluno
+        // honesto). Agora avança o step com 1,5x o intervalo e gradua no fim
+        // dos steps com intervalo 20% menor que o "Bom".
+        nextStepIndex = prevStatus === 'new' ? 1 : nextStepIndex + 1;
+        if (nextStepIndex >= learningSteps.length) {
+          nextStatus = 'review';
+          nextStepIndex = 0;
+          nextInterval = Math.max(settings.gradInt || 1,
+            this._fsrsInterval(stability, retention) * settings.intMod * 0.8);
+        } else {
+          nextStatus = 'learning';
+          nextInterval = (learningSteps[nextStepIndex] * 1.5) / 1440;
+        }
       } else if (quality === 4) {
         // Fácil: gradua direto com bônus do FSRS.
         // easy_interval (config) é o piso; interval_modifier escala tudo.
@@ -1030,6 +1053,32 @@ class Database {
     try {
       return await this._fetch('rpc/maybe_league_rollover', { method: 'POST', body: {} });
     } catch { return { ran: false }; }
+  }
+
+  // ── WEB PUSH (opt-in explícito nas Configurações) ─────────────────────────
+  async getPushPublicKey() {
+    if (this.isProxyMode) return this._proxy('getPushPublicKey', []);
+    const res = await this._fetch('rpc/get_push_public_key', { method: 'POST', body: {} });
+    return typeof res === 'string' ? res : null;
+  }
+
+  async savePushSubscription(sub) {
+    if (this.isProxyMode) return this._proxy('savePushSubscription', [sub]);
+    const keys = sub?.keys || {};
+    if (!sub?.endpoint || !keys.p256dh || !keys.auth) return { ok: false };
+    const res = await this._fetch('push_subscriptions?on_conflict=user_id,endpoint', {
+      method: 'POST',
+      headers: { 'Prefer': 'resolution=merge-duplicates' },
+      body: { endpoint: sub.endpoint, p256dh: keys.p256dh, auth: keys.auth },
+    });
+    return { ok: !!res };
+  }
+
+  async deletePushSubscription(endpoint) {
+    if (this.isProxyMode) return this._proxy('deletePushSubscription', [endpoint]);
+    if (!endpoint) return { ok: false };
+    await this._fetch(`push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`, { method: 'DELETE' });
+    return { ok: true };
   }
 
   // ── CACHE DE TRADUÇÃO (tabela própria — NUNCA mais dentro de settings) ────

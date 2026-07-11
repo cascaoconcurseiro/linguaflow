@@ -259,21 +259,43 @@ export function renderStories(container, app) {
   const btnQuizStory = document.getElementById('btn-quiz-story');
   const quizBox = document.getElementById('story-quiz-box');
 
+  // Variedade REAL entre tentativas: sorteia o foco das perguntas e proíbe
+  // repetir as anteriores (bug relatado: "sempre as mesmas perguntas").
+  let previousQuizQuestions = [];
+
   async function generateQuiz(storyText) {
+    const ASPECTS = [
+      'fatos e detalhes específicos (quem/o quê/onde/quando)',
+      'intenções e sentimentos dos personagens',
+      'ordem dos acontecimentos e relações de causa e efeito',
+      'inferências (o que o texto sugere sem dizer diretamente)',
+      'vocabulário em contexto (o que uma palavra/expressão significa NESTA história)',
+    ];
+    const picked = [...ASPECTS].sort(() => 0.5 - Math.random()).slice(0, 3);
+    const avoid = previousQuizQuestions.length
+      ? `\nNÃO repita nem parafraseie estas perguntas já usadas: ${JSON.stringify(previousQuizQuestions.slice(-9))}`
+      : '';
     const system = `Você cria perguntas de compreensão de leitura para estudantes de inglês.
 Responda APENAS com JSON válido, sem texto extra, neste formato:
 {"questions":[{"q":"pergunta em inglês simples","options":["A","B","C","D"],"answer":0}]}
-REGRAS: exatamente 3 perguntas SOBRE O CONTEÚDO da história (fatos, intenções, sequência).
-As opções devem ser curtas. "answer" é o índice (0-3) da correta. Nível das perguntas: um pouco mais simples que o texto.`;
+REGRAS: exatamente 3 perguntas SOBRE O CONTEÚDO da história, uma para cada foco:
+1) ${picked[0]}; 2) ${picked[1]}; 3) ${picked[2]}.
+As opções devem ser curtas e plausíveis. "answer" é o índice (0-3) da correta.
+Nível das perguntas: um pouco mais simples que o texto.${avoid}`;
     const content = await aiChat(
-      [{ role: 'system', content: system }, { role: 'user', content: `História:\n"""${storyText.slice(0, 2500)}"""` }],
-      { temperature: 0.4, max_tokens: 600 }
+      [{ role: 'system', content: system }, { role: 'user', content: `História:\n"""${storyText.slice(0, 2500)}"""\n(Seed de variação: ${Date.now() % 10000})` }],
+      { temperature: 0.85, max_tokens: 600 }
     );
     const clean = content.replace(/```json/g, '').replace(/```/g, '').trim();
     const parsed = JSON.parse(clean);
     const qs = (parsed.questions || []).filter(q => q.q && Array.isArray(q.options) && q.options.length >= 2);
     if (!qs.length) throw new Error('Quiz vazio');
-    return qs.slice(0, 3);
+    previousQuizQuestions.push(...qs.map(q => q.q));
+    return qs.slice(0, 3).map(q => {
+      // Embaralha as opções: a IA tende a deixar a certa no índice 0
+      const idx = q.options.map((_, i) => i).sort(() => 0.5 - Math.random());
+      return { ...q, options: idx.map(i => q.options[i]), answer: idx.indexOf(Number(q.answer) || 0) };
+    });
   }
 
   function renderQuiz(questions) {
@@ -361,6 +383,7 @@ As opções devem ser curtas. "answer" é o índice (0-3) da correta. Nível das
   function setCurrentStory(text) {
     currentStoryText = text || '';
     storyDoneAwarded = false;
+    previousQuizQuestions = []; // história nova → quiz zera o histórico de perguntas
     btnStoryDone.disabled = false;
     btnStoryDone.textContent = '✅ Marcar como lida';
     quizBox.style.display = 'none';
@@ -391,12 +414,68 @@ As opções devem ser curtas. "answer" é o índice (0-3) da correta. Nível das
   tabNew.addEventListener('click', () => switchTab(true));
   tabHistory.addEventListener('click', () => switchTab(false));
 
+  // Áudio blindado (bug relatado: "o áudio de lá não funciona"): para o que
+  // estiver tocando, e se o TTS principal falhar cai pro sintetizador nativo
+  // do navegador — NUNCA falha em silêncio.
+  function speakFallback(text) {
+    try {
+      window.speechSynthesis?.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'en-US';
+      window.speechSynthesis?.speak(u);
+    } catch { app.showToast?.('Áudio indisponível neste navegador.', 'error'); }
+  }
+
   function playTTS(text) {
     if (!text) return;
-    playNaturalAudio(text, { lang: 'en-US' });
+    try { stopAudio(); } catch { /* nada tocando */ }
+    try {
+      const maybe = playNaturalAudio(text, { lang: 'en-US' });
+      if (maybe && typeof maybe.catch === 'function') maybe.catch(() => speakFallback(text));
+    } catch {
+      speakFallback(text);
+    }
   }
 
   btnTtsWord.addEventListener('click', () => playTTS(currentSelectedWord));
+
+  // ── Tradução no HOVER (LingQ-style, pedido do dono) ───────────────────────
+  // 250ms de intenção → tooltip com a tradução da PALAVRA (cache do translator
+  // torna quase instantâneo depois da 1ª vez). Nunca mostra a frase inteira.
+  let wordTooltip = document.getElementById('lf-word-tooltip');
+  if (!wordTooltip) {
+    wordTooltip = document.createElement('div');
+    wordTooltip.id = 'lf-word-tooltip';
+    wordTooltip.style.cssText = 'position:fixed; display:none; z-index:9500; background:var(--color-surface); border:2px solid var(--color-secondary); border-radius:8px; padding:6px 10px; font-size:13px; font-weight:700; color:var(--color-text); box-shadow:0 4px 12px rgba(0,0,0,0.15); pointer-events:none; max-width:240px;';
+    document.body.appendChild(wordTooltip);
+  }
+  let hoverTimer = null;
+  let hoverToken = 0;
+  storyContent.addEventListener('mouseover', (e) => {
+    const span = e.target.closest('.story-word');
+    if (!span) return;
+    const cleanTok = span.textContent.replace(/[^a-zA-Z0-9'-]/g, '').toLowerCase();
+    if (!cleanTok) return;
+    const token = ++hoverToken;
+    if (hoverTimer) clearTimeout(hoverTimer);
+    hoverTimer = setTimeout(async () => {
+      const rect = span.getBoundingClientRect();
+      wordTooltip.textContent = '…';
+      wordTooltip.style.display = 'block';
+      wordTooltip.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 250))}px`;
+      wordTooltip.style.top = `${Math.max(8, rect.top - 38)}px`;
+      const trans = await translateText(cleanTok);
+      if (token !== hoverToken) return; // mouse já saiu / outra palavra
+      wordTooltip.textContent = trans || '—';
+    }, 250);
+  });
+  storyContent.addEventListener('mouseout', (e) => {
+    if (e.target.closest('.story-word')) {
+      hoverToken++;
+      if (hoverTimer) clearTimeout(hoverTimer);
+      wordTooltip.style.display = 'none';
+    }
+  });
 
   // Story Saving/Loading
   // BUG antigo: usava chrome.storage — no SITE não existe, então o histórico
@@ -678,22 +757,34 @@ As opções devem ser curtas. "answer" é o índice (0-3) da correta. Nível das
     modalExplanation.innerHTML = '';
     btnSaveWord.style.display = 'none';
 
-    translateText(cleanWord).then(async (wordTrans) => {
-      const sentTrans = currentSelectedSentence ? await translateText(currentSelectedSentence) : null;
-      showModalContent(wordTrans, sentTrans);
+    translateText(cleanWord).then((wordTrans) => {
+      showModalContent(wordTrans);
     });
 
-    function showModalContent(wordTrans, sentTrans) {
+    // SÓ a palavra — a tradução da frase inteira era spoiler (bug relatado:
+    // "ao clicar na palavra ele já dá toda a tradução da frase"). O contexto
+    // fica atrás de um botão, pra quem QUISER conferir depois de tentar.
+    function showModalContent(wordTrans) {
       modalLoading.style.display = 'none';
       currentWordTranslation = wordTrans || '';
       if (wordTrans) {
-        let html = `<strong>Tradução:</strong> ${wordTrans}<br>`;
-        if (sentTrans) {
-          html += `<div style="margin-top:8px; font-size:0.9em; color:var(--color-text-light);"><em>Contexto: "${sentTrans}"</em></div>`;
-        }
-        modalExplanation.innerHTML = html;
+        modalExplanation.innerHTML = `
+          <strong>Tradução:</strong> ${wordTrans}
+          ${currentSelectedSentence ? `
+          <div style="margin-top:10px;">
+            <button id="lf-reveal-context" style="background:none; border:none; color:var(--color-secondary); font-weight:700; font-size:13px; cursor:pointer; padding:0;">👁 Ver tradução da frase</button>
+            <div id="lf-context-trans" style="display:none; margin-top:6px; font-size:0.9em; color:var(--color-text-light);"></div>
+          </div>` : ''}`;
         modalExplanation.style.display = 'block';
         btnSaveWord.style.display = 'block';
+        document.getElementById('lf-reveal-context')?.addEventListener('click', async (e) => {
+          const btn = e.currentTarget;
+          btn.textContent = 'Traduzindo…';
+          const sentTrans = await translateText(currentSelectedSentence);
+          const box = document.getElementById('lf-context-trans');
+          if (box) { box.textContent = `“${sentTrans || 'Erro ao traduzir.'}”`; box.style.display = 'block'; }
+          btn.style.display = 'none';
+        });
       } else {
         modalExplanation.textContent = "Erro ao traduzir.";
         modalExplanation.style.display = 'block';

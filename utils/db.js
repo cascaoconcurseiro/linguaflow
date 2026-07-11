@@ -438,6 +438,8 @@ class Database {
     this._cacheGeneration = (this._cacheGeneration || 0) + 1;
     this._wordsCache = null;
     this._cardsCache = null;
+    this._sentencesCache = null;
+    this._knownWordsCache = null;
   }
 
   // Onda 4: aceita paginação real (limit/offset viram LIMIT/OFFSET no
@@ -988,6 +990,7 @@ class Database {
   }
 
   async saveSentence(data) {
+    this._invalidateReadCache();
     if (this.isProxyMode) return this._proxy('saveSentence', [data]);
     const res = await this._fetch('sentences', {
       method: 'POST',
@@ -998,8 +1001,27 @@ class Database {
   }
 
   async getAllSentences() {
-    if (this.isProxyMode) return this._proxy('getAllSentences', []);
-    return (await this._fetch('sentences?select=*')) || [];
+    // Onda 7 (perf): mesma estratégia SWR de getAllWords/getAllCards — antes
+    // esta lista era buscada inteira, sem cache, em TODA carga do Início (via
+    // getStats()), crescendo a cada frase salva. Achado da auditoria de
+    // performance do painel.
+    if (this._sentencesCache) {
+      if (Date.now() - this._sentencesCache.ts >= 30000 && !this._sentencesRefreshing) {
+        this._sentencesRefreshing = this._fetchSentences().finally(() => { this._sentencesRefreshing = null; });
+        this._sentencesRefreshing.catch(() => {});
+      }
+      return this._sentencesCache.data;
+    }
+    return this._fetchSentences();
+  }
+
+  async _fetchSentences() {
+    const gen = this._cacheGeneration;
+    let data;
+    if (this.isProxyMode) data = await this._proxy('getAllSentences', []);
+    else data = await this._fetch('sentences?select=*');
+    if (gen === this._cacheGeneration) this._sentencesCache = { data: data || [], ts: Date.now() };
+    return data || [];
   }
 
   async getSentenceById(id) {
@@ -1009,6 +1031,7 @@ class Database {
   }
 
   async deleteSentence(id) {
+    this._invalidateReadCache();
     if (this.isProxyMode) return this._proxy('deleteSentence', [id]);
     await this._fetch(`sentences?id=eq.${id}`, { method: 'DELETE' });
     return true;
@@ -1032,8 +1055,25 @@ class Database {
   }
 
   async getAllKnownWords() {
-    if (this.isProxyMode) return this._proxy('getAllKnownWords', []);
-    return (await this._fetch('known_words?select=*')) || [];
+    // Onda 7 (perf): mesma estratégia SWR de getAllWords/getAllCards — chamada
+    // em toda carga do Início/Leitor/Histórias sem cache nenhum antes disso.
+    if (this._knownWordsCache) {
+      if (Date.now() - this._knownWordsCache.ts >= 30000 && !this._knownWordsRefreshing) {
+        this._knownWordsRefreshing = this._fetchKnownWords().finally(() => { this._knownWordsRefreshing = null; });
+        this._knownWordsRefreshing.catch(() => {});
+      }
+      return this._knownWordsCache.data;
+    }
+    return this._fetchKnownWords();
+  }
+
+  async _fetchKnownWords() {
+    const gen = this._cacheGeneration;
+    let data;
+    if (this.isProxyMode) data = await this._proxy('getAllKnownWords', []);
+    else data = await this._fetch('known_words?select=*');
+    if (gen === this._cacheGeneration) this._knownWordsCache = { data: data || [], ts: Date.now() };
+    return data || [];
   }
 
   async logSession(seconds, platform) {

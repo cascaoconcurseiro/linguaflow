@@ -1,5 +1,14 @@
 # Handoff — LinguaFlow
 
+## Execução Fable — 2026-07-11e (ONDA 3.1 — importar por URL/EPUB no Leitor)
+> Início da Onda 3 (conteúdo e alcance). Onda 0 continua com o dono.
+
+- **[Prof. didático] 3.1 Importar por URL**: nova Edge Function `supabase/functions/url-import` — autentica por JWT, rate-limit 6/min (reaproveita `api_usage_log`), busca a URL NO SERVIDOR (contorna CORS, que bloquearia um fetch direto do browser pra qualquer site) e devolve só `{title, text}` já extraído (heurística: prioriza `<article>/<main>`, remove nav/header/footer/script/style, decodifica entidades). Proteção SSRF: bloqueia localhost/127.x/10.x/172.16-31.x/192.168.x/169.254.x (inclusive o endpoint de metadados de nuvem) e revalida CADA redirect manualmente (máx. 5 hops) — um redirect pra rede interna não escapa do bloqueio. Teto de 3MB de HTML e 60k caracteres de texto.
+- **[Prof. didático] 3.1 Importar EPUB**: `core/epub.js` — carrega `fflate` via CDN só pra descompactar o .zip do EPUB (não existe engine de zip nativa no browser); parsing de `container.xml`→OPF→spine é XML nativo (`DOMParser`), sem dependência pesada. Extrai título (`dc:title`) e concatena o texto de todos os capítulos na ordem do spine, com teto de 400k caracteres. Tudo roda no navegador — o arquivo `.epub` nunca sai da máquina do usuário, só o texto final vai pro `localStorage` (mesma persistência dos textos colados).
+- **UI**: `readerView.js` ganhou uma linha de importação acima do textarea existente — campo de URL + botão "🔗 Buscar da URL" e botão "📖 Importar EPUB" (input file escondido). Os dois preenchem título/texto pro usuário revisar ANTES de clicar em "Adicionar à biblioteca" — nenhum atalho que pule a revisão humana.
+- **[QA]** 26/26 `engine.test.mjs` + 5/5 `local-day.test.mjs` (nada quebrou — feature nova, sem lógica pura testável em Node: DOMParser/fetch são browser-only). `node --check`/acorn ok em `readerView.js` e `epub.js`. `test:release` verde (à parte do check de árvore suja, esperado em WIP).
+- **[Gerente] Próximo = Onda 3.2**: Placement v3 (banco de itens maior, estimativa C2, mini-produção escrita corrigida por IA).
+
 ## Execução Fable — 2026-07-11d (ONDA 2 — paridade Anki)
 > Roadmap-mestre no CHECKLIST.md. Onda 0 continua aguardando o dono (teste do preview + merge). A equipe executou a Onda 2 inteira, em ordem.
 

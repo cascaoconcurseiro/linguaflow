@@ -44,7 +44,7 @@
 - [x] [Eng. SRS] Player YouTube **instância única global** no estudo: `core/ytPlayer.js` — UMA `YT.Player` (API oficial) por sessão; trocar de card troca só o vídeo (`cueVideoById`), nunca recria o iframe; wrapper estável sobrevive à substituição de elemento que a própria API do YouTube faz; TTS continua canônico (sem autoplay do vídeo); degrada pro link externo se não for YouTube/não carregar.
 
 #### 🟢 ONDA 3 — Conteúdo e alcance (benchmark LingQ/Readlang)
-- [ ] [Prof. didático] Leitor: **importar por URL** (via proxy p/ CORS) e epub — hoje só colar texto
+- [x] [Prof. didático] Leitor: **importar por URL** (via proxy p/ CORS) e epub. Edge Function `url-import` (auth+rate-limit 6/min, SSRF-safe: bloqueia localhost/RFC1918/link-local mesmo em redirect, teto 3MB HTML/60k chars texto, extração por heurística `<article>/<main>`) + `core/epub.js` (fflate via CDN só pra descompactar .epub, parsing de container.xml/OPF/spine com DOMParser nativo, tudo no navegador — nenhum arquivo sobe pra lugar nenhum).
 - [ ] [Linguista] Placement v3: banco de itens maior (hoje 3 cloze/banda), estimativa C2, mini-produção escrita corrigida por IA — aproximação real de Cambridge
 - [ ] [Linguista] **Mnemônicos por IA** no card (Memrise): botão "me dá um truque pra lembrar"
 - [ ] [Backend] Reengajamento por **e-mail** opcional (resumo semanal + ofensiva em risco) — push já existe

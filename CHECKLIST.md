@@ -1,5 +1,38 @@
 # Checklist — LinguaFlow
 
+## 🎛️ QUADRO VIVO DA EQUIPE — 2026-07-11 (gerente: Fable)
+> Regra da equipe: cada frente tem UM responsável sênior; toda decisão relevante é registrada aqui e no HANDOFF.md (é assim que os papéis "conversam" entre sessões e entre agentes — Fable, Codex e quem vier). Nada é marcado feito sem evidência (teste, query ou arquivo).
+
+### Papéis
+| Papel | Responsabilidade | Estado |
+|---|---|---|
+| 🧑‍💼 Gerente (Fable) | prioriza, integra branches, resolve conflito entre papéis, reporta ao dono | ativo |
+| 🗣️ Linguista | diagnóstico pedagógico dos dados, personas de IA, metodologia CEFR | ativo |
+| ⚙️ Eng. SRS | motor FSRS, fila de sessão, agendamento | ativo |
+| 👨‍🏫 Professor didático | exercícios, histórias, ciclo conteúdo↔vocabulário | ativo |
+| 🛡️ Eng. Backend/Segurança | Postgres, RPCs, RLS, Edge Functions, cron | ativo (muito coberto pelo Codex) |
+| 🧪 QA | testes Node, release-smoke, validação efêmera de migrations | ativo |
+
+### MOTOR PEDAGÓGICO (o "cérebro professor") — ✅ v1 ENTREGUE (2026-07-11)
+- [x] **Marco 1 [Linguista]**: `db.getDiagnosisData()` agrega retenção por categoria/nível + palavras sofrendo/sólidas do review_log real; `generateWeeklyDiagnosis()` (persona de linguista SLA, JSON estruturado); painel expansível no Início com cache semanal + gate de 10 revisões (sem dados, sem invenção). Evidência: 2 testes Node com stubs.
+- [x] **Marco 2 [Eng. SRS]**: `core/sessionQueue.js` (puro): learning primeiro, fracas espaçadas, novas espalhadas; card fraco força exercício de PRODUÇÃO (builder/ditado). Evidência: 3 testes Node incl. regressão do bug "16 Difícil sem graduar".
+- [x] **Marco 3 [Prof. didático]**: `generateStoryWeb(genre, onChunk, userWords)` — história inclui 4-6 palavras do aluno (fracas + em progresso); badge "🔁 Reencontro" mostra as que entraram de verdade (regex no texto).
+- [ ] **Marco 4 [Linguista] (próximo)**: diagnóstico alimentar as missões (fraqueza da semana vira missão) e o interleaving usar o diagnóstico (categoria fraca ganha prioridade)
+
+### AINDA ABERTO DA AUDITORIA (pós-Codex, consolidado)
+- [ ] [Dono] Teste manual do preview: Difícil progride e gradua; quiz varia; hover traduz; toggle 🔔 Lembretes; onboarding ao criar conta nova
+- [ ] [Dono] Ativar Leaked Password Protection (Supabase → Auth → Settings)
+- [ ] [Dono] Rotacionar a chave DeepSeek (foi colada em chat) e atualizar o Vault
+- [ ] [Gerente] Decidir merge do PR #3 na main (após teste manual do dono)
+- [ ] [Prof. didático] Mini-jogo "ouça-e-escolha" no gameView (hoje só Match)
+- [ ] [Eng. SRS] Player YouTube global reutilizável no card de ESTUDO (videoContext do Codex cobre Cofre/Estudo com vídeo salvo; falta a instância única global)
+- [ ] [Backend] Validar semântica de fuso perto da meia-noite com conta real
+- [ ] [QA] Inspeção visual mobile/a11y em dispositivo real (com o dono)
+- [ ] [Backend] Indicador de progresso do download do Kokoro (~90MB)
+- [ ] [Gerente] Ícones PWA 192/512 com arte original (hoje upscale)
+- [ ] [Backend] Push: teste com assinatura REAL do navegador do dono (toggle → aguardar disparo 17:30 UTC)
+- [ ] [Gerente] Consolidação final site vs extensão (Etapa 8 — rotas/código duplicado)
+
 ## Diagnóstico e planejamento
 - [x] Revisão multi-especialista do estado atual do repositório (diff completo, 22 arquivos modificados + 8 untracked)
 - [x] Confirmar causa raiz do bug de sessão (falta refresh de token) por grep no repo inteiro

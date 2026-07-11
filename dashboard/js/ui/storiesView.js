@@ -9,13 +9,33 @@ const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrom
 // Roteadores extensão/web: na extensão o service worker faz o trabalho;
 // no site (Vercel) chamamos a Edge Function (história) e o translator
 // client-side (Google GTX/MyMemory têm CORS liberado — verificado).
-function generateStory(genre, onChunk) {
+function generateStory(genre, onChunk, userWords = []) {
   if (isExtension) {
     return new Promise((resolve) => {
       chrome.runtime.sendMessage({ action: 'ai_generate_story', genre }, resolve);
     });
   }
-  return generateStoryWeb(genre, onChunk).catch((e) => ({ error: e.message }));
+  return generateStoryWeb(genre, onChunk, userWords).catch((e) => ({ error: e.message }));
+}
+
+// Palavras pro REENCONTRO na história (Marco 3): fracas primeiro (3+ lapsos/
+// leech), depois as em aprendizado mais recentes — até 8.
+async function getReencounterWords() {
+  try {
+    const [cards, words] = await Promise.all([db.getAllCards(), db.getAllWords()]);
+    const wordById = {};
+    words.forEach(w => { wordById[w.id] = w; });
+    const nameOf = (c) => wordById[c.word_id]?.word;
+    const weak = cards
+      .filter(c => !c.suspended && ((c.lapses || 0) >= 3 || c.is_leech))
+      .sort((a, b) => (b.lapses || 0) - (a.lapses || 0))
+      .map(nameOf).filter(Boolean);
+    const inProgress = cards
+      .filter(c => !c.suspended && (c.status === 'learning' || c.status === 'review'))
+      .sort((a, b) => new Date(b.last_review || 0) - new Date(a.last_review || 0))
+      .map(nameOf).filter(Boolean);
+    return [...new Set([...weak, ...inProgress])].slice(0, 8);
+  } catch { return []; }
 }
 
 async function translateText(text) {
@@ -86,6 +106,7 @@ export function renderStories(container, app) {
               <h2 id="story-title-display" style="margin-top:0; color:var(--color-text); font-size:24px; margin-bottom:8px;"></h2>
               <span id="story-level-badge" style="background:var(--color-primary); color:white; font-size:12px; font-weight:bold; padding:4px 8px; border-radius:12px;">B1</span>
               <span id="story-known-badge" style="background:var(--color-secondary); color:white; font-size:12px; font-weight:bold; padding:4px 8px; border-radius:12px; margin-left:6px; display:none;" title="Percentual de palavras desta história que você já conhece (métrica LingQ)"></span>
+              <div id="story-reencounter" style="display:none; font-size:12px; color:var(--color-text-light); margin-top:6px;"></div>
             </div>
 
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -581,12 +602,14 @@ Nível das perguntas: um pouco mais simples que o texto.${avoid}`;
     stopFullStoryTTS();
     
     try {
+      // Marco 3: a história é gerada COM as palavras do aluno dentro
+      const reencounterWords = await getReencounterWords();
       // STREAMING (web): o texto da história aparece enquanto é gerado
       const response = await generateStory(genre, (_delta, full) => {
         storyLoading.style.display = 'none';
         storyContent.style.display = 'block';
         storyContent.textContent = full;
-      });
+      }, reencounterWords);
 
       if (!response || !response.story || response.error) {
         throw new Error(response?.error || 'Failed to generate story.');
@@ -611,6 +634,20 @@ Nível das perguntas: um pouco mais simples que o texto.${avoid}`;
       saveStoryLocal(title, contentToRender, storyLevel, genre);
       setCurrentStory(contentToRender);
       renderStoryText(contentToRender, true);
+
+      // Badge do reencontro: mostra quais palavras SUAS entraram de verdade
+      const reBox = document.getElementById('story-reencounter');
+      if (reBox) {
+        const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const found = (response.requestedWords || reencounterWords || [])
+          .filter(w => new RegExp(`\\b${esc(w)}`, 'i').test(contentToRender));
+        if (found.length) {
+          reBox.innerHTML = `🔁 <strong>Reencontro:</strong> esta história usa ${found.length} ${found.length === 1 ? 'palavra sua' : 'palavras suas'} — ${found.map(w => `<strong>${w}</strong>`).join(', ')}. Encontrá-las em contexto novo é o que fixa.`;
+          reBox.style.display = 'block';
+        } else {
+          reBox.style.display = 'none';
+        }
+      }
     } catch (err) {
       app.showToast('Erro ao gerar história: ' + err.message, 'error');
       storyContainer.style.display = 'none';

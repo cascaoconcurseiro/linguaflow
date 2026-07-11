@@ -1,6 +1,7 @@
 import { lemma } from '../../../utils/lemma.js';
 import { addLocalDays, daysBetweenLocalKeys, localDateKey } from '../../../utils/local-day.js';
 import { runPlacementTest } from './settingsView.js';
+import { generateWeeklyDiagnosis, getCefrLevel } from '../core/ai.js';
 
 // Fiação REAL do onboarding (nada decorativo): a escolha rápida vira um CEFR
 // de partida, o teste de 3 fases refina, e a meta grava a cota de cartas
@@ -338,6 +339,10 @@ export async function renderHome(container, app) {
                         </div>
                         <div style="font-size:13px; color:var(--color-text); line-height:1.5;">${professorTip}</div>
                         ${weakWords.length ? `<div style="font-size:12px; color:var(--color-text-light); margin-top:6px;">🔎 No radar: ${weakWords.map(w => `<strong>${w.word}</strong> (${w.lapses}x)`).join(' · ')}</div>` : ''}
+                        <details id="diagnosis-details" style="margin-top:10px;">
+                            <summary style="cursor:pointer; font-size:13px; font-weight:800; color:var(--color-secondary); list-style:none;">🔬 Diagnóstico semanal do linguista <span style="font-weight:600; color:var(--color-text-light);">(clique pra abrir)</span></summary>
+                            <div id="diagnosis-body" style="margin-top:10px; font-size:13px; color:var(--color-text); line-height:1.55;">Carregando…</div>
+                        </details>
                     </div>
                 </div>
                 <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:24px; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:14px 18px; align-items:center;">
@@ -412,6 +417,59 @@ export async function renderHome(container, app) {
             </div>
         </div>
     `;
+
+    // ── Diagnóstico do linguista: cache semanal + geração sob demanda ───────
+    // (1x/semana no automático; botão regenera. Gate de 10 revisões: sem dados
+    // suficientes um diagnóstico seria invenção — e aqui nada é decorativo.)
+    const diagDetails = document.getElementById('diagnosis-details');
+    if (diagDetails) {
+        let diagLoaded = false;
+        const renderDiagnosis = (d, generatedAt) => `
+            <div style="background:var(--color-surface); border:2px solid var(--color-border); border-radius:12px; padding:14px;">
+                <div style="font-weight:800; margin-bottom:8px;">${d.resumo}</div>
+                ${(d.forcas || []).length ? `<div style="margin-bottom:6px;"><strong style="color:var(--color-primary);">✔ Forças:</strong> ${(d.forcas || []).join(' · ')}</div>` : ''}
+                ${(d.fraquezas || []).length ? `<div style="margin-bottom:6px;"><strong style="color:#ff9600;">⚠ A trabalhar:</strong> ${(d.fraquezas || []).join(' · ')}</div>` : ''}
+                <div style="margin-bottom:6px;"><strong>📋 Plano da semana:</strong><ol style="margin:4px 0 0 18px; padding:0;">${(d.plano_semana || []).map(p => `<li style="margin-bottom:2px;">${p}</li>`).join('')}</ol></div>
+                ${d.dica_tecnica ? `<div><strong>🧪 Técnica:</strong> ${d.dica_tecnica}</div>` : ''}
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+                    <span style="font-size:11px; color:var(--color-text-light);">Gerado em ${new Date(generatedAt).toLocaleDateString()}</span>
+                    <button id="btn-rediagnose" style="background:none; border:none; color:var(--color-secondary); font-weight:700; font-size:12px; cursor:pointer;">↻ Atualizar agora</button>
+                </div>
+            </div>`;
+
+        const loadDiagnosis = async (force = false) => {
+            const body = document.getElementById('diagnosis-body');
+            if (!body) return;
+            body.textContent = 'Analisando seus dados…';
+            try {
+                const cachedRaw = force ? null : await db.getSetting('lf_weekly_diagnosis').catch(() => null);
+                let cached = null;
+                try { cached = cachedRaw ? JSON.parse(cachedRaw) : null; } catch { cached = null; }
+                const isFresh = cached?.generatedAt && (Date.now() - new Date(cached.generatedAt).getTime()) < 6.5 * 86400000;
+                if (cached?.diagnosis && isFresh) {
+                    body.innerHTML = renderDiagnosis(cached.diagnosis, cached.generatedAt);
+                } else {
+                    const data = await db.getDiagnosisData(30);
+                    if ((data?.totalReviews || 0) < 10) {
+                        body.innerHTML = `<em style="color:var(--color-text-light);">Ainda faltam dados: você tem ${data?.totalReviews || 0} revisões nos últimos 30 dias — a partir de 10, o linguista consegue apontar padrões reais (não invenção).</em>`;
+                        return;
+                    }
+                    const cefr = await getCefrLevel().catch(() => null);
+                    const diagnosis = await generateWeeklyDiagnosis(data, cefr);
+                    const generatedAt = new Date().toISOString();
+                    db.setSetting('lf_weekly_diagnosis', JSON.stringify({ diagnosis, generatedAt })).catch(() => {});
+                    body.innerHTML = renderDiagnosis(diagnosis, generatedAt);
+                }
+                document.getElementById('btn-rediagnose')?.addEventListener('click', () => loadDiagnosis(true));
+            } catch (e) {
+                console.warn('[Diagnóstico] Falhou:', e);
+                body.innerHTML = '<em style="color:var(--color-danger);">Não consegui gerar o diagnóstico agora (IA indisponível?). Tente de novo em instantes.</em>';
+            }
+        };
+        diagDetails.addEventListener('toggle', () => {
+            if (diagDetails.open && !diagLoaded) { diagLoaded = true; loadDiagnosis(false); }
+        });
+    }
 
     // Events
     document.getElementById('btn-save-streak')?.addEventListener('click', () => {

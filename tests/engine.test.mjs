@@ -13,9 +13,11 @@ const tmp = mkdtempSync(join(tmpdir(), 'lf-test-'));
 copyFileSync(join(root, 'utils/db.js'), join(tmp, 'db.mjs'));
 copyFileSync(join(root, 'utils/local-day.js'), join(tmp, 'local-day.js'));
 copyFileSync(join(root, 'dashboard/js/core/placement.js'), join(tmp, 'placement.mjs'));
+copyFileSync(join(root, 'dashboard/js/core/sessionQueue.js'), join(tmp, 'sessionQueue.mjs'));
 
 const { db } = await import(pathToFileURL(join(tmp, 'db.mjs')).href);
 const P = await import(pathToFileURL(join(tmp, 'placement.mjs')).href);
+const Q = await import(pathToFileURL(join(tmp, 'sessionQueue.mjs')).href);
 
 let passed = 0;
 function test(name, fn) {
@@ -154,5 +156,78 @@ test('scorePlacement: pseudo-palavras derrubam o resultado (anti-chute)', () => 
   ]);
   assert.equal(cheater.level, 'A1');
 });
+
+console.log('── Motor pedagógico (interleaving + diagnóstico) ──');
+
+test('Difícil em learning AVANÇA o step (fim do loop de 16 "Difícil")', () => {
+  // Regressão do bug de produção: card "statement" com 16 Difícil sem graduar
+  let card = { ...newCard() };
+  card = db._calculateNextState(card, 2, SETTINGS); // novo + Difícil → step 1
+  assert.equal(card.status, 'learning');
+  card = db._calculateNextState(card, 2, SETTINGS); // learning + Difícil → GRADUA
+  assert.equal(card.status, 'review', 'dois "Difícil" atravessam os 2 steps e graduam');
+  assert.ok(card.interval >= 1);
+});
+
+test('buildSessionQueue: learning primeiro; fracas e novas espaçadas', () => {
+  const mk = (id, status, lapses = 0) => ({ id, status, lapses });
+  const cards = [
+    mk('r1', 'review'), mk('r2', 'review'), mk('r3', 'review'),
+    mk('r4', 'review'), mk('r5', 'review'), mk('r6', 'review'),
+    mk('n1', 'new'), mk('n2', 'new'),
+    mk('w1', 'review', 4), mk('w2', 'review', 5),
+    mk('l1', 'learning'),
+  ];
+  const queue = Q.buildSessionQueue(cards);
+  assert.equal(queue.length, cards.length, 'ninguém some da fila');
+  assert.equal(queue[0].id, 'l1', 'learning vem primeiro');
+  const ids = queue.map(c => c.id);
+  const wPos = ['w1', 'w2'].map(id => ids.indexOf(id));
+  assert.ok(Math.abs(wPos[0] - wPos[1]) > 1, `fracas espaçadas: ${wPos}`);
+  const nPos = ['n1', 'n2'].map(id => ids.indexOf(id));
+  assert.ok(Math.min(...nPos) < ids.length - 2, `novas espalhadas: ${nPos}`);
+});
+
+test('isWeakCard: 3+ lapsos ou leech', () => {
+  assert.equal(Q.isWeakCard({ lapses: 3 }), true);
+  assert.equal(Q.isWeakCard({ lapses: 2 }), false);
+  assert.equal(Q.isWeakCard({ is_leech: true }), true);
+});
+
+await (async () => {
+  // getDiagnosisData: agrega POR palavra/categoria/nível com stubs de rede
+  const origLog = db.getReviewLog, origCards = db.getAllCards, origWords = db.getAllWords;
+  db.getReviewLog = async () => [
+    { card_id: 'c1', quality: 1 }, { card_id: 'c1', quality: 2 },
+    { card_id: 'c2', quality: 3 }, { card_id: 'c2', quality: 4 },
+    { card_id: 'c3', quality: 3 },
+  ];
+  db.getAllCards = async () => [
+    { id: 'c1', word_id: 'w1', lapses: 4, status: 'learning' },
+    { id: 'c2', word_id: 'w2', lapses: 0, status: 'mature' },
+    { id: 'c3', word_id: 'w3', lapses: 0, status: 'review' },
+  ];
+  db.getAllWords = async () => [
+    { id: 'w1', word: 'stick around', category: 'phrasal_verb', level: 'B1' },
+    { id: 'w2', word: 'statement', category: 'word', level: 'B1' },
+    { id: 'w3', word: 'knowing', category: 'word', level: 'A2' },
+  ];
+  try {
+    const d = await db.getDiagnosisData(30);
+    test('getDiagnosisData: retenção por categoria com dados reais', () => {
+      assert.equal(d.retentionByCategory.phrasal_verb.retention, 50);
+      assert.equal(d.retentionByCategory.word.retention, 100);
+      assert.equal(d.totalReviews, 5);
+    });
+    test('getDiagnosisData: aponta a palavra que está sofrendo', () => {
+      assert.equal(d.strugglingWords.length, 1);
+      assert.equal(d.strugglingWords[0].word, 'stick around');
+      assert.ok(d.solidWords.includes('statement'));
+      assert.equal(d.leeches, 1);
+    });
+  } finally {
+    db.getReviewLog = origLog; db.getAllCards = origCards; db.getAllWords = origWords;
+  }
+})();
 
 console.log(`\n${passed} testes passaram${process.exitCode ? ' (com falhas!)' : ' — tudo verde ✅'}`);

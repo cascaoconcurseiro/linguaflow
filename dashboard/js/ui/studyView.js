@@ -2,6 +2,7 @@ import { db as lfDb } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio, downloadAudio } from '../core/tts.js';
 import { aiChat, aiChatStream, getCefrLevel, grammarTutorPersona, grammarInitialQuestion, enrichCard, generateChunksWeb } from '../core/ai.js';
 import { attachVideoContext, renderVideoContext } from '../core/videoContext.js';
+import { buildSessionQueue, isWeakCard } from '../core/sessionQueue.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
@@ -62,7 +63,7 @@ export async function renderStudy(container, app) {
     const revAllowed = Math.max(0, (srs?.maxRevPerDay ?? 200) - counts.reviewsToday);
     let newSeen = 0;
     let reviewSeen = 0;
-    dueQueue = (cards || []).filter(c => {
+    const limited = (cards || []).filter(c => {
       if (c.suspended) return false;
       if (c.status === 'new') {
         newSeen++;
@@ -74,6 +75,9 @@ export async function renderStudy(container, app) {
       reviewSeen++;
       return reviewSeen <= revAllowed;
     });
+    // INTERLEAVING (Marco 2): learning primeiro; fracas espaçadas entre
+    // revisões; novas espalhadas (não em bloco). Ver core/sessionQueue.js.
+    dueQueue = buildSessionQueue(limited);
   } catch (e) {
     console.error('DB Error:', e);
     dueQueue = [];
@@ -503,14 +507,20 @@ async function loadNextCard(app) {
     const wordCount = context.split(/\s+/).length;
     const canBuild = variedEnabled && wordCount >= 3 && wordCount <= 12;
     const canDictate = variedEnabled && wordCount >= 2 && wordCount <= 12;
-    const roll = Math.random();
-    if (reverseEnabled && roll < 0.3) {
-      card._mode = 'reverse';
-      card._reverse = true;
-    } else if (canBuild && roll < 0.55) {
-      card._mode = 'builder';
-    } else if (canDictate && roll < 0.75) {
-      card._mode = 'dictation';
+    // PALAVRA FRACA → exercício de PRODUÇÃO (decisão do linguista: produzir
+    // fixa mais que reconhecer — é o tratamento certo pra leech em formação).
+    if (isWeakCard(card) && (canBuild || canDictate)) {
+      card._mode = canBuild ? 'builder' : 'dictation';
+    } else {
+      const roll = Math.random();
+      if (reverseEnabled && roll < 0.3) {
+        card._mode = 'reverse';
+        card._reverse = true;
+      } else if (canBuild && roll < 0.55) {
+        card._mode = 'builder';
+      } else if (canDictate && roll < 0.75) {
+        card._mode = 'dictation';
+      }
     }
   }
 

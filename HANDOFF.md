@@ -1,5 +1,14 @@
 # Handoff — LinguaFlow
 
+## Execução Fable — 2026-07-11b (MOTOR PEDAGÓGICO v1 — decisões POR PAPEL)
+> Gestão: quadro vivo em CHECKLIST.md ("QUADRO VIVO DA EQUIPE") — cada frente tem um responsável e toda decisão fica registrada aqui. É assim que os papéis (e os agentes: Fable, Codex) conversam entre sessões.
+
+- **[Linguista] Marco 1 — Diagnóstico semanal**: `db.getDiagnosisData(30)` agrega o review_log POR palavra/categoria/nível (retenção %, palavras sofrendo = 50%+ de Errei/Difícil com 2+ revisões, sólidas, leeches); `ai.generateWeeklyDiagnosis(data, cefr)` com persona de linguista SLA devolve JSON {resumo, forcas, fraquezas, plano_semana[3], dica_tecnica}; painel "🔬 Diagnóstico semanal" dentro do Plano de Hoje (Início), cache de 6,5 dias em `lf_weekly_diagnosis`, botão "↻ Atualizar", **gate de 10 revisões** (sem dados suficientes o painel diz isso em vez de inventar). Decisão do papel: a IA só recebe NÚMEROS reais — nunca pede pra ela "avaliar o aluno" sem dados.
+- **[Eng. SRS] Marco 2 — Interleaving**: `dashboard/js/core/sessionQueue.js` (função PURA `buildSessionQueue`): learning primeiro (sensível a tempo), fracas (3+ lapsos/leech) espaçadas entre revisões, novas espalhadas (nunca em bloco no fim). No studyView, card fraco graduado FORÇA exercício de produção (builder/ditado) — decisão conjunta com o linguista: produção fixa mais que reconhecimento. `isWeakCard()` é o critério único compartilhado (mesmo usado no radar do Início).
+- **[Prof. didático] Marco 3 — Reencontro nas histórias**: `getReencounterWords()` (fracas primeiro, depois em progresso recente, máx 8) → `generateStoryWeb(genre, onChunk, userWords)` instrui a IA a incorporar 4-6 naturalmente (sem destacar) → badge "🔁 Reencontro" lista as que REALMENTE entraram (verificação por regex, não confiança na IA). Na extensão o fluxo antigo continua (SW não recebe userWords ainda — anotado pro Marco 4).
+- **[QA]**: 19/19 testes (`node tests/engine.test.mjs`) incluindo REGRESSÃO do bug de produção "16 Difícil sem graduar", ordem da fila (fracas não-adjacentes, novas não-amontoadas) e agregação do diagnóstico com stubs. Sintaxe ok em todos os arquivos tocados.
+- **[Gerente] Próximo (Marco 4)**: diagnóstico alimentar missões e interleaving; passar userWords pro service worker (histórias na extensão); mini-jogo ouça-e-escolha; itens [Dono] do quadro.
+
 ## Execução Fable — 2026-07-11 (integração + feedback de uso real do dono)
 
 **Merge:** `codex/auditoria-completa` (4 commits paralelos do Codex) unificado no PR #3. Conflitos resolvidos: onboarding = estrutura ARIA do Codex + fiação REAL (teste de nivelamento no passo 1 grava `lf_cefr_level`; escolha rápida mapeia beginner→A1/intermediate→B1/advanced→B2; meta 10/20/40 grava `new_per_day` 5/10/20). Edge Function = versão endurecida do Codex + subject com fallback + throttle 20h POR assinatura.

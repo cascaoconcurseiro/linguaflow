@@ -98,10 +98,11 @@ test('intervalo >= 21 dias → mature', () => {
 
 console.log('── Nivelamento em 3 fases (placement) ──');
 
-test('scoreClozeLadder: para na primeira banda reprovada', () => {
-  assert.equal(P.scoreClozeLadder([{ band: 'A1', correct: 3 }, { band: 'A2', correct: 2 }, { band: 'B1', correct: 1 }]), 'A2');
-  assert.equal(P.scoreClozeLadder([{ band: 'A1', correct: 1 }]), 'A1');
-  assert.equal(P.scoreClozeLadder([{ band: 'A2', correct: 2 }, { band: 'B1', correct: 2 }, { band: 'B2', correct: 3 }, { band: 'C1', correct: 2 }]), 'C1');
+test('scoreClozeLadder: para na primeira banda reprovada (Onda 3.2: corte proporcional, banco de 5)', () => {
+  assert.equal(P.scoreClozeLadder([{ band: 'A1', correct: 5, total: 5 }, { band: 'A2', correct: 3, total: 5 }, { band: 'B1', correct: 1, total: 5 }]), 'A2');
+  assert.equal(P.scoreClozeLadder([{ band: 'A1', correct: 1, total: 5 }]), 'A1');
+  assert.equal(P.scoreClozeLadder([{ band: 'A2', correct: 3, total: 5 }, { band: 'B1', correct: 3, total: 5 }, { band: 'B2', correct: 5, total: 5 }, { band: 'C1', correct: 3, total: 5 }]), 'C1');
+  assert.equal(P.clozePassThreshold(5), 3); // 60% de 5, arredondado pra cima
 });
 
 test('clozeStartBand: começa uma banda abaixo do vocabulário', () => {
@@ -113,7 +114,8 @@ test('scoreListening: 5+/6 sobe, 3-4/6 mantém, <3 desce', () => {
   assert.equal(P.scoreListening('B1', 6, 6), 'B2');
   assert.equal(P.scoreListening('B1', 3, 6), 'B1');
   assert.equal(P.scoreListening('B1', 1, 6), 'A2');
-  assert.equal(P.scoreListening('C1', 6, 6), 'C1'); // clamp no teto
+  assert.equal(P.scoreListening('C1', 6, 6), 'C2'); // Onda 3.2: C2 existe agora, C1 acertando tudo sobe
+  assert.equal(P.scoreListening('C2', 6, 6), 'C2'); // clamp no novo teto
 });
 
 test('combinePlacement: 40/40/20 com diagnóstico de lacunas', () => {
@@ -151,14 +153,30 @@ test('shuffleItem preserva a resposta correta', () => {
   }
 });
 
-test('bancos de cloze/listening: 3 e 2 itens por banda, answers válidos', () => {
+test('bancos de cloze/listening: 5 e 4 itens por banda (Onda 3.2, incl. C2), answers válidos', () => {
+  assert.deepEqual(P.LEVELS, ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
   for (const band of P.LEVELS) {
-    assert.equal(P.CLOZE_BANK[band].length, 3, `cloze ${band}`);
-    assert.equal(P.LISTENING_BANK[band].length, 2, `listening ${band}`);
+    assert.equal(P.CLOZE_BANK[band].length, 5, `cloze ${band}`);
+    assert.equal(P.LISTENING_BANK[band].length, 4, `listening ${band}`);
     [...P.CLOZE_BANK[band], ...P.LISTENING_BANK[band]].forEach(item => {
       assert.ok(item.answer >= 0 && item.answer < item.options.length);
     });
   }
+});
+
+test('writingPromptFor: escolhe prompt pela faixa de nível', () => {
+  assert.equal(P.writingPromptFor('A1'), P.WRITING_PROMPTS.beginner);
+  assert.equal(P.writingPromptFor('B1'), P.WRITING_PROMPTS.intermediate);
+  assert.equal(P.writingPromptFor('C2'), P.WRITING_PROMPTS.advanced);
+});
+
+test('combinePlacement: writingAdjust nudga até 1 banda, nunca decide sozinho', () => {
+  const up = P.combinePlacement('B1', 'B1', 'B1', 100, 1);
+  assert.equal(up.level, 'B2');
+  const down = P.combinePlacement('B1', 'B1', 'B1', 100, -1);
+  assert.equal(down.level, 'A2');
+  const clamped = P.combinePlacement('B1', 'B1', 'B1', 100, 5); // nunca mais que 1 banda
+  assert.equal(clamped.level, 'B2');
 });
 
 test('scorePlacement: pseudo-palavras derrubam o resultado (anti-chute)', () => {

@@ -2,10 +2,11 @@
 import { db as lfDb } from '../../../utils/db.js';
 import {
   buildPlacementTest, scorePlacement, shuffleItem, LEVELS,
-  CLOZE_BANK, LISTENING_BANK, clozeStartBand, scoreClozeLadder,
-  levelIndex, listeningBands, scoreListening, combinePlacement,
+  CLOZE_BANK, LISTENING_BANK, clozeStartBand, scoreClozeLadder, clozePassThreshold,
+  levelIndex, listeningBands, scoreListening, combinePlacement, writingPromptFor,
 } from '../core/placement.js';
 import { playNaturalAudio, stopAudio } from '../core/tts.js';
+import { gradeWriting } from '../core/ai.js';
 
 const isExtensionCtx = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
@@ -55,7 +56,7 @@ export async function runPlacementTest(app, onDone) {
   let vIdx = 0;
 
   function showVocab() {
-    frame('Fase 1/3: Vocabulário', Math.round((vIdx / vocabItems.length) * 33), `
+    frame('Fase 1/4: Vocabulário', Math.round((vIdx / vocabItems.length) * 25), `
       <p style="color:var(--color-text-light); font-size:13px; margin-bottom:8px;">Você conhece o significado desta palavra?</p>
       <div style="font-size:34px; font-weight:900; color:var(--color-text); margin-bottom:28px; min-height:44px;">${vocabItems[vIdx].word}</div>
       <div style="display:flex; gap:12px;">
@@ -76,15 +77,16 @@ export async function runPlacementTest(app, onDone) {
   // ── FASE 2: cloze adaptativo ───────────────────────────────────────────────
   function startCloze(vocabResult) {
     const ladder = LEVELS.slice(levelIndex(clozeStartBand(vocabResult.level)));
-    const results = []; // [{band, correct}]
+    const results = []; // [{band, correct, total}]
     let bandIdx = 0, itemIdx = 0, bandCorrect = 0;
     let items = CLOZE_BANK[ladder[0]].map(i => shuffleItem(i));
 
     function showCloze() {
       const band = ladder[bandIdx];
       const item = items[itemIdx];
-      const done = results.reduce((a, r) => a + 3, 0) + itemIdx;
-      frame('Fase 2/3: Gramática em contexto', 33 + Math.round((done / 9) * 33), `
+      const done = results.reduce((a, r) => a + r.total, 0) + itemIdx;
+      const totalPlanned = results.reduce((a, r) => a + r.total, 0) + items.length; // aproximação (a escada pode subir mais)
+      frame('Fase 2/4: Gramática em contexto', 25 + Math.round((done / totalPlanned) * 25), `
         <p style="color:var(--color-text-light); font-size:13px; margin-bottom:8px;">Complete a frase:</p>
         <div style="font-size:22px; font-weight:800; color:var(--color-text); margin-bottom:24px; min-height:56px;">${item.sentence.replace('___', '<span style="color:var(--color-secondary); border-bottom:3px solid var(--color-secondary); padding:0 8px;">___</span>')}</div>
         <div style="display:flex; flex-direction:column; gap:8px;">
@@ -94,9 +96,9 @@ export async function runPlacementTest(app, onDone) {
         if (Number(btn.dataset.i) === item.answer) bandCorrect++;
         itemIdx++;
         if (itemIdx >= items.length) {
-          results.push({ band, correct: bandCorrect });
-          // ADAPTATIVO: passou (2+/3) → sobe uma banda; falhou → para
-          if (bandCorrect >= 2 && bandIdx < ladder.length - 1) {
+          results.push({ band, correct: bandCorrect, total: items.length });
+          // ADAPTATIVO: passou (60%+) → sobe uma banda; falhou → para
+          if (bandCorrect >= clozePassThreshold(items.length) && bandIdx < ladder.length - 1) {
             bandIdx++; itemIdx = 0; bandCorrect = 0;
             items = CLOZE_BANK[ladder[bandIdx]].map(i => shuffleItem(i));
             showCloze();
@@ -119,7 +121,7 @@ export async function runPlacementTest(app, onDone) {
 
     function showListening() {
       const item = items[lIdx];
-      frame('Fase 3/3: Escuta', 66 + Math.round((lIdx / items.length) * 34), `
+      frame('Fase 3/4: Escuta', 50 + Math.round((lIdx / items.length) * 25), `
         <p style="color:var(--color-text-light); font-size:13px; margin-bottom:12px;">Ouça e escolha o significado:</p>
         <button id="pl-play" class="btn btn-secondary" style="padding:14px 28px; font-size:16px; margin-bottom:20px;">🔊 Ouvir${lIdx === 0 ? ' a frase' : ' de novo'}</button>
         <div style="display:flex; flex-direction:column; gap:8px;">
@@ -134,7 +136,7 @@ export async function runPlacementTest(app, onDone) {
         lIdx++;
         if (lIdx >= items.length) {
           const listeningLevel = scoreListening(clozeLevel, lCorrect, items.length);
-          finish(vocabResult, clozeLevel, listeningLevel);
+          startWriting(vocabResult, clozeLevel, listeningLevel);
         } else {
           showListening();
         }
@@ -143,10 +145,53 @@ export async function runPlacementTest(app, onDone) {
     showListening();
   }
 
+  // ── FASE 4: mini-produção escrita corrigida por IA (Onda 3.2) ───────────────
+  function startWriting(vocabResult, clozeLevel, listeningLevel) {
+    // Nível "de trabalho" pra escolher o prompt: pior entre cloze/listening
+    // (não adianta pedir um texto C1 pra quem patinou na gramática).
+    const workingLevel = LEVELS[Math.min(levelIndex(clozeLevel), levelIndex(listeningLevel))];
+    const prompt = writingPromptFor(workingLevel);
+    const MIN_WORDS = 15;
+
+    frame('Fase 4/4: Produção escrita', 75, `
+      <p style="color:var(--color-text-light); font-size:13px; margin-bottom:8px;">Escreva em inglês (opcional, mas recomendado — refina seu resultado):</p>
+      <p style="font-size:15px; font-weight:700; color:var(--color-text); margin-bottom:14px;">${prompt}</p>
+      <textarea id="pl-writing" rows="5" placeholder="Write your answer here…" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text); resize:vertical; margin-bottom:8px;"></textarea>
+      <p id="pl-writing-count" style="font-size:11px; color:var(--color-text-light); margin-bottom:16px;">0 palavras (mínimo ${MIN_WORDS})</p>
+      <button id="pl-writing-submit" class="btn btn-primary" style="width:100%; padding:14px;" disabled>Enviar pra correção</button>
+      <button id="pl-writing-skip" style="background:none; border:none; color:var(--color-text-light); font-family:var(--font-main); font-weight:700; font-size:13px; cursor:pointer; margin-top:12px;">Pular esta etapa</button>`);
+
+    const textarea = box.querySelector('#pl-writing');
+    const counter = box.querySelector('#pl-writing-count');
+    const submitBtn = box.querySelector('#pl-writing-submit');
+    const wordCount = (s) => (s.match(/[a-zA-Z''-]+/g) || []).length;
+    textarea.addEventListener('input', () => {
+      const n = wordCount(textarea.value);
+      counter.textContent = `${n} ${n === 1 ? 'palavra' : 'palavras'} (mínimo ${MIN_WORDS})`;
+      submitBtn.disabled = n < MIN_WORDS;
+    });
+
+    box.querySelector('#pl-writing-skip').addEventListener('click', () => {
+      finish(vocabResult, clozeLevel, listeningLevel, null);
+    });
+
+    submitBtn.addEventListener('click', async () => {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Corrigindo com IA…';
+      try {
+        const result = await gradeWriting(textarea.value.trim(), prompt, workingLevel);
+        finish(vocabResult, clozeLevel, listeningLevel, result);
+      } catch (e) {
+        console.warn('[Placement] Correção da escrita falhou, seguindo sem ajuste:', e);
+        finish(vocabResult, clozeLevel, listeningLevel, null);
+      }
+    });
+  }
+
   // ── Resultado combinado + lacunas ──────────────────────────────────────────
-  function finish(vocabResult, clozeLevel, listeningLevel) {
-    const combo = combinePlacement(vocabResult.level, clozeLevel, listeningLevel, vocabResult.honesty);
-    const levelNames = { A1: 'Iniciante', A2: 'Básico', B1: 'Intermediário', B2: 'Fluente Base', C1: 'Avançado' };
+  function finish(vocabResult, clozeLevel, listeningLevel, writingResult) {
+    const combo = combinePlacement(vocabResult.level, clozeLevel, listeningLevel, vocabResult.honesty, writingResult?.adjust || 0);
+    const levelNames = { A1: 'Iniciante', A2: 'Básico', B1: 'Intermediário', B2: 'Fluente Base', C1: 'Avançado', C2: 'Proficiente' };
     const skillRow = (label, lvl) => `
       <div style="display:flex; justify-content:space-between; padding:8px 12px; background:var(--color-bg-alt); border-radius:8px; font-size:14px;">
         <span style="color:var(--color-text-light); font-weight:700;">${label}</span>
@@ -161,6 +206,7 @@ export async function runPlacementTest(app, onDone) {
         ${skillRow('✍️ Gramática/Leitura', combo.breakdown.cloze)}
         ${skillRow('🎧 Escuta', combo.breakdown.listening)}
       </div>
+      ${writingResult?.feedback ? `<p style="text-align:left; font-size:13px; color:var(--color-text); background:rgba(28,176,246,0.08); border:1px solid var(--color-secondary); border-radius:8px; padding:10px 12px; margin-bottom:12px;">📝 ${writingResult.feedback}</p>` : ''}
       ${combo.gaps.length ? `<p style="color:#ff9600; font-size:13px; font-weight:700; margin-bottom:12px;">💡 Ponto a reforçar: ${combo.gaps.join(', ')}.</p>` : ''}
       ${combo.retestRequired ? '<p style="color:var(--color-danger); font-size:13px; margin-bottom:16px;">As pseudo-palavras indicam respostas por chute. Por segurança, este resultado não será aplicado: refaça o teste com calma.</p>' : '<p style="color:var(--color-text-light); font-size:13px; margin-bottom:16px;">Nível aplicado em todo o sistema: IA, histórias e legendas.</p>'}
       <button id="pl-apply" class="btn btn-primary" style="width:100%; padding:14px;" ${combo.retestRequired ? 'disabled aria-disabled="true" title="Refaça o teste para aplicar um resultado confiável"' : ''}>Usar este nível</button>
@@ -387,6 +433,17 @@ export async function renderSettings(container, app) {
           Ativar lembretes de revisão neste dispositivo
         </label>
         <p id="push-status" style="font-size:12px; color:var(--color-text-light); margin-top:8px;"></p>
+      </div>
+
+      <!-- Reengajamento por e-mail (Onda 3.4 — opt-in explícito) -->
+      <div id="email-section" style="background: var(--color-surface); border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px;">
+        <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 8px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">📧 Resumo por e-mail</h2>
+        <p style="color:var(--color-text-light); margin-bottom:16px; font-size:14px;">No máximo 1 e-mail por semana: resumo do que você estudou ou um aviso se sua ofensiva estiver prestes a esfriar. Sem spam, cancele quando quiser.</p>
+        <label style="display:flex; align-items:center; gap:10px; font-weight:bold; color:var(--color-text); cursor:pointer;">
+          <input type="checkbox" id="email-toggle" style="width:18px; height:18px;">
+          Ativar resumo semanal por e-mail
+        </label>
+        <p id="email-status" style="font-size:12px; color:var(--color-text-light); margin-top:8px;"></p>
       </div>
 
       <!-- Export Section -->
@@ -835,6 +892,35 @@ export async function renderSettings(container, app) {
         app.showToast('Não consegui ativar os lembretes: ' + (e.message || ''), 'error');
       } finally {
         toggle.disabled = false;
+      }
+    });
+  })();
+
+  // ── Reengajamento por e-mail (Onda 3.4): opt-in simples, um RPC por troca ──
+  (async () => {
+    const emailToggle = document.getElementById('email-toggle');
+    const emailStatus = document.getElementById('email-status');
+    if (!emailToggle) return;
+    try {
+      const stats = await lfDb.getUserStats();
+      emailToggle.checked = !!stats?.email_opt_in;
+      emailStatus.textContent = stats?.email_opt_in ? '✅ Resumo semanal ativo.' : '';
+    } catch { /* falha ao carregar preferência atual: deixa desmarcado */ }
+
+    emailToggle.addEventListener('change', async () => {
+      emailToggle.disabled = true;
+      const desired = emailToggle.checked;
+      try {
+        const res = await lfDb.setEmailOptIn(desired);
+        if (!res?.ok) throw new Error('Falha ao salvar a preferência.');
+        emailStatus.textContent = desired ? '✅ Resumo semanal ativo.' : 'Resumo por e-mail desativado.';
+        app.showToast(desired ? '📧 Resumo semanal ativado!' : 'Resumo por e-mail desativado.', desired ? 'success' : 'info');
+      } catch (e) {
+        emailToggle.checked = !desired;
+        emailStatus.textContent = '⚠️ Não consegui salvar a preferência.';
+        app.showToast('Não consegui salvar a preferência de e-mail.', 'error');
+      } finally {
+        emailToggle.disabled = false;
       }
     });
   })();

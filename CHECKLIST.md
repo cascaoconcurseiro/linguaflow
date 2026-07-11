@@ -28,6 +28,7 @@
 - [ ] [Gerente] **Merge do PR #3 na main** após o OK do dono → tudo vai pro site oficial
 - [ ] [Dono+Backend] Push real: ativar o toggle e confirmar a notificação do dia seguinte (17:30 UTC)
 - [ ] [Dono] Leaked Password Protection (Supabase → Auth → Settings) + rotacionar chave DeepSeek (Vault)
+- [ ] [Dono] E-mail de reengajamento (Onda 3.4): criar conta grátis num provedor transacional (ex. resend.com), gerar API key e me passar pra eu guardar no Vault (`lf_resend_api_key`) e ativar o cron `email-weekly-reengagement` (hoje inativo por segurança)
 
 #### 🟠 ONDA 1 — ✅ CONCLUÍDA (2026-07-11) — "tudo conversa entre si"
 - [x] [Eng. SRS] **XP por assistir vídeo**: `logSession` detecta cada bloco de 5 min e chama `recordEvent('video_session')` (cap 30/dia no banco). Assistir vídeo agora dá XP E mantém a ofensiva.
@@ -43,12 +44,12 @@
 - [x] [Prof. didático] Mini-jogo **"Ouça e Escolha"** (listening): tela de Jogo virou menu (Ligar Colunas + Ouça e Escolha); toca a palavra (TTS canônico) e o aluno escolhe a tradução entre 4 opções; XP via `recordEvent('game_match', acertos)` — mesmo teto diário do jogo existente (sem brecha de farm trocando de modo).
 - [x] [Eng. SRS] Player YouTube **instância única global** no estudo: `core/ytPlayer.js` — UMA `YT.Player` (API oficial) por sessão; trocar de card troca só o vídeo (`cueVideoById`), nunca recria o iframe; wrapper estável sobrevive à substituição de elemento que a própria API do YouTube faz; TTS continua canônico (sem autoplay do vídeo); degrada pro link externo se não for YouTube/não carregar.
 
-#### 🟢 ONDA 3 — Conteúdo e alcance (benchmark LingQ/Readlang)
+#### 🟢 ONDA 3 — ✅ CONCLUÍDA (2026-07-11) — Conteúdo e alcance (benchmark LingQ/Readlang)
 - [x] [Prof. didático] Leitor: **importar por URL** (via proxy p/ CORS) e epub. Edge Function `url-import` (auth+rate-limit 6/min, SSRF-safe: bloqueia localhost/RFC1918/link-local mesmo em redirect, teto 3MB HTML/60k chars texto, extração por heurística `<article>/<main>`) + `core/epub.js` (fflate via CDN só pra descompactar .epub, parsing de container.xml/OPF/spine com DOMParser nativo, tudo no navegador — nenhum arquivo sobe pra lugar nenhum).
-- [ ] [Linguista] Placement v3: banco de itens maior (hoje 3 cloze/banda), estimativa C2, mini-produção escrita corrigida por IA — aproximação real de Cambridge
-- [ ] [Linguista] **Mnemônicos por IA** no card (Memrise): botão "me dá um truque pra lembrar"
-- [ ] [Backend] Reengajamento por **e-mail** opcional (resumo semanal + ofensiva em risco) — push já existe
-- [ ] [Prof. didático] Frases de exemplo do Tatoeba como fonte extra (E3 antigo)
+- [x] [Linguista] Placement v3: banco de 5 cloze/4 listening por banda (era 3/2), corte proporcional (`clozePassThreshold`), **C2 alcançável** subindo a escada de cloze/listening (vocabulário para em C1 por falta de dados — Cambridge de verdade avalia C2 por gramática/leitura/escuta, não lista de palavras), **Fase 4 de mini-produção escrita** corrigida por IA (`gradeWriting` em `ai.js`, nudge de -1/0/+1 banda, nunca decide sozinha). 28 testes.
+- [x] [Linguista] **Mnemônicos por IA** no card: botão "💡 Me dá um truque pra lembrar" no Estudo, `generateMnemonic` em `ai.js`, salvo em `words.mnemonic` (migration `word_mnemonic`) — não regenera à toa.
+- [x] [Backend] Reengajamento por **e-mail** opcional: migration `email_reengagement` (opt-in, `get_email_candidates`/`get_email_secrets` SECURITY DEFINER restritas a service_role), Edge Function `email-reengagement` (Resend HTTP API, testada via pg_net: chave errada→401, certa→503 "provider not configured" — pipeline real, só falta a chave do provedor), toggle nas Configurações. Cron `email-weekly-reengagement` criado **INATIVO** (mesmo padrão do push) até o dono configurar `lf_resend_api_key`.
+- [x] [Prof. didático] Frases de exemplo do **Tatoeba** como fonte extra: painel sob demanda no Estudo ("🔎 Ver exemplos de falantes reais"), `core/tatoeba.js`, degrada gracioso se a API falhar.
 
 #### 🔵 ONDA 4 — Infra e polimento
 - [ ] [Gerente] Consolidação site×extensão (Etapa 8 — último item estrutural da auditoria: rotas/código duplicado)

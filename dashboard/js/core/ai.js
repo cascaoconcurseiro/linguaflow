@@ -240,6 +240,52 @@ Responda APENAS com JSON válido:
   return parsed;
 }
 
+// Onda 3.2 — Fase 4 do nivelamento: corrige a mini-produção escrita como um
+// examinador Cambridge corrigiria (rubric de gramática/vocabulário/coesão),
+// devolvendo um ajuste pequeno (-1/0/+1 banda) — nunca decide o nível sozinha,
+// só confirma ou nuança o resultado objetivo do vocabulário/cloze/listening.
+export async function gradeWriting(text, prompt, estimatedLevel) {
+  const system = `Você é um examinador certificado de proficiência em inglês (padrão Cambridge/CEFR), avaliando um aluno brasileiro cujo nível estimado por outras provas é ${estimatedLevel}.
+Avalie o texto pelos critérios: gramática, vocabulário, coesão/coerência e adequação à tarefa pedida.
+Responda APENAS com JSON válido:
+{
+  "adjust": -1 | 0 | 1,
+  "feedback": "até 2 frases em português, diretas, sem elogio vazio — aponte o principal erro ou acerto"
+}
+"adjust" = -1 se o texto está CLARAMENTE abaixo do nível estimado (muitos erros básicos pro nível); 0 se compatível; +1 APENAS se claramente acima (raro). Nunca ajuste mais de 1 banda.`;
+  const user = `Tarefa pedida: ${prompt}\n\nTexto do aluno:\n${text}`;
+  const content = await aiChat(
+    [{ role: 'system', content: system }, { role: 'user', content: user }],
+    { temperature: 0.3, max_tokens: 300 }
+  );
+  const clean = content.replace(/```json/g, '').replace(/```/g, '').trim();
+  const parsed = JSON.parse(clean);
+  const adjust = [-1, 0, 1].includes(parsed.adjust) ? parsed.adjust : 0;
+  const feedback = typeof parsed.feedback === 'string' ? parsed.feedback.slice(0, 400) : '';
+  return { adjust, feedback };
+}
+
+// Onda 3.3 (Linguista) — mnemônico estilo Memrise: uma associação memorável
+// e curta pra fixar a palavra (som parecido em português, imagem mental,
+// trocadilho). Gerado uma vez e salvo no card (words.mnemonic) — não é
+// regerado a cada abertura do card.
+export async function generateMnemonic(word, translation, sentence) {
+  const system = `Você é especialista em técnicas de memorização de vocabulário (mnemônicos), no estilo do Memrise.
+Crie UM mnemônico curto e memorável em português pra ajudar um brasileiro a lembrar da palavra em inglês.
+Use um destes recursos, o que funcionar melhor pra essa palavra específica: som parecido com uma palavra/expressão em português, uma imagem mental vívida e um pouco exagerada, ou uma história-relâmpago de 1 frase ligando a palavra ao significado.
+Responda APENAS com JSON válido: {"mnemonic": "1-2 frases em português, direto, sem introdução tipo 'aqui está'"}`;
+  const user = `Palavra: "${word}"\nTradução: "${translation}"${sentence ? `\nFrase de exemplo: "${sentence}"` : ''}`;
+  const content = await aiChat(
+    [{ role: 'system', content: system }, { role: 'user', content: user }],
+    { temperature: 0.8, max_tokens: 200 }
+  );
+  const clean = content.replace(/```json/g, '').replace(/```/g, '').trim();
+  const parsed = JSON.parse(clean);
+  const mnemonic = typeof parsed.mnemonic === 'string' ? parsed.mnemonic.trim().slice(0, 400) : '';
+  if (!mnemonic) throw new Error('IA não retornou um mnemônico válido.');
+  return mnemonic;
+}
+
 // Geração de chunks na web (na extensão o service worker já tem essa rotina).
 export async function generateChunksWeb(word) {
   const system = `Você é um professor de inglês para brasileiros focando no aprendizado por 'chunks' (blocos léxicos).

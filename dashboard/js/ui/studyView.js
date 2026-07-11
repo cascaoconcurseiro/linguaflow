@@ -1,9 +1,10 @@
 import { db as lfDb } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio, downloadAudio } from '../core/tts.js';
-import { aiChat, aiChatStream, getCefrLevel, grammarTutorPersona, grammarInitialQuestion, enrichCard, generateChunksWeb } from '../core/ai.js';
+import { aiChat, aiChatStream, getCefrLevel, grammarTutorPersona, grammarInitialQuestion, enrichCard, generateChunksWeb, generateMnemonic } from '../core/ai.js';
 import { attachVideoContext, renderVideoContext, getVideoContext } from '../core/videoContext.js';
 import { buildSessionQueue, isWeakCard } from '../core/sessionQueue.js';
 import { loadVideo, hidePlayer } from '../core/ytPlayer.js';
+import { fetchTatoebaSentences } from '../core/tatoeba.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
@@ -181,6 +182,10 @@ export async function renderStudy(container, app, params = {}) {
           <div style="font-size: 28px; font-weight: 900; color: var(--color-primary); margin-bottom: 8px;" id="iso-word"></div>
           <div style="font-size: 18px; color: var(--color-text); font-weight: 700; margin-bottom: 8px;" id="iso-trans"></div>
           <div style="font-size: 14px; color: var(--color-secondary); font-style: italic; background: rgba(28, 176, 246, 0.1); padding: 4px 12px; border-radius: 16px; display: inline-block;" id="iso-phonetics"></div>
+          <div id="iso-mnemonic-box" style="margin-top:14px; text-align:left;">
+            <button id="iso-mnemonic-btn" style="background:none; border:none; color:var(--color-secondary); font-family:var(--font-main); font-weight:800; font-size:13px; cursor:pointer; text-decoration:underline;">💡 Me dá um truque pra lembrar</button>
+            <div id="iso-mnemonic-text" class="hidden" style="margin-top:8px; font-size:13px; color:var(--color-text); background:rgba(255,200,0,0.12); border:1px solid var(--color-warning); border-radius:8px; padding:10px 12px; line-height:1.5;"></div>
+          </div>
         </div>
 
         <div id="saved-video-context"></div>
@@ -191,6 +196,12 @@ export async function renderStudy(container, app, params = {}) {
           <button id="yg-load-btn" class="btn btn-secondary" style="width:100%; padding:10px; font-size:13px;">▶ Ver nativos falando esta palavra</button>
           <div id="yg-widget-embed"></div>
           <a id="youglish-fallback" href="#" target="_blank" rel="noopener" class="hidden" style="color: var(--color-secondary); font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 8px;">📺 Abrir no YouGlish</a>
+        </div>
+
+        <h3 class="sidebar-title" style="margin-top:32px;">Frases reais (Tatoeba) 📚</h3>
+        <div id="tatoeba-box">
+          <button id="tatoeba-load-btn" class="btn btn-secondary" style="width:100%; padding:10px; font-size:13px;">🔎 Ver exemplos de falantes reais</button>
+          <div id="tatoeba-list" class="hidden"></div>
         </div>
 
         <h3 class="sidebar-title" style="margin-top:32px;">Frases úteis (Chunks) ✨</h3>
@@ -485,6 +496,11 @@ async function loadNextCard(app) {
   document.getElementById('study-yt-mount').classList.add('hidden');
   hidePlayer(); // troca de card: o vídeo do card anterior não deve tocar ao fundo
   document.getElementById('youglish-box').classList.add('hidden');
+  document.getElementById('tatoeba-list').classList.add('hidden');
+  document.getElementById('tatoeba-list').innerHTML = '';
+  document.getElementById('tatoeba-load-btn').classList.remove('hidden');
+  document.getElementById('tatoeba-load-btn').disabled = false;
+  document.getElementById('tatoeba-load-btn').textContent = '🔎 Ver exemplos de falantes reais';
   document.getElementById('improve-btn').classList.add('hidden');
   document.getElementById('shadowing-overlay').classList.add('hidden');
   document.getElementById('shadowing-progress').style.width = '0%';
@@ -840,6 +856,7 @@ async function revealCard() {
   renderReveal(word, context, ctxEntry, wordEntry, wordData, card);
   renderChunksList(chunks, context);
   updateYouglish(word);
+  updateTatoeba(word);
   startGrammarChat(card, word, context);
 
   // 3. Se faltar fonética/tradução da frase ou da palavra, gera UMA vez e persiste
@@ -901,6 +918,42 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card) {
     isoPhon.style.display = 'none';
   }
   isoBox.classList.remove('hidden');
+
+  // Onda 3.3: mnemônico por IA — gerado uma vez e salvo no card
+  // (words.mnemonic), pra não custar uma chamada de IA toda vez que o
+  // aluno reabre a mesma palavra.
+  const mnemonicBtn = document.getElementById('iso-mnemonic-btn');
+  const mnemonicText = document.getElementById('iso-mnemonic-text');
+  mnemonicText.classList.add('hidden');
+  mnemonicText.textContent = '';
+  if (wordData.mnemonic) {
+    mnemonicText.textContent = `💡 ${wordData.mnemonic}`;
+    mnemonicText.classList.remove('hidden');
+    mnemonicBtn.textContent = '💡 Gerar outro truque';
+  } else {
+    mnemonicBtn.textContent = '💡 Me dá um truque pra lembrar';
+  }
+  mnemonicBtn.onclick = async () => {
+    mnemonicBtn.disabled = true;
+    mnemonicBtn.textContent = 'Gerando…';
+    try {
+      const translation = (wordEntry && wordEntry.pt) || wordData.translation || card.translation || '';
+      const mnemonic = await generateMnemonic(word, translation, context);
+      mnemonicText.textContent = `💡 ${mnemonic}`;
+      mnemonicText.classList.remove('hidden');
+      mnemonicBtn.textContent = '💡 Gerar outro truque';
+      if (wordData.id) {
+        wordData.mnemonic = mnemonic;
+        lfDb.updateWord(wordData.id, { mnemonic }).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[Study] Mnemônico falhou:', e);
+      exerciseApp?.showToast?.('Não consegui gerar um truque agora. Tente de novo.', 'error');
+      mnemonicBtn.textContent = '💡 Me dá um truque pra lembrar';
+    } finally {
+      mnemonicBtn.disabled = false;
+    }
+  };
 
   // Onda 2.5: player YouTube único e reutilizável — trocar de card troca só
   // o vídeo carregado (cueVideoById), nunca recria o iframe do zero.
@@ -1102,6 +1155,42 @@ async function sendGrammarQuestion(text) {
       input?.focus();
     }
   }
+}
+
+// ── Tatoeba: frases reais de falantes, sob demanda (Onda 3.5) ───────────────
+function updateTatoeba(word) {
+  const loadBtn = document.getElementById('tatoeba-load-btn');
+  const list = document.getElementById('tatoeba-list');
+  if (!loadBtn || !list) return;
+  loadBtn.classList.remove('hidden');
+  loadBtn.disabled = false;
+  loadBtn.textContent = '🔎 Ver exemplos de falantes reais';
+  list.classList.add('hidden');
+  list.innerHTML = '';
+
+  loadBtn.onclick = async () => {
+    loadBtn.disabled = true;
+    loadBtn.textContent = 'Buscando…';
+    try {
+      const sentences = await fetchTatoebaSentences(word);
+      if (sentences.length === 0) {
+        list.innerHTML = '<p style="font-size:12px; color:var(--color-text-light);">Nenhum exemplo encontrado pra essa palavra.</p>';
+      } else {
+        list.innerHTML = sentences.map(s => `
+          <div style="padding:10px 12px; background:var(--color-bg-alt); border-radius:8px; margin-bottom:8px; font-size:13px;">
+            <div style="color:var(--color-text); font-weight:600;">${escapeHtml(s.text)}</div>
+            ${s.translation ? `<div style="color:var(--color-text-light); margin-top:4px;">${escapeHtml(s.translation)}</div>` : ''}
+          </div>`).join('');
+      }
+      list.classList.remove('hidden');
+      loadBtn.classList.add('hidden');
+    } catch (e) {
+      console.warn('[Study] Tatoeba falhou:', e);
+      list.innerHTML = '<p style="font-size:12px; color:var(--color-text-light);">Não consegui buscar exemplos agora.</p>';
+      list.classList.remove('hidden');
+      loadBtn.classList.add('hidden');
+    }
+  };
 }
 
 // ── YouGlish embutido ────────────────────────────────────────────────────────
@@ -1408,6 +1497,7 @@ function injectStyles() {
     #grammar-send:disabled { opacity: 0.5; cursor: default; }
 
     #youglish-box { background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    #tatoeba-box { background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
     #yg-widget-embed { width: 100%; min-height: 0; }
     #yg-widget-embed iframe { max-width: 100%; border-radius: var(--radius-md); }
     #saved-video-context { margin-bottom: 24px; }

@@ -383,7 +383,7 @@ class Database {
   async updateWord(id, patch) {
     this._invalidateReadCache();
     if (this.isProxyMode) return this._proxy('updateWord', [id, patch]);
-    const allowed = ['translation', 'context_sentence', 'category', 'level', 'phonetic'];
+    const allowed = ['translation', 'context_sentence', 'category', 'level', 'phonetic', 'mnemonic'];
     const body = {};
     allowed.forEach(k => { if (patch && patch[k] !== undefined) body[k] = patch[k]; });
     if (Object.keys(body).length === 0) return { ok: true };
@@ -1193,6 +1193,17 @@ class Database {
     if (!endpoint) return { ok: false };
     await this._fetch(`push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`, { method: 'DELETE' });
     return { ok: true };
+  }
+
+  // Onda 3.4: opt-in de reengajamento por e-mail (resumo semanal + ofensiva
+  // em risco) — mesmo padrão de RPC restrita ao próprio usuário do push.
+  async setEmailOptIn(enabled) {
+    if (this.isProxyMode) return this._proxy('setEmailOptIn', [enabled]);
+    const res = await this._fetch('rpc/set_email_opt_in', {
+      method: 'POST',
+      body: { p_enabled: !!enabled },
+    });
+    return res || { ok: false };
   }
 
   // ── CACHE DE TRADUÇÃO (tabela própria — NUNCA mais dentro de settings) ────

@@ -730,20 +730,27 @@ class Database {
         nextStepIndex = 0;
         nextInterval = learningSteps[0] / 1440;
       } else if (quality === 2) {
-        // Difícil = ACERTOU com esforço → progride devagar, mas PROGRIDE.
-        // Bug real de produção: "Difícil" repetia o step pra sempre — um card
-        // levou 16 "Difícil" e nunca graduou (loop de ~2 min eterno pro aluno
-        // honesto). Agora avança o step com 1,5x o intervalo e gradua no fim
-        // dos steps com intervalo 20% menor que o "Bom".
-        nextStepIndex = prevStatus === 'new' ? 1 : nextStepIndex + 1;
-        if (nextStepIndex >= learningSteps.length) {
-          nextStatus = 'review';
+        // Difícil é um acerto com esforço: nunca pode prender o aluno no
+        // mesmo passo para sempre. Ele repete o primeiro passo uma vez e,
+        // depois, avança mais lentamente que "Bom" (1,5× o intervalo). Assim
+        // há uma exposição extra sem graduação precoce: com [1, 10], três
+        // respostas "Difícil" graduam; com um único passo, duas graduam.
+        // (Resolução do merge: versão do Codex — mais conservadora que a de
+        // Fable; "Difícil" três vezes NÃO deve graduar tão rápido quanto "Bom".)
+        nextStatus = 'learning';
+        if (prevStatus === 'new') {
           nextStepIndex = 0;
-          nextInterval = Math.max(settings.gradInt || 1,
-            this._fsrsInterval(stability, retention) * settings.intMod * 0.8);
+          nextInterval = (learningSteps[0] * 1.5) / 1440;
         } else {
-          nextStatus = 'learning';
-          nextInterval = (learningSteps[nextStepIndex] * 1.5) / 1440;
+          nextStepIndex += 1;
+          if (nextStepIndex >= learningSteps.length) {
+            nextStatus = 'review';
+            nextStepIndex = 0;
+            nextInterval = Math.max(settings.gradInt || 1,
+              this._fsrsInterval(stability, retention) * settings.intMod * 0.8);
+          } else {
+            nextInterval = (learningSteps[nextStepIndex] * 1.5) / 1440;
+          }
         }
       } else if (quality === 4) {
         // Fácil: gradua direto com bônus do FSRS.

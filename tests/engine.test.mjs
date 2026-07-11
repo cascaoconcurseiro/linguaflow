@@ -122,6 +122,21 @@ test('combinePlacement: 40/40/20 com diagnóstico de lacunas', () => {
   assert.equal(cheated.retestRequired, true);
 });
 
+test('Difícil no learning progride sem graduação precoce ou loop eterno', () => {
+  const first = db._calculateNextState(newCard(), 2, SETTINGS);
+  assert.equal(first.status, 'learning');
+  assert.equal(first.step_index, 0);
+  const second = db._calculateNextState(first, 2, SETTINGS);
+  assert.equal(second.status, 'learning');
+  assert.equal(second.step_index, 1);
+  const third = db._calculateNextState(second, 2, SETTINGS);
+  assert.equal(third.status, 'review');
+
+  const oneStep = db._calculateNextState(newCard(), 2, { ...SETTINGS, learningSteps: [5] });
+  assert.equal(oneStep.status, 'learning');
+  assert.equal(db._calculateNextState(oneStep, 2, { ...SETTINGS, learningSteps: [5] }).status, 'review');
+});
+
 test('shuffleItem preserva a resposta correta', () => {
   const item = { sentence: 'x ___', options: ['certa', 'e1', 'e2', 'e3'], answer: 0 };
   for (let i = 0; i < 20; i++) {
@@ -159,13 +174,16 @@ test('scorePlacement: pseudo-palavras derrubam o resultado (anti-chute)', () => 
 
 console.log('── Motor pedagógico (interleaving + diagnóstico) ──');
 
-test('Difícil em learning AVANÇA o step (fim do loop de 16 "Difícil")', () => {
-  // Regressão do bug de produção: card "statement" com 16 Difícil sem graduar
+test('Difícil em learning gradua em 3 (não 16 nem 2) — política conservadora do merge', () => {
+  // Regressão do bug de produção (card "statement", 16 Difícil sem graduar) +
+  // resolução do merge: com [1,10], TRÊS "Difícil" graduam (não dois).
   let card = { ...newCard() };
-  card = db._calculateNextState(card, 2, SETTINGS); // novo + Difícil → step 1
+  card = db._calculateNextState(card, 2, SETTINGS); // novo → repete step0
   assert.equal(card.status, 'learning');
-  card = db._calculateNextState(card, 2, SETTINGS); // learning + Difícil → GRADUA
-  assert.equal(card.status, 'review', 'dois "Difícil" atravessam os 2 steps e graduam');
+  card = db._calculateNextState(card, 2, SETTINGS); // step0 → step1
+  assert.equal(card.status, 'learning', 'o 2º Difícil ainda NÃO gradua (não é tão rápido quanto Bom)');
+  card = db._calculateNextState(card, 2, SETTINGS); // step1 → GRADUA
+  assert.equal(card.status, 'review', 'o 3º Difícil gradua');
   assert.ok(card.interval >= 1);
 });
 

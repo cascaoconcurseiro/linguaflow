@@ -1,5 +1,6 @@
 # Checklist — LinguaFlow
 
+<<<<<<< HEAD
 ## 🎛️ QUADRO VIVO DA EQUIPE — 2026-07-11 (gerente: Fable)
 > Regra da equipe: cada frente tem UM responsável sênior; toda decisão relevante é registrada aqui e no HANDOFF.md (é assim que os papéis "conversam" entre sessões e entre agentes — Fable, Codex e quem vier). Nada é marcado feito sem evidência (teste, query ou arquivo).
 
@@ -59,6 +60,8 @@
 
 #### ✅ Fechado da tabela-mestra da auditoria (com evidência): #1-8, #10-20, #22
 Fila learning/rótulos reais · settings→translation_cache · configs reais · limites diários · XP jogo/história/quiz/missões · ligas cron · streak unificada+fuso · card de história consertado · placement 3 fases · push · missões adaptativas+retorno · LingQ (%conhecido/status/quiz/reencontro) · RPC morta · advisors · índices · revisão atômica+undo íntegro · telemetria · onboarding real · XP localStorage removido · Difícil gradua.
+
+> Nota de merge (Codex): a política de `Difícil` no learning ficou EXPLÍCITA e conservadora (repete o 1º passo uma vez, depois avança 1,5×; três "Difícil" graduam com [1,10]). Histórias com quiz e tooltip endurecidos (DOM seguro, XP 1x/história). CI roda as verificações da auditoria (`.github/workflows/release.yml`).
 
 ## Diagnóstico e planejamento
 - [x] Revisão multi-especialista do estado atual do repositório (diff completo, 22 arquivos modificados + 8 untracked)

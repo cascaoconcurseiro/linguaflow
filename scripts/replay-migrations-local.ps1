@@ -22,8 +22,19 @@ if (-not $Execute) {
   exit 0
 }
 
-if (-not (Get-Command supabase -ErrorAction SilentlyContinue)) {
-  throw 'Supabase CLI não encontrado. Instale-o e execute novamente; nenhum banco foi alterado.'
+if (Get-Command supabase -ErrorAction SilentlyContinue) {
+  $supabase = @('supabase')
+} elseif (Get-Command npx -ErrorAction SilentlyContinue) {
+  # Fallback temporário: evita exigir instalação global. O cache pode ser
+  # definido por npm_config_cache e continua sem referência a produção.
+  $supabase = @('npx', '--yes', 'supabase')
+} else {
+  throw 'Supabase CLI/npx não encontrado. Instale um deles e execute novamente; nenhum banco foi alterado.'
+}
+
+function Invoke-Supabase([string[]]$Arguments) {
+  & $supabase[0] @($supabase | Select-Object -Skip 1) @Arguments
+  if ($LASTEXITCODE -ne 0) { throw "Falha do Supabase CLI: $($Arguments -join ' ')" }
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -39,18 +50,15 @@ New-Item -ItemType Directory -Path $sandboxRoot | Out-Null
 
 try {
   Push-Location $sandboxRoot
-  & supabase init | Out-Host
+  Invoke-Supabase @('init')
   Copy-Item -Path $migrationsSource -Destination (Join-Path $sandboxRoot 'supabase\migrations') -Recurse -Force
 
   Write-Host "Iniciando stack local isolada em $sandboxRoot" -ForegroundColor Cyan
-  & supabase start | Out-Host
-  if ($LASTEXITCODE -ne 0) { throw 'Falha ao iniciar a stack Supabase local.' }
+  Invoke-Supabase @('start')
 
   Write-Host 'Reaplicando todas as migrations somente no banco local...' -ForegroundColor Cyan
-  & supabase db reset --local | Out-Host
-  if ($LASTEXITCODE -ne 0) {
-    throw 'REPLAY FALHOU: a sequência de migrations no Git não é reproduzível. Corrija a migration faltante/ordem antes de qualquer deploy.'
-  }
+  try { Invoke-Supabase @('db', 'reset', '--local') }
+  catch { throw 'REPLAY FALHOU: a sequência de migrations no Git não é reproduzível. Corrija a migration faltante/ordem antes de qualquer deploy.' }
 
   Write-Host 'REPLAY APROVADO: migrations aplicadas em banco local descartável.' -ForegroundColor Green
 }

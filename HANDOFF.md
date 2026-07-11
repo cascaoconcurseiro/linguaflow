@@ -1,5 +1,16 @@
 # Handoff — LinguaFlow
 
+## Execução Fable — 2026-07-11c (ONDA 1 — "tudo conversa entre si")
+> Roadmap-mestre no CHECKLIST.md ("ROADMAP-MESTRE PRIORIZADO"). Onda 0 aguarda o dono (teste do preview + merge). A equipe executou a Onda 1 inteira.
+
+- **[Eng. SRS] 1.1 XP por vídeo**: `db.logSession` agora calcula blocos de 5 min cruzados (`floor(after/300)-floor(before/300)`) e chama `recordEvent('video_session', blocos)`. O cap de 30 XP/dia e o anti-farm ficam no banco. Roda no service worker (a extensão proxia logSession). Falha de XP nunca quebra o registro de imersão (`.catch`).
+- **[Linguista] 1.2 Diagnóstico→missões**: homeView agrega `log30` por categoria de card (via word_id→category), acha a pior (≥5 revisões, <80%) e cria a missão "🎯 Foco da semana" (alvo 3, ícone 🔬, fundo laranja). NÃO gate na recompensa das 3 core.
+- **[Eng. SRS] 1.3 Diagnóstico→fila**: `sessionQueue.buildSessionQueue(cards, {priorityCategory, getCategory})` — categoria fraca à frente das revisões, ordenação estável, learning/novas/fracas intactos. studyView adiciona `getDiagnosisData(30)` ao Promise.all e extrai a pior categoria. `defaultGetCategory` lê `card.wordData?.category`.
+- **[Prof. didático] 1.4 Reencontro na extensão**: `getReencounterWordsSW()` no service worker (fracas + em progresso, máx 8) injeta no prompt de `generateStoryWithAI` e retorna `requestedWords`. Paridade com `generateStoryWeb`.
+- **[Prof. didático] 1.5 Missões semanais**: migration `20260711120000_weekly_quest` — coluna `user_stats.weekly_claim_week` + RPC `claim_weekly_quest(threshold)` (SECURITY DEFINER, semana do fuso, revoke anon, grant authenticated). `db.claimWeeklyQuest`. Painel "🗓️ Missão da Semana" no Início (progresso por `xp_week`, meta 500 → +100 XP, resgate 1x/semana).
+- **[QA]** 20/20 testes (`node tests/engine.test.mjs`) — novo: priorityCategory traz a categoria fraca à frente. `node --check` ok em db/sessionQueue/homeView/studyView/service-worker. `npm run test:release` verde (à parte do check de árvore suja pré-commit).
+- **[Gerente] Próximo = ONDA 2** (paridade Anki): tela de Estatísticas, estudo por tópico, editor de card, mini-jogo ouça-e-escolha, player YouTube global.
+
 ## Execução Fable — 2026-07-11b (MOTOR PEDAGÓGICO v1 — decisões POR PAPEL)
 > Gestão: quadro vivo em CHECKLIST.md ("QUADRO VIVO DA EQUIPE") — cada frente tem um responsável e toda decisão fica registrada aqui. É assim que os papéis (e os agentes: Fable, Codex) conversam entre sessões.
 

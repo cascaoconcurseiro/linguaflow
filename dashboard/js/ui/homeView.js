@@ -185,6 +185,8 @@ export async function renderHome(container, app) {
     let avgReviews7 = 0;      // média de revisões/dia (7 dias) — calibra as missões
     let avgWords7 = 0;
     let weakWords = [];       // palavras com 3+ lapsos/leech — o "professor" de olho
+    let weakCategory = null;   // categoria mais fraca da semana (missão de foco)
+    let weakCatReviewsToday = 0;
     try {
         const [logToday, log30, allWords, allCards, knownWords] = await Promise.all([
             db ? db.getReviewLog(1) : [],
@@ -235,7 +237,31 @@ export async function renderHome(container, app) {
             .sort((a, b) => (b.lapses || 0) - (a.lapses || 0))
             .slice(0, 3)
             .map(c => ({ word: wordById[c.word_id]?.word || '?', lapses: c.lapses || 0 }));
+
+        // FRAQUEZA DA SEMANA (Onda 1.2): categoria com pior retenção nos 30d.
+        // O diagnóstico do linguista, transformado em missão acionável.
+        const catByCardId = {};
+        (allCards || []).forEach(c => { catByCardId[c.id] = wordById[c.word_id]?.category || 'word'; });
+        const catAgg = {};
+        (log30 || []).forEach(r => {
+            const cat = catByCardId[r.card_id] || 'word';
+            (catAgg[cat] = catAgg[cat] || { total: 0, hits: 0 }).total++;
+            if (r.quality >= 2) catAgg[cat].hits++;
+        });
+        const catCandidates = Object.entries(catAgg)
+            .filter(([, s]) => s.total >= 5)
+            .map(([cat, s]) => ({ cat, retention: Math.round((s.hits / s.total) * 100) }))
+            .filter(c => c.retention < 80)
+            .sort((a, b) => a.retention - b.retention);
+        if (catCandidates.length) {
+            weakCategory = catCandidates[0];
+            weakCatReviewsToday = (logToday || [])
+                .filter(r => activityDate(r) === todayISO && (catByCardId[r.card_id] || 'word') === weakCategory.cat)
+                .length;
+        }
     } catch (e) { console.warn('[Home] Erro ao calcular missões:', e); }
+
+    const CAT_LABEL = { phrasal_verb: 'phrasal verbs', idiom: 'expressões (idioms)', slang: 'gírias', word: 'vocabulário' };
 
     // ── PLANO DO PROFESSOR (dados 100% do banco, zero enfeite) ──────────────
     const dueLearningNow = safeStats.dueLearning || 0;
@@ -267,7 +293,8 @@ export async function renderHome(container, app) {
     const xpTarget = isReturning ? 30 : clamp((avgReviews7 * 1.2 * 10) / 10, 3, 20) * 10;
     const newTarget = isReturning ? 2 : clamp(avgWords7 * 1.2, 2, 10);
 
-    const quests = [
+    // 3 missões CORE (a recompensa depende só destas — não gate no foco).
+    const coreQuests = [
         isReturning
             ? { id: 'comeback', text: `De volta! Revise ${revTarget} cartas pra reacender o fogo 🔥`, target: revTarget, current: Math.min(reviewsToday, revTarget) }
             : { id: 'rev', text: `Revisar ${revTarget} cartas`, target: revTarget, current: Math.min(reviewsToday, revTarget) },
@@ -275,11 +302,33 @@ export async function renderHome(container, app) {
         { id: 'new', text: `Aprender ${newTarget} novas palavras`, target: newTarget, current: Math.min(wordsToday, newTarget) },
     ].map(q => ({ ...q, done: q.current >= q.target }));
 
-    // Recompensa REAL por fechar as 3 missões: +30 XP via Learning Engine
+    // Missão de FOCO (Onda 1.2): só aparece quando há uma fraqueza real.
+    // Alvo pequeno (3) — é sobre atenção à categoria, não volume.
+    const focusQuest = weakCategory ? (() => {
+        const target = 3;
+        const current = Math.min(weakCatReviewsToday, target);
+        return {
+            id: 'focus', focus: true,
+            text: `🎯 Foco da semana: revise ${target} de ${CAT_LABEL[weakCategory.cat] || weakCategory.cat} (sua retenção aí está em ${weakCategory.retention}%)`,
+            target, current, done: current >= target,
+        };
+    })() : null;
+
+    const quests = focusQuest ? [...coreQuests, focusQuest] : coreQuests;
+
+    // Recompensa REAL por fechar as 3 missões CORE: +30 XP via Learning Engine
     // (RPC com cap 1x/dia no banco — não dá pra farmar).
-    const allQuestsDone = quests.every(q => q.done);
+    const allQuestsDone = coreQuests.every(q => q.done);
     const countersToday = userStats?.counters_date === todayISO ? (userStats?.daily_counters || {}) : {};
     const questRewardClaimed = (countersToday.quests_complete || 0) > 0;
+
+    // ── MISSÃO SEMANAL (Onda 1.5): meta de XP na semana, +100 XP ────────────
+    const weeklyTarget = 500;
+    const xpWeek = userStats?.xp_week ?? 0;
+    const todayDow = new Date().getDay();            // 0=Dom..6=Sáb
+    const weekStartKey = localDateKey(addLocalDays(-((todayDow + 6) % 7))); // segunda local
+    const weeklyDone = xpWeek >= weeklyTarget;
+    const weeklyClaimed = !!(userStats?.weekly_claim_week && userStats.weekly_claim_week >= weekStartKey);
 
     container.innerHTML = `
         <div class="gamified-home">
@@ -393,8 +442,8 @@ export async function renderHome(container, app) {
                     <h3>Missões Diárias <span style="font-size:11px; font-weight:700; color:var(--color-text-light);">(no seu ritmo${isReturning ? ' — modo retorno' : ''})</span></h3>
                     <div class="quests-list">
                         ${quests.map(q => `
-                            <div class="quest-item ${q.done ? 'quest-done' : ''}">
-                                <div class="quest-icon">${q.done ? '✅' : '🎯'}</div>
+                            <div class="quest-item ${q.done ? 'quest-done' : ''}" ${q.focus ? 'style="background:rgba(255,150,0,0.08); border-radius:10px; padding:8px; margin:-8px -8px 0;"' : ''}>
+                                <div class="quest-icon">${q.done ? '✅' : (q.focus ? '🔬' : '🎯')}</div>
                                 <div class="quest-details">
                                     <div class="quest-text">${q.text}</div>
                                     <div class="quest-progress">
@@ -413,6 +462,22 @@ export async function renderHome(container, app) {
                     ${allQuestsDone && questRewardClaimed ? `
                     <div style="text-align:center; margin-top:16px; font-weight:800; color:var(--color-primary); font-size:14px;">🏅 Missões do dia completas — recompensa resgatada!</div>
                     ` : ''}
+
+                    <div style="margin-top:20px; padding-top:16px; border-top:2px dashed var(--color-border);">
+                        <h3 style="margin:0 0 10px 0; font-size:16px; color:var(--color-text);">🗓️ Missão da Semana</h3>
+                        <div class="quest-item">
+                            <div class="quest-icon">${weeklyDone ? '🏆' : '⚡'}</div>
+                            <div class="quest-details">
+                                <div class="quest-text">Ganhar ${weeklyTarget} XP esta semana</div>
+                                <div class="quest-progress">
+                                    <div class="progress-bar"><div class="progress-fill" style="width:${Math.min(100, (xpWeek / weeklyTarget) * 100)}%; background:#ce82ff;"></div></div>
+                                    <span class="progress-text">${Math.min(xpWeek, weeklyTarget)} / ${weeklyTarget}</span>
+                                </div>
+                            </div>
+                        </div>
+                        ${weeklyDone && !weeklyClaimed ? `<button id="btn-claim-weekly" class="btn btn-primary" style="width:100%; margin-top:12px; padding:14px; font-size:15px; background:#ce82ff; box-shadow:0 4px 0 #a561cf;">🎁 Resgatar recompensa semanal: +100 XP</button>` : ''}
+                        ${weeklyDone && weeklyClaimed ? `<div style="text-align:center; margin-top:12px; font-weight:800; color:#ce82ff; font-size:14px;">🏆 Missão da semana concluída — recompensa resgatada!</div>` : ''}
+                    </div>
                 </div>
             </div>
         </div>
@@ -497,6 +562,26 @@ export async function renderHome(container, app) {
             return;
         }
         renderHome(container, app); // re-render com XP/estado novos
+    });
+    document.getElementById('btn-claim-weekly')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        btn.textContent = 'Resgatando...';
+        try {
+            const res = await db.claimWeeklyQuest(weeklyTarget);
+            if (res && res.ok) {
+                app.showToast?.(`🏆 +${res.xp_awarded || 100} XP pela semana campeã!`, 'success');
+            } else {
+                app.showToast?.('Recompensa da semana já foi resgatada. 😉', 'info');
+            }
+        } catch (err) {
+            console.error('[Home] Falha ao resgatar semanal:', err);
+            app.showToast?.('Erro ao resgatar. Tente de novo.', 'error');
+            btn.disabled = false;
+            btn.textContent = '🎁 Resgatar recompensa semanal: +100 XP';
+            return;
+        }
+        renderHome(container, app);
     });
     document.getElementById('btn-study-now')?.addEventListener('click', () => {
         if (app && app.navigate) app.navigate('study');

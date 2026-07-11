@@ -43,7 +43,7 @@ export async function renderStudy(container, app) {
   pendingLearning = [];
   if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
   try {
-    const [reverseRaw, variedRaw, audioFrontRaw, audioBackRaw, srs, counts, cards] = await Promise.all([
+    const [reverseRaw, variedRaw, audioFrontRaw, audioBackRaw, srs, counts, cards, diag] = await Promise.all([
       lfDb.getSetting('lf_reverse_cards').catch(() => null),
       lfDb.getSetting('lf_varied_exercises').catch(() => null),
       lfDb.getSetting('lf_audio_auto_front').catch(() => null),
@@ -51,6 +51,7 @@ export async function renderStudy(container, app) {
       lfDb.getSRSSettings().catch(() => null),
       lfDb.getTodayCounts().catch(() => ({ reviewsToday: 0, newIntroducedToday: 0 })),
       lfDb.getCardsDue(200, true),
+      lfDb.getDiagnosisData(30).catch(() => null),
     ]);
     reverseEnabled = reverseRaw === true || reverseRaw === 'true';
     variedEnabled = variedRaw === null || variedRaw === true || variedRaw === 'true';
@@ -75,9 +76,16 @@ export async function renderStudy(container, app) {
       reviewSeen++;
       return reviewSeen <= revAllowed;
     });
-    // INTERLEAVING (Marco 2): learning primeiro; fracas espaçadas entre
-    // revisões; novas espalhadas (não em bloco). Ver core/sessionQueue.js.
-    dueQueue = buildSessionQueue(limited);
+    // INTERLEAVING (Marco 2 + Onda 1.3): learning primeiro; fracas espaçadas;
+    // novas espalhadas; e a categoria mais fraca do diagnóstico vem à frente.
+    let priorityCategory = null;
+    if (diag && diag.retentionByCategory) {
+      const worst = Object.entries(diag.retentionByCategory)
+        .filter(([, v]) => v.reviews >= 5 && v.retention !== null && v.retention < 80)
+        .sort((a, b) => a[1].retention - b[1].retention)[0];
+      if (worst) priorityCategory = worst[0];
+    }
+    dueQueue = buildSessionQueue(limited, { priorityCategory });
   } catch (e) {
     console.error('DB Error:', e);
     dueQueue = [];

@@ -28,7 +28,15 @@ function spreadInto(base, items) {
   return out;
 }
 
-export function buildSessionQueue(cards) {
+function defaultGetCategory(card) {
+  return (card && (card.wordData?.category || card.category)) || null;
+}
+
+// opts.priorityCategory (Onda 1.3): a categoria mais fraca do diagnóstico. Os
+// cards de revisão dessa categoria são estudados PRIMEIRO (memória fresca),
+// sem quebrar o interleaving de novas/fracas. opts.getCategory permite testar.
+export function buildSessionQueue(cards, opts = {}) {
+  const { priorityCategory = null, getCategory = defaultGetCategory } = opts;
   const learning = [];
   const weak = [];
   const reviews = [];
@@ -41,8 +49,17 @@ export function buildSessionQueue(cards) {
     else reviews.push(c);
   }
 
-  // reviews mantêm a ordem de vencimento; novas e fracas entram espaçadas
-  const withNews = spreadInto(reviews, news);
+  // Categoria fraca à frente das revisões (ordenação estável preserva o resto)
+  let reviewsOrdered = reviews;
+  if (priorityCategory) {
+    reviewsOrdered = [
+      ...reviews.filter(c => getCategory(c) === priorityCategory),
+      ...reviews.filter(c => getCategory(c) !== priorityCategory),
+    ];
+  }
+
+  // reviews mantêm a ordem; novas e fracas entram espaçadas
+  const withNews = spreadInto(reviewsOrdered, news);
   const interleaved = spreadInto(withNews, weak);
   return [...learning, ...interleaved];
 }

@@ -28,12 +28,12 @@
 - [ ] [Dono+Backend] Push real: ativar o toggle e confirmar a notificação do dia seguinte (17:30 UTC)
 - [ ] [Dono] Leaked Password Protection (Supabase → Auth → Settings) + rotacionar chave DeepSeek (Vault)
 
-#### 🟠 ONDA 1 — Fechar "tudo conversa entre si" (o coração da auditoria)
-- [ ] [Eng. SRS] **XP por assistir vídeo**: extensão chama `record_learning_event('video_session', blocos de 5min)` no logSession — é o item #9 da auditoria que ficou meio-feito; assistir vídeo hoje dá 0 XP e não conta pra ofensiva
-- [ ] [Linguista] Diagnóstico → **missões**: a fraqueza da semana vira missão diária automática ("Revise 5 phrasal verbs")
-- [ ] [Eng. SRS] Diagnóstico → **interleaving**: categoria fraca ganha prioridade na fila
-- [ ] [Prof. didático] Reencontro nas histórias TAMBÉM na extensão (service worker recebe userWords)
-- [ ] [Prof. didático] **Missões semanais** (além das diárias) com recompensa maior — Duolingo tem, nós não
+#### 🟠 ONDA 1 — ✅ CONCLUÍDA (2026-07-11) — "tudo conversa entre si"
+- [x] [Eng. SRS] **XP por assistir vídeo**: `logSession` detecta cada bloco de 5 min e chama `recordEvent('video_session')` (cap 30/dia no banco). Assistir vídeo agora dá XP E mantém a ofensiva.
+- [x] [Linguista] Diagnóstico → **missões**: categoria com pior retenção (30d, <80%) vira a missão "🎯 Foco da semana" no Início (dados já carregados, sem custo de IA).
+- [x] [Eng. SRS] Diagnóstico → **interleaving**: `buildSessionQueue(cards, {priorityCategory})` traz a categoria fraca à frente das revisões; studyView passa a fraqueza do `getDiagnosisData`. Testado.
+- [x] [Prof. didático] Reencontro nas histórias na **extensão**: `generateStoryWithAI` computa `getReencounterWordsSW` e injeta no prompt (paridade com a web); retorna `requestedWords` pro badge.
+- [x] [Prof. didático] **Missões semanais**: migration `weekly_quest` (RPC `claim_weekly_quest`, anti-farm 1x/semana pelo fuso) + painel "🗓️ Missão da Semana" (500 XP → +100 XP).
 
 #### 🟡 ONDA 2 — Experiência de estudo completa (paridade Anki que falta)
 - [ ] [Gerente+Eng. SRS] **Tela de Estatísticas** de verdade (a auditoria pediu, nunca foi feita): retenção por dia, tempo de estudo, curva de maturação, forecast 30d, histórico por palavra — os dados JÁ existem em review_log/sessions

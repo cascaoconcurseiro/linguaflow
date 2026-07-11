@@ -188,6 +188,18 @@ test('buildSessionQueue: learning primeiro; fracas e novas espaçadas', () => {
   assert.ok(Math.min(...nPos) < ids.length - 2, `novas espalhadas: ${nPos}`);
 });
 
+test('buildSessionQueue: priorityCategory traz a categoria fraca à frente', () => {
+  const mk = (id, cat) => ({ id, status: 'review', lapses: 0, wordData: { category: cat } });
+  const cards = [
+    mk('r1', 'word'), mk('r2', 'phrasal_verb'), mk('r3', 'word'),
+    mk('r4', 'phrasal_verb'), mk('r5', 'word'), mk('r6', 'word'),
+  ];
+  const queue = Q.buildSessionQueue(cards, { priorityCategory: 'phrasal_verb' });
+  assert.equal(queue.length, 6);
+  // os 2 phrasal_verb devem estar nas 2 primeiras posições
+  assert.deepEqual(queue.slice(0, 2).map(c => c.wordData.category), ['phrasal_verb', 'phrasal_verb']);
+});
+
 test('isWeakCard: 3+ lapsos ou leech', () => {
   assert.equal(Q.isWeakCard({ lapses: 3 }), true);
   assert.equal(Q.isWeakCard({ lapses: 2 }), false);

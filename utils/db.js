@@ -958,18 +958,33 @@ class Database {
     if (this.isProxyMode) return this._proxy('logSession', [seconds, platform]);
     const date = localDateKey();
     const sessions = await this._fetch(`sessions?date=eq.${date}&limit=1`);
-    
+
+    let before = 0;
+    let after = seconds;
     if (sessions && sessions.length > 0) {
       const session = sessions[0];
+      before = session.seconds || 0;
+      after = before + seconds;
       await this._fetch(`sessions?id=eq.${session.id}`, {
         method: 'PATCH',
-        body: { seconds: session.seconds + seconds }
+        body: { seconds: after }
       });
     } else {
       await this._fetch('sessions', {
         method: 'POST',
         body: { date, seconds }
       });
+    }
+
+    // XP por IMERSÃO (item #9 da auditoria): a cada bloco de 5 min de vídeo
+    // assistido, credita XP via Learning Engine. O cap diário (30 XP) e o
+    // anti-farm ficam no banco (record_learning_event). Assistir vídeo agora
+    // dá XP E mantém a ofensiva — antes era 0.
+    const BLOCK = 300; // 5 min
+    const blocksCrossed = Math.floor(after / BLOCK) - Math.floor(before / BLOCK);
+    if (blocksCrossed > 0) {
+      // Nunca deixa a falha de XP quebrar o registro de imersão
+      this.recordEvent('video_session', blocksCrossed).catch(() => {});
     }
     return true;
   }
@@ -1045,6 +1060,17 @@ class Database {
       body: { p_type: type, p_amount: amount },
     });
     return res || { xp_awarded: 0 };
+  }
+
+  // Missão semanal (Onda 1.5): reivindica +100 XP quando bate a meta de XP da
+  // semana. Anti-farm no banco (1x/semana pelo fuso do usuário).
+  async claimWeeklyQuest(threshold = 500) {
+    if (this.isProxyMode) return this._proxy('claimWeeklyQuest', [threshold]);
+    const res = await this._fetch('rpc/claim_weekly_quest', {
+      method: 'POST',
+      body: { p_threshold: threshold },
+    });
+    return res || { ok: false };
   }
 
   // Rollover semanal das ligas (lazy, idempotente — o pg_cron é o titular)

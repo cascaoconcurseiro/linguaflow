@@ -719,9 +719,26 @@ class Database {
         nextStepIndex = 0;
         nextInterval = learningSteps[0] / 1440;
       } else if (quality === 2) {
+        // Difícil é um acerto com esforço: nunca pode prender o aluno no
+        // mesmo passo para sempre. Ele repete o primeiro passo uma vez e,
+        // depois, avança mais lentamente que "Bom" (1,5× o intervalo). Assim
+        // há uma exposição extra sem graduação precoce: com [1, 10], três
+        // respostas "Difícil" graduam; com um único passo, duas graduam.
         nextStatus = 'learning';
-        const cur = learningSteps[Math.min(nextStepIndex, learningSteps.length - 1)] || 1;
-        nextInterval = (cur * 1.5) / 1440;
+        if (prevStatus === 'new') {
+          nextStepIndex = 0;
+          nextInterval = (learningSteps[0] * 1.5) / 1440;
+        } else {
+          nextStepIndex += 1;
+          if (nextStepIndex >= learningSteps.length) {
+            nextStatus = 'review';
+            nextStepIndex = 0;
+            nextInterval = Math.max(settings.gradInt || 1,
+              this._fsrsInterval(stability, retention) * settings.intMod * 0.8);
+          } else {
+            nextInterval = (learningSteps[nextStepIndex] * 1.5) / 1440;
+          }
+        }
       } else if (quality === 4) {
         // Fácil: gradua direto com bônus do FSRS.
         // easy_interval (config) é o piso; interval_modifier escala tudo.

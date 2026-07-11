@@ -120,6 +120,21 @@ test('combinePlacement: 40/40/20 com diagnóstico de lacunas', () => {
   assert.equal(cheated.retestRequired, true);
 });
 
+test('Difícil no learning progride sem graduação precoce ou loop eterno', () => {
+  const first = db._calculateNextState(newCard(), 2, SETTINGS);
+  assert.equal(first.status, 'learning');
+  assert.equal(first.step_index, 0);
+  const second = db._calculateNextState(first, 2, SETTINGS);
+  assert.equal(second.status, 'learning');
+  assert.equal(second.step_index, 1);
+  const third = db._calculateNextState(second, 2, SETTINGS);
+  assert.equal(third.status, 'review');
+
+  const oneStep = db._calculateNextState(newCard(), 2, { ...SETTINGS, learningSteps: [5] });
+  assert.equal(oneStep.status, 'learning');
+  assert.equal(db._calculateNextState(oneStep, 2, { ...SETTINGS, learningSteps: [5] }).status, 'review');
+});
+
 test('shuffleItem preserva a resposta correta', () => {
   const item = { sentence: 'x ___', options: ['certa', 'e1', 'e2', 'e3'], answer: 0 };
   for (let i = 0; i < 20; i++) {

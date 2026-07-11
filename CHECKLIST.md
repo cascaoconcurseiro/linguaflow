@@ -19,19 +19,46 @@
 - [x] **Marco 3 [Prof. didático]**: `generateStoryWeb(genre, onChunk, userWords)` — história inclui 4-6 palavras do aluno (fracas + em progresso); badge "🔁 Reencontro" mostra as que entraram de verdade (regex no texto).
 - [ ] **Marco 4 [Linguista] (próximo)**: diagnóstico alimentar as missões (fraqueza da semana vira missão) e o interleaving usar o diagnóstico (categoria fraca ganha prioridade)
 
-### AINDA ABERTO DA AUDITORIA (pós-Codex, consolidado)
-- [ ] [Dono] Teste manual do preview: Difícil progride e gradua; quiz varia; hover traduz; toggle 🔔 Lembretes; onboarding ao criar conta nova
-- [ ] [Dono] Ativar Leaked Password Protection (Supabase → Auth → Settings)
-- [ ] [Dono] Rotacionar a chave DeepSeek (foi colada em chat) e atualizar o Vault
-- [ ] [Gerente] Decidir merge do PR #3 na main (após teste manual do dono)
-- [ ] [Prof. didático] Mini-jogo "ouça-e-escolha" no gameView (hoje só Match)
-- [ ] [Eng. SRS] Player YouTube global reutilizável no card de ESTUDO (videoContext do Codex cobre Cofre/Estudo com vídeo salvo; falta a instância única global)
-- [ ] [Backend] Validar semântica de fuso perto da meia-noite com conta real
-- [ ] [QA] Inspeção visual mobile/a11y em dispositivo real (com o dono)
+### 🗺️ ROADMAP-MESTRE PRIORIZADO — auditoria completa conferida item a item (2026-07-11)
+> O gerente varreu os 22 problemas + 9 etapas + 10 sugestões + benchmark da auditoria e o CHECKLIST histórico. **Status provado (não declarado)**: dos 22 problemas da tabela-mestra, 20 estão fechados com evidência; abertos de verdade: #9 parcial (vídeo não dá XP) e #21 (consolidação site×extensão). Abaixo, TUDO que falta, em ondas de prioridade decididas pela equipe.
+
+#### 🔴 ONDA 0 — Entregar o que está pronto (bloqueia todo o resto)
+- [ ] [Dono] Teste manual do preview (roteiro no HANDOFF): Difícil gradua · diagnóstico do linguista · história com reencontro · quiz varia · hover · toggle 🔔
+- [ ] [Gerente] **Merge do PR #3 na main** após o OK do dono → tudo vai pro site oficial
+- [ ] [Dono+Backend] Push real: ativar o toggle e confirmar a notificação do dia seguinte (17:30 UTC)
+- [ ] [Dono] Leaked Password Protection (Supabase → Auth → Settings) + rotacionar chave DeepSeek (Vault)
+
+#### 🟠 ONDA 1 — Fechar "tudo conversa entre si" (o coração da auditoria)
+- [ ] [Eng. SRS] **XP por assistir vídeo**: extensão chama `record_learning_event('video_session', blocos de 5min)` no logSession — é o item #9 da auditoria que ficou meio-feito; assistir vídeo hoje dá 0 XP e não conta pra ofensiva
+- [ ] [Linguista] Diagnóstico → **missões**: a fraqueza da semana vira missão diária automática ("Revise 5 phrasal verbs")
+- [ ] [Eng. SRS] Diagnóstico → **interleaving**: categoria fraca ganha prioridade na fila
+- [ ] [Prof. didático] Reencontro nas histórias TAMBÉM na extensão (service worker recebe userWords)
+- [ ] [Prof. didático] **Missões semanais** (além das diárias) com recompensa maior — Duolingo tem, nós não
+
+#### 🟡 ONDA 2 — Experiência de estudo completa (paridade Anki que falta)
+- [ ] [Gerente+Eng. SRS] **Tela de Estatísticas** de verdade (a auditoria pediu, nunca foi feita): retenção por dia, tempo de estudo, curva de maturação, forecast 30d, histórico por palavra — os dados JÁ existem em review_log/sessions
+- [ ] [Eng. SRS] **Estudo filtrado por tópico/categoria/tag** (revisão por assunto — Anki filtered decks): o Cofre já filtra, o ESTUDO não
+- [ ] [Prof. didático] **Editor de card** no Cofre (corrigir tradução/frase sem deletar e recriar)
+- [ ] [Prof. didático] Mini-jogo "ouça-e-escolha" (listening) no gameView
+- [ ] [Eng. SRS] Player YouTube **instância única global** no estudo (a ideia do dono; base `videoContext` pronta)
+
+#### 🟢 ONDA 3 — Conteúdo e alcance (benchmark LingQ/Readlang)
+- [ ] [Prof. didático] Leitor: **importar por URL** (via proxy p/ CORS) e epub — hoje só colar texto
+- [ ] [Linguista] Placement v3: banco de itens maior (hoje 3 cloze/banda), estimativa C2, mini-produção escrita corrigida por IA — aproximação real de Cambridge
+- [ ] [Linguista] **Mnemônicos por IA** no card (Memrise): botão "me dá um truque pra lembrar"
+- [ ] [Backend] Reengajamento por **e-mail** opcional (resumo semanal + ofensiva em risco) — push já existe
+- [ ] [Prof. didático] Frases de exemplo do Tatoeba como fonte extra (E3 antigo)
+
+#### 🔵 ONDA 4 — Infra e polimento
+- [ ] [Gerente] Consolidação site×extensão (Etapa 8 — último item estrutural da auditoria: rotas/código duplicado)
+- [ ] [Backend] Perf: stale-while-revalidate nos GETs; `getWordsByCategory` paginado (gargalos mapeados)
 - [ ] [Backend] Indicador de progresso do download do Kokoro (~90MB)
-- [ ] [Gerente] Ícones PWA 192/512 com arte original (hoje upscale)
-- [ ] [Backend] Push: teste com assinatura REAL do navegador do dono (toggle → aguardar disparo 17:30 UTC)
-- [ ] [Gerente] Consolidação final site vs extensão (Etapa 8 — rotas/código duplicado)
+- [ ] [Gerente] Ícones PWA 192/512 com arte original
+- [ ] [QA+Dono] Inspeção visual mobile/a11y em celular real; validar virada de dia no fuso à meia-noite; observar limite do YouGlish
+- [ ] [QA] FASE 3 antiga: 3 fluxos com sessão expirada (tradução/dicionário/IA se recuperam sozinhos)
+
+#### ✅ Fechado da tabela-mestra da auditoria (com evidência): #1-8, #10-20, #22
+Fila learning/rótulos reais · settings→translation_cache · configs reais · limites diários · XP jogo/história/quiz/missões · ligas cron · streak unificada+fuso · card de história consertado · placement 3 fases · push · missões adaptativas+retorno · LingQ (%conhecido/status/quiz/reencontro) · RPC morta · advisors · índices · revisão atômica+undo íntegro · telemetria · onboarding real · XP localStorage removido · Difícil gradua.
 
 ## Diagnóstico e planejamento
 - [x] Revisão multi-especialista do estado atual do repositório (diff completo, 22 arquivos modificados + 8 untracked)

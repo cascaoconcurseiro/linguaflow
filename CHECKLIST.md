@@ -1,5 +1,16 @@
 # Checklist — LinguaFlow
 
+## Quadro vivo de execução — coordenação sênior (2026-07-11)
+
+| Ordem | Frente | Responsável | Estado | Critério de aceite |
+|---|---|---|---|---|
+| P0 | Push/segurança e replay de migrations | Banco + QA | Em correção | Cron pausado; E2E com inscrição real, Vault e Edge Function; replay em ambiente provisionado/CI. |
+| P1 | Motor de aprendizado (cards, quiz, diagnóstico) | Linguista + Eng. SRS + Professor | Em revisão | Política de `Difícil` explícita; métricas válidas; XP e reentrada sem exploração. |
+| P1 | Histórias e extensão | Professor + Extensão | Pendente | Reencontro verdadeiro também na extensão; quiz sem repetição/XP indevido. |
+| P2 | Conteúdo, paridade e polimento | Produto + QA | Pendente | Estatísticas, tópicos/editor, mobile real, ícones e consolidação final. |
+
+Regra de coordenação: uma entrega só passa para a próxima frente quando tiver código versionado, teste proporcional, validação de segurança e registro no `AUDITORIA_GERAL_2026-07-10.md` e `HANDOFF.md`.
+
 ## Diagnóstico e planejamento
 - [x] Revisão multi-especialista do estado atual do repositório (diff completo, 22 arquivos modificados + 8 untracked)
 - [x] Confirmar causa raiz do bug de sessão (falta refresh de token) por grep no repo inteiro

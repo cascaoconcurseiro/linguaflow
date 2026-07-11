@@ -496,6 +496,14 @@ function injectStyles() {
             border: 2px dashed var(--color-border);
             border-radius: var(--radius-lg);
         }
+        @media (max-width: 768px) {
+            .library-container { padding: 16px; padding-bottom: 100px; }
+            .lib-header { flex-wrap: wrap; gap: 16px; }
+            .lib-title-block h2 { font-size: 24px; }
+            .word-card { flex-wrap: wrap; gap: 10px; }
+            .word-actions { gap: 10px; }
+            .empty-state { padding: 32px 16px; }
+        }
     `;
     document.head.appendChild(style);
 }

@@ -642,7 +642,7 @@ function injectStyles() {
             display: flex;
             flex-direction: column;
             gap: 24px;
-            padding: 24px;
+            padding: clamp(12px, 4vw, 24px);
             max-width: 1200px;
             margin: 0 auto;
             font-family: 'Nunito', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -662,7 +662,7 @@ function injectStyles() {
             background: var(--color-surface);
             border: 2px solid var(--color-border);
             border-radius: 24px;
-            padding: 32px;
+            padding: clamp(16px, 5vw, 32px);
             box-shadow: 0 8px 24px rgba(0,0,0,0.08);
             display: flex;
             flex-direction: column;

@@ -1,5 +1,18 @@
 # Handoff — LinguaFlow
 
+## Execução Fable — 2026-07-12 (ONDA 6 — responsividade mobile, "todos seniors das áreas envolvidas")
+> Pedido do dono: "A versão no celular precisa de diversos ajustes... Preciso de todos sênior das áreas envolvidas... o sistema já pode ir pra produção?". Investigado com Chromium/Playwright headless em viewports de 320/375/390px.
+
+**[Eng.Backend+Prof.didático] Achado principal — topbar quebrado em qualquer celular**: `dashboard/css/globals.css` nunca teve `@media` nenhum. `.topbar` (logo + 7 botões de nav + toggle de tema + "Sair" + streak/due) mede **1112px de largura de conteúdo** — em 375px de tela, `overflow-x:hidden` no `body` simplesmente corta tudo além do visível. Medido e confirmado visualmente (screenshot antes/depois): só "Início" e um pedaço de "Histórias" apareciam; **Leitor, Ligas, O Cofre, Estatísticas, Config, alternância de tema e o botão de logout ficavam 100% inacessíveis no celular** (não dava nem pra sair da conta). Corrigido: abaixo de 768px o topbar quebra em 2 linhas e a faixa de nav vira `overflow-x:auto` (scroll horizontal, tudo alcançável); abaixo de 420px o texto do logo some.
+
+**[Prof. didático] Containers e conteúdo apertados nas views**: `readerView`, `storiesView`, `settingsView` tinham `padding:40px` fixo nos wrappers principais — em 375px isso sobra só ~295px úteis. Trocado por `clamp(16px, 5vw, 40px)`. `libraryView` (Cofre): linha de palavra (`.word-card`) não quebrava contra os botões de ação — `flex-wrap` adicionado. `storiesView`: cabeçalho da história lida (título + 4 botões: Ouvir/Parar/Quiz/Marcar como lida) espremia o título contra os botões por falta de `flex-wrap` no container pai — corrigido; fonte do texto da história e do leitor reduzida abaixo de 480px pra melhor leitura em tela pequena. `homeView`: já tinha boa base responsiva (grid `auto-fit`, coluna única <768px) de uma onda anterior; paddings fixos restantes trocados por `clamp()`.
+
+**[QA] Verificação**: `studyView` (Estudo) e `statsView` (Estatísticas) já tinham `@media` bem construídos de ondas anteriores — sem regressão, confirmado por leitura de código. 30/30 `engine.test.mjs`, 5/5 `local-day.test.mjs`, `release-smoke` verde. **Limitação honesta**: o ambiente de sandbox não tem sessão Supabase autenticada real, então só o bug do topbar foi confirmado com screenshot visual de verdade; as demais correções (telas pós-login) foram feitas por leitura cuidadosa do CSS/layout, não renderização visual logada — recomendo teste manual num celular real antes de considerar 100% fechado.
+
+**[Gerente] Veredito de produção**: ver seção "🎯 Pode ir pra produção?" no fim deste arquivo.
+
+---
+
 ## Execução Fable — 2026-07-12 (ONDA 5 — nova auditoria completa, "todos seniors")
 > Pedido do dono: revisitar auditoria+checklist, nova auditoria caçando bugs/erros/coisas não implantadas, com autorização explícita pra corrigir qualquer problema em Supabase/GitHub. Relatório completo em `docs/AUDITORIA_2026-07-12.md`.
 
@@ -210,3 +223,27 @@
 ## Bloqueios
 - Não confirmado se a coluna `deck_id` em `words` é `NOT NULL` no schema Postgres atual — `saveWord()` já não envia mais esse campo (só `bulkUpdateDeck()` ainda usa). Precisa de uma query no Supabase antes de mexer nisso na Fase 1, para não quebrar salvamento de palavra.
 - Documento externo `D:\Downloads\prompt-linguaflow-arquitetura.md` foi atualizado nesta sessão (v2) mas não é mais a fonte única de verdade — `MASTER_BLUEPRINT.md`/`CHECKLIST.md` no repo é quem manda a partir de agora. O doc externo ainda tem o SQL da tabela `api_usage_log` usado na Fase 2.
+
+---
+
+## 🎯 Pode ir pra produção? (resposta de 2026-07-12, após ONDA 6)
+
+**Curto:** não ainda — falta uma sessão de teste manual do dono, mais alguns itens de configuração que só o dono pode fazer (chaves, toggles de conta). O código em si (motor SRS, segurança, mobile) está em bom estado depois das Ondas 1-6.
+
+**O que EU já resolvi e não bloqueia mais:**
+- Bug crítico de mobile (topbar inacessível, logout impossível no celular) — corrigido nesta sessão.
+- IDOR e SSRF críticos (Onda 5) — corrigidos e deployados.
+- Motor FSRS, cache, corridas de dados, vazamento de `AudioContext` — corrigidos.
+- Suíte de testes 100% verde, migrations validadas do zero em banco efêmero.
+
+**O que só o DONO pode fechar antes de um lançamento real (nada disso eu consigo fazer sozinho neste ambiente):**
+1. **Teste manual num celular físico de verdade** — eu corrigi o topbar (confirmado com screenshot) e as demais telas por leitura de CSS, mas nunca vi o app logado rodando de verdade num telefone. É o item de maior risco residual.
+2. **Aprovar/mergear o PR #3** — nada disso vai pro `main`/produção até isso acontecer.
+3. **Confirmar Web Push de ponta a ponta** com uma notificação real chegando no celular/navegador do dono.
+4. **Ativar "Leaked Password Protection"** nas configurações de Auth do Supabase (toggle simples, mas é uma decisão de conta, não de código).
+5. **Rotacionar a chave da API DeepSeek** (a atual foi usada/vista durante o desenvolvimento).
+6. **Configurar uma chave de provedor de e-mail** (Resend ou similar) se quiser o reengajamento por e-mail (Onda 3.4) funcionando de verdade — hoje a função existe mas fica inerte sem a chave.
+7. **Decidir a arte do ícone do PWA** (hoje é um mascote de tucano genérico, não uma marca própria) — ou aprovar mantê-lo.
+8. Branches obsoletas (`master`, `codex/auditoria-completa`) — cosmético, não bloqueia produção, só perguntando se quer que eu remova.
+
+Resumindo: o código não é mais o gargalo. O gargalo agora é uma rodada de decisões/testes que dependem de você.

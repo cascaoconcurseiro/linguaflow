@@ -56,7 +56,7 @@ async function translateText(text) {
 
 export function renderStories(container, app) {
   container.innerHTML = `
-    <div style="padding: 40px; max-width: 900px; margin: 0 auto; padding-bottom:100px; animation: fadeIn 0.4s ease-out; position:relative;">
+    <div style="padding: clamp(16px, 5vw, 40px); max-width: 900px; margin: 0 auto; padding-bottom:100px; animation: fadeIn 0.4s ease-out; position:relative;">
       <h1 style="font-size: 32px; color: var(--color-text); margin-bottom: 8px;">📚 Histórias Dinâmicas</h1>
       <p style="color:var(--color-text-light); margin-bottom: 24px;">Gere histórias adaptadas ao seu nível, ouça o texto completo ou selecione trechos, estilo LingQ.</p>
 
@@ -94,14 +94,14 @@ export function renderStories(container, app) {
       </div>
 
       <!-- Story Reader Container -->
-      <div id="story-reader-container" style="display:none; background: var(--color-surface); border-radius: var(--radius-md); padding: 32px; border: 2px solid var(--color-border); box-shadow: 0 4px 12px rgba(0,0,0,0.05); position:relative;">
+      <div id="story-reader-container" style="display:none; background: var(--color-surface); border-radius: var(--radius-md); padding: clamp(16px, 4vw, 32px); border: 2px solid var(--color-border); box-shadow: 0 4px 12px rgba(0,0,0,0.05); position:relative;">
         <div id="story-loading" style="display:none; text-align:center; padding: 40px; color:var(--color-text-light);">
           <div class="lf-spin" style="width: 40px; height: 40px; border: 4px solid var(--color-border); border-top-color: var(--color-primary); border-radius: 50%; margin: 0 auto 16px;"></div>
           <p style="font-size: 16px; font-weight:bold;">A IA está escrevendo sua história sob medida...</p>
         </div>
         
         <div id="story-header" style="display:none; margin-bottom:24px; border-bottom:1px solid var(--color-border); padding-bottom:16px;">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
             <div>
               <h2 id="story-title-display" style="margin-top:0; color:var(--color-text); font-size:24px; margin-bottom:8px;"></h2>
               <span id="story-level-badge" style="background:var(--color-primary); color:white; font-size:12px; font-weight:bold; padding:4px 8px; border-radius:12px;">B1</span>
@@ -187,6 +187,10 @@ export function renderStories(container, app) {
       .history-item { padding: 16px; border: 2px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); cursor: pointer; display:flex; justify-content:space-between; align-items:center; }
       .history-item:hover { border-color: var(--color-primary); }
       .history-item .level-tag { font-size:11px; font-weight:bold; padding:2px 6px; border-radius:8px; background:var(--color-primary); color:white; margin-left:8px; vertical-align:middle; }
+      @media (max-width: 480px) {
+        #story-content { font-size: 17px !important; line-height: 1.7 !important; }
+        #story-title-display { font-size: 20px !important; }
+      }
     `;
     document.head.appendChild(style);
   }

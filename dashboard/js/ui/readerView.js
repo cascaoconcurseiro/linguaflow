@@ -125,7 +125,7 @@ export async function renderReader(container, app) {
 
   const texts = loadTexts();
   container.innerHTML = `
-    <div style="padding:40px; max-width:900px; margin:0 auto; padding-bottom:100px;">
+    <div style="padding:clamp(16px, 5vw, 40px); max-width:900px; margin:0 auto; padding-bottom:100px;">
       <h1 style="font-size:32px; color:var(--color-text); margin-bottom:8px;">📖 Leitor</h1>
       <div style="background:rgba(28,176,246,0.08); border:2px solid var(--color-secondary); border-radius:var(--radius-md); padding:16px 20px; margin-bottom:24px;">
         <p style="color:var(--color-text); font-weight:700; margin-bottom:8px;">Como funciona (3 passos):</p>
@@ -386,6 +386,9 @@ function injectStyles() {
     .rw-known { background: transparent; }
     :root[data-theme="dark"] .rw-new { background: rgba(28, 176, 246, 0.28); }
     :root[data-theme="dark"] .rw-learning { background: rgba(255, 200, 0, 0.22); }
+    @media (max-width: 480px) {
+      #rd-view-body { padding: 16px !important; font-size: 17px !important; line-height: 1.8 !important; }
+    }
   `;
   document.head.appendChild(style);
 }

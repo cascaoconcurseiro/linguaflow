@@ -282,7 +282,7 @@ export async function renderSettings(container, app) {
   const audioBack = audioBackRaw === null || audioBackRaw === true || audioBackRaw === 'true';
 
   container.innerHTML = `
-    <div style="padding: 40px; max-width: 800px; margin: 0 auto; padding-bottom:100px;">
+    <div style="padding: clamp(16px, 5vw, 40px); max-width: 800px; margin: 0 auto; padding-bottom:100px;">
       <h1 style="font-size: 32px; color: var(--color-text); margin-bottom: 8px;">Configurações do Cofre</h1>
       <p style="color:var(--color-text-light); margin-bottom: 32px;">Personalize seu aprendizado com as opções avançadas do sistema LinguaFlow (Inspirado no Anki V3).</p>
 

@@ -8,9 +8,30 @@ import { db as lfDb } from '../../../utils/db.js';
 import { playNaturalAudio } from '../core/tts.js';
 import { translator } from '../../../utils/translator.js';
 import { lemma } from '../../../utils/lemma.js';
+import { parseEpub } from '../core/epub.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 const TEXTS_KEY = 'lf_reader_texts';
+const URL_IMPORT_EDGE_URL = 'https://qnutoswrufznztoznlql.supabase.co/functions/v1/url-import';
+
+// Onda 3.1: importar por URL passa pela Edge Function (o browser não
+// consegue fetch cross-origin de qualquer site — CORS). O servidor busca
+// por fora e devolve só o texto extraído, nunca o HTML bruto de terceiros.
+async function importFromUrl(url) {
+  const token = await lfDb._getToken();
+  if (!token) throw new Error('Faça login para importar por URL.');
+  const res = await fetch(URL_IMPORT_EDGE_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  });
+  if (!res.ok) {
+    let msg = 'Não foi possível importar essa URL.';
+    try { const err = await res.json(); if (err?.error) msg = err.error; } catch { /* mantém msg genérica */ }
+    throw new Error(msg);
+  }
+  return res.json(); // { title, text }
+}
 
 let knownLemmas = new Set();
 let learningLemmas = new Set();
@@ -104,7 +125,7 @@ export async function renderReader(container, app) {
 
   const texts = loadTexts();
   container.innerHTML = `
-    <div style="padding:40px; max-width:900px; margin:0 auto; padding-bottom:100px;">
+    <div style="padding:clamp(16px, 5vw, 40px); max-width:900px; margin:0 auto; padding-bottom:100px;">
       <h1 style="font-size:32px; color:var(--color-text); margin-bottom:8px;">📖 Leitor</h1>
       <div style="background:rgba(28,176,246,0.08); border:2px solid var(--color-secondary); border-radius:var(--radius-md); padding:16px 20px; margin-bottom:24px;">
         <p style="color:var(--color-text); font-weight:700; margin-bottom:8px;">Como funciona (3 passos):</p>
@@ -118,8 +139,19 @@ export async function renderReader(container, app) {
 
       <div id="reader-import" style="background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:24px; margin-bottom:24px;">
         <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Importar novo texto</label>
+
+        <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+          <input id="rd-url" type="url" placeholder="Colar uma URL (artigo, notícia…)" style="flex:1; min-width:220px; padding:10px 12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
+          <button id="rd-url-fetch" class="btn btn-secondary" style="padding:10px 16px; white-space:nowrap;">🔗 Buscar da URL</button>
+          <label class="btn btn-secondary" style="padding:10px 16px; white-space:nowrap; cursor:pointer; margin:0; display:inline-flex; align-items:center;">
+            📖 Importar EPUB
+            <input id="rd-epub" type="file" accept=".epub" style="display:none;">
+          </label>
+        </div>
+        <div id="rd-import-status" style="font-size:13px; color:var(--color-text-light); margin-bottom:10px; min-height:0;"></div>
+
         <input id="rd-title" type="text" placeholder="Título (ex: Artigo sobre viagem)" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); margin-bottom:12px; background:var(--color-bg-alt); color:var(--color-text);">
-        <textarea id="rd-content" rows="5" placeholder="Cole aqui o texto em inglês (letra de música, artigo, roteiro, legenda…)" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text); resize:vertical;"></textarea>
+        <textarea id="rd-content" rows="5" placeholder="Cole aqui o texto em inglês (letra de música, artigo, roteiro, legenda…) — ou use os botões acima pra importar de uma URL/EPUB" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text); resize:vertical;"></textarea>
         <button id="rd-add" class="btn btn-primary" style="margin-top:12px;">Adicionar à biblioteca</button>
       </div>
 
@@ -211,6 +243,50 @@ export async function renderReader(container, app) {
     texts.unshift(t);
     saveTexts(texts);
     openText(t);
+  });
+
+  // Onda 3.1: importar por URL — preenche título/texto pro usuário revisar
+  // antes de "Adicionar à biblioteca" (mesmo fluxo de sempre, sem atalho novo).
+  const importStatus = document.getElementById('rd-import-status');
+  document.getElementById('rd-url-fetch').addEventListener('click', async () => {
+    const urlInput = document.getElementById('rd-url');
+    const url = urlInput.value.trim();
+    if (!url) { app.showToast('Cole uma URL primeiro.', 'info'); return; }
+    const btn = document.getElementById('rd-url-fetch');
+    btn.disabled = true;
+    importStatus.textContent = '⏳ Buscando e extraindo o texto…';
+    try {
+      const { title, text } = await importFromUrl(url);
+      document.getElementById('rd-title').value = title || '';
+      document.getElementById('rd-content').value = text || '';
+      importStatus.textContent = `✅ Texto importado (${(text.match(/[a-zA-Z][a-zA-Z'-]*/g) || []).length} palavras). Revise abaixo e clique em "Adicionar à biblioteca".`;
+      urlInput.value = '';
+    } catch (err) {
+      importStatus.textContent = '';
+      app.showToast(err.message || 'Erro ao importar a URL.', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // Onda 3.1: importar EPUB — descompacta e extrai o texto no navegador,
+  // sem subir o arquivo pra lugar nenhum (só o texto plano vai pro localStorage).
+  document.getElementById('rd-epub').addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    importStatus.textContent = '⏳ Lendo o EPUB…';
+    try {
+      const buffer = await file.arrayBuffer();
+      const { title, content } = await parseEpub(buffer);
+      document.getElementById('rd-title').value = title || file.name.replace(/\.epub$/i, '');
+      document.getElementById('rd-content').value = content || '';
+      importStatus.textContent = `✅ EPUB importado (${(content.match(/[a-zA-Z][a-zA-Z'-]*/g) || []).length} palavras). Revise abaixo e clique em "Adicionar à biblioteca".`;
+    } catch (err) {
+      importStatus.textContent = '';
+      app.showToast(err.message || 'Erro ao ler o EPUB.', 'error');
+    } finally {
+      e.target.value = '';
+    }
   });
 
   document.getElementById('rd-list').addEventListener('click', (e) => {
@@ -310,6 +386,9 @@ function injectStyles() {
     .rw-known { background: transparent; }
     :root[data-theme="dark"] .rw-new { background: rgba(28, 176, 246, 0.28); }
     :root[data-theme="dark"] .rw-learning { background: rgba(255, 200, 0, 0.22); }
+    @media (max-width: 480px) {
+      #rd-view-body { padding: 16px !important; font-size: 17px !important; line-height: 1.8 !important; }
+    }
   `;
   document.head.appendChild(style);
 }

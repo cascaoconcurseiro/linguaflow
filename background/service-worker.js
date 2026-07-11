@@ -81,6 +81,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
           const writeMethods = [
             'saveWord',
+            'updateWord',
             'updateCard',
             'logReview',
             'createDeck',
@@ -1065,6 +1066,26 @@ Tradução: [tradução em português]`;
   }
 }
 
+// Palavras do aluno pro REENCONTRO na história (Onda 1.4 — paridade com a web):
+// fracas primeiro (3+ lapsos/leech), depois em aprendizado recente. Máx 8.
+async function getReencounterWordsSW() {
+  try {
+    const [cards, words] = await Promise.all([db.getAllCards(), db.getAllWords()]);
+    const wordById = {};
+    words.forEach(w => { wordById[w.id] = w; });
+    const nameOf = (c) => wordById[c.word_id]?.word;
+    const weak = cards
+      .filter(c => !c.suspended && ((c.lapses || 0) >= 3 || c.is_leech))
+      .sort((a, b) => (b.lapses || 0) - (a.lapses || 0))
+      .map(nameOf).filter(Boolean);
+    const inProgress = cards
+      .filter(c => !c.suspended && (c.status === 'learning' || c.status === 'review'))
+      .sort((a, b) => new Date(b.last_review || 0) - new Date(a.last_review || 0))
+      .map(nameOf).filter(Boolean);
+    return [...new Set([...weak, ...inProgress])].slice(0, 8);
+  } catch { return []; }
+}
+
 async function generateStoryWithAI(genre) {
   try {
     const cefr = await db.getSetting('lf_cefr_level') || 'B1';
@@ -1073,10 +1094,15 @@ async function generateStoryWithAI(genre) {
       throw new Error('Faça login no LinguaFlow para gerar histórias (ou configure sua chave de API própria).');
     }
 
+    const reencounter = await getReencounterWordsSW();
+    const reencounterNote = reencounter.length
+      ? `\nIMPORTANTE: incorpore NATURALMENTE ${Math.min(6, Math.max(4, reencounter.length))} destas palavras/expressões que o aluno está estudando (sem forçar, sem destacar, sem listar): ${reencounter.join(', ')}.`
+      : '';
+
     const prompt = `Você é um gerador de histórias curtas para estudantes de inglês.
 Nível do Estudante: CEFR ${cefr}.
 Tema/Gênero da História: ${genre}.
-
+${reencounterNote}
 Por favor, escreva uma história curta (cerca de 200 a 300 palavras) em inglês, adequada para o nível ${cefr}.
 A história deve conter vocabulário útil e natural, com frases bem construídas.
 Não traduza a história. Apenas escreva a história em inglês, usando quebras de linha normais para parágrafos.
@@ -1109,7 +1135,7 @@ NÃO use formatação markdown, NÃO coloque um título, apenas o texto da hist�
       text = data.choices?.[0]?.message?.content || '';
     
     
-    return { story: text.trim(), level: cefr };
+    return { story: text.trim(), level: cefr, requestedWords: reencounter };
   } catch (err) {
     console.error('Erro ao gerar história:', err);
     throw err;

@@ -7,6 +7,7 @@ import { renderStories } from '../ui/storiesView.js';
 import { renderReader } from '../ui/readerView.js';
 import { renderGame } from '../ui/gameView.js';
 import { renderLogin } from '../ui/loginView.js';
+import { renderStats } from '../ui/statsView.js';
 import { db } from '../../../utils/db.js';
 
 // Register Service Worker for PWA (if not running as a Chrome Extension)
@@ -25,13 +26,32 @@ class App {
     this.currentRoute = 'home';
     this.viewContainers = {}; // Armazena as telas já carregadas (DOM Caching)
     this.db = db; // Expomos o db unificado (Supabase) para todas as views
+    this._reportedErrors = new Set();
     
     this.themeToggleBtn = document.getElementById('theme-toggle-btn');
     
     this.init();
   }
 
+  reportUnexpectedError(source, error) {
+    const name = error?.name || 'Error';
+    const key = `${source}:${name}:${this.currentRoute}`;
+    if (this._reportedErrors.has(key)) return;
+    this._reportedErrors.add(key);
+    this.db.reportClientError(source, name, this.currentRoute);
+  }
+
   async init() {
+    window.addEventListener('error', event => this.reportUnexpectedError('window.error', event.error));
+    window.addEventListener('unhandledrejection', event => this.reportUnexpectedError('window.rejection', event.reason));
+    // Falha de LEITURA não pode virar "lista vazia" silenciosa (auditoria):
+    // avisa o usuário uma vez a cada 30s, sem spam.
+    window.addEventListener('lf_read_error', () => {
+      const now = Date.now();
+      if (this._lastReadErrorToast && now - this._lastReadErrorToast < 30000) return;
+      this._lastReadErrorToast = now;
+      this.showToast?.('⚠️ Falha de conexão ao carregar dados — a tela pode estar incompleta.', 'error');
+    });
     // Setup Navigation Listeners
     this.navBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -109,9 +129,10 @@ class App {
     if (dueEl) dueEl.textContent = dueCards.length;
   }
 
-  navigate(route) {
+  navigate(route, params = {}) {
     this.currentRoute = route;
-    
+    this.routeParams = params || {};
+
     // Update active state on buttons
     this.navBtns.forEach(btn => {
       if(btn.dataset.route === route) {
@@ -153,10 +174,10 @@ class App {
     }
 
     // Chama o render para desenhar (se for a primeira vez) ou atualizar "por baixo dos panos"
-    this.renderRouteView(route, targetContainer);
+    this.renderRouteView(route, targetContainer, this.routeParams);
   }
 
-  renderRouteView(route, container) {
+  renderRouteView(route, container, params = {}) {
     switch(route) {
       case 'login':
         renderLogin(container, this);
@@ -168,7 +189,7 @@ class App {
         renderLibrary(container, this);
         break;
       case 'study':
-        renderStudy(container, this);
+        renderStudy(container, this, params);
         break;
       case 'settings':
         renderSettings(container, this);
@@ -184,6 +205,9 @@ class App {
         break;
       case 'reader':
         renderReader(container, this);
+        break;
+      case 'stats':
+        renderStats(container, this);
         break;
       default:
         renderHome(container, this);

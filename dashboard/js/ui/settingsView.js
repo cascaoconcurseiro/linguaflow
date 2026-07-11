@@ -1,11 +1,21 @@
 // dashboard/js/ui/settingsView.js
 import { db as lfDb } from '../../../utils/db.js';
-import { buildPlacementTest, scorePlacement } from '../core/placement.js';
+import {
+  buildPlacementTest, scorePlacement, shuffleItem, LEVELS,
+  CLOZE_BANK, LISTENING_BANK, clozeStartBand, scoreClozeLadder, clozePassThreshold,
+  levelIndex, listeningBands, scoreListening, combinePlacement, writingPromptFor,
+} from '../core/placement.js';
+import { playNaturalAudio, stopAudio, preloadKokoro } from '../core/tts.js';
+import { gradeWriting } from '../core/ai.js';
 
 const isExtensionCtx = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
-// ── Teste de nivelamento CEFR (modal) ────────────────────────────────────────
-async function runPlacementTest(app, onDone) {
+// ── Teste de nivelamento CEFR em 3 FASES (modal) ─────────────────────────────
+// Fase 1: vocabulário (reconhecimento + pseudo-palavras anti-chute)
+// Fase 2: gramática/leitura em contexto (cloze ADAPTATIVO por banda — Oxford)
+// Fase 3: escuta (frase falada → sentido, estilo Duolingo English Test)
+// Resultado: combinação ponderada + diagnóstico de lacunas por habilidade.
+export async function runPlacementTest(app, onDone) {
   let cefrMap, freqMap;
   try {
     const base = isExtensionCtx ? chrome.runtime.getURL('utils/') : '/utils/';
@@ -19,76 +29,208 @@ async function runPlacementTest(app, onDone) {
     return;
   }
 
-  const items = buildPlacementTest(cefrMap, freqMap);
-  const answers = [];
-  let idx = 0;
-
   const overlay = document.createElement('div');
   overlay.id = 'placement-overlay';
   overlay.style.cssText = 'position:fixed; inset:0; background:rgba(2,6,23,0.75); z-index:99999; display:flex; align-items:center; justify-content:center; padding:20px;';
-  overlay.innerHTML = `
-    <div style="background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-border); max-width:440px; width:100%; padding:32px; text-align:center;">
+  overlay.innerHTML = '<div id="pl-box" style="background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-border); max-width:480px; width:100%; padding:32px; text-align:center;"></div>';
+  document.body.appendChild(overlay);
+  const box = overlay.querySelector('#pl-box');
+  const closeAll = () => { stopAudio(); overlay.remove(); };
+
+  function frame(phaseLabel, progressPct, bodyHtml) {
+    box.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-        <strong style="color:var(--color-text); font-size:14px;">🎯 Teste de nivelamento</strong>
+        <strong style="color:var(--color-text); font-size:14px;">🎯 Nivelamento — ${phaseLabel}</strong>
         <button id="pl-close" style="background:none; border:none; font-size:18px; cursor:pointer; color:var(--color-text-light);">✕</button>
       </div>
       <div style="width:100%; background:var(--color-border); height:8px; border-radius:4px; overflow:hidden; margin-bottom:24px;">
-        <div id="pl-progress" style="width:0%; height:100%; background:var(--color-primary); transition:width 0.2s;"></div>
+        <div style="width:${progressPct}%; height:100%; background:var(--color-primary); transition:width 0.2s;"></div>
       </div>
+      ${bodyHtml}`;
+    box.querySelector('#pl-close').addEventListener('click', closeAll);
+  }
+
+  // ── FASE 1: vocabulário ────────────────────────────────────────────────────
+  const vocabItems = buildPlacementTest(cefrMap, freqMap);
+  const vocabAnswers = [];
+  let vIdx = 0;
+
+  function showVocab() {
+    frame('Fase 1/4: Vocabulário', Math.round((vIdx / vocabItems.length) * 25), `
       <p style="color:var(--color-text-light); font-size:13px; margin-bottom:8px;">Você conhece o significado desta palavra?</p>
-      <div id="pl-word" style="font-size:34px; font-weight:900; color:var(--color-text); margin-bottom:28px; min-height:44px;"></div>
+      <div style="font-size:34px; font-weight:900; color:var(--color-text); margin-bottom:28px; min-height:44px;">${vocabItems[vIdx].word}</div>
       <div style="display:flex; gap:12px;">
         <button id="pl-no" class="btn" style="flex:1; background:var(--color-danger); color:white; border-bottom:4px solid var(--color-danger-shadow); padding:14px;">Não sei</button>
         <button id="pl-yes" class="btn btn-primary" style="flex:1; padding:14px;">✓ Conheço</button>
       </div>
-      <p style="font-size:11px; color:var(--color-text-light); margin-top:16px;">Seja honesto: algumas palavras não existem — marcar "conheço" nelas derruba seu resultado.</p>
-    </div>`;
-  document.body.appendChild(overlay);
-
-  function show() {
-    document.getElementById('pl-progress').style.width = `${Math.round((idx / items.length) * 100)}%`;
-    document.getElementById('pl-word').textContent = items[idx].word;
+      <p style="font-size:11px; color:var(--color-text-light); margin-top:16px;">Seja honesto: algumas palavras não existem — marcar "conheço" nelas derruba seu resultado.</p>`);
+    const answer = (known) => {
+      vocabAnswers.push({ band: vocabItems[vIdx].band, known });
+      vIdx++;
+      if (vIdx >= vocabItems.length) startCloze(scorePlacement(vocabAnswers));
+      else showVocab();
+    };
+    box.querySelector('#pl-yes').addEventListener('click', () => answer(true));
+    box.querySelector('#pl-no').addEventListener('click', () => answer(false));
   }
 
-  async function finish() {
-    const result = scorePlacement(answers);
-    const levelNames = { A1: 'Iniciante', A2: 'Básico', B1: 'Intermediário', B2: 'Fluente Base', C1: 'Avançado' };
-    overlay.querySelector('div').innerHTML = `
-      <div style="font-size:56px; margin-bottom:12px;">${result.honesty < 60 ? '🤨' : '🎓'}</div>
-      <h2 style="color:var(--color-primary); font-size:40px; margin-bottom:4px;">${result.level}</h2>
-      <p style="color:var(--color-text); font-weight:800; margin-bottom:8px;">${levelNames[result.level] || ''}</p>
-      ${result.honesty < 60 ? '<p style="color:var(--color-danger); font-size:13px; margin-bottom:16px;">Você marcou "conheço" em palavras que não existem — o resultado foi ajustado pra baixo. Refaça com calma!</p>' : '<p style="color:var(--color-text-light); font-size:13px; margin-bottom:16px;">Nível aplicado em todo o sistema: IA, histórias e legendas.</p>'}
-      <button id="pl-apply" class="btn btn-primary" style="width:100%; padding:14px;">Usar este nível</button>
+  // ── FASE 2: cloze adaptativo ───────────────────────────────────────────────
+  function startCloze(vocabResult) {
+    const ladder = LEVELS.slice(levelIndex(clozeStartBand(vocabResult.level)));
+    const results = []; // [{band, correct, total}]
+    let bandIdx = 0, itemIdx = 0, bandCorrect = 0;
+    let items = CLOZE_BANK[ladder[0]].map(i => shuffleItem(i));
+
+    function showCloze() {
+      const band = ladder[bandIdx];
+      const item = items[itemIdx];
+      const done = results.reduce((a, r) => a + r.total, 0) + itemIdx;
+      const totalPlanned = results.reduce((a, r) => a + r.total, 0) + items.length; // aproximação (a escada pode subir mais)
+      frame('Fase 2/4: Gramática em contexto', 25 + Math.round((done / totalPlanned) * 25), `
+        <p style="color:var(--color-text-light); font-size:13px; margin-bottom:8px;">Complete a frase:</p>
+        <div style="font-size:22px; font-weight:800; color:var(--color-text); margin-bottom:24px; min-height:56px;">${item.sentence.replace('___', '<span style="color:var(--color-secondary); border-bottom:3px solid var(--color-secondary); padding:0 8px;">___</span>')}</div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          ${item.options.map((o, i) => `<button class="pl-opt btn" data-i="${i}" style="padding:12px; background:var(--color-bg-alt); color:var(--color-text); border:2px solid var(--color-border); font-weight:700;">${o}</button>`).join('')}
+        </div>`);
+      box.querySelectorAll('.pl-opt').forEach(btn => btn.addEventListener('click', () => {
+        if (Number(btn.dataset.i) === item.answer) bandCorrect++;
+        itemIdx++;
+        if (itemIdx >= items.length) {
+          results.push({ band, correct: bandCorrect, total: items.length });
+          // ADAPTATIVO: passou (60%+) → sobe uma banda; falhou → para
+          if (bandCorrect >= clozePassThreshold(items.length) && bandIdx < ladder.length - 1) {
+            bandIdx++; itemIdx = 0; bandCorrect = 0;
+            items = CLOZE_BANK[ladder[bandIdx]].map(i => shuffleItem(i));
+            showCloze();
+          } else {
+            startListening(vocabResult, scoreClozeLadder(results));
+          }
+        } else {
+          showCloze();
+        }
+      }));
+    }
+    showCloze();
+  }
+
+  // ── FASE 3: listening ──────────────────────────────────────────────────────
+  function startListening(vocabResult, clozeLevel) {
+    const bands = listeningBands(clozeLevel);
+    const items = bands.flatMap(b => LISTENING_BANK[b].map(i => shuffleItem({ ...i, band: b })));
+    let lIdx = 0, lCorrect = 0;
+
+    function showListening() {
+      const item = items[lIdx];
+      frame('Fase 3/4: Escuta', 50 + Math.round((lIdx / items.length) * 25), `
+        <p style="color:var(--color-text-light); font-size:13px; margin-bottom:12px;">Ouça e escolha o significado:</p>
+        <button id="pl-play" class="btn btn-secondary" style="padding:14px 28px; font-size:16px; margin-bottom:20px;">🔊 Ouvir${lIdx === 0 ? ' a frase' : ' de novo'}</button>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          ${item.options.map((o, i) => `<button class="pl-opt btn" data-i="${i}" style="padding:12px; background:var(--color-bg-alt); color:var(--color-text); border:2px solid var(--color-border); font-weight:700; font-size:14px;">${o}</button>`).join('')}
+        </div>`);
+      const play = () => playNaturalAudio(item.sentence, { lang: 'en-US' });
+      box.querySelector('#pl-play').addEventListener('click', play);
+      play();
+      box.querySelectorAll('.pl-opt').forEach(btn => btn.addEventListener('click', () => {
+        stopAudio();
+        if (Number(btn.dataset.i) === item.answer) lCorrect++;
+        lIdx++;
+        if (lIdx >= items.length) {
+          const listeningLevel = scoreListening(clozeLevel, lCorrect, items.length);
+          startWriting(vocabResult, clozeLevel, listeningLevel);
+        } else {
+          showListening();
+        }
+      }));
+    }
+    showListening();
+  }
+
+  // ── FASE 4: mini-produção escrita corrigida por IA (Onda 3.2) ───────────────
+  function startWriting(vocabResult, clozeLevel, listeningLevel) {
+    // Nível "de trabalho" pra escolher o prompt: pior entre cloze/listening
+    // (não adianta pedir um texto C1 pra quem patinou na gramática).
+    const workingLevel = LEVELS[Math.min(levelIndex(clozeLevel), levelIndex(listeningLevel))];
+    const prompt = writingPromptFor(workingLevel);
+    const MIN_WORDS = 15;
+
+    frame('Fase 4/4: Produção escrita', 75, `
+      <p style="color:var(--color-text-light); font-size:13px; margin-bottom:8px;">Escreva em inglês (opcional, mas recomendado — refina seu resultado):</p>
+      <p style="font-size:15px; font-weight:700; color:var(--color-text); margin-bottom:14px;">${prompt}</p>
+      <textarea id="pl-writing" rows="5" placeholder="Write your answer here…" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text); resize:vertical; margin-bottom:8px;"></textarea>
+      <p id="pl-writing-count" style="font-size:11px; color:var(--color-text-light); margin-bottom:16px;">0 palavras (mínimo ${MIN_WORDS})</p>
+      <button id="pl-writing-submit" class="btn btn-primary" style="width:100%; padding:14px;" disabled>Enviar pra correção</button>
+      <button id="pl-writing-skip" style="background:none; border:none; color:var(--color-text-light); font-family:var(--font-main); font-weight:700; font-size:13px; cursor:pointer; margin-top:12px;">Pular esta etapa</button>`);
+
+    const textarea = box.querySelector('#pl-writing');
+    const counter = box.querySelector('#pl-writing-count');
+    const submitBtn = box.querySelector('#pl-writing-submit');
+    const wordCount = (s) => (s.match(/[a-zA-Z''-]+/g) || []).length;
+    textarea.addEventListener('input', () => {
+      const n = wordCount(textarea.value);
+      counter.textContent = `${n} ${n === 1 ? 'palavra' : 'palavras'} (mínimo ${MIN_WORDS})`;
+      submitBtn.disabled = n < MIN_WORDS;
+    });
+
+    box.querySelector('#pl-writing-skip').addEventListener('click', () => {
+      finish(vocabResult, clozeLevel, listeningLevel, null);
+    });
+
+    submitBtn.addEventListener('click', async () => {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Corrigindo com IA…';
+      try {
+        const result = await gradeWriting(textarea.value.trim(), prompt, workingLevel);
+        finish(vocabResult, clozeLevel, listeningLevel, result);
+      } catch (e) {
+        console.warn('[Placement] Correção da escrita falhou, seguindo sem ajuste:', e);
+        finish(vocabResult, clozeLevel, listeningLevel, null);
+      }
+    });
+  }
+
+  // ── Resultado combinado + lacunas ──────────────────────────────────────────
+  function finish(vocabResult, clozeLevel, listeningLevel, writingResult) {
+    const combo = combinePlacement(vocabResult.level, clozeLevel, listeningLevel, vocabResult.honesty, writingResult?.adjust || 0);
+    const levelNames = { A1: 'Iniciante', A2: 'Básico', B1: 'Intermediário', B2: 'Fluente Base', C1: 'Avançado', C2: 'Proficiente' };
+    const skillRow = (label, lvl) => `
+      <div style="display:flex; justify-content:space-between; padding:8px 12px; background:var(--color-bg-alt); border-radius:8px; font-size:14px;">
+        <span style="color:var(--color-text-light); font-weight:700;">${label}</span>
+        <strong style="color:var(--color-text);">${lvl}</strong>
+      </div>`;
+    box.innerHTML = `
+      <div style="font-size:56px; margin-bottom:12px;">${vocabResult.honesty < 60 ? '🤨' : '🎓'}</div>
+      <h2 style="color:var(--color-primary); font-size:40px; margin-bottom:4px;">${combo.level}</h2>
+      <p style="color:var(--color-text); font-weight:800; margin-bottom:16px;">${levelNames[combo.level] || ''}</p>
+      <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:16px; text-align:left;">
+        ${skillRow('📖 Vocabulário', combo.breakdown.vocab)}
+        ${skillRow('✍️ Gramática/Leitura', combo.breakdown.cloze)}
+        ${skillRow('🎧 Escuta', combo.breakdown.listening)}
+      </div>
+      ${writingResult?.feedback ? `<p style="text-align:left; font-size:13px; color:var(--color-text); background:rgba(28,176,246,0.08); border:1px solid var(--color-secondary); border-radius:8px; padding:10px 12px; margin-bottom:12px;">📝 ${writingResult.feedback}</p>` : ''}
+      ${combo.gaps.length ? `<p style="color:#ff9600; font-size:13px; font-weight:700; margin-bottom:12px;">💡 Ponto a reforçar: ${combo.gaps.join(', ')}.</p>` : ''}
+      ${combo.retestRequired ? '<p style="color:var(--color-danger); font-size:13px; margin-bottom:16px;">As pseudo-palavras indicam respostas por chute. Por segurança, este resultado não será aplicado: refaça o teste com calma.</p>' : '<p style="color:var(--color-text-light); font-size:13px; margin-bottom:16px;">Nível aplicado em todo o sistema: IA, histórias e legendas.</p>'}
+      <button id="pl-apply" class="btn btn-primary" style="width:100%; padding:14px;" ${combo.retestRequired ? 'disabled aria-disabled="true" title="Refaça o teste para aplicar um resultado confiável"' : ''}>Usar este nível</button>
       <button id="pl-redo" style="background:none; border:none; color:var(--color-text-light); font-family:var(--font-main); font-weight:700; font-size:13px; cursor:pointer; margin-top:12px;">Refazer o teste</button>`;
 
-    document.getElementById('pl-apply').addEventListener('click', async () => {
+    box.querySelector('#pl-apply').addEventListener('click', async () => {
+      if (combo.retestRequired) return;
       try {
-        await lfDb.setSetting('lf_cefr_level', result.level);
-        lfDb.setSetting('cefrTargetLevel', result.level).catch(() => {});
-        app.showToast(`Nível ${result.level} aplicado! 🎓`, 'success');
+        await lfDb.setSetting('lf_cefr_level', combo.level);
+        lfDb.setSetting('cefrTargetLevel', combo.level).catch(() => {});
+        app.showToast(`Nível ${combo.level} aplicado! 🎓`, 'success');
       } catch {
         app.showToast('Erro ao salvar o nível.', 'error');
       }
-      overlay.remove();
-      if (onDone) onDone(result.level);
+      closeAll();
+      if (onDone) onDone(combo.level);
     });
-    document.getElementById('pl-redo').addEventListener('click', () => {
-      overlay.remove();
+    box.querySelector('#pl-redo').addEventListener('click', () => {
+      closeAll();
       runPlacementTest(app, onDone);
     });
   }
 
-  function answer(known) {
-    answers.push({ band: items[idx].band, known });
-    idx++;
-    if (idx >= items.length) finish();
-    else show();
-  }
-
-  document.getElementById('pl-yes').addEventListener('click', () => answer(true));
-  document.getElementById('pl-no').addEventListener('click', () => answer(false));
-  document.getElementById('pl-close').addEventListener('click', () => overlay.remove());
-  show();
+  showVocab();
 }
 
 export async function renderSettings(container, app) {
@@ -98,22 +240,49 @@ export async function renderSettings(container, app) {
     const stored = await chrome.storage.local.get(['aiApiKey']);
     savedApiKey = stored?.aiApiKey || '';
   } catch(e) {}
-  const savedCefr = (await lfDb.getSetting('lf_cefr_level')) || '';
-  const savedTtsLang = (await lfDb.getSetting('lf_tts_lang')) || 'en-US';
-  const savedTtsSpeed = (await lfDb.getSetting('lf_tts_speed')) || 'normal';
-  
-  const srsMinInt = (await lfDb.getSetting('lf_srs_min_interval')) || '1';
-  const srsEase = (await lfDb.getSetting('lf_srs_ease')) || '2.5';
-  const srsPenalty = (await lfDb.getSetting('lf_srs_penalty')) || '0.2';
-  const srsSuspend = (await lfDb.getSetting('lf_srs_suspend')) || '8';
-  const srsRetention = Math.round(((Number(await lfDb.getSetting('lf_srs_retention')) || 0.9)) * 100);
-  const srsReverseRaw = await lfDb.getSetting('lf_reverse_cards');
+  // TODAS as chaves aqui são as MESMAS que o motor lê em getSRSSettings().
+  // (Bug da auditoria: a tela salvava lf_srs_* e o motor lia outras chaves —
+  // o usuário mexia, via "Salvo ✅" e nada mudava.)
+  const [savedCefr, savedTtsLang, savedTtsSpeed, srsGradInt, srsMaxInt, srsIntMod,
+    srsLeech, srsLeechAction, srsRetentionRaw, srsSteps, srsNewPerDay, srsMaxRev,
+    srsReverseRaw, srsVariedRaw, audioFrontRaw, audioBackRaw] = await Promise.all([
+    lfDb.getSetting('lf_cefr_level'),
+    lfDb.getSetting('lf_tts_lang'),
+    lfDb.getSetting('lf_tts_speed'),
+    lfDb.getSetting('graduating_interval'),
+    lfDb.getSetting('max_interval'),
+    lfDb.getSetting('interval_modifier'),
+    lfDb.getSetting('leech_threshold'),
+    lfDb.getSetting('leech_action'),
+    lfDb.getSetting('lf_srs_retention'),
+    lfDb.getSetting('learning_steps'),
+    lfDb.getSetting('new_per_day'),
+    lfDb.getSetting('max_reviews_per_day'),
+    lfDb.getSetting('lf_reverse_cards'),
+    lfDb.getSetting('lf_varied_exercises'),
+    lfDb.getSetting('lf_audio_auto_front'),
+    lfDb.getSetting('lf_audio_auto_back'),
+  ].map(p => p.catch(() => null)));
+
+  const cefr = savedCefr || '';
+  const ttsLang = savedTtsLang || 'en-US';
+  const ttsSpeed = savedTtsSpeed || 'normal';
+  const gradInt = srsGradInt || '1';
+  const maxInt = srsMaxInt || '36500';
+  const intMod = srsIntMod || '100';
+  const leechThresh = srsLeech || '8';
+  const leechAction = srsLeechAction || 'tag';
+  const srsRetention = Math.round((Number(srsRetentionRaw) || 0.9) * 100);
+  const learningSteps = srsSteps || '1 10';
+  const newPerDay = srsNewPerDay || '20';
+  const maxRevPerDay = srsMaxRev || '200';
   const srsReverse = srsReverseRaw === true || srsReverseRaw === 'true';
-  const srsVariedRaw = await lfDb.getSetting('lf_varied_exercises');
   const srsVaried = srsVariedRaw === null || srsVariedRaw === true || srsVariedRaw === 'true';
+  const audioFront = audioFrontRaw === null || audioFrontRaw === true || audioFrontRaw === 'true';
+  const audioBack = audioBackRaw === null || audioBackRaw === true || audioBackRaw === 'true';
 
   container.innerHTML = `
-    <div style="padding: 40px; max-width: 800px; margin: 0 auto; padding-bottom:100px;">
+    <div style="padding: clamp(16px, 5vw, 40px); max-width: 800px; margin: 0 auto; padding-bottom:100px;">
       <h1 style="font-size: 32px; color: var(--color-text); margin-bottom: 8px;">Configurações do Cofre</h1>
       <p style="color:var(--color-text-light); margin-bottom: 32px;">Personalize seu aprendizado com as opções avançadas do sistema LinguaFlow (Inspirado no Anki V3).</p>
 
@@ -129,23 +298,24 @@ export async function renderSettings(container, app) {
           <button class="cefr-btn lf-btn-bounce" data-level="C1" style="flex:1; min-width:80px; padding:12px 8px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); color:var(--color-text); font-family:var(--font-main); font-weight:800; font-size:16px; cursor:pointer; transition:all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);">C1<br><span style="font-size:11px; font-weight:600; color:var(--color-text-light);">Avançado</span></button>
           <button class="cefr-btn lf-btn-bounce" data-level="C2" style="flex:1; min-width:80px; padding:12px 8px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); color:var(--color-text); font-family:var(--font-main); font-weight:800; font-size:16px; cursor:pointer; transition:all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);">C2<br><span style="font-size:11px; font-weight:600; color:var(--color-text-light);">Maestria</span></button>
         </div>
-        <button id="btn-placement" class="btn btn-secondary" style="margin-top:16px; width:100%;">🎯 Não sei meu nível — fazer o teste de nivelamento (1 min)</button>
-        <p style="font-size:12px; color:var(--color-text-light); margin-top:8px;">36 palavras por faixa de dificuldade, com controle anti-chute. Estima de A1 a C1 e configura o sistema inteiro (IA, histórias, legendas).</p>
+        <button id="btn-placement" class="btn btn-secondary" style="margin-top:16px; width:100%;">🎯 Não sei meu nível — fazer o teste de nivelamento (3 fases, ~4 min)</button>
+        <p style="font-size:12px; color:var(--color-text-light); margin-top:8px;">Vocabulário (anti-chute) + gramática em contexto (adaptativo) + escuta. Combina as 3 habilidades, mostra suas lacunas e configura o sistema inteiro (IA, histórias, legendas).</p>
       </div>
 
-      <!-- Daily Limits -->
+      <!-- Daily Limits (agora REAIS: controlam a fila de estudo) -->
       <div style="background: var(--color-surface); border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px;">
         <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 16px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">Limites Diários</h2>
-        <div style="display:flex; gap: 24px; margin-bottom: 16px;">
+        <div style="display:flex; gap: 24px; margin-bottom: 8px;">
           <div style="flex:1;">
             <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Novas cartas/dia</label>
-            <input type="number" value="20" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; background:var(--color-bg-alt); color:var(--color-text);">
+            <input type="number" id="srs-new-per-day" value="${newPerDay}" min="0" max="200" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; background:var(--color-bg-alt); color:var(--color-text);">
           </div>
           <div style="flex:1;">
             <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Revisões máximas/dia</label>
-            <input type="number" value="200" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; background:var(--color-bg-alt); color:var(--color-text);">
+            <input type="number" id="srs-max-rev" value="${maxRevPerDay}" min="10" max="1000" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; background:var(--color-bg-alt); color:var(--color-text);">
           </div>
         </div>
+        <p style="font-size:12px; color:var(--color-text-light);">Protege contra a "avalanche de cards": novas cartas além da cota ficam pra amanhã, e a sessão respeita o teto de revisões.</p>
       </div>
 
       <!-- Advanced FSRS Section -->
@@ -160,8 +330,8 @@ export async function renderSettings(container, app) {
         <p style="font-size:12px; color:var(--color-text-light); margin-bottom:16px;">Mais alto = você revisa com mais frequência e esquece menos. Mais baixo = menos revisões, mais esquecimento. 90% é o equilíbrio ideal.</p>
         
         <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Passos de Aprendizagem (minutos)</label>
-        <input type="text" value="1m 10m" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; margin-bottom:16px; background:var(--color-bg-alt); color:var(--color-text);">
-        <p style="font-size:12px; color:var(--color-text-light);">Ex: "1m 10m" significa ver a carta em 1 min e depois 10 min antes de graduar.</p>
+        <input type="text" id="srs-learning-steps" value="${learningSteps}" placeholder="1 10" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; margin-bottom:16px; background:var(--color-bg-alt); color:var(--color-text);">
+        <p style="font-size:12px; color:var(--color-text-light);">Ex: "1 10" = a carta nova volta em 1 min e depois em 10 min antes de graduar. É por isso que cards reaparecem na mesma sessão — como no Anki.</p>
       </div>
 
       <!-- Advanced SRS -->
@@ -169,22 +339,30 @@ export async function renderSettings(container, app) {
         <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 16px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">SRS Avançado (Nível Anki)</h2>
         <div style="display:flex; gap:16px; flex-wrap:wrap;">
           <div style="flex:1; min-width:180px;">
-            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Intervalo mínimo após graduação</label>
-            <input type="number" id="srs-min-interval" value="${srsMinInt}" min="1" max="30" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);"> <span style="font-size:12px; color:var(--color-text-light);">dias</span>
+            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Intervalo mínimo após graduação (dias)</label>
+            <input type="number" id="srs-grad-interval" value="${gradInt}" min="1" max="30" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
           </div>
           <div style="flex:1; min-width:180px;">
-            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Ease factor inicial</label>
-            <input type="number" id="srs-ease" value="${srsEase}" min="1.3" max="4.0" step="0.1" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
+            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Intervalo máximo (dias)</label>
+            <input type="number" id="srs-max-interval" value="${maxInt}" min="30" max="36500" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
           </div>
           <div style="flex:1; min-width:180px;">
-            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Penalidade por lapso</label>
-            <input type="number" id="srs-lapse-penalty" value="${srsPenalty}" min="0" max="1" step="0.05" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
+            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Modificador de intervalo (%)</label>
+            <input type="number" id="srs-int-mod" value="${intMod}" min="50" max="200" step="5" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
           </div>
           <div style="flex:1; min-width:180px;">
-            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Suspender após N erros</label>
-            <input type="number" id="srs-suspend" value="${srsSuspend}" min="1" max="50" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
+            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Marcar leech após N erros</label>
+            <input type="number" id="srs-leech-thresh" value="${leechThresh}" min="1" max="50" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
+          </div>
+          <div style="flex:1; min-width:180px;">
+            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Ação para leeches</label>
+            <select id="srs-leech-action" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
+              <option value="tag" ${leechAction === 'tag' ? 'selected' : ''}>Só marcar (tag)</option>
+              <option value="suspend" ${leechAction === 'suspend' ? 'selected' : ''}>Suspender o card</option>
+            </select>
           </div>
         </div>
+        <p style="font-size:12px; color:var(--color-text-light); margin-top:8px;">Todos estes valores alimentam o motor FSRS de verdade — mesmo nome de chave que o agendador usa. Modificador 100% = neutro; 80% = revisa mais cedo.</p>
         <label style="display:flex; align-items:center; gap:10px; margin-top:20px; font-weight:bold; color:var(--color-text); cursor:pointer;">
           <input type="checkbox" id="srs-reverse-cards" ${srsReverse ? 'checked' : ''} style="width:18px; height:18px;">
           Cartões reversos (🇧🇷→🇺🇸): às vezes mostrar a tradução e pedir o inglês
@@ -202,10 +380,10 @@ export async function renderSettings(container, app) {
         <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 16px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">Opções de Áudio (TTS Google Neural)</h2>
         <div style="display:flex; flex-direction:column; gap: 16px;">
           <label style="display:flex; align-items:center; gap:8px;">
-            <input type="checkbox" id="audio-auto-front" checked style="width:18px; height:18px;"> Reproduzir áudio automaticamente na Frente
+            <input type="checkbox" id="audio-auto-front" ${audioFront ? 'checked' : ''} style="width:18px; height:18px;"> Reproduzir áudio automaticamente na Frente
           </label>
           <label style="display:flex; align-items:center; gap:8px;">
-            <input type="checkbox" id="audio-auto-back" checked style="width:18px; height:18px;"> Reproduzir áudio automaticamente no Verso
+            <input type="checkbox" id="audio-auto-back" ${audioBack ? 'checked' : ''} style="width:18px; height:18px;"> Reproduzir áudio automaticamente no Verso
           </label>
           <label style="display:flex; align-items:flex-start; gap:8px; padding-top:8px; border-top:1px dashed var(--color-border);">
             <input type="checkbox" id="audio-kokoro" style="width:18px; height:18px; margin-top:2px;">
@@ -214,6 +392,12 @@ export async function renderSettings(container, app) {
               <span style="font-size:12px; color:var(--color-text-light);">Qualidade acima do Google TTS. Baixa ~90 MB na primeira vez e depois funciona até sem internet. Só no site (não na extensão). Requer navegador moderno.</span>
             </span>
           </label>
+          <div id="kokoro-progress-box" class="hidden" style="margin-left:26px;">
+            <div style="width:100%; background:var(--color-border); height:8px; border-radius:4px; overflow:hidden;">
+              <div id="kokoro-progress-bar" style="width:0%; height:100%; background:var(--color-primary); transition:width 0.2s;"></div>
+            </div>
+            <p id="kokoro-progress-text" style="font-size:12px; color:var(--color-text-light); margin-top:6px;">Baixando modelo… 0%</p>
+          </div>
           <div style="display:flex; gap:16px; flex-wrap:wrap; margin-top:8px;">
             <div style="flex:1; min-width:200px;">
               <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Sotaque</label>
@@ -244,6 +428,28 @@ export async function renderSettings(container, app) {
         </div>
         <p id="api-key-status" style="font-size:12px; margin-top:8px; color:${savedApiKey ? '#58cc02' : '#afafaf'};">${ savedApiKey ? '✅ Chave configurada' : '⚠️ Nenhuma chave configurada'}</p>
         <button id="btn-save-api-key" class="btn btn-primary" style="margin-top:16px; width:100%;">Salvar Chave de API</button>
+      </div>
+
+      <!-- Lembretes (Web Push REAL — opt-in explícito) -->
+      <div id="push-section" style="background: var(--color-surface); border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px; display:none;">
+        <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 8px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">🔔 Lembretes diários</h2>
+        <p style="color:var(--color-text-light); margin-bottom:16px; font-size:14px;">Uma notificação por dia (no máximo) quando houver revisões pendentes ou sua ofensiva estiver em risco — mesmo com o site fechado. Você pode desativar quando quiser.</p>
+        <label style="display:flex; align-items:center; gap:10px; font-weight:bold; color:var(--color-text); cursor:pointer;">
+          <input type="checkbox" id="push-toggle" style="width:18px; height:18px;">
+          Ativar lembretes de revisão neste dispositivo
+        </label>
+        <p id="push-status" style="font-size:12px; color:var(--color-text-light); margin-top:8px;"></p>
+      </div>
+
+      <!-- Reengajamento por e-mail (Onda 3.4 — opt-in explícito) -->
+      <div id="email-section" style="background: var(--color-surface); border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px;">
+        <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 8px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">📧 Resumo por e-mail</h2>
+        <p style="color:var(--color-text-light); margin-bottom:16px; font-size:14px;">No máximo 1 e-mail por semana: resumo do que você estudou ou um aviso se sua ofensiva estiver prestes a esfriar. Sem spam, cancele quando quiser.</p>
+        <label style="display:flex; align-items:center; gap:10px; font-weight:bold; color:var(--color-text); cursor:pointer;">
+          <input type="checkbox" id="email-toggle" style="width:18px; height:18px;">
+          Ativar resumo semanal por e-mail
+        </label>
+        <p id="email-status" style="font-size:12px; color:var(--color-text-light); margin-top:8px;"></p>
       </div>
 
       <!-- Export Section -->
@@ -398,23 +604,43 @@ export async function renderSettings(container, app) {
     const originalText = btnSave.innerHTML;
     btnSave.innerHTML = '<span class="lf-spin"></span> Salvando...';
     
-    const minInt = document.getElementById('srs-min-interval')?.value;
-    const ease = document.getElementById('srs-ease')?.value;
-    const penalty = document.getElementById('srs-lapse-penalty')?.value;
-    const suspend = document.getElementById('srs-suspend')?.value;
-    const retention = document.getElementById('retention-slider')?.value;
+    // CHAVES = as mesmas que getSRSSettings() lê. Se mudar aqui, MUDA o motor.
+    const val = (id) => document.getElementById(id)?.value;
+    const writes = [];
 
-    if (minInt) await lfDb.setSetting('lf_srs_min_interval', minInt);
-    if (ease) await lfDb.setSetting('lf_srs_ease', ease);
-    if (penalty) await lfDb.setSetting('lf_srs_penalty', penalty);
-    if (suspend) await lfDb.setSetting('lf_srs_suspend', suspend);
-    if (retention) await lfDb.setSetting('lf_srs_retention', (Number(retention) / 100).toFixed(2));
+    if (val('srs-grad-interval')) writes.push(lfDb.setSetting('graduating_interval', val('srs-grad-interval')));
+    if (val('srs-max-interval')) writes.push(lfDb.setSetting('max_interval', val('srs-max-interval')));
+    if (val('srs-int-mod')) writes.push(lfDb.setSetting('interval_modifier', val('srs-int-mod')));
+    if (val('srs-leech-thresh')) writes.push(lfDb.setSetting('leech_threshold', val('srs-leech-thresh')));
+    if (val('srs-leech-action')) writes.push(lfDb.setSetting('leech_action', val('srs-leech-action')));
+    if (val('retention-slider')) writes.push(lfDb.setSetting('lf_srs_retention', (Number(val('retention-slider')) / 100).toFixed(2)));
+
+    // Learning steps: aceita "1 10", "1m 10m", "1,10" — normaliza pra "1 10"
+    const stepsRaw = val('srs-learning-steps');
+    if (stepsRaw) {
+      const steps = stepsRaw.replace(/m/gi, '').split(/[\s,]+/).map(Number).filter(n => n > 0);
+      if (steps.length > 0) writes.push(lfDb.setSetting('learning_steps', steps.join(' ')));
+    }
+
+    if (val('srs-new-per-day') !== undefined) writes.push(lfDb.setSetting('new_per_day', val('srs-new-per-day')));
+    if (val('srs-max-rev')) writes.push(lfDb.setSetting('max_reviews_per_day', val('srs-max-rev')));
+
     const reverseChk = document.getElementById('srs-reverse-cards');
-    if (reverseChk) await lfDb.setSetting('lf_reverse_cards', reverseChk.checked ? 'true' : '');
+    if (reverseChk) writes.push(lfDb.setSetting('lf_reverse_cards', reverseChk.checked ? 'true' : ''));
     const variedChk = document.getElementById('srs-varied-exercises');
-    if (variedChk) await lfDb.setSetting('lf_varied_exercises', variedChk.checked ? 'true' : 'false');
-    
-    app.showToast('Configurações salvas com sucesso! ✅', 'success');
+    if (variedChk) writes.push(lfDb.setSetting('lf_varied_exercises', variedChk.checked ? 'true' : 'false'));
+    const audioFrontChk = document.getElementById('audio-auto-front');
+    if (audioFrontChk) writes.push(lfDb.setSetting('lf_audio_auto_front', audioFrontChk.checked ? 'true' : 'false'));
+    const audioBackChk = document.getElementById('audio-auto-back');
+    if (audioBackChk) writes.push(lfDb.setSetting('lf_audio_auto_back', audioBackChk.checked ? 'true' : 'false'));
+
+    try {
+      await Promise.all(writes);
+      app.showToast('Configurações salvas — o motor de memória já está usando os valores novos. ✅', 'success');
+    } catch (e) {
+      console.error('[Settings] Falha ao salvar:', e);
+      app.showToast('Erro ao salvar as configurações. Verifique a conexão.', 'error');
+    }
     setTimeout(() => btnSave.innerHTML = originalText, 500);
   });
 
@@ -602,18 +828,135 @@ export async function renderSettings(container, app) {
   const kokoroChk = document.getElementById('audio-kokoro');
   if (kokoroChk) {
     try { kokoroChk.checked = localStorage.getItem('lf_kokoro') === '1'; } catch { /* sem storage */ }
+
+    // Onda 4: barra de progresso real do download (~90MB), em vez de só um
+    // toast dizendo "pode demorar". O tts.js emite lf_kokoro_progress.
+    const progressBox = document.getElementById('kokoro-progress-box');
+    const progressBar = document.getElementById('kokoro-progress-bar');
+    const progressText = document.getElementById('kokoro-progress-text');
+    const onKokoroProgress = (e) => {
+      const { status, progress, error } = e.detail || {};
+      if (!progressBox) return;
+      if (status === 'done') {
+        progressText.textContent = 'Modelo pronto! 🎉';
+        progressBar.style.width = '100%';
+        setTimeout(() => progressBox.classList.add('hidden'), 2500);
+      } else if (status === 'error') {
+        progressText.textContent = `⚠️ ${error || 'Falha ao baixar — usando Google TTS por enquanto.'}`;
+        setTimeout(() => progressBox.classList.add('hidden'), 4000);
+      } else {
+        progressBox.classList.remove('hidden');
+        progressBar.style.width = `${progress || 0}%`;
+        progressText.textContent = `Baixando modelo… ${progress || 0}%`;
+      }
+    };
+    window.addEventListener('lf_kokoro_progress', onKokoroProgress);
+
     kokoroChk.addEventListener('change', () => {
       try {
         if (kokoroChk.checked) {
           localStorage.setItem('lf_kokoro', '1');
-          app.showToast('Voz premium ativada! O modelo (~90 MB) baixa no primeiro áudio — pode demorar um pouco só na primeira vez. 🎙️', 'info');
+          app.showToast('Voz premium ativando… acompanhe o progresso do download abaixo. 🎙️', 'info');
+          progressBox?.classList.remove('hidden');
+          preloadKokoro();
         } else {
           localStorage.removeItem('lf_kokoro');
+          progressBox?.classList.add('hidden');
           app.showToast('Voz premium desativada. Voltando ao Google TTS.', 'info');
         }
       } catch { app.showToast('Não consegui salvar a preferência.', 'error'); }
     });
   }
+
+  // ── Web Push: assinatura REAL no push service do navegador ────────────────
+  // Só no site (extensão MV3 tem o próprio sistema de notificações) e só se o
+  // navegador suportar. O toggle cria/destrói a assinatura de verdade.
+  (async () => {
+    const supported = !isExtensionCtx && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+    const section = document.getElementById('push-section');
+    if (!supported || !section) return;
+    section.style.display = 'block';
+    const toggle = document.getElementById('push-toggle');
+    const status = document.getElementById('push-status');
+
+    const b64ToU8 = (b64) => {
+      const pad = '='.repeat((4 - (b64.length % 4)) % 4);
+      const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+      return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+    };
+
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const existing = await reg.pushManager.getSubscription();
+      toggle.checked = !!existing;
+      status.textContent = existing ? '✅ Lembretes ativos neste dispositivo.' : '';
+    } catch { /* sw ainda não pronto */ }
+
+    toggle.addEventListener('change', async () => {
+      toggle.disabled = true;
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        if (toggle.checked) {
+          const perm = await Notification.requestPermission();
+          if (perm !== 'granted') throw new Error('Permissão de notificação negada.');
+          const publicKey = await lfDb.getPushPublicKey();
+          if (!publicKey) throw new Error('Chave de push indisponível no servidor.');
+          const sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: b64ToU8(publicKey),
+          });
+          const saved = await lfDb.savePushSubscription(sub.toJSON());
+          if (!saved?.ok) { await sub.unsubscribe(); throw new Error('Falha ao registrar no servidor.'); }
+          status.textContent = '✅ Lembretes ativos neste dispositivo.';
+          app.showToast('🔔 Lembretes ativados! No máximo 1 por dia.', 'success');
+        } else {
+          const sub = await reg.pushManager.getSubscription();
+          if (sub) {
+            await lfDb.deletePushSubscription(sub.endpoint).catch(() => {});
+            await sub.unsubscribe();
+          }
+          status.textContent = 'Lembretes desativados.';
+          app.showToast('Lembretes desativados.', 'info');
+        }
+      } catch (e) {
+        console.warn('[Push] Falha no opt-in:', e);
+        toggle.checked = false;
+        status.textContent = `⚠️ ${e.message || 'Não foi possível ativar.'}`;
+        app.showToast('Não consegui ativar os lembretes: ' + (e.message || ''), 'error');
+      } finally {
+        toggle.disabled = false;
+      }
+    });
+  })();
+
+  // ── Reengajamento por e-mail (Onda 3.4): opt-in simples, um RPC por troca ──
+  (async () => {
+    const emailToggle = document.getElementById('email-toggle');
+    const emailStatus = document.getElementById('email-status');
+    if (!emailToggle) return;
+    try {
+      const stats = await lfDb.getUserStats();
+      emailToggle.checked = !!stats?.email_opt_in;
+      emailStatus.textContent = stats?.email_opt_in ? '✅ Resumo semanal ativo.' : '';
+    } catch { /* falha ao carregar preferência atual: deixa desmarcado */ }
+
+    emailToggle.addEventListener('change', async () => {
+      emailToggle.disabled = true;
+      const desired = emailToggle.checked;
+      try {
+        const res = await lfDb.setEmailOptIn(desired);
+        if (!res?.ok) throw new Error('Falha ao salvar a preferência.');
+        emailStatus.textContent = desired ? '✅ Resumo semanal ativo.' : 'Resumo por e-mail desativado.';
+        app.showToast(desired ? '📧 Resumo semanal ativado!' : 'Resumo por e-mail desativado.', desired ? 'success' : 'info');
+      } catch (e) {
+        emailToggle.checked = !desired;
+        emailStatus.textContent = '⚠️ Não consegui salvar a preferência.';
+        app.showToast('Não consegui salvar a preferência de e-mail.', 'error');
+      } finally {
+        emailToggle.disabled = false;
+      }
+    });
+  })();
 
   document.getElementById('btn-placement')?.addEventListener('click', () => {
     runPlacementTest(app, (level) => {

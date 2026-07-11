@@ -1,5 +1,6 @@
 // utils/db.js — Banco único do LinguaFlow (Cloud-Only)
 // Integração 100% direta com Supabase via REST API (sem IndexedDB local)
+import { addLocalDays, localDateKey, localDayBounds } from './local-day.js';
 
 const SUPABASE_URL = 'https://qnutoswrufznztoznlql.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudXRvc3dydWZ6bnp0b3pubHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNzIyODEsImV4cCI6MjA5ODc0ODI4MX0.MdtBZwBnqNDpZ5nTytZDzNFKxHxd1rLmi6wT2MfV-0s';
@@ -10,6 +11,7 @@ class Database {
     this.isChromeContext = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
     this.isProxyMode = this.isChromeContext && !this.isBackgroundWorker;
     this.initPromise = Promise.resolve();
+    this._cacheGeneration = 0;
   }
 
   // Lê o objeto de sessão completo ({ access_token, refresh_token, expires_at, user })
@@ -166,6 +168,11 @@ class Database {
       // Leituras seguem retornando null (views tratam como vazio).
       const method = (options.method || 'GET').toUpperCase();
       if (method !== 'GET') throw e;
+      // Leitura falhou: retorna null (views tratam como vazio) MAS avisa a UI
+      // — "nenhuma palavra" quando na verdade a rede caiu era mentira na tela.
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('lf_read_error', { detail: { endpoint } }));
+      }
       return null;
     }
   }
@@ -371,37 +378,100 @@ class Database {
     return true;
   }
 
+  // Editor do Cofre (Onda 2.3): corrige tradução/frase/categoria/nível SEM
+  // apagar o card — PATCH por id (não é upsert por word/lang) pra nunca
+  // arriscar duplicar a palavra nem perder o histórico FSRS do card.
+  async updateWord(id, patch) {
+    this._invalidateReadCache();
+    if (this.isProxyMode) return this._proxy('updateWord', [id, patch]);
+    const allowed = ['translation', 'context_sentence', 'category', 'level', 'phonetic', 'mnemonic'];
+    const body = {};
+    allowed.forEach(k => { if (patch && patch[k] !== undefined) body[k] = patch[k]; });
+    if (Object.keys(body).length === 0) return { ok: true };
+    await this._fetch(`words?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: { 'Prefer': 'return=minimal' },
+      body,
+    });
+    return { ok: true };
+  }
+
   async getAllWords(limit = 0) {
-    // Cache curto (30s): as views re-buscam a mesma lista ao navegar entre
-    // abas — era parte da sensação de site lento. Invalidado em toda escrita.
-    if (limit === 0 && this._wordsCache && Date.now() - this._wordsCache.ts < 30000) {
+    // Stale-while-revalidate (Onda 4): cache "fresco" (<30s) serve na hora
+    // sem rede nenhuma, igual antes. A diferença é o que acontece quando o
+    // cache VENCEU: antes disso bloqueava a tela esperando a rede de novo —
+    // era o gargalo real ao trocar de aba depois de 30s parado. Agora serve
+    // o dado antigo IMEDIATAMENTE e revalida em segundo plano (deduplicado
+    // por _wordsRefreshing, pra não disparar N requests em paralelo se a
+    // view chamar getAllWords() várias vezes enquanto ainda está stale).
+    if (limit === 0 && this._wordsCache) {
+      if (Date.now() - this._wordsCache.ts >= 30000 && !this._wordsRefreshing) {
+        this._wordsRefreshing = this._fetchWords(0).finally(() => { this._wordsRefreshing = null; });
+        this._wordsRefreshing.catch(() => {});
+      }
       return this._wordsCache.data;
     }
-    if (this.isProxyMode) {
-      const data = await this._proxy('getAllWords', [limit]);
-      if (limit === 0) this._wordsCache = { data: data || [], ts: Date.now() };
-      return data || [];
+    return this._fetchWords(limit);
+  }
+
+  async _fetchWords(limit) {
+    // Auditoria 2026-07-12: uma escrita (updateWord/deleteWord/logReview…)
+    // chama _invalidateReadCache() enquanto um refresh SWR desta MESMA
+    // lista já estava em voo. Sem o check de geração abaixo, esse fetch
+    // antigo resolvia DEPOIS da invalidação e reescrevia o cache com dado
+    // pré-escrita, marcado como "fresco" por mais 30s — a edição "sumia"
+    // até o cache vencer nauralmente. _cacheGeneration captura o snapshot
+    // no início do fetch; só grava se nada invalidou nesse meio-tempo.
+    const gen = this._cacheGeneration;
+    let data;
+    if (this.isProxyMode) data = await this._proxy('getAllWords', [limit]);
+    else {
+      let query = `words?select=*&order=added_at.desc`;
+      if (limit > 0) query += `&limit=${limit}`;
+      data = await this._fetch(query);
     }
-    let query = `words?select=*&order=added_at.desc`;
-    if (limit > 0) query += `&limit=${limit}`;
-    const res = await this._fetch(query);
-    if (limit === 0) this._wordsCache = { data: res || [], ts: Date.now() };
-    return res || [];
+    if (limit === 0 && gen === this._cacheGeneration) this._wordsCache = { data: data || [], ts: Date.now() };
+    return data || [];
   }
 
   _invalidateReadCache() {
+    this._cacheGeneration = (this._cacheGeneration || 0) + 1;
     this._wordsCache = null;
     this._cardsCache = null;
   }
 
-  async getWordsByCategory(category) {
-    if (this.isProxyMode) return this._proxy('getWordsByCategory', [category]);
+  // Onda 4: aceita paginação real (limit/offset viram LIMIT/OFFSET no
+  // Postgres) — sem eles, mantém o comportamento antigo (lista completa via
+  // cache SWR de getAllWords/getAllCards), usado por getWordsByLetter.
+  // Também corrige um bug latente: a versão anterior ignorava o `category`
+  // por completo (retornava tudo, sem filtrar) — nunca foi notado porque
+  // não tinha nenhum chamador na UI ainda.
+  async getWordsByCategory(category, { limit, offset } = {}) {
+    if (this.isProxyMode) return this._proxy('getWordsByCategory', [category, { limit, offset }]);
+
+    if (typeof limit === 'number') {
+      let query = `words?select=*&order=word.asc&limit=${limit}&offset=${offset || 0}`;
+      if (category && category !== 'all') query += `&category=eq.${encodeURIComponent(category)}`;
+      const words = await this._fetch(query) || [];
+      if (words.length === 0) return [];
+      const ids = words.map(w => w.id);
+      const cards = await this._fetch(`cards?word_id=in.(${ids.join(',')})&select=word_id,status,reps`) || [];
+      const cardMap = {};
+      cards.forEach(c => cardMap[c.word_id] = c);
+      return words.map(w => ({
+        ...w,
+        reps: cardMap[w.id]?.reps || 0,
+        status: cardMap[w.id]?.status || 'new'
+      }));
+    }
+
     const words = await this.getAllWords();
     const cards = await this.getAllCards();
     const cardMap = {};
     cards.forEach(c => cardMap[c.word_id] = c);
+    const filtered = category && category !== 'all' ? words.filter(w => w.category === category) : words;
 
-    return words.map(w => ({
+    return filtered.map(w => ({
       ...w,
       reps: cardMap[w.id]?.reps || 0,
       status: cardMap[w.id]?.status || 'new'
@@ -416,12 +486,23 @@ class Database {
   }
 
   async getAllCards() {
-    if (this._cardsCache && Date.now() - this._cardsCache.ts < 30000) {
+    // Mesma estratégia SWR de getAllWords (Onda 4) — ver comentário lá.
+    if (this._cardsCache) {
+      if (Date.now() - this._cardsCache.ts >= 30000 && !this._cardsRefreshing) {
+        this._cardsRefreshing = this._fetchCards().finally(() => { this._cardsRefreshing = null; });
+        this._cardsRefreshing.catch(() => {});
+      }
       return this._cardsCache.data;
     }
+    return this._fetchCards();
+  }
+
+  async _fetchCards() {
+    const gen = this._cacheGeneration; // ver comentário em _fetchWords
     let data;
     if (this.isProxyMode) data = await this._proxy('getAllCards', []);
     else data = await this._fetch('cards?select=*');
+    if (gen !== this._cacheGeneration) return data || [];
     this._cardsCache = { data: data || [], ts: Date.now() };
     return data || [];
   }
@@ -453,14 +534,14 @@ class Database {
     return true;
   }
 
-  async getCardsDue(limit = 50, includeWordData = true) {
-    if (this.isProxyMode) return this._proxy('getCardsDue', [limit, includeWordData]);
-    const now = new Date().toISOString();
-    let query = `cards?due_date=lte.${encodeURIComponent(now)}&order=due_date.asc&limit=${limit}`;
-    
-    if (includeWordData) {
-      query = `cards?select=*,words(*)&due_date=lte.${encodeURIComponent(now)}&order=due_date.asc&limit=${limit}`;
-    }
+  // minutesAhead: "learn ahead" do Anki — inclui cards de aprendizado que
+  // vencem nos próximos N minutos (permite fechar a sessão de verdade).
+  async getCardsDue(limit = 50, includeWordData = true, minutesAhead = 0) {
+    if (this.isProxyMode) return this._proxy('getCardsDue', [limit, includeWordData, minutesAhead]);
+    const horizon = new Date(Date.now() + minutesAhead * 60000).toISOString();
+    const select = includeWordData ? 'select=*,words(*)&' : '';
+    // suspended filtrado NO BANCO (antes vinha tudo e filtrava no cliente)
+    const query = `cards?${select}due_date=lte.${encodeURIComponent(horizon)}&suspended=is.false&order=due_date.asc&limit=${limit}`;
 
     const cards = await this._fetch(query);
     if (!cards) return [];
@@ -472,6 +553,20 @@ class Database {
       });
     }
     return cards;
+  }
+
+  // Contadores do dia para os limites diários (novas/dia e revisões/dia)
+  async getTodayCounts() {
+    if (this.isProxyMode) return this._proxy('getTodayCounts', []);
+    const { start, end } = localDayBounds();
+    const [logToday, introduced] = await Promise.all([
+      this._fetch(`review_log?ts=gte.${encodeURIComponent(start.toISOString())}&ts=lt.${encodeURIComponent(end.toISOString())}&select=id`),
+      this._fetch(`cards?introduced_at=gte.${encodeURIComponent(start.toISOString())}&introduced_at=lt.${encodeURIComponent(end.toISOString())}&select=id`),
+    ]);
+    return {
+      reviewsToday: (logToday || []).length,
+      newIntroducedToday: (introduced || []).length,
+    };
   }
 
   async updateCard(card) {
@@ -495,25 +590,31 @@ class Database {
 
   async getStats() {
     if (this.isProxyMode) return this._proxy('getStats', []);
-    const [words, sentences, cards, log, sessions] = await Promise.all([
+    const [words, sentences, cards, log, sessions, userStats] = await Promise.all([
       this.getAllWords(),
       this.getAllSentences(),
       this.getAllCards(),
       this.getReviewLog(30),
       this.getSessions(30),
+      this.getUserStats().catch(() => null),
     ]);
 
     const totalWords = words.length;
     const totalSentences = sentences.length;
     const now = new Date().toISOString();
-    const dueCount = cards.filter(c => c.due_date <= now).length;
+    // "Para revisar" separa learning (volta em minutos — NÃO é dívida do dia)
+    // de review/new. Era a sensação de "sempre cobrando": o contador somava
+    // cards de learning steps que venciam minutos depois da sessão.
+    const dueAll = cards.filter(c => !c.suspended && c.due_date <= now);
+    const dueLearning = dueAll.filter(c => c.status === 'learning').length;
+    const dueCount = dueAll.length;
 
     const byStatus = { new: 0, learning: 0, review: 0, mature: 0 };
     cards.forEach(c => {
       if (byStatus[c.status] !== undefined) byStatus[c.status]++;
     });
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = localDateKey();
     const todaySession = sessions.find((s) => s.date === today);
     const todaySecs = todaySession ? todaySession.seconds : 0;
     const totalSecs = sessions.reduce((acc, s) => acc + (s.seconds || 0), 0);
@@ -545,7 +646,10 @@ class Database {
       totalWords,
       totalSentences,
       dueCards: dueCount,
-      streak: this._calculateStreak(log, sessions),
+      dueLearning,
+      // Fonte única da ofensiva: user_stats (trigger do Postgres). O cálculo
+      // local é só fallback offline — eram DUAS verdades divergentes.
+      streak: userStats?.streak ?? this._calculateStreak(log, sessions),
       retention,
       byStatus,
       todaySecs,
@@ -558,7 +662,7 @@ class Database {
 
   _calculateStreak(logs, sessions) {
     const dates = new Set();
-    if (logs) logs.forEach((l) => dates.add(l.date));
+    if (logs) logs.forEach((l) => dates.add(l.ts ? localDateKey(l.ts) : l.date));
     if (sessions)
       sessions.forEach((s) => {
         if (s.seconds >= 60) dates.add(s.date);
@@ -567,7 +671,7 @@ class Database {
     let streak = 0;
     let d = new Date();
     for (let i = 0; i < 365; i++) {
-      const ds = d.toISOString().split('T')[0];
+      const ds = localDateKey(d);
       if (dates.has(ds)) {
         streak++;
       } else if (i > 0) {
@@ -588,7 +692,8 @@ class Database {
 
     const keys = ['graduating_interval', 'easy_interval', 'initial_ease', 'max_interval',
       'leech_threshold', 'easy_bonus', 'interval_modifier', 'lapse_modifier',
-      'leech_action', 'lf_srs_retention', 'learning_steps'];
+      'leech_action', 'lf_srs_retention', 'learning_steps',
+      'new_per_day', 'max_reviews_per_day'];
     const map = {};
     if (this.isProxyMode) {
       const rows = await this._proxy('_fetch', [`settings?key=in.(${keys.join(',')})`, {}]);
@@ -610,11 +715,16 @@ class Database {
       leechAction: map.leech_action || 'tag',
       // Retenção desejada do FSRS (0.7-0.97): mais alto = revisões mais frequentes
       retention: Math.min(0.97, Math.max(0.7, Number(map.lf_srs_retention) || 0.9)),
-      learningSteps: (map.learning_steps || '1 10')
-        .split(' ')
+      learningSteps: String(map.learning_steps || '1 10')
+        .replace(/m/gi, '')
+        .split(/[\s,]+/)
         .map(Number)
         .filter((n) => n > 0),
+      // Limites diários (paridade Anki): controlam a fila de estudo
+      newPerDay: Math.max(0, Number(map.new_per_day ?? 20)),
+      maxRevPerDay: Math.max(1, Number(map.max_reviews_per_day ?? 200)),
     };
+    if (value.learningSteps.length === 0) value.learningSteps = [1, 10];
     this._srsCache = { value, ts: Date.now() };
     return value;
   }
@@ -695,23 +805,46 @@ class Database {
         nextStepIndex = 0;
         nextInterval = learningSteps[0] / 1440;
       } else if (quality === 2) {
+        // Difícil é um acerto com esforço: nunca pode prender o aluno no
+        // mesmo passo para sempre. Ele repete o primeiro passo uma vez e,
+        // depois, avança mais lentamente que "Bom" (1,5× o intervalo). Assim
+        // há uma exposição extra sem graduação precoce: com [1, 10], três
+        // respostas "Difícil" graduam; com um único passo, duas graduam.
+        // (Resolução do merge: versão do Codex — mais conservadora que a de
+        // Fable; "Difícil" três vezes NÃO deve graduar tão rápido quanto "Bom".)
         nextStatus = 'learning';
-        const cur = learningSteps[Math.min(nextStepIndex, learningSteps.length - 1)] || 1;
-        nextInterval = (cur * 1.5) / 1440;
+        if (prevStatus === 'new') {
+          nextStepIndex = 0;
+          nextInterval = (learningSteps[0] * 1.5) / 1440;
+        } else {
+          nextStepIndex += 1;
+          if (nextStepIndex >= learningSteps.length) {
+            nextStatus = 'review';
+            nextStepIndex = 0;
+            nextInterval = Math.max(settings.gradInt || 1,
+              this._fsrsInterval(stability, retention) * settings.intMod * 0.8);
+          } else {
+            nextInterval = (learningSteps[nextStepIndex] * 1.5) / 1440;
+          }
+        }
       } else if (quality === 4) {
-        // Fácil: gradua direto com bônus do FSRS
+        // Fácil: gradua direto com bônus do FSRS.
+        // easy_interval (config) é o piso; interval_modifier escala tudo.
         stability = this._fsrsInitStability(4);
         difficulty = this._fsrsInitDifficulty(4);
         nextStatus = 'review';
         nextStepIndex = 0;
-        nextInterval = Math.max(1, this._fsrsInterval(stability, retention));
+        nextInterval = Math.max(settings.easyInt || 4,
+          this._fsrsInterval(stability, retention) * settings.intMod);
       } else {
-        // Bom: avança um step; gradua no fim dos steps
+        // Bom: avança um step; gradua no fim dos steps.
+        // graduating_interval (config) é o piso da graduação.
         nextStepIndex = prevStatus === 'new' ? 1 : nextStepIndex + 1;
         if (nextStepIndex >= learningSteps.length) {
           nextStatus = 'review';
           nextStepIndex = 0;
-          nextInterval = Math.max(1, this._fsrsInterval(stability, retention));
+          nextInterval = Math.max(settings.gradInt || 1,
+            this._fsrsInterval(stability, retention) * settings.intMod);
         } else {
           nextStatus = 'learning';
           nextInterval = learningSteps[nextStepIndex] / 1440;
@@ -732,7 +865,8 @@ class Database {
         nextStepIndex = 0;
         nextInterval = learningSteps[0] / 1440;
       } else {
-        nextInterval = Math.max(1, this._fsrsInterval(stability, retention));
+        // interval_modifier (config) escala o intervalo do FSRS (100% = neutro)
+        nextInterval = Math.max(1, this._fsrsInterval(stability, retention) * settings.intMod);
         nextInterval = Math.min(nextInterval, maxInt);
         nextStatus = nextInterval >= 21 ? 'mature' : 'review';
       }
@@ -789,48 +923,68 @@ class Database {
 
     let card = this._calculateNextState(res[0], quality, settings);
 
+    // Marca a introdução do card (1ª revisão de um card novo) — é o que faz
+    // o limite "novas cartas/dia" ser real, não decorativo.
+    if (prevCard.status === 'new' && !prevCard.introduced_at) {
+      card.introduced_at = new Date().toISOString();
+    }
+
     if (card.lapses >= settings.leechThresh) {
       card.is_leech = true;
       if (settings.leechAction === 'suspend') card.suspended = true;
     }
 
-    await this.updateCard(card);
-
-    await this._fetch('review_log', {
+    // A revisão é uma única operação transacional no Postgres. Antes desta
+    // RPC o PATCH do card e o INSERT em review_log podiam divergir em falha
+    // de rede, deixando o agendamento sem histórico/XP/undo.
+    const clientReviewId = globalThis.crypto?.randomUUID?.()
+      || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.floor(Math.random() * 16);
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+      });
+    const saved = await this._fetch('rpc/record_card_review', {
       method: 'POST',
       body: {
-        card_id: cardId,
-        quality,
-        date: new Date().toISOString().split('T')[0],
-        ts: new Date().toISOString()
-      }
+        p_card_id: cardId,
+        p_quality: quality,
+        p_state: card,
+        p_client_review_id: clientReviewId,
+      },
     });
+    const savedCard = saved?.card || card;
 
-    // prevCard permite reverter todo o estado do agendamento (undoReview)
-    return { ok: true, nextDue: new Date(card.due_date).getTime(), prevCard };
+    // prevCard permite reverter o agendamento (undo); card é o estado NOVO —
+    // a fila de sessão usa pra reagendar cards em aprendizado (learning steps)
+    return {
+      ok: true,
+      nextDue: new Date(savedCard.due_date).getTime(),
+      prevCard,
+      card: savedCard,
+      reviewLogId: saved?.review_log_id || null,
+      xpAwarded: Number(saved?.xp_awarded || 0),
+    };
   }
 
   // Desfaz a última revisão: restaura o card ao estado anterior e apaga o
   // registro mais recente de review_log daquele card (Ctrl+Z do Anki).
-  async undoReview(prevCard) {
+  async undoReview(prevCard, reviewLogId) {
     this._invalidateReadCache();
-    if (this.isProxyMode) return this._proxy('undoReview', [prevCard]);
-    if (!prevCard || !prevCard.id) return { ok: false };
+    if (this.isProxyMode) return this._proxy('undoReview', [prevCard, reviewLogId]);
+    if (!prevCard || !prevCard.id || !reviewLogId) return { ok: false };
 
-    await this.updateCard(prevCard);
-
-    // Remove o log mais recente desse card (o que acabou de ser criado)
-    const logs = await this._fetch(`review_log?card_id=eq.${prevCard.id}&order=ts.desc&limit=1`);
-    if (logs && logs.length) {
-      await this._fetch(`review_log?id=eq.${logs[0].id}`, { method: 'DELETE' });
-    }
-    return { ok: true };
+    // XP/streak e agendamento precisam voltar juntos. O cliente não pode mais
+    // apagar o log diretamente, pois isso deixava XP creditado para trás.
+    const res = await this._fetch('rpc/revert_card_review', {
+      method: 'POST',
+      body: { p_review_log_id: reviewLogId, p_previous_card: prevCard },
+    });
+    return { ok: true, xpReverted: Number(res?.xp_reverted || 0) };
   }
 
   async getReviewLog(days = 30) {
     if (this.isProxyMode) return this._proxy('getReviewLog', [days]);
-    const minDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    return (await this._fetch(`review_log?date=gte.${minDate}`)) || [];
+    const start = localDayBounds(addLocalDays(-(Math.max(1, days) - 1))).start;
+    return (await this._fetch(`review_log?ts=gte.${encodeURIComponent(start.toISOString())}`)) || [];
   }
 
   async saveSentence(data) {
@@ -884,14 +1038,18 @@ class Database {
 
   async logSession(seconds, platform) {
     if (this.isProxyMode) return this._proxy('logSession', [seconds, platform]);
-    const date = new Date().toISOString().split('T')[0];
+    const date = localDateKey();
     const sessions = await this._fetch(`sessions?date=eq.${date}&limit=1`);
-    
+
+    let before = 0;
+    let after = seconds;
     if (sessions && sessions.length > 0) {
       const session = sessions[0];
+      before = session.seconds || 0;
+      after = before + seconds;
       await this._fetch(`sessions?id=eq.${session.id}`, {
         method: 'PATCH',
-        body: { seconds: session.seconds + seconds }
+        body: { seconds: after }
       });
     } else {
       await this._fetch('sessions', {
@@ -899,12 +1057,23 @@ class Database {
         body: { date, seconds }
       });
     }
+
+    // XP por IMERSÃO (item #9 da auditoria): a cada bloco de 5 min de vídeo
+    // assistido, credita XP via Learning Engine. O cap diário (30 XP) e o
+    // anti-farm ficam no banco (record_learning_event). Assistir vídeo agora
+    // dá XP E mantém a ofensiva — antes era 0.
+    const BLOCK = 300; // 5 min
+    const blocksCrossed = Math.floor(after / BLOCK) - Math.floor(before / BLOCK);
+    if (blocksCrossed > 0) {
+      // Nunca deixa a falha de XP quebrar o registro de imersão
+      this.recordEvent('video_session', blocksCrossed).catch(() => {});
+    }
     return true;
   }
 
   async getSessions(days = 30) {
     if (this.isProxyMode) return this._proxy('getSessions', [days]);
-    const minDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const minDate = localDateKey(addLocalDays(-(Math.max(1, days) - 1)));
     return (await this._fetch(`sessions?date=gte.${minDate}`)) || [];
   }
 
@@ -923,6 +1092,24 @@ class Database {
     return res && res.length > 0 ? res[0] : null;
   }
 
+  // Telemetria mínima: nunca envia texto do card, pergunta, token, e-mail ou
+  // stack trace. É só o suficiente para detectar uma tela/fluxo quebrado.
+  async reportClientError(source, errorName, route = '') {
+    if (this.isProxyMode) return this._proxy('reportClientError', [source, errorName, route]);
+    const safe = value => String(value || 'Error').replace(/[^a-zA-Z0-9_.:/ -]/g, '').slice(0, 120);
+    try {
+      await this._fetch('client_errors', {
+        method: 'POST',
+        body: {
+          source: safe(source).slice(0, 80),
+          error_name: safe(errorName),
+          route: safe(route).slice(0, 80) || null,
+          app_version: 'dashboard-2026-07-10',
+        },
+      });
+    } catch { /* telemetria nunca interrompe o produto */ }
+  }
+
   async getLeaderboard(leagueIndex = 0, limit = 20) {
     if (this.isProxyMode) return this._proxy('getLeaderboard', [leagueIndex, limit]);
     const res = await this._fetch(`user_stats?league_index=eq.${leagueIndex}&order=xp_week.desc&limit=${limit}`);
@@ -933,11 +1120,164 @@ class Database {
     if (this.isProxyMode) return this._proxy('ensureUserStats', []);
     
     // Apenas garante que o perfil exista via backend (XP agora é automático por Triggers)
-    const res = await this._fetch('rpc/ensure_user_stats', {
+    await this._fetch('rpc/ensure_user_stats', {
       method: 'POST'
     });
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (timezone) {
+      await this._fetch('rpc/set_user_timezone', { method: 'POST', body: { p_timezone: timezone } });
+    }
     
     return { ok: true };
+  }
+
+  // ── LEARNING ENGINE (portão único de eventos de aprendizado) ─────────────
+  // Tipos: game_match, story_read, story_quiz, quests_complete, video_session.
+  // O XP/streak é calculado NO BANCO (record_learning_event), com caps diários
+  // anti-farm. Retorna { xp_awarded, xp_today, streak, capped }.
+  async recordEvent(type, amount = 1) {
+    if (this.isProxyMode) return this._proxy('recordEvent', [type, amount]);
+    const res = await this._fetch('rpc/record_learning_event', {
+      method: 'POST',
+      body: { p_type: type, p_amount: amount },
+    });
+    return res || { xp_awarded: 0 };
+  }
+
+  // Missão semanal (Onda 1.5): reivindica +100 XP quando bate a meta de XP da
+  // semana. Anti-farm no banco (1x/semana pelo fuso do usuário).
+  async claimWeeklyQuest(threshold = 500) {
+    if (this.isProxyMode) return this._proxy('claimWeeklyQuest', [threshold]);
+    const res = await this._fetch('rpc/claim_weekly_quest', {
+      method: 'POST',
+      body: { p_threshold: threshold },
+    });
+    return res || { ok: false };
+  }
+
+  // Rollover semanal das ligas (lazy, idempotente — o pg_cron é o titular)
+  async maybeLeagueRollover() {
+    if (this.isProxyMode) return this._proxy('maybeLeagueRollover', []);
+    try {
+      return await this._fetch('rpc/maybe_league_rollover', { method: 'POST', body: {} });
+    } catch { return { ran: false }; }
+  }
+
+  // ── DIAGNÓSTICO DO LINGUISTA (Marco 1 do motor pedagógico) ────────────────
+  // Agrega o review_log dos últimos 30 dias POR palavra/categoria/nível.
+  // É o insumo REAL da análise do "professor" — nada de achismo da IA:
+  // ela recebe números e nomes verdadeiros do aluno.
+  async getDiagnosisData(days = 30) {
+    if (this.isProxyMode) return this._proxy('getDiagnosisData', [days]);
+    const [log, cards, words] = await Promise.all([
+      this.getReviewLog(days),
+      this.getAllCards(),
+      this.getAllWords(),
+    ]);
+
+    const wordByCardId = {};
+    const wordById = {};
+    words.forEach(w => { wordById[w.id] = w; });
+    cards.forEach(c => { wordByCardId[c.id] = wordById[c.word_id] || null; });
+
+    const bucket = () => ({ total: 0, hits: 0 });
+    const byCategory = {};
+    const byLevel = {};
+    const byWord = {};
+
+    (log || []).forEach(r => {
+      const w = wordByCardId[r.card_id];
+      const hit = r.quality >= 2 ? 1 : 0;
+      const cat = (w && w.category) || 'word';
+      const lvl = (w && w.level) || '—';
+      (byCategory[cat] = byCategory[cat] || bucket()).total++;
+      byCategory[cat].hits += hit;
+      (byLevel[lvl] = byLevel[lvl] || bucket()).total++;
+      byLevel[lvl].hits += hit;
+      if (w) {
+        const key = w.word;
+        (byWord[key] = byWord[key] || { ...bucket(), hard: 0 });
+        byWord[key].total++;
+        byWord[key].hits += hit;
+        if (r.quality <= 2) byWord[key].hard++; // Errei ou Difícil
+      }
+    });
+
+    const pct = (b) => b.total ? Math.round((b.hits / b.total) * 100) : null;
+    const strugglingWords = Object.entries(byWord)
+      .filter(([, s]) => s.total >= 2 && (s.hard / s.total) >= 0.5)
+      .sort((a, b) => b[1].hard - a[1].hard)
+      .slice(0, 6)
+      .map(([word, s]) => ({ word, reviews: s.total, hardOrWrong: s.hard }));
+    const solidWords = Object.entries(byWord)
+      .filter(([, s]) => s.total >= 2 && s.hits === s.total && s.hard === 0)
+      .slice(0, 5)
+      .map(([word]) => word);
+
+    return {
+      totalReviews: (log || []).length,
+      retentionByCategory: Object.fromEntries(Object.entries(byCategory).map(([k, v]) => [k, { retention: pct(v), reviews: v.total }])),
+      retentionByLevel: Object.fromEntries(Object.entries(byLevel).map(([k, v]) => [k, { retention: pct(v), reviews: v.total }])),
+      strugglingWords,
+      solidWords,
+      leeches: cards.filter(c => c.is_leech || (c.lapses || 0) >= 4).length,
+      matureCount: cards.filter(c => c.status === 'mature').length,
+      totalWords: words.length,
+    };
+  }
+
+  // ── WEB PUSH (opt-in explícito nas Configurações) ─────────────────────────
+  async getPushPublicKey() {
+    if (this.isProxyMode) return this._proxy('getPushPublicKey', []);
+    const res = await this._fetch('rpc/get_push_public_key', { method: 'POST', body: {} });
+    return typeof res === 'string' ? res : null;
+  }
+
+  async savePushSubscription(sub) {
+    if (this.isProxyMode) return this._proxy('savePushSubscription', [sub]);
+    const keys = sub?.keys || {};
+    if (!sub?.endpoint || !keys.p256dh || !keys.auth) return { ok: false };
+    const res = await this._fetch('push_subscriptions?on_conflict=user_id,endpoint', {
+      method: 'POST',
+      headers: { 'Prefer': 'resolution=merge-duplicates' },
+      body: { endpoint: sub.endpoint, p256dh: keys.p256dh, auth: keys.auth },
+    });
+    return { ok: !!res };
+  }
+
+  async deletePushSubscription(endpoint) {
+    if (this.isProxyMode) return this._proxy('deletePushSubscription', [endpoint]);
+    if (!endpoint) return { ok: false };
+    await this._fetch(`push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`, { method: 'DELETE' });
+    return { ok: true };
+  }
+
+  // Onda 3.4: opt-in de reengajamento por e-mail (resumo semanal + ofensiva
+  // em risco) — mesmo padrão de RPC restrita ao próprio usuário do push.
+  async setEmailOptIn(enabled) {
+    if (this.isProxyMode) return this._proxy('setEmailOptIn', [enabled]);
+    const res = await this._fetch('rpc/set_email_opt_in', {
+      method: 'POST',
+      body: { p_enabled: !!enabled },
+    });
+    return res || { ok: false };
+  }
+
+  // ── CACHE DE TRADUÇÃO (tabela própria — NUNCA mais dentro de settings) ────
+  async getTranslationCache(cacheKey) {
+    if (this.isProxyMode) return this._proxy('getTranslationCache', [cacheKey]);
+    const res = await this._fetch(`translation_cache?cache_key=eq.${encodeURIComponent(cacheKey)}&select=value&limit=1`);
+    return res && res.length > 0 ? res[0].value : null;
+  }
+
+  async setTranslationCache(cacheKey, value) {
+    if (this.isProxyMode) return this._proxy('setTranslationCache', [cacheKey, value]);
+    const res = await this._fetch('translation_cache?on_conflict=user_id,cache_key', {
+      method: 'POST',
+      headers: { 'Prefer': 'resolution=merge-duplicates' },
+      body: { cache_key: cacheKey, value },
+    });
+    return !!res;
   }
 
   async getCardByWordId(wordId) {
@@ -952,11 +1292,17 @@ class Database {
   }
 
   async suspendCard(wordId, suspend = true) {
+    this._invalidateReadCache();
     if (this.isProxyMode) return this._proxy('suspendCard', [wordId, suspend]);
+    // BUG antigo: suspender empurrava due_date +365d (corrompia o agendamento).
+    // Agora a fila filtra suspended no banco; due_date fica intacto. Ao
+    // reativar, cards corrompidos pelo sistema antigo voltam pra "agora".
     let body = { suspended: suspend };
-    if (suspend) {
-      const future = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
-      body.due_date = future;
+    if (!suspend) {
+      const card = await this.getCardByWordId(wordId);
+      if (card && new Date(card.due_date).getTime() - Date.now() > 180 * 86400000) {
+        body.due_date = new Date().toISOString();
+      }
     }
     const res = await this._fetch(`cards?word_id=eq.${wordId}`, {
       method: 'PATCH',

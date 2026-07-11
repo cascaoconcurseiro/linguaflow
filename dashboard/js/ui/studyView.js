@@ -1,65 +1,137 @@
 import { db as lfDb } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio, downloadAudio } from '../core/tts.js';
-import { aiChat, aiChatStream, getCefrLevel, grammarTutorPersona, grammarInitialQuestion, enrichCard, generateChunksWeb } from '../core/ai.js';
+import { aiChat, aiChatStream, getCefrLevel, grammarTutorPersona, grammarInitialQuestion, enrichCard, generateChunksWeb, generateMnemonic } from '../core/ai.js';
+import { attachVideoContext, renderVideoContext, getVideoContext } from '../core/videoContext.js';
+import { buildSessionQueue, isWeakCard } from '../core/sessionQueue.js';
+import { loadVideo, hidePlayer } from '../core/ytPlayer.js';
+import { fetchTatoebaSentences } from '../core/tatoeba.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
 let dueQueue = [];
+let pendingLearning = []; // cards em learning steps que voltam DENTRO da sessão
 let currentCard = null;
 let consecutiveCorrect = 0;
 let sessionCards = 0;
+let sessionXp = 0;
 let sessionStart = Date.now();
 let chatHistory = [];
 let chatBusy = false;
 let lastReview = null; // { prevCard, card, grade, isCorrect } para o undo
 let reverseEnabled = false; // cartões reversos PT→EN (setting lf_reverse_cards)
 let variedEnabled = true;   // exercícios variados: montar frase/ditado (lf_varied_exercises, ON por padrão)
+let audioAutoFront = true;  // lf_audio_auto_front — agora respeitado de verdade
+let audioAutoBack = true;   // lf_audio_auto_back
 let ygWidget = null;
 let ygQueuedWord = null;
+let waitTimer = null;       // countdown da tela "aguardando learning steps"
+let gradeBusy = false;      // impede duas avaliações concorrentes do mesmo card
 
-export async function renderStudy(container, app) {
+const LEARN_AHEAD_MS = 20 * 60 * 1000; // learn-ahead do Anki: 20 min
+const TOPIC_LABELS = { word: 'Palavras', phrasal: 'Phrasal Verbs', slang: 'Gírias', idiom: 'Expressões' };
+
+export async function renderStudy(container, app, params = {}) {
   injectStyles();
   consecutiveCorrect = 0;
   sessionCards = 0;
+  sessionXp = 0;
   sessionStart = Date.now();
   lastReview = null;
+  gradeBusy = false;
   exerciseApp = app;
   studyContainer = container;
   ygWidget = null; // container será recriado
+  hidePlayer(); // qualquer vídeo de uma sessão anterior não deve tocar ao fundo
+  const topicFilter = params?.category || null; // Onda 2.2: "Revisar por tópico" vindo do Cofre
 
   app.showToast('Carregando frases...', 'info');
+  pendingLearning = [];
+  if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
   try {
-    reverseEnabled = !!(await lfDb.getSetting('lf_reverse_cards').catch(() => null));
-    const variedRaw = await lfDb.getSetting('lf_varied_exercises').catch(() => null);
+    const [reverseRaw, variedRaw, audioFrontRaw, audioBackRaw, srs, counts, cards, diag] = await Promise.all([
+      lfDb.getSetting('lf_reverse_cards').catch(() => null),
+      lfDb.getSetting('lf_varied_exercises').catch(() => null),
+      lfDb.getSetting('lf_audio_auto_front').catch(() => null),
+      lfDb.getSetting('lf_audio_auto_back').catch(() => null),
+      lfDb.getSRSSettings().catch(() => null),
+      lfDb.getTodayCounts().catch(() => ({ reviewsToday: 0, newIntroducedToday: 0 })),
+      lfDb.getCardsDue(200, true),
+      lfDb.getDiagnosisData(30).catch(() => null),
+    ]);
+    reverseEnabled = reverseRaw === true || reverseRaw === 'true';
     variedEnabled = variedRaw === null || variedRaw === true || variedRaw === 'true';
-    dueQueue = await lfDb.getCardsDue(50, true);
-    // Cards suspensos (manual ou por leech) ficam fora da fila, como no Anki
-    dueQueue = dueQueue.filter(c => !c.suspended);
+    audioAutoFront = audioFrontRaw === null || audioFrontRaw === true || audioFrontRaw === 'true';
+    audioAutoBack = audioBackRaw === null || audioBackRaw === true || audioBackRaw === 'true';
+
+    // LIMITES DIÁRIOS REAIS (paridade Anki): "novas cartas/dia" corta os cards
+    // novos além da cota; "revisões máx/dia" limita o tamanho da sessão.
+    const newAllowed = Math.max(0, (srs?.newPerDay ?? 20) - counts.newIntroducedToday);
+    const revAllowed = Math.max(0, (srs?.maxRevPerDay ?? 200) - counts.reviewsToday);
+    let newSeen = 0;
+    let reviewSeen = 0;
+    // Onda 2.2: "Revisar por tópico" — filtra o pool ANTES da cota diária, que
+    // continua sendo o mesmo orçamento global (é a mesma sessão de estudo,
+    // só restrita a uma categoria).
+    const topicPool = topicFilter
+      ? (cards || []).filter(c => (c.wordData?.category || c.category) === topicFilter)
+      : (cards || []);
+    const limited = topicPool.filter(c => {
+      if (c.suspended) return false;
+      if (c.status === 'new') {
+        newSeen++;
+        return newSeen <= newAllowed;
+      }
+      // A cota de revisões não pode esconder cards novos. Learning também é
+      // revisão em curso: ele deve continuar na sessão que o introduziu.
+      if (c.status === 'learning') return true;
+      reviewSeen++;
+      return reviewSeen <= revAllowed;
+    });
+    // INTERLEAVING (Marco 2 + Onda 1.3): learning primeiro; fracas espaçadas;
+    // novas espalhadas; e a categoria mais fraca do diagnóstico vem à frente.
+    let priorityCategory = null;
+    if (diag && diag.retentionByCategory) {
+      const worst = Object.entries(diag.retentionByCategory)
+        .filter(([, v]) => v.reviews >= 5 && v.retention !== null && v.retention < 80)
+        .sort((a, b) => a[1].retention - b[1].retention)[0];
+      if (worst) priorityCategory = worst[0];
+    }
+    dueQueue = buildSessionQueue(limited, { priorityCategory });
   } catch (e) {
     console.error('DB Error:', e);
     dueQueue = [];
   }
 
   if (dueQueue.length === 0) {
+    const topicLabel = topicFilter ? (TOPIC_LABELS[topicFilter] || topicFilter) : null;
     container.innerHTML = `
       <div class="study-layout" style="display: flex; height: 100%; width: 100%; justify-content: center; align-items: center; background-color: var(--color-bg-alt);">
         <div class="study-main" style="text-align:center; padding: 60px; background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 2px solid var(--color-border);">
-          <h2 style="color:var(--color-primary); font-size: 32px; margin-bottom:16px;">Tudo feito por hoje! 🎉</h2>
-          <p style="color:var(--color-text-light); font-size: 18px;">Você revisou todas as suas frases pendentes.</p>
-          <button class="btn btn-primary" id="back-home-btn" style="margin-top:32px; padding: 16px 32px; font-size: 18px;">Voltar ao Início</button>
+          <h2 style="color:var(--color-primary); font-size: 32px; margin-bottom:16px;">${topicLabel ? `Nada de "${topicLabel}" pra revisar agora 🎉` : 'Tudo feito por hoje! 🎉'}</h2>
+          <p style="color:var(--color-text-light); font-size: 18px;">${topicLabel ? `Todos os cards de ${topicLabel} já estão em dia.` : 'Você revisou todas as suas frases pendentes.'}</p>
+          ${topicLabel ? `<button class="btn btn-secondary" id="study-all-btn" style="margin-top:20px; padding: 14px 28px; font-size: 16px;">Estudar tudo</button>` : ''}
+          <button class="btn btn-primary" id="back-home-btn" style="margin-top:12px; padding: 16px 32px; font-size: 18px;">Voltar ao Início</button>
         </div>
       </div>
     `;
     setTimeout(() => {
       document.getElementById('back-home-btn')?.addEventListener('click', () => app.navigate('home'));
+      document.getElementById('study-all-btn')?.addEventListener('click', () => app.navigate('study'));
     }, 0);
     return;
   }
 
   container.innerHTML = `
-    <div class="study-layout">
+    <div class="study-layout" role="main" aria-label="Sessão de estudo">
       <!-- Main Study Area -->
-      <div class="study-main">
+      <div class="study-main" tabindex="-1">
+        <div id="study-status" class="sr-only" role="status" aria-live="polite"></div>
+
+        ${topicFilter ? `
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; background:rgba(28,176,246,0.1); border:2px solid var(--color-secondary); border-radius:var(--radius-md); padding:8px 14px; font-size:13px;">
+          <span>🧭 Revisando: <strong style="color:var(--color-secondary);">${TOPIC_LABELS[topicFilter] || topicFilter}</strong> (${dueQueue.length} ${dueQueue.length === 1 ? 'card' : 'cards'})</span>
+          <button id="clear-topic-filter-btn" style="margin-left:auto; background:none; border:none; color:var(--color-text-light); font-weight:700; font-size:12px; cursor:pointer; text-decoration:underline;">Ver tudo</button>
+        </div>` : ''}
 
         <div class="media-container">
           <div class="audio-wave-placeholder" id="audio-wave">
@@ -85,10 +157,10 @@ export async function renderStudy(container, app) {
         <!-- Anki Grading Buttons -->
         <div class="grading-buttons hidden" id="grading-area">
           <div class="grading-row">
-            <button class="grade-btn btn-danger" data-grade="1">Errei<br><span style="font-size:12px;opacity:0.8">&lt; 1 min</span></button>
-            <button class="grade-btn btn-warning" data-grade="2">Difícil<br><span style="font-size:12px;opacity:0.8">1 dia</span></button>
-            <button class="grade-btn btn-secondary" data-grade="3">Bom<br><span style="font-size:12px;opacity:0.8">3 dias</span></button>
-            <button class="grade-btn btn-primary" data-grade="4">Fácil<br><span style="font-size:12px;opacity:0.8">7 dias</span></button>
+            <button class="grade-btn btn-danger" data-grade="1" aria-label="Errei; agendar novamente"><span aria-hidden="true">Errei</span><br><span id="grade-ivl-1" style="font-size:12px;opacity:0.8">…</span></button>
+            <button class="grade-btn btn-warning" data-grade="2" aria-label="Difícil; agendar com intervalo curto"><span aria-hidden="true">Difícil</span><br><span id="grade-ivl-2" style="font-size:12px;opacity:0.8">…</span></button>
+            <button class="grade-btn btn-secondary" data-grade="3" aria-label="Bom; agendar no intervalo recomendado"><span aria-hidden="true">Bom</span><br><span id="grade-ivl-3" style="font-size:12px;opacity:0.8">…</span></button>
+            <button class="grade-btn btn-primary" data-grade="4" aria-label="Fácil; agendar com intervalo longo"><span aria-hidden="true">Fácil</span><br><span id="grade-ivl-4" style="font-size:12px;opacity:0.8">…</span></button>
           </div>
           <button id="btn-undo" style="display:none; margin-top:14px; background:none; border:none; color:var(--color-text-light); font-family:var(--font-main); font-weight:700; font-size:13px; cursor:pointer; align-items:center; gap:6px;">↩️ Desfazer última (Z)</button>
         </div>
@@ -110,13 +182,26 @@ export async function renderStudy(container, app) {
           <div style="font-size: 28px; font-weight: 900; color: var(--color-primary); margin-bottom: 8px;" id="iso-word"></div>
           <div style="font-size: 18px; color: var(--color-text); font-weight: 700; margin-bottom: 8px;" id="iso-trans"></div>
           <div style="font-size: 14px; color: var(--color-secondary); font-style: italic; background: rgba(28, 176, 246, 0.1); padding: 4px 12px; border-radius: 16px; display: inline-block;" id="iso-phonetics"></div>
+          <div id="iso-mnemonic-box" style="margin-top:14px; text-align:left;">
+            <button id="iso-mnemonic-btn" style="background:none; border:none; color:var(--color-secondary); font-family:var(--font-main); font-weight:800; font-size:13px; cursor:pointer; text-decoration:underline;">💡 Me dá um truque pra lembrar</button>
+            <div id="iso-mnemonic-text" class="hidden" style="margin-top:8px; font-size:13px; color:var(--color-text); background:rgba(255,200,0,0.12); border:1px solid var(--color-warning); border-radius:8px; padding:10px 12px; line-height:1.5;"></div>
+          </div>
         </div>
+
+        <div id="saved-video-context"></div>
+        <div id="study-yt-mount" class="hidden" style="margin-bottom:20px; border-radius:var(--radius-md); overflow:hidden;"></div>
 
         <h3 class="sidebar-title">Nativos falando 📺</h3>
         <div id="youglish-box" class="hidden">
           <button id="yg-load-btn" class="btn btn-secondary" style="width:100%; padding:10px; font-size:13px;">▶ Ver nativos falando esta palavra</button>
           <div id="yg-widget-embed"></div>
           <a id="youglish-fallback" href="#" target="_blank" rel="noopener" class="hidden" style="color: var(--color-secondary); font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 8px;">📺 Abrir no YouGlish</a>
+        </div>
+
+        <h3 class="sidebar-title" style="margin-top:32px;">Frases reais (Tatoeba) 📚</h3>
+        <div id="tatoeba-box">
+          <button id="tatoeba-load-btn" class="btn btn-secondary" style="width:100%; padding:10px; font-size:13px;">🔎 Ver exemplos de falantes reais</button>
+          <div id="tatoeba-list" class="hidden"></div>
         </div>
 
         <h3 class="sidebar-title" style="margin-top:32px;">Frases úteis (Chunks) ✨</h3>
@@ -142,6 +227,7 @@ export async function renderStudy(container, app) {
   document.getElementById('play-audio-btn').addEventListener('click', playCurrentAudio);
   document.getElementById('reveal-btn').addEventListener('click', revealCard);
   document.getElementById('improve-btn').addEventListener('click', () => improveSentence(app));
+  document.getElementById('clear-topic-filter-btn')?.addEventListener('click', () => app.navigate('study'));
 
   document.getElementById('grammar-form').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -262,52 +348,134 @@ function looksBroken(context, word) {
   return c.split(/\s+/).length < 3;
 }
 
+// ── Fila de sessão (paridade Anki) ───────────────────────────────────────────
+// Cards em learning steps (intervalo em minutos) NÃO somem da sessão: voltam
+// pra fila quando vencem. A sessão só termina de verdade quando não há mais
+// nada vencido nem chegando (learn-ahead de 20 min). Era o bug nº1 da
+// auditoria: "concluí a sessão mas os cards voltam no dashboard".
+
+function promoteDuePending() {
+  const now = Date.now();
+  const ready = pendingLearning.filter(p => p.dueAt <= now);
+  if (ready.length === 0) return;
+  pendingLearning = pendingLearning.filter(p => p.dueAt > now);
+  ready.sort((a, b) => a.dueAt - b.dueAt);
+  ready.forEach(p => dueQueue.push(p.card));
+}
+
+function takeEarliestPending() {
+  if (pendingLearning.length === 0) return;
+  pendingLearning.sort((a, b) => a.dueAt - b.dueAt);
+  dueQueue.push(pendingLearning.shift().card);
+}
+
+function renderSessionComplete(app) {
+  if (window.currentKeydownHandler) {
+    document.removeEventListener('keydown', window.currentKeydownHandler);
+  }
+  hidePlayer(); // a sessão acabou — nenhum vídeo deve continuar tocando ao fundo
+  const sessionTime = Math.round((Date.now() - sessionStart) / 60000);
+  const laterCount = pendingLearning.length;
+  // BUG antigo: escrevia em #app-view, que não existe → caía no <body> e
+  // destruía o app inteiro. Usa o container real da view de estudo.
+  const rootContainer = studyContainer || document.getElementById('app-view') || document.body;
+  rootContainer.innerHTML = `
+    <div style="display:flex; height:100%; align-items:center; justify-content:center; background:var(--color-bg-alt);">
+      <div style="text-align:center; padding:60px; background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-border); box-shadow:0 10px 40px rgba(0,0,0,0.08); max-width:500px;">
+        <div style="font-size:64px; margin-bottom:16px;">🎉</div>
+        <h2 style="color:var(--color-primary); font-size:32px; margin-bottom:8px;">Sessão Concluída!</h2>
+        <p style="color:var(--color-text-light); margin-bottom:32px;">Continue assim e você será fluente!</p>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:${laterCount ? '16px' : '32px'};">
+          <div style="background:var(--color-bg-alt); border-radius:var(--radius-md); padding:16px;">
+            <div style="font-size:28px; font-weight:900; color:var(--color-text);">${sessionCards}</div>
+            <div style="font-size:13px; color:var(--color-text-light);">Cartas</div>
+          </div>
+          <div style="background:rgba(88,204,2,0.1); border-radius:var(--radius-md); padding:16px;">
+            <div style="font-size:28px; font-weight:900; color:var(--color-primary);" id="session-xp">+${sessionXp} XP</div>
+            <div style="font-size:13px; color:var(--color-text-light);">XP confirmado</div>
+          </div>
+          <div style="background:rgba(28,176,246,0.1); border-radius:var(--radius-md); padding:16px;">
+            <div style="font-size:28px; font-weight:900; color:var(--color-secondary);">${sessionTime}min</div>
+            <div style="font-size:13px; color:var(--color-text-light);">Tempo</div>
+          </div>
+        </div>
+        ${laterCount ? `<p style="font-size:13px; color:var(--color-text-light); margin-bottom:24px;">💤 ${laterCount} ${laterCount === 1 ? 'card em aprendizado volta' : 'cards em aprendizado voltam'} mais tarde — o agendamento continua valendo.</p>` : ''}
+        <button id="session-done-btn" class="btn btn-primary" style="padding:16px 48px; font-size:18px;">Continuar →</button>
+      </div>
+    </div>
+  `;
+  setTimeout(() => {
+    document.getElementById('session-done-btn')?.addEventListener('click', () => {
+      if (window.currentKeydownHandler) document.removeEventListener('keydown', window.currentKeydownHandler);
+      app.navigate('home');
+    });
+  }, 0);
+}
+
+// Tela de espera: há cards em learning vencendo em breve (> learn-ahead).
+// Countdown real; quando zera, o card entra sozinho.
+function renderWaitingScreen(app, nextAt) {
+  const rootContainer = studyContainer || document.body;
+  rootContainer.innerHTML = `
+    <div style="display:flex; height:100%; align-items:center; justify-content:center; background:var(--color-bg-alt);">
+      <div style="text-align:center; padding:60px; background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-border); max-width:500px;">
+        <div style="font-size:56px; margin-bottom:16px;">⏳</div>
+        <h2 style="color:var(--color-text); font-size:26px; margin-bottom:8px;">Cards em aprendizado</h2>
+        <p style="color:var(--color-text-light); margin-bottom:8px;">${pendingLearning.length} ${pendingLearning.length === 1 ? 'card volta' : 'cards voltam'} em</p>
+        <div id="wait-countdown" style="font-size:40px; font-weight:900; color:var(--color-primary); margin-bottom:24px;">--:--</div>
+        <div style="display:flex; gap:12px; justify-content:center;">
+          <button id="wait-now-btn" class="btn btn-secondary" style="padding:12px 24px;">⚡ Antecipar agora</button>
+          <button id="wait-end-btn" class="btn btn-primary" style="padding:12px 24px;">Encerrar por hoje</button>
+        </div>
+      </div>
+    </div>
+  `;
+  const tick = () => {
+    const ms = Math.max(0, nextAt - Date.now());
+    const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000);
+    const el = document.getElementById('wait-countdown');
+    if (el) el.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    if (ms <= 0) {
+      clearInterval(waitTimer); waitTimer = null;
+      loadNextCard(app);
+    }
+  };
+  waitTimer = setInterval(tick, 1000);
+  tick();
+  setTimeout(() => {
+    document.getElementById('wait-now-btn')?.addEventListener('click', () => {
+      if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
+      takeEarliestPending();
+      loadNextCard(app);
+    });
+    document.getElementById('wait-end-btn')?.addEventListener('click', () => {
+      if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
+      renderSessionComplete(app);
+    });
+  }, 0);
+}
+
 // ── Fluxo do card ────────────────────────────────────────────────────────────
 async function loadNextCard(app) {
   stopAudio();
   pauseYouglish();
+  if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
+
+  promoteDuePending();
 
   if (dueQueue.length === 0) {
-    if (window.currentKeydownHandler) {
-      document.removeEventListener('keydown', window.currentKeydownHandler);
+    if (pendingLearning.length > 0) {
+      const nextAt = Math.min(...pendingLearning.map(p => p.dueAt));
+      if (nextAt - Date.now() <= LEARN_AHEAD_MS) {
+        takeEarliestPending(); // learn-ahead: nada mais a fazer → antecipa
+      } else {
+        renderWaitingScreen(app, nextAt);
+        return;
+      }
+    } else {
+      renderSessionComplete(app);
+      return;
     }
-
-    const sessionTime = Math.round((Date.now() - sessionStart) / 60000);
-    // BUG antigo: escrevia em #app-view, que não existe → caía no <body> e
-    // destruía o app inteiro (o botão "Continuar" navegava pra um container
-    // fora do DOM). Usa o container real da view de estudo.
-    const rootContainer = studyContainer || document.getElementById('app-view') || document.body;
-    rootContainer.innerHTML = `
-      <div style="display:flex; height:100%; align-items:center; justify-content:center; background:var(--color-bg-alt);">
-        <div style="text-align:center; padding:60px; background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-border); box-shadow:0 10px 40px rgba(0,0,0,0.08); max-width:500px;">
-          <div style="font-size:64px; margin-bottom:16px;">🎉</div>
-          <h2 style="color:var(--color-primary); font-size:32px; margin-bottom:8px;">Sessão Concluída!</h2>
-          <p style="color:var(--color-text-light); margin-bottom:32px;">Continue assim e você será fluente!</p>
-          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:32px;">
-            <div style="background:var(--color-bg-alt); border-radius:var(--radius-md); padding:16px;">
-              <div style="font-size:28px; font-weight:900; color:var(--color-text);">${sessionCards}</div>
-              <div style="font-size:13px; color:var(--color-text-light);">Cartas</div>
-            </div>
-            <div style="background:rgba(88,204,2,0.1); border-radius:var(--radius-md); padding:16px;">
-              <div style="font-size:28px; font-weight:900; color:var(--color-primary);">+${sessionCards * 10} XP</div>
-              <div style="font-size:13px; color:var(--color-text-light);">XP Ganho</div>
-            </div>
-            <div style="background:rgba(28,176,246,0.1); border-radius:var(--radius-md); padding:16px;">
-              <div style="font-size:28px; font-weight:900; color:var(--color-secondary);">${sessionTime}min</div>
-              <div style="font-size:13px; color:var(--color-text-light);">Tempo</div>
-            </div>
-          </div>
-          <button id="session-done-btn" class="btn btn-primary" style="padding:16px 48px; font-size:18px;">Continuar →</button>
-        </div>
-      </div>
-    `;
-    setTimeout(() => {
-      document.getElementById('session-done-btn')?.addEventListener('click', () => {
-        if (window.currentKeydownHandler) document.removeEventListener('keydown', window.currentKeydownHandler);
-        app.navigate('home');
-      });
-    }, 0);
-    return;
   }
 
   currentCard = dueQueue[0];
@@ -324,7 +492,15 @@ async function loadNextCard(app) {
   document.getElementById('pump-phonetics').classList.add('hidden');
   document.getElementById('pump-translation').classList.add('hidden');
   document.getElementById('isolated-word-box').classList.add('hidden');
+  document.getElementById('saved-video-context').replaceChildren();
+  document.getElementById('study-yt-mount').classList.add('hidden');
+  hidePlayer(); // troca de card: o vídeo do card anterior não deve tocar ao fundo
   document.getElementById('youglish-box').classList.add('hidden');
+  document.getElementById('tatoeba-list').classList.add('hidden');
+  document.getElementById('tatoeba-list').innerHTML = '';
+  document.getElementById('tatoeba-load-btn').classList.remove('hidden');
+  document.getElementById('tatoeba-load-btn').disabled = false;
+  document.getElementById('tatoeba-load-btn').textContent = '🔎 Ver exemplos de falantes reais';
   document.getElementById('improve-btn').classList.add('hidden');
   document.getElementById('shadowing-overlay').classList.add('hidden');
   document.getElementById('shadowing-progress').style.width = '0%';
@@ -361,7 +537,7 @@ async function loadNextCard(app) {
       const revealVisible = !document.getElementById('reveal-btn')?.classList.contains('hidden');
       if (revealVisible && card._mode === 'classic') {
         renderFront(card, word, newContext);
-        playCurrentAudio();
+        if (audioAutoFront) playCurrentAudio();
       }
     }).catch(() => {});
   }
@@ -379,21 +555,58 @@ async function loadNextCard(app) {
     const wordCount = context.split(/\s+/).length;
     const canBuild = variedEnabled && wordCount >= 3 && wordCount <= 12;
     const canDictate = variedEnabled && wordCount >= 2 && wordCount <= 12;
-    const roll = Math.random();
-    if (reverseEnabled && roll < 0.3) {
-      card._mode = 'reverse';
-      card._reverse = true;
-    } else if (canBuild && roll < 0.55) {
-      card._mode = 'builder';
-    } else if (canDictate && roll < 0.75) {
-      card._mode = 'dictation';
+    // PALAVRA FRACA → exercício de PRODUÇÃO (decisão do linguista: produzir
+    // fixa mais que reconhecer — é o tratamento certo pra leech em formação).
+    if (isWeakCard(card) && (canBuild || canDictate)) {
+      card._mode = canBuild ? 'builder' : 'dictation';
+    } else {
+      const roll = Math.random();
+      if (reverseEnabled && roll < 0.3) {
+        card._mode = 'reverse';
+        card._reverse = true;
+      } else if (canBuild && roll < 0.55) {
+        card._mode = 'builder';
+      } else if (canDictate && roll < 0.75) {
+        card._mode = 'dictation';
+      }
     }
   }
 
   renderFront(card, word, context);
+  const liveStatus = document.getElementById('study-status');
+  if (liveStatus) {
+    liveStatus.textContent = `Novo card: ${word}. Revele a resposta quando estiver pronto.`;
+  }
   // Reverso: o áudio EN entrega a resposta. Builder: entrega a ORDEM das palavras.
   // Ditado: o próprio renderFront toca (é o exercício).
-  if (card._mode === 'classic') playCurrentAudio();
+  // lf_audio_auto_front agora é uma config REAL (antes o checkbox era enfeite).
+  if (card._mode === 'classic' && audioAutoFront) playCurrentAudio();
+
+  // Rótulos REAIS dos botões de nota: o intervalo que o FSRS vai aplicar de
+  // verdade — os rótulos fixos antigos ("Bom = 3 dias") mentiam pro aluno.
+  updateGradeLabels(card);
+}
+
+function formatInterval(ivl) {
+  if (ivl == null || isNaN(ivl)) return '—';
+  if (ivl < 1) return `${Math.max(1, Math.round(ivl * 1440))} min`;
+  if (ivl < 30) return `${Math.round(ivl)} ${Math.round(ivl) === 1 ? 'dia' : 'dias'}`;
+  if (ivl < 365) return `${(ivl / 30.4).toFixed(1).replace('.0', '')} mes.`;
+  return `${(ivl / 365).toFixed(1).replace('.0', '')} ano${ivl >= 730 ? 's' : ''}`;
+}
+
+async function updateGradeLabels(card) {
+  const { wordData, _chunks, ...clean } = card;
+  try {
+    const ivls = await Promise.all([1, 2, 3, 4].map(g =>
+      lfDb.predictNextInterval(clean, g).catch(() => null)
+    ));
+    if (currentCard !== card) return; // usuário já avançou
+    ivls.forEach((ivl, i) => {
+      const el = document.getElementById(`grade-ivl-${i + 1}`);
+      if (el) el.textContent = formatInterval(ivl);
+    });
+  } catch { /* rótulos ficam em "…" — melhor que mentir */ }
 }
 
 function renderFront(card, word, context) {
@@ -623,7 +836,7 @@ async function revealCard() {
     } catch {
       sentenceEl.innerHTML = `<span class="cloze-revealed">${word}</span>`;
     }
-    playCurrentAudio();
+    if (audioAutoBack) playCurrentAudio(); // lf_audio_auto_back: config real
   }
   document.querySelectorAll('.cloze-blur').forEach(el => {
     el.classList.remove('cloze-blur');
@@ -643,6 +856,7 @@ async function revealCard() {
   renderReveal(word, context, ctxEntry, wordEntry, wordData, card);
   renderChunksList(chunks, context);
   updateYouglish(word);
+  updateTatoeba(word);
   startGrammarChat(card, word, context);
 
   // 3. Se faltar fonética/tradução da frase ou da palavra, gera UMA vez e persiste
@@ -704,6 +918,78 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card) {
     isoPhon.style.display = 'none';
   }
   isoBox.classList.remove('hidden');
+
+  // Onda 3.3: mnemônico por IA — gerado uma vez e salvo no card
+  // (words.mnemonic), pra não custar uma chamada de IA toda vez que o
+  // aluno reabre a mesma palavra.
+  const mnemonicBtn = document.getElementById('iso-mnemonic-btn');
+  const mnemonicText = document.getElementById('iso-mnemonic-text');
+  mnemonicText.classList.add('hidden');
+  mnemonicText.textContent = '';
+  if (wordData.mnemonic) {
+    mnemonicText.textContent = `💡 ${wordData.mnemonic}`;
+    mnemonicText.classList.remove('hidden');
+    mnemonicBtn.textContent = '💡 Gerar outro truque';
+  } else {
+    mnemonicBtn.textContent = '💡 Me dá um truque pra lembrar';
+  }
+  mnemonicBtn.onclick = async () => {
+    mnemonicBtn.disabled = true;
+    mnemonicBtn.textContent = 'Gerando…';
+    try {
+      const translation = (wordEntry && wordEntry.pt) || wordData.translation || card.translation || '';
+      const mnemonic = await generateMnemonic(word, translation, context);
+      mnemonicText.textContent = `💡 ${mnemonic}`;
+      mnemonicText.classList.remove('hidden');
+      mnemonicBtn.textContent = '💡 Gerar outro truque';
+      if (wordData.id) {
+        wordData.mnemonic = mnemonic;
+        lfDb.updateWord(wordData.id, { mnemonic }).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[Study] Mnemônico falhou:', e);
+      exerciseApp?.showToast?.('Não consegui gerar um truque agora. Tente de novo.', 'error');
+      mnemonicBtn.textContent = '💡 Me dá um truque pra lembrar';
+    } finally {
+      mnemonicBtn.disabled = false;
+    }
+  };
+
+  // Onda 2.5: player YouTube único e reutilizável — trocar de card troca só
+  // o vídeo carregado (cueVideoById), nunca recria o iframe do zero.
+  const videoContainer = document.getElementById('saved-video-context');
+  const ytMount = document.getElementById('study-yt-mount');
+  const vctx = getVideoContext(wordData.video_url);
+  if (vctx && vctx.videoId) {
+    const title = escapeHtml(wordData.video_title || 'vídeo de origem');
+    const platform = escapeHtml(wordData.platform || 'YouTube');
+    videoContainer.innerHTML = `
+      <section class="video-context" aria-label="Contexto do vídeo">
+        <span class="video-context-label">🎬 Salvo de ${platform}</span>
+        <span class="video-context-title" title="${title}">${title}</span>
+        <div class="video-context-actions">
+          <a href="${escapeHtml(vctx.externalUrl)}" target="_blank" rel="noopener noreferrer">Abrir no YouTube ↗</a>
+        </div>
+      </section>`;
+    ytMount.classList.remove('hidden');
+    // Auditoria 2026-07-12: sem o guard de card, um vídeo de um card ANTERIOR
+    // que demora pra falhar (ex: embed bloqueado) podia resolver depois que o
+    // aluno já avançou — escondendo o vídeo válido do card atual por engano.
+    loadVideo(ytMount, vctx.videoId, { start: vctx.start }).then(ok => {
+      if (!ok && currentCard === card) ytMount.classList.add('hidden');
+    });
+  } else if (vctx && vctx.externalUrl) {
+    // Não é YouTube (ou sem videoId extraível): sem player, só o link no
+    // ponto salvo — degradação graciosa, DRM/bloqueio de embed não quebra nada.
+    videoContainer.innerHTML = renderVideoContext(wordData, 'study-video-context');
+    attachVideoContext(videoContainer);
+    ytMount.classList.add('hidden');
+    hidePlayer();
+  } else {
+    videoContainer.innerHTML = '';
+    ytMount.classList.add('hidden');
+    hidePlayer();
+  }
 }
 
 // ── Chunks (frases úteis) ────────────────────────────────────────────────────
@@ -874,6 +1160,42 @@ async function sendGrammarQuestion(text) {
   }
 }
 
+// ── Tatoeba: frases reais de falantes, sob demanda (Onda 3.5) ───────────────
+function updateTatoeba(word) {
+  const loadBtn = document.getElementById('tatoeba-load-btn');
+  const list = document.getElementById('tatoeba-list');
+  if (!loadBtn || !list) return;
+  loadBtn.classList.remove('hidden');
+  loadBtn.disabled = false;
+  loadBtn.textContent = '🔎 Ver exemplos de falantes reais';
+  list.classList.add('hidden');
+  list.innerHTML = '';
+
+  loadBtn.onclick = async () => {
+    loadBtn.disabled = true;
+    loadBtn.textContent = 'Buscando…';
+    try {
+      const sentences = await fetchTatoebaSentences(word);
+      if (sentences.length === 0) {
+        list.innerHTML = '<p style="font-size:12px; color:var(--color-text-light);">Nenhum exemplo encontrado pra essa palavra.</p>';
+      } else {
+        list.innerHTML = sentences.map(s => `
+          <div style="padding:10px 12px; background:var(--color-bg-alt); border-radius:8px; margin-bottom:8px; font-size:13px;">
+            <div style="color:var(--color-text); font-weight:600;">${escapeHtml(s.text)}</div>
+            ${s.translation ? `<div style="color:var(--color-text-light); margin-top:4px;">${escapeHtml(s.translation)}</div>` : ''}
+          </div>`).join('');
+      }
+      list.classList.remove('hidden');
+      loadBtn.classList.add('hidden');
+    } catch (e) {
+      console.warn('[Study] Tatoeba falhou:', e);
+      list.innerHTML = '<p style="font-size:12px; color:var(--color-text-light);">Não consegui buscar exemplos agora.</p>';
+      list.classList.remove('hidden');
+      loadBtn.classList.add('hidden');
+    }
+  };
+}
+
 // ── YouGlish embutido ────────────────────────────────────────────────────────
 // Lazy por design: o widget do YouGlish dá autoplay e é pesado — só carrega
 // quando o usuário CLICA. Ao trocar de card, o vídeo é pausado (bug antigo:
@@ -991,17 +1313,16 @@ function showXPAnimation(text, isPositive = true) {
 }
 
 async function handleGrade(grade, app) {
+  if (gradeBusy || !currentCard) return;
+  gradeBusy = true;
   const isCorrect = grade >= 2;
   playFeedbackSound(isCorrect ? 'correct' : 'wrong');
   stopAudio();
 
   if (isCorrect) {
-    // XP real é creditado pelo trigger do Supabase quando logReview roda.
-    const xp = parseInt(localStorage.getItem('lf_xp_today') || '0') + 10;
-    localStorage.setItem('lf_xp_today', xp);
-
+    // XP real vem SÓ do backend (trigger no review_log). Nada de contador
+    // paralelo em localStorage — era uma segunda fonte de verdade divergente.
     consecutiveCorrect++;
-    showXPAnimation('+10 XP');
     if (consecutiveCorrect === 5) app.showToast('🔥 5 em sequência! Continue!', 'info');
     if (consecutiveCorrect === 10) app.showToast('🚀 Você está em chamas! 10 seguidos!', 'info');
   } else {
@@ -1011,44 +1332,74 @@ async function handleGrade(grade, app) {
 
   sessionCards++;
   const gradedCard = currentCard;
-
-  // OTIMISTA: o próximo card aparece JÁ — o logReview (que faz várias idas
-  // ao servidor) roda em segundo plano. Era a causa da demora ao avaliar.
   dueQueue.shift();
-  loadNextCard(app);
 
-  lfDb.logReview(gradedCard.id, grade)
+  const logPromise = lfDb.logReview(gradedCard.id, grade)
     .then((res) => {
-      lastReview = { prevCard: res?.prevCard || null, card: gradedCard, grade, isCorrect };
+      lastReview = {
+        prevCard: res?.prevCard || null,
+        card: gradedCard,
+        reviewLogId: res?.reviewLogId || null,
+        grade,
+        isCorrect,
+      };
       updateUndoButton();
+      if (res?.xpAwarded) {
+        sessionXp += res.xpAwarded;
+        showXPAnimation(`+${res.xpAwarded} XP`);
+      }
+      // REENTRADA NA SESSÃO (o fix do bug nº1): card que ficou em learning
+      // (intervalo em minutos) volta pra fila da PRÓPRIA sessão quando vencer.
+      if (res?.card && res.card.status === 'learning' && res.nextDue) {
+        pendingLearning.push({
+          card: { ...res.card, wordData: gradedCard.wordData },
+          dueAt: res.nextDue,
+        });
+      }
+      return res;
     })
     .catch((e) => {
       console.error('Failed to log review:', e);
       app.showToast('Erro ao salvar a revisão. Verifique sua conexão.', 'error');
+      return null;
     });
+
+  // A persistência precisa terminar antes de o próximo card ser exposto. Isso
+  // evita duas avaliações concorrentes e mantém a fila consistente em falha.
+  await logPromise;
+  gradeBusy = false;
+  loadNextCard(app);
 }
 
 async function handleUndo(app) {
+  // Auditoria 2026-07-12: handleGrade só atualiza `lastReview` DEPOIS que o
+  // logReview termina de salvar (await logPromise), mas o botão/atalho de
+  // Undo não checava isso — apertar Z logo após avaliar (o uso mais natural
+  // do atalho) desfazia a revisão ANTERIOR (lastReview ainda apontava pro
+  // card N-1) em vez da que acabou de ser dada. gradeBusy fica true durante
+  // toda essa janela, então é a mesma trava que já protege handleGrade.
+  if (gradeBusy) return;
   if (!lastReview || !lastReview.prevCard) return;
-  const { prevCard, card, isCorrect } = lastReview;
+  const { prevCard, card, reviewLogId, isCorrect } = lastReview;
   lastReview = null;
   updateUndoButton();
 
   try {
-    await lfDb.undoReview(prevCard);
+    const undone = await lfDb.undoReview(prevCard, reviewLogId);
+    sessionXp = Math.max(0, sessionXp - (undone?.xpReverted || 0));
   } catch (e) {
     console.error('Falha ao desfazer:', e);
     app.showToast('Não foi possível desfazer.', 'error');
     return;
   }
 
-  // Reverte o progresso da sessão e recoloca o card no topo da fila
+  // Reverte o progresso da sessão e recoloca o card no topo da fila.
+  // Se o card tinha sido reagendado como learning, sai da fila de espera.
   sessionCards = Math.max(0, sessionCards - 1);
   if (isCorrect) {
     consecutiveCorrect = Math.max(0, consecutiveCorrect - 1);
-    const xp = Math.max(0, parseInt(localStorage.getItem('lf_xp_today') || '0') - 10);
-    localStorage.setItem('lf_xp_today', xp);
   }
+  pendingLearning = pendingLearning.filter(p => p.card.id !== card.id);
   dueQueue.unshift(card);
   app.showToast('Revisão desfeita ↩️', 'info');
   loadNextCard(app);
@@ -1120,6 +1471,8 @@ function injectStyles() {
     .grading-row { display: flex; gap: 16px; width: 100%;}
     .grade-btn { flex: 1; font-family: var(--font-main); font-weight: 800; font-size: 18px; padding: 16px 8px; border-radius: var(--radius-md); border: none; cursor: pointer; color: white; display: flex; flex-direction: column; align-items: center; gap: 6px; transition: transform 0.1s, box-shadow 0.1s; }
     .grade-btn:active { transform: translateY(4px); box-shadow: 0 0 0 transparent !important; }
+    button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--color-secondary); outline-offset: 3px; }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 
     .btn-danger { background: #ff4b4b; box-shadow: 0 4px 0 #cc3c3c; }
     .btn-warning { background: #ff9600; box-shadow: 0 4px 0 #cc7800; }
@@ -1154,14 +1507,33 @@ function injectStyles() {
     #grammar-send:disabled { opacity: 0.5; cursor: default; }
 
     #youglish-box { background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    #tatoeba-box { background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
     #yg-widget-embed { width: 100%; min-height: 0; }
     #yg-widget-embed iframe { max-width: 100%; border-radius: var(--radius-md); }
+    #saved-video-context { margin-bottom: 24px; }
+    .video-context { max-width: 560px; }
+    .video-context-label { color: var(--color-text-light); font-size: 12px; font-weight: 800; }
+    .video-context-title { display: block; color: var(--color-text); font-size: 13px; margin: 3px 0 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .video-context-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .video-context-actions a, .video-context-embed { color: var(--color-secondary); background: transparent; border: 0; cursor: pointer; font: inherit; font-size: 13px; font-weight: 800; padding: 0; text-decoration: underline; }
+    .video-context-frame { margin-top: 12px; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; }
+    .video-context-frame iframe { width: 100%; height: 100%; border: 0; }
+    #study-yt-mount { aspect-ratio: 16 / 9; background: #000; }
+    #study-yt-mount iframe { width: 100%; height: 100%; border: 0; }
 
     @media (max-width: 768px) {
       .study-layout { flex-direction: column; }
-      .study-sidebar { width: 100%; border-left: none; border-top: 2px solid var(--color-border); }
+      .study-main { padding: 20px 16px; }
+      .study-sidebar { width: 100%; padding: 20px 16px; border-left: none; border-top: 2px solid var(--color-border); }
       .grading-row { flex-wrap: wrap; }
       .grade-btn { flex: 1 1 40%; }
+      .sentence-text { font-size: 26px; }
+    }
+    @media (max-width: 380px) {
+      .study-main { padding: 16px 12px; }
+      .media-container { height: 76px; margin-bottom: 20px; }
+      .sentence-text { font-size: 22px; margin-bottom: 22px; }
+      .grade-btn { font-size: 16px; min-height: 74px; }
     }
 
     @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }

@@ -2,22 +2,49 @@ name: Build and Release
 
 on:
   push:
+    branches:
+      - main
+      - codex/**
+      - claude/**
     tags:
       - 'v*'
+  pull_request:
   workflow_dispatch:
 
 jobs:
+  verify:
+    name: Verify learning engine and release smoke
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: npm
+    - name: Install locked dependencies
+      run: npm ci
+    - name: Run engine tests
+      run: npm run test:engine
+    - name: Run local-day tests
+      run: npm run test:local-day
+    - name: Run release smoke
+      run: npm run test:release
+
   build:
+    needs: verify
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     
     - name: Setup Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
     
     - name: Get version from manifest
       id: version

@@ -189,12 +189,19 @@ Retorne exatamente este JSON:
 // Geração de história na web (na extensão o service worker tem 'ai_generate_story').
 // Mesmo prompt e mesma resposta { story, level } do service worker.
 // onChunk opcional: o texto vai aparecendo enquanto a IA escreve (streaming).
-export async function generateStoryWeb(genre, onChunk) {
+export async function generateStoryWeb(genre, onChunk, userWords = []) {
   const cefr = (await getCefrLevel()) || 'B1';
+  // REENCONTRO ESPAÇADO EM CONTEXTO (Marco 3 do motor pedagógico): a história
+  // é gerada COM as palavras que o aluno está aprendendo/errando — rever a
+  // palavra num contexto NOVO é o que consolida (nenhum concorrente faz bem).
+  const reencounter = (userWords || []).slice(0, 8);
+  const reencounterNote = reencounter.length
+    ? `\nIMPORTANTE: incorpore NATURALMENTE ${Math.min(6, Math.max(4, reencounter.length))} destas palavras/expressões que o aluno está estudando (sem forçar, sem destacar, sem listar): ${reencounter.join(', ')}.`
+    : '';
   const prompt = `Você é um gerador de histórias curtas para estudantes de inglês.
 Nível do Estudante: CEFR ${cefr}.
 Tema/Gênero da História: ${genre}.
-
+${reencounterNote}
 Por favor, escreva uma história curta (cerca de 200 a 300 palavras) em inglês, adequada para o nível ${cefr}.
 A história deve conter vocabulário útil e natural, com frases bem construídas.
 Não traduza a história. Apenas escreva a história em inglês, usando quebras de linha normais para parágrafos.
@@ -205,7 +212,78 @@ NÃO use formatação markdown, NÃO coloque um título, apenas o texto da hist�
     { temperature: 0.8, max_tokens: 900 },
     onChunk
   );
-  return { story, level: cefr };
+  return { story, level: cefr, requestedWords: reencounter };
+}
+
+// ── DIAGNÓSTICO SEMANAL DO LINGUISTA (Marco 1 do motor pedagógico) ──────────
+// A IA recebe NÚMEROS REAIS do aluno (getDiagnosisData) e devolve uma análise
+// estruturada. A persona é de linguista aplicado: metodologia, não elogio.
+export async function generateWeeklyDiagnosis(data, cefrLevel) {
+  const system = `Você é um LINGUISTA APLICADO especializado em aquisição de segunda língua (SLA) e na escala CEFR, analisando os dados REAIS de estudo de um aluno brasileiro de inglês${cefrLevel ? ` (nível declarado: ${cefrLevel})` : ''}.
+Seja direto e técnico-didático: aponte padrões nos NÚMEROS, não elogios vazios. Cite as palavras e categorias exatas dos dados.
+Responda APENAS com JSON válido:
+{
+  "resumo": "1-2 frases: o padrão mais importante da semana",
+  "forcas": ["até 2 pontos fortes com evidência dos dados"],
+  "fraquezas": ["até 3 fraquezas com evidência (categoria/nível/palavras)"],
+  "plano_semana": ["3 ações CONCRETAS e pequenas para os próximos 7 dias, em ordem de prioridade"],
+  "dica_tecnica": "1 técnica de estudo específica pro padrão de erro observado (ex.: produção oral pra reconhecimento fraco, chunking pra phrasal verbs)"
+}`;
+  const user = `Dados dos últimos 30 dias:\n${JSON.stringify(data)}\nGere o diagnóstico.`;
+  const content = await aiChat(
+    [{ role: 'system', content: system }, { role: 'user', content: user }],
+    { temperature: 0.4, max_tokens: 700 }
+  );
+  const clean = content.replace(/```json/g, '').replace(/```/g, '').trim();
+  const parsed = JSON.parse(clean);
+  if (!parsed.resumo || !Array.isArray(parsed.plano_semana)) throw new Error('Diagnóstico malformado');
+  return parsed;
+}
+
+// Onda 3.2 — Fase 4 do nivelamento: corrige a mini-produção escrita como um
+// examinador Cambridge corrigiria (rubric de gramática/vocabulário/coesão),
+// devolvendo um ajuste pequeno (-1/0/+1 banda) — nunca decide o nível sozinha,
+// só confirma ou nuança o resultado objetivo do vocabulário/cloze/listening.
+export async function gradeWriting(text, prompt, estimatedLevel) {
+  const system = `Você é um examinador certificado de proficiência em inglês (padrão Cambridge/CEFR), avaliando um aluno brasileiro cujo nível estimado por outras provas é ${estimatedLevel}.
+Avalie o texto pelos critérios: gramática, vocabulário, coesão/coerência e adequação à tarefa pedida.
+Responda APENAS com JSON válido:
+{
+  "adjust": -1 | 0 | 1,
+  "feedback": "até 2 frases em português, diretas, sem elogio vazio — aponte o principal erro ou acerto"
+}
+"adjust" = -1 se o texto está CLARAMENTE abaixo do nível estimado (muitos erros básicos pro nível); 0 se compatível; +1 APENAS se claramente acima (raro). Nunca ajuste mais de 1 banda.`;
+  const user = `Tarefa pedida: ${prompt}\n\nTexto do aluno:\n${text}`;
+  const content = await aiChat(
+    [{ role: 'system', content: system }, { role: 'user', content: user }],
+    { temperature: 0.3, max_tokens: 300 }
+  );
+  const clean = content.replace(/```json/g, '').replace(/```/g, '').trim();
+  const parsed = JSON.parse(clean);
+  const adjust = [-1, 0, 1].includes(parsed.adjust) ? parsed.adjust : 0;
+  const feedback = typeof parsed.feedback === 'string' ? parsed.feedback.slice(0, 400) : '';
+  return { adjust, feedback };
+}
+
+// Onda 3.3 (Linguista) — mnemônico estilo Memrise: uma associação memorável
+// e curta pra fixar a palavra (som parecido em português, imagem mental,
+// trocadilho). Gerado uma vez e salvo no card (words.mnemonic) — não é
+// regerado a cada abertura do card.
+export async function generateMnemonic(word, translation, sentence) {
+  const system = `Você é especialista em técnicas de memorização de vocabulário (mnemônicos), no estilo do Memrise.
+Crie UM mnemônico curto e memorável em português pra ajudar um brasileiro a lembrar da palavra em inglês.
+Use um destes recursos, o que funcionar melhor pra essa palavra específica: som parecido com uma palavra/expressão em português, uma imagem mental vívida e um pouco exagerada, ou uma história-relâmpago de 1 frase ligando a palavra ao significado.
+Responda APENAS com JSON válido: {"mnemonic": "1-2 frases em português, direto, sem introdução tipo 'aqui está'"}`;
+  const user = `Palavra: "${word}"\nTradução: "${translation}"${sentence ? `\nFrase de exemplo: "${sentence}"` : ''}`;
+  const content = await aiChat(
+    [{ role: 'system', content: system }, { role: 'user', content: user }],
+    { temperature: 0.8, max_tokens: 200 }
+  );
+  const clean = content.replace(/```json/g, '').replace(/```/g, '').trim();
+  const parsed = JSON.parse(clean);
+  const mnemonic = typeof parsed.mnemonic === 'string' ? parsed.mnemonic.trim().slice(0, 400) : '';
+  if (!mnemonic) throw new Error('IA não retornou um mnemônico válido.');
+  return mnemonic;
 }
 
 // Geração de chunks na web (na extensão o service worker já tem essa rotina).

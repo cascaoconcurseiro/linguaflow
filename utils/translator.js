@@ -33,11 +33,15 @@ class Translator {
 
         const promise = (async () => {
             try {
-                const idbKey = `trans_${key}`;
-                const idbResult = await db.getSetting(idbKey).catch(() => null);
-                if (idbResult) {
-                    this._updateMemoryCache(key, idbResult);
-                    return { translation: idbResult, source: 'idb_cache', cached: true };
+                // Cache persistente na tabela translation_cache (a chave mantém
+                // o prefixo trans_ por compat com as 3.155 entradas migradas).
+                // NUNCA mais em settings: cada tradução gravada lá invalidava o
+                // cache do motor SRS e deixava o app inteiro lento.
+                const cacheKey = `trans_${key}`;
+                const cached = await db.getTranslationCache(cacheKey).catch(() => null);
+                if (cached) {
+                    this._updateMemoryCache(key, cached);
+                    return { translation: cached, source: 'idb_cache', cached: true };
                 }
 
                 // Tenta Dicionário Offline primeiro (Se for palavra única ou curta)
@@ -46,7 +50,7 @@ class Translator {
                         const dictEntry = await offlineDict.lookup(text);
                         if (dictEntry && dictEntry.def) {
                             this._updateMemoryCache(key, dictEntry.def);
-                            db.setSetting(idbKey, dictEntry.def).catch(() => {});
+                            db.setTranslationCache(cacheKey, dictEntry.def).catch(() => {});
                             return { translation: dictEntry.def, source: 'offline_dict', cached: true };
                         }
                     } catch (e) {
@@ -57,14 +61,14 @@ class Translator {
                 const google = await this._fetchGoogleTranslate(text, fromLang, toLang);
                 if (google) {
                     this._updateMemoryCache(key, google);
-                    db.setSetting(idbKey, google).catch(() => {});
+                    db.setTranslationCache(cacheKey, google).catch(() => {});
                     return { translation: google, source: 'google_api', cached: false };
                 }
 
                 const mymemory = await this._fetchMyMemory(text, fromLang, toLang);
                 if (mymemory) {
                     this._updateMemoryCache(key, mymemory);
-                    db.setSetting(idbKey, mymemory).catch(() => {});
+                    db.setTranslationCache(cacheKey, mymemory).catch(() => {});
                     return { translation: mymemory, source: 'mymemory_api', cached: false };
                 }
 

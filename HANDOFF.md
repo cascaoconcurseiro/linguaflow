@@ -252,3 +252,37 @@
 8. Branches obsoletas (`master`, `codex/auditoria-completa`) — cosmético, não bloqueia produção, só perguntando se quer que eu remova.
 
 Resumindo: o código não é mais o gargalo. O gargalo agora é uma rodada de decisões/testes que dependem de você.
+
+---
+
+## Atualização — 2026-07-12, resposta sobre e-mail / Leaked Password / chave DeepSeek
+
+**[Gerente] Verifiquei de novo, com calma, se existia algum jeito de ativar "Leaked Password Protection" pelas ferramentas que tenho** (o dono pediu explicitamente, achando que eu tinha acesso). Confirmei que não é possível: não é uma configuração que mora no banco Postgres do projeto (rodei uma query em `information_schema.tables` procurando qualquer tabela de config em `auth`/`extensions`/`public` — não existe nenhuma) nem existe nenhuma ferramenta de MCP disponível pra chamar a Management API do Supabase (que é o único outro caminho, e exige um Personal Access Token que eu não tenho). Isso é uma limitação real de ferramental, não falta de permissão. **Só dá pra ativar em 1 clique no Dashboard**: Authentication → Settings → em "Password Security", ligar "Leaked password protection" (exige plano Pro ou superior).
+
+**[Backend] Chave DeepSeek**: mantida como está, por decisão do dono — não vou rotacionar.
+
+**[Linguista] Reengajamento por e-mail (Onda 3.4)**: fica pausado por enquanto, por decisão do dono — a função já existe no código (`supabase/functions/email-reengagement`) mas continua inerte até haver uma chave de provedor configurada. Nenhuma ação necessária agora.
+
+Nenhuma mudança de código resultou desta rodada — PR #3 já está mergeado em `main`/produção desde o commit `63adfb0`.
+
+---
+
+## Atualização — 2026-07-12: Leaked Password Protection não se aplica (plano Free)
+
+Dono confirmou que usa o plano **Free** do Supabase. Segundo a documentação oficial ("Leaked password protection is available on the Pro Plan and above"), esse recurso nem aparece como opção pra ativar num projeto Free — não é só limitação de ferramental minha, é limitação do plano. Item removido da lista de pendências; não é um bloqueio de segurança acionável no momento (upgrade de plano é decisão de custo do dono, fora de escopo técnico).
+
+---
+
+## Execução Fable — 2026-07-12 (ONDA 7 — performance do painel "Início")
+> Pedido do dono: "Veja porque demora em carregar o painel... Veja se é algo no front ou no banco de dados."
+
+**Diagnóstico**: é no front, não no banco. `renderHome()` (dashboard/js/ui/homeView.js) faz duas levas de fetch. A 1ª chama `db.getStats()`, que internamente já busca e retorna 30 dias de `review_log` completo (`stats.reviewLog`). A 2ª leva pedia os MESMOS 30 dias de novo via `db.getReviewLog(30)` — uma ida à rede idêntica e desperdiçada — e ainda por cima buscava `db.getReviewLog(1)`, que é apenas um subconjunto desses mesmos 30 dias (hoje já está contido no intervalo). Ou seja: toda carga da tela "Início" fazia 2 buscas de review_log 100% redundantes, nenhuma delas com cache.
+
+Além disso, `getAllSentences()` e `getAllKnownWords()` nunca ganharam a otimização stale-while-revalidate que `getAllWords()`/`getAllCards()` já tinham desde a Onda 4 — buscavam a tabela inteira, sem cache, toda vez (chamadas de dentro de `getStats()` e diretamente na 2ª leva de `renderHome()`, e também no Leitor/Histórias). Como essas tabelas só crescem com o uso da conta, o painel ficava progressivamente mais lento pra contas mais antigas — não por falta de índice (os índices em `cards`/`review_log`/`words` já estavam corretos, confirmado nos advisors da Onda 5), mas por reprocessar dados que já tinham acabado de ser buscados segundos antes.
+
+**Correção** (`utils/db.js` + `dashboard/js/ui/homeView.js`):
+- `renderHome()`: a 2ª leva agora reaproveita `stats.reviewLog` em vez de buscar de novo; `logToday` é derivado filtrando esse mesmo array (resultado matematicamente idêntico ao antigo `getReviewLog(1)`, sem a rede extra).
+- `getAllSentences()`/`getAllKnownWords()`: ganharam o mesmo cache SWR de 30s de `getAllWords()`/`getAllCards()` (`_sentencesCache`/`_knownWordsCache`, com `_fetchSentences()`/`_fetchKnownWords()` seguindo o padrão de `_cacheGeneration` já existente pra evitar corrida com invalidação). `saveSentence()`/`deleteSentence()` passaram a chamar `_invalidateReadCache()` (não chamavam antes — não havia cache pra invalidar).
+- `dashboard.html`: `<link rel="preconnect">` pro domínio do Supabase e pro Google Fonts, pra sobrepor o handshake de DNS/TLS com o parse do HTML em vez de pagar esse custo depois.
+
+**Testado**: 30/30 `engine.test.mjs`, `release-smoke` verde (só o aviso esperado de árvore suja). Não achei nada de banco pra corrigir — é puramente um padrão de busca no cliente que ficava pior com o tempo de uso da conta.

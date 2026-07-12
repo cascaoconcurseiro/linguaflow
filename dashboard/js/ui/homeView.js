@@ -188,15 +188,22 @@ export async function renderHome(container, app) {
     let weakCategory = null;   // categoria mais fraca da semana (missão de foco)
     let weakCatReviewsToday = 0;
     try {
-        const [logToday, log30, allWords, allCards, knownWords] = await Promise.all([
-            db ? db.getReviewLog(1) : [],
-            db ? db.getReviewLog(30) : [],
+        // Onda 7 (perf): getStats() (wave 1, acima) já buscou 30 dias de
+        // review_log inteiro (stats.reviewLog) — pedir de novo aqui era uma
+        // 2ª ida à rede idêntica, e getReviewLog(1) era um SUBCONJUNTO do
+        // mesmo período (hoje já está dentro dos 30 dias), outra chamada
+        // 100% redundante. Achado da auditoria de performance do painel:
+        // "Início" fazia 5 buscas na 2ª leva, 2 delas repetindo dados que a
+        // 1ª leva já tinha. Agora reaproveita — zero rede a mais aqui.
+        const [allWords, allCards, knownWords] = await Promise.all([
             db ? db.getAllWords() : [],
             db ? db.getAllCards() : [],
             db ? db.getAllKnownWords().catch(() => []) : []
         ]);
+        const log30 = stats.reviewLog || [];
         const activityDate = (row) => row?.ts ? localDateKey(row.ts) : row?.date;
-        reviewsToday = (logToday || []).filter(r => activityDate(r) === todayISO).length;
+        const logToday = log30.filter(r => activityDate(r) === todayISO);
+        reviewsToday = logToday.length;
         wordsToday = (allWords || []).filter(w => w.added_at && localDateKey(w.added_at) === todayISO).length;
 
         // Conhecidas = marcadas no Leitor + cards maduros, agrupadas por família

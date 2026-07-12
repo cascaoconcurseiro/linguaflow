@@ -3,7 +3,7 @@ import { playNaturalAudio, stopAudio, downloadAudio } from '../core/tts.js';
 import { aiChat, aiChatStream, getCefrLevel, grammarTutorPersona, grammarInitialQuestion, enrichCard, generateChunksWeb, generateMnemonic } from '../core/ai.js';
 import { attachVideoContext, renderVideoContext, getVideoContext } from '../core/videoContext.js';
 import { buildSessionQueue, isWeakCard, prioritizeDueLearning } from '../core/sessionQueue.js';
-import { loadVideo, replayClip, hidePlayer } from '../core/ytPlayer.js';
+import { loadVideo, playClip, replayClip, pausePlayer, setClipLoop, isClipPlaying, hidePlayer } from '../core/ytPlayer.js';
 import { fetchTatoebaSentences } from '../core/tatoeba.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
@@ -981,6 +981,15 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card) {
   const ytMount = document.getElementById('study-yt-mount');
   const vctx = getVideoContext(wordData.video_url, wordData);
   if (vctx && vctx.videoId) {
+    const hasExactBounds = Number.isFinite(vctx.end) && vctx.end > vctx.start;
+    const phraseWords = String(context || '').trim().split(/\s+/).filter(Boolean).length;
+    const estimatedDuration = Math.min(14, Math.max(2.5, phraseWords / 2.4 + 0.8));
+    // Cards antigos salvaram o momento do clique (geralmente perto do fim da
+    // legenda), não os bounds da cue. Para eles reconstruímos uma janela curta
+    // para trás e a marcamos como aproximada. Cards novos usam start/end exatos.
+    const clipStart = hasExactBounds ? vctx.start : Math.max(0, vctx.start - estimatedDuration);
+    const clipEnd = hasExactBounds ? vctx.end : Math.max(clipStart + 2.5, vctx.start + 0.35);
+    const clipDuration = Math.max(1, Math.ceil(clipEnd - clipStart));
     const title = escapeHtml(wordData.video_title || 'vídeo de origem');
     const platform = escapeHtml(wordData.platform || 'YouTube');
     videoContainer.innerHTML = `
@@ -988,24 +997,58 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card) {
         <span class="video-context-label">🎬 Salvo de ${platform}</span>
         <span class="video-context-title" title="${title}">${title}</span>
         <div class="video-context-actions">
-          <button type="button" class="video-context-embed" id="play-saved-clip">▶ Ouvir trecho${vctx.end ? ` (${Math.max(1, Math.ceil(vctx.end - vctx.start))} s)` : ''}</button>
+          <button type="button" class="video-context-embed clip-control" id="play-saved-clip">▶ Ouvir em loop (${clipDuration} s)</button>
+          <button type="button" class="video-context-embed clip-control hidden" id="replay-saved-clip">↻ Do início</button>
           <a href="${escapeHtml(vctx.externalUrl)}" target="_blank" rel="noopener noreferrer">Abrir no YouTube ↗</a>
         </div>
+        <div class="clip-status" id="saved-clip-status" role="status">${hasExactBounds ? 'Trecho exato salvo pela extensão · repetição contínua' : 'Card antigo: trecho reconstruído aproximadamente · repetição contínua'}</div>
       </section>`;
     ytMount.classList.add('hidden');
+    let clipLoaded = false;
+    const replayButton = document.getElementById('replay-saved-clip');
+    const status = document.getElementById('saved-clip-status');
     document.getElementById('play-saved-clip')?.addEventListener('click', async (event) => {
       const button = event.currentTarget;
+      if (clipLoaded) {
+        if (isClipPlaying()) {
+          pausePlayer();
+          button.textContent = '▶ Continuar trecho';
+          if (status) status.textContent = 'Pausado no trecho';
+        } else {
+          playClip();
+          button.textContent = '⏸ Pausar';
+          if (status) status.textContent = 'Repetindo somente esta frase';
+        }
+        return;
+      }
       button.disabled = true;
       button.textContent = 'Carregando trecho…';
+      if (status) status.textContent = 'Preparando o trecho no ponto salvo…';
       ytMount.classList.remove('hidden');
-      const ok = await loadVideo(ytMount, vctx.videoId, { start: vctx.start, end: vctx.end });
+      setClipLoop(true);
+      const ok = await loadVideo(ytMount, vctx.videoId, { start: clipStart, end: clipEnd });
       if (!ok || currentCard !== card) {
         if (currentCard === card) ytMount.classList.add('hidden');
+        if (currentCard === card && status) status.textContent = 'Não foi possível carregar este vídeo. Use “Abrir no YouTube”.';
+        button.disabled = false;
+        button.textContent = 'Tentar novamente';
         return;
       }
       replayClip();
+      clipLoaded = true;
       button.disabled = false;
-      button.textContent = '↻ Repetir frase';
+      button.textContent = '⏸ Pausar';
+      replayButton?.classList.remove('hidden');
+      if (status) status.textContent = hasExactBounds
+        ? 'Repetindo somente esta frase'
+        : 'Repetindo trecho aproximado deste card antigo';
+    });
+    replayButton?.addEventListener('click', () => {
+      if (!clipLoaded) return;
+      replayClip();
+      const playButton = document.getElementById('play-saved-clip');
+      if (playButton) playButton.textContent = '⏸ Pausar';
+      if (status) status.textContent = 'Reiniciado no começo da frase';
     });
   } else if (vctx && vctx.externalUrl) {
     // Não é YouTube (ou sem videoId extraível): sem player, só o link no
@@ -1552,6 +1595,9 @@ function injectStyles() {
     .video-context-title { display: block; color: var(--color-text); font-size: 13px; margin: 3px 0 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .video-context-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .video-context-actions a, .video-context-embed { color: var(--color-secondary); background: transparent; border: 0; cursor: pointer; font: inherit; font-size: 13px; font-weight: 800; padding: 0; text-decoration: underline; }
+    .video-context-actions .clip-control { min-height:40px; padding:8px 12px; border:2px solid var(--color-secondary); border-radius:10px; text-decoration:none; background:rgba(28,176,246,.10); }
+    .video-context-actions .clip-control:disabled { opacity:.65; cursor:wait; }
+    .clip-status { margin-top:8px; color:var(--color-text-light); font-size:12px; line-height:1.4; }
     .video-context-frame { margin-top: 12px; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; }
     .video-context-frame iframe { width: 100%; height: 100%; border: 0; }
     #study-yt-mount { width:min(100%, 620px); margin:12px auto 0; aspect-ratio: 16 / 9; background: #000; border-radius:var(--radius-md); overflow:hidden; }

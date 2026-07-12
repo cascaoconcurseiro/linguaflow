@@ -7,6 +7,7 @@ let wrapperEl;
 let requestId = 0;
 let activeClip = null;
 let endTimer = null;
+let loopEnabled = true;
 
 function stopEndTimer() {
   if (endTimer) window.clearInterval(endTimer);
@@ -41,9 +42,24 @@ function enforceClipEnd() {
   endTimer = window.setInterval(() => {
     if (!activeClip || !player) return stopEndTimer();
     if (player.getCurrentTime?.() >= activeClip.end - 0.08) {
-      player.pauseVideo?.();
-      player.seekTo?.(activeClip.start, true);
       stopEndTimer();
+      if (loopEnabled) {
+        // loadVideoById é intencional: a documentação do YouTube informa que
+        // seekTo cancela o endSeconds. Recarregar o pequeno trecho preserva
+        // os dois limites em cada repetição.
+        player.loadVideoById?.({
+          videoId: activeClip.videoId,
+          startSeconds: activeClip.start,
+          endSeconds: activeClip.end,
+        });
+      } else {
+        player.pauseVideo?.();
+        player.cueVideoById?.({
+          videoId: activeClip.videoId,
+          startSeconds: activeClip.start,
+          endSeconds: activeClip.end,
+        });
+      }
     }
   }, 100);
 }
@@ -63,13 +79,25 @@ async function ensurePlayer(targetEl, expectedRequest) {
     playerReadyPromise = new Promise((resolve, reject) => {
       player = new yt.Player(placeholder, {
         height: '100%', width: '100%',
-        playerVars: { rel: 0, modestbranding: 1, playsinline: 1, origin: window.location.origin },
+        playerVars: {
+          rel: 0,
+          modestbranding: 1,
+          playsinline: 1,
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          origin: window.location.origin,
+        },
         events: {
           onReady: () => resolve(player),
           onError: () => reject(new Error('yt_player_error')),
           onStateChange: ({ data }) => {
             if (data === window.YT?.PlayerState?.PLAYING) enforceClipEnd();
-            else if (data === window.YT?.PlayerState?.PAUSED || data === window.YT?.PlayerState?.ENDED) stopEndTimer();
+            else if (data === window.YT?.PlayerState?.PAUSED) stopEndTimer();
+            else if (data === window.YT?.PlayerState?.ENDED) {
+              stopEndTimer();
+              if (loopEnabled && activeClip) replayClip();
+            }
           },
         },
       });
@@ -103,6 +131,25 @@ export function replayClip() {
   stopEndTimer();
   player.loadVideoById({ videoId: activeClip.videoId, startSeconds: activeClip.start, endSeconds: activeClip.end || undefined });
   return true;
+}
+
+export function playClip() {
+  if (!player || !activeClip) return false;
+  const current = Number(player.getCurrentTime?.()) || 0;
+  if (current < activeClip.start - 0.15 || (activeClip.end && current >= activeClip.end - 0.08)) {
+    return replayClip();
+  }
+  player.playVideo?.();
+  return true;
+}
+
+export function setClipLoop(enabled) {
+  loopEnabled = enabled !== false;
+  return loopEnabled;
+}
+
+export function isClipPlaying() {
+  return player?.getPlayerState?.() === window.YT?.PlayerState?.PLAYING;
 }
 
 export function pausePlayer() {

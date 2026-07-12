@@ -80,6 +80,9 @@ assert(popupSource.includes("type: 'QUEUE_WORD_SAVE'") && popupSource.includes('
 assert(workerSource.includes("args[0].category = classifyWordStatic") && workerSource.includes('refineSavedWord'), 'classificação por IA roda após a gravação inicial');
 
 console.log('\nPWA estático e rotas Vercel');
+const pwaWorkerSource = read('dashboard/sw.js');
+assert(pwaWorkerSource.includes("CACHE_NAME = 'linguaflow-v3.0.2'"), 'cache PWA foi invalidado para o build 3.0.2');
+assert(pwaWorkerSource.includes("req.destination === 'script'") && pwaWorkerSource.includes("fetch(req)"), 'JavaScript do PWA usa rede primeiro com fallback offline');
 const pwaFiles = [
   'dashboard/dashboard.html', 'dashboard/manifest.webmanifest', 'dashboard/sw.js',
   'dashboard/js/core/app.js', 'dashboard/css/globals.css',

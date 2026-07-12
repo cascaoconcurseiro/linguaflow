@@ -10,6 +10,9 @@ const WORD_SELECT = 'id,user_id,word,lang,translation,context_sentence,phonetic,
 
 class Database {
   constructor() {
+    // Sentinela usada pelo shell PWA para impedir uma mistura perigosa entre
+    // app novo e db.js antigo retido por um service worker anterior.
+    this.reviewWriteMode = 'rpc-atomic-v1';
     this.isBackgroundWorker = typeof window === 'undefined';
     this.isChromeContext = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
     this.isProxyMode = this.isChromeContext && !this.isBackgroundWorker;

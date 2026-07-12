@@ -1,7 +1,7 @@
 // Service Worker do Web App (Vercel) — estudo offline
-// Estratégias: app shell pré-cacheado; stale-while-revalidate pra estáticos;
+// Estratégias: app shell pré-cacheado; network-first para código;
 // navegação network-first com fallback pro shell; Supabase NUNCA é cacheado.
-const CACHE_NAME = 'linguaflow-v2.0.0';
+const CACHE_NAME = 'linguaflow-v3.0.2';
 
 // URLs como o Vercel serve de verdade (via rewrites de vercel.json)
 const APP_SHELL = [
@@ -53,8 +53,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Estáticos (js/css/imagens): stale-while-revalidate —
-  // responde do cache na hora e atualiza em segundo plano
+  // Código precisa ser coerente com o schema/RPC do deploy atual. Servir JS
+  // antigo enquanto o HTML é novo causou INSERT direto em review_log (403)
+  // mesmo depois da RPC atômica estar publicada. Online: rede primeiro;
+  // offline: a última versão confirmada continua disponível.
+  if (req.destination === 'script' || req.destination === 'style'
+      || url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE_NAME).then((c) => c.put(req, copy)).catch(() => {});
+          }
+          return res;
+        })
+        .catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  // Imagens/manifest: stale-while-revalidate.
   event.respondWith(
     caches.match(req).then((cached) => {
       const fetched = fetch(req)

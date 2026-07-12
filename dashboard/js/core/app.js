@@ -10,11 +10,31 @@ import { renderLogin } from '../ui/loginView.js';
 import { renderStats } from '../ui/statsView.js';
 import { db } from '../../../utils/db.js';
 
+const CLIENT_BUILD = '3.0.2';
+
+// Uma versão antiga do PWA podia misturar HTML/app novo com db.js antigo.
+// Antes de inicializar qualquer tela, elimina esse estado e recarrega uma vez.
+if (db.reviewWriteMode !== 'rpc-atomic-v1' && 'caches' in window) {
+  const names = await caches.keys();
+  await Promise.all(names.filter((name) => name.startsWith('linguaflow-')).map((name) => caches.delete(name)));
+  window.location.replace(`${window.location.pathname}?lf_build=${CLIENT_BUILD}${window.location.hash}`);
+  await new Promise(() => {});
+}
+
 // Register Service Worker for PWA (if not running as a Chrome Extension)
 if ('serviceWorker' in navigator && (!window.chrome || !window.chrome.runtime || !window.chrome.runtime.id)) {
+  let refreshingForWorker = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshingForWorker || !navigator.serviceWorker.controller) return;
+    refreshingForWorker = true;
+    window.location.reload();
+  });
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js')
-      .then(reg => console.log('[SW] Registrado com sucesso:', reg.scope))
+    navigator.serviceWorker.register(`sw.js?v=${CLIENT_BUILD}`, { updateViaCache: 'none' })
+      .then(reg => {
+        reg.update().catch(() => {});
+        console.log('[SW] Registrado com sucesso:', reg.scope);
+      })
       .catch(err => console.error('[SW] Falha no registro:', err));
   });
 }

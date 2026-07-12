@@ -82,10 +82,15 @@ async function loadStatusSets() {
     (words || []).forEach(w => {
       const l = lemma(w.word);
       if (!l) return;
+      // Onda 9 (auditoria de bugs): `st` vem `undefined` pra palavras SEM
+      // card ainda (ex.: saveWord() salvou a palavra mas a criação do card
+      // falhou por rede — são operações separadas). Isso caía no `else` e
+      // pintava como "aprendendo" (amarelo) uma palavra nunca estudada.
       const st = statusByWordId[w.id];
       if (st === 'mature') knownLemmas.add(l);
       else if (st === 'review') reviewLemmas.add(l);
-      else learningLemmas.add(l); // 'learning' ou 'new' (card existe mas ainda não avançou)
+      else if (st) learningLemmas.add(l); // card existe (status 'new'/'learning') mas ainda não avançou
+      // sem `st`: sem card nenhum ainda — fica 'new' (nenhum set), igual ao comportamento padrão de wordStatus()
     });
   } catch (e) {
     console.warn('[Reader] Erro ao carregar status das palavras:', e);

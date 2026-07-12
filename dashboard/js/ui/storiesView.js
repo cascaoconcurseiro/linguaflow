@@ -304,10 +304,12 @@ export function renderStories(container, app) {
       questions.push({ q, options, answer });
     }
     // Antes travava em EXATAMENTE 3 (descartava o quiz inteiro se a IA
-    // devolvesse 1 a mais/menos por variação natural). Agora aceita de 3 a 5
-    // — mais perguntas = teste de compreensão mais confiável, sem travar por
-    // uma diferença trivial de contagem.
-    return questions.length >= 3 && questions.length <= 5 ? questions.slice(0, 5) : [];
+    // devolvesse 1 a mais/menos por variação natural). Passou a aceitar 3-5,
+    // mas o mesmo bug se escondeu de novo: `length <= 5` ainda descartava o
+    // quiz INTEIRO se a IA mandasse 6+ perguntas válidas, em vez de simplesmente
+    // cortar pras 5 primeiras (Onda 9, auditoria de bugs). Corta ANTES de checar.
+    const capped = questions.slice(0, 5);
+    return capped.length >= 3 ? capped : [];
   }
 
   async function generateQuiz(storyText) {
@@ -780,7 +782,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
       const tokenNodes = [];
 
       tokens.forEach(token => {
-        if (/^[s.,!?;:"'()[]{}*#—–-“”‘’]+$/.test(token) || token.trim() === '') {
+        if (/^[\s.,!?;:"'()\[\]{}*#—–\-“”‘’]+$/.test(token) || token.trim() === '') {
           const textNode = document.createTextNode(token);
           if (animate) {
             const wrapper = document.createElement('span');

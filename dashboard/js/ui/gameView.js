@@ -36,11 +36,16 @@ export async function renderGame(container, app) {
 // Não muda o XP real (o Learning Engine no banco continua sendo a única
 // fonte de verdade) — é só a "sensação de jogo" que faltava, um contador
 // que sobe/zera na tela conforme o Duolingo faz.
-function makeComboTracker(container) {
-  let combo = 0;
-  let best = 0;
+// Onda 9 (auditoria de bugs): "Ouça e Escolha" e "Monte a Frase" recriam o
+// container (e portanto o badge) a CADA rodada — se o contador de combo
+// vivesse só dentro do closure daqui, ele zerava toda rodada e o badge nunca
+// aparecia (precisa de 2+ seguidos). Agora aceita um `state` externo opcional
+// que sobrevive à recriação do DOM entre rodadas; `renderMatchGame` (que não
+// recria o container por partida) continua funcionando igual sem passar nada.
+function makeComboTracker(container, state = { combo: 0, best: 0 }) {
   const badge = document.createElement('div');
-  badge.className = 'combo-badge hidden';
+  badge.className = 'combo-badge' + (state.combo >= 2 ? '' : ' hidden');
+  if (state.combo >= 2) badge.textContent = `🔥 Combo x${state.combo}`;
   container.appendChild(badge);
 
   function pulse() {
@@ -52,19 +57,19 @@ function makeComboTracker(container) {
 
   return {
     hit() {
-      combo++;
-      best = Math.max(best, combo);
-      if (combo >= 2) {
+      state.combo++;
+      state.best = Math.max(state.best, state.combo);
+      if (state.combo >= 2) {
         badge.classList.remove('hidden');
-        badge.textContent = `🔥 Combo x${combo}`;
+        badge.textContent = `🔥 Combo x${state.combo}`;
         pulse();
       }
     },
     miss() {
-      combo = 0;
+      state.combo = 0;
       badge.classList.add('hidden');
     },
-    best: () => best,
+    best: () => state.best,
   };
 }
 
@@ -166,6 +171,10 @@ async function renderMatchGame(container, app) {
   // AudioContext precisa ser inicializado apenas após iteração do user em alguns navegadores,
   // mas como estamos criando após a ação que montou a tela, geralmente funciona.
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // Onda 9 (auditoria de bugs): sem isto, sair do Jogo pela nav bar no meio
+  // de uma partida deixava o AudioContext aberto pra sempre (só era fechado
+  // no fim de partida normal).
+  app.onLeaveView?.(() => audioCtx.close().catch(() => {}));
 
   function handleSelection(btn, item) {
     if (btn.classList.contains('hidden') || btn.classList.contains('correct')) return;
@@ -305,11 +314,16 @@ async function renderListenGame(container, app) {
   }
 
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // Onda 9 (auditoria de bugs): sem isto, sair do Jogo pela nav bar no meio
+  // de uma partida deixava o AudioContext aberto pra sempre (só era fechado
+  // no fim de partida normal).
+  app.onLeaveView?.(() => audioCtx.close().catch(() => {}));
   const order = words.map((_, i) => i).sort(() => 0.5 - Math.random());
   let step = 0;
   let correctCount = 0;
   let answering = false;
   let combo = null;
+  const comboState = { combo: 0, best: 0 }; // sobrevive à recriação do DOM a cada rodada
 
   function buildOptions(targetIdx) {
     const pool = words.filter((w, i) => i !== targetIdx && w.translation !== words[targetIdx].translation);
@@ -334,7 +348,7 @@ async function renderListenGame(container, app) {
         </div>
       </div>
     `;
-    combo = makeComboTracker(document.querySelector('.game-container'));
+    combo = makeComboTracker(document.querySelector('.game-container'), comboState);
 
     const playBtn = document.getElementById('listen-play-btn');
     const playAudio = () => playNaturalAudio(target.word).catch(() => {});
@@ -426,13 +440,23 @@ async function renderBuilderGame(container, app) {
   }
 
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // Onda 9 (auditoria de bugs): sem isto, sair do Jogo pela nav bar no meio
+  // de uma partida deixava o AudioContext aberto pra sempre (só era fechado
+  // no fim de partida normal).
+  app.onLeaveView?.(() => audioCtx.close().catch(() => {}));
   let step = 0;
   let correctCount = 0;
   let combo = null;
+  const comboState = { combo: 0, best: 0 }; // sobrevive à recriação do DOM a cada rodada
 
   function renderRound() {
     const word = words[step];
-    const tokens = word.context_sentence.trim().replace(/[.!?,;:]+$/, '').split(/\s+/);
+    // Onda 9 (auditoria de bugs): .trim() só tira espaço nas PONTAS da frase
+    // inteira — uma frase como "I like cats !" (espaço antes da pontuação)
+    // sobrava um token vazio ("") depois do replace+split, virando um chip
+    // fantasma sem texto que o jogador precisava encontrar pra liberar o
+    // "Verificar". Filtrar tokens vazios resolve na raiz.
+    const tokens = word.context_sentence.trim().replace(/[.!?,;:]+$/, '').trim().split(/\s+/).filter(Boolean);
     const shuffled = [...tokens].sort(() => 0.5 - Math.random());
     const answer = [];
 
@@ -448,7 +472,7 @@ async function renderBuilderGame(container, app) {
         <button id="ex-check" class="btn btn-primary" style="padding:12px 32px; font-size:15px; margin-top:12px;" disabled>Verificar</button>
       </div>
     `;
-    combo = makeComboTracker(document.querySelector('.game-container'));
+    combo = makeComboTracker(document.querySelector('.game-container'), comboState);
 
     const answerEl = document.getElementById('ex-answer');
     const checkBtn = document.getElementById('ex-check');

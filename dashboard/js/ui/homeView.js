@@ -4,6 +4,27 @@ import { runPlacementTest } from './settingsView.js';
 import { generateWeeklyDiagnosis, getCefrLevel } from '../core/ai.js';
 import { computeAchievements, newlyUnlocked } from '../core/achievements.js';
 
+// Onda 9 (auditoria de bugs): weakWords[].word vem direto de words.word (o
+// próprio texto salvo pelo usuário, sem sanitização — pode ter vindo de
+// legenda/página capturada) e era interpolado sem escape num innerHTML.
+// Palavra contendo `<`/`>`/`&` quebrava o layout do card "Plano de hoje".
+function escapeHtml(value = '') {
+  return String(value).replace(/[&<>'"]/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
+  }[char]));
+}
+
+// Onda 9 (auditoria de bugs): renderHome() é async com várias esperas de
+// rede antes de "commitar" — app.js chama renderHome() de novo sempre que
+// chega WORD_SAVED/REFRESH_DASHBOARD da extensão enquanto Início é a aba
+// ativa, sem esperar a chamada anterior terminar. Duas chamadas sobrepostas
+// não têm ordem garantida: se a mais antiga terminar DEPOIS e falhar,
+// sobrescrevia um painel que já tinha carregado certo com a tela de erro; e
+// o toast de conquista podia disparar em dobro. Cada chamada carimba sua
+// própria geração e só "comita" (innerHTML final / toast de conquista) se
+// ainda for a mais recente — senão, uma chamada mais nova já assumiu.
+let _homeRenderGen = 0;
+
 // Fiação REAL do onboarding (nada decorativo): a escolha rápida vira um CEFR
 // de partida, o teste de 3 fases refina, e a meta grava a cota de cartas
 // novas/dia na MESMA chave que a fila de estudo lê.
@@ -136,6 +157,7 @@ function renderOnboarding(container, app, initial = {}) {
 }
 
 export async function renderHome(container, app) {
+    const myGen = ++_homeRenderGen; // Onda 9 (auditoria de bugs): ver comentário acima
     injectStyles();
 
     // Stats via db unificado (Supabase) exposto em app.db
@@ -144,12 +166,13 @@ export async function renderHome(container, app) {
     container.innerHTML = '<p class="home-loading" role="status">Carregando seu painel…</p>';
     if (!db) {
         container.removeAttribute('aria-busy');
-        renderHomeLoadError(container, app);
+        if (myGen === _homeRenderGen) renderHomeLoadError(container, app);
         return;
     }
     const [statsResult, userStatsResult, onboardingResult] = await Promise.allSettled([
         db.getStats(), db.getUserStats(), db.getSetting(ONBOARDING_KEY),
     ]);
+    if (myGen !== _homeRenderGen) return; // uma chamada mais nova já assumiu a tela
     container.removeAttribute('aria-busy');
     if (statsResult.status !== 'fulfilled') {
         renderHomeLoadError(container, app);
@@ -282,7 +305,9 @@ export async function renderHome(container, app) {
         storiesCount,
     });
 
-    const CAT_LABEL = { phrasal_verb: 'phrasal verbs', idiom: 'expressões (idioms)', slang: 'gírias', word: 'vocabulário' };
+    // Onda 9 (auditoria de bugs): era 'phrasal_verb' aqui, mas a categoria real
+    // salva em words.category é 'phrasal' (mesma unificação de service-worker.js).
+    const CAT_LABEL = { phrasal: 'phrasal verbs', idiom: 'expressões (idioms)', slang: 'gírias', word: 'vocabulário' };
 
     // ── PLANO DO PROFESSOR (dados 100% do banco, zero enfeite) ──────────────
     const dueLearningNow = safeStats.dueLearning || 0;
@@ -293,7 +318,7 @@ export async function renderHome(container, app) {
     } else if (dueReviewNow >= 15) {
         professorTip = 'A fila cresceu: divida em 2 sessões curtas (agora e à noite). Sessões curtas fixam melhor que uma maratona.';
     } else if (weakWords.length > 0) {
-        professorTip = `Atenção especial a "${weakWords[0].word}" (${weakWords[0].lapses} erros): antes de responder, leia a frase EM VOZ ALTA — produção fixa mais que reconhecimento.`;
+        professorTip = `Atenção especial a "${escapeHtml(weakWords[0].word)}" (${weakWords[0].lapses} erros): antes de responder, leia a frase EM VOZ ALTA — produção fixa mais que reconhecimento.`;
     } else if ((safeStats.dueCards || 0) === 0 && dueTomorrow === 0) {
         professorTip = 'Tudo em dia! Gere uma história no seu nível, leia com áudio e salve 3 palavras que não conhecia.';
     } else {
@@ -351,6 +376,7 @@ export async function renderHome(container, app) {
     const weeklyDone = xpWeek >= weeklyTarget;
     const weeklyClaimed = !!(userStats?.weekly_claim_week && userStats.weekly_claim_week >= weekStartKey);
 
+    if (myGen !== _homeRenderGen) return; // uma chamada mais nova já assumiu a tela (Onda 9)
     container.innerHTML = `
         <div class="gamified-home">
             <div class="dashboard-main">
@@ -409,7 +435,7 @@ export async function renderHome(container, app) {
                         </div>
                         <div style="font-size:13px; color:var(--color-text); line-height:1.5;">${professorTip}</div>
                         ${weakWords.length ? `<div style="font-size:12px; color:var(--color-text-light); margin-top:6px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                            <span>🔎 No radar: ${weakWords.map(w => `<strong>${w.word}</strong> (${w.lapses}x)`).join(' · ')}</span>
+                            <span>🔎 No radar: ${weakWords.map(w => `<strong>${escapeHtml(w.word)}</strong> (${w.lapses}x)`).join(' · ')}</span>
                             <button id="btn-study-weak" class="btn btn-secondary" style="padding:4px 12px; font-size:11px;" title="Modo de estudo customizado (paridade Anki): revisa só cards fracos/leech, fora da cota diária normal">Revisar só estas</button>
                         </div>` : ''}
                         <details id="diagnosis-details" style="margin-top:10px;">
@@ -665,6 +691,7 @@ export async function renderHome(container, app) {
         (async () => {
             try {
                 const seenRaw = await db.getSetting('lf_achievements_seen');
+                if (myGen !== _homeRenderGen) return; // (Onda 9) chamada superada — não duplica o toast
                 let seenIds = [];
                 try { seenIds = seenRaw ? JSON.parse(seenRaw) : []; } catch { seenIds = []; }
                 const fresh = newlyUnlocked(achievements, seenIds);

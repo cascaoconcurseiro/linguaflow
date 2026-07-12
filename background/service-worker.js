@@ -30,11 +30,15 @@ console.debug('LinguaFlow: Service Worker inicializado.');
 // ── Alarmes ──────────────────────────────────────────────────────────────────
 chrome.alarms.create('srs-reminder', { periodInMinutes: 60 });
 chrome.alarms.create('auto-backup', { periodInMinutes: 1440 });
+chrome.alarms.create('word-save-sync', { periodInMinutes: 1 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'srs-reminder') updateBadge();
   if (alarm.name === 'auto-backup') runAutoBackup();
+  if (alarm.name === 'word-save-sync') syncPendingWordSaves();
 });
+
+chrome.runtime.onStartup?.addListener(() => syncPendingWordSaves());
 
 // ── Instalação ───────────────────────────────────────────────────────────────
 chrome.runtime.onInstalled.addListener(() => {
@@ -60,6 +64,18 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.debug('[LinguaFlow SW] Mensagem recebida:', request.type || request.action);
 
+  // Local-first: o popup confirma assim que a intenção fica persistida no
+  // storage da extensão. A rede, criação do card e enriquecimentos acontecem
+  // depois, com retry pelo alarme — fechar o popup não perde o salvamento.
+  if (request.type === 'QUEUE_WORD_SAVE') {
+    enqueueWordSave(request.payload)
+      .then((queued) => {
+        sendResponse({ ok: true, queued: true, queueId: queued.id });
+        syncPendingWordSaves();
+      })
+      .catch((error) => sendResponse({ ok: false, error: error?.message || String(error) }));
+    return true;
+  }
 
   // Proxy para chamadas de banco de dados (Sincronização global entre sites)
   if (request.type === 'DB_CALL') {
@@ -67,17 +83,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (typeof db[method] === 'function') {
       (async () => {
         try {
-          // Auto-classify word category on saveWord using AI (with static fallback)
+          // Classificação nunca pode bloquear o save. Grava a heurística local
+          // imediatamente; a IA pode refinar depois da confirmação do banco.
+          let refineCategory = null;
           if (method === 'saveWord' && args && args[0] && !args[0].category) {
-            try {
-              args[0].category = await classifyWordAI(args[0].word || '');
-            } catch (e) {
-              console.warn('[LinguaFlow SW] Classificação de IA falhou, usando estática.', e);
-              args[0].category = classifyWordStatic(args[0].word || '');
-            }
+            args[0].category = classifyWordStatic(args[0].word || '');
+            refineCategory = args[0].word || null;
           }
 
           const result = await Promise.resolve(db[method](...(args || [])));
+
+          if (method === 'saveWord' && refineCategory && result?.id) {
+            refineSavedWord(result.id, refineCategory, args[0].category, args[0].translation).catch(() => {});
+          }
 
           const writeMethods = [
             'saveWord',
@@ -466,6 +484,87 @@ Expressão: "${word}"`;
     console.warn('[LinguaFlow AI] Error classifyWordAI:', err);
     return classifyWordStatic(word);
   }
+}
+
+// ── Fila local-first de palavras ────────────────────────────────────────────
+const PENDING_WORD_SAVES_KEY = 'lf_pending_word_saves_v1';
+let wordSaveSyncPromise = null;
+
+function readLocal(key) {
+  return new Promise((resolve) => chrome.storage.local.get(key, (value) => resolve(value?.[key])));
+}
+
+function writeLocal(value) {
+  return new Promise((resolve, reject) => chrome.storage.local.set(value, () => {
+    if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+    else resolve();
+  }));
+}
+
+async function enqueueWordSave(payload) {
+  if (!payload?.word) throw new Error('Palavra ausente');
+  const lang = payload.lang || 'en';
+  const id = `${lang}:${String(payload.word).trim().toLocaleLowerCase()}`;
+  const queue = await readLocal(PENDING_WORD_SAVES_KEY) || {};
+  queue[id] = {
+    id,
+    queuedAt: Date.now(),
+    attempts: 0,
+    payload: {
+      ...payload,
+      category: payload.category || classifyWordStatic(payload.word),
+      // Base64 de screenshot tornava a fila pesada e bloqueava o clique.
+      // O clipe do vídeo é a mídia canônica; snapshot não entra no caminho P0.
+      snapshot: null,
+    },
+  };
+  await writeLocal({ [PENDING_WORD_SAVES_KEY]: queue });
+  return queue[id];
+}
+
+async function refineSavedWord(id, word, currentCategory, currentTranslation) {
+  const tasks = [];
+  tasks.push(classifyWordAI(word).then((category) => {
+    if (category && category !== currentCategory) return db.updateWord(id, { category });
+  }));
+  if (!currentTranslation) {
+    tasks.push(translator.translate(word, 'en', 'pt').then((result) => {
+      if (result?.translation) return db.updateWord(id, { translation: result.translation });
+    }));
+  }
+  await Promise.allSettled(tasks);
+}
+
+async function syncPendingWordSaves() {
+  if (wordSaveSyncPromise) return wordSaveSyncPromise;
+  wordSaveSyncPromise = (async () => {
+    const queue = await readLocal(PENDING_WORD_SAVES_KEY) || {};
+    for (const [id, item] of Object.entries(queue)) {
+      try {
+        const result = await db.saveWord(item.payload);
+        if (!result?.ok) throw new Error('save_not_confirmed');
+
+        const latest = await readLocal(PENDING_WORD_SAVES_KEY) || {};
+        // Não apaga uma versão mais nova enfileirada enquanto esta sincronizava.
+        if (latest[id]?.queuedAt === item.queuedAt) {
+          delete latest[id];
+          await writeLocal({ [PENDING_WORD_SAVES_KEY]: latest });
+        }
+        notifyDashboards(item.payload.word);
+        updateBadge();
+        refineSavedWord(result.id, item.payload.word, item.payload.category, item.payload.translation).catch(() => {});
+        setTimeout(backfillMissingSentences, 2000);
+      } catch (error) {
+        const latest = await readLocal(PENDING_WORD_SAVES_KEY) || {};
+        if (latest[id]?.queuedAt === item.queuedAt) {
+          latest[id].attempts = (latest[id].attempts || 0) + 1;
+          latest[id].lastError = String(error?.message || error).slice(0, 160);
+          await writeLocal({ [PENDING_WORD_SAVES_KEY]: latest });
+        }
+      }
+    }
+  })().finally(() => { wordSaveSyncPromise = null; });
+  return wordSaveSyncPromise;
 }
 
 // ── Funções Auxiliares ────────────────────────────────────────────────────────

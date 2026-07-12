@@ -4,6 +4,9 @@ import { addLocalDays, localDateKey, localDayBounds } from './local-day.js';
 
 const SUPABASE_URL = 'https://qnutoswrufznztoznlql.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudXRvc3dydWZ6bnp0b3pubHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNzIyODEsImV4cCI6MjA5ODc0ODI4MX0.MdtBZwBnqNDpZ5nTytZDzNFKxHxd1rLmi6wT2MfV-0s';
+// snapshot era um JPEG base64 nunca renderizado. Em produção, só 6 palavras
+// somavam 5,4 MB nesse campo e cada select=* o baixava outra vez.
+const WORD_SELECT = 'id,user_id,word,lang,translation,context_sentence,phonetic,pronunciation_pt,explanation,level,tags,ai_chunks,video_url,video_title,platform,added_at,synonyms,antonyms,definition,category,mnemonic,video_start_ms,video_end_ms';
 
 class Database {
   constructor() {
@@ -274,16 +277,30 @@ class Database {
   }
 
   // ── CONFIGURAÇÕES ─────────────────────────────────────────────────────────
+  _normalizeSettingValue(value) {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  }
+
   async getSetting(key) {
     if (this.isProxyMode) return this._proxy('getSetting', [key]);
     const res = await this._fetch(`settings?key=eq.${encodeURIComponent(key)}`);
     if (res && res.length > 0) {
-      const val = res[0].value;
-      if (val === 'true') return true;
-      if (val === 'false') return false;
-      return val;
+      return this._normalizeSettingValue(res[0].value);
     }
     return null;
+  }
+
+  async getSettings(keys) {
+    const unique = [...new Set((keys || []).filter(Boolean))];
+    if (unique.length === 0) return {};
+    if (this.isProxyMode) return this._proxy('getSettings', [unique]);
+    const encoded = unique.map(k => encodeURIComponent(k));
+    const rows = await this._fetch(`settings?select=key,value&key=in.(${encoded.join(',')})`) || [];
+    const map = {};
+    rows.forEach(row => { map[row.key] = this._normalizeSettingValue(row.value); });
+    return map;
   }
 
   async setSetting(key, value) {
@@ -363,13 +380,13 @@ class Database {
 
   async getWord(word, lang = 'en') {
     if (this.isProxyMode) return this._proxy('getWord', [word, lang]);
-    const res = await this._fetch(`words?word=eq.${encodeURIComponent(word)}&lang=eq.${encodeURIComponent(lang)}&limit=1`);
+    const res = await this._fetch(`words?select=${WORD_SELECT}&word=eq.${encodeURIComponent(word)}&lang=eq.${encodeURIComponent(lang)}&limit=1`);
     return res && res.length > 0 ? res[0] : null;
   }
 
   async getWordById(id) {
     if (this.isProxyMode) return this._proxy('getWordById', [id]);
-    const res = await this._fetch(`words?id=eq.${id}&limit=1`);
+    const res = await this._fetch(`words?select=${WORD_SELECT}&id=eq.${id}&limit=1`);
     return res && res.length > 0 ? res[0] : null;
   }
 
@@ -428,7 +445,7 @@ class Database {
     let data;
     if (this.isProxyMode) data = await this._proxy('getAllWords', [limit]);
     else {
-      let query = `words?select=*&order=added_at.desc`;
+      let query = `words?select=${WORD_SELECT}&order=added_at.desc`;
       if (limit > 0) query += `&limit=${limit}`;
       data = await this._fetch(query);
     }
@@ -454,7 +471,7 @@ class Database {
     if (this.isProxyMode) return this._proxy('getWordsByCategory', [category, { limit, offset }]);
 
     if (typeof limit === 'number') {
-      let query = `words?select=*&order=word.asc&limit=${limit}&offset=${offset || 0}`;
+      let query = `words?select=${WORD_SELECT}&order=word.asc&limit=${limit}&offset=${offset || 0}`;
       if (category && category !== 'all') query += `&category=eq.${encodeURIComponent(category)}`;
       const words = await this._fetch(query) || [];
       if (words.length === 0) return [];
@@ -543,7 +560,7 @@ class Database {
   async getCardsDue(limit = 50, includeWordData = true, minutesAhead = 0) {
     if (this.isProxyMode) return this._proxy('getCardsDue', [limit, includeWordData, minutesAhead]);
     const horizon = new Date(Date.now() + minutesAhead * 60000).toISOString();
-    const select = includeWordData ? 'select=*,words(*)&' : '';
+    const select = includeWordData ? `select=*,words(${WORD_SELECT})&` : '';
     // suspended filtrado NO BANCO (antes vinha tudo e filtrava no cliente)
     const query = `cards?${select}due_date=lte.${encodeURIComponent(horizon)}&suspended=is.false&order=due_date.asc&limit=${limit}`;
 
@@ -592,7 +609,7 @@ class Database {
 
   async getHistory(limit = 100) {
     if (this.isProxyMode) return this._proxy('getHistory', [limit]);
-    return (await this._fetch(`words?select=*&order=added_at.desc&limit=${limit}`)) || [];
+    return (await this._fetch(`words?select=${WORD_SELECT}&order=added_at.desc&limit=${limit}`)) || [];
   }
 
   async getStats() {
@@ -664,6 +681,7 @@ class Database {
       byCEFR,
       sessions,
       reviewLog: log,
+      userStats,
     };
   }
 

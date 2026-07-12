@@ -46,14 +46,19 @@ async function renderLoggedIn() {
 }
 
 async function init() {
-  let isLogged = false;
   try {
-    isLogged = await lfDb.checkSession();
+    // O popup deve pintar no primeiro frame. A sessão local decide a tela;
+    // refresh/validação remota acontece depois sem segurar a interface.
+    const session = await lfDb._readSession();
+    if (session?.access_token) {
+      renderLoggedIn();
+      lfDb.checkSession().then((valid) => { if (!valid) show(areaLogin); }).catch(() => {});
+      return;
+    }
   } catch (e) {
-    console.warn('[Popup] Erro ao checar sessão:', e);
+    console.warn('[Popup] Erro ao ler sessão local:', e);
   }
-  if (isLogged) renderLoggedIn();
-  else show(areaLogin);
+  show(areaLogin);
 }
 
 // ── Login ────────────────────────────────────────────────────────────────────

@@ -1065,9 +1065,10 @@ export class WordPopup {
       const { videoUtils } = await import(BASE + 'video-utils.js');
       const lang = this.engine?.sourceLang || 'en';
 
-      // Verificação de sessão — usuário precisa estar logado
-      const isLoggedIn = await db.checkSession();
-      if (!isLoggedIn) {
+      // Leitura local: não faz refresh/rede no clique. Se o token precisar ser
+      // renovado, o service worker fará isso ao sincronizar a fila.
+      const localSession = await db._readSession();
+      if (!localSession?.access_token) {
         btn.textContent = '🔒 Faça login no Dashboard';
         btn.style.background = 'linear-gradient(135deg,#b45309,#d97706)';
         setTimeout(() => {
@@ -1078,28 +1079,9 @@ export class WordPopup {
         return;
       }
 
-      // Verifica se já existe
-      const existing = await db.getWord(this.word, lang);
-      if (existing) {
-        const res = confirm(
-          `A palavra "${this.word}" já está nos seus flashcards.\n\nDeseja salvá-la novamente para atualizar com esta nova frase de contexto?`,
-        );
-        if (!res) {
-          btn.textContent = '✅ Já está Salvo';
-          btn.style.background = 'linear-gradient(135deg,#059669,#10b981)';
-          setTimeout(() => {
-            btn.textContent = '+ Salvar nos Flashcards';
-            btn.style.background = 'linear-gradient(135deg,#1d4ed8,#2563eb)';
-            btn.disabled = false;
-          }, 2000);
-          return;
-        }
-      }
-
-      let translation = d.translation || '';
-      if (!translation) {
-        translation = (await this._translate(this.word)) || '';
-      }
+      // Upsert no servidor resolve duplicidade. Tradução/classificação faltante
+      // é enriquecida depois e não bloqueia a intenção de salvar.
+      const translation = d.translation || '';
 
       // SALVA JÁ — nada de esperar a IA gerar chunks (era a "demora ao salvar").
       // O backfill do service worker roda em background depois do saveWord e
@@ -1108,14 +1090,13 @@ export class WordPopup {
         d.phonetic = this.generatedChunks[0].phon;
       }
 
-      const snapshot = videoUtils.captureSnapshot ? videoUtils.captureSnapshot() : null;
       // Capture o trecho antes de qualquer await: enquanto o dicionário/DB
       // responde, o vídeo pode avançar para outra fala.
       const videoClip = videoUtils.getVideoClip
         ? videoUtils.getVideoClip(this.currentCue)
         : { video_url: await this._getVideoUrlWithTimestamp(), video_start_ms: null, video_end_ms: null };
 
-      const result = await db.saveWord({
+      const payload = {
         word: this.word,
         lang: this.engine?.sourceLang || 'en',
         translation: translation,
@@ -1131,14 +1112,16 @@ export class WordPopup {
         level: this.activeLevel || '',
         synonyms: (d.synonyms || []).join(','),
         antonyms: (d.antonyms || []).join(','),
-        snapshot: snapshot,
+        snapshot: null,
         chunks: this.generatedChunks || null,
-      });
+      };
 
-      if (!result || result.ok === false) {
-        throw new Error('Falha ao salvar no servidor. Verifique login e conexão.');
+      const result = await chrome.runtime.sendMessage({ type: 'QUEUE_WORD_SAVE', payload });
+
+      if (!result?.ok || !result?.queued) {
+        throw new Error(result?.error || 'Não foi possível guardar o salvamento localmente.');
       }
-      console.debug('[WordPopup] ✅ Palavra salva:', result);
+      console.debug('[WordPopup] ✅ Palavra guardada; sincronização em segundo plano:', result.queueId);
 
       btn.textContent = '✅ Salvo!';
       btn.style.background = 'linear-gradient(135deg,#15803d,#16a34a)';
@@ -1153,32 +1136,15 @@ export class WordPopup {
       // Mostra toast de confirmação
       this._showSaveToast();
 
-      // Notifica service worker para broadcast
-      chrome.runtime
-        .sendMessage({
-          type: 'WORD_SAVED',
-          word: this.word,
-        })
-        .catch(() => {});
-
-
-
-      // Notifica dashboard diretamente
-      chrome.runtime
-        .sendMessage({
-          type: 'REFRESH_DASHBOARD',
-          word: this.word,
-        })
-        .catch(() => {});
-
-      // Dispara evento customizado no DOM
+      // O player atualiza instantaneamente. Dashboard/cofre só recebem o
+      // broadcast quando o servidor confirmar a sincronização.
       window.dispatchEvent(
         new CustomEvent('LF_WORD_SAVED', {
-          detail: { word: this.word, result },
+          detail: { word: this.word, queued: true },
         }),
       );
 
-      console.debug('[WordPopup] 📢 Notificações enviadas');
+      console.debug('[WordPopup] 📢 Estado local atualizado');
     } catch (e) {
       console.error('[WordPopup] ❌ Erro ao salvar:', e);
       btn.textContent = '❌ Erro';

@@ -243,26 +243,15 @@ export async function renderSettings(container, app) {
   // TODAS as chaves aqui são as MESMAS que o motor lê em getSRSSettings().
   // (Bug da auditoria: a tela salvava lf_srs_* e o motor lia outras chaves —
   // o usuário mexia, via "Salvo ✅" e nada mudava.)
+  const settingKeys = ['lf_cefr_level', 'lf_tts_lang', 'lf_tts_speed',
+    'graduating_interval', 'max_interval', 'interval_modifier', 'leech_threshold',
+    'leech_action', 'lf_srs_retention', 'learning_steps', 'new_per_day',
+    'max_reviews_per_day', 'lf_reverse_cards', 'lf_varied_exercises',
+    'lf_audio_auto_front', 'lf_audio_auto_back'];
+  const settings = await lfDb.getSettings(settingKeys).catch(() => ({}));
   const [savedCefr, savedTtsLang, savedTtsSpeed, srsGradInt, srsMaxInt, srsIntMod,
     srsLeech, srsLeechAction, srsRetentionRaw, srsSteps, srsNewPerDay, srsMaxRev,
-    srsReverseRaw, srsVariedRaw, audioFrontRaw, audioBackRaw] = await Promise.all([
-    lfDb.getSetting('lf_cefr_level'),
-    lfDb.getSetting('lf_tts_lang'),
-    lfDb.getSetting('lf_tts_speed'),
-    lfDb.getSetting('graduating_interval'),
-    lfDb.getSetting('max_interval'),
-    lfDb.getSetting('interval_modifier'),
-    lfDb.getSetting('leech_threshold'),
-    lfDb.getSetting('leech_action'),
-    lfDb.getSetting('lf_srs_retention'),
-    lfDb.getSetting('learning_steps'),
-    lfDb.getSetting('new_per_day'),
-    lfDb.getSetting('max_reviews_per_day'),
-    lfDb.getSetting('lf_reverse_cards'),
-    lfDb.getSetting('lf_varied_exercises'),
-    lfDb.getSetting('lf_audio_auto_front'),
-    lfDb.getSetting('lf_audio_auto_back'),
-  ].map(p => p.catch(() => null)));
+    srsReverseRaw, srsVariedRaw, audioFrontRaw, audioBackRaw] = settingKeys.map(key => settings[key] ?? null);
 
   const cefr = savedCefr || '';
   const ttsLang = savedTtsLang || 'en-US';

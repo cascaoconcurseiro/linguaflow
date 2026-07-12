@@ -169,8 +169,8 @@ export async function renderHome(container, app) {
         if (myGen === _homeRenderGen) renderHomeLoadError(container, app);
         return;
     }
-    const [statsResult, userStatsResult, onboardingResult] = await Promise.allSettled([
-        db.getStats(), db.getUserStats(), db.getSetting(ONBOARDING_KEY),
+    const [statsResult, onboardingResult] = await Promise.allSettled([
+        db.getStats(), db.getSetting(ONBOARDING_KEY),
     ]);
     if (myGen !== _homeRenderGen) return; // uma chamada mais nova já assumiu a tela
     container.removeAttribute('aria-busy');
@@ -179,7 +179,9 @@ export async function renderHome(container, app) {
         return;
     }
     const stats = statsResult.value;
-    const userStats = userStatsResult.status === 'fulfilled' ? userStatsResult.value : null;
+    // getStats já consulta user_stats para streak/XP. Reusar evita uma chamada
+    // REST duplicada no primeiro carregamento do painel.
+    const userStats = stats?.userStats || null;
     if (onboardingResult.status !== 'fulfilled') {
         // Sem confirmação do estado persistido, não assumimos que seja uma conta vazia.
         renderHomeLoadError(container, app);

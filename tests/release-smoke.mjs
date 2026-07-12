@@ -65,9 +65,19 @@ try {
   ].filter(Boolean);
   const missing = referenced.filter((relative) => !existsSync(file(relative)));
   assert(missing.length === 0, `todos os ${referenced.length} arquivos referenciados pelo manifest existem${missing.length ? `: ${missing.join(', ')}` : ''}`);
+  assert(!extensionManifest.chrome_url_overrides?.newtab, 'extensão não sequestra a nova aba do Chrome');
 } catch (error) {
   fail(`manifest.json inválido: ${error.message}`);
 }
+
+console.log('\nCaminhos críticos de performance');
+const dbSource = read('utils/db.js');
+const workerSource = read('background/service-worker.js');
+const popupSource = read('content/word-popup.js');
+assert(!/[`'\"]words\?select=\*/.test(dbSource) && !/words\(\*\)/.test(dbSource), 'leituras de palavras não baixam snapshot base64 via select=*');
+assert(workerSource.includes('QUEUE_WORD_SAVE') && workerSource.includes('word-save-sync'), 'save local-first possui fila persistente e retry');
+assert(popupSource.includes("type: 'QUEUE_WORD_SAVE'") && popupSource.includes('queued: true'), 'popup confirma a intenção local sem esperar enriquecimento remoto');
+assert(workerSource.includes("args[0].category = classifyWordStatic") && workerSource.includes('refineSavedWord'), 'classificação por IA roda após a gravação inicial');
 
 console.log('\nPWA estático e rotas Vercel');
 const pwaFiles = [

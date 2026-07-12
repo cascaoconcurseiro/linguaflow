@@ -62,7 +62,7 @@ export async function renderLeagues(container, app) {
     .league-title {
       font-size: 24px;
       font-weight: 800;
-      color: #3c3c3c;
+      color: var(--color-text);
       margin: 0 0 8px 0;
       display: flex;
       align-items: center;
@@ -71,14 +71,14 @@ export async function renderLeagues(container, app) {
     }
     .league-subtitle {
       font-size: 14px;
-      color: #777;
+      color: var(--color-text-light);
       margin: 0;
     }
     .leaderboard {
       list-style: none;
       padding: 0;
       margin: 0;
-      border: 1px solid #e5e5e5;
+      border: 1px solid var(--color-border);
       border-radius: 12px;
       overflow: hidden;
     }
@@ -86,31 +86,31 @@ export async function renderLeagues(container, app) {
       display: flex;
       align-items: center;
       padding: 12px 16px;
-      border-bottom: 1px solid #e5e5e5;
+      border-bottom: 1px solid var(--color-border);
       transition: background 0.2s;
     }
     .leaderboard-item:last-child {
       border-bottom: none;
     }
     .leaderboard-item.is-user {
-      background: #f0f7ff;
+      background: rgba(28, 176, 246, 0.1);
       font-weight: bold;
     }
     .leaderboard-item:hover {
-      background: #f9f9f9;
+      background: var(--color-bg-alt);
     }
     .leaderboard-item.is-user:hover {
-      background: #e6f0fa;
+      background: rgba(28, 176, 246, 0.18);
     }
     .rank-number {
       width: 40px;
       font-size: 16px;
-      color: #999;
+      color: var(--color-text-light);
       font-weight: bold;
       text-align: center;
     }
     .rank-number.top-3 {
-      color: #ffc800;
+      color: var(--color-warning);
     }
     .rank-number.top-1 {
       font-size: 20px;
@@ -119,32 +119,34 @@ export async function renderLeagues(container, app) {
       width: 40px;
       height: 40px;
       border-radius: 50%;
-      background: #eee;
+      background: var(--color-bg-alt);
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 18px;
       margin-right: 16px;
-      color: #555;
+      color: var(--color-text);
+      border: 2px solid var(--color-border);
     }
     .is-user .user-avatar {
-      background: #1cb0f6;
+      background: var(--color-secondary);
       color: white;
+      border-color: var(--color-secondary-shadow);
     }
     .user-name {
       flex: 1;
       font-size: 16px;
-      color: #4b4b4b;
+      color: var(--color-text);
     }
     .user-xp {
       font-size: 16px;
-      color: #777;
+      color: var(--color-text-light);
       font-weight: 600;
     }
     .promotion-zone {
       padding: 8px;
-      background: #e8f5e9;
-      color: #2e7d32;
+      background: rgba(88, 204, 2, 0.12);
+      color: var(--color-primary);
       font-size: 12px;
       text-align: center;
       font-weight: bold;
@@ -153,8 +155,8 @@ export async function renderLeagues(container, app) {
     }
     .demotion-zone {
       padding: 8px;
-      background: #ffebee;
-      color: #c62828;
+      background: rgba(255, 75, 75, 0.12);
+      color: var(--color-danger);
       font-size: 12px;
       text-align: center;
       font-weight: bold;
@@ -170,15 +172,15 @@ export async function renderLeagues(container, app) {
         padding: 10px 20px;
         border-radius: 8px;
         border: none;
-        background: #eee;
-        color: #555;
+        background: var(--color-bg-alt);
+        color: var(--color-text);
         font-weight: bold;
         cursor: pointer;
         transition: 0.2s;
         font-family: inherit;
     }
     .btn-league:hover {
-        background: #ddd;
+        background: var(--color-border);
     }
     `;
     document.head.appendChild(style);
@@ -224,8 +226,8 @@ export async function renderLeagues(container, app) {
       </div>
 
       <div class="league-nav" style="flex-direction:column; align-items:center; gap:6px;">
-          <div style="font-size:13px; color:#777; font-weight:bold;">⏰ A semana vira automaticamente toda segunda-feira</div>
-          <div id="league-countdown" style="font-size:13px; color:#999;"></div>
+          <div style="font-size:13px; color:var(--color-text-light); font-weight:bold;">⏰ A semana vira automaticamente toda segunda-feira</div>
+          <div id="league-countdown" style="font-size:13px; color:var(--color-text-light);"></div>
       </div>
     </div>
   `;

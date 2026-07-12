@@ -2,6 +2,7 @@ import { lemma } from '../../../utils/lemma.js';
 import { addLocalDays, daysBetweenLocalKeys, localDateKey } from '../../../utils/local-day.js';
 import { runPlacementTest } from './settingsView.js';
 import { generateWeeklyDiagnosis, getCefrLevel } from '../core/ai.js';
+import { computeAchievements, newlyUnlocked } from '../core/achievements.js';
 
 // Fiação REAL do onboarding (nada decorativo): a escolha rápida vira um CEFR
 // de partida, o teste de 3 fases refina, e a meta grava a cota de cartas
@@ -187,6 +188,7 @@ export async function renderHome(container, app) {
     let weakWords = [];       // palavras com 3+ lapsos/leech — o "professor" de olho
     let weakCategory = null;   // categoria mais fraca da semana (missão de foco)
     let weakCatReviewsToday = 0;
+    let storiesCount = 0;      // Onda 8: usado nas conquistas ("1ª história" etc.)
     try {
         // Onda 7 (perf): getStats() (wave 1, acima) já buscou 30 dias de
         // review_log inteiro (stats.reviewLog) — pedir de novo aqui era uma
@@ -195,16 +197,18 @@ export async function renderHome(container, app) {
         // 100% redundante. Achado da auditoria de performance do painel:
         // "Início" fazia 5 buscas na 2ª leva, 2 delas repetindo dados que a
         // 1ª leva já tinha. Agora reaproveita — zero rede a mais aqui.
-        const [allWords, allCards, knownWords] = await Promise.all([
+        const [allWords, allCards, knownWords, stories] = await Promise.all([
             db ? db.getAllWords() : [],
             db ? db.getAllCards() : [],
-            db ? db.getAllKnownWords().catch(() => []) : []
+            db ? db.getAllKnownWords().catch(() => []) : [],
+            db ? db.getStories(50).catch(() => []) : []
         ]);
         const log30 = stats.reviewLog || [];
         const activityDate = (row) => row?.ts ? localDateKey(row.ts) : row?.date;
         const logToday = log30.filter(r => activityDate(r) === todayISO);
         reviewsToday = logToday.length;
         wordsToday = (allWords || []).filter(w => w.added_at && localDateKey(w.added_at) === todayISO).length;
+        storiesCount = (stories || []).length;
 
         // Conhecidas = marcadas no Leitor + cards maduros, agrupadas por família
         const matureByWordId = {};
@@ -267,6 +271,16 @@ export async function renderHome(container, app) {
                 .length;
         }
     } catch (e) { console.warn('[Home] Erro ao calcular missões:', e); }
+
+    // Onda 8 (Gerente + Eng. SRS): conquistas — puramente derivadas de dados
+    // que já existem (streak, palavras salvas, palavras maduras, histórias).
+    // "Vistos" persiste em settings pra celebrar cada marco só uma vez.
+    const achievements = computeAchievements({
+        streak,
+        wordsCount: safeStats.totalWords || 0,
+        matureCount: safeStats.byStatus?.mature || 0,
+        storiesCount,
+    });
 
     const CAT_LABEL = { phrasal_verb: 'phrasal verbs', idiom: 'expressões (idioms)', slang: 'gírias', word: 'vocabulário' };
 
@@ -432,6 +446,18 @@ export async function renderHome(container, app) {
                         <span class="btn-icon">🎮</span>
                         JOGAR MATCH
                     </button>
+                </div>
+
+                <div class="achievements-section">
+                    <h3 style="margin:0 0 12px 0; font-size:16px; color:var(--color-text);">🏆 Conquistas</h3>
+                    <div class="achievements-grid">
+                        ${achievements.map(a => `
+                            <div class="achv-badge ${a.unlocked ? 'unlocked' : 'locked'}" title="${a.label}${a.unlocked ? '' : ' (ainda não desbloqueada)'}">
+                                <div class="achv-icon">${a.icon}</div>
+                                <div class="achv-label">${a.label}</div>
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
 
                 <div class="heatmap-section">
@@ -621,6 +647,27 @@ export async function renderHome(container, app) {
         }
         heatmapGrid.innerHTML = cellsHTML;
     }
+
+    // Onda 8: celebra conquistas novas (1x cada) — não bloqueia o render,
+    // roda depois com a tela já pintada. "Vistos" fica em settings (k/v que
+    // já existe), sem tabela/migration nova.
+    if (db) {
+        (async () => {
+            try {
+                const seenRaw = await db.getSetting('lf_achievements_seen');
+                let seenIds = [];
+                try { seenIds = seenRaw ? JSON.parse(seenRaw) : []; } catch { seenIds = []; }
+                const fresh = newlyUnlocked(achievements, seenIds);
+                if (fresh.length) {
+                    fresh.forEach((a, i) => {
+                        setTimeout(() => app.showToast?.(`🏆 Conquista desbloqueada: ${a.icon} ${a.label}!`, 'info'), i * 600);
+                    });
+                    const updated = [...new Set([...seenIds, ...fresh.map(a => a.id)])];
+                    await db.setSetting('lf_achievements_seen', JSON.stringify(updated));
+                }
+            } catch (e) { console.warn('[Home] Erro ao processar conquistas:', e); }
+        })();
+    }
 }
 
 function injectStyles() {
@@ -722,6 +769,41 @@ function injectStyles() {
             font-size: 14px;
             font-weight: bold;
             color: var(--color-text-light);
+        }
+
+        /* Conquistas (Onda 8): grade de badges — desbloqueadas em cor cheia
+           com leve "pop" de fundo, bloqueadas em cinza/opacidade reduzida
+           (o aluno vê o que existe pra alcançar, não só o que já tem). */
+        .achievements-section { margin-bottom: 24px; }
+        .achievements-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+            gap: 10px;
+        }
+        .achv-badge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 4px;
+            padding: 10px 6px;
+            border-radius: var(--radius-md);
+            border: 2px solid var(--color-border);
+            background: var(--color-bg-alt);
+            transition: transform 0.15s;
+        }
+        .achv-badge.unlocked {
+            border-color: var(--color-warning);
+            background: rgba(255, 200, 0, 0.1);
+        }
+        .achv-badge.unlocked:hover { transform: translateY(-2px); }
+        .achv-badge.locked { opacity: 0.4; filter: grayscale(1); }
+        .achv-icon { font-size: 24px; }
+        .achv-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--color-text-light);
+            line-height: 1.3;
         }
 
         .action-buttons {

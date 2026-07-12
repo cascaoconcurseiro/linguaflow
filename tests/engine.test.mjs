@@ -14,6 +14,7 @@ copyFileSync(join(root, 'utils/db.js'), join(tmp, 'db.mjs'));
 copyFileSync(join(root, 'utils/local-day.js'), join(tmp, 'local-day.js'));
 copyFileSync(join(root, 'dashboard/js/core/placement.js'), join(tmp, 'placement.mjs'));
 copyFileSync(join(root, 'dashboard/js/core/sessionQueue.js'), join(tmp, 'sessionQueue.mjs'));
+copyFileSync(join(root, 'dashboard/js/core/achievements.js'), join(tmp, 'achievements.mjs'));
 {
   const statsSrc = readFileSync(join(root, 'dashboard/js/core/statsEngine.js'), 'utf8')
     .replace("'../../../utils/local-day.js'", "'./local-day.js'");
@@ -24,6 +25,7 @@ const { db } = await import(pathToFileURL(join(tmp, 'db.mjs')).href);
 const P = await import(pathToFileURL(join(tmp, 'placement.mjs')).href);
 const Q = await import(pathToFileURL(join(tmp, 'sessionQueue.mjs')).href);
 const S = await import(pathToFileURL(join(tmp, 'statsEngine.mjs')).href);
+const A = await import(pathToFileURL(join(tmp, 'achievements.mjs')).href);
 
 let passed = 0;
 function test(name, fn) {
@@ -354,6 +356,32 @@ test('summarize: retenção geral e totais', () => {
   assert.equal(sum.totalMinutes, 2);
   assert.equal(sum.totalReviews, 2);
   assert.equal(sum.overallRetention, 50);
+});
+
+console.log('── Conquistas (achievements, Onda 8) ──');
+
+test('computeAchievements: destrava só os marcos alcançados, mantém ordem', () => {
+  const result = A.computeAchievements({ streak: 10, wordsCount: 60, matureCount: 0, storiesCount: 0 });
+  const unlocked = result.filter(a => a.unlocked).map(a => a.id);
+  assert.deepEqual(unlocked, ['streak_7', 'words_50']);
+  assert.equal(result.length, A.ACHIEVEMENTS.length, 'sempre retorna a lista inteira (locked + unlocked)');
+});
+
+test('computeAchievements: dado ausente/zero não quebra e não destrava nada', () => {
+  const result = A.computeAchievements({});
+  assert.equal(result.every(a => !a.unlocked), true);
+});
+
+test('newlyUnlocked: só retorna o que está desbloqueado E ainda não foi visto', () => {
+  const current = A.computeAchievements({ streak: 30, wordsCount: 0, matureCount: 0, storiesCount: 1 });
+  const fresh = A.newlyUnlocked(current, ['streak_7', 'streak_30']);
+  assert.deepEqual(fresh.map(a => a.id), ['stories_1'], 'streak_7/30 já vistos, não repete a celebração');
+});
+
+test('newlyUnlocked: sem nada visto ainda, retorna todos os desbloqueados', () => {
+  const current = A.computeAchievements({ streak: 7, wordsCount: 0, matureCount: 0, storiesCount: 0 });
+  const fresh = A.newlyUnlocked(current, []);
+  assert.deepEqual(fresh.map(a => a.id), ['streak_7']);
 });
 
 console.log(`\n${passed} testes passaram${process.exitCode ? ' (com falhas!)' : ' — tudo verde ✅'}`);

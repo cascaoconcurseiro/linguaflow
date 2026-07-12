@@ -5,6 +5,15 @@ import { playNaturalAudio } from '../core/tts.js';
 // e "Ouça e Escolha" (novo, treina listening de verdade). Ambos usam o mesmo
 // evento de XP do Learning Engine (game_match), então o teto diário é
 // compartilhado — trocar de jogo não é brecha pra farmar XP em dobro.
+//
+// Onda 8 (Diretor de Arte + Prof. didático): auditoria de UX apontou que
+// esta tela tinha uma paleta escura própria (tipo terminal), desconectada
+// da identidade verde/branco do resto do app — parecia outro produto. Agora
+// usa as mesmas variáveis de `globals.css`. Também ganhou o que faltava pra
+// "parecer um jogo de verdade" no estilo Duolingo: combo visual (acertos em
+// sequência aumentam o XP), celebração ao terminar, e um 3º modo — "Monte a
+// Frase" — que reaproveita a mecânica de banco de palavras já usada no
+// Estudo (studyView.js:renderBuilder), sem inventar nada novo no banco.
 export async function renderGame(container, app) {
   injectGameStyles();
   container.innerHTML = `
@@ -14,22 +23,106 @@ export async function renderGame(container, app) {
       <div style="display:flex; gap:16px; margin-top:20px; flex-wrap:wrap; justify-content:center;">
         <button class="match-btn" id="mode-match" style="width:220px;">🔗 Ligar Colunas</button>
         <button class="match-btn" id="mode-listen" style="width:220px;">🎧 Ouça e Escolha</button>
+        <button class="match-btn" id="mode-builder" style="width:220px;">🧩 Monte a Frase</button>
       </div>
     </div>
   `;
   document.getElementById('mode-match').onclick = () => renderMatchGame(container, app);
   document.getElementById('mode-listen').onclick = () => renderListenGame(container, app);
+  document.getElementById('mode-builder').onclick = () => renderBuilderGame(container, app);
+}
+
+// ── Combo (Onda 8): acertos em sequência aumentam o multiplicador visual.
+// Não muda o XP real (o Learning Engine no banco continua sendo a única
+// fonte de verdade) — é só a "sensação de jogo" que faltava, um contador
+// que sobe/zera na tela conforme o Duolingo faz.
+function makeComboTracker(container) {
+  let combo = 0;
+  let best = 0;
+  const badge = document.createElement('div');
+  badge.className = 'combo-badge hidden';
+  container.appendChild(badge);
+
+  function pulse() {
+    badge.classList.remove('combo-pulse');
+    // reflow força a animação a reiniciar mesmo em acertos consecutivos rápidos
+    void badge.offsetWidth;
+    badge.classList.add('combo-pulse');
+  }
+
+  return {
+    hit() {
+      combo++;
+      best = Math.max(best, combo);
+      if (combo >= 2) {
+        badge.classList.remove('hidden');
+        badge.textContent = `🔥 Combo x${combo}`;
+        pulse();
+      }
+    },
+    miss() {
+      combo = 0;
+      badge.classList.add('hidden');
+    },
+    best: () => best,
+  };
+}
+
+// Tom de acerto/erro (Onda 8): antes era um bip único; agora um arpejo de
+// 2 notas subindo no acerto (mais "recompensador", perto do "ding" de apps
+// de gamificação) e uma nota curta descendo no erro. Continua só osciladores
+// Web Audio — não há asset de áudio real disponível neste ambiente.
+function playChime(audioCtx, isCorrect) {
+  if (!audioCtx) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const notes = isCorrect ? [523.25, 659.25, 783.99] : [220, 164.81];
+  const noteDur = isCorrect ? 0.09 : 0.16;
+  notes.forEach((freq, i) => {
+    const start = audioCtx.currentTime + i * (isCorrect ? 0.07 : 0.1);
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = isCorrect ? 'triangle' : 'sawtooth';
+    osc.frequency.setValueAtTime(freq, start);
+    gain.gain.setValueAtTime(0.001, start);
+    gain.gain.exponentialRampToValueAtTime(0.25, start + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.001, start + noteDur);
+    osc.start(start);
+    osc.stop(start + noteDur + 0.02);
+  });
+}
+
+// Celebração final (Onda 8): confete leve em CSS puro, sem biblioteca —
+// substitui o "fim de jogo" seco por algo que dá vontade de jogar de novo.
+function celebrate(container) {
+  const colors = ['#58cc02', '#1cb0f6', '#ffc800', '#ff4b4b', '#ce82ff'];
+  const burst = document.createElement('div');
+  burst.className = 'confetti-burst';
+  for (let i = 0; i < 24; i++) {
+    const piece = document.createElement('span');
+    piece.className = 'confetti-piece';
+    piece.style.setProperty('--dx', `${(Math.random() - 0.5) * 320}px`);
+    piece.style.setProperty('--dy', `${Math.random() * -260 - 40}px`);
+    piece.style.setProperty('--rot', `${Math.random() * 720 - 360}deg`);
+    piece.style.setProperty('--delay', `${Math.random() * 0.15}s`);
+    piece.style.background = colors[i % colors.length];
+    burst.appendChild(piece);
+  }
+  container.appendChild(burst);
+  setTimeout(() => burst.remove(), 1400);
 }
 
 async function renderMatchGame(container, app) {
   injectGameStyles();
   container.innerHTML = `
     <div class="game-container">
-      <h2>Ligar Colunas</h2>
+      <h2>🔗 Ligar Colunas</h2>
       <p>Combine o inglês com o português!</p>
       <div id="game-board" class="game-board"></div>
     </div>
   `;
+  const combo = makeComboTracker(document.querySelector('.game-container'));
 
   let cards = await lfDb.getCardsDue(8, true);
   let words = cards.map(c => c.wordData).filter(Boolean);
@@ -49,7 +142,7 @@ async function renderMatchGame(container, app) {
     container.innerHTML = `
       <div class="game-container">
         <h2>Nenhuma palavra encontrada!</h2>
-        <button class="match-btn" id="btn-back">Voltar</button>
+        <button class="btn btn-primary" id="btn-back">Voltar</button>
       </div>
     `;
     document.getElementById('btn-back').onclick = () => app.navigate('home');
@@ -73,33 +166,6 @@ async function renderMatchGame(container, app) {
   // AudioContext precisa ser inicializado apenas após iteração do user em alguns navegadores,
   // mas como estamos criando após a ação que montou a tela, geralmente funciona.
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-  function playSound(isCorrect) {
-    if (!audioCtx) return;
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    
-    if (isCorrect) {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(500, audioCtx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.2);
-    } else {
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.2);
-      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.2);
-    }
-  }
 
   function handleSelection(btn, item) {
     if (btn.classList.contains('hidden') || btn.classList.contains('correct')) return;
@@ -130,7 +196,8 @@ async function renderMatchGame(container, app) {
       r.btn.classList.remove('selected');
       l.btn.classList.add('correct');
       r.btn.classList.add('correct');
-      playSound(true);
+      playChime(audioCtx, true);
+      combo.hit();
 
       setTimeout(() => {
         l.btn.classList.add('hidden');
@@ -145,7 +212,8 @@ async function renderMatchGame(container, app) {
       r.btn.classList.remove('selected');
       l.btn.classList.add('wrong');
       r.btn.classList.add('wrong');
-      playSound(false);
+      playChime(audioCtx, false);
+      combo.miss();
 
       setTimeout(() => {
         l.btn.classList.remove('wrong');
@@ -164,6 +232,7 @@ async function renderMatchGame(container, app) {
         <p>Ótimo trabalho revisando essas palavras.</p>
       </div>
     `;
+    celebrate(document.querySelector('.game-container'));
     let msg = 'Jogo concluído! 🎉';
     try {
       const res = await lfDb.recordEvent('game_match', words.length);
@@ -177,6 +246,7 @@ async function renderMatchGame(container, app) {
       console.warn('[Game] Falha ao registrar XP:', e);
       msg = 'Jogo concluído! (XP não registrado — sem conexão?)';
     }
+    if (combo.best() >= 3) msg += ` · melhor combo: x${combo.best()} 🔥`;
     const el = document.getElementById('game-result');
     if (el) el.textContent = msg;
     setTimeout(() => {
@@ -204,95 +274,6 @@ async function renderMatchGame(container, app) {
   board.appendChild(rightCol);
 }
 
-function injectGameStyles() {
-  if (document.getElementById('game-style')) return;
-  const style = document.createElement('style');
-  style.id = 'game-style';
-  style.textContent = `
-    .game-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px;
-      background: #1e1e2e;
-      color: #cdd6f4;
-      border-radius: 12px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-      max-width: 600px;
-      margin: 40px auto;
-      font-family: 'Inter', sans-serif;
-    }
-    .game-container h2 { margin: 0 0 10px 0; color: #89b4fa; }
-    .game-board {
-      display: flex;
-      gap: 40px;
-      margin-top: 20px;
-      width: 100%;
-      justify-content: center;
-    }
-    .col {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      width: 45%;
-    }
-    .match-btn {
-      padding: 15px;
-      border: 2px solid #45475a;
-      background: #313244;
-      color: #cdd6f4;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 16px;
-      font-weight: 600;
-      transition: all 0.2s;
-      text-align: center;
-      user-select: none;
-    }
-    .match-btn:hover { background: #45475a; }
-    .match-btn:active { transform: scale(0.95); }
-    .match-btn.selected {
-      border-color: #89b4fa;
-      background: #89b4fa33;
-    }
-    .match-btn.correct {
-      border-color: #a6e3a1;
-      background: #a6e3a133;
-      pointer-events: none;
-    }
-    .match-btn.wrong {
-      border-color: #f38ba8;
-      background: #f38ba833;
-      animation: shake 0.4s;
-    }
-    .match-btn.hidden {
-      visibility: hidden;
-    }
-    @keyframes shake {
-      0% { transform: translateX(0); }
-      25% { transform: translateX(-5px); }
-      50% { transform: translateX(5px); }
-      75% { transform: translateX(-5px); }
-      100% { transform: translateX(0); }
-    }
-    .listen-play-btn {
-      width: 80px; height: 80px; border-radius: 50%; border: none;
-      background: #89b4fa; color: #1e1e2e; font-size: 32px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      margin: 10px auto 24px; transition: transform 0.15s;
-    }
-    .listen-play-btn:hover { transform: scale(1.06); }
-    .listen-play-btn:active { transform: scale(0.94); }
-    .listen-options {
-      display: flex; flex-direction: column; gap: 12px; width: 100%;
-    }
-    .listen-progress {
-      font-size: 13px; color: #a6adc8; margin-bottom: 4px;
-    }
-  `;
-  document.head.appendChild(style);
-}
-
 // Ouça e Escolha (Onda 2.4): toca o áudio da palavra e o aluno escolhe a
 // tradução certa entre 4 opções — treina listening puro, sem depender da
 // leitura. Reaproveita o mesmo evento 'game_match' do Learning Engine.
@@ -316,7 +297,7 @@ async function renderListenGame(container, app) {
       <div class="game-container">
         <h2>Poucas palavras salvas ainda</h2>
         <p>Você precisa de pelo menos 4 palavras com tradução pra jogar esse modo.</p>
-        <button class="match-btn" id="btn-back">Voltar</button>
+        <button class="btn btn-primary" id="btn-back">Voltar</button>
       </div>
     `;
     document.getElementById('btn-back').onclick = () => app.navigate('home');
@@ -324,26 +305,11 @@ async function renderListenGame(container, app) {
   }
 
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  function playFeedbackSound(isCorrect) {
-    if (!audioCtx) return;
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.type = isCorrect ? 'sine' : 'sawtooth';
-    osc.frequency.setValueAtTime(isCorrect ? 500 : 150, audioCtx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(isCorrect ? 800 : 100, audioCtx.currentTime + 0.15);
-    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.2);
-  }
-
   const order = words.map((_, i) => i).sort(() => 0.5 - Math.random());
   let step = 0;
   let correctCount = 0;
   let answering = false;
+  let combo = null;
 
   function buildOptions(targetIdx) {
     const pool = words.filter((w, i) => i !== targetIdx && w.translation !== words[targetIdx].translation);
@@ -368,6 +334,7 @@ async function renderListenGame(container, app) {
         </div>
       </div>
     `;
+    combo = makeComboTracker(document.querySelector('.game-container'));
 
     const playBtn = document.getElementById('listen-play-btn');
     const playAudio = () => playNaturalAudio(target.word).catch(() => {});
@@ -385,8 +352,8 @@ async function renderListenGame(container, app) {
           if (b.dataset.option === target.translation) b.classList.add('correct');
           else if (b === btn) b.classList.add('wrong');
         });
-        playFeedbackSound(isCorrect);
-        if (isCorrect) correctCount++;
+        playChime(audioCtx, isCorrect);
+        if (isCorrect) { correctCount++; combo.hit(); } else { combo.miss(); }
         setTimeout(() => {
           step++;
           if (step >= order.length) finishListenGame();
@@ -404,6 +371,7 @@ async function renderListenGame(container, app) {
         <p>${correctCount} de ${order.length} certas de ouvido.</p>
       </div>
     `;
+    celebrate(document.querySelector('.game-container'));
     let msg = 'Jogo concluído! 🎉';
     try {
       const res = await lfDb.recordEvent('game_match', correctCount);
@@ -423,4 +391,282 @@ async function renderListenGame(container, app) {
   }
 
   renderQuestion();
+}
+
+// Monte a Frase (Onda 8): novo mini-jogo pedido na auditoria de UX — reusa a
+// EXATA mecânica de banco de palavras do exercício "builder" do Estudo
+// (studyView.js:renderBuilder), só que em modo jogo (várias frases seguidas,
+// sem afetar o agendamento FSRS) e com `context_sentence`, que já existe em
+// `words` — nenhuma coluna/tabela nova precisou ser criada.
+async function renderBuilderGame(container, app) {
+  container.innerHTML = `<div class="game-container"><h2>🧩 Monte a Frase</h2><p>Carregando frases...</p></div>`;
+
+  let cards = await lfDb.getCardsDue(12, true);
+  let words = cards.map(c => c.wordData).filter(Boolean);
+  if (words.length < 5) {
+    const all = await lfDb.getAllWords();
+    const shuffledAll = all.sort(() => 0.5 - Math.random());
+    for (const w of shuffledAll) {
+      if (!words.find(exist => exist.id === w.id)) words.push(w);
+      if (words.length >= 12) break;
+    }
+  }
+  words = words.filter(w => w.context_sentence && w.context_sentence.trim().split(/\s+/).length >= 3).slice(0, 6);
+
+  if (words.length < 3) {
+    container.innerHTML = `
+      <div class="game-container">
+        <h2>Faltam frases de exemplo</h2>
+        <p>Esse modo usa a frase de exemplo salva com a palavra. Continue estudando/salvando palavras com frase e volte aqui.</p>
+        <button class="btn btn-primary" id="btn-back">Voltar</button>
+      </div>
+    `;
+    document.getElementById('btn-back').onclick = () => app.navigate('home');
+    return;
+  }
+
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  let step = 0;
+  let correctCount = 0;
+  let combo = null;
+
+  function renderRound() {
+    const word = words[step];
+    const tokens = word.context_sentence.trim().replace(/[.!?,;:]+$/, '').split(/\s+/);
+    const shuffled = [...tokens].sort(() => 0.5 - Math.random());
+    const answer = [];
+
+    container.innerHTML = `
+      <div class="game-container">
+        <h2>🧩 Monte a Frase</h2>
+        <div class="listen-progress">Frase ${step + 1} de ${words.length} · Acertos: ${correctCount}</div>
+        <div style="font-size:13px; color:var(--color-text-light); margin-bottom:10px;">Use "<strong>${word.word}</strong>" na ordem certa</div>
+        <div id="ex-answer" class="builder-answer"></div>
+        <div id="ex-bank" class="builder-bank">
+          ${shuffled.map((t, i) => `<button class="ex-chip" data-i="${i}" data-t="${t.replace(/"/g, '&quot;')}">${t}</button>`).join('')}
+        </div>
+        <button id="ex-check" class="btn btn-primary" style="padding:12px 32px; font-size:15px; margin-top:12px;" disabled>Verificar</button>
+      </div>
+    `;
+    combo = makeComboTracker(document.querySelector('.game-container'));
+
+    const answerEl = document.getElementById('ex-answer');
+    const checkBtn = document.getElementById('ex-check');
+    const bankEl = document.getElementById('ex-bank');
+
+    function redraw() {
+      answerEl.innerHTML = answer.map((a, idx) => `<button class="ex-chip ex-chip-used" data-idx="${idx}">${a.t}</button>`).join('');
+      checkBtn.disabled = answer.length !== tokens.length;
+    }
+
+    bankEl.addEventListener('click', (e) => {
+      const chip = e.target.closest('.ex-chip');
+      if (!chip || chip.disabled) return;
+      answer.push({ t: chip.dataset.t, bankBtn: chip });
+      chip.disabled = true;
+      chip.style.visibility = 'hidden';
+      redraw();
+    });
+
+    answerEl.addEventListener('click', (e) => {
+      const chip = e.target.closest('.ex-chip-used');
+      if (!chip) return;
+      const [removed] = answer.splice(Number(chip.dataset.idx), 1);
+      removed.bankBtn.disabled = false;
+      removed.bankBtn.style.visibility = 'visible';
+      redraw();
+    });
+
+    checkBtn.addEventListener('click', () => {
+      const given = answer.map(a => a.t.toLowerCase()).join(' ');
+      const expected = tokens.map(t => t.toLowerCase()).join(' ');
+      const isCorrect = given === expected;
+      playChime(audioCtx, isCorrect);
+      if (isCorrect) { correctCount++; combo.hit(); } else { combo.miss(); }
+      answerEl.querySelectorAll('.ex-chip').forEach(c => c.classList.add(isCorrect ? 'correct' : 'wrong'));
+      checkBtn.disabled = true;
+      checkBtn.textContent = isCorrect ? '✅ Certo!' : `❌ Era: "${word.context_sentence.trim()}"`;
+      setTimeout(() => {
+        step++;
+        if (step >= words.length) finishBuilderGame();
+        else renderRound();
+      }, isCorrect ? 900 : 2200);
+    });
+  }
+
+  async function finishBuilderGame() {
+    audioCtx.close().catch(() => {});
+    container.innerHTML = `
+      <div class="game-container">
+        <h2 id="builder-result">Calculando XP... ⏳</h2>
+        <p>${correctCount} de ${words.length} frases certas.</p>
+      </div>
+    `;
+    celebrate(document.querySelector('.game-container'));
+    let msg = 'Jogo concluído! 🎉';
+    try {
+      const res = await lfDb.recordEvent('game_match', correctCount);
+      if (res && res.xp_awarded > 0) {
+        msg = `+${res.xp_awarded} XP de verdade! 🎉`;
+        if (res.first_of_day) msg += ' (inclui bônus do primeiro estudo do dia)';
+      } else if (res && res.capped) {
+        msg = 'Jogo concluído! 🎮 (limite diário de XP do jogo já atingido)';
+      }
+    } catch (e) {
+      console.warn('[Game] Falha ao registrar XP:', e);
+      msg = 'Jogo concluído! (XP não registrado — sem conexão?)';
+    }
+    const el = document.getElementById('builder-result');
+    if (el) el.textContent = msg;
+    setTimeout(() => app.navigate('home'), 2500);
+  }
+
+  renderRound();
+}
+
+function injectGameStyles() {
+  if (document.getElementById('game-style')) return;
+  const style = document.createElement('style');
+  style.id = 'game-style';
+  // Onda 8: paleta reescrita pra usar as MESMAS variáveis de globals.css
+  // (--color-primary/secondary/surface/border/text) — antes era um tema
+  // escuro isolado que não tinha nada a ver com o resto do app.
+  style.textContent = `
+    .game-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px;
+      background: var(--color-surface);
+      color: var(--color-text);
+      border: 2px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+      max-width: 600px;
+      margin: 40px auto;
+      font-family: var(--font-main);
+      position: relative;
+    }
+    .game-container h2 { margin: 0 0 10px 0; color: var(--color-text); }
+    .game-board {
+      display: flex;
+      gap: 24px;
+      margin-top: 20px;
+      width: 100%;
+      justify-content: center;
+    }
+    .col {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 45%;
+    }
+    .match-btn {
+      padding: 15px;
+      border: 2px solid var(--color-border);
+      border-bottom-width: 4px;
+      background: var(--color-bg-alt);
+      color: var(--color-text);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 700;
+      font-family: var(--font-main);
+      transition: all 0.15s;
+      text-align: center;
+      user-select: none;
+    }
+    .match-btn:hover { border-color: var(--color-secondary); }
+    .match-btn:active { transform: translateY(2px); }
+    .match-btn.selected {
+      border-color: var(--color-secondary);
+      background: rgba(28,176,246,0.12);
+    }
+    .match-btn.correct {
+      border-color: var(--color-primary);
+      background: rgba(88,204,2,0.15);
+      pointer-events: none;
+    }
+    .match-btn.wrong {
+      border-color: var(--color-danger);
+      background: rgba(255,75,75,0.12);
+      animation: shake 0.4s;
+    }
+    .match-btn.hidden {
+      visibility: hidden;
+    }
+    @keyframes shake {
+      0% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      50% { transform: translateX(5px); }
+      75% { transform: translateX(-5px); }
+      100% { transform: translateX(0); }
+    }
+    .listen-play-btn {
+      width: 80px; height: 80px; border-radius: 50%; border: none;
+      border-bottom: 4px solid var(--color-secondary-shadow);
+      background: var(--color-secondary); color: white; font-size: 32px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      margin: 10px auto 24px; transition: transform 0.15s;
+    }
+    .listen-play-btn:hover { transform: scale(1.06); }
+    .listen-play-btn:active { transform: translateY(2px); }
+    .listen-options {
+      display: flex; flex-direction: column; gap: 12px; width: 100%;
+    }
+    .listen-progress {
+      font-size: 13px; color: var(--color-text-light); margin-bottom: 4px; font-weight: 700;
+    }
+    .builder-answer {
+      min-height: 52px; width: 100%; border-bottom: 2px solid var(--color-border);
+      margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 8px;
+      justify-content: center; padding: 8px;
+    }
+    .builder-bank {
+      display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; width: 100%;
+    }
+    .ex-chip {
+      background: var(--color-surface); border: 2px solid var(--color-border);
+      border-bottom-width: 4px; border-radius: 12px; padding: 10px 16px;
+      font-family: var(--font-main); font-weight: 800; font-size: 15px;
+      color: var(--color-text); cursor: pointer; transition: transform 0.1s;
+    }
+    .ex-chip:hover { border-color: var(--color-secondary); }
+    .ex-chip:active { transform: translateY(2px); }
+    .ex-chip-used { background: rgba(28,176,246,0.12); border-color: var(--color-secondary); }
+    .ex-chip.correct { border-color: var(--color-primary); background: rgba(88,204,2,0.15); }
+    .ex-chip.wrong { border-color: var(--color-danger); background: rgba(255,75,75,0.12); }
+
+    /* Combo (Onda 8): badge que sobe no canto quando os acertos emendam */
+    .combo-badge {
+      position: absolute; top: 16px; right: 16px;
+      background: var(--color-warning); color: #3c3c3c;
+      font-weight: 900; font-size: 14px; padding: 6px 14px;
+      border-radius: 999px; box-shadow: 0 4px 0 var(--color-warning-shadow);
+      transition: opacity 0.2s;
+    }
+    .combo-badge.hidden { opacity: 0; pointer-events: none; }
+    .combo-pulse { animation: combo-pop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    @keyframes combo-pop {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.3) rotate(-4deg); }
+      100% { transform: scale(1) rotate(0); }
+    }
+
+    /* Confete (Onda 8): celebração leve em CSS puro ao terminar uma partida */
+    .confetti-burst {
+      position: absolute; left: 50%; top: 40%; width: 0; height: 0; pointer-events: none;
+    }
+    .confetti-piece {
+      position: absolute; width: 8px; height: 14px; border-radius: 2px;
+      animation: confetti-fly 1.1s cubic-bezier(0.15, 0.7, 0.3, 1) forwards;
+      animation-delay: var(--delay, 0s);
+      opacity: 0;
+    }
+    @keyframes confetti-fly {
+      0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+      100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; }
+    }
+  `;
+  document.head.appendChild(style);
 }

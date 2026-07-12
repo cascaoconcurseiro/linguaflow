@@ -303,7 +303,11 @@ export function renderStories(container, app) {
       seen.add(key);
       questions.push({ q, options, answer });
     }
-    return questions.length === 3 ? questions : [];
+    // Antes travava em EXATAMENTE 3 (descartava o quiz inteiro se a IA
+    // devolvesse 1 a mais/menos por variação natural). Agora aceita de 3 a 5
+    // — mais perguntas = teste de compreensão mais confiável, sem travar por
+    // uma diferença trivial de contagem.
+    return questions.length >= 3 && questions.length <= 5 ? questions.slice(0, 5) : [];
   }
 
   async function generateQuiz(storyText) {
@@ -314,14 +318,17 @@ export function renderStories(container, app) {
       'inferências apoiadas pelo texto',
       'vocabulário em contexto, sem pedir tradução da frase inteira',
     ];
-    const focus = [...aspects].sort(() => Math.random() - 0.5).slice(0, 3);
+    // Onda 8: era sempre exatamente 3 perguntas — agora varia (3 a 5), pra
+    // não ficar previsível e testar mais aspectos da história.
+    const questionCount = 3 + Math.floor(Math.random() * 3);
+    const focus = [...aspects, ...aspects].sort(() => Math.random() - 0.5).slice(0, questionCount);
     const avoid = previousQuizQuestions.length
       ? ` Não repita nem parafraseie estas perguntas já usadas: ${JSON.stringify(previousQuizQuestions.slice(-9))}.`
       : '';
     const system = `Você cria perguntas de compreensão de leitura para estudantes de inglês.
 Responda APENAS com JSON válido, sem texto extra, neste formato:
 {"questions":[{"q":"pergunta em inglês simples","options":["A","B","C","D"],"answer":0}]}
-REGRAS: exatamente 3 perguntas, uma para cada foco: ${focus.join('; ')}.
+REGRAS: exatamente ${questionCount} perguntas, cobrindo estes focos: ${focus.join('; ')}.
 Cada pergunta tem exatamente 4 opções curtas, distintas e plausíveis. "answer" é o índice inteiro (0-3) da correta.
 Use somente fatos sustentados pela história. Nível: um pouco mais simples que o texto.${avoid}`;
     const content = await aiChat(
@@ -344,10 +351,24 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     let correct = 0;
     quizBox.style.display = 'block';
     quizBox.replaceChildren();
+    // Onda 8: o texto ficava visível embaixo do quiz o tempo todo — dava pra
+    // rolar e colar a resposta em vez de responder de memória. Agora esconde
+    // por padrão; reler é uma escolha consciente (botão), não um vazamento.
+    storyContent.style.display = 'none';
     const heading = document.createElement('h3');
-    heading.textContent = '🧠 Você entendeu a história?';
-    heading.style.cssText = 'margin:0 0 12px 0; color:var(--color-text); font-size:18px;';
+    heading.textContent = '🧠 Você entendeu a história? (sem espiar o texto!)';
+    heading.style.cssText = 'margin:0 0 4px 0; color:var(--color-text); font-size:18px;';
     quizBox.appendChild(heading);
+    const revealBtn = document.createElement('button');
+    revealBtn.type = 'button';
+    revealBtn.textContent = '👀 Não lembro — reler o texto';
+    revealBtn.style.cssText = 'background:none; border:none; color:var(--color-text-light); font-family:var(--font-main); font-size:12px; font-weight:700; text-decoration:underline; cursor:pointer; margin-bottom:14px; padding:0;';
+    revealBtn.addEventListener('click', () => {
+      const revealed = storyContent.style.display !== 'none';
+      storyContent.style.display = revealed ? 'none' : 'block';
+      revealBtn.textContent = revealed ? '👀 Não lembro — reler o texto' : '🙈 Esconder o texto de novo';
+    });
+    quizBox.appendChild(revealBtn);
     questions.forEach((question, qi) => {
       const block = document.createElement('div');
       block.style.marginBottom = '16px';

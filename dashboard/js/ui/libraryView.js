@@ -421,7 +421,7 @@ function injectStyles() {
             transition: all 0.1s;
         }
         .az-letter:hover {
-            background: #e2e8f0;
+            background: var(--color-border);
         }
         .az-letter.active {
             background: var(--color-secondary);

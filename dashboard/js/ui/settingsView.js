@@ -384,7 +384,7 @@ export async function renderSettings(container, app) {
             <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Categoria</label>
             <select id="srscat-select" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
               <option value="word">Vocabulário</option>
-              <option value="phrasal_verb">Phrasal verbs</option>
+              <option value="phrasal">Phrasal verbs</option>
               <option value="idiom">Expressões (idioms)</option>
               <option value="slang">Gírias</option>
             </select>

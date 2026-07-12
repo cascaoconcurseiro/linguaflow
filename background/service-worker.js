@@ -373,9 +373,14 @@ Sentido: [Uma única frase super curta explicando o sentido neste contexto]
 });
 
 // ── Classificador de Categoria de Palavras ────────────────────────────────
+// Onda 9 (auditoria de bugs): era 'phrasal_verb' aqui, mas 'phrasal' em todo
+// o resto do app (CATEGORY_OPTIONS/catMap/aba do Cofre em libraryView.js,
+// TOPIC_LABELS em studyView.js) — palavras classificadas pela extensão
+// como phrasal verb nunca apareciam na aba "Phrasal Verbs" nem eram
+// alcançadas por "Revisar por tópico". Unificado em 'phrasal'.
 /**
  * Classifica automaticamente uma palavra/expressão em uma categoria (versão estática).
- * Categorias: 'phrasal_verb' | 'idiom' | 'slang' | 'word'
+ * Categorias: 'phrasal' | 'idiom' | 'slang' | 'word'
  */
 function classifyWordStatic(word) {
   if (!word || typeof word !== 'string') return 'word';
@@ -394,9 +399,9 @@ function classifyWordStatic(word) {
   const phrasalParticles = ['up','out','in','off','on','away','back','down','over','through','into','around','along','apart','aside','forward','out','away'];
   if (parts.length >= 2) {
     const lastWord = parts[parts.length - 1];
-    if (phrasalParticles.includes(lastWord)) return 'phrasal_verb';
+    if (phrasalParticles.includes(lastWord)) return 'phrasal';
     // Também verificar a segunda palavra se for 3 palavras
-    if (parts.length === 3 && phrasalParticles.includes(parts[1])) return 'phrasal_verb';
+    if (parts.length === 3 && phrasalParticles.includes(parts[1])) return 'phrasal';
   }
 
   // Idioms: expressões com palavras de conexão que formam figurações
@@ -426,7 +431,7 @@ async function classifyWordAI(word) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 4000); // Fast timeout
 
-  const prompt = `Classifique a seguinte expressão em inglês em EXATAMENTE UMA destas 4 categorias: 'idiom', 'phrasal_verb', 'slang', 'word'.
+  const prompt = `Classifique a seguinte expressão em inglês em EXATAMENTE UMA destas 4 categorias: 'idiom', 'phrasal', 'slang', 'word'.
 Responda APENAS com a categoria, sem pontuação ou texto extra.
 Expressão: "${word}"`;
 
@@ -453,7 +458,7 @@ Expressão: "${word}"`;
     clearTimeout(timeoutId);
 
     const cat = responseText.toLowerCase().replace(/[^a-z_]/g, '');
-    const valid = ['idiom', 'phrasal_verb', 'slang', 'word'];
+    const valid = ['idiom', 'phrasal', 'slang', 'word'];
     if (valid.includes(cat)) return cat;
     return classifyWordStatic(word);
   } catch (err) {

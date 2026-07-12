@@ -130,6 +130,15 @@ class App {
   }
 
   navigate(route, params = {}) {
+    // Onda 9 (auditoria de bugs): views que abrem recursos (ex.: AudioContext
+    // do Jogo) só liberavam no "fim de partida" normal — trocar de aba pela
+    // nav bar no meio de uma partida deixava o recurso vazando pra sempre.
+    // Views podem registrar limpeza via app.onLeaveView(fn); rodamos ANTES
+    // de trocar de rota, e ela só dispara uma vez.
+    if (this._viewCleanup) {
+      try { this._viewCleanup(); } catch (e) { console.warn('[App] Erro na limpeza da view anterior:', e); }
+      this._viewCleanup = null;
+    }
     this.currentRoute = route;
     this.routeParams = params || {};
 
@@ -175,6 +184,13 @@ class App {
 
     // Chama o render para desenhar (se for a primeira vez) ou atualizar "por baixo dos panos"
     this.renderRouteView(route, targetContainer, this.routeParams);
+  }
+
+  // Views com recursos que precisam ser liberados ao sair (ex.: AudioContext
+  // do Jogo) registram uma função aqui; navigate() a chama automaticamente
+  // antes de trocar de rota. Só uma pendente por vez (a view atual).
+  onLeaveView(fn) {
+    this._viewCleanup = typeof fn === 'function' ? fn : null;
   }
 
   renderRouteView(route, container, params = {}) {

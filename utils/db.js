@@ -684,7 +684,7 @@ class Database {
     return streak;
   }
 
-  // Onda 9: perfis de SRS por categoria (phrasal_verb/idiom/slang/word) —
+  // Onda 9: perfis de SRS por categoria (phrasal/idiom/slang/word) —
   // reaproveita o MESMO settings k/v, só com chave sufixada ":categoria"
   // (ex.: "lf_srs_retention:idiom"), sem tabela nem coluna nova. Só as 3
   // configs que fazem diferença pedagógica real por categoria são
@@ -708,7 +708,12 @@ class Database {
       'leech_action', 'lf_srs_retention', 'learning_steps',
       'new_per_day', 'max_reviews_per_day'];
     const catKeys = category ? Database.SRS_OVERRIDABLE_KEYS.map(k => `${k}:${category}`) : [];
-    const keys = [...baseKeys, ...catKeys];
+    // Onda 9 (auditoria de bugs): `category` chega da coluna words.category,
+    // que não é validada como enum no banco (a checagem contra a lista
+    // fixa só roda no classificador da extensão) — sem encode, uma vírgula
+    // ou parêntese na categoria quebraria o filtro in.(...) do PostgREST.
+    // O método irmão (setSRSCategoryOverride) já fazia isso; faltava aqui.
+    const keys = [...baseKeys, ...catKeys].map(encodeURIComponent);
     const map = {};
     if (this.isProxyMode) {
       const rows = await this._proxy('_fetch', [`settings?key=in.(${keys.join(',')})`, {}]);
@@ -755,7 +760,7 @@ class Database {
   // sufixadas ":categoria" no mesmo k/v de settings). category=null limpa.
   async getSRSCategoryOverrides(category) {
     if (this.isProxyMode) return this._proxy('getSRSCategoryOverrides', [category]);
-    const keys = Database.SRS_OVERRIDABLE_KEYS.map(k => `${k}:${category}`);
+    const keys = Database.SRS_OVERRIDABLE_KEYS.map(k => encodeURIComponent(`${k}:${category}`));
     const rows = await this._fetch(`settings?key=in.(${keys.join(',')})`);
     const out = {};
     (rows || []).forEach(r => {

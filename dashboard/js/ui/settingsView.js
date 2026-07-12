@@ -375,6 +375,40 @@ export async function renderSettings(container, app) {
         <p style="font-size:12px; color:var(--color-text-light); margin-top:6px; margin-left:28px;">Estilo Duolingo, só para cards já graduados: acertou vale "Bom", errou vale "Errei" — o agendamento FSRS continua mandando.</p>
       </div>
 
+      <!-- Onda 9: Perfis de SRS por categoria (paridade Anki — presets por baralho) -->
+      <div style="background: var(--color-surface); border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px;">
+        <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 6px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">Perfis de SRS por Categoria</h2>
+        <p style="font-size:12px; color:var(--color-text-light); margin-bottom:16px;">Idioms e gírias costumam pedir mais repetição que vocabulário básico — sobrescreva a retenção/steps/graduação só pra uma categoria. Vazio = usa o valor global acima.</p>
+        <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end;">
+          <div style="flex:1; min-width:160px;">
+            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Categoria</label>
+            <select id="srscat-select" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
+              <option value="word">Vocabulário</option>
+              <option value="phrasal_verb">Phrasal verbs</option>
+              <option value="idiom">Expressões (idioms)</option>
+              <option value="slang">Gírias</option>
+            </select>
+          </div>
+          <div style="flex:1; min-width:140px;">
+            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Retenção (%)</label>
+            <input type="number" id="srscat-retention" min="80" max="97" placeholder="global" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
+          </div>
+          <div style="flex:1; min-width:140px;">
+            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Learning steps</label>
+            <input type="text" id="srscat-steps" placeholder="global" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
+          </div>
+          <div style="flex:1; min-width:140px;">
+            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Graduação (dias)</label>
+            <input type="number" id="srscat-grad" min="1" max="30" placeholder="global" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:14px;">
+          <button id="srscat-save" class="btn btn-primary" style="padding:10px 20px; font-size:13px;">Salvar perfil desta categoria</button>
+          <button id="srscat-clear" class="btn btn-outline" style="padding:10px 20px; font-size:13px;">Limpar (voltar ao global)</button>
+        </div>
+        <p id="srscat-status" style="font-size:12px; color:var(--color-text-light); margin-top:8px; min-height:16px;"></p>
+      </div>
+
       <!-- Audio Options -->
       <div style="background: var(--color-surface); border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px;">
         <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 16px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">Opções de Áudio (TTS Google Neural)</h2>
@@ -598,6 +632,76 @@ export async function renderSettings(container, app) {
       if (el) el.textContent = `${e.target.value}%`;
     });
   }
+
+  // Onda 9: Perfis de SRS por categoria — carrega o override ao trocar a
+  // categoria selecionada; salvar/limpar grava/apaga só as 3 chaves
+  // sufixadas (":categoria") daquela categoria, sem tocar no global.
+  const srscatSelect = document.getElementById('srscat-select');
+  const srscatRetention = document.getElementById('srscat-retention');
+  const srscatSteps = document.getElementById('srscat-steps');
+  const srscatGrad = document.getElementById('srscat-grad');
+  const srscatStatus = document.getElementById('srscat-status');
+
+  async function loadCategoryOverrides() {
+    const cat = srscatSelect?.value;
+    if (!cat) return;
+    if (srscatStatus) srscatStatus.textContent = 'Carregando…';
+    try {
+      const ov = await lfDb.getSRSCategoryOverrides(cat);
+      if (srscatRetention) srscatRetention.value = ov.lf_srs_retention ? Math.round(Number(ov.lf_srs_retention) * 100) : '';
+      if (srscatSteps) srscatSteps.value = ov.learning_steps || '';
+      if (srscatGrad) srscatGrad.value = ov.graduating_interval || '';
+      if (srscatStatus) srscatStatus.textContent = (ov.lf_srs_retention || ov.learning_steps || ov.graduating_interval)
+        ? '✅ Esta categoria tem perfil próprio.' : 'Sem perfil próprio — usando o global.';
+    } catch (e) {
+      console.warn('[Settings] Erro ao carregar perfil por categoria:', e);
+      if (srscatStatus) srscatStatus.textContent = 'Erro ao carregar. Tente de novo.';
+    }
+  }
+  srscatSelect?.addEventListener('change', loadCategoryOverrides);
+  loadCategoryOverrides();
+
+  document.getElementById('srscat-save')?.addEventListener('click', async () => {
+    const cat = srscatSelect?.value;
+    if (!cat) return;
+    const btn = document.getElementById('srscat-save');
+    btn.disabled = true;
+    try {
+      const retVal = srscatRetention?.value ? (Number(srscatRetention.value) / 100).toFixed(2) : null;
+      const stepsVal = srscatSteps?.value?.trim() || null;
+      const gradVal = srscatGrad?.value || null;
+      await Promise.all([
+        lfDb.setSRSCategoryOverride(cat, 'lf_srs_retention', retVal),
+        lfDb.setSRSCategoryOverride(cat, 'learning_steps', stepsVal),
+        lfDb.setSRSCategoryOverride(cat, 'graduating_interval', gradVal),
+      ]);
+      if (srscatStatus) srscatStatus.textContent = '✅ Perfil salvo pra esta categoria.';
+    } catch (e) {
+      console.warn('[Settings] Erro ao salvar perfil por categoria:', e);
+      if (srscatStatus) srscatStatus.textContent = 'Erro ao salvar. Tente de novo.';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('srscat-clear')?.addEventListener('click', async () => {
+    const cat = srscatSelect?.value;
+    if (!cat) return;
+    try {
+      await Promise.all([
+        lfDb.setSRSCategoryOverride(cat, 'lf_srs_retention', null),
+        lfDb.setSRSCategoryOverride(cat, 'learning_steps', null),
+        lfDb.setSRSCategoryOverride(cat, 'graduating_interval', null),
+      ]);
+      if (srscatRetention) srscatRetention.value = '';
+      if (srscatSteps) srscatSteps.value = '';
+      if (srscatGrad) srscatGrad.value = '';
+      if (srscatStatus) srscatStatus.textContent = 'Perfil removido — voltou a usar o global.';
+    } catch (e) {
+      console.warn('[Settings] Erro ao limpar perfil por categoria:', e);
+      if (srscatStatus) srscatStatus.textContent = 'Erro ao limpar. Tente de novo.';
+    }
+  });
 
   document.getElementById('btn-save').addEventListener('click', async () => {
     const btnSave = document.getElementById('btn-save');

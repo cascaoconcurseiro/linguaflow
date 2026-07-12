@@ -684,18 +684,31 @@ class Database {
     return streak;
   }
 
-  async getSRSSettings() {
+  // Onda 9: perfis de SRS por categoria (phrasal_verb/idiom/slang/word) —
+  // reaproveita o MESMO settings k/v, só com chave sufixada ":categoria"
+  // (ex.: "lf_srs_retention:idiom"), sem tabela nem coluna nova. Só as 3
+  // configs que fazem diferença pedagógica real por categoria são
+  // sobrepostas (retenção, learning steps, intervalo de graduação) — leech
+  // e limites diários continuam globais de propósito (são sobre volume da
+  // sessão, não sobre a categoria do conteúdo). Sem `category`, o
+  // comportamento é IDÊNTICO ao de antes (nenhuma chamada existente muda).
+  static SRS_OVERRIDABLE_KEYS = ['lf_srs_retention', 'learning_steps', 'graduating_interval'];
+
+  async getSRSSettings(category) {
     // GARGALO CORRIGIDO: eram 11 chamadas REST sequenciais A CADA avaliação
     // de card (a "demora ao clicar em Difícil"). Agora: 1 request em lote +
-    // cache de 60s, invalidado quando qualquer setting é gravada.
-    if (this._srsCache && Date.now() - this._srsCache.ts < 60000) {
+    // cache de 60s (por categoria), invalidado quando qualquer setting é gravada.
+    const cacheKey = category || '__global__';
+    if (this._srsCache && this._srsCache.key === cacheKey && Date.now() - this._srsCache.ts < 60000) {
       return this._srsCache.value;
     }
 
-    const keys = ['graduating_interval', 'easy_interval', 'initial_ease', 'max_interval',
+    const baseKeys = ['graduating_interval', 'easy_interval', 'initial_ease', 'max_interval',
       'leech_threshold', 'easy_bonus', 'interval_modifier', 'lapse_modifier',
       'leech_action', 'lf_srs_retention', 'learning_steps',
       'new_per_day', 'max_reviews_per_day'];
+    const catKeys = category ? Database.SRS_OVERRIDABLE_KEYS.map(k => `${k}:${category}`) : [];
+    const keys = [...baseKeys, ...catKeys];
     const map = {};
     if (this.isProxyMode) {
       const rows = await this._proxy('_fetch', [`settings?key=in.(${keys.join(',')})`, {}]);
@@ -703,6 +716,13 @@ class Database {
     } else {
       const rows = await this._fetch(`settings?key=in.(${keys.join(',')})`);
       (rows || []).forEach(r => { map[r.key] = r.value; });
+    }
+    // Override por categoria vence o valor global, só se estiver de fato gravado
+    if (category) {
+      Database.SRS_OVERRIDABLE_KEYS.forEach(k => {
+        const catVal = map[`${k}:${category}`];
+        if (catVal !== undefined && catVal !== null && catVal !== '') map[k] = catVal;
+      });
     }
 
     const value = {
@@ -727,8 +747,34 @@ class Database {
       maxRevPerDay: Math.max(1, Number(map.max_reviews_per_day ?? 200)),
     };
     if (value.learningSteps.length === 0) value.learningSteps = [1, 10];
-    this._srsCache = { value, ts: Date.now() };
+    this._srsCache = { key: cacheKey, value, ts: Date.now() };
     return value;
+  }
+
+  // Onda 9: overrides de SRS por categoria salvos/lidos pela Config (chaves
+  // sufixadas ":categoria" no mesmo k/v de settings). category=null limpa.
+  async getSRSCategoryOverrides(category) {
+    if (this.isProxyMode) return this._proxy('getSRSCategoryOverrides', [category]);
+    const keys = Database.SRS_OVERRIDABLE_KEYS.map(k => `${k}:${category}`);
+    const rows = await this._fetch(`settings?key=in.(${keys.join(',')})`);
+    const out = {};
+    (rows || []).forEach(r => {
+      const base = r.key.split(':')[0];
+      out[base] = r.value;
+    });
+    return out;
+  }
+
+  async setSRSCategoryOverride(category, key, value) {
+    if (!Database.SRS_OVERRIDABLE_KEYS.includes(key)) throw new Error(`Chave não sobrescrevível por categoria: ${key}`);
+    const fullKey = `${key}:${category}`;
+    if (value === null || value === '') {
+      this._srsCache = null;
+      if (this.isProxyMode) return this._proxy('_fetch', [`settings?key=eq.${encodeURIComponent(fullKey)}`, { method: 'DELETE' }]);
+      await this._fetch(`settings?key=eq.${encodeURIComponent(fullKey)}`, { method: 'DELETE' });
+      return true;
+    }
+    return this.setSetting(fullKey, value);
   }
 
   // ── FSRS-4.5 (algoritmo do Anki moderno) ─────────────────────────────────
@@ -906,19 +952,19 @@ class Database {
     };
   }
 
-  async predictNextInterval(card, quality) {
-    if (this.isProxyMode) return this._proxy('predictNextInterval', [card, quality]);
-    const settings = await this.getSRSSettings();
+  async predictNextInterval(card, quality, category) {
+    if (this.isProxyMode) return this._proxy('predictNextInterval', [card, quality, category]);
+    const settings = await this.getSRSSettings(category);
     const clone = JSON.parse(JSON.stringify(card));
     const nextState = this._calculateNextState(clone, quality, settings);
     return nextState.interval;
   }
 
-  async logReview(cardId, quality) {
+  async logReview(cardId, quality, category) {
     this._invalidateReadCache();
-    if (this.isProxyMode) return this._proxy('logReview', [cardId, quality]);
+    if (this.isProxyMode) return this._proxy('logReview', [cardId, quality, category]);
 
-    const settings = await this.getSRSSettings();
+    const settings = await this.getSRSSettings(category);
     const res = await this._fetch(`cards?id=eq.${cardId}&limit=1`);
     if (!res || !res.length) throw new Error('Card não encontrado');
     const prevCard = { ...res[0] }; // snapshot para o undo (paridade Anki)

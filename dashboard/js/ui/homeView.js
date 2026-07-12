@@ -408,7 +408,10 @@ export async function renderHome(container, app) {
                             <span style="font-weight:700; color:var(--color-text-light); font-size:12px;">— ${dueReviewNow} ${dueReviewNow === 1 ? 'revisão' : 'revisões'}${dueLearningNow ? ` · ${dueLearningNow} em aprendizado` : ''}${weakWords.length ? ` · ${weakWords.length} ${weakWords.length === 1 ? 'palavra fraca' : 'palavras fracas'}` : ''}</span>
                         </div>
                         <div style="font-size:13px; color:var(--color-text); line-height:1.5;">${professorTip}</div>
-                        ${weakWords.length ? `<div style="font-size:12px; color:var(--color-text-light); margin-top:6px;">🔎 No radar: ${weakWords.map(w => `<strong>${w.word}</strong> (${w.lapses}x)`).join(' · ')}</div>` : ''}
+                        ${weakWords.length ? `<div style="font-size:12px; color:var(--color-text-light); margin-top:6px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span>🔎 No radar: ${weakWords.map(w => `<strong>${w.word}</strong> (${w.lapses}x)`).join(' · ')}</span>
+                            <button id="btn-study-weak" class="btn btn-secondary" style="padding:4px 12px; font-size:11px;" title="Modo de estudo customizado (paridade Anki): revisa só cards fracos/leech, fora da cota diária normal">Revisar só estas</button>
+                        </div>` : ''}
                         <details id="diagnosis-details" style="margin-top:10px;">
                             <summary style="cursor:pointer; font-size:13px; font-weight:800; color:var(--color-secondary); list-style:none;">🔬 Diagnóstico semanal do linguista <span style="font-weight:600; color:var(--color-text-light);">(clique pra abrir)</span></summary>
                             <div id="diagnosis-body" style="margin-top:10px; font-size:13px; color:var(--color-text); line-height:1.55;">Carregando…</div>
@@ -618,6 +621,13 @@ export async function renderHome(container, app) {
     });
     document.getElementById('btn-study-now')?.addEventListener('click', () => {
         if (app && app.navigate) app.navigate('study');
+    });
+
+    // Onda 9: modo de estudo customizado (paridade Anki) — revisar só as
+    // palavras fracas/leech, ignorando a cota diária normal.
+    document.getElementById('btn-study-weak')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (app && app.navigate) app.navigate('study', { weakOnly: true });
     });
 
     document.getElementById('btn-play-match')?.addEventListener('click', () => {

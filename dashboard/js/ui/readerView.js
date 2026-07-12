@@ -35,6 +35,7 @@ async function importFromUrl(url) {
 
 let knownLemmas = new Set();
 let learningLemmas = new Set();
+let reviewLemmas = new Set(); // Onda 9: gradiente — card em 'review' (já graduou, ainda não é 'mature')
 let currentText = null; // { id, title, content, addedAt }
 
 async function translateText(text) {
@@ -63,20 +64,28 @@ function saveTexts(texts) {
 async function loadStatusSets() {
   knownLemmas = new Set();
   learningLemmas = new Set();
+  reviewLemmas = new Set();
   try {
     const [known, words, cards] = await Promise.all([
       lfDb.getAllKnownWords(),
       lfDb.getAllWords(),
       lfDb.getAllCards(),
     ]);
-    const matureByWordId = {};
-    (cards || []).forEach(c => { matureByWordId[c.word_id] = c.status === 'mature'; });
+    // Onda 9 (gradiente estilo LingQ, sem coluna nova): em vez de só
+    // novo/aprendendo/sei, usa os 4 estágios que o FSRS já rastreia de
+    // verdade — new/learning/review/mature. Não é "quantas vezes você viu a
+    // palavra" (a métrica crua da LingQ), é "o quão firme sua memória dela
+    // está" — mais fiel ao que a repetição espaçada mede.
+    const statusByWordId = {};
+    (cards || []).forEach(c => { statusByWordId[c.word_id] = c.status; });
     (known || []).forEach(k => knownLemmas.add(lemma(k.word)));
     (words || []).forEach(w => {
       const l = lemma(w.word);
       if (!l) return;
-      if (matureByWordId[w.id]) knownLemmas.add(l);
-      else learningLemmas.add(l);
+      const st = statusByWordId[w.id];
+      if (st === 'mature') knownLemmas.add(l);
+      else if (st === 'review') reviewLemmas.add(l);
+      else learningLemmas.add(l); // 'learning' ou 'new' (card existe mas ainda não avançou)
     });
   } catch (e) {
     console.warn('[Reader] Erro ao carregar status das palavras:', e);
@@ -87,6 +96,7 @@ function wordStatus(word) {
   const l = lemma(word);
   if (!l || l.length <= 1) return 'known'; // "a", "I" etc não contam
   if (knownLemmas.has(l)) return 'known';
+  if (reviewLemmas.has(l)) return 'review';
   if (learningLemmas.has(l)) return 'learning';
   return 'new';
 }
@@ -131,7 +141,7 @@ export async function renderReader(container, app) {
         <p style="color:var(--color-text); font-weight:700; margin-bottom:8px;">Como funciona (3 passos):</p>
         <p style="color:var(--color-text-light); font-size:14px; line-height:1.7; margin:0;">
           <strong>1.</strong> Cole qualquer texto em inglês (letra de música, artigo, roteiro de série).<br>
-          <strong>2.</strong> Leia — cada palavra ganha uma cor: <span class="rw rw-new" style="cursor:default;">azul = você nunca viu</span> · <span class="rw rw-learning" style="cursor:default;">amarela = está aprendendo</span> · sem cor = já conhece.<br>
+          <strong>2.</strong> Leia — cada palavra ganha uma cor pelo estágio real na memória: <span class="rw rw-new" style="cursor:default;">azul = nunca viu</span> · <span class="rw rw-learning" style="cursor:default;">amarela = aprendendo</span> · <span class="rw rw-review" style="cursor:default;">verde clara = já graduou, ainda fixando</span> · sem cor = consolidada.<br>
           <strong>3.</strong> Clique numa palavra pra ver a tradução, ouvir, <strong>salvar como flashcard</strong> ou marcar <strong>"já sei"</strong>. Quanto mais você lê, mais o app conhece seu vocabulário real.
         </p>
         <button id="rd-try-sample" style="margin-top:12px; background:none; border:none; color:var(--color-secondary); font-family:var(--font-main); font-weight:800; font-size:14px; cursor:pointer; text-decoration:underline;">✨ Experimentar com um texto de exemplo</button>
@@ -218,7 +228,7 @@ export async function renderReader(container, app) {
     const l = lemma(word);
     document.querySelectorAll('.rw').forEach(el => {
       if (lemma(el.dataset.w) === l) {
-        el.classList.remove('rw-new', 'rw-learning', 'rw-known');
+        el.classList.remove('rw-new', 'rw-learning', 'rw-review', 'rw-known');
         el.classList.add(`rw-${wordStatus(el.dataset.w)}`);
       }
     });
@@ -383,9 +393,11 @@ function injectStyles() {
     .rw:hover { outline: 2px solid var(--color-secondary); }
     .rw-new { background: rgba(28, 176, 246, 0.18); }
     .rw-learning { background: rgba(255, 200, 0, 0.25); }
+    .rw-review { background: rgba(88, 204, 2, 0.16); }
     .rw-known { background: transparent; }
     :root[data-theme="dark"] .rw-new { background: rgba(28, 176, 246, 0.28); }
     :root[data-theme="dark"] .rw-learning { background: rgba(255, 200, 0, 0.22); }
+    :root[data-theme="dark"] .rw-review { background: rgba(88, 204, 2, 0.2); }
     @media (max-width: 480px) {
       #rd-view-body { padding: 16px !important; font-size: 17px !important; line-height: 1.8 !important; }
     }

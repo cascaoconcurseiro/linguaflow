@@ -43,60 +43,77 @@ export async function renderStudy(container, app, params = {}) {
   ygWidget = null; // container será recriado
   hidePlayer(); // qualquer vídeo de uma sessão anterior não deve tocar ao fundo
   const topicFilter = params?.category || null; // Onda 2.2: "Revisar por tópico" vindo do Cofre
+  const weakOnly = !!params?.weakOnly; // Onda 9: "Modo de estudo customizado" — revisar só palavras fracas/leech
 
   app.showToast('Carregando frases...', 'info');
   pendingLearning = [];
   if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
   try {
-    const [reverseRaw, variedRaw, audioFrontRaw, audioBackRaw, srs, counts, cards, diag] = await Promise.all([
+    const [reverseRaw, variedRaw, audioFrontRaw, audioBackRaw, srs] = await Promise.all([
       lfDb.getSetting('lf_reverse_cards').catch(() => null),
       lfDb.getSetting('lf_varied_exercises').catch(() => null),
       lfDb.getSetting('lf_audio_auto_front').catch(() => null),
       lfDb.getSetting('lf_audio_auto_back').catch(() => null),
       lfDb.getSRSSettings().catch(() => null),
-      lfDb.getTodayCounts().catch(() => ({ reviewsToday: 0, newIntroducedToday: 0 })),
-      lfDb.getCardsDue(200, true),
-      lfDb.getDiagnosisData(30).catch(() => null),
     ]);
     reverseEnabled = reverseRaw === true || reverseRaw === 'true';
     variedEnabled = variedRaw === null || variedRaw === true || variedRaw === 'true';
     audioAutoFront = audioFrontRaw === null || audioFrontRaw === true || audioFrontRaw === 'true';
     audioAutoBack = audioBackRaw === null || audioBackRaw === true || audioBackRaw === 'true';
 
-    // LIMITES DIÁRIOS REAIS (paridade Anki): "novas cartas/dia" corta os cards
-    // novos além da cota; "revisões máx/dia" limita o tamanho da sessão.
-    const newAllowed = Math.max(0, (srs?.newPerDay ?? 20) - counts.newIntroducedToday);
-    const revAllowed = Math.max(0, (srs?.maxRevPerDay ?? 200) - counts.reviewsToday);
-    let newSeen = 0;
-    let reviewSeen = 0;
-    // Onda 2.2: "Revisar por tópico" — filtra o pool ANTES da cota diária, que
-    // continua sendo o mesmo orçamento global (é a mesma sessão de estudo,
-    // só restrita a uma categoria).
-    const topicPool = topicFilter
-      ? (cards || []).filter(c => (c.wordData?.category || c.category) === topicFilter)
-      : (cards || []);
-    const limited = topicPool.filter(c => {
-      if (c.suspended) return false;
-      if (c.status === 'new') {
-        newSeen++;
-        return newSeen <= newAllowed;
+    if (weakOnly) {
+      // Onda 9 (paridade "Custom Study" do Anki): remediação de palavras
+      // fracas/leech IGNORA a cota diária de propósito — é prática extra,
+      // não a fila normal — e ignora due_date (revisa mesmo sem estar
+      // vencido ainda, porque o objetivo é atacar a fraqueza agora).
+      const [allCards, allWords] = await Promise.all([lfDb.getAllCards(), lfDb.getAllWords()]);
+      const wordById = {};
+      (allWords || []).forEach(w => { wordById[w.id] = w; });
+      const weakPool = (allCards || [])
+        .filter(c => !c.suspended && isWeakCard(c) && wordById[c.word_id])
+        .map(c => ({ ...c, wordData: wordById[c.word_id] }));
+      dueQueue = buildSessionQueue(weakPool, {});
+    } else {
+      const [counts, cards, diag] = await Promise.all([
+        lfDb.getTodayCounts().catch(() => ({ reviewsToday: 0, newIntroducedToday: 0 })),
+        lfDb.getCardsDue(200, true),
+        lfDb.getDiagnosisData(30).catch(() => null),
+      ]);
+      // LIMITES DIÁRIOS REAIS (paridade Anki): "novas cartas/dia" corta os cards
+      // novos além da cota; "revisões máx/dia" limita o tamanho da sessão.
+      const newAllowed = Math.max(0, (srs?.newPerDay ?? 20) - counts.newIntroducedToday);
+      const revAllowed = Math.max(0, (srs?.maxRevPerDay ?? 200) - counts.reviewsToday);
+      let newSeen = 0;
+      let reviewSeen = 0;
+      // Onda 2.2: "Revisar por tópico" — filtra o pool ANTES da cota diária, que
+      // continua sendo o mesmo orçamento global (é a mesma sessão de estudo,
+      // só restrita a uma categoria).
+      const topicPool = topicFilter
+        ? (cards || []).filter(c => (c.wordData?.category || c.category) === topicFilter)
+        : (cards || []);
+      const limited = topicPool.filter(c => {
+        if (c.suspended) return false;
+        if (c.status === 'new') {
+          newSeen++;
+          return newSeen <= newAllowed;
+        }
+        // A cota de revisões não pode esconder cards novos. Learning também é
+        // revisão em curso: ele deve continuar na sessão que o introduziu.
+        if (c.status === 'learning') return true;
+        reviewSeen++;
+        return reviewSeen <= revAllowed;
+      });
+      // INTERLEAVING (Marco 2 + Onda 1.3): learning primeiro; fracas espaçadas;
+      // novas espalhadas; e a categoria mais fraca do diagnóstico vem à frente.
+      let priorityCategory = null;
+      if (diag && diag.retentionByCategory) {
+        const worst = Object.entries(diag.retentionByCategory)
+          .filter(([, v]) => v.reviews >= 5 && v.retention !== null && v.retention < 80)
+          .sort((a, b) => a[1].retention - b[1].retention)[0];
+        if (worst) priorityCategory = worst[0];
       }
-      // A cota de revisões não pode esconder cards novos. Learning também é
-      // revisão em curso: ele deve continuar na sessão que o introduziu.
-      if (c.status === 'learning') return true;
-      reviewSeen++;
-      return reviewSeen <= revAllowed;
-    });
-    // INTERLEAVING (Marco 2 + Onda 1.3): learning primeiro; fracas espaçadas;
-    // novas espalhadas; e a categoria mais fraca do diagnóstico vem à frente.
-    let priorityCategory = null;
-    if (diag && diag.retentionByCategory) {
-      const worst = Object.entries(diag.retentionByCategory)
-        .filter(([, v]) => v.reviews >= 5 && v.retention !== null && v.retention < 80)
-        .sort((a, b) => a[1].retention - b[1].retention)[0];
-      if (worst) priorityCategory = worst[0];
+      dueQueue = buildSessionQueue(limited, { priorityCategory });
     }
-    dueQueue = buildSessionQueue(limited, { priorityCategory });
   } catch (e) {
     console.error('DB Error:', e);
     dueQueue = [];
@@ -104,12 +121,14 @@ export async function renderStudy(container, app, params = {}) {
 
   if (dueQueue.length === 0) {
     const topicLabel = topicFilter ? (TOPIC_LABELS[topicFilter] || topicFilter) : null;
+    const emptyTitle = weakOnly ? 'Nenhuma palavra fraca agora 🎉' : (topicLabel ? `Nada de "${topicLabel}" pra revisar agora 🎉` : 'Tudo feito por hoje! 🎉');
+    const emptyMsg = weakOnly ? 'Você não tem cards com 3+ erros ou marcados como leech no momento. Ótimo sinal!' : (topicLabel ? `Todos os cards de ${topicLabel} já estão em dia.` : 'Você revisou todas as suas frases pendentes.');
     container.innerHTML = `
       <div class="study-layout" style="display: flex; height: 100%; width: 100%; justify-content: center; align-items: center; background-color: var(--color-bg-alt);">
         <div class="study-main" style="text-align:center; padding: 60px; background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 2px solid var(--color-border);">
-          <h2 style="color:var(--color-primary); font-size: 32px; margin-bottom:16px;">${topicLabel ? `Nada de "${topicLabel}" pra revisar agora 🎉` : 'Tudo feito por hoje! 🎉'}</h2>
-          <p style="color:var(--color-text-light); font-size: 18px;">${topicLabel ? `Todos os cards de ${topicLabel} já estão em dia.` : 'Você revisou todas as suas frases pendentes.'}</p>
-          ${topicLabel ? `<button class="btn btn-secondary" id="study-all-btn" style="margin-top:20px; padding: 14px 28px; font-size: 16px;">Estudar tudo</button>` : ''}
+          <h2 style="color:var(--color-primary); font-size: 32px; margin-bottom:16px;">${emptyTitle}</h2>
+          <p style="color:var(--color-text-light); font-size: 18px;">${emptyMsg}</p>
+          ${(topicLabel || weakOnly) ? `<button class="btn btn-secondary" id="study-all-btn" style="margin-top:20px; padding: 14px 28px; font-size: 16px;">Estudar tudo</button>` : ''}
           <button class="btn btn-primary" id="back-home-btn" style="margin-top:12px; padding: 16px 32px; font-size: 18px;">Voltar ao Início</button>
         </div>
       </div>
@@ -130,6 +149,11 @@ export async function renderStudy(container, app, params = {}) {
         ${topicFilter ? `
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; background:rgba(28,176,246,0.1); border:2px solid var(--color-secondary); border-radius:var(--radius-md); padding:8px 14px; font-size:13px;">
           <span>🧭 Revisando: <strong style="color:var(--color-secondary);">${TOPIC_LABELS[topicFilter] || topicFilter}</strong> (${dueQueue.length} ${dueQueue.length === 1 ? 'card' : 'cards'})</span>
+          <button id="clear-topic-filter-btn" style="margin-left:auto; background:none; border:none; color:var(--color-text-light); font-weight:700; font-size:12px; cursor:pointer; text-decoration:underline;">Ver tudo</button>
+        </div>` : ''}
+        ${weakOnly ? `
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; background:rgba(255,150,0,0.1); border:2px solid #ff9600; border-radius:var(--radius-md); padding:8px 14px; font-size:13px;">
+          <span>🔎 Modo customizado: <strong style="color:#ff9600;">Palavras fracas/leech</strong> (${dueQueue.length} ${dueQueue.length === 1 ? 'card' : 'cards'}) — fora da cota diária normal</span>
           <button id="clear-topic-filter-btn" style="margin-left:auto; background:none; border:none; color:var(--color-text-light); font-weight:700; font-size:12px; cursor:pointer; text-decoration:underline;">Ver tudo</button>
         </div>` : ''}
 
@@ -597,9 +621,10 @@ function formatInterval(ivl) {
 
 async function updateGradeLabels(card) {
   const { wordData, _chunks, ...clean } = card;
+  const category = wordData?.category || null; // Onda 9: perfil de SRS por categoria
   try {
     const ivls = await Promise.all([1, 2, 3, 4].map(g =>
-      lfDb.predictNextInterval(clean, g).catch(() => null)
+      lfDb.predictNextInterval(clean, g, category).catch(() => null)
     ));
     if (currentCard !== card) return; // usuário já avançou
     ivls.forEach((ivl, i) => {
@@ -1334,7 +1359,7 @@ async function handleGrade(grade, app) {
   const gradedCard = currentCard;
   dueQueue.shift();
 
-  const logPromise = lfDb.logReview(gradedCard.id, grade)
+  const logPromise = lfDb.logReview(gradedCard.id, grade, gradedCard.wordData?.category || null)
     .then((res) => {
       lastReview = {
         prevCard: res?.prevCard || null,

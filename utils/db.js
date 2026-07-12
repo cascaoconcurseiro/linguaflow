@@ -322,6 +322,8 @@ class Database {
     else if (wordData.chunks !== undefined) payload.ai_chunks = wordData.chunks;
     if (wordData.category !== undefined) payload.category = wordData.category;
     if (wordData.video_url !== undefined) payload.video_url = wordData.video_url;
+    if (wordData.video_start_ms !== undefined) payload.video_start_ms = wordData.video_start_ms;
+    if (wordData.video_end_ms !== undefined) payload.video_end_ms = wordData.video_end_ms;
     if (wordData.video_title !== undefined) payload.video_title = wordData.video_title;
     if (wordData.synonyms !== undefined) payload.synonyms = wordData.synonyms;
     if (wordData.antonyms !== undefined) payload.antonyms = wordData.antonyms;

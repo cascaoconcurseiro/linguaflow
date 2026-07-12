@@ -3,7 +3,7 @@ import { playNaturalAudio, stopAudio, downloadAudio } from '../core/tts.js';
 import { aiChat, aiChatStream, getCefrLevel, grammarTutorPersona, grammarInitialQuestion, enrichCard, generateChunksWeb, generateMnemonic } from '../core/ai.js';
 import { attachVideoContext, renderVideoContext, getVideoContext } from '../core/videoContext.js';
 import { buildSessionQueue, isWeakCard } from '../core/sessionQueue.js';
-import { loadVideo, hidePlayer } from '../core/ytPlayer.js';
+import { loadVideo, replayClip, hidePlayer } from '../core/ytPlayer.js';
 import { fetchTatoebaSentences } from '../core/tatoeba.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
@@ -176,6 +176,19 @@ export async function renderStudy(container, app, params = {}) {
           <button id="reveal-btn" class="btn btn-primary reveal-btn">Revelar (Espaço)</button>
           <button id="improve-btn" class="hidden" style="margin-top:12px; background:none; border:none; color:var(--color-secondary); font-family:var(--font-main); font-weight:700; font-size:14px; cursor:pointer; text-decoration:underline;">✨ Frase estranha? Gerar uma melhor com IA</button>
           <button id="bury-btn" style="margin-top:12px; background:none; border:none; color:var(--color-text-light); font-family:var(--font-main); font-weight:700; font-size:13px; cursor:pointer;" title="Adia este card para amanhã sem afetar o agendamento">💤 Deixar pra amanhã</button>
+
+          <details id="tutor-details" class="study-tutor">
+            <summary class="sidebar-title">🎓 Dúvida sobre esta frase? Pergunte ao tutor <span>(abrir)</span></summary>
+            <div id="grammar-chat">
+              <div id="grammar-messages" role="log" aria-live="polite">
+                <div class="chat-bubble-ai chat-placeholder">Só respondo quando você perguntar. 😉 Manda sua dúvida sobre a frase.</div>
+              </div>
+              <form id="grammar-form">
+                <input id="grammar-input" type="text" placeholder="Revele o card primeiro…" aria-label="Pergunte sua dúvida sobre a frase" autocomplete="off" maxlength="140" disabled />
+                <button type="submit" id="grammar-send" aria-label="Enviar pergunta" disabled>➤</button>
+              </form>
+            </div>
+          </details>
         </div>
 
         <!-- Anki Grading Buttons -->
@@ -230,19 +243,6 @@ export async function renderStudy(container, app, params = {}) {
 
         <h3 class="sidebar-title" style="margin-top:32px;">Frases úteis (Chunks) ✨</h3>
         <div class="chunks-list" id="chunks-container"></div>
-
-        <details id="tutor-details" style="margin-top:32px;">
-          <summary class="sidebar-title" style="cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px;">🎓 Tem dúvida? Pergunte ao tutor <span style="font-size:12px; color:var(--color-text-light); font-weight:600;">(clique pra abrir)</span></summary>
-          <div id="grammar-chat">
-            <div id="grammar-messages" role="log" aria-live="polite">
-              <div class="chat-bubble-ai chat-placeholder">Só respondo quando você perguntar. 😉 Manda sua dúvida sobre a frase.</div>
-            </div>
-            <form id="grammar-form">
-              <input id="grammar-input" type="text" placeholder="Revele o card primeiro…" aria-label="Pergunte sua dúvida sobre a frase" autocomplete="off" maxlength="140" disabled />
-              <button type="submit" id="grammar-send" aria-label="Enviar pergunta" disabled>➤</button>
-            </form>
-          </div>
-        </details>
 
       </div>
     </div>
@@ -984,7 +984,7 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card) {
   // o vídeo carregado (cueVideoById), nunca recria o iframe do zero.
   const videoContainer = document.getElementById('saved-video-context');
   const ytMount = document.getElementById('study-yt-mount');
-  const vctx = getVideoContext(wordData.video_url);
+  const vctx = getVideoContext(wordData.video_url, wordData);
   if (vctx && vctx.videoId) {
     const title = escapeHtml(wordData.video_title || 'vídeo de origem');
     const platform = escapeHtml(wordData.platform || 'YouTube');
@@ -993,15 +993,24 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card) {
         <span class="video-context-label">🎬 Salvo de ${platform}</span>
         <span class="video-context-title" title="${title}">${title}</span>
         <div class="video-context-actions">
+          <button type="button" class="video-context-embed" id="play-saved-clip">▶ Ouvir trecho${vctx.end ? ` (${Math.max(1, Math.ceil(vctx.end - vctx.start))} s)` : ''}</button>
           <a href="${escapeHtml(vctx.externalUrl)}" target="_blank" rel="noopener noreferrer">Abrir no YouTube ↗</a>
         </div>
       </section>`;
-    ytMount.classList.remove('hidden');
-    // Auditoria 2026-07-12: sem o guard de card, um vídeo de um card ANTERIOR
-    // que demora pra falhar (ex: embed bloqueado) podia resolver depois que o
-    // aluno já avançou — escondendo o vídeo válido do card atual por engano.
-    loadVideo(ytMount, vctx.videoId, { start: vctx.start }).then(ok => {
-      if (!ok && currentCard === card) ytMount.classList.add('hidden');
+    ytMount.classList.add('hidden');
+    document.getElementById('play-saved-clip')?.addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      button.textContent = 'Carregando trecho…';
+      ytMount.classList.remove('hidden');
+      const ok = await loadVideo(ytMount, vctx.videoId, { start: vctx.start, end: vctx.end });
+      if (!ok || currentCard !== card) {
+        if (currentCard === card) ytMount.classList.add('hidden');
+        return;
+      }
+      replayClip();
+      button.disabled = false;
+      button.textContent = '↻ Repetir frase';
     });
   } else if (vctx && vctx.externalUrl) {
     // Não é YouTube (ou sem videoId extraível): sem player, só o link no
@@ -1504,6 +1513,10 @@ function injectStyles() {
     .btn-secondary { background: var(--color-secondary); box-shadow: 0 4px 0 var(--color-secondary-shadow); }
 
     .study-sidebar { width: 380px; background: var(--color-surface); border-left: 2px solid var(--color-border); padding: 32px; overflow-y: auto; }
+    .study-tutor { width:min(100%, 620px); margin:24px auto 0; text-align:left; border:2px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-surface); padding:12px 16px; }
+    .study-tutor summary { cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px; }
+    .study-tutor summary::-webkit-details-marker { display:none; }
+    .study-tutor summary span { font-size:12px; color:var(--color-text-light); font-weight:600; }
     .sidebar-title { font-size: 22px; font-weight: 900; margin-bottom: 24px; color: var(--color-text); display:flex; align-items:center; gap:8px;}
     .chunks-list { display: flex; flex-direction: column; gap: 16px; }
 
@@ -1547,15 +1560,19 @@ function injectStyles() {
     #study-yt-mount iframe { width: 100%; height: 100%; border: 0; }
 
     @media (max-width: 768px) {
-      .study-layout { flex-direction: column; }
-      .study-main { padding: 20px 16px; }
-      .study-sidebar { width: 100%; padding: 20px 16px; border-left: none; border-top: 2px solid var(--color-border); }
-      .grading-row { flex-wrap: wrap; }
-      .grade-btn { flex: 1 1 40%; }
+      /* O #app-root é a única área que rola no celular. Antes havia três
+         scroll containers concorrentes e o card parecia metade fixo. */
+      .study-layout { flex-direction:column; height:auto; min-height:100dvh; overflow:visible; }
+      .study-main { width:100%; min-height:100dvh; box-sizing:border-box; padding:20px 16px calc(186px + env(safe-area-inset-bottom)); overflow:visible; justify-content:flex-start; }
+      .study-sidebar { width:100%; box-sizing:border-box; padding:20px 16px calc(186px + env(safe-area-inset-bottom)); overflow:visible; border-left:none; border-top:2px solid var(--color-border); }
+      .grading-buttons { position:fixed; z-index:20; left:0; right:0; bottom:0; margin:0; padding:10px 12px calc(10px + env(safe-area-inset-bottom)); background:var(--color-surface); border-top:2px solid var(--color-border); box-shadow:0 -8px 24px rgba(0,0,0,.10); }
+      .grading-row { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; max-width:680px; margin:0 auto; }
+      .grade-btn { min-height:64px; padding:9px 6px; }
+      .study-tutor { margin-top:18px; }
       .sentence-text { font-size: 26px; }
     }
     @media (max-width: 380px) {
-      .study-main { padding: 16px 12px; }
+      .study-main { padding:16px 12px calc(186px + env(safe-area-inset-bottom)); }
       .media-container { height: 76px; margin-bottom: 20px; }
       .sentence-text { font-size: 22px; margin-bottom: 22px; }
       .grade-btn { font-size: 16px; min-height: 74px; }

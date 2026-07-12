@@ -5,14 +5,34 @@
 
 export const videoUtils = {
     /**
+     * Produz os metadados de um trecho de legenda. O início/fim canônicos são
+     * milissegundos (não a URL): a URL continua só como fallback para cards
+     * legados e links externos.
+     */
+    getVideoClip(cue = null) {
+        const video = document.querySelector('video') || document.getElementsByTagName('video')[0];
+        const fallbackMs = Math.max(0, Math.round((video?.currentTime || 0) * 1000));
+        const toMs = (value) => Number.isFinite(Number(value)) && Number(value) >= 0
+            ? Math.round(Number(value) * 1000)
+            : null;
+        const startMs = toMs(cue?.start) ?? fallbackMs;
+        const proposedEnd = toMs(cue?.end);
+        const endMs = proposedEnd !== null && proposedEnd > startMs ? proposedEnd : null;
+        return {
+            video_url: this.getVideoUrlWithTimestamp(startMs / 1000),
+            video_start_ms: startMs,
+            video_end_ms: endMs,
+        };
+    },
+    /**
      * Generates a URL with the current timestamp for the video
      * @returns {string} The URL with ?t= parameter
      */
-    getVideoUrlWithTimestamp() {
+    getVideoUrlWithTimestamp(timestampSeconds = null) {
         const video = document.querySelector('video') || document.getElementsByTagName('video')[0];
-        if (!video) return window.location.href;
+        if (!video && timestampSeconds === null) return window.location.href;
         
-        const time = Math.floor(video.currentTime);
+        const time = Math.max(0, Math.floor(timestampSeconds ?? video?.currentTime ?? 0));
         let urlStr = window.location.href;
         
         // Handle YouTube Shorts (convert to watch?v=)

@@ -1,96 +1,118 @@
-// ytPlayer.js — Player YouTube ÚNICO e reutilizável (Onda 2.5).
-//
-// Antes: cada card de estudo criava um <iframe src=...> novo do zero (era
-// literalmente destruído e recriado toda vez que o aluno trocava de card,
-// ou toda vez que clicava "Ver aqui"). Agora existe UMA instância da API
-// oficial do YouTube (YT.Player), criada uma única vez; trocar de vídeo
-// entre cards é só uma chamada de método (cueVideoById), não recriação de
-// DOM/iframe. TTS (Google Neural) continua sendo o único áudio canônico das
-// palavras — o vídeo aqui é puramente contexto visual opcional, nunca
-// bloqueia o estudo, e falha graciosamente se o vídeo não existir/carregar.
-//
-// Detalhe importante da API do YouTube: `new YT.Player(el, ...)` SUBSTITUI
-// o elemento `el` por um <iframe> (não injeta dentro dele). Por isso o nó
-// que passamos pra API é descartável — o que reaproveitamos de verdade é um
-// WRAPPER estável em volta dele, que nunca é tocado pela API e por isso
-// pode ser reanexado (reparent) em telas diferentes sem perder o player.
+// Player único de trechos: o vídeo só toca após gesto explícito e, quando há
+// fim conhecido, volta ao começo ao terminar para servir como replay da frase.
+let apiReadyPromise;
+let player;
+let playerReadyPromise;
+let wrapperEl;
+let requestId = 0;
+let activeClip = null;
+let endTimer = null;
 
-let apiReadyPromise = null;
-let player = null;
-let playerReadyPromise = null;
-let wrapperEl = null;
+function stopEndTimer() {
+  if (endTimer) window.clearInterval(endTimer);
+  endTimer = null;
+}
 
 function ensureApi() {
   if (apiReadyPromise) return apiReadyPromise;
-  apiReadyPromise = new Promise((resolve) => {
-    if (window.YT && window.YT.Player) { resolve(window.YT); return; }
-    const prevCallback = window.onYouTubeIframeAPIReady;
+  apiReadyPromise = new Promise((resolve, reject) => {
+    if (window.YT?.Player) return resolve(window.YT);
+    const timeout = window.setTimeout(() => reject(new Error('yt_api_timeout')), 12000);
+    const previous = window.onYouTubeIframeAPIReady;
     window.onYouTubeIframeAPIReady = () => {
-      if (typeof prevCallback === 'function') prevCallback();
+      if (typeof previous === 'function') previous();
+      window.clearTimeout(timeout);
       resolve(window.YT);
     };
     if (!document.getElementById('yt-iframe-api-script')) {
       const tag = document.createElement('script');
       tag.id = 'yt-iframe-api-script';
       tag.src = 'https://www.youtube.com/iframe_api';
+      tag.onerror = () => { window.clearTimeout(timeout); reject(new Error('yt_api_load_failed')); };
       document.head.appendChild(tag);
     }
   });
   return apiReadyPromise;
 }
 
-async function ensurePlayer(targetEl) {
-  await ensureApi();
+function enforceClipEnd() {
+  stopEndTimer();
+  if (!activeClip?.end || !player) return;
+  endTimer = window.setInterval(() => {
+    if (!activeClip || !player) return stopEndTimer();
+    if (player.getCurrentTime?.() >= activeClip.end - 0.08) {
+      player.pauseVideo?.();
+      player.seekTo?.(activeClip.start, true);
+      stopEndTimer();
+    }
+  }, 100);
+}
+
+async function ensurePlayer(targetEl, expectedRequest) {
+  const yt = await ensureApi();
+  if (expectedRequest !== requestId) return null;
   if (!wrapperEl) {
     wrapperEl = document.createElement('div');
     wrapperEl.id = 'lf-yt-player-wrapper';
-    wrapperEl.style.width = '100%';
-    wrapperEl.style.height = '100%';
+    wrapperEl.style.cssText = 'width:100%;height:100%';
   }
-  // Reparent do WRAPPER: só acontece quando a tela de estudo é (re)construída
-  // — não a cada card. O wrapper nunca é substituído pela API do YouTube
-  // (só o placeholder interno é), então mover ele preserva o player.
-  if (wrapperEl.parentElement !== targetEl) {
-    targetEl.appendChild(wrapperEl);
-  }
+  if (wrapperEl.parentElement !== targetEl) targetEl.appendChild(wrapperEl);
   if (!player) {
     const placeholder = document.createElement('div');
     wrapperEl.appendChild(placeholder);
     playerReadyPromise = new Promise((resolve, reject) => {
-      player = new window.YT.Player(placeholder, {
-        height: '100%',
-        width: '100%',
-        playerVars: { rel: 0, modestbranding: 1 },
+      player = new yt.Player(placeholder, {
+        height: '100%', width: '100%',
+        playerVars: { rel: 0, modestbranding: 1, playsinline: 1, origin: window.location.origin },
         events: {
           onReady: () => resolve(player),
           onError: () => reject(new Error('yt_player_error')),
+          onStateChange: ({ data }) => {
+            if (data === window.YT?.PlayerState?.PLAYING) enforceClipEnd();
+            else if (data === window.YT?.PlayerState?.PAUSED || data === window.YT?.PlayerState?.ENDED) stopEndTimer();
+          },
         },
       });
     });
   }
-  return playerReadyPromise;
+  const ready = await playerReadyPromise;
+  return expectedRequest === requestId ? ready : null;
 }
 
-// Carrega (ou troca) o vídeo do player global no ponto salvo. Não autoplay
-// por padrão — o vídeo é contexto sob demanda, não compete com o TTS.
-export async function loadVideo(targetEl, videoId, { start = 0 } = {}) {
+// Prepara o trecho sem autoplay. Retorna false se o pedido ficou obsoleto.
+export async function loadVideo(targetEl, videoId, { start = 0, end = null } = {}) {
   if (!targetEl || !videoId) return false;
+  const id = ++requestId;
+  stopEndTimer();
   try {
-    const p = await ensurePlayer(targetEl);
-    p.cueVideoById({ videoId, startSeconds: Math.max(0, start || 0) });
+    const ready = await ensurePlayer(targetEl, id);
+    if (!ready || id !== requestId) return false;
+    activeClip = { videoId, start: Math.max(0, Number(start) || 0), end: Number(end) > Number(start) ? Number(end) : null };
+    ready.cueVideoById({ videoId, startSeconds: activeClip.start, endSeconds: activeClip.end || undefined });
     if (wrapperEl) wrapperEl.style.display = '';
     return true;
-  } catch (e) {
-    console.warn('[ytPlayer] Vídeo indisponível — degradando graciosamente:', e);
+  } catch (error) {
+    if (id === requestId) console.warn('[ytPlayer] Vídeo indisponível:', error);
     return false;
   }
 }
 
+// Deve ser chamado somente por click/tecla do usuário (política mobile).
+export function replayClip() {
+  if (!player || !activeClip) return false;
+  stopEndTimer();
+  player.loadVideoById({ videoId: activeClip.videoId, startSeconds: activeClip.start, endSeconds: activeClip.end || undefined });
+  return true;
+}
+
 export function pausePlayer() {
-  try { player?.pauseVideo?.(); } catch { /* player pode não estar pronto ainda */ }
+  stopEndTimer();
+  try { player?.pauseVideo?.(); } catch { /* player ainda não ficou pronto */ }
 }
 
 export function hidePlayer() {
+  ++requestId; // invalida promises pendentes de um card anterior
+  activeClip = null;
   pausePlayer();
   if (wrapperEl) wrapperEl.style.display = 'none';
 }

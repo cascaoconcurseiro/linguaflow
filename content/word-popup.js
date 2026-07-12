@@ -1109,6 +1109,11 @@ export class WordPopup {
       }
 
       const snapshot = videoUtils.captureSnapshot ? videoUtils.captureSnapshot() : null;
+      // Capture o trecho antes de qualquer await: enquanto o dicionário/DB
+      // responde, o vídeo pode avançar para outra fala.
+      const videoClip = videoUtils.getVideoClip
+        ? videoUtils.getVideoClip(this.currentCue)
+        : { video_url: await this._getVideoUrlWithTimestamp(), video_start_ms: null, video_end_ms: null };
 
       const result = await db.saveWord({
         word: this.word,
@@ -1118,7 +1123,9 @@ export class WordPopup {
         pronunciation_pt: d.pronunciation_pt || this._convertIPAtoPT(d.phonetic || '') || '',
         definition: d.definition || '',
         context_sentence: this.context || '',
-        video_url: await this._getVideoUrlWithTimestamp(),
+        video_url: videoClip.video_url,
+        video_start_ms: videoClip.video_start_ms,
+        video_end_ms: videoClip.video_end_ms,
         video_title: document.title,
         platform: this.platform || 'youtube',
         level: this.activeLevel || '',

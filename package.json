@@ -5,6 +5,7 @@
   "scripts": {
     "test:engine": "node tests/engine.test.mjs",
     "test:local-day": "node tests/local-day.test.mjs",
+    "test:video": "node tests/video-context.test.mjs",
     "test:release": "node tests/release-smoke.mjs"
   },
   "dependencies": {

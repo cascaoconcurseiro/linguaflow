@@ -15,7 +15,13 @@ function parseSeconds(value) {
   return Number(match[1] || 0) * 3600 + Number(match[2] || 0) * 60 + Number(match[3] || 0);
 }
 
-export function getVideoContext(videoUrl) {
+function validMilliseconds(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const numeric = Number(value);
+  return Number.isInteger(numeric) && numeric >= 0 && numeric <= 86400000 ? numeric : null;
+}
+
+export function getVideoContext(videoUrl, { startMs = null, endMs = null } = {}) {
   if (typeof videoUrl !== 'string' || videoUrl.length > 2048) return null;
   let url;
   try {
@@ -37,15 +43,19 @@ export function getVideoContext(videoUrl) {
   }
 
   const hashTime = new URLSearchParams(url.hash.replace(/^#/, '')).get('t');
-  const seconds = Math.min(parseSeconds(url.searchParams.get('t') || url.searchParams.get('start') || hashTime), 86400);
+  const legacyStart = Math.min(parseSeconds(url.searchParams.get('t') || url.searchParams.get('start') || hashTime), 86400);
+  const persistedStart = validMilliseconds(startMs);
+  const persistedEnd = validMilliseconds(endMs);
+  const start = persistedStart === null ? legacyStart : persistedStart / 1000;
+  const end = persistedEnd !== null && persistedEnd > start * 1000 ? persistedEnd / 1000 : null;
   const embedUrl = new URL(`https://www.youtube-nocookie.com/embed/${videoId}`);
-  embedUrl.searchParams.set('start', String(seconds));
+  embedUrl.searchParams.set('start', String(start));
   embedUrl.searchParams.set('rel', '0');
-  return { externalUrl: url.toString(), embedUrl: embedUrl.toString(), videoId, start: seconds };
+  return { externalUrl: url.toString(), embedUrl: embedUrl.toString(), videoId, start, end };
 }
 
 export function renderVideoContext(wordData = {}, id) {
-  const context = getVideoContext(wordData.video_url);
+  const context = getVideoContext(wordData.video_url, wordData);
   if (!context) return '';
   const title = escapeHtml(wordData.video_title || 'vídeo de origem');
   const platform = escapeHtml(wordData.platform || 'vídeo');

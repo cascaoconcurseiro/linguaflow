@@ -2,7 +2,7 @@ import { db as lfDb } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio, downloadAudio } from '../core/tts.js';
 import { aiChat, aiChatStream, getCefrLevel, grammarTutorPersona, grammarInitialQuestion, enrichCard, generateChunksWeb, generateMnemonic } from '../core/ai.js';
 import { attachVideoContext, renderVideoContext, getVideoContext } from '../core/videoContext.js';
-import { buildSessionQueue, isWeakCard } from '../core/sessionQueue.js';
+import { buildSessionQueue, isWeakCard, prioritizeDueLearning } from '../core/sessionQueue.js';
 import { loadVideo, replayClip, hidePlayer } from '../core/ytPlayer.js';
 import { fetchTatoebaSentences } from '../core/tatoeba.js';
 
@@ -27,7 +27,6 @@ let ygQueuedWord = null;
 let waitTimer = null;       // countdown da tela "aguardando learning steps"
 let gradeBusy = false;      // impede duas avaliações concorrentes do mesmo card
 
-const LEARN_AHEAD_MS = 20 * 60 * 1000; // learn-ahead do Anki: 20 min
 const TOPIC_LABELS = { word: 'Palavras', phrasal: 'Phrasal Verbs', slang: 'Gírias', idiom: 'Expressões' };
 
 export async function renderStudy(container, app, params = {}) {
@@ -189,6 +188,11 @@ export async function renderStudy(container, app, params = {}) {
               </form>
             </div>
           </details>
+
+          <!-- Contexto imediato: só aparece depois de revelar e só carrega
+               quando o aluno escolhe ouvir o trecho. -->
+          <div id="saved-video-context" class="study-video-context"></div>
+          <div id="study-yt-mount" class="hidden" aria-label="Trecho do vídeo salvo"></div>
         </div>
 
         <!-- Anki Grading Buttons -->
@@ -215,6 +219,9 @@ export async function renderStudy(container, app, params = {}) {
 
       <!-- Right Panel: Sidebar -->
       <div class="study-sidebar">
+        <details id="study-resources" class="study-resources" open>
+          <summary>Mais exemplos e recursos <span aria-hidden="true">⌄</span></summary>
+          <div class="study-resources-content">
         <div id="isolated-word-box" class="hidden" style="margin-bottom: 28px; padding: 24px; background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align:center;">
           <div style="font-size: 28px; font-weight: 900; color: var(--color-primary); margin-bottom: 8px;" id="iso-word"></div>
           <div style="font-size: 18px; color: var(--color-text); font-weight: 700; margin-bottom: 8px;" id="iso-trans"></div>
@@ -224,9 +231,6 @@ export async function renderStudy(container, app, params = {}) {
             <div id="iso-mnemonic-text" class="hidden" style="margin-top:8px; font-size:13px; color:var(--color-text); background:rgba(255,200,0,0.12); border:1px solid var(--color-warning); border-radius:8px; padding:10px 12px; line-height:1.5;"></div>
           </div>
         </div>
-
-        <div id="saved-video-context"></div>
-        <div id="study-yt-mount" class="hidden" style="margin-bottom:20px; border-radius:var(--radius-md); overflow:hidden;"></div>
 
         <h3 class="sidebar-title">Nativos falando 📺</h3>
         <div id="youglish-box" class="hidden">
@@ -243,7 +247,8 @@ export async function renderStudy(container, app, params = {}) {
 
         <h3 class="sidebar-title" style="margin-top:32px;">Frases úteis (Chunks) ✨</h3>
         <div class="chunks-list" id="chunks-container"></div>
-
+          </div>
+        </details>
       </div>
     </div>
   `;
@@ -252,6 +257,11 @@ export async function renderStudy(container, app, params = {}) {
   document.getElementById('reveal-btn').addEventListener('click', revealCard);
   document.getElementById('improve-btn').addEventListener('click', () => improveSentence(app));
   document.getElementById('clear-topic-filter-btn')?.addEventListener('click', () => app.navigate('study'));
+  // No desktop, a lateral fica aberta como antes. Em telas móveis, recursos
+  // auxiliares começam recolhidos para o card ser a única tarefa visível.
+  if (window.matchMedia?.('(max-width: 768px)').matches) {
+    document.getElementById('study-resources').open = false;
+  }
 
   document.getElementById('grammar-form').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -375,8 +385,8 @@ function looksBroken(context, word) {
 // ── Fila de sessão (paridade Anki) ───────────────────────────────────────────
 // Cards em learning steps (intervalo em minutos) NÃO somem da sessão: voltam
 // pra fila quando vencem. A sessão só termina de verdade quando não há mais
-// nada vencido nem chegando (learn-ahead de 20 min). Era o bug nº1 da
-// auditoria: "concluí a sessão mas os cards voltam no dashboard".
+// nada vencido. Nunca antecipamos automaticamente um step: encurtar 10 min
+// para alguns segundos destrói justamente o espaçamento que ele representa.
 
 function promoteDuePending() {
   const now = Date.now();
@@ -384,13 +394,7 @@ function promoteDuePending() {
   if (ready.length === 0) return;
   pendingLearning = pendingLearning.filter(p => p.dueAt > now);
   ready.sort((a, b) => a.dueAt - b.dueAt);
-  ready.forEach(p => dueQueue.push(p.card));
-}
-
-function takeEarliestPending() {
-  if (pendingLearning.length === 0) return;
-  pendingLearning.sort((a, b) => a.dueAt - b.dueAt);
-  dueQueue.push(pendingLearning.shift().card);
+  dueQueue = prioritizeDueLearning(dueQueue, ready.map(p => p.card));
 }
 
 function renderSessionComplete(app) {
@@ -436,8 +440,8 @@ function renderSessionComplete(app) {
   }, 0);
 }
 
-// Tela de espera: há cards em learning vencendo em breve (> learn-ahead).
-// Countdown real; quando zera, o card entra sozinho.
+// Tela de espera: há cards em learning voltando no futuro. Countdown real;
+// quando zera, o card entra sozinho sem antecipar o step.
 function renderWaitingScreen(app, nextAt) {
   const rootContainer = studyContainer || document.body;
   rootContainer.innerHTML = `
@@ -447,10 +451,7 @@ function renderWaitingScreen(app, nextAt) {
         <h2 style="color:var(--color-text); font-size:26px; margin-bottom:8px;">Cards em aprendizado</h2>
         <p style="color:var(--color-text-light); margin-bottom:8px;">${pendingLearning.length} ${pendingLearning.length === 1 ? 'card volta' : 'cards voltam'} em</p>
         <div id="wait-countdown" style="font-size:40px; font-weight:900; color:var(--color-primary); margin-bottom:24px;">--:--</div>
-        <div style="display:flex; gap:12px; justify-content:center;">
-          <button id="wait-now-btn" class="btn btn-secondary" style="padding:12px 24px;">⚡ Antecipar agora</button>
-          <button id="wait-end-btn" class="btn btn-primary" style="padding:12px 24px;">Encerrar por hoje</button>
-        </div>
+        <button id="wait-end-btn" class="btn btn-primary" style="padding:12px 24px;">Encerrar por hoje</button>
       </div>
     </div>
   `;
@@ -467,11 +468,6 @@ function renderWaitingScreen(app, nextAt) {
   waitTimer = setInterval(tick, 1000);
   tick();
   setTimeout(() => {
-    document.getElementById('wait-now-btn')?.addEventListener('click', () => {
-      if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
-      takeEarliestPending();
-      loadNextCard(app);
-    });
     document.getElementById('wait-end-btn')?.addEventListener('click', () => {
       if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
       renderSessionComplete(app);
@@ -490,12 +486,8 @@ async function loadNextCard(app) {
   if (dueQueue.length === 0) {
     if (pendingLearning.length > 0) {
       const nextAt = Math.min(...pendingLearning.map(p => p.dueAt));
-      if (nextAt - Date.now() <= LEARN_AHEAD_MS) {
-        takeEarliestPending(); // learn-ahead: nada mais a fazer → antecipa
-      } else {
-        renderWaitingScreen(app, nextAt);
-        return;
-      }
+      renderWaitingScreen(app, nextAt);
+      return;
     } else {
       renderSessionComplete(app);
       return;
@@ -623,13 +615,16 @@ async function updateGradeLabels(card) {
   const { wordData, _chunks, ...clean } = card;
   const category = wordData?.category || null; // Onda 9: perfil de SRS por categoria
   try {
-    const ivls = await Promise.all([1, 2, 3, 4].map(g =>
-      lfDb.predictNextInterval(clean, g, category).catch(() => null)
+    const previews = await Promise.all([1, 2, 3, 4].map(g =>
+      lfDb.predictNextState(clean, g, category).catch(() => null)
     ));
     if (currentCard !== card) return; // usuário já avançou
-    ivls.forEach((ivl, i) => {
+    // O estado calculado aqui é o que será persistido no clique. Assim o
+    // intervalo visível e o salvo são o mesmo valor, sem um segundo sorteio.
+    card._gradePreviews = previews;
+    previews.forEach((state, i) => {
       const el = document.getElementById(`grade-ivl-${i + 1}`);
-      if (el) el.textContent = formatInterval(ivl);
+      if (el) el.textContent = formatInterval(state?.interval);
     });
   } catch { /* rótulos ficam em "…" — melhor que mentir */ }
 }
@@ -1368,7 +1363,8 @@ async function handleGrade(grade, app) {
   const gradedCard = currentCard;
   dueQueue.shift();
 
-  const logPromise = lfDb.logReview(gradedCard.id, grade, gradedCard.wordData?.category || null)
+  const plannedState = gradedCard._gradePreviews?.[grade - 1] || null;
+  const logPromise = lfDb.logReview(gradedCard.id, grade, gradedCard.wordData?.category || null, plannedState)
     .then((res) => {
       lastReview = {
         prevCard: res?.prevCard || null,
@@ -1513,6 +1509,7 @@ function injectStyles() {
     .btn-secondary { background: var(--color-secondary); box-shadow: 0 4px 0 var(--color-secondary-shadow); }
 
     .study-sidebar { width: 380px; background: var(--color-surface); border-left: 2px solid var(--color-border); padding: 32px; overflow-y: auto; }
+    .study-resources > summary { display:none; }
     .study-tutor { width:min(100%, 620px); margin:24px auto 0; text-align:left; border:2px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-surface); padding:12px 16px; }
     .study-tutor summary { cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px; }
     .study-tutor summary::-webkit-details-marker { display:none; }
@@ -1548,7 +1545,8 @@ function injectStyles() {
     #tatoeba-box { background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
     #yg-widget-embed { width: 100%; min-height: 0; }
     #yg-widget-embed iframe { max-width: 100%; border-radius: var(--radius-md); }
-    #saved-video-context { margin-bottom: 24px; }
+    .study-video-context { width:min(100%, 620px); margin:18px auto 0; text-align:left; }
+    #saved-video-context:empty { display:none; }
     .video-context { max-width: 560px; }
     .video-context-label { color: var(--color-text-light); font-size: 12px; font-weight: 800; }
     .video-context-title { display: block; color: var(--color-text); font-size: 13px; margin: 3px 0 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1556,7 +1554,7 @@ function injectStyles() {
     .video-context-actions a, .video-context-embed { color: var(--color-secondary); background: transparent; border: 0; cursor: pointer; font: inherit; font-size: 13px; font-weight: 800; padding: 0; text-decoration: underline; }
     .video-context-frame { margin-top: 12px; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; }
     .video-context-frame iframe { width: 100%; height: 100%; border: 0; }
-    #study-yt-mount { aspect-ratio: 16 / 9; background: #000; }
+    #study-yt-mount { width:min(100%, 620px); margin:12px auto 0; aspect-ratio: 16 / 9; background: #000; border-radius:var(--radius-md); overflow:hidden; }
     #study-yt-mount iframe { width: 100%; height: 100%; border: 0; }
 
     @media (max-width: 768px) {
@@ -1564,11 +1562,18 @@ function injectStyles() {
          scroll containers concorrentes e o card parecia metade fixo. */
       .study-layout { flex-direction:column; height:auto; min-height:100dvh; overflow:visible; }
       .study-main { width:100%; min-height:100dvh; box-sizing:border-box; padding:20px 16px calc(186px + env(safe-area-inset-bottom)); overflow:visible; justify-content:flex-start; }
-      .study-sidebar { width:100%; box-sizing:border-box; padding:20px 16px calc(186px + env(safe-area-inset-bottom)); overflow:visible; border-left:none; border-top:2px solid var(--color-border); }
+      .study-sidebar { width:100%; box-sizing:border-box; padding:0; overflow:visible; border:0; background:transparent; }
+      .study-resources { width:100%; background:var(--color-surface); border-top:2px solid var(--color-border); border-bottom:2px solid var(--color-border); }
+      .study-resources > summary { min-height:54px; padding:0 16px; cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between; color:var(--color-text); font-weight:900; }
+      .study-resources > summary::-webkit-details-marker { display:none; }
+      .study-resources > summary span { color:var(--color-text-light); transition:transform .15s ease; }
+      .study-resources[open] > summary span { transform:rotate(180deg); }
+      .study-resources-content { padding:4px 16px calc(24px + env(safe-area-inset-bottom)); }
       .grading-buttons { position:fixed; z-index:20; left:0; right:0; bottom:0; margin:0; padding:10px 12px calc(10px + env(safe-area-inset-bottom)); background:var(--color-surface); border-top:2px solid var(--color-border); box-shadow:0 -8px 24px rgba(0,0,0,.10); }
       .grading-row { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; max-width:680px; margin:0 auto; }
       .grade-btn { min-height:64px; padding:9px 6px; }
       .study-tutor { margin-top:18px; }
+      .study-video-context { margin-top:16px; }
       .sentence-text { font-size: 26px; }
     }
     @media (max-width: 380px) {

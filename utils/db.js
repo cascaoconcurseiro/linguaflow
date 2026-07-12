@@ -564,7 +564,10 @@ class Database {
     if (this.isProxyMode) return this._proxy('getTodayCounts', []);
     const { start, end } = localDayBounds();
     const [logToday, introduced] = await Promise.all([
-      this._fetch(`review_log?ts=gte.${encodeURIComponent(start.toISOString())}&ts=lt.${encodeURIComponent(end.toISOString())}&select=id`),
+      // O teto diário é de revisões propriamente ditas. Um passo de card novo
+      // ou learning não consome esse orçamento. previous_status é gravado no
+      // servidor pela RPC, antes de alterar o card; nunca vem do cliente.
+      this._fetch(`review_log?previous_status=in.(review,mature)&ts=gte.${encodeURIComponent(start.toISOString())}&ts=lt.${encodeURIComponent(end.toISOString())}&select=id`),
       this._fetch(`cards?introduced_at=gte.${encodeURIComponent(start.toISOString())}&introduced_at=lt.${encodeURIComponent(end.toISOString())}&select=id`),
     ]);
     return {
@@ -829,8 +832,7 @@ class Database {
       (Math.exp(w[10] * (1 - r)) - 1) * hardPenalty * easyBonus));
   }
 
-  _calculateNextState(card, quality, settings) {
-    const now = Date.now();
+  _calculateNextState(card, quality, settings, now = Date.now()) {
     const prevStatus = card.status || 'new';
     const learningSteps = settings.learningSteps;
     const retention = settings.retention;
@@ -927,11 +929,10 @@ class Database {
       }
     }
 
-    // Fuzz de ±5% pra não empilhar revisões no mesmo dia (só intervalos >= 1d)
-    if (nextInterval >= 1) {
-      const fuzz = 0.95 + Math.random() * 0.1;
-      nextInterval = Math.min(nextInterval * fuzz, maxInt);
-    }
+    // Sem fuzz aleatório no cliente: ele fazia a prévia e a gravação chamarem
+    // cálculos diferentes, exibindo um intervalo e salvando outro. A data de
+    // vencimento já é normalizada ao dia, portanto o ganho operacional do fuzz
+    // não compensava a quebra de confiança na interface.
 
     let nextDueDate;
     if (nextInterval >= 1) {
@@ -959,24 +960,33 @@ class Database {
     };
   }
 
-  async predictNextInterval(card, quality, category) {
-    if (this.isProxyMode) return this._proxy('predictNextInterval', [card, quality, category]);
+  async predictNextState(card, quality, category) {
+    if (this.isProxyMode) return this._proxy('predictNextState', [card, quality, category]);
     const settings = await this.getSRSSettings(category);
     const clone = JSON.parse(JSON.stringify(card));
-    const nextState = this._calculateNextState(clone, quality, settings);
+    return this._calculateNextState(clone, quality, settings);
+  }
+
+  async predictNextInterval(card, quality, category) {
+    const nextState = await this.predictNextState(card, quality, category);
     return nextState.interval;
   }
 
-  async logReview(cardId, quality, category) {
+  async logReview(cardId, quality, category, plannedState = null) {
     this._invalidateReadCache();
-    if (this.isProxyMode) return this._proxy('logReview', [cardId, quality, category]);
+    if (this.isProxyMode) return this._proxy('logReview', [cardId, quality, category, plannedState]);
 
     const settings = await this.getSRSSettings(category);
     const res = await this._fetch(`cards?id=eq.${cardId}&limit=1`);
     if (!res || !res.length) throw new Error('Card não encontrado');
     const prevCard = { ...res[0] }; // snapshot para o undo (paridade Anki)
 
-    let card = this._calculateNextState(res[0], quality, settings);
+    // A interface calculou esta prévia antes do clique. Reusar o estado evita
+    // divergência entre o rótulo apresentado e o intervalo persistido. Caso a
+    // prévia não exista (atalho/cliente antigo), calcula deterministicamente.
+    let card = plannedState && plannedState.id === cardId
+      ? { ...plannedState }
+      : this._calculateNextState(res[0], quality, settings);
 
     // Marca a introdução do card (1ª revisão de um card novo) — é o que faz
     // o limite "novas cartas/dia" ser real, não decorativo.

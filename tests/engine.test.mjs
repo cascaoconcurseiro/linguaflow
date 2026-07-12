@@ -70,19 +70,25 @@ test('card novo + Fácil → gradua direto respeitando easy_interval como piso',
   const s = { ...SETTINGS, easyInt: 6 };
   const next = db._calculateNextState(newCard(), 4, s);
   assert.equal(next.status, 'review');
-  assert.ok(next.interval >= 6 * 0.95, `piso do easyInt (com fuzz): ${next.interval}`);
+  assert.ok(next.interval >= 6, `piso do easyInt: ${next.interval}`);
 });
 
-test('interval_modifier escala o intervalo de review (80% < 100% < 120%)', () => {
+test('interval_modifier escala o intervalo de review de forma determinística', () => {
   const mkCard = () => ({ ...newCard(), status: 'review', stability: 10, difficulty: 5, interval: 10, last_review: new Date(Date.now() - 10 * 86400000).toISOString() });
-  // média de 30 amostras neutraliza o fuzz de ±5%
-  const avg = (mod) => {
-    let sum = 0;
-    for (let i = 0; i < 30; i++) sum += db._calculateNextState(mkCard(), 3, { ...SETTINGS, intMod: mod }).interval;
-    return sum / 30;
-  };
-  const low = avg(0.8), mid = avg(1), high = avg(1.2);
+  const now = Date.now();
+  const low = db._calculateNextState(mkCard(), 3, { ...SETTINGS, intMod: 0.8 }, now).interval;
+  const mid = db._calculateNextState(mkCard(), 3, { ...SETTINGS, intMod: 1 }, now).interval;
+  const high = db._calculateNextState(mkCard(), 3, { ...SETTINGS, intMod: 1.2 }, now).interval;
   assert.ok(low < mid && mid < high, `${low.toFixed(1)} < ${mid.toFixed(1)} < ${high.toFixed(1)}`);
+});
+
+test('prévia e estado salvo usam exatamente o mesmo intervalo sem fuzz', () => {
+  const card = { ...newCard(), status: 'review', stability: 10, difficulty: 5, interval: 10, last_review: new Date(Date.now() - 10 * 86400000).toISOString() };
+  const now = Date.now();
+  const preview = db._calculateNextState(card, 3, SETTINGS, now);
+  const persisted = db._calculateNextState(card, 3, SETTINGS, now);
+  assert.equal(preview.interval, persisted.interval);
+  assert.equal(preview.due_date, persisted.due_date);
 });
 
 test('review + Errei → lapso: volta pra learning e lapses incrementa', () => {
@@ -248,6 +254,33 @@ test('buildSessionQueue: learning primeiro; fracas e novas espaçadas', () => {
   const nPos = ['n1', 'n2'].map(id => ids.indexOf(id));
   assert.ok(Math.min(...nPos) < ids.length - 2, `novas espalhadas: ${nPos}`);
 });
+
+test('prioritizeDueLearning reinsere steps vencidos antes do restante da sessão', () => {
+  const queue = [{ id: 'review' }, { id: 'new' }];
+  const due = [{ id: 'learning-1' }, { id: 'learning-2' }];
+  assert.deepEqual(Q.prioritizeDueLearning(queue, due).map(c => c.id),
+    ['learning-1', 'learning-2', 'review', 'new']);
+  assert.deepEqual(queue.map(c => c.id), ['review', 'new'], 'não muta a fila existente');
+});
+
+await (async () => {
+  const originalFetch = db._fetch;
+  const calls = [];
+  db._fetch = async (endpoint) => {
+    calls.push(endpoint);
+    return endpoint.startsWith('review_log?') ? [{ id: 'r1' }, { id: 'r2' }] : [{ id: 'n1' }];
+  };
+  try {
+    const counts = await db.getTodayCounts();
+    test('getTodayCounts conta apenas cards que já eram review/mature no teto diário', () => {
+      assert.equal(counts.reviewsToday, 2);
+      assert.equal(counts.newIntroducedToday, 1);
+      assert.match(calls[0], /previous_status=in\.\(review,mature\)/);
+    });
+  } finally {
+    db._fetch = originalFetch;
+  }
+})();
 
 test('buildSessionQueue: priorityCategory traz a categoria fraca à frente', () => {
   const mk = (id, cat) => ({ id, status: 'review', lapses: 0, wordData: { category: cat } });

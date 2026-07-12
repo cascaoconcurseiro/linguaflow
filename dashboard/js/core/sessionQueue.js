@@ -15,6 +15,13 @@ export function isWeakCard(card) {
   return (card?.lapses || 0) >= 3 || !!card?.is_leech;
 }
 
+// Um passo de aprendizagem que acabou de vencer é sensível ao tempo. Ele não
+// deve voltar ao fim da sessão atrás de conteúdo novo ou de revisões comuns.
+// Mantém a ordem recebida e não muta a fila, para poder ser testado sem DOM.
+export function prioritizeDueLearning(queue, dueLearning) {
+  return [...dueLearning, ...queue];
+}
+
 // Espalha `items` uniformemente dentro de `base`, preservando a ordem relativa
 function spreadInto(base, items) {
   if (!items.length) return [...base];

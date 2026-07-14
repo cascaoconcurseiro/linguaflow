@@ -15,6 +15,7 @@ let consecutiveCorrect = 0;
 let sessionCards = 0;
 let sessionXp = 0;
 let sessionStart = Date.now();
+let sessionCardIds = new Set();
 let chatHistory = [];
 let chatBusy = false;
 let lastReview = null; // { prevCard, card, grade, isCorrect } para o undo
@@ -33,6 +34,7 @@ const studyTimers = new Set();
 const feedbackAudioContexts = new Set();
 const cardPresentationIds = new WeakMap();
 let nextCardPresentationId = 0;
+let audioUiToken = 0;
 
 const TOPIC_LABELS = { word: 'Palavras', phrasal: 'Phrasal Verbs', slang: 'Gírias', idiom: 'Expressões' };
 
@@ -53,6 +55,7 @@ export async function renderStudy(container, app, params = {}) {
     if (viewGeneration !== studyViewGeneration) return;
     studyViewActive = false;
     stopAudio();
+    audioUiToken += 1;
     pauseYouglish();
     hidePlayer();
     setClipLoop(false);
@@ -174,6 +177,8 @@ export async function renderStudy(container, app, params = {}) {
   // Uma view antiga nunca deve redesenhar ou reativar recursos ao terminar.
   if (!studyViewActive || viewGeneration !== studyViewGeneration) return;
   dueQueue = loadedQueue;
+  sessionCardIds = new Set(dueQueue.map(card => card.id));
+  publishFocusProgress(app);
 
   if (dueQueue.length === 0) {
     const topicLabel = topicFilter ? (TOPIC_LABELS[topicFilter] || topicFilter) : null;
@@ -202,17 +207,6 @@ export async function renderStudy(container, app, params = {}) {
       <div class="study-main" tabindex="-1">
         <div id="study-status" class="sr-only" role="status" aria-live="polite"></div>
 
-        ${topicFilter ? `
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; background:rgba(28,176,246,0.1); border:2px solid var(--color-secondary); border-radius:var(--radius-md); padding:8px 14px; font-size:13px;">
-          <span>🧭 Revisando: <strong style="color:var(--color-secondary);">${TOPIC_LABELS[topicFilter] || topicFilter}</strong> (${dueQueue.length} ${dueQueue.length === 1 ? 'card' : 'cards'})</span>
-          <button id="clear-topic-filter-btn" style="margin-left:auto; background:none; border:none; color:var(--color-text-light); font-weight:700; font-size:12px; cursor:pointer; text-decoration:underline;">Ver tudo</button>
-        </div>` : ''}
-        ${weakOnly ? `
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; background:rgba(255,150,0,0.1); border:2px solid #ff9600; border-radius:var(--radius-md); padding:8px 14px; font-size:13px;">
-          <span>🔎 Modo customizado: <strong style="color:#ff9600;">Palavras fracas/leech</strong> (${dueQueue.length} ${dueQueue.length === 1 ? 'card' : 'cards'}) — fora da cota diária normal</span>
-          <button id="clear-topic-filter-btn" style="margin-left:auto; background:none; border:none; color:var(--color-text-light); font-weight:700; font-size:12px; cursor:pointer; text-decoration:underline;">Ver tudo</button>
-        </div>` : ''}
-
         <div class="media-container">
           <div class="audio-wave-placeholder" id="audio-wave">
             <span class="wave-bar"></span>
@@ -221,6 +215,7 @@ export async function renderStudy(container, app, params = {}) {
             <span class="wave-bar"></span>
             <span class="wave-bar"></span>
             <button class="btn-play-audio" id="play-audio-btn" aria-label="Ouvir a frase">▶</button>
+            <span id="audio-status" class="sr-only" role="status" aria-live="polite"></span>
           </div>
         </div>
 
@@ -230,26 +225,6 @@ export async function renderStudy(container, app, params = {}) {
           <div id="pump-translation" style="font-size: 20px; font-weight: 700; color: var(--color-text); margin-top: 12px; padding-top: 12px; border-top: 2px dashed var(--color-border);" class="hidden"></div>
 
           <button id="reveal-btn" class="btn btn-primary reveal-btn">Revelar (Espaço)</button>
-          <button id="improve-btn" class="hidden" style="margin-top:12px; background:none; border:none; color:var(--color-secondary); font-family:var(--font-main); font-weight:700; font-size:14px; cursor:pointer; text-decoration:underline;">✨ Frase estranha? Gerar uma melhor com IA</button>
-          <button id="bury-btn" style="margin-top:12px; background:none; border:none; color:var(--color-text-light); font-family:var(--font-main); font-weight:700; font-size:13px; cursor:pointer;" title="Adia este card para amanhã sem afetar o agendamento">💤 Deixar pra amanhã</button>
-
-          <details id="tutor-details" class="study-tutor">
-            <summary class="sidebar-title">🎓 Dúvida sobre esta frase? Pergunte ao tutor <span>(abrir)</span></summary>
-            <div id="grammar-chat">
-              <div id="grammar-messages" role="log" aria-live="polite">
-                <div class="chat-bubble-ai chat-placeholder">Só respondo quando você perguntar. 😉 Manda sua dúvida sobre a frase.</div>
-              </div>
-              <form id="grammar-form">
-                <input id="grammar-input" type="text" placeholder="Revele o card primeiro…" aria-label="Pergunte sua dúvida sobre a frase" autocomplete="off" maxlength="140" disabled />
-                <button type="submit" id="grammar-send" aria-label="Enviar pergunta" disabled>➤</button>
-              </form>
-            </div>
-          </details>
-
-          <!-- Contexto imediato: só aparece depois de revelar e só carrega
-               quando o aluno escolhe ouvir o trecho. -->
-          <div id="saved-video-context" class="study-video-context"></div>
-          <div id="study-yt-mount" class="hidden" aria-label="Trecho do vídeo salvo"></div>
         </div>
 
         <!-- Anki Grading Buttons -->
@@ -260,7 +235,6 @@ export async function renderStudy(container, app, params = {}) {
             <button class="grade-btn btn-secondary" data-grade="3" aria-label="Bom; agendar no intervalo recomendado"><span aria-hidden="true">Bom</span><br><span id="grade-ivl-3" style="font-size:12px;opacity:0.8">…</span></button>
             <button class="grade-btn btn-primary" data-grade="4" aria-label="Fácil; agendar com intervalo longo"><span aria-hidden="true">Fácil</span><br><span id="grade-ivl-4" style="font-size:12px;opacity:0.8">…</span></button>
           </div>
-          <button id="btn-undo" style="display:none; margin-top:14px; background:none; border:none; color:var(--color-text-light); font-family:var(--font-main); font-weight:700; font-size:13px; cursor:pointer; align-items:center; gap:6px;">↩️ Desfazer última (Z)</button>
         </div>
 
         <!-- Shadowing Engine Overlay -->
@@ -272,13 +246,42 @@ export async function renderStudy(container, app, params = {}) {
           </div>
         </div>
 
-      </div>
-
-      <!-- Right Panel: Sidebar -->
-      <div class="study-sidebar">
-        <details id="study-resources" class="study-resources" open>
-          <summary>Mais exemplos e recursos <span aria-hidden="true">⌄</span></summary>
+        <!-- Tudo que ajuda a aprofundar continua disponível, mas não compete
+             com recordar e avaliar. A gaveta só aparece após a resposta. -->
+        <aside class="study-explore" aria-label="Recursos adicionais do card">
+        <details id="study-resources" class="study-resources hidden">
+          <summary><span>Explorar esta frase</span><span aria-hidden="true">⌄</span></summary>
           <div class="study-resources-content">
+        ${(topicFilter || weakOnly) ? `
+        <div class="study-session-context">
+          <span>${topicFilter ? `🧭 Tópico: <strong>${TOPIC_LABELS[topicFilter] || topicFilter}</strong>` : '🔎 Prática de palavras fracas'}</span>
+          <button id="clear-topic-filter-btn">Voltar à revisão completa</button>
+        </div>` : ''}
+        <div class="study-card-actions">
+          <button id="btn-undo" style="display:none">↩️ Desfazer última (Z)</button>
+          <button id="improve-btn" class="hidden">✨ Gerar uma frase melhor</button>
+          <button id="bury-btn" title="Adia este card para amanhã sem afetar o agendamento">💤 Deixar pra amanhã</button>
+        </div>
+
+        <details id="tutor-details" class="study-tutor">
+          <summary class="sidebar-title">🎓 Perguntar ao tutor <span>(abrir)</span></summary>
+          <div id="grammar-chat">
+            <div id="grammar-messages" role="log" aria-live="polite">
+              <div class="chat-bubble-ai chat-placeholder">Só respondo quando você perguntar. 😉 Manda sua dúvida sobre a frase.</div>
+            </div>
+            <form id="grammar-form">
+              <input id="grammar-input" type="text" placeholder="Revele o card primeiro…" aria-label="Pergunte sua dúvida sobre a frase" autocomplete="off" maxlength="140" disabled />
+              <button type="submit" id="grammar-send" aria-label="Enviar pergunta" disabled>➤</button>
+            </form>
+          </div>
+        </details>
+
+        <section id="video-resource-section" class="explore-section hidden" aria-labelledby="video-resource-title">
+          <h3 id="video-resource-title" class="sidebar-title">Trecho original 🎬</h3>
+          <div id="saved-video-context" class="study-video-context"></div>
+          <div id="study-yt-mount" class="hidden" aria-label="Trecho do vídeo salvo"></div>
+        </section>
+
         <div id="isolated-word-box" class="hidden" style="margin-bottom: 28px; padding: 24px; background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align:center;">
           <div style="font-size: 28px; font-weight: 900; color: var(--color-primary); margin-bottom: 8px;" id="iso-word"></div>
           <div style="font-size: 18px; color: var(--color-text); font-weight: 700; margin-bottom: 8px;" id="iso-trans"></div>
@@ -306,6 +309,7 @@ export async function renderStudy(container, app, params = {}) {
         <div class="chunks-list" id="chunks-container"></div>
           </div>
         </details>
+        </aside>
       </div>
     </div>
   `;
@@ -314,11 +318,9 @@ export async function renderStudy(container, app, params = {}) {
   document.getElementById('reveal-btn').addEventListener('click', revealCard);
   document.getElementById('improve-btn').addEventListener('click', () => improveSentence(app));
   document.getElementById('clear-topic-filter-btn')?.addEventListener('click', () => app.navigate('study'));
-  // No desktop, a lateral fica aberta como antes. Em telas móveis, recursos
-  // auxiliares começam recolhidos para o card ser a única tarefa visível.
-  if (window.matchMedia?.('(max-width: 768px)').matches) {
-    document.getElementById('study-resources').open = false;
-  }
+  // Progressive disclosure é igual em qualquer tamanho de tela: recursos
+  // auxiliares começam invisíveis e recolhidos até a resposta ser revelada.
+  document.getElementById('study-resources').open = false;
 
   document.getElementById('grammar-form').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -364,10 +366,10 @@ function handleKeydown(e) {
   }
 
   if (gradingArea && !gradingArea.classList.contains('hidden')) {
-    if (e.code === 'Digit1') document.querySelector('[data-grade="1"]')?.click();
-    if (e.code === 'Digit2') document.querySelector('[data-grade="2"]')?.click();
-    if (e.code === 'Digit3') document.querySelector('[data-grade="3"]')?.click();
-    if (e.code === 'Digit4') document.querySelector('[data-grade="4"]')?.click();
+    if (e.code === 'Digit1') document.querySelector('[data-grade="1"]:not(.hidden):not(:disabled)')?.click();
+    if (e.code === 'Digit2') document.querySelector('[data-grade="2"]:not(.hidden):not(:disabled)')?.click();
+    if (e.code === 'Digit3') document.querySelector('[data-grade="3"]:not(.hidden):not(:disabled)')?.click();
+    if (e.code === 'Digit4') document.querySelector('[data-grade="4"]:not(.hidden):not(:disabled)')?.click();
   }
 
   // Ctrl+Z / tecla Z: desfazer última revisão (Anki-style)
@@ -461,6 +463,21 @@ function promoteDuePending() {
   dueQueue = prioritizeDueLearning(dueQueue, ready.map(p => p.card));
 }
 
+function publishFocusProgress(app) {
+  const remainingIds = new Set([
+    ...dueQueue.map(card => card.id),
+    ...pendingLearning.map(entry => entry.card.id),
+  ].filter(id => sessionCardIds.has(id)));
+  const total = sessionCardIds.size;
+  const remaining = remainingIds.size;
+  const completed = Math.max(0, total - remaining);
+  app.updateFocusStatus?.({
+    total,
+    completed,
+    remaining,
+  });
+}
+
 function renderSessionComplete(app) {
   if (window.currentKeydownHandler) {
     document.removeEventListener('keydown', window.currentKeydownHandler);
@@ -542,10 +559,12 @@ function renderWaitingScreen(app, nextAt) {
 // ── Fluxo do card ────────────────────────────────────────────────────────────
 async function loadNextCard(app) {
   stopAudio();
+  audioUiToken += 1;
   pauseYouglish();
   if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
 
   promoteDuePending();
+  publishFocusProgress(app);
 
   if (dueQueue.length === 0) {
     if (pendingLearning.length > 0) {
@@ -560,6 +579,7 @@ async function loadNextCard(app) {
 
   currentCard = dueQueue[0];
   const card = currentCard;
+  delete card._exerciseFinished;
   cardPresentationIds.set(card, ++nextCardPresentationId);
   chatHistory = [];
 
@@ -570,10 +590,27 @@ async function loadNextCard(app) {
   revealBtn.textContent = 'Revelar (Espaço)';
 
   document.getElementById('grading-area').classList.add('hidden');
+  document.querySelectorAll('.grade-btn').forEach(btn => {
+    btn.classList.remove('hidden');
+    btn.disabled = false;
+  });
+  document.querySelector('.study-layout')?.classList.remove('is-revealed');
+  const resources = document.getElementById('study-resources');
+  resources?.classList.add('hidden');
+  if (resources) resources.open = false;
+  const tutorDetails = document.getElementById('tutor-details');
+  if (tutorDetails) tutorDetails.open = false;
+  const wave = document.getElementById('audio-wave');
+  wave?.classList.remove('is-playing');
+  const audioButton = document.getElementById('play-audio-btn');
+  audioButton?.removeAttribute('aria-busy');
+  const audioStatus = document.getElementById('audio-status');
+  if (audioStatus) audioStatus.textContent = '';
   document.getElementById('pump-phonetics').classList.add('hidden');
   document.getElementById('pump-translation').classList.add('hidden');
   document.getElementById('isolated-word-box').classList.add('hidden');
   document.getElementById('saved-video-context').replaceChildren();
+  document.getElementById('video-resource-section')?.classList.add('hidden');
   document.getElementById('study-yt-mount').classList.add('hidden');
   hidePlayer(); // troca de card: o vídeo do card anterior não deve tocar ao fundo
   document.getElementById('youglish-box').classList.add('hidden');
@@ -724,14 +761,11 @@ function renderFront(card, word, context) {
   const revealBtn = document.getElementById('reveal-btn');
   revealBtn.disabled = false;
 
-  if (looksBroken(context, word)) {
-    document.getElementById('improve-btn').classList.remove('hidden');
-  }
 }
 
 // ── Exercícios ativos (montar frase / ditado) ────────────────────────────────
-// Verificação objetiva: acerto agenda como "Bom" (3), erro como "Errei" (1) —
-// mesma filosofia do Duolingo, e o FSRS/undo continuam valendo.
+// Verificação objetiva sem avanço automático: erro confirma "Errei"; acerto
+// devolve Difícil/Bom/Fácil para a autoavaliação do aluno. FSRS/undo continuam.
 
 let exerciseApp = null; // referência do app pro auto-grade
 let studyContainer = null; // container real da view (tela final escrevia no body)
@@ -741,15 +775,29 @@ function normalizeAnswer(s) {
 }
 
 function exerciseFinish(correct, context) {
+  if (!currentCard || currentCard._exerciseFinished) return;
+  currentCard._exerciseFinished = true;
   const sentenceEl = document.getElementById('pump-sentence');
   const feedback = correct
     ? `<div style="color:var(--color-primary); font-weight:900; font-size:22px; margin-bottom:12px;">✅ Perfeito!</div>`
     : `<div style="color:var(--color-danger); font-weight:900; font-size:22px; margin-bottom:12px;">A resposta era:</div>`;
-  sentenceEl.innerHTML = `${feedback}<div style="font-size:26px;">${context}</div>`;
+  const nextInstruction = correct
+    ? 'Como foi? Escolha Difícil, Bom ou Fácil para continuar.'
+    : 'Confirme Errei para continuar.';
+  sentenceEl.innerHTML = `${feedback}<div style="font-size:26px;">${context}</div><div class="exercise-grade-prompt">${nextInstruction}</div>`;
+  const status = document.getElementById('study-status');
+  if (status) status.textContent = correct
+    ? 'Resposta correta. Escolha Difícil, Bom ou Fácil para continuar.'
+    : 'Resposta incorreta. Avalie sua lembrança para continuar.';
+  // Reutiliza o mesmo verso e a mesma avaliação FSRS dos cards clássicos. A
+  // sessão nunca avança por timeout: a decisão continua nas mãos do aluno.
+  revealCard();
+  document.querySelectorAll('.grade-btn').forEach(btn => {
+    const grade = Number(btn.dataset.grade);
+    btn.classList.toggle('hidden', correct ? grade === 1 : grade !== 1);
+  });
+  scheduleStudyTask(() => document.querySelector('.grade-btn:not(.hidden):not(:disabled)')?.focus({ preventScroll: true }));
   if (correct) playCurrentAudio();
-  scheduleStudyTask(() => {
-    if (exerciseApp) handleGrade(correct ? 3 : 1, exerciseApp);
-  }, correct ? 1400 : 2600);
 }
 
 // Montar frase (word bank estilo Duolingo): tradução PT + chips EN embaralhados
@@ -765,7 +813,7 @@ function renderBuilder(card, context) {
   sentenceEl.innerHTML = `
     <div style="font-size:14px; font-weight:800; color:var(--color-secondary); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">🧩 Monte a frase em inglês</div>
     ${pt ? `<div style="font-size:18px; color:var(--color-text-light); margin-bottom:16px;">"${pt}"</div>` : ''}
-    <div id="ex-answer" style="min-height:52px; border-bottom:2px solid var(--color-border); margin-bottom:16px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding:8px;"></div>
+    <div id="ex-answer" role="status" aria-live="polite" aria-label="Sua resposta" style="min-height:52px; border-bottom:2px solid var(--color-border); margin-bottom:16px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding:8px;"></div>
     <div id="ex-bank" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:16px;">
       ${shuffled.map((t, i) => `<button class="ex-chip" data-i="${i}" data-t="${t}">${t}</button>`).join('')}
     </div>
@@ -775,10 +823,14 @@ function renderBuilder(card, context) {
   const answer = [];
   const answerEl = document.getElementById('ex-answer');
   const checkBtn = document.getElementById('ex-check');
+  let wasComplete = false;
 
   function redraw() {
     answerEl.innerHTML = answer.map((a, idx) => `<button class="ex-chip ex-chip-used" data-idx="${idx}">${a.t}</button>`).join('');
     checkBtn.disabled = answer.length !== tokens.length;
+    const complete = answer.length === tokens.length;
+    if (complete && !wasComplete) checkBtn.focus({ preventScroll: true });
+    wasComplete = complete;
   }
 
   document.getElementById('ex-bank').addEventListener('click', (e) => {
@@ -814,6 +866,7 @@ function renderDictation(card, context) {
   sentenceEl.innerHTML = `
     <div style="font-size:14px; font-weight:800; color:var(--color-secondary); margin-bottom:16px; text-transform:uppercase; letter-spacing:0.5px;">🎧 Escute e escreva em inglês</div>
     <button id="ex-replay" class="btn btn-secondary" style="padding:10px 24px; font-size:14px; margin-bottom:16px;">🔊 Ouvir de novo</button>
+    <label for="ex-input" class="sr-only">Digite a frase que você ouviu em inglês</label>
     <input id="ex-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Digite o que você ouviu…"
       style="width:100%; max-width:560px; padding:14px; font-size:18px; border:2px solid var(--color-border); border-radius:var(--radius-md); font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text); text-align:center;">
     <button id="ex-check" class="btn btn-primary" style="padding:12px 32px; font-size:15px; margin-top:16px;">Verificar</button>
@@ -859,21 +912,38 @@ async function improveSentence(app) {
   await persistChunks(card, chunks, context);
 
   btn.classList.add('hidden');
-  renderFront(card, word, context);
+  const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  document.getElementById('pump-sentence').innerHTML = context.replace(
+    new RegExp(`(${escapedWord})`, 'gi'),
+    '<span class="cloze-revealed">$1</span>',
+  );
+  const ctxEntry = chunks.find(c => c.is_context) || generated[0];
+  const wordEntry = chunks.find(c => c.is_word || c.eng?.toLowerCase() === word.toLowerCase());
+  renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { renderVideo: false });
+  renderChunksList(chunks, context);
+  // O trecho salvo pertence à frase anterior; escondê-lo evita ensinar uma
+  // associação áudio/texto incorreta depois da substituição por IA.
+  document.getElementById('video-resource-section')?.classList.add('hidden');
+  hidePlayer();
   playCurrentAudio();
 }
 
 function playCurrentAudio() {
   if (!currentCard) return;
-  const wordData = currentCard.wordData || {};
-  const textToPlay = currentCard._ctx || wordData.context_sentence || wordData.word || currentCard.word;
+  const card = currentCard;
+  const token = ++audioUiToken;
+  const wordData = card.wordData || {};
+  const textToPlay = card._ctx || wordData.context_sentence || wordData.word || card.word;
 
   const wave = document.getElementById('audio-wave');
-  if (wave) wave.style.opacity = '1';
+  wave?.classList.add('is-playing');
+  const button = document.getElementById('play-audio-btn');
+  button?.setAttribute('aria-busy', 'true');
+  const audioStatus = document.getElementById('audio-status');
+  if (audioStatus) audioStatus.textContent = 'Reproduzindo a frase.';
 
-  playNaturalAudio(textToPlay, { lang: localStorage.getItem('lf_tts_lang') || 'en-US' }, () => {
-    if (wave) wave.style.opacity = '0.5';
-
+  const playback = playNaturalAudio(textToPlay, { lang: localStorage.getItem('lf_tts_lang') || 'en-US' }, () => {
+    if (token !== audioUiToken || currentCard !== card) return;
     const revealBtn = document.getElementById('reveal-btn');
     if (revealBtn && !revealBtn.classList.contains('hidden')) {
       const shadowingEl = document.getElementById('shadowing-overlay');
@@ -884,6 +954,7 @@ function playCurrentAudio() {
         progressEl.style.transition = 'width 3s linear';
         progressEl.style.width = '100%';
         scheduleStudyTask(() => {
+          if (token !== audioUiToken || currentCard !== card) return;
           shadowingEl.classList.add('hidden');
           progressEl.style.transition = 'none';
           progressEl.style.width = '0%';
@@ -891,6 +962,20 @@ function playCurrentAudio() {
       }
     }
   });
+  Promise.resolve(playback)
+    .then(completed => {
+      if (token === audioUiToken && currentCard === card && audioStatus) {
+        audioStatus.textContent = completed === false ? 'Não foi possível reproduzir o áudio.' : 'Áudio concluído.';
+      }
+    })
+    .catch(() => {
+      if (token === audioUiToken && currentCard === card && audioStatus) audioStatus.textContent = 'Não foi possível reproduzir o áudio.';
+    })
+    .finally(() => {
+      if (token !== audioUiToken || currentCard !== card) return;
+      wave?.classList.remove('is-playing');
+      button?.removeAttribute('aria-busy');
+    });
 }
 
 // ── Revelação (verso do card) ────────────────────────────────────────────────
@@ -923,8 +1008,11 @@ async function revealCard() {
   });
 
   document.getElementById('reveal-btn').classList.add('hidden');
-  document.getElementById('improve-btn').classList.add('hidden');
+  document.getElementById('improve-btn').classList.toggle('hidden', !looksBroken(context, word));
   document.getElementById('grading-area').classList.remove('hidden');
+  document.querySelector('.study-layout')?.classList.add('is-revealed');
+  document.getElementById('study-resources')?.classList.remove('hidden');
+  scheduleStudyTask(() => document.querySelector('.grade-btn:not(.hidden):not(:disabled)')?.focus({ preventScroll: true }));
 
   // 2. Fonética e tradução DA FRASE DO CARD (não de outra frase — bug antigo)
   let ctxEntry = chunks.find(c => c.is_context && c.eng.toLowerCase() === context.toLowerCase())
@@ -1049,6 +1137,7 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
   const ytMount = document.getElementById('study-yt-mount');
   const vctx = getVideoContext(wordData.video_url, wordData);
   if (vctx && vctx.videoId) {
+    document.getElementById('video-resource-section')?.classList.remove('hidden');
     const hasExactBounds = Number.isFinite(vctx.end) && vctx.end > vctx.start;
     const phraseWords = String(context || '').trim().split(/\s+/).filter(Boolean).length;
     const estimatedDuration = Math.min(14, Math.max(2.5, phraseWords / 2.4 + 0.8));
@@ -1129,6 +1218,7 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
       if (status) status.textContent = 'Reiniciado no começo da frase';
     });
   } else if (vctx && vctx.externalUrl) {
+    document.getElementById('video-resource-section')?.classList.remove('hidden');
     // Não é YouTube (ou sem videoId extraível): sem player, só o link no
     // ponto salvo — degradação graciosa, DRM/bloqueio de embed não quebra nada.
     videoContainer.innerHTML = renderVideoContext(wordData, 'study-video-context');
@@ -1594,7 +1684,7 @@ async function buryCard(app) {
   tomorrow.setHours(0, 0, 0, 0);
   try {
     // Remove props de runtime (_ctx/_chunks/_reverse não são colunas do banco)
-    const { wordData, _ctx, _chunks, _reverse, ...clean } = card;
+    const { wordData, _ctx, _chunks, _reverse, _mode, _gradePreviews, _exerciseFinished, ...clean } = card;
     const mutationPromise = lfDb.updateCard({ ...clean, due_date: tomorrow.toISOString() });
     cardMutationPromise = mutationPromise;
     await mutationPromise;
@@ -1625,13 +1715,15 @@ function injectStyles() {
   const style = document.createElement('style');
   style.id = 'study-styles-v2';
   style.innerHTML = `
-    .study-layout { display: flex; height: 100%; width: 100%; background-color: var(--color-bg-alt); }
-    .study-main { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 40px; position: relative; overflow-y: auto;}
+    .study-layout { display:block; min-height:100%; width:100%; background-color:var(--color-bg-alt); }
+    .study-main { width:100%; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; padding:32px 24px 48px; position:relative; }
 
-    .media-container { width: 100%; max-width: 800px; height: 100px; background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; margin-bottom: 32px; }
+    .media-container { width:100%; max-width:720px; min-height:88px; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-lg); display:flex; align-items:center; justify-content:center; margin-bottom:28px; }
 
     .audio-wave-placeholder { display: flex; align-items: center; gap: 8px; opacity: 0.5; transition: opacity 0.3s; }
-    .wave-bar { width: 8px; height: 30px; background: var(--color-secondary); border-radius: 4px; animation: wave 1s infinite alternate; }
+    .audio-wave-placeholder.is-playing { opacity:1; }
+    .wave-bar { width:8px; height:30px; background:var(--color-secondary); border-radius:4px; animation:wave 1s infinite alternate; animation-play-state:paused; }
+    .audio-wave-placeholder.is-playing .wave-bar { animation-play-state:running; }
     .wave-bar:nth-child(2) { animation-delay: 0.2s; height: 50px; }
     .wave-bar:nth-child(3) { animation-delay: 0.4s; height: 20px; }
     .wave-bar:nth-child(4) { animation-delay: 0.6s; height: 40px; }
@@ -1641,7 +1733,7 @@ function injectStyles() {
     .btn-play-audio { background: var(--color-secondary); color: white; border: none; border-bottom: 4px solid var(--color-secondary-shadow); width: 44px; height: 44px; border-radius: 22px; font-size: 18px; cursor: pointer; margin-left: 16px; display:flex; align-items:center; justify-content:center;}
     .btn-play-audio:active { transform: translateY(4px); border-bottom-width: 0; }
 
-    .sentence-container { text-align: center; max-width: 800px; width: 100%; margin-bottom: 32px;}
+    .sentence-container { text-align:center; max-width:720px; width:100%; margin-bottom:24px; }
     .sentence-text { font-size: 32px; font-weight: 800; color: var(--color-text); line-height: 1.5; margin-bottom: 32px; }
 
     .cloze-blur { background: var(--color-border); color: transparent; padding: 0 16px; border-radius: var(--radius-md); user-select: none; transition: all 0.3s; display: inline-block; min-width: 60px;}
@@ -1655,8 +1747,8 @@ function injectStyles() {
     .reveal-btn { font-size: 20px; padding: 16px 40px; width:100%; max-width: 320px; margin: 0 auto; display: block; box-shadow: 0 4px 0 var(--color-primary-shadow);}
     .reveal-btn:disabled { opacity: 0.6; cursor: default; }
 
-    .grading-buttons { margin-top: 16px; width: 100%; max-width: 600px;}
-    .grading-row { display: flex; gap: 16px; width: 100%;}
+    .grading-buttons { margin-top:16px; width:100%; max-width:720px; }
+    .grading-row { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; width:100%; }
     .grade-btn { flex: 1; font-family: var(--font-main); font-weight: 800; font-size: 18px; padding: 16px 8px; border-radius: var(--radius-md); border: none; cursor: pointer; color: white; display: flex; flex-direction: column; align-items: center; gap: 6px; transition: transform 0.1s, box-shadow 0.1s; }
     .grade-btn:active { transform: translateY(4px); box-shadow: 0 0 0 transparent !important; }
     button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--color-secondary); outline-offset: 3px; }
@@ -1666,9 +1758,17 @@ function injectStyles() {
     .btn-warning { background: #ff9600; box-shadow: 0 4px 0 #cc7800; }
     .btn-secondary { background: var(--color-secondary); box-shadow: 0 4px 0 var(--color-secondary-shadow); }
 
-    .study-sidebar { width: 380px; background: var(--color-surface); border-left: 2px solid var(--color-border); padding: 32px; overflow-y: auto; }
-    .study-resources > summary { display:none; }
-    .study-tutor { width:min(100%, 620px); margin:24px auto 0; text-align:left; border:2px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-surface); padding:12px 16px; }
+    .study-explore { width:min(100%, 720px); margin-top:20px; }
+    .study-resources { width:100%; border:2px solid var(--color-border); border-radius:var(--radius-lg); background:var(--color-surface); overflow:hidden; }
+    .study-resources > summary { min-height:52px; padding:0 18px; cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between; color:var(--color-text); font-weight:900; }
+    .study-resources > summary::-webkit-details-marker { display:none; }
+    .study-resources > summary > span:last-child { color:var(--color-text-light); transition:transform .15s ease; }
+    .study-resources[open] > summary > span:last-child { transform:rotate(180deg); }
+    .study-resources-content { padding:4px 20px 24px; border-top:1px solid var(--color-border); }
+    .study-session-context { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:16px 0; padding:10px 12px; border-radius:10px; background:var(--color-bg-alt); color:var(--color-text-light); font-size:13px; }
+    .study-session-context button, .study-card-actions button { min-height:44px; border:0; background:transparent; color:var(--color-secondary); font:inherit; font-weight:800; cursor:pointer; }
+    .study-card-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:8px; margin:10px 0; }
+    .study-tutor { width:100%; box-sizing:border-box; margin:16px auto 24px; text-align:left; border:2px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-surface); padding:12px 16px; }
     .study-tutor summary { cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px; }
     .study-tutor summary::-webkit-details-marker { display:none; }
     .study-tutor summary span { font-size:12px; color:var(--color-text-light); font-weight:600; }
@@ -1682,6 +1782,7 @@ function injectStyles() {
     .chunk-pt { font-size: 14px; color: var(--color-text-light); font-style: italic; background: var(--color-bg-alt); display: inline-block; padding: 4px 10px; border-radius: 12px;}
 
     .chunk-action-btn { background: var(--color-secondary); color: white; border: none; border-radius: 50%; width: 36px; height: 36px; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .chunk-action-btn { min-width:44px; min-height:44px; }
     .chunk-action-btn:disabled { opacity: 0.5; cursor: default; }
     .chunk-save-btn { background: var(--color-primary); }
 
@@ -1717,31 +1818,36 @@ function injectStyles() {
     .video-context-frame iframe { width: 100%; height: 100%; border: 0; }
     #study-yt-mount { width:min(100%, 620px); margin:12px auto 0; aspect-ratio: 16 / 9; background: #000; border-radius:var(--radius-md); overflow:hidden; }
     #study-yt-mount iframe { width: 100%; height: 100%; border: 0; }
+    .exercise-grade-prompt { margin-top:14px; color:var(--color-text-light); font-size:15px; font-weight:700; }
+    #bury-btn, #btn-undo, .clip-control, .ex-chip { min-height:44px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .wave-bar, #shadowing-overlay { animation:none !important; }
+      * { scroll-behavior:auto !important; }
+    }
 
     @media (max-width: 768px) {
       /* O #app-root é a única área que rola no celular. Antes havia três
          scroll containers concorrentes e o card parecia metade fixo. */
-      .study-layout { flex-direction:column; height:auto; min-height:100dvh; overflow:visible; }
-      .study-main { width:100%; min-height:100dvh; box-sizing:border-box; padding:20px 16px calc(186px + env(safe-area-inset-bottom)); overflow:visible; justify-content:flex-start; }
-      .study-sidebar { width:100%; box-sizing:border-box; padding:0; overflow:visible; border:0; background:transparent; }
-      .study-resources { width:100%; background:var(--color-surface); border-top:2px solid var(--color-border); border-bottom:2px solid var(--color-border); }
-      .study-resources > summary { min-height:54px; padding:0 16px; cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between; color:var(--color-text); font-weight:900; }
-      .study-resources > summary::-webkit-details-marker { display:none; }
-      .study-resources > summary span { color:var(--color-text-light); transition:transform .15s ease; }
-      .study-resources[open] > summary span { transform:rotate(180deg); }
-      .study-resources-content { padding:4px 16px calc(24px + env(safe-area-inset-bottom)); }
+      .study-layout { min-height:100dvh; }
+      .study-main { min-height:calc(100dvh - var(--topbar-height)); padding:18px 14px 28px; justify-content:flex-start; }
+      .study-layout.is-revealed .study-main { padding-bottom:calc(92px + env(safe-area-inset-bottom)); }
+      .study-resources-content { padding:4px 14px calc(20px + env(safe-area-inset-bottom)); }
       .grading-buttons { position:fixed; z-index:20; left:0; right:0; bottom:0; margin:0; padding:10px 12px calc(10px + env(safe-area-inset-bottom)); background:var(--color-surface); border-top:2px solid var(--color-border); box-shadow:0 -8px 24px rgba(0,0,0,.10); }
-      .grading-row { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; max-width:680px; margin:0 auto; }
-      .grade-btn { min-height:64px; padding:9px 6px; }
+      .grading-row { grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; max-width:680px; margin:0 auto; }
+      .grade-btn { min-width:0; min-height:58px; padding:7px 2px; font-size:13px; gap:2px; }
+      .grade-btn span:last-child { font-size:10px !important; }
       .study-tutor { margin-top:18px; }
       .study-video-context { margin-top:16px; }
       .sentence-text { font-size: 26px; }
     }
     @media (max-width: 380px) {
-      .study-main { padding:16px 12px calc(186px + env(safe-area-inset-bottom)); }
+      .study-main { padding:16px 10px 24px; }
+      .study-layout.is-revealed .study-main { padding-bottom:calc(88px + env(safe-area-inset-bottom)); }
       .media-container { height: 76px; margin-bottom: 20px; }
       .sentence-text { font-size: 22px; margin-bottom: 22px; }
-      .grade-btn { font-size: 16px; min-height: 74px; }
+      .grading-buttons { padding-left:6px; padding-right:6px; }
+      .grade-btn { font-size:12px; min-height:56px; }
     }
 
     @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }

@@ -55,6 +55,9 @@ class App {
     this._reportedErrors = new Set();
     
     this.themeToggleBtn = document.getElementById('theme-toggle-btn');
+    this.focusHeader = document.getElementById('study-focus-header');
+    this.focusMenu = document.getElementById('study-focus-menu');
+    this.focusMenuToggle = document.getElementById('study-focus-menu-toggle');
     
     this.init();
   }
@@ -85,6 +88,10 @@ class App {
         if(route) this.navigate(route);
       });
     });
+    this.setupFocusShell();
+    // BFCache/restauração de aba pode preservar classes do <body>. Antes de
+    // qualquer await de autenticação, normalize o shell para a rota inicial.
+    this.syncShellForRoute(this.currentRoute);
 
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
@@ -153,6 +160,95 @@ class App {
     const dueCards = await db.getCardsDue(50, false);
     const dueEl = document.getElementById('due-val');
     if (dueEl) dueEl.textContent = dueCards.length;
+    this.updateFocusStatus(dueCards.length);
+  }
+
+  setupFocusShell() {
+    document.getElementById('study-focus-exit')?.addEventListener('click', () => {
+      this.navigate('home');
+    });
+    this.focusMenuToggle?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const willOpen = this.focusMenu?.hidden !== false;
+      this.setFocusMenuOpen(willOpen);
+    });
+    this.focusMenu?.addEventListener('click', (event) => {
+      const route = event.target.closest('[data-focus-route]')?.dataset.focusRoute;
+      if (!route) return;
+      this.setFocusMenuOpen(false);
+      this.navigate(route);
+    });
+    document.addEventListener('click', (event) => {
+      if (!this.focusMenu?.hidden && !event.target.closest('.study-focus-menu-wrap')) {
+        this.setFocusMenuOpen(false);
+      }
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !this.focusMenu?.hidden) {
+        this.setFocusMenuOpen(false, true);
+      }
+    });
+  }
+
+  setFocusMenuOpen(open, restoreFocus = false) {
+    if (!this.focusMenu || !this.focusMenuToggle) return;
+    this.focusMenu.hidden = !open;
+    this.focusMenuToggle.setAttribute('aria-expanded', String(open));
+    if (open) this.focusMenu.querySelector('[role="menuitem"]')?.focus();
+    else if (restoreFocus) this.focusMenuToggle.focus();
+  }
+
+  updateFocusStatus(progress = null) {
+    const status = document.getElementById('study-focus-status');
+    const track = document.getElementById('study-focus-track');
+    if (!status || !track) return;
+
+    if (progress && typeof progress === 'object') {
+      this._focusProgressBound = true;
+      const total = Math.max(0, Number(progress.total) || 0);
+      const remaining = Math.max(0, Number(progress.remaining) || 0);
+      const completed = Math.max(0, Number.isFinite(Number(progress.completed))
+        ? Number(progress.completed)
+        : total - remaining);
+      const percent = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
+      status.textContent = total > 0
+        ? `${Math.min(completed, total)} de ${total} concluídos`
+        : 'Um card por vez';
+      track.style.setProperty('--study-progress', `${percent}%`);
+      track.setAttribute('aria-valuenow', String(percent));
+      track.setAttribute('aria-valuetext', total > 0
+        ? `${Math.min(completed, total)} de ${total} cards concluídos; ${remaining} restantes`
+        : 'Sessão iniciada');
+      return;
+    }
+
+    // Uma atualização global de pendências não deve sobrescrever o progresso
+    // fino que a view de estudo já passou a publicar card a card.
+    if (this.currentRoute === 'study' && this._focusProgressBound) return;
+    const count = Number.isFinite(Number(progress)) ? Number(progress) : 0;
+    status.textContent = count > 0
+      ? `${count} ${count === 1 ? 'revisão pendente' : 'revisões pendentes'}`
+      : 'Um card por vez';
+    track.style.setProperty('--study-progress', '0%');
+    track.setAttribute('aria-valuenow', '0');
+    track.setAttribute('aria-valuetext', count > 0 ? `${count} revisões pendentes` : 'Sessão iniciada');
+  }
+
+  syncShellForRoute(route) {
+    const focus = route === 'study';
+    document.body.classList.toggle('lf-focus-mode', focus);
+    if (this.focusHeader) this.focusHeader.hidden = !focus;
+    if (!focus) this.setFocusMenuOpen(false);
+    if (focus) {
+      this._focusProgressBound = false;
+      const due = Number(document.getElementById('due-val')?.textContent);
+      this.updateFocusStatus(Number.isFinite(due) ? due : null);
+    } else {
+      this._focusProgressBound = false;
+    }
+    // Cada experiência começa no topo do seu próprio scroll. Isso também
+    // impede que a posição longa da sessão contamine Home/Config ao sair.
+    if (this.root) this.root.scrollTop = 0;
   }
 
   navigate(route, params = {}) {
@@ -168,6 +264,7 @@ class App {
     this.navigationEpoch += 1;
     this.currentRoute = route;
     this.routeParams = params || {};
+    this.syncShellForRoute(route);
 
     // Update active state on buttons
     this.navBtns.forEach(btn => {
@@ -307,7 +404,7 @@ class App {
 
   createGuardedApp(context) {
     const app = this;
-    const effectMethods = new Set(['navigate', 'logout', 'showToast', 'onLeaveView']);
+    const effectMethods = new Set(['navigate', 'logout', 'showToast', 'onLeaveView', 'updateFocusStatus']);
     return new Proxy(this, {
       get(target, property) {
         // Contrato opt-in para views novas: permite cancelar fetches/trabalho

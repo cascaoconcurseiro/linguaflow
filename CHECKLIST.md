@@ -41,15 +41,21 @@
 - [x] Testes específicos: player 12/12, contexto 10/10, estudo/vídeo 4/4, domínio 14/14, Web Reader 6/6 e legendas 13/13.
 - [ ] QA autenticado no preview e QA da extensão real: loop/pause/replay, navegação A→B e salvamento local-first.
 
-### 🎯 ETAPA 3 — Modo foco e nova tela de cards
+### ✅ ETAPA 3 — Modo foco e nova tela de cards
 
-- [ ] Ocultar shell global durante a sessão; header mínimo com sair/progresso/menu.
-- [ ] Frente: áudio, prompt e Revelar.
-- [ ] Verso: resposta, pronúncia, tradução e quatro notas.
-- [ ] Tutor/vídeo/YouGlish/Tatoeba/chunks/mnemônico em Ajuda/Explorar sob demanda.
-- [ ] Dock mobile de notas em uma linha; remover compensação atual de 186 px.
-- [ ] Exercícios ativos sem autoavanço por timer; acerto pede Difícil/Bom/Fácil.
-- [ ] Waveform só durante playback e `prefers-reduced-motion`.
+- [x] Ocultar shell global durante a sessão; header mínimo com sair/progresso real/menu.
+- [x] Restaurar topbar, scroll e menu ao sair, trocar rota, autenticar ou voltar pelo BFCache.
+- [x] Frente limitada a áudio, prompt/exercício e Revelar.
+- [x] Verso prioriza resposta, pronúncia, tradução e notas antes de qualquer recurso auxiliar.
+- [x] Tutor/vídeo/YouGlish/Tatoeba/chunks/mnemônico, Undo, Bury e melhoria de frase preservados em Explorar.
+- [x] Remover sidebar permanente; gaveta fica invisível/recolhida até revelar.
+- [x] Dock mobile de quatro notas em uma linha; remover compensação de 186 px.
+- [x] Exercícios sem autoavanço: erro confirma Errei; acerto oferece Difícil/Bom/Fácil.
+- [x] Atalhos ignoram notas ocultas e foco vai para a primeira decisão válida.
+- [x] Waveform só durante playback, reseta em falha/cancelamento e respeita `prefers-reduced-motion`.
+- [x] Um único scroll owner no modo foco, com safe-area e toast sem colisão com o dock.
+- [x] Contratos automatizados: shell 25/25 e Estudo 14/14.
+- [ ] QA visual autenticado em desktop e 320/375/390 px: frente, verso, Explorar, exercícios, teclado e scroll.
 
 ### 🗂️ ETAPA 4 — Arquitetura de informação
 

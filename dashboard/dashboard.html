@@ -42,6 +42,25 @@
       </div>
     </header>
 
+    <!-- Shell mínimo da sessão: a rota Estudo esconde a navegação global e
+         mantém somente saída, estado da sessão e acessos secundários. -->
+    <header id="study-focus-header" class="study-focus-header" hidden aria-label="Controles da sessão de estudo">
+      <button id="study-focus-exit" class="study-focus-icon-btn" type="button" aria-label="Sair da sessão e voltar ao início">←</button>
+      <div class="study-focus-progress" role="status" aria-live="polite">
+        <strong>Sessão de estudo</strong>
+        <span id="study-focus-status">Um card por vez</span>
+        <div id="study-focus-track" class="study-focus-track" role="progressbar" aria-label="Progresso da sessão" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>
+      </div>
+      <div class="study-focus-menu-wrap">
+        <button id="study-focus-menu-toggle" class="study-focus-icon-btn" type="button" aria-label="Abrir menu da sessão" aria-haspopup="menu" aria-expanded="false">⋯</button>
+        <div id="study-focus-menu" class="study-focus-menu" role="menu" hidden>
+          <button type="button" role="menuitem" data-focus-route="home">Início</button>
+          <button type="button" role="menuitem" data-focus-route="library">O Cofre</button>
+          <button type="button" role="menuitem" data-focus-route="settings">Configurações</button>
+        </div>
+      </div>
+    </header>
+
     <!-- Main Content Area (Views are injected here) -->
     <main id="app-root"></main>
 

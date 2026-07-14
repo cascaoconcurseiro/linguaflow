@@ -8,8 +8,9 @@
 
 - **Etapa 1 — concluída por Codex em 2026-07-14:** áudio exclusivo, lifecycle/navegação seguros e mutações de revisão confirmadas antes de avançar.
 - **Etapa 2 — concluída por Codex em 2026-07-14:** máquina única do player, bounds exatos, epochs de vídeo/legenda, descarte de traduções antigas e Web Reader isolado/local-first.
-- **Gate atual:** QA autenticado do preview e extensão real; produção não deve ser promovida antes desse gate.
-- **Próxima etapa:** modo foco do Estudo e reorganização progressiva dos cards, preservando todos os recursos na gaveta Explorar.
+- **Etapa 3 — concluída por Codex em 2026-07-14:** shell mínimo, progresso real, frente/verso focados, recursos preservados em Explorar, dock mobile 4×1 e exercícios sem avanço automático.
+- **Gate atual:** QA autenticado do preview em desktop/mobile e extensão real; produção não deve ser promovida antes desse gate.
+- **Próxima etapa:** arquitetura de informação de Home, Cofre, Histórias, Configurações e navegação.
 
 ## Diagnóstico executivo
 

@@ -1,5 +1,46 @@
 # Handoff — LinguaFlow
 
+## Handoff Codex — Plano UX/Races, Etapa 3 (2026-07-14)
+
+**Estado:** modo foco implementado na branch `codex/review-mobile-video`. Produção continua intacta até QA visual autenticado em desktop e celular.
+
+### Implementação coordenada
+
+- `dashboard/dashboard.html`, `dashboard/css/globals.css` e `dashboard/js/core/app.js`: shell mínimo exclusivo do Estudo, com saída, progresso real, menu secundário, safe-area e um único scroll. Qualquer outra rota restaura topbar/scroll; BFCache e renders obsoletos não deixam o body preso.
+- `dashboard/js/ui/studyView.js`: frente mostra apenas áudio, prompt/exercício e Revelar. O verso apresenta resposta, pronúncia, tradução e notas; a antiga sidebar virou a gaveta `Explorar esta frase`.
+- Nenhum recurso foi removido: tutor, trecho original, palavra isolada, mnemônico, YouGlish, Tatoeba, chunks, Undo, Bury, filtro de tópico e melhoria de frase continuam acessíveis sob demanda.
+- Mobile: notas 4×1, dock compacto, zero compensação de 186 px e conteúdo com padding somente quando o verso está aberto.
+- Exercícios: não existe mais `handleGrade` por timeout. Erro deixa apenas `Errei`; acerto oferece `Difícil`, `Bom` e `Fácil`; o aluno confirma a transição.
+- Acessibilidade: foco segue a decisão, builder e feedback usam live regions, ditado tem label, alvos críticos têm 44 px, waveform reflete playback real e movimento reduzido é respeitado.
+
+### Contratos para preservar
+
+1. Antes de revelar, `Explorar` e notas não competem com o card.
+2. Notas ficam antes de tutor/vídeo na ordem do DOM e do teclado.
+3. Exercícios nunca avaliam ou avançam por cronômetro.
+4. Rota fora de `study` sempre remove `lf-focus-mode` e restaura o shell.
+5. Progresso é real (`completed/total`), não animação de loading.
+6. Cancelamento/falha de áudio sempre devolve waveform e ARIA ao estado ocioso.
+
+### Evidência
+
+- `npm run test:stage3`: shell 25/25 e Estudo 14/14.
+- Regressões executadas: Etapa 2 (69), áudio 8, motor 37 e calendário 5.
+- Smoke de release, sintaxe e `git diff --check` verdes antes do commit.
+
+### QA visual antes de produção
+
+- Desktop: entrar/sair do Estudo restaura topbar e posição de scroll.
+- 320/375/390 px: frente cabe sem painel concorrente; verso deixa as quatro notas legíveis numa linha.
+- Abrir/fechar Explorar mantém tutor, vídeo e recursos utilizáveis sem segundo scroll.
+- Builder/ditado: erro exige confirmação de Errei; acerto permite 2–4; não avança sozinho.
+- Teclado/leitor de tela: foco segue Revelar → nota e callbacks antigos não roubam foco.
+- Movimento reduzido: waveform, shadowing e feedback não animam.
+
+**Próximo:** Etapa 4 — reorganizar Home, Cofre, Histórias, Configurações e navegação por tarefa, sem retirar funções.
+
+---
+
 ## Handoff Codex — Plano UX/Races, Etapa 2 (2026-07-14)
 
 **Estado:** implementação concluída na branch `codex/review-mobile-video`. Produção permanece intacta até o QA autenticado do preview e o teste da extensão carregada no Chrome.

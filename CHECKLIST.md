@@ -16,7 +16,7 @@
 - [x] Auditar código, migrations, economia, jornadas e banco real.
 - [x] Definir promessa, ciclo central e métrica norte.
 - [x] Documentar arquitetura da informação e roadmap por dependência.
-- [ ] Definir taxonomia de eventos e esquema de evidência.
+- [x] Definir taxonomia de eventos e esquema de evidência (`docs/FUNDACAO_EVIDENCIA_P0_2026-07-14.md` + migration expand-only).
 - [ ] Instrumentar funil vídeo → captura → primeira revisão → retenção D1/D7.
 - [ ] Realizar 5 sessões observadas e 6–8 entrevistas com público-alvo.
 
@@ -25,6 +25,8 @@
 - [x] Especificar ledger, regras de XP qualificado, RPCs v2, rollout e testes (`docs/FUNDACAO_EVIDENCIA_P0_2026-07-14.md`).
 - [x] Criar migration expand-only dos ledgers com CLI oficial, RLS e grants explícitos.
 - [x] Validar migration em Postgres 17 efêmero com testes SQL de propriedade, grants, reversão e RLS.
+- [x] Publicar commit `7662ea5` no preview; Vercel `READY`, raiz `200`, sem erros de runtime na janela de uma hora consultada.
+- [ ] Regularizar o faturamento do GitHub Actions e reexecutar o workflow `Build and Release` (o run `29348470440` foi recusado antes do runner).
 - [ ] Ledger idempotente de tentativas e recompensas.
 - [ ] XP calculado no servidor por evidência, não por quantidade declarada.
 - [ ] Separar prática ilimitada de pontuação competitiva.

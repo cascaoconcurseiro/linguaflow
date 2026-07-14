@@ -39,7 +39,12 @@ if (allowDirty || dirtyTracked.length === 0) {
 }
 
 console.log('\nSintaxe JavaScript rastreada');
-const jsFiles = git(['ls-files', '--', '*.js']).split(/\r?\n/).filter(Boolean);
+const jsFiles = git(['ls-files', '--', '*.js']).split(/\r?\n/)
+  .filter(Boolean)
+  // Em diagnóstico pré-commit, `git ls-files` ainda lista arquivos removidos
+  // até que a exclusão seja staged. O release final continua verificando todos
+  // os JavaScript que efetivamente compõem a árvore candidata.
+  .filter((relative) => existsSync(file(relative)));
 let syntaxFailures = 0;
 for (const relative of jsFiles) {
   try {
@@ -66,6 +71,8 @@ try {
   const missing = referenced.filter((relative) => !existsSync(file(relative)));
   assert(missing.length === 0, `todos os ${referenced.length} arquivos referenciados pelo manifest existem${missing.length ? `: ${missing.join(', ')}` : ''}`);
   assert(!extensionManifest.chrome_url_overrides?.newtab, 'extensão não sequestra a nova aba do Chrome');
+  const legacyNewTabFiles = ['dashboard/newtab.html', 'dashboard/newtab.js'].filter((relative) => existsSync(file(relative)));
+  assert(legacyNewTabFiles.length === 0, `recurso legado de nova aba foi removido${legacyNewTabFiles.length ? `: ${legacyNewTabFiles.join(', ')}` : ''}`);
 } catch (error) {
   fail(`manifest.json inválido: ${error.message}`);
 }
@@ -74,10 +81,13 @@ console.log('\nCaminhos críticos de performance');
 const dbSource = read('utils/db.js');
 const workerSource = read('background/service-worker.js');
 const popupSource = read('content/word-popup.js');
+const extensionPopupSource = read('popup/popup.js');
 assert(!/[`'\"]words\?select=\*/.test(dbSource) && !/words\(\*\)/.test(dbSource), 'leituras de palavras não baixam snapshot base64 via select=*');
 assert(workerSource.includes('QUEUE_WORD_SAVE') && workerSource.includes('word-save-sync'), 'save local-first possui fila persistente e retry');
 assert(popupSource.includes("type: 'QUEUE_WORD_SAVE'") && popupSource.includes('queued: true'), 'popup confirma a intenção local sem esperar enriquecimento remoto');
 assert(workerSource.includes("args[0].category = classifyWordStatic") && workerSource.includes('refineSavedWord'), 'classificação por IA roda após a gravação inicial');
+assert(workerSource.includes('openOrFocusLinguaFlow') && extensionPopupSource.includes("type: 'OPEN_DASHBOARD'") && !extensionPopupSource.includes('chrome.tabs.create'), 'CTAs internos reutilizam uma única guia LinguaFlow');
+assert(workerSource.includes("chrome.storage.sync.get(['nativeLang', 'targetLangs']"), 'atualização da extensão preserva preferências existentes');
 
 console.log('\nPWA estático e rotas Vercel');
 const pwaWorkerSource = read('dashboard/sw.js');

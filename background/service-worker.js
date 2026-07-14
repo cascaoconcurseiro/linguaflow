@@ -43,7 +43,16 @@ chrome.runtime.onStartup?.addListener(() => syncPendingWordSaves());
 
 // ── Instalação ───────────────────────────────────────────────────────────────
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.sync.set({ nativeLang: 'pt', targetLangs: ['en'] });
+  // Instalação e atualização nunca abrem guia nem sobrescrevem preferências.
+  // Só preenche defaults que ainda não existem.
+  chrome.storage.sync.get(['nativeLang', 'targetLangs'], (current) => {
+    const defaults = {};
+    if (!current.nativeLang) defaults.nativeLang = 'pt';
+    if (!Array.isArray(current.targetLangs) || current.targetLangs.length === 0) {
+      defaults.targetLangs = ['en'];
+    }
+    if (Object.keys(defaults).length > 0) chrome.storage.sync.set(defaults);
+  });
   chrome.contextMenus.create({
     id: 'linguaflow-save',
     title: 'Salvar no LinguaFlow',
@@ -51,6 +60,21 @@ chrome.runtime.onInstalled.addListener(() => {
   });
   clearBadLingueeCache();
 });
+
+async function openOrFocusLinguaFlow() {
+  const tabs = await chrome.tabs.query({});
+  const existing = tabs.find((tab) => isLinguaFlowUrl(tab.url));
+  if (existing?.id) {
+    await chrome.tabs.update(existing.id, { active: true });
+    if (existing.windowId != null) {
+      await chrome.windows?.update?.(existing.windowId, { focused: true });
+    }
+    return { reused: true, tabId: existing.id };
+  }
+
+  const created = await chrome.tabs.create({ url: OFFICIAL_SITE_URL });
+  return { reused: false, tabId: created?.id };
+}
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'linguaflow-save') {
@@ -76,19 +100,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           return;
         }
 
-        const tabs = await chrome.tabs.query({});
-        const existing = tabs.find((tab) => isLinguaFlowUrl(tab.url));
-        if (existing?.id) {
-          await chrome.tabs.update(existing.id, { active: true });
-          if (existing.windowId != null) {
-            await chrome.windows?.update?.(existing.windowId, { focused: true });
-          }
-          sendResponse({ ok: true, reused: true, tabId: existing.id });
-          return;
-        }
-
-        const created = await chrome.tabs.create({ url: OFFICIAL_SITE_URL });
-        sendResponse({ ok: true, reused: false, tabId: created?.id });
+        const result = await openOrFocusLinguaFlow();
+        sendResponse({ ok: true, ...result });
       } catch (error) {
         sendResponse({ ok: false, error: error?.message || String(error) });
       }
@@ -1324,8 +1337,9 @@ async function maybeNotifyDue(due) {
 
 chrome.notifications?.onClicked?.addListener((id) => {
   if (id === 'lf-due-reminder') {
-    chrome.tabs.create({ url: OFFICIAL_SITE_URL });
-    chrome.notifications.clear(id);
+    openOrFocusLinguaFlow()
+      .catch((error) => console.warn('[LinguaFlow] Falha ao abrir painel:', error))
+      .finally(() => chrome.notifications.clear(id));
   }
 });
 

@@ -31,7 +31,16 @@
 - leaderboard deve ler apenas uma projeção pública mínima;
 - CI precisa executar toda a suíte e E2E autenticado antes de promoção.
 
+**Especificação executável:** `docs/FUNDACAO_EVIDENCIA_P0_2026-07-14.md`. A migration ainda não foi criada porque a CLI oficial do Supabase não está instalada; não inventar timestamp e não aplicar DDL diretamente em produção para contornar isso.
+
 Produção e preview não foram alterados nesta auditoria estratégica.
+
+### Complemento — remoção definitiva da Nova Guia
+
+- o override `chrome_url_overrides.newtab` já havia sido removido do manifest;
+- Codex removeu também `dashboard/newtab.html` e `dashboard/newtab.js`, que ainda restavam como legado;
+- o release smoke agora falha se o override ou os arquivos retornarem;
+- abrir painel/criar conta/clicar notificação continua sendo ação voluntária e não deve ser confundida com abertura automática.
 
 ## Handoff Codex — Plano UX/Races, Etapa 3 (2026-07-14)
 

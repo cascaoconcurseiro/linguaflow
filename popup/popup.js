@@ -3,8 +3,6 @@
 // renova sozinha pra sempre. O Dashboard completo mora no site.
 import { db as lfDb } from '../utils/db.js';
 
-const SITE_URL = 'https://linguaflow-web-tau.vercel.app/';
-
 const areaLoading = document.getElementById('area-loading');
 const areaLogin = document.getElementById('area-login');
 const areaLogged = document.getElementById('area-logged');
@@ -88,15 +86,22 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
   }
 });
 
-// Criar conta acontece no site (fluxo completo com confirmação)
-document.getElementById('btn-signup-link').addEventListener('click', () => {
-  chrome.tabs.create({ url: SITE_URL });
-});
+async function openDashboard() {
+  try {
+    const result = await chrome.runtime.sendMessage({ type: 'OPEN_DASHBOARD' });
+    if (!result?.ok) throw new Error(result?.error || 'Não foi possível abrir o LinguaFlow.');
+    window.close();
+  } catch (error) {
+    console.warn('[Popup] Falha ao abrir o site:', error);
+  }
+}
+
+// Criar conta acontece no site (fluxo completo com confirmação), reutilizando
+// a mesma guia do LinguaFlow quando ela já estiver aberta.
+document.getElementById('btn-signup-link').addEventListener('click', openDashboard);
 
 // ── Logado ───────────────────────────────────────────────────────────────────
-document.getElementById('btn-dash').addEventListener('click', () => {
-  chrome.tabs.create({ url: SITE_URL });
-});
+document.getElementById('btn-dash').addEventListener('click', openDashboard);
 
 document.getElementById('btn-logout').addEventListener('click', async () => {
   try { await lfDb.logout(); } catch { /* limpa mesmo assim */ }

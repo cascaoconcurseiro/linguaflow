@@ -4,6 +4,13 @@
 
 > Documento canônico: `docs/PLANO_MESTRE_PRODUTO_REAL_2026-07-14.md`. A antiga Etapa 4 de reorganização visual isolada não deve começar antes destas fundações.
 
+### Remoção definitiva da Nova Guia
+
+- [x] Confirmar que `manifest.json` não possui `chrome_url_overrides.newtab`.
+- [x] Remover os arquivos legados `dashboard/newtab.html` e `dashboard/newtab.js`.
+- [x] Manter aberturas de guia apenas após ação explícita do usuário.
+- [x] Impedir regressão no smoke de release.
+
 ### Fase 0 — Verdade e medição
 
 - [x] Auditar código, migrations, economia, jornadas e banco real.
@@ -15,6 +22,7 @@
 
 ### Fase 1 — Integridade e anti-farm
 
+- [x] Especificar ledger, regras de XP qualificado, RPCs v2, rollout e testes (`docs/FUNDACAO_EVIDENCIA_P0_2026-07-14.md`).
 - [ ] Ledger idempotente de tentativas e recompensas.
 - [ ] XP calculado no servidor por evidência, não por quantidade declarada.
 - [ ] Separar prática ilimitada de pontuação competitiva.

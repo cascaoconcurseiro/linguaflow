@@ -1,5 +1,38 @@
 # Handoff — LinguaFlow
 
+## Handoff Codex — Redefinição estratégica do produto (2026-07-14)
+
+**Decisão:** a antiga Etapa 4 de apenas reorganizar Home/Cofre/Stories/Config foi suspensa. A auditoria multidisciplinar confirmou que o problema é sistêmico: as áreas são conectadas por navegação e XP, não por evidências de aprendizagem.
+
+**Documento canônico novo:** `docs/PLANO_MESTRE_PRODUTO_REAL_2026-07-14.md`.
+
+### Evidência consultada
+
+- código real do dashboard, jogos, SRS, stories, home, stats e migrations;
+- banco Supabase de produção em modo somente leitura: 1 usuário, 6 cards, 47 revisões, 2 histórias e 27.263 itens de cache;
+- advisors de segurança e performance;
+- revisão coordenada de produto/UX, ciência da aprendizagem/economia e plataforma/dados.
+
+### Direção aprovada para a próxima implementação
+
+1. Fundação de eventos/evidências e economia anti-farm.
+2. Modelo contextual: fonte → ocorrência → item/sentido → tentativa → domínio.
+3. Plano adaptativo `Hoje`.
+4. Fluxo completo vídeo → captura → primeira recuperação → revisão → transferência.
+5. Só depois, nova arquitetura visual e gamificação competitiva.
+
+### P0 técnicos que não podem ser ignorados
+
+- revisão/FSRS e elegibilidade de XP devem ser validados no servidor;
+- tentativas precisam de identidade idempotente e versão base;
+- jogos, stories, quizzes, vídeo e quests não podem enviar apenas quantidade declarada;
+- sessões de vídeo precisam de incremento atômico multiaba;
+- card precisa de unicidade por usuário/item;
+- leaderboard deve ler apenas uma projeção pública mínima;
+- CI precisa executar toda a suíte e E2E autenticado antes de promoção.
+
+Produção e preview não foram alterados nesta auditoria estratégica.
+
 ## Handoff Codex — Plano UX/Races, Etapa 3 (2026-07-14)
 
 **Estado:** modo foco implementado na branch `codex/review-mobile-video`. Produção continua intacta até QA visual autenticado em desktop e celular.

@@ -1,5 +1,36 @@
 # Checklist — LinguaFlow
 
+## 🧠 REVOLUÇÃO DE PRODUTO — plano mestre real (Codex, 2026-07-14)
+
+> Documento canônico: `docs/PLANO_MESTRE_PRODUTO_REAL_2026-07-14.md`. A antiga Etapa 4 de reorganização visual isolada não deve começar antes destas fundações.
+
+### Fase 0 — Verdade e medição
+
+- [x] Auditar código, migrations, economia, jornadas e banco real.
+- [x] Definir promessa, ciclo central e métrica norte.
+- [x] Documentar arquitetura da informação e roadmap por dependência.
+- [ ] Definir taxonomia de eventos e esquema de evidência.
+- [ ] Instrumentar funil vídeo → captura → primeira revisão → retenção D1/D7.
+- [ ] Realizar 5 sessões observadas e 6–8 entrevistas com público-alvo.
+
+### Fase 1 — Integridade e anti-farm
+
+- [ ] Ledger idempotente de tentativas e recompensas.
+- [ ] XP calculado no servidor por evidência, não por quantidade declarada.
+- [ ] Separar prática ilimitada de pontuação competitiva.
+- [ ] Impedir XP repetido por item × habilidade × janela.
+- [ ] Revisar RPCs `SECURITY DEFINER`, propriedade e parâmetros.
+- [ ] Migrar missões, streak e ligas para aprendizagem qualificada.
+
+### Fases seguintes
+
+- [ ] Fase 2: fonte/trecho/item/sentido/domínio e deduplicação contextual.
+- [ ] Fase 3: Home `Hoje` com plano adaptativo.
+- [ ] Fase 4: vídeo + captura + revisão multimodal ponta a ponta.
+- [ ] Fase 5: Imersão e biblioteca organizadas por fonte.
+- [ ] Fase 6: progresso, ligas e motivação saudável.
+- [ ] Fase 7: sistema visual próprio, QA e performance budgets.
+
 ## 🧭 PLANO UX/RACES — execução por etapas (Codex, iniciado em 2026-07-14)
 
 > Plano completo: `docs/AUDITORIA_UX_FLUXO_2026-07-14.md`. Regra: nenhuma função é removida; corrigir concorrência antes de reorganizar a interface. Toda etapa termina com testes, handoff e preview antes de produção.

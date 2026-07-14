@@ -1,6 +1,20 @@
 # Auditoria Arquitetural Geral — LinguaFlow
 **Data:** 2026-07-10 · **Auditoria original:** leitura linha-a-linha do código real + inspeção do banco Supabase de produção (`qnutoswrufznztoznlql`) via MCP (tabelas, triggers, funções, advisors).
 
+## Redirecionamento de produto — Codex (2026-07-14)
+
+A continuidade da auditoria mostrou que concluir ondas de funcionalidades não resolve o problema atual. O produto possui módulos maduros, mas não uma espinha pedagógica nem uma economia baseada em evidência. A Etapa 4 puramente visual foi substituída pelo plano `docs/PLANO_MESTRE_PRODUTO_REAL_2026-07-14.md`.
+
+Achados críticos novos:
+
+- o teto de 40 XP/dia dos jogos existe, mas a RPC recebe tipo/quantidade agregados do cliente e não identifica tentativas ou itens;
+- autoavaliação, vídeo passivo e conclusão de conteúdo podem influenciar XP sem evidência comparável;
+- não existe modelo persistente de fonte/trecho/sentido/tentativa/domínio por habilidade;
+- a Home e a navegação organizam funcionalidades, não o próximo passo pedagógico;
+- o banco real ainda está em escala de validação (1 usuário, 6 cards, 47 revisões), portanto este é o momento adequado para corrigir o modelo.
+
+Nenhuma alteração de banco ou produção foi realizada durante esta revisão.
+
 ## Livro de execução — Codex
 
 > Esta seção é mantida por **Codex** a partir de 2026-07-10. Ela não substitui a auditoria original: registra, com evidência, o que foi validado, alterado e ainda falta concluir. Nenhum item é marcado como concluído apenas por declaração de outro agente.

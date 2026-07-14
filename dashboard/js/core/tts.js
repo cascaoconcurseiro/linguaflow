@@ -4,11 +4,13 @@
 // Web (Vercel): Edge Function `tts` (proxy autenticado com CORS correto).
 
 import { db as lfDb } from '../../../utils/db.js';
+import { ExclusivePlayback } from '../../../utils/exclusive-playback.js';
 
 const TTS_PROXY_URL = 'https://qnutoswrufznztoznlql.supabase.co/functions/v1/tts';
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
 let currentAudioObj = null;
+const playback = new ExclusivePlayback(() => window.speechSynthesis);
 const memCache = new Map(); // `${lang}|${text}` -> object URL
 
 function idbOpen() {
@@ -188,33 +190,76 @@ async function getAudioUrl(text, lang) {
 export async function playNaturalAudio(text, options = {}, onEndCallback) {
   const lang = options.lang || _getTTSLang();
   const rate = options.rate || _getTTSRate();
-  stopAudio();
+  const token = playback.begin();
 
   const src = await getAudioUrl(text, lang).catch(() => null);
+  if (!playback.isCurrent(token)) return false;
 
   return new Promise((resolve) => {
-    const finish = () => {
+    let settled = false;
+    let fallbackStarted = false;
+    let speechFallbackStarted = false;
+    let cancelActive = null;
+
+    const finish = (completed = true) => {
+      if (settled) return;
+      settled = true;
+      if (cancelActive) playback.release(token, cancelActive);
       currentAudioObj = null;
-      if (onEndCallback) onEndCallback();
-      resolve();
+      if (completed && playback.isCurrent(token) && onEndCallback) onEndCallback();
+      resolve(completed);
     };
+
+    const activateAudio = (audio) => {
+      cancelActive = () => {
+        audio.onended = null;
+        audio.onerror = null;
+        try { audio.pause(); audio.currentTime = 0; } catch { /* elemento parcial */ }
+        finish(false);
+      };
+      if (!playback.activate(token, cancelActive)) return false;
+      currentAudioObj = audio;
+      return true;
+    };
+
     const tryDirect = () => {
+      if (fallbackStarted || settled || !playback.isCurrent(token)) return;
+      fallbackStarted = true;
+      // Troca de mecanismo não é cancelamento da reprodução inteira: solte o
+      // elemento que falhou antes de registrar o próximo fallback.
+      if (cancelActive) playback.release(token, cancelActive);
+      if (currentAudioObj) {
+        currentAudioObj.onended = null;
+        currentAudioObj.onerror = null;
+        try { currentAudioObj.pause(); } catch { /* elemento parcial */ }
+        currentAudioObj = null;
+      }
       // Último recurso online: URL do Google direto no <audio> (sem cache)
       const direct = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${lang}&client=gtx`);
-      currentAudioObj = direct;
       direct.playbackRate = rate;
       direct.onended = finish;
-      direct.onerror = () => { currentAudioObj = null; _fallbackTTS(text, lang, rate, onEndCallback); resolve(); };
-      direct.play().catch(() => { currentAudioObj = null; _fallbackTTS(text, lang, rate, onEndCallback); resolve(); });
+      const useSpeech = () => {
+        if (speechFallbackStarted || settled || !playback.isCurrent(token)) return;
+        speechFallbackStarted = true;
+        direct.onended = null;
+        direct.onerror = null;
+        if (cancelActive) playback.release(token, cancelActive);
+        try { direct.pause(); } catch { /* elemento parcial */ }
+        currentAudioObj = null;
+        _fallbackTTS(text, lang, rate, token, playback, finish);
+      };
+      direct.onerror = useSpeech;
+      if (!activateAudio(direct)) return;
+      direct.play().catch(useSpeech);
     };
 
     if (!src) return tryDirect();
 
     const audio = new Audio(src);
-    currentAudioObj = audio;
     audio.playbackRate = rate;
     audio.onended = finish;
     audio.onerror = tryDirect;
+    if (!activateAudio(audio)) return;
     audio.play().catch(tryDirect);
   });
 }
@@ -240,11 +285,8 @@ export async function downloadAudio(text, options = {}) {
  * Para qualquer áudio em reprodução.
  */
 export function stopAudio() {
-  if (currentAudioObj) {
-    currentAudioObj.pause();
-    currentAudioObj.currentTime = 0;
-    currentAudioObj = null;
-  }
+  playback.stop();
+  currentAudioObj = null;
 }
 
 function _getTTSLang() {
@@ -260,12 +302,9 @@ function _getTTSRate() {
   } catch { return 0.9; }
 }
 
-function _fallbackTTS(text, lang, rate, onEndCallback) {
+function _fallbackTTS(text, lang, rate, token, controller, finish) {
   console.warn('[TTS] Áudio natural indisponível, usando Web Speech API.');
-  if (!('speechSynthesis' in window)) {
-    if (onEndCallback) onEndCallback();
-    return;
-  }
+  if (!('speechSynthesis' in window) || !controller.isCurrent(token)) return finish(false);
 
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = lang;
@@ -277,8 +316,27 @@ function _fallbackTTS(text, lang, rate, onEndCallback) {
     utterance.voice = preferredVoice;
   }
 
-  utterance.onend = () => { if (onEndCallback) onEndCallback(); };
-  utterance.onerror = () => { if (onEndCallback) onEndCallback(); };
+  let speechSettled = false;
+  const endSpeech = (completed) => {
+    if (speechSettled) return;
+    speechSettled = true;
+    finish(completed);
+  };
+  const cancelSpeech = () => {
+    utterance.onend = null;
+    utterance.onerror = null;
+    try { window.speechSynthesis.cancel(); } catch { /* API opcional */ }
+    endSpeech(false);
+  };
+  if (!controller.activate(token, cancelSpeech)) return;
+  utterance.onend = () => {
+    controller.release(token, cancelSpeech);
+    endSpeech(controller.isCurrent(token));
+  };
+  utterance.onerror = () => {
+    controller.release(token, cancelSpeech);
+    endSpeech(false);
+  };
 
   window.speechSynthesis.speak(utterance);
 }

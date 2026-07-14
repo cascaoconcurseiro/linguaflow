@@ -45,6 +45,12 @@ class App {
     this.navBtns = document.querySelectorAll('.nav-btn');
     this.currentRoute = 'home';
     this.viewContainers = {}; // Armazena as telas já carregadas (DOM Caching)
+    // Cada navegação e cada tentativa de render recebem uma época monotônica.
+    // Views atuais não precisam conhecer o contrato: elas recebem proxies que
+    // deixam de aceitar commits/efeitos assim que outra renderização assume.
+    this.navigationEpoch = 0;
+    this.renderEpoch = 0;
+    this.activeRender = null;
     this.db = db; // Expomos o db unificado (Supabase) para todas as views
     this._reportedErrors = new Set();
     
@@ -159,6 +165,7 @@ class App {
       try { this._viewCleanup(); } catch (e) { console.warn('[App] Erro na limpeza da view anterior:', e); }
       this._viewCleanup = null;
     }
+    this.navigationEpoch += 1;
     this.currentRoute = route;
     this.routeParams = params || {};
 
@@ -214,40 +221,109 @@ class App {
   }
 
   renderRouteView(route, container, params = {}) {
-    switch(route) {
-      case 'login':
-        renderLogin(container, this);
-        break;
-      case 'home':
-        renderHome(container, this);
-        break;
-      case 'library':
-        renderLibrary(container, this);
-        break;
-      case 'study':
-        renderStudy(container, this, params);
-        break;
-      case 'settings':
-        renderSettings(container, this);
-        break;
-      case 'leagues':
-        renderLeagues(container, this);
-        break;
-      case 'game':
-        renderGame(container, this);
-        break;
-      case 'stories':
-        renderStories(container, this);
-        break;
-      case 'reader':
-        renderReader(container, this);
-        break;
-      case 'stats':
-        renderStats(container, this);
-        break;
-      default:
-        renderHome(container, this);
+    const renderers = {
+      login: renderLogin,
+      home: renderHome,
+      library: renderLibrary,
+      study: renderStudy,
+      settings: renderSettings,
+      leagues: renderLeagues,
+      game: renderGame,
+      stories: renderStories,
+      reader: renderReader,
+      stats: renderStats,
+    };
+    const renderer = renderers[route] || renderHome;
+    this.activeRender?.controller.abort('render-superseded');
+    const controller = new AbortController();
+    const context = Object.freeze({
+      navigationEpoch: this.navigationEpoch,
+      renderEpoch: ++this.renderEpoch,
+      route,
+      container,
+      controller,
+      signal: controller.signal,
+    });
+    this.activeRender = context;
+
+    const guardedContainer = this.createGuardedContainer(container, context);
+    const guardedApp = this.createGuardedApp(context);
+    try {
+      const result = route === 'study'
+        ? renderer(guardedContainer, guardedApp, params)
+        : renderer(guardedContainer, guardedApp);
+      // Várias views são async, mas historicamente renderRouteView não as
+      // aguardava. Mantemos isso e absorvemos rejeições obsoletas; uma falha da
+      // view atual continua visível no console e na telemetria do cliente.
+      Promise.resolve(result).catch((error) => {
+        if (!this.isRenderCurrent(context)) return;
+        console.error(`[App] Falha ao renderizar ${route}:`, error);
+        this.reportUnexpectedError(`render.${route}`, error);
+      });
+    } catch (error) {
+      if (!this.isRenderCurrent(context)) return;
+      console.error(`[App] Falha ao renderizar ${route}:`, error);
+      this.reportUnexpectedError(`render.${route}`, error);
     }
+  }
+
+  isRenderCurrent(context) {
+    return !!context
+      && this.activeRender === context
+      && this.navigationEpoch === context.navigationEpoch
+      && this.currentRoute === context.route
+      && this.viewContainers[context.route] === context.container;
+  }
+
+  createGuardedContainer(container, context) {
+    const app = this;
+    const rejectStaleCommit = () => {
+      throw new DOMException('Renderização substituída por uma mais recente.', 'AbortError');
+    };
+    const mutationMethods = new Set([
+      'append', 'appendChild', 'prepend', 'replaceChildren', 'replaceWith',
+      'insertAdjacentElement', 'insertAdjacentHTML', 'insertAdjacentText',
+      'setAttribute', 'removeAttribute', 'toggleAttribute',
+    ]);
+
+    return new Proxy(container, {
+      get(target, property) {
+        const value = Reflect.get(target, property, target);
+        if (typeof value !== 'function') return value;
+        if (mutationMethods.has(property)) {
+          return (...args) => {
+            if (!app.isRenderCurrent(context)) return rejectStaleCommit();
+            return Reflect.apply(value, target, args);
+          };
+        }
+        return value.bind(target);
+      },
+      set(target, property, value) {
+        if (!app.isRenderCurrent(context)) return rejectStaleCommit();
+        return Reflect.set(target, property, value, target);
+      },
+    });
+  }
+
+  createGuardedApp(context) {
+    const app = this;
+    const effectMethods = new Set(['navigate', 'logout', 'showToast', 'onLeaveView']);
+    return new Proxy(this, {
+      get(target, property) {
+        // Contrato opt-in para views novas: permite cancelar fetches/trabalho
+        // pesado e conferir validade sem alterar as assinaturas existentes.
+        if (property === 'renderSignal') return context.signal;
+        if (property === 'isCurrentRender') return () => app.isRenderCurrent(context);
+        const value = Reflect.get(target, property, target);
+        if (typeof value !== 'function') return value;
+        if (effectMethods.has(property)) {
+          return (...args) => app.isRenderCurrent(context)
+            ? Reflect.apply(value, target, args)
+            : undefined;
+        }
+        return value.bind(target);
+      },
+    });
   }
 
   async logout() {

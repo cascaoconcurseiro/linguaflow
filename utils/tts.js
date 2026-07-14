@@ -1,4 +1,5 @@
 // utils/tts.js
+import { ExclusivePlayback } from './exclusive-playback.js';
 
 /**
  * LinguaFlow - Text-to-Speech Engine (v2.0 - Premium Quality)
@@ -14,6 +15,7 @@ class TTS {
         this.synth = window.speechSynthesis;
         this.voices = [];
         this.audioCache = new Map();
+        this.playback = new ExclusivePlayback(() => this.synth);
 
         if (this.synth) {
             this.synth.onvoiceschanged = () => {
@@ -31,25 +33,25 @@ class TTS {
      */
     async play(text, lang = 'en-US', audioUrl = null, rate = 1.0) {
         if (!text || text.trim() === '') return false;
+        const token = this.playback.begin();
 
         // Prioridade 1: Audio MP3 nativo do dicionario (melhor qualidade)
         if (audioUrl) {
             try {
-                const audio = new Audio(audioUrl);
-                audio.volume = 1.0;
-                audio.playbackRate = Math.max(0.1, Math.min(rate, 4.0));
-                await audio.play();
+                await this._playAudioUrl(audioUrl, rate, token);
                 return true;
             } catch (e) {
+                if (!this.playback.isCurrent(token)) return false;
                 console.debug('[TTS] Audio MP3 falhou, tentando Google TTS');
             }
         }
 
         // Prioridade 2: Google Translate TTS (voz neural, natural)
         try {
-            await this._playGoogleTTS(text, lang, rate);
+            await this._playGoogleTTS(text, lang, rate, token);
             return true;
         } catch (e) {
+            if (!this.playback.isCurrent(token)) return false;
             console.debug('[TTS] Google TTS falhou, usando Web Speech API');
         }
 
@@ -58,7 +60,7 @@ class TTS {
         return false;
     }
 
-    async _playGoogleTTS(text, lang, rate = 1.0) {
+    async _playGoogleTTS(text, lang, rate = 1.0, token) {
         const langMap = {
             'en-US': 'en', 'en-GB': 'en',
             'pt-BR': 'pt', 'pt-PT': 'pt',
@@ -89,10 +91,12 @@ class TTS {
                             const res = await new Promise(resolve => {
                                 chrome.runtime.sendMessage({ type: 'FETCH_TTS', url }, resolve);
                             });
+                            if (!this.playback.isCurrent(token)) throw new Error('playback_superseded');
                             if (res && res.success) {
                                 playableUrl = res.dataUrl;
                             }
                         } catch(e) {
+                            if (!this.playback.isCurrent(token)) throw e;
                             console.debug('Chrome messaging failed, falling back...');
                         }
                     }
@@ -110,18 +114,13 @@ class TTS {
                     }
                 }
 
-                const audio = new Audio(playableUrl);
-                audio.playbackRate = Math.max(0.1, Math.min(rate, 4.0));
-                
-                await new Promise((resolve, reject) => {
-                    audio.onended = resolve;
-                    audio.onerror = reject;
-                    audio.play().catch(reject);
-                });
+                if (!this.playback.isCurrent(token)) throw new Error('playback_superseded');
+                await this._playAudioUrl(playableUrl, rate, token);
 
                 console.debug('[TTS] Google TTS success');
                 return true;
             } catch (e) {
+                if (!this.playback.isCurrent(token)) throw e;
                 console.debug('[TTS] Google TTS endpoint failed, trying next...');
                 continue;
             }
@@ -129,6 +128,32 @@ class TTS {
         
         // All endpoints failed
         throw new Error('All Google TTS endpoints failed');
+    }
+
+    _playAudioUrl(url, rate, token) {
+        return new Promise((resolve, reject) => {
+            if (!this.playback.isCurrent(token)) return reject(new Error('playback_superseded'));
+            const audio = new Audio(url);
+            audio.volume = 1.0;
+            audio.playbackRate = Math.max(0.1, Math.min(rate, 4.0));
+            let settled = false;
+            const settle = (error) => {
+                if (settled) return;
+                settled = true;
+                this.playback.release(token, cancel);
+                audio.onended = null;
+                audio.onerror = null;
+                error ? reject(error) : resolve(true);
+            };
+            const cancel = () => {
+                try { audio.pause(); audio.currentTime = 0; } catch { /* elemento parcial */ }
+                settle(new Error('playback_superseded'));
+            };
+            audio.onended = () => settle(null);
+            audio.onerror = () => settle(new Error('audio_failed'));
+            if (!this.playback.activate(token, cancel)) return;
+            audio.play().catch((error) => settle(error));
+        });
     }
 
     async _playWebSpeech(text, lang, rate = 1.0) {
@@ -255,7 +280,7 @@ class TTS {
     }
 
     stop() {
-        if (this.synth) this.synth.cancel();
+        this.playback.stop();
     }
 
     clearCache() {

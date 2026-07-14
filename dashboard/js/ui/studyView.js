@@ -26,17 +26,59 @@ let ygWidget = null;
 let ygQueuedWord = null;
 let waitTimer = null;       // countdown da tela "aguardando learning steps"
 let gradeBusy = false;      // impede duas avaliações concorrentes do mesmo card
+let cardMutationPromise = null; // sobrevive à troca de rota; evita refetch durante escrita
+let studyViewGeneration = 0;
+let studyViewActive = false;
+const studyTimers = new Set();
+const feedbackAudioContexts = new Set();
 
 const TOPIC_LABELS = { word: 'Palavras', phrasal: 'Phrasal Verbs', slang: 'Gírias', idiom: 'Expressões' };
 
+function scheduleStudyTask(callback, delay = 0) {
+  const generation = studyViewGeneration;
+  const timer = setTimeout(() => {
+    studyTimers.delete(timer);
+    if (studyViewActive && generation === studyViewGeneration) callback();
+  }, delay);
+  studyTimers.add(timer);
+  return timer;
+}
+
 export async function renderStudy(container, app, params = {}) {
+  const viewGeneration = ++studyViewGeneration;
+  studyViewActive = true;
+  app.onLeaveView?.(() => {
+    if (viewGeneration !== studyViewGeneration) return;
+    studyViewActive = false;
+    stopAudio();
+    pauseYouglish();
+    hidePlayer();
+    setClipLoop(false);
+    if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
+    studyTimers.forEach(clearTimeout);
+    studyTimers.clear();
+    feedbackAudioContexts.forEach(ctx => { try { ctx.close(); } catch { /* já fechado */ } });
+    feedbackAudioContexts.clear();
+    if (window.currentKeydownHandler) {
+      document.removeEventListener('keydown', window.currentKeydownHandler);
+      window.currentKeydownHandler = null;
+    }
+    delete window.onYouglishAPIReady;
+    ygQueuedWord = null;
+    ygWidget = null;
+    currentCard = null;
+    chatHistory = [];
+    chatBusy = false;
+    exerciseApp = null;
+    studyContainer = null;
+  });
   injectStyles();
   consecutiveCorrect = 0;
   sessionCards = 0;
   sessionXp = 0;
   sessionStart = Date.now();
   lastReview = null;
-  gradeBusy = false;
+  gradeBusy = !!cardMutationPromise;
   exerciseApp = app;
   studyContainer = container;
   ygWidget = null; // container será recriado
@@ -46,7 +88,15 @@ export async function renderStudy(container, app, params = {}) {
 
   app.showToast('Carregando frases...', 'info');
   pendingLearning = [];
+  let loadedQueue = [];
   if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
+  // Se o usuário saiu e voltou enquanto uma nota/bury era persistida, aguarda a
+  // escrita antes de buscar a fila. Sem isso, o refetch pode ressuscitar o card
+  // com o estado anterior e permitir uma segunda avaliação concorrente.
+  const pendingMutation = cardMutationPromise;
+  if (pendingMutation) await pendingMutation.catch(() => null);
+  if (!studyViewActive || viewGeneration !== studyViewGeneration) return;
+  gradeBusy = false;
   try {
     const [reverseRaw, variedRaw, audioFrontRaw, audioBackRaw, srs] = await Promise.all([
       lfDb.getSetting('lf_reverse_cards').catch(() => null),
@@ -71,7 +121,7 @@ export async function renderStudy(container, app, params = {}) {
       const weakPool = (allCards || [])
         .filter(c => !c.suspended && isWeakCard(c) && wordById[c.word_id])
         .map(c => ({ ...c, wordData: wordById[c.word_id] }));
-      dueQueue = buildSessionQueue(weakPool, {});
+      loadedQueue = buildSessionQueue(weakPool, {});
     } else {
       const [counts, cards, diag] = await Promise.all([
         lfDb.getTodayCounts().catch(() => ({ reviewsToday: 0, newIntroducedToday: 0 })),
@@ -111,12 +161,17 @@ export async function renderStudy(container, app, params = {}) {
           .sort((a, b) => a[1].retention - b[1].retention)[0];
         if (worst) priorityCategory = worst[0];
       }
-      dueQueue = buildSessionQueue(limited, { priorityCategory });
+      loadedQueue = buildSessionQueue(limited, { priorityCategory });
     }
   } catch (e) {
     console.error('DB Error:', e);
-    dueQueue = [];
+    loadedQueue = [];
   }
+
+  // A navegação pode ter mudado enquanto as consultas iniciais estavam em voo.
+  // Uma view antiga nunca deve redesenhar ou reativar recursos ao terminar.
+  if (!studyViewActive || viewGeneration !== studyViewGeneration) return;
+  dueQueue = loadedQueue;
 
   if (dueQueue.length === 0) {
     const topicLabel = topicFilter ? (TOPIC_LABELS[topicFilter] || topicFilter) : null;
@@ -132,7 +187,7 @@ export async function renderStudy(container, app, params = {}) {
         </div>
       </div>
     `;
-    setTimeout(() => {
+    scheduleStudyTask(() => {
       document.getElementById('back-home-btn')?.addEventListener('click', () => app.navigate('home'));
       document.getElementById('study-all-btn')?.addEventListener('click', () => app.navigate('study'));
     }, 0);
@@ -343,15 +398,22 @@ function parseChunks(card) {
   }
 }
 
-async function persistChunks(card, chunks, context) {
+async function persistChunks(card, chunks, context, { updateRuntime = true } = {}) {
   if (!card.wordData) return;
-  card.wordData.ai_chunks = JSON.stringify(chunks);
-  card.ai_chunks = card.wordData.ai_chunks;
+  const aiChunks = JSON.stringify(chunks);
+  const wordPayload = { ...card.wordData, ai_chunks: aiChunks };
   if (context) {
-    card.wordData.context_sentence = context;
-    card.context = context;
+    wordPayload.context_sentence = context;
   }
-  await lfDb.saveWord(card.wordData).catch(console.error);
+  if (updateRuntime) {
+    card.wordData.ai_chunks = aiChunks;
+    card.ai_chunks = aiChunks;
+    if (context) {
+      card.wordData.context_sentence = context;
+      card.context = context;
+    }
+  }
+  await lfDb.saveWord(wordPayload).catch(console.error);
 }
 
 async function generateChunksForWord(word) {
@@ -432,7 +494,7 @@ function renderSessionComplete(app) {
       </div>
     </div>
   `;
-  setTimeout(() => {
+  scheduleStudyTask(() => {
     document.getElementById('session-done-btn')?.addEventListener('click', () => {
       if (window.currentKeydownHandler) document.removeEventListener('keydown', window.currentKeydownHandler);
       app.navigate('home');
@@ -467,7 +529,7 @@ function renderWaitingScreen(app, nextAt) {
   };
   waitTimer = setInterval(tick, 1000);
   tick();
-  setTimeout(() => {
+  scheduleStudyTask(() => {
     document.getElementById('wait-end-btn')?.addEventListener('click', () => {
       if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
       renderSessionComplete(app);
@@ -545,16 +607,10 @@ async function loadNextCard(app) {
         newChunks = newChunks.filter(c => !c.is_context);
         newChunks.unshift({ ...generated[0], is_context: true });
       }
-      card._ctx = newContext;
-      card._chunks = newChunks;
-      persistChunks(card, newChunks, newContext).catch(() => {});
-
-      // Atualiza a frente só se ainda não revelou (o botão Revelar está visível)
-      const revealVisible = !document.getElementById('reveal-btn')?.classList.contains('hidden');
-      if (revealVisible && card._mode === 'classic') {
-        renderFront(card, word, newContext);
-        if (audioAutoFront) playCurrentAudio();
-      }
+      // O prompt exibido é imutável até a avaliação. O enriquecimento é salvo
+      // para o próximo encontro com o card, mas não troca texto, chunks nem
+      // dispara um segundo autoplay no meio da recordação atual.
+      persistChunks(card, newChunks, newContext, { updateRuntime: false }).catch(() => {});
     }).catch(() => {});
   }
 
@@ -591,7 +647,7 @@ async function loadNextCard(app) {
   renderFront(card, word, context);
   const liveStatus = document.getElementById('study-status');
   if (liveStatus) {
-    liveStatus.textContent = `Novo card: ${word}. Revele a resposta quando estiver pronto.`;
+    liveStatus.textContent = 'Novo card. Revele a resposta quando estiver pronto.';
   }
   // Reverso: o áudio EN entrega a resposta. Builder: entrega a ORDEM das palavras.
   // Ditado: o próprio renderFront toca (é o exercício).
@@ -688,7 +744,7 @@ function exerciseFinish(correct, context) {
     : `<div style="color:var(--color-danger); font-weight:900; font-size:22px; margin-bottom:12px;">A resposta era:</div>`;
   sentenceEl.innerHTML = `${feedback}<div style="font-size:26px;">${context}</div>`;
   if (correct) playCurrentAudio();
-  setTimeout(() => {
+  scheduleStudyTask(() => {
     if (exerciseApp) handleGrade(correct ? 3 : 1, exerciseApp);
   }, correct ? 1400 : 2600);
 }
@@ -765,7 +821,7 @@ function renderDictation(card, context) {
   document.getElementById('ex-replay').addEventListener('click', play);
 
   const input = document.getElementById('ex-input');
-  setTimeout(() => input.focus(), 100);
+  scheduleStudyTask(() => input.focus(), 100);
   const check = () => exerciseFinish(normalizeAnswer(input.value) === normalizeAnswer(context), context);
   document.getElementById('ex-check').addEventListener('click', check);
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') check(); });
@@ -824,7 +880,7 @@ function playCurrentAudio() {
         void progressEl.offsetWidth;
         progressEl.style.transition = 'width 3s linear';
         progressEl.style.width = '100%';
-        setTimeout(() => {
+        scheduleStudyTask(() => {
           shadowingEl.classList.add('hidden');
           progressEl.style.transition = 'none';
           progressEl.style.width = '0%';
@@ -1349,6 +1405,7 @@ function ygFetch(word) {
 function playFeedbackSound(type) {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    feedbackAudioContexts.add(ctx);
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
@@ -1368,6 +1425,10 @@ function playFeedbackSound(type) {
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.3);
     }
+    osc.onended = () => {
+      feedbackAudioContexts.delete(ctx);
+      ctx.close().catch(() => {});
+    };
   } catch (e) {}
 }
 
@@ -1386,62 +1447,75 @@ function showXPAnimation(text, isPositive = true) {
 
 async function handleGrade(grade, app) {
   if (gradeBusy || !currentCard) return;
-  gradeBusy = true;
+  const operationGeneration = studyViewGeneration;
+  const gradedCard = currentCard;
   const isCorrect = grade >= 2;
-  playFeedbackSound(isCorrect ? 'correct' : 'wrong');
+  gradeBusy = true;
+  document.querySelectorAll('.grade-btn').forEach(btn => { btn.disabled = true; });
+  const buryBtn = document.getElementById('bury-btn');
+  if (buryBtn) buryBtn.disabled = true;
   stopAudio();
 
-  if (isCorrect) {
-    // XP real vem SÓ do backend (trigger no review_log). Nada de contador
-    // paralelo em localStorage — era uma segunda fonte de verdade divergente.
-    consecutiveCorrect++;
-    if (consecutiveCorrect === 5) app.showToast('🔥 5 em sequência! Continue!', 'info');
-    if (consecutiveCorrect === 10) app.showToast('🚀 Você está em chamas! 10 seguidos!', 'info');
-  } else {
-    consecutiveCorrect = 0;
-    showXPAnimation('Próxima vez! 💪', false);
-  }
-
-  sessionCards++;
-  const gradedCard = currentCard;
-  dueQueue.shift();
-
   const plannedState = gradedCard._gradePreviews?.[grade - 1] || null;
-  const logPromise = lfDb.logReview(gradedCard.id, grade, gradedCard.wordData?.category || null, plannedState)
-    .then((res) => {
-      lastReview = {
-        prevCard: res?.prevCard || null,
-        card: gradedCard,
-        reviewLogId: res?.reviewLogId || null,
-        grade,
-        isCorrect,
-      };
-      updateUndoButton();
-      if (res?.xpAwarded) {
-        sessionXp += res.xpAwarded;
-        showXPAnimation(`+${res.xpAwarded} XP`);
-      }
-      // REENTRADA NA SESSÃO (o fix do bug nº1): card que ficou em learning
-      // (intervalo em minutos) volta pra fila da PRÓPRIA sessão quando vencer.
-      if (res?.card && res.card.status === 'learning' && res.nextDue) {
-        pendingLearning.push({
-          card: { ...res.card, wordData: gradedCard.wordData },
-          dueAt: res.nextDue,
-        });
-      }
-      return res;
-    })
-    .catch((e) => {
-      console.error('Failed to log review:', e);
-      app.showToast('Erro ao salvar a revisão. Verifique sua conexão.', 'error');
-      return null;
-    });
+  try {
+    // A fila e os contadores só mudam depois da confirmação atômica. Assim a
+    // falha de rede não consome o card nem exige um rollback local incompleto.
+    const mutationPromise = lfDb.logReview(gradedCard.id, grade, gradedCard.wordData?.category || null, plannedState);
+    cardMutationPromise = mutationPromise;
+    const res = await mutationPromise;
+    if (!studyViewActive || operationGeneration !== studyViewGeneration || currentCard !== gradedCard) return;
 
-  // A persistência precisa terminar antes de o próximo card ser exposto. Isso
-  // evita duas avaliações concorrentes e mantém a fila consistente em falha.
-  await logPromise;
-  gradeBusy = false;
-  loadNextCard(app);
+    if (dueQueue[0] === gradedCard) dueQueue.shift();
+    else dueQueue = dueQueue.filter(card => card.id !== gradedCard.id);
+    sessionCards++;
+    playFeedbackSound(isCorrect ? 'correct' : 'wrong');
+
+    if (isCorrect) {
+      // XP real vem SÓ do backend (trigger no review_log). Nada de contador
+      // paralelo em localStorage — era uma segunda fonte de verdade divergente.
+      consecutiveCorrect++;
+      if (consecutiveCorrect === 5) app.showToast('🔥 5 em sequência! Continue!', 'info');
+      if (consecutiveCorrect === 10) app.showToast('🚀 Você está em chamas! 10 seguidos!', 'info');
+    } else {
+      consecutiveCorrect = 0;
+      showXPAnimation('Próxima vez! 💪', false);
+    }
+
+    lastReview = {
+      prevCard: res?.prevCard || null,
+      card: gradedCard,
+      reviewLogId: res?.reviewLogId || null,
+      grade,
+      isCorrect,
+    };
+    updateUndoButton();
+    if (res?.xpAwarded) {
+      sessionXp += res.xpAwarded;
+      showXPAnimation(`+${res.xpAwarded} XP`);
+    }
+    // REENTRADA NA SESSÃO: card em learning volta quando o step vencer.
+    if (res?.card && res.card.status === 'learning' && res.nextDue) {
+      pendingLearning = pendingLearning.filter(p => p.card.id !== gradedCard.id);
+      pendingLearning.push({
+        card: { ...res.card, wordData: gradedCard.wordData },
+        dueAt: res.nextDue,
+      });
+    }
+    loadNextCard(app);
+  } catch (e) {
+    console.error('Failed to log review:', e);
+    if (studyViewActive && operationGeneration === studyViewGeneration) {
+      app.showToast('Erro ao salvar a revisão. O card continua na fila.', 'error');
+    }
+  } finally {
+    if (cardMutationPromise) cardMutationPromise = null;
+    if (operationGeneration === studyViewGeneration) {
+      gradeBusy = false;
+      document.querySelectorAll('.grade-btn').forEach(btn => { btn.disabled = false; });
+      const currentBuryBtn = document.getElementById('bury-btn');
+      if (currentBuryBtn) currentBuryBtn.disabled = false;
+    }
+  }
 }
 
 async function handleUndo(app) {
@@ -1485,23 +1559,42 @@ function updateUndoButton() {
 
 // Enterrar (bury do Anki): adia pra amanhã sem contar como revisão
 async function buryCard(app) {
+  if (gradeBusy) return;
   const card = currentCard;
   if (!card) return;
+  const operationGeneration = studyViewGeneration;
+  gradeBusy = true;
+  const buryBtn = document.getElementById('bury-btn');
+  if (buryBtn) buryBtn.disabled = true;
+  document.querySelectorAll('.grade-btn').forEach(btn => { btn.disabled = true; });
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(0, 0, 0, 0);
   try {
     // Remove props de runtime (_ctx/_chunks/_reverse não são colunas do banco)
     const { wordData, _ctx, _chunks, _reverse, ...clean } = card;
-    await lfDb.updateCard({ ...clean, due_date: tomorrow.toISOString() });
+    const mutationPromise = lfDb.updateCard({ ...clean, due_date: tomorrow.toISOString() });
+    cardMutationPromise = mutationPromise;
+    await mutationPromise;
+    if (!studyViewActive || operationGeneration !== studyViewGeneration || currentCard !== card) return;
+    if (dueQueue[0] === card) dueQueue.shift();
+    else dueQueue = dueQueue.filter(queued => queued.id !== card.id);
+    app.showToast('Card adiado pra amanhã 💤', 'info');
+    loadNextCard(app);
   } catch (e) {
     console.error('Falha ao enterrar:', e);
-    app.showToast('Erro ao adiar o card.', 'error');
-    return;
+    if (studyViewActive && operationGeneration === studyViewGeneration) {
+      app.showToast('Erro ao adiar o card. Ele continua na fila.', 'error');
+    }
+  } finally {
+    if (cardMutationPromise) cardMutationPromise = null;
+    if (operationGeneration === studyViewGeneration) {
+      gradeBusy = false;
+      const currentBuryBtn = document.getElementById('bury-btn');
+      if (currentBuryBtn) currentBuryBtn.disabled = false;
+      document.querySelectorAll('.grade-btn').forEach(btn => { btn.disabled = false; });
+    }
   }
-  app.showToast('Card adiado pra amanhã 💤', 'info');
-  dueQueue.shift();
-  loadNextCard(app);
 }
 
 function injectStyles() {

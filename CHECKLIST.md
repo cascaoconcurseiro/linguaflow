@@ -1,5 +1,65 @@
 # Checklist — LinguaFlow
 
+## 🧭 PLANO UX/RACES — execução por etapas (Codex, iniciado em 2026-07-14)
+
+> Plano completo: `docs/AUDITORIA_UX_FLUXO_2026-07-14.md`. Regra: nenhuma função é removida; corrigir concorrência antes de reorganizar a interface. Toda etapa termina com testes, handoff e preview antes de produção.
+
+### ✅ ETAPA 1 — Áudio único e lifecycle seguro
+
+- [x] Remover o segundo autoplay disparado pelo enriquecimento assíncrono do card.
+- [x] Tornar o prompt imutável durante a tentativa; enriquecimento tardio vale no próximo encontro.
+- [x] Criar controlador compartilhado `ExclusivePlayback` com generation token.
+- [x] Invalidar respostas TTS antigas depois de cada `await`.
+- [x] Garantir apenas um HTMLAudio ativo e fallback idempotente.
+- [x] Cancelar também `speechSynthesis` ao trocar card/rota ou parar áudio.
+- [x] Aplicar exclusão mútua ao TTS do site e da extensão.
+- [x] Adicionar cleanup completo do Estudo: TTS, YouTube/loop, YouGlish, timers, atalhos, callbacks e AudioContexts.
+- [x] Adicionar generation token local ao Estudo e impedir sessão antiga de publicar fila/DOM.
+- [x] Adicionar `navigationEpoch`/`renderEpoch` e AbortController global em `app.js`.
+- [x] Nota só remove card/contabiliza XP depois da RPC atômica confirmar.
+- [x] Falha de nota mantém card e fila; não exibe sucesso falso.
+- [x] `bury` com mutex; clique duplo não executa dois `shift()`.
+- [x] `aria-live` não anuncia a resposta escondida.
+- [x] Teste determinístico de áudio concorrente: 8/8.
+- [x] Regressão: motor 37/37, vídeo 4/4, calendário 5/5.
+- [ ] QA visual no preview: áudio único, sair/voltar, falha offline durante nota e clique duplo em adiar.
+
+### ⏭️ ETAPA 2 — YouTube, legendas e Web Reader
+
+- [ ] Unificar o fim do clipe em uma máquina de estados/ciclo único.
+- [ ] Permitir retry da API/player após timeout.
+- [ ] Criar epoch/AbortController por navegação de vídeo na extensão.
+- [ ] Impedir cues/traduções antigas de sobrescrever vídeo/legenda atual.
+- [ ] Remover listeners acumulados no lifecycle do subtitle engine.
+- [ ] Excluir os domínios próprios do LinguaFlow da injeção do Web Reader.
+- [ ] Deduplicar mouseup/dblclick e tokenizar tradução da seleção.
+- [ ] Adicionar testes de timer+ENDED, vídeo A→B e tradução obsoleta.
+
+### 🎯 ETAPA 3 — Modo foco e nova tela de cards
+
+- [ ] Ocultar shell global durante a sessão; header mínimo com sair/progresso/menu.
+- [ ] Frente: áudio, prompt e Revelar.
+- [ ] Verso: resposta, pronúncia, tradução e quatro notas.
+- [ ] Tutor/vídeo/YouGlish/Tatoeba/chunks/mnemônico em Ajuda/Explorar sob demanda.
+- [ ] Dock mobile de notas em uma linha; remover compensação atual de 186 px.
+- [ ] Exercícios ativos sem autoavanço por timer; acerto pede Difícil/Bom/Fácil.
+- [ ] Waveform só durante playback e `prefers-reduced-motion`.
+
+### 🗂️ ETAPA 4 — Arquitetura de informação
+
+- [ ] Home organizada em Hoje → Missões → Insights → Conquistas/Atividade.
+- [ ] Cofre com busca, chips, filtros recolhidos e ações contextuais.
+- [ ] Histórias separa Criar de Ler e usa toolbar por etapa.
+- [ ] Configurações em cinco grupos; FSRS detalhado em Avançado.
+- [ ] Navegação mobile com Início, Conteúdo, Cofre e Mais.
+
+### 🧩 ETAPA 5 — Design system e aceite final
+
+- [ ] Extrair estilos inline para componentes/tokens.
+- [ ] Uma CTA primária por estado e padrões únicos de loading/erro/retry/offline.
+- [ ] Auditoria final de acessibilidade, responsividade e performance real.
+- [ ] Preview aprovado → produção → observação pós-deploy.
+
 ## 🔴 ONDA 10 — Auditoria de bugs (só erros, sem features) (2026-07-12)
 > Pedido do dono: "Faça uma auditoria em busca somente de erros e bugs." 3 agentes em paralelo, cada um cobrindo o código das Ondas 6-9 (nunca tinha passado por uma auditoria dedicada). 9 achados reais confirmados e corrigidos, 1 descartado por baixa confiança.
 - [x] [Prof. didático] **Regex quebrada em `storiesView.js`**: `/^[s.,!?;:"'()[]{}*#—–-“”‘’]+$/` (faltava `\` antes do `s`, colchetes não escapados fechando a classe cedo) fazia com que NENHUMA pontuação fosse reconhecida como pontuação — toda vírgula/ponto/aspas de TODA história virava um span clicável, focável por Tab, com `aria-label="Ver tradução de ,"`. Quebrava a ordem de tabulação e poluía leitores de tela em qualquer história. Corrigida.

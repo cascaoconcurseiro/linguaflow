@@ -351,3 +351,50 @@ Além disso, `getAllSentences()` e `getAllKnownWords()` nunca ganharam a otimiza
 **Descartado**: possível divergência de fuso entre o cálculo client-side do início de semana (missão semanal) e a RPC server-side — degrada bem (servidor sempre vence), não confirmado como reproduzível na prática.
 
 **[QA] Testado**: 34/34 `engine.test.mjs`, `release-smoke` verde, `node --check` em todos os 8 arquivos tocados. As correções de regex/tokenizer foram verificadas diretamente no interpretador Node (o projeto não tem jsdom pra testar renderização de DOM em teste automatizado).
+# Handoff Codex — Plano UX/Races, Etapa 1 (2026-07-14)
+
+## Estado
+
+Etapa 1 implementada na branch `codex/review-mobile-video`; ainda não promover para produção antes do QA visual do preview. Objetivo desta etapa: estabilizar áudio, navegação e persistência da sessão antes do redesign.
+
+## Implementação
+
+- `utils/exclusive-playback.js`: coordenador de generation/cancel compartilhado.
+- `dashboard/js/core/tts.js`: somente a geração atual pode criar áudio; HTMLAudio/Web Speech exclusivos; fallback idempotente; promises canceladas encerram com `false`.
+- `utils/tts.js`: mesma exclusão mútua no TTS usado pela extensão; reprodução aguarda `ended`.
+- `dashboard/js/core/app.js`: `navigationEpoch`, `renderEpoch`, AbortController, container/app protegidos contra commits e efeitos de renders obsoletos. Views novas podem usar `app.renderSignal` e `app.isCurrentRender()`.
+- `dashboard/js/ui/studyView.js`: remove segundo autoplay; prompt imutável; cleanup integral em `app.onLeaveView`; generation local; fila inicial local; nota/bury com mutex e commit após persistência; feedback/XP somente após sucesso; aria-live não revela a palavra.
+- `tests/audio-race.test.mjs`: concorrência fora de ordem, cancelamento, HTMLAudio único, fallback once e cancelamento de Speech.
+
+## Contratos importantes
+
+1. Chamar `playNaturalAudio` invalida qualquer chamada anterior, inclusive se ainda aguarda IDB/rede.
+2. `stopAudio` invalida a geração e cancela HTMLAudio + SpeechSynthesis.
+3. Enriquecimento assíncrono nunca altera o prompt visível nem dispara autoplay.
+4. O card permanece na fila até `logReview` confirmar.
+5. Sair e voltar ao Estudo durante uma mutation aguarda a operação antes de refazer a fila.
+6. Render obsoleto não pode navegar, mostrar toast, registrar cleanup ou alterar seu container.
+
+## Evidência
+
+- `npm run test:audio`: 8/8.
+- `npm run test:engine`: 37/37.
+- `npm run test:video`: 4/4.
+- `npm run test:local-day`: 5/5.
+- `node --check`: app, TTS site/extensão e studyView aprovados.
+- `git diff --check`: aprovado.
+
+## QA manual do preview
+
+1. Abrir Estudo num card sem chunks completos: ouvir exatamente uma vez, mesmo após a IA terminar.
+2. Apertar áudio rapidamente duas vezes: somente a última reprodução continua.
+3. Sair do Estudo durante áudio e voltar: nenhum som/timer da sessão anterior reaparece.
+4. Colocar rede offline antes da nota: card permanece, botões reabilitam e erro é apresentado.
+5. Clicar duas vezes em Adiar: somente um card é adiado; o seguinte não é pulado.
+6. Navegar rapidamente Estudo → Início → Estudo: apenas a sessão mais recente publica fila e áudio.
+
+## Próximo
+
+Etapa 2: máquina de estados do clipe YouTube, epoch das legendas/traduções e exclusão do Web Reader no domínio próprio. Ver `CHECKLIST.md` e `docs/AUDITORIA_UX_FLUXO_2026-07-14.md`.
+
+---

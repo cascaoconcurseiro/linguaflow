@@ -30,6 +30,12 @@
 - [ ] Ledger idempotente de tentativas e recompensas.
 - [x] Mapear todos os escritores legados e fechar a sequência P0.1/P0.2/P0.3 (`docs/ONDA_P0_1_PORTAO_DE_EVIDENCIA_2026-07-14.md`).
 - [x] P0.1: helper privada transacional expand-only + replay de 23 migrations, rollback, timezone, grants e 40 conexões concorrentes.
+- [x] P0.2/cliente — contrato confiável de review: `operation_id` nasce antes da tentativa e é conservado no retry; accepted/duplicate são explícitos; duplicate nunca anima XP; falha mantém o card no site e na revisão rápida.
+- [x] P0.2/UX — revisão rápida bloqueia clique+tecla concorrentes, distingue falha de carga de fila vazia, não anuncia conclusão após erro e expõe estados de salvamento via `aria-live`; toasts globais ganharam semântica acessível.
+- [x] P0.2/QA cliente — contratos automatizados em `tests/review-outcome-ux.test.mjs`, incluídos no `test:release`; regressões de motor, áudio, vídeo, shell, evidência e release revalidadas.
+- [ ] P0.2a/banco expand — trocar `record_card_review` para elegibilidade/locks/snapshots server-side, ledger P0.1 e undo append-only, mantendo assinatura compatível; adicionar RPCs estreitas para ações legítimas.
+- [ ] P0.2/cliente cutover — migrar bury/suspender/reset para RPCs estreitas e validar preview autenticado antes de contrair grants.
+- [ ] P0.2b/banco contract — somente depois do cliente publicado, remover policy ampla e `REVOKE ALL` em `cards`/`review_log`, devolvendo apenas grants mínimos.
 - [ ] P0.2: identidades server-side para review, jogo, quiz, vídeo e quests.
 - [ ] P0.3: opening balance diferencial e neutralização atômica de todos os escritores legados.
 - [ ] XP calculado no servidor por evidência, não por quantidade declarada.
@@ -105,6 +111,8 @@
 - [ ] QA visual autenticado em desktop e 320/375/390 px: frente, verso, Explorar, exercícios, teclado e scroll.
 
 ### 🗂️ ETAPA 4 — Arquitetura de informação
+
+> Próxima etapa visual. O contrato de feedback verdadeiro da revisão (salvando/confirmado/duplicate/offline/auth/retry) foi fechado antes da reorganização para que o redesign não esconda estados falsos sob uma nova aparência.
 
 - [ ] Home organizada em Hoje → Missões → Insights → Conquistas/Atividade.
 - [ ] Cofre com busca, chips, filtros recolhidos e ações contextuais.

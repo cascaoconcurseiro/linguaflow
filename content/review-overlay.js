@@ -12,6 +12,10 @@ export class ReviewOverlay {
     this.visible = false;
     this._db = null;
     this._tts = null;
+    this._createOperationId = null;
+    this._answerBusy = false;
+    this._pendingReview = null;
+    this._loadError = false;
   }
 
   async init() {
@@ -22,6 +26,7 @@ export class ReviewOverlay {
         import(chrome.runtime.getURL('utils/tts.js')),
       ]);
       this._db = dbMod.db;
+      this._createOperationId = dbMod.createOperationId;
       this._tts = ttsMod.tts;
     } catch (e) {
       console.warn('[ReviewOverlay] Dependências indisponíveis:', e.message);
@@ -74,6 +79,7 @@ export class ReviewOverlay {
         #lf-review-overlay .lf-ro-btn.good { background: #10b981; color: white; }
         #lf-review-overlay .lf-ro-btn.easy { background: #06b6d4; color: white; }
         #lf-review-overlay .lf-ro-btn:hover { filter: brightness(1.2); transform: translateY(-1px); }
+        #lf-review-overlay .lf-ro-btn:disabled { cursor: wait; filter: grayscale(.25); opacity: .6; transform: none; }
         #lf-review-overlay .lf-ro-close {
           position: absolute; top: 8px; right: 12px;
           background: none; border: none; color: #64748b; cursor: pointer;
@@ -87,15 +93,15 @@ export class ReviewOverlay {
           text-align: center; color: #64748b; font-size: 13px; padding: 10px;
         }
       </style>
-      <button class="lf-ro-close" id="lf-ro-close">✕</button>
+      <button type="button" class="lf-ro-close" id="lf-ro-close" aria-label="Fechar revisão rápida">✕</button>
       <div class="lf-ro-word" id="lf-ro-word"></div>
       <div class="lf-ro-translation" id="lf-ro-translation"></div>
-      <div class="lf-ro-hint" id="lf-ro-hint">Pressione Espaço para revelar</div>
+      <div class="lf-ro-hint" id="lf-ro-hint" role="status" aria-live="polite" aria-atomic="true">Pressione Espaço para revelar</div>
       <div class="lf-ro-actions" id="lf-ro-actions" style="display:none">
-        <button class="lf-ro-btn again" data-q="1">1 Errei</button>
-        <button class="lf-ro-btn hard" data-q="2">2 Difícil</button>
-        <button class="lf-ro-btn good" data-q="3">3 Bom</button>
-        <button class="lf-ro-btn easy" data-q="4">4 Fácil</button>
+        <button type="button" class="lf-ro-btn again" data-q="1">1 Errei</button>
+        <button type="button" class="lf-ro-btn hard" data-q="2">2 Difícil</button>
+        <button type="button" class="lf-ro-btn good" data-q="3">3 Bom</button>
+        <button type="button" class="lf-ro-btn easy" data-q="4">4 Fácil</button>
       </div>
     `;
     document.body.appendChild(this.host);
@@ -108,7 +114,7 @@ export class ReviewOverlay {
 
     // Keyboard
     this._keyHandler = (e) => {
-      if (!this.visible) return;
+      if (!this.visible || this._answerBusy) return;
       if (e.target.closest('input, textarea')) return;
 
       const actionsVisible = document.getElementById('lf-ro-actions').style.display !== 'none';
@@ -130,11 +136,15 @@ export class ReviewOverlay {
 
   async _loadCards() {
     if (!this._db) return;
+    this._loadError = false;
     try {
       const due = await this._db.getCardsDue(10, true);
+      if (!Array.isArray(due)) throw new Error('Fila de revisão indisponível');
       this.cards = due.filter((c) => c.wordData);
     } catch (e) {
       this.cards = [];
+      this._loadError = true;
+      console.warn('[ReviewOverlay] Erro ao carregar revisões:', e);
     }
   }
 
@@ -159,6 +169,16 @@ export class ReviewOverlay {
   }
 
   _render() {
+    this._answerBusy = false;
+    this._pendingReview = null;
+    if (this.host) this.host.setAttribute('aria-busy', 'false');
+    if (this._loadError) {
+      document.getElementById('lf-ro-word').textContent = '⚠️';
+      document.getElementById('lf-ro-hint').textContent = 'Não foi possível carregar as revisões. Feche e tente novamente.';
+      document.getElementById('lf-ro-translation').style.display = 'none';
+      document.getElementById('lf-ro-actions').style.display = 'none';
+      return;
+    }
     if (!this.cards.length || this.index >= this.cards.length) {
       document.getElementById('lf-ro-word').textContent = '🎉';
       document.getElementById('lf-ro-hint').textContent = 'Sem revisões pendentes!';
@@ -187,22 +207,54 @@ export class ReviewOverlay {
   }
 
   async _answer(quality) {
-    if (!this._currentCard) return;
+    if (this._answerBusy || !this._currentCard) return;
+    const card = this._currentCard;
+    const operation = this._pendingReview || {
+      cardId: card.id,
+      quality,
+      operationId: this._createOperationId(),
+    };
+    this._pendingReview = operation;
+    this._answerBusy = true;
+    this.host.setAttribute('aria-busy', 'true');
+    this.host.querySelectorAll('.lf-ro-btn').forEach(btn => { btn.disabled = true; });
+    document.getElementById('lf-ro-hint').textContent = 'Salvando avaliação…';
     try {
-      await this._db.logReview(this._currentCard.id, quality);
+      const result = await this._db.logReview(card.id, operation.quality, null, null, operation.operationId);
+      if (!result?.persisted) throw new Error('A gravação não foi confirmada');
+      this._pendingReview = null;
+      this.index++;
+      if (this.index >= this.cards.length) {
+        document.getElementById('lf-ro-word').textContent = '✅';
+        document.getElementById('lf-ro-hint').textContent = result.idempotent
+          ? 'A avaliação já estava salva. Revisões concluídas!'
+          : 'Avaliação salva. Revisões concluídas!';
+        document.getElementById('lf-ro-translation').style.display = 'none';
+        document.getElementById('lf-ro-actions').style.display = 'none';
+        setTimeout(() => this.hide(), 2000);
+      } else {
+        this._render();
+      }
     } catch (e) {
       console.warn('[ReviewOverlay] Erro ao logar review:', e);
-    }
-
-    this.index++;
-    if (this.index >= this.cards.length) {
-      document.getElementById('lf-ro-word').textContent = '✅';
-      document.getElementById('lf-ro-hint').textContent = 'Revisões concluídas!';
-      document.getElementById('lf-ro-translation').style.display = 'none';
-      document.getElementById('lf-ro-actions').style.display = 'none';
-      setTimeout(() => this.hide(), 2000);
-    } else {
-      this._render();
+      // 4xx/falha funcional confirma que nada foi aceito; uma nova escolha
+      // pode receber outro id. Offline/timeout/auth preservam o id porque a
+      // resposta pode ter se perdido depois do commit.
+      if (!e?.retryable && e?.kind !== 'auth') this._pendingReview = null;
+      const message = e?.kind === 'offline'
+        ? 'Sem conexão. A avaliação não foi salva; este card continua aqui.'
+        : e?.kind === 'auth'
+          ? 'Sua sessão expirou. Entre novamente para salvar esta avaliação.'
+          : e?.retryable
+            ? 'Ainda não foi possível confirmar. Tente novamente; a avaliação não será duplicada.'
+            : 'Não foi possível salvar. Este card continua aqui; tente novamente.';
+      document.getElementById('lf-ro-hint').textContent = message;
+    } finally {
+      if (this._currentCard === card) {
+        this._answerBusy = false;
+        this.host.setAttribute('aria-busy', 'false');
+        this.host.querySelectorAll('.lf-ro-btn').forEach(btn => { btn.disabled = false; });
+      }
     }
   }
 

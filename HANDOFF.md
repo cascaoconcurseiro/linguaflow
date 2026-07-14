@@ -529,6 +529,32 @@ Etapa 1 implementada na branch `codex/review-mobile-video`; ainda não promover 
 
 ## Próximo
 
-Etapa 2: máquina de estados do clipe YouTube, epoch das legendas/traduções e exclusão do Web Reader no domínio próprio. Ver `CHECKLIST.md` e `docs/AUDITORIA_UX_FLUXO_2026-07-14.md`.
+P0.2a de dados: substituir internamente `record_card_review` mantendo sua assinatura pública, integrar o portão privado P0.1, capturar estado anterior no servidor e criar undo append-only. Depois migrar bury/suspender/reset para RPCs estreitas; somente com o cliente validado no preview executar P0.2b e revogar escritas diretas. Em UX visual, a próxima etapa é a Arquitetura de Informação (Home, Cofre, Histórias, Configurações e navegação), seguida do design system. Ver `CHECKLIST.md` e `docs/AUDITORIA_UX_FLUXO_2026-07-14.md`.
+
+---
+
+## Handoff Codex — P0.2 cliente / contrato de UX da revisão (2026-07-14)
+
+### O que foi corrigido
+
+- `utils/db.js` + `background/service-worker.js`: `createOperationId()` exportado; `logReview(..., operationId)` conserva o ID no proxy e retorna `accepted`/`duplicate`, `persisted`, `idempotent` e XP confirmado. Erros de escrita recebem e preservam através do proxy `status`, `code`, `kind` e `retryable`.
+- `dashboard/js/ui/studyView.js`: cada card conserva `{operationId, grade, plannedState}` até ACK; nova tentativa não troca silenciosamente a nota quando o resultado anterior é desconhecido. Fila, som, combo, sessão e XP só mudam após persistência.
+- `content/review-overlay.js`: mutex de teclado/clique, `aria-busy`, feedback real de salvamento, retry com o mesmo ID e nenhuma progressão em falha. Erro ao carregar não é mais exibido como “sem revisões”.
+- `dashboard/js/core/app.js`: toasts com `role`, `aria-live` e `aria-atomic`.
+- `tests/review-outcome-ux.test.mjs`: contratos de regressão incluídos em `npm run test:release`.
+
+### Decisões que precisam ser preservadas
+
+1. Offline-first ainda não existe para reviews; nunca dizer “sincronizado em segundo plano”. O card permanece até confirmação.
+2. Timeout pode significar “commit aconteceu, resposta se perdeu”; por isso o mesmo ID, nota e planned state são reutilizados.
+3. `duplicate` é sucesso canônico e avança uma vez, mas não repete XP/animação.
+4. Erro funcional definitivo pode liberar um novo ID; offline/timeout/auth preservam o ID.
+5. Não revogar escrita direta em `cards` antes das RPCs estreitas e do cliente novo estarem publicados.
+
+### Próximo corte seguro do banco
+
+1. P0.2a expand/cutover compatível: lock de `user_stats` e card; elegibilidade pelo estado armazenado; helper P0.1; snapshot server-side; trigger legado removido atomicamente; undo append-only; RPCs estreitas.
+2. Cliente: migrar suspend/bury/reset e validar site + extensão no preview.
+3. P0.2b contract: `REVOKE ALL` e grants mínimos em `cards`/`review_log`; remover policy ampla.
 
 ---

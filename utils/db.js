@@ -8,6 +8,36 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // somavam 5,4 MB nesse campo e cada select=* o baixava outra vez.
 const WORD_SELECT = 'id,user_id,word,lang,translation,context_sentence,phonetic,pronunciation_pt,explanation,level,tags,ai_chunks,video_url,video_title,platform,added_at,synonyms,antonyms,definition,category,mnemonic,video_start_ms,video_end_ms';
 
+export function createOperationId() {
+  return globalThis.crypto?.randomUUID?.()
+    || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = Math.floor(Math.random() * 16);
+      return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+    });
+}
+
+function classifyRequestError(error, status = null, body = null) {
+  const parsedStatus = Number(status || error?.status || 0) || null;
+  let parsedBody = body;
+  if (typeof body === 'string') {
+    try { parsedBody = JSON.parse(body); } catch { parsedBody = null; }
+  }
+  error.status = parsedStatus;
+  error.code = parsedBody?.code || error.code || null;
+  const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  if (parsedStatus === 401) error.kind = 'auth';
+  else if (offline) error.kind = 'offline';
+  else if (
+    [408, 425, 429].includes(parsedStatus)
+    || (parsedStatus && parsedStatus >= 500)
+    || /timeout|failed to fetch|network|load failed/i.test(error.message)
+    || error?.name === 'TypeError'
+  ) error.kind = 'retry';
+  else error.kind = 'fatal';
+  error.retryable = error.kind === 'offline' || error.kind === 'retry';
+  return error;
+}
+
 class Database {
   constructor() {
     // Sentinela usada pelo shell PWA para impedir uma mistura perigosa entre
@@ -129,6 +159,8 @@ class Database {
     const token = await this._getToken();
     if (!token) {
        console.warn('[DB] Sessão Supabase não encontrada. Operação cancelada:', endpoint);
+       const error = classifyRequestError(new Error('Sessão expirada. Entre novamente para continuar.'), 401);
+       if ((options.method || 'GET').toUpperCase() !== 'GET') throw error;
        return null;
     }
 
@@ -158,7 +190,7 @@ class Database {
             chrome.runtime.sendMessage({ type: 'AUTH_EXPIRED' }).catch(() => {});
           }
         }
-        throw new Error(`[Supabase Error] ${res.status}: ${err}`);
+        throw classifyRequestError(new Error(`[Supabase Error] ${res.status}: ${err}`), res.status, err);
       }
       if (res.status === 204) return [];
       // POST/PATCH sem 'Prefer: return=representation' respondem 200/201 com
@@ -168,6 +200,7 @@ class Database {
       if (!text) return [];
       return JSON.parse(text);
     } catch (e) {
+      if (!e.kind) classifyRequestError(e);
       console.error('[DB] Fetch Error:', e);
       // Escritas NÃO podem falhar em silêncio: o chamador precisa saber
       // (word-popup mostra erro, handleGrade loga, backfill pula a palavra).
@@ -188,7 +221,7 @@ class Database {
     return new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {
         console.error(`[LinguaFlow DB] Timeout na chamada ${method}.`);
-        reject(new Error(`DB proxy timeout: ${method}`));
+        reject(classifyRequestError(new Error(`DB proxy timeout: ${method}`)));
       }, 10000); // 10s: o refresh automático de token pode adicionar uma ida à rede
 
       chrome.runtime.sendMessage(
@@ -201,10 +234,16 @@ class Database {
           clearTimeout(timeoutId);
           if (chrome.runtime.lastError) {
             console.error('[LinguaFlow DB] Erro no proxy:', chrome.runtime.lastError.message);
-            reject(new Error(chrome.runtime.lastError.message));
+            reject(classifyRequestError(new Error(chrome.runtime.lastError.message)));
           } else if (response && response.error) {
             console.error('[LinguaFlow DB] Erro retornado do worker:', response.error);
-            reject(new Error(response.error));
+            const error = new Error(response.error);
+            error.name = response.errorName || 'Error';
+            error.status = response.errorStatus || null;
+            error.code = response.errorCode || null;
+            error.kind = response.errorKind || null;
+            error.retryable = Boolean(response.errorRetryable);
+            reject(error.kind ? error : classifyRequestError(error, error.status));
           } else {
             resolve(response ? response.result : null);
           }
@@ -993,9 +1032,9 @@ class Database {
     return nextState.interval;
   }
 
-  async logReview(cardId, quality, category, plannedState = null) {
+  async logReview(cardId, quality, category, plannedState = null, operationId = null) {
     this._invalidateReadCache();
-    if (this.isProxyMode) return this._proxy('logReview', [cardId, quality, category, plannedState]);
+    if (this.isProxyMode) return this._proxy('logReview', [cardId, quality, category, plannedState, operationId]);
 
     const settings = await this.getSRSSettings(category);
     const res = await this._fetch(`cards?id=eq.${cardId}&limit=1`);
@@ -1023,11 +1062,7 @@ class Database {
     // A revisão é uma única operação transacional no Postgres. Antes desta
     // RPC o PATCH do card e o INSERT em review_log podiam divergir em falha
     // de rede, deixando o agendamento sem histórico/XP/undo.
-    const clientReviewId = globalThis.crypto?.randomUUID?.()
-      || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-        const r = Math.floor(Math.random() * 16);
-        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
-      });
+    const clientReviewId = operationId || createOperationId();
     const saved = await this._fetch('rpc/record_card_review', {
       method: 'POST',
       body: {
@@ -1041,13 +1076,18 @@ class Database {
 
     // prevCard permite reverter o agendamento (undo); card é o estado NOVO —
     // a fila de sessão usa pra reagendar cards em aprendizado (learning steps)
+    const idempotent = Boolean(saved?.idempotent);
     return {
       ok: true,
+      outcome: idempotent ? 'duplicate' : 'accepted',
+      operationId: clientReviewId,
+      persisted: true,
+      idempotent,
       nextDue: new Date(savedCard.due_date).getTime(),
       prevCard,
       card: savedCard,
       reviewLogId: saved?.review_log_id || null,
-      xpAwarded: Number(saved?.xp_awarded || 0),
+      xpAwarded: idempotent ? 0 : Number(saved?.xp_awarded || 0),
     };
   }
 

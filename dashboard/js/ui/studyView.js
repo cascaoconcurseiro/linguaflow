@@ -1,4 +1,4 @@
-import { db as lfDb } from '../../../utils/db.js';
+import { db as lfDb, createOperationId } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio, downloadAudio } from '../core/tts.js';
 import { aiChat, aiChatStream, getCefrLevel, grammarTutorPersona, grammarInitialQuestion, enrichCard, generateChunksWeb, generateMnemonic } from '../core/ai.js';
 import { attachVideoContext, renderVideoContext, getVideoContext } from '../core/videoContext.js';
@@ -27,6 +27,7 @@ let ygWidget = null;
 let ygQueuedWord = null;
 let waitTimer = null;       // countdown da tela "aguardando learning steps"
 let gradeBusy = false;      // impede duas avaliações concorrentes do mesmo card
+const pendingReviewOperations = new Map(); // retry conserva id, nota e estado calculado
 let cardMutationPromise = null; // sobrevive à troca de rota; evita refetch durante escrita
 let studyViewGeneration = 0;
 let studyViewActive = false;
@@ -1561,21 +1562,39 @@ async function handleGrade(grade, app) {
   if (gradeBusy || !currentCard) return;
   const operationGeneration = studyViewGeneration;
   const gradedCard = currentCard;
-  const isCorrect = grade >= 2;
   gradeBusy = true;
   document.querySelectorAll('.grade-btn').forEach(btn => { btn.disabled = true; });
   const buryBtn = document.getElementById('bury-btn');
   if (buryBtn) buryBtn.disabled = true;
   stopAudio();
 
-  const plannedState = gradedCard._gradePreviews?.[grade - 1] || null;
+  const operation = pendingReviewOperations.get(gradedCard.id) || {
+    operationId: createOperationId(),
+    grade,
+    plannedState: gradedCard._gradePreviews?.[grade - 1] || null,
+  };
+  pendingReviewOperations.set(gradedCard.id, operation);
+  const isCorrect = operation.grade >= 2;
+  const liveStatus = document.getElementById('study-status');
+  if (liveStatus) liveStatus.textContent = 'Salvando avaliação.';
   try {
     // A fila e os contadores só mudam depois da confirmação atômica. Assim a
     // falha de rede não consome o card nem exige um rollback local incompleto.
-    const mutationPromise = lfDb.logReview(gradedCard.id, grade, gradedCard.wordData?.category || null, plannedState);
+    const mutationPromise = lfDb.logReview(
+      gradedCard.id,
+      operation.grade,
+      gradedCard.wordData?.category || null,
+      operation.plannedState,
+      operation.operationId,
+    );
     cardMutationPromise = mutationPromise;
     const res = await mutationPromise;
     if (!studyViewActive || operationGeneration !== studyViewGeneration || currentCard !== gradedCard) return;
+    if (!res?.persisted) throw new Error('A gravação da revisão não foi confirmada');
+    pendingReviewOperations.delete(gradedCard.id);
+    if (liveStatus) liveStatus.textContent = res.idempotent
+      ? 'A avaliação já estava salva. Próximo card.'
+      : 'Avaliação salva. Próximo card.';
 
     if (dueQueue[0] === gradedCard) dueQueue.shift();
     else dueQueue = dueQueue.filter(card => card.id !== gradedCard.id);
@@ -1597,7 +1616,7 @@ async function handleGrade(grade, app) {
       prevCard: res?.prevCard || null,
       card: gradedCard,
       reviewLogId: res?.reviewLogId || null,
-      grade,
+      grade: operation.grade,
       isCorrect,
     };
     updateUndoButton();
@@ -1616,8 +1635,17 @@ async function handleGrade(grade, app) {
     loadNextCard(app);
   } catch (e) {
     console.error('Failed to log review:', e);
+    if (!e?.retryable && e?.kind !== 'auth') pendingReviewOperations.delete(gradedCard.id);
     if (studyViewActive && operationGeneration === studyViewGeneration) {
-      app.showToast('Erro ao salvar a revisão. O card continua na fila.', 'error');
+      const message = e?.kind === 'offline'
+        ? 'Sem conexão. A avaliação não foi salva; este card continua aqui.'
+        : e?.kind === 'auth'
+          ? 'Sua sessão expirou. Entre novamente para salvar esta avaliação.'
+          : e?.retryable
+            ? 'Ainda não confirmamos a avaliação. Tente novamente; ela não será duplicada.'
+            : 'Não foi possível salvar a avaliação. O card continua aqui.';
+      if (liveStatus) liveStatus.textContent = message;
+      app.showToast(message, 'error');
     }
   } finally {
     if (cardMutationPromise) cardMutationPromise = null;

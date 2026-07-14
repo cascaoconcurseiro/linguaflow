@@ -165,7 +165,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           sendResponse({ result });
         } catch (error) {
           console.error(`[LinguaFlow SW] Erro em db.${method}:`, error);
-          sendResponse({ error: error?.message || String(error) });
+          sendResponse({
+            error: error?.message || String(error),
+            errorName: error?.name || 'Error',
+            errorStatus: error?.status || null,
+            errorCode: error?.code || null,
+            errorKind: error?.kind || null,
+            errorRetryable: Boolean(error?.retryable),
+          });
         }
       })();
       return true;

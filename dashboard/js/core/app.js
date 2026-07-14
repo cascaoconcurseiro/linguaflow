@@ -442,9 +442,14 @@ class App {
   // Global Toast function
   showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
+    if (!container) return;
+    container.setAttribute('aria-label', 'Notificações');
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.textContent = message;
+    toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    toast.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
+    toast.setAttribute('aria-atomic', 'true');
     
     // basic styling for now
     toast.style.backgroundColor = type === 'error' ? '#ff4b4b' : '#333';

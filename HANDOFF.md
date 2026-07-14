@@ -557,4 +557,10 @@ P0.2a de dados: substituir internamente `record_card_review` mantendo sua assina
 2. Cliente: migrar suspend/bury/reset e validar site + extensão no preview.
 3. P0.2b contract: `REVOKE ALL` e grants mínimos em `cards`/`review_log`; remover policy ampla.
 
+### Publicação desta fatia
+
+- Commit funcional: `25f65e4` (`codex/review-mobile-video`).
+- Preview Vercel: `dpl_FnwVZLxMrVYoTrk5MKpYCrVjNoo6`, SHA confirmado, `READY`, sem erro de runtime na janela de uma hora.
+- Nenhuma migration aplicada no Supabase remoto; nenhuma promoção para produção.
+
 ---

@@ -43,6 +43,8 @@ Produção e Supabase remoto não foram alterados por este corte. O commit `7662
 
 O GitHub Actions não executou os testes remotos: o job foi recusado antes de receber runner com a anotação `The job was not started because your account is locked due to a billing issue.` (run `29348470440`). A mesma falha de infraestrutura já aparece nos commits anteriores. Portanto, CI remoto continua bloqueado até o dono regularizar o faturamento do GitHub; a evidência local permanece 32 contratos estáticos, release smoke e replay integral das 22 migrations em Postgres 17.
 
+**Próxima onda coordenada:** `docs/ONDA_P0_1_PORTAO_DE_EVIDENCIA_2026-07-14.md`. A decisão sênior é não trocar a RPC genérica por outra RPC genérica. P0.1 cria helper privada e transacional sem cliente; P0.2 cria identidades verificáveis; P0.3 faz opening balance diferencial e neutraliza todos os escritores antigos na mesma transação.
+
 ### Complemento — remoção definitiva da Nova Guia
 
 - o override `chrome_url_overrides.newtab` já havia sido removido do manifest;

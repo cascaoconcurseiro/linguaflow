@@ -2,7 +2,7 @@
 
 **Responsável:** Codex, com revisão sênior de aprendizagem/economia, produto/UX e plataforma/dados.
 
-**Estado:** decisão de arquitetura fechada; implementação SQL ainda não iniciada.
+**Estado:** P0.1 implementado e validado localmente; não aplicado no Supabase remoto e sem caller público.
 
 ## Decisão
 
@@ -28,7 +28,7 @@ Três estados passam a ser independentes:
 
 ### P0.1 — infraestrutura expand-only
 
-- criar `private.commit_qualified_learning_event`;
+- [x] criar `private.commit_qualified_learning_event`;
 - serializar cada usuário com lock de `user_stats`;
 - calcular dia e semana pelo timezone persistido;
 - distinguir retry pelo mesmo `event_id` de conflito de payload;
@@ -37,7 +37,11 @@ Três estados passam a ser independentes:
 - registrar evento inelegível/capped sem ledger e devolver o mesmo resultado em retry;
 - helper privada sem `EXECUTE` para `PUBLIC`, `anon`, `authenticated` ou `service_role`;
 - manter RPCs, triggers e clientes atuais inalterados;
-- não criar opening balance.
+- [x] não criar opening balance.
+
+Migration: `supabase/migrations/20260714162952_private_evidence_commit_p0_1.sql`.
+
+O portão valida também o contrato contábil em retries (`dedupe_key`, razão, base XP, cap e competitividade), reserva `evidence._reward`, distingue colisão de entitlement e rejeita opening balance. Nenhuma função pública, trigger, card, review ou RPC legada é alterada.
 
 ### P0.2 — identidades verificáveis
 
@@ -102,3 +106,24 @@ Somente `xp.awardedNow > 0` pode disparar animação. Streak só é celebrada qu
 - conceder XP a leitura, vídeo passivo ou quiz cujo gabarito vem do navegador;
 - promover preview para produção;
 - aplicar opening balance enquanto existir qualquer escritor fora do ledger.
+
+## Evidência executada por Codex
+
+- replay das 23 migrations em Postgres 17 vazio;
+- contratos da fundação: `EVIDENCE FOUNDATION SQL OK`;
+- contratos transacionais P0.1: `EVIDENCE COMMIT P0.1 SQL OK`;
+- rollback forçado entre evento e ledger deixou zero mutação parcial;
+- timezone `Pacific/Kiritimati` confirmou `local_date` e semana ISO do servidor;
+- 20 chamadas com a mesma chave: 1 evento, 1 ledger e 2 XP;
+- 20 eventos diferentes disputando cap 20: 20 eventos, 10 ledgers e 20 XP;
+- todas as 40 conexões retornaram `accepted` ou `duplicate`; falha individual reprova o harness;
+- papéis `authenticated` e `service_role` sem `USAGE` no schema privado e sem `EXECUTE` na função;
+- testes estáticos e release smoke executados sem depender de serviço pago.
+- `supabase db lint` conectou ao banco descartável, mas não pôde habilitar `pgsql_check`, ausente no PostgreSQL 17 instalado no Windows; por isso lint de função não é alegado como aprovado. Replay, contratos SQL e revisão adversarial são a evidência disponível.
+
+## Dívidas que bloqueiam o primeiro caller público
+
+- `daily_counters` ainda pertence ao motor legado; a Home não pode misturar projeções;
+- cap v2 lê somente o ledger e não pode coexistir com prêmio legado do mesmo modo;
+- timezone ainda pode ser alterado pelo usuário; a política anti-troca de fuso precisa ser fechada antes do cutover;
+- review, jogos, quiz, vídeo e quests ainda precisam das identidades server-side descritas no P0.2.

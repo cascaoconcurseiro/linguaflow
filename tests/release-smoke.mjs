@@ -145,6 +145,15 @@ if (evidenceFoundation) {
   `${name} não depende de grants implícitos`);
   assert(!/GRANT\s+(?:INSERT|UPDATE|DELETE|ALL)[\s\S]*?TO authenticated/i.test(content), `${name} não permite escrita direta do cliente`);
 }
+const evidenceCommit = migrationContaining('private.commit_qualified_learning_event');
+assert(Boolean(evidenceCommit), 'migration expand-only do portão privado P0.1 está presente');
+if (evidenceCommit) {
+  const [name, content] = evidenceCommit;
+  assert(/SECURITY DEFINER[\s\S]*SET search_path = ''/i.test(content), `${name} fixa search_path vazio`);
+  assert(/REVOKE ALL ON FUNCTION private\.commit_qualified_learning_event[\s\S]*FROM PUBLIC, anon, authenticated, service_role/i.test(content), `${name} mantém a helper fora da Data API`);
+  assert(!/CREATE OR REPLACE FUNCTION public\./i.test(content), `${name} não expõe RPC genérica nova`);
+  assert(!/apply_learning_xp\s*\(/i.test(content), `${name} não usa projeção legada com bônus`);
+}
 const timezoneMigration = migrationContaining('set_user_timezone');
 assert(Boolean(timezoneMigration), 'migration de timezone está presente');
 if (timezoneMigration) {

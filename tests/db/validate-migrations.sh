@@ -93,4 +93,10 @@ SQL
 echo "── contratos SQL da Fundação de Evidência"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/db/evidence-foundation.sql"
 
+echo "── contratos SQL do portão privado P0.1"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/db/evidence-commit-p0-1.sql"
+
+echo "── concorrência real do portão privado P0.1"
+bash "$ROOT/tests/db/evidence-commit-concurrency.sh" "$PGBIN/psql" "$PORT" "$SOCK" "$DB"
+
 echo "✅ Migrations reproduzíveis do zero + smoke test do Learning Engine passaram."

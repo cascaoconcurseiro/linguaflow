@@ -29,7 +29,7 @@
 - [ ] Regularizar o faturamento do GitHub Actions e reexecutar o workflow `Build and Release` (o run `29348470440` foi recusado antes do runner).
 - [ ] Ledger idempotente de tentativas e recompensas.
 - [x] Mapear todos os escritores legados e fechar a sequência P0.1/P0.2/P0.3 (`docs/ONDA_P0_1_PORTAO_DE_EVIDENCIA_2026-07-14.md`).
-- [ ] P0.1: helper privada transacional expand-only + testes de idempotência, concorrência e reconciliação.
+- [x] P0.1: helper privada transacional expand-only + replay de 23 migrations, rollback, timezone, grants e 40 conexões concorrentes.
 - [ ] P0.2: identidades server-side para review, jogo, quiz, vídeo e quests.
 - [ ] P0.3: opening balance diferencial e neutralização atômica de todos os escritores legados.
 - [ ] XP calculado no servidor por evidência, não por quantidade declarada.

@@ -31,6 +31,8 @@ jobs:
       run: npm run test:local-day
     - name: Run evidence foundation contracts
       run: npm run test:evidence
+    - name: Run private evidence commit contracts
+      run: npm run test:evidence-commit
     - name: Replay migrations in ephemeral Postgres
       run: bash tests/db/validate-migrations.sh
     - name: Run release smoke

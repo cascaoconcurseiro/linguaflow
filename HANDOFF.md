@@ -45,6 +45,8 @@ O GitHub Actions não executou os testes remotos: o job foi recusado antes de re
 
 **Próxima onda coordenada:** `docs/ONDA_P0_1_PORTAO_DE_EVIDENCIA_2026-07-14.md`. A decisão sênior é não trocar a RPC genérica por outra RPC genérica. P0.1 cria helper privada e transacional sem cliente; P0.2 cria identidades verificáveis; P0.3 faz opening balance diferencial e neutraliza todos os escritores antigos na mesma transação.
 
+**P0.1 implementado por Codex:** migration `20260714162952_private_evidence_commit_p0_1.sql`. O helper privado grava evento, ledger e `user_stats` na mesma transação, com lock por usuário, retry canônico, conflito contábil, dedupe de entitlement, cap e timezone no servidor. A revisão adversarial encontrou e Codex corrigiu o socket/banco e a verificação de processos do harness, o namespace `_reward`, validação incompleta de retry e colisões de dedupe. Evidência final: replay das 23 migrations, SQL foundation/P0.1, rollback forçado, UTC+14 e 40 conexões concorrentes (`1|1|2` no retry; `20|10|20` na disputa de cap). Supabase remoto e clientes continuam intactos.
+
 ### Complemento — remoção definitiva da Nova Guia
 
 - o override `chrome_url_overrides.newtab` já havia sido removido do manifest;

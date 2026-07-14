@@ -29,6 +29,10 @@ jobs:
       run: npm run test:engine
     - name: Run local-day tests
       run: npm run test:local-day
+    - name: Run evidence foundation contracts
+      run: npm run test:evidence
+    - name: Replay migrations in ephemeral Postgres
+      run: bash tests/db/validate-migrations.sh
     - name: Run release smoke
       run: npm run test:release
 

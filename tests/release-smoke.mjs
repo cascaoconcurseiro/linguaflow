@@ -134,6 +134,17 @@ if (reviewGrant) {
     name >= reviewGrant[0] && /REVOKE\s+EXECUTE[\s\S]*record_card_review[\s\S]*FROM\s+anon/i.test(content));
   assert(revokesReviewForAnon, 'cadeia de migrations revoga record_card_review de anon');
 }
+const evidenceFoundation = migrationContaining('CREATE TABLE public.learning_events');
+assert(Boolean(evidenceFoundation), 'migration expand-only da Fundação de Evidência está presente');
+if (evidenceFoundation) {
+  const [name, content] = evidenceFoundation;
+  assert(/CREATE TABLE public\.xp_ledger/i.test(content), `${name} cria os dois ledgers`);
+  assert((content.match(/ENABLE ROW LEVEL SECURITY/gi) || []).length === 2, `${name} habilita RLS nos dois ledgers`);
+  assert(/REVOKE ALL ON TABLE public\.learning_events FROM PUBLIC, anon, authenticated/i.test(content) &&
+    /REVOKE ALL ON TABLE public\.xp_ledger FROM PUBLIC, anon, authenticated/i.test(content),
+  `${name} não depende de grants implícitos`);
+  assert(!/GRANT\s+(?:INSERT|UPDATE|DELETE|ALL)[\s\S]*?TO authenticated/i.test(content), `${name} não permite escrita direta do cliente`);
+}
 const timezoneMigration = migrationContaining('set_user_timezone');
 assert(Boolean(timezoneMigration), 'migration de timezone está presente');
 if (timezoneMigration) {

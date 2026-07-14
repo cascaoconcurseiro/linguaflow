@@ -23,6 +23,8 @@
 ### Fase 1 — Integridade e anti-farm
 
 - [x] Especificar ledger, regras de XP qualificado, RPCs v2, rollout e testes (`docs/FUNDACAO_EVIDENCIA_P0_2026-07-14.md`).
+- [x] Criar migration expand-only dos ledgers com CLI oficial, RLS e grants explícitos.
+- [x] Validar migration em Postgres 17 efêmero com testes SQL de propriedade, grants, reversão e RLS.
 - [ ] Ledger idempotente de tentativas e recompensas.
 - [ ] XP calculado no servidor por evidência, não por quantidade declarada.
 - [ ] Separar prática ilimitada de pontuação competitiva.

@@ -31,7 +31,13 @@
 - leaderboard deve ler apenas uma projeção pública mínima;
 - CI precisa executar toda a suíte e E2E autenticado antes de promoção.
 
-**Especificação executável:** `docs/FUNDACAO_EVIDENCIA_P0_2026-07-14.md`. A migration ainda não foi criada porque a CLI oficial do Supabase não está instalada; não inventar timestamp e não aplicar DDL diretamente em produção para contornar isso.
+**Especificação executável:** `docs/FUNDACAO_EVIDENCIA_P0_2026-07-14.md`.
+
+**Migration expand-only:** `supabase/migrations/20260714154841_learning_evidence_foundation_p0.sql`, criada pela CLI Supabase 2.109.1 e validada em Postgres 17 descartável por `tests/db/evidence-foundation.sql`. As 22 migrations foram reaplicadas desde a baseline em banco vazio; depois o teste retornou `EVIDENCE FOUNDATION SQL OK`. Não foi aplicada no Supabase remoto.
+
+O opening balance pertence à migration de cutover, na mesma transação que neutralizar os escritores legados. Não movê-lo de volta para a migration expand-only.
+
+O workflow `.github/workflows/release.yml` agora bloqueia release se os contratos estáticos ou o replay completo das migrations + `tests/db/evidence-foundation.sql` falharem.
 
 Produção e preview não foram alterados nesta auditoria estratégica.
 

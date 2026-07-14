@@ -2,7 +2,7 @@
 
 **Responsável:** Codex, com revisão de aprendizagem/economia, produto/UX e plataforma/dados.
 
-**Estado:** contrato aprovado; nenhuma migration aplicada em produção.
+**Estado:** migration expand-only criada e validada em Postgres 17 descartável; não aplicada em produção.
 
 ## Objetivo
 
@@ -81,11 +81,11 @@ Retorno uniforme: evento, aceite, elegibilidade, motivo, XP concedido, projeçõ
 
 ## Rollout seguro
 
-1. Migration expand-only: tabelas, RLS, helpers e RPCs v2.
-2. Opening balance sem alterar os contadores existentes.
-3. Advisors, grants, reconciliação e testes concorrentes.
-4. Cliente v2 com `event_id` persistido antes da rede.
-5. Jogos/stories/quests/vídeo migram para RPCs específicas.
+1. Migration expand-only: tabelas, RLS, grants mínimos e validação de reversão.
+2. Advisors, grants e testes reais de isolamento/constraints.
+3. Cliente v2 com `event_id` persistido antes da rede.
+4. Jogos/stories/quests/vídeo migram para RPCs específicas.
+5. No cutover, sob a mesma transação: capturar opening balance e desativar/rotear todos os escritores legados.
 6. RPC genérica legada passa a prêmio zero após adoção do cliente v2.
 7. Review v2 e `cards.state_version` entram em corte próprio.
 8. Só depois, remoção de caminhos e campos antigos.
@@ -109,6 +109,15 @@ Retorno uniforme: evento, aceite, elegibilidade, motivo, XP concedido, projeçõ
 - versão antiga do card retorna conflito sem mutação;
 - retry após timeout retorna o resultado autoritativo original.
 
-## Bloqueio operacional atual
+## Evidência de validação local
 
-A CLI do Supabase não está instalada neste ambiente. A migration não será criada com timestamp inventado nem aplicada diretamente em produção. O próximo passo operacional é disponibilizar a CLI oficial, executar `supabase migration new` e então implementar este contrato em uma migration versionada e testada localmente.
+- CLI Supabase `2.109.1` gerou `20260714154841_learning_evidence_foundation_p0.sql`.
+- O changelog de 2026 foi considerado: grants da Data API são explícitos e independentes de RLS.
+- `npm run test:evidence`: contratos estáticos da migration.
+- `tests/db/evidence-foundation.sql`: constraints, grants, RLS, propriedade cruzada, reversão e reconciliação em Postgres 17 real.
+- Resultado do replay: `EVIDENCE FOUNDATION SQL OK`.
+- Todas as 22 migrations versionadas, da baseline ao P0, foram reaplicadas em ordem num banco vazio antes do teste SQL.
+- O workflow de release agora executa `test:evidence` e `tests/db/validate-migrations.sh`; o SQL P0 deixou de ser uma prova manual opcional.
+- O Postgres efêmero foi encerrado após o teste.
+
+O saldo inicial foi deliberadamente removido da migration expand-only: enquanto o XP legado continuar escrevendo, qualquer fotografia ficaria defasada. Ele será criado atomicamente somente no cutover.

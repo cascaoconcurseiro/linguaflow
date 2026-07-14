@@ -13,6 +13,7 @@
     "test:subtitle-lifecycle": "node tests/subtitle-lifecycle.test.mjs",
     "test:focus-shell": "node tests/focus-shell.test.mjs",
     "test:study-focus": "node tests/study-focus.test.mjs",
+    "test:evidence": "node tests/evidence-foundation.test.mjs",
     "test:stage3": "npm run test:focus-shell && npm run test:study-focus",
     "test:study-video": "node tests/study-video-race.test.mjs",
     "test:stage2": "npm run test:yt-player && npm run test:video && npm run test:study-video && npm run test:site-boundary && npm run test:web-reader && npm run test:subtitle-lifecycle",

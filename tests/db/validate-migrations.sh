@@ -5,7 +5,17 @@
 # Uso: bash tests/db/validate-migrations.sh [dir_de_trabalho]
 set -euo pipefail
 
-PGBIN="${PGBIN:-/usr/lib/postgresql/16/bin}"
+if [ -z "${PGBIN:-}" ]; then
+  if command -v pg_config >/dev/null 2>&1; then
+    PGBIN="$(pg_config --bindir)"
+  else
+    PGBIN="$(find /usr/lib/postgresql -mindepth 2 -maxdepth 2 -type d -name bin 2>/dev/null | sort -V | tail -n 1)"
+  fi
+fi
+if [ -z "$PGBIN" ] || [ ! -x "$PGBIN/initdb" ]; then
+  echo "Postgres initdb não encontrado; defina PGBIN para executar o replay." >&2
+  exit 1
+fi
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 WORK="${1:-$(mktemp -d /tmp/lf-migrate-XXXX)}"
 PGDATA="$WORK/pgdata"
@@ -79,5 +89,8 @@ BEGIN
   RAISE NOTICE 'SMOKE OK: xp_today=%, streak=%', xp, st;
 END $$;
 SQL
+
+echo "── contratos SQL da Fundação de Evidência"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/db/evidence-foundation.sql"
 
 echo "✅ Migrations reproduzíveis do zero + smoke test do Learning Engine passaram."

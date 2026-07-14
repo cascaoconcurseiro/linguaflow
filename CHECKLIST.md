@@ -24,16 +24,22 @@
 - [x] Regressão: motor 37/37, vídeo 4/4, calendário 5/5.
 - [ ] QA visual no preview: áudio único, sair/voltar, falha offline durante nota e clique duplo em adiar.
 
-### ⏭️ ETAPA 2 — YouTube, legendas e Web Reader
+### ✅ ETAPA 2 — YouTube, legendas e Web Reader
 
-- [ ] Unificar o fim do clipe em uma máquina de estados/ciclo único.
-- [ ] Permitir retry da API/player após timeout.
-- [ ] Criar epoch/AbortController por navegação de vídeo na extensão.
-- [ ] Impedir cues/traduções antigas de sobrescrever vídeo/legenda atual.
-- [ ] Remover listeners acumulados no lifecycle do subtitle engine.
-- [ ] Excluir os domínios próprios do LinguaFlow da injeção do Web Reader.
-- [ ] Deduplicar mouseup/dblclick e tokenizar tradução da seleção.
-- [ ] Adicionar testes de timer+ENDED, vídeo A→B e tradução obsoleta.
+- [x] Unificar o fim do clipe em uma máquina de estados/ciclo único.
+- [x] Permitir retry da API/player após timeout ou erro inicial.
+- [x] Repetir com `seekTo`, sem recarregar o iframe e sem flash preto entre ciclos.
+- [x] Reconhecer `video_start_ms`/`video_end_ms` e abrir o link no início da frase.
+- [x] Impedir callback atrasado de alterar outra apresentação do mesmo card.
+- [x] Criar epoch/AbortController por navegação de vídeo na extensão.
+- [x] Impedir cues/traduções antigas de sobrescrever vídeo/legenda atual.
+- [x] Remover listeners, observers, timers e RAFs acumulados no subtitle engine.
+- [x] Excluir os domínios próprios do LinguaFlow da injeção do Web Reader.
+- [x] Deduplicar mouseup/dblclick e tokenizar tradução da seleção.
+- [x] Salvar pelo Web Reader em fila local-first; sincronizar banco em segundo plano.
+- [x] Adicionar testes de timer+ENDED, vídeo A→B, tradução obsoleta, domínio e lifecycle.
+- [x] Testes específicos: player 12/12, contexto 10/10, estudo/vídeo 4/4, domínio 14/14, Web Reader 6/6 e legendas 13/13.
+- [ ] QA autenticado no preview e QA da extensão real: loop/pause/replay, navegação A→B e salvamento local-first.
 
 ### 🎯 ETAPA 3 — Modo foco e nova tela de cards
 

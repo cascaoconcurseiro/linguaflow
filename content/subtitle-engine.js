@@ -6,6 +6,15 @@ import { escapeHTML } from '../utils/html.js';
 // ─── Engine Principal ─────────────────────────────────────────────────────────
 export class SubtitleEngine {
   constructor() {
+    this._disposed = false;
+    this._lifecycleController = new AbortController();
+    this._navigationController = null;
+    this._navigationEpoch = 0;
+    this._navigationUrl = '';
+    this._domSubtitleEpoch = 0;
+    this._managedTimeouts = new Set();
+    this._managedIntervals = new Set();
+    this._managedObservers = new Set();
     this.platform = this._detectPlatform();
     this.cues = []; // Cues do YouTube (via XHR)
     this.xhrCues = []; // Cues do HBO/Netflix (via XHR intercept)
@@ -44,7 +53,7 @@ export class SubtitleEngine {
 
     this._sessionStartTime = Date.now();
     this._streakShown = false;
-    setTimeout(() => this._checkStreakNotification(), 10 * 60 * 1000);
+    this._setManagedTimeout(() => this._checkStreakNotification(), 10 * 60 * 1000);
 
     // Vocabulário em memória — carregado do banco e atualizado em tempo real
     this.savedWords = new Map(); // word -> status ('new'|'learning'|'review'|'mature')
@@ -60,33 +69,33 @@ export class SubtitleEngine {
     window.addEventListener('LF_WORD_SAVED', (e) => {
       const w = e.detail?.word?.toLowerCase();
       if (w) this.savedWords.set(w, 'new');
-    });
+    }, { signal: this._lifecycleController.signal });
     window.addEventListener('LF_WORD_KNOWN', (e) => {
       const w = (typeof e.detail === 'string' ? e.detail : e.detail?.word)?.toLowerCase();
       if (w) {
         this.knownWords.add(w);
         this.savedWords.delete(w);
       }
-    });
+    }, { signal: this._lifecycleController.signal });
     window.addEventListener('LF_UPDATE_DELAY', (e) => {
       this.translationDelay = e.detail;
       console.debug(`[LinguaFlow] Delay de tradução atualizado para: ${e.detail}s`);
-    });
+    }, { signal: this._lifecycleController.signal });
     window.addEventListener('LF_UPDATE_ANTICIPATION', (e) => {
       this.translationAnticipation = e.detail;
       console.debug(`[LinguaFlow] Antecipação de tradução atualizada para: ${e.detail}s`);
-    });
+    }, { signal: this._lifecycleController.signal });
     window.addEventListener('LF_UPDATE_AUTOPAUSE', (e) => {
       this.autoPause = e.detail;
       console.debug(`[LinguaFlow] Pausa automática ${e.detail ? 'ATIVADA' : 'DESATIVADA'}`);
-    });
+    }, { signal: this._lifecycleController.signal });
     window.addEventListener('LF_UPDATE_POSITION', (e) => {
       const host = document.getElementById('linguaflow-subtitle-host');
       if (host) {
         host.style.bottom = `${e.detail}px`;
         this._currentBottom = e.detail;
       }
-    });
+    }, { signal: this._lifecycleController.signal });
     window.addEventListener('LF_UPDATE_HORIZONTAL', (e) => {
       const host = document.getElementById('linguaflow-subtitle-host');
       if (host) {
@@ -94,20 +103,21 @@ export class SubtitleEngine {
         host.style.transform = `translateX(-${e.detail}%)`;
         this._currentHorizontal = e.detail;
       }
-    });
+    }, { signal: this._lifecycleController.signal });
 
     // Inicia log de imersão
     this._startImmersionLog();
 
     // Sincronização global de vocabulário
-    chrome.runtime.onMessage.addListener((request) => {
+    this._runtimeMessageListener = (request) => {
       if (request.type === 'REFRESH_VOCAB') {
         console.debug('[LinguaFlow] Sincronizando vocabulário...');
         this._loadSavedWords();
       } else if (request.action === 'LF_TOGGLE_SETTINGS') {
         window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
       }
-    });
+    };
+    chrome.runtime.onMessage.addListener(this._runtimeMessageListener);
 
     window.addEventListener('LF_SETTINGS_CHANGED', async () => {
       console.debug('[LinguaFlow] Configurações alteradas. Recarregando...');
@@ -116,12 +126,62 @@ export class SubtitleEngine {
         // Força re-renderização para aplicar novas cores de CEFR
         this.renderDual(this._lastOrig, this._lastTrans);
       }
-    });
+    }, { signal: this._lifecycleController.signal });
 
     window.addEventListener('lf_theme_changed', (e) => {
       this.uiTheme = e.detail.theme;
       this._applyThemeToPanel();
-    });
+    }, { signal: this._lifecycleController.signal });
+  }
+
+  _setManagedTimeout(fn, delay) {
+    const id = setTimeout(() => {
+      this._managedTimeouts.delete(id);
+      if (!this._disposed) fn();
+    }, delay);
+    this._managedTimeouts.add(id);
+    return id;
+  }
+
+  _setManagedInterval(fn, delay) {
+    const id = setInterval(() => {
+      if (!this._disposed) fn();
+    }, delay);
+    this._managedIntervals.add(id);
+    return id;
+  }
+
+  _beginNavigation(url = window.location.href) {
+    if (!this._disposed && this._navigationController && this._navigationUrl === url) {
+      return this._navigationSnapshot();
+    }
+    this._navigationController?.abort('navigation-superseded');
+    this._navigationController = new AbortController();
+    this._navigationUrl = url;
+    this._navigationEpoch += 1;
+    return this._navigationSnapshot();
+  }
+
+  _navigationSnapshot() {
+    return {
+      epoch: this._navigationEpoch,
+      url: this._navigationUrl,
+      signal: this._navigationController?.signal,
+    };
+  }
+
+  _isNavigationCurrent(snapshot) {
+    return !this._disposed
+      && !!snapshot
+      && !snapshot.signal?.aborted
+      && snapshot.epoch === this._navigationEpoch
+      && snapshot.url === this._navigationUrl;
+  }
+
+  _scheduleForNavigation(fn, delay, snapshot = this._navigationSnapshot()) {
+    return this._setManagedTimeout(() => {
+      if (this._isNavigationCurrent(snapshot)) fn(snapshot);
+    }, delay);
   }
 
   _applyThemeToPanel() {
@@ -138,7 +198,7 @@ export class SubtitleEngine {
   }
 
   _startImmersionLog() {
-    setInterval(async () => {
+    this._setManagedInterval(async () => {
       if (this.videoElement && !this.videoElement.paused) {
         try {
           // Prevenção de contagem dupla (Múltiplas abas abertas)
@@ -309,6 +369,11 @@ export class SubtitleEngine {
 
   async init() {
     console.debug(`[LinguaFlow] 🚀 Inicializando Engine... Plataforma: ${this.platform}`);
+    const initialNavigation = this._beginNavigation(window.location.href);
+    window.addEventListener('pagehide', () => this.destroy(), {
+      once: true,
+      signal: this._lifecycleController.signal,
+    });
 
     // Carrega configurações salvas do banco (não bloqueante para evitar travamentos do SW)
     console.debug('[LinguaFlow] Carregando configurações em background...');
@@ -328,10 +393,11 @@ export class SubtitleEngine {
       .catch((e) => console.warn('[LinguaFlow] Falha ao carregar lista CEFR:', e));
 
     this._lastOrig = '';
+    this._domSubtitleEpoch += 1;
 
     // Detecção de mudança de URL (SPA navigation)
     let lastUrl = location.href;
-    setInterval(() => {
+    this._setManagedInterval(() => {
       if (location.href !== lastUrl) {
         lastUrl = location.href;
         this._onUrlChange();
@@ -352,23 +418,22 @@ export class SubtitleEngine {
 
     document.addEventListener('yt-navigate-finish', () => {
       console.debug('[LinguaFlow] YouTube SPA Navigation detectada');
-      this._waitForVideo();
-      // Re-checa legendas após navegação
-      setTimeout(() => this._fetchYoutubeSubtitles(), 1000);
-    });
+      this._onUrlChange();
+    }, { signal: this._lifecycleController.signal });
 
     // ── YouTube: método EXATO do V5 (fetch de legendas via storage) ──────
     if (this.platform === 'youtube') {
-      this._ytXhrListener = async (e) => {
-        await this._fetchYoutubeSubtitles();
+      this._ytXhrListener = async () => {
+        await this._fetchYoutubeSubtitles(this._navigationSnapshot());
       };
       document.addEventListener('youtubeSubtitleXhrEvent', this._ytXhrListener);
       // Tenta carregar imediatamente (caso webRequest já tenha salvo a URL)
-      setTimeout(() => this._fetchYoutubeSubtitles(), 500);
+      this._scheduleForNavigation((nav) => this._fetchYoutubeSubtitles(nav), 500, initialNavigation);
     }
 
     // ── Receptor de mensagens postMessage (HBO Max / Max.com / Netflix) ────
     window.addEventListener('message', (e) => {
+      if (this._disposed) return;
       if (e.source !== window || !e.data?.type) return;
 
       if (e.data.type === 'LF_HBO_SUB' || e.data.type === 'LF_SUBTITLE_HOOK') {
@@ -380,7 +445,7 @@ export class SubtitleEngine {
 
         // Se for YouTube (timedtext), usa o processador específico
         if (url.includes('timedtext')) {
-          this._processYouTubeRawSubtitles(url, resp);
+          this._processYouTubeRawSubtitles(url, resp, this._navigationSnapshot());
           return;
         }
 
@@ -433,7 +498,7 @@ export class SubtitleEngine {
           this.renderDual('', ''); // Limpa nossa legenda se o usuário desligou a nativa
         }
       }
-    });
+    }, { signal: this._lifecycleController.signal });
 
     if (this.platform === 'max') {
       console.debug('[LinguaFlow] HBO Max: aguardando VTT via XHR intercept');
@@ -528,7 +593,7 @@ export class SubtitleEngine {
           }
           break;
       }
-    });
+    }, { signal: this._lifecycleController.signal });
     console.debug('[LinguaFlow] ⌨️ Centro de Comando unificado (A, S, D, Q, L, O, C, Espaço).');
   }
 
@@ -604,6 +669,9 @@ export class SubtitleEngine {
 
   // ── Limpeza de estado para troca de vídeo ────────────────────────────────
   async _onUrlChange() {
+    const previousEpoch = this._navigationEpoch;
+    const navigation = this._beginNavigation(window.location.href);
+    if (navigation.epoch === previousEpoch) return;
     console.debug('[LinguaFlow] URL alterada, resetando motor de legendas...');
 
     this.cues = [];
@@ -619,11 +687,6 @@ export class SubtitleEngine {
     }
     this._stopSyncLoop();
 
-    // Remove listener de XHR do YouTube para evitar duplicação na troca de vídeo
-    if (this._ytXhrListener) {
-      document.removeEventListener('youtubeSubtitleXhrEvent', this._ytXhrListener);
-    }
-
     // Limpa intervalos e timers pendentes para evitar vazamento de memória
     if (this._videoWaitInterval) {
       clearInterval(this._videoWaitInterval);
@@ -638,11 +701,13 @@ export class SubtitleEngine {
 
     // Inicia sempre DESLIGADO por padrão (conforme pedido do usuário)
     await this._injectSubtitleUI();
+    if (!this._isNavigationCurrent(navigation)) return;
     this.toggleSubtitles(false);
+    this._waitForVideo();
 
     // Re-inicializa captura específica da plataforma
     if (this.platform === 'youtube') {
-      setTimeout(() => this._fetchYoutubeSubtitles(), 1000);
+      this._scheduleForNavigation((nav) => this._fetchYoutubeSubtitles(nav), 1000, navigation);
     }
   }
 
@@ -803,7 +868,7 @@ export class SubtitleEngine {
           // resizes intermediários (anúncios, layout shift) e reposicionar a
           // cada um deles fazia a fonte da legenda oscilar de tamanho.
           clearTimeout(this._repositionDebounce);
-          this._repositionDebounce = setTimeout(() => {
+          this._repositionDebounce = this._setManagedTimeout(() => {
             console.debug('[LinguaFlow] Player redimensionado, ajustando legenda...');
             this._repositionSubtitle();
           }, 150);
@@ -813,7 +878,7 @@ export class SubtitleEngine {
         console.debug('[LinguaFlow] ResizeObserver ativado para legenda');
       } else {
         // Tenta novamente após 2 segundos
-        setTimeout(checkAndObserve, 2000);
+        this._setManagedTimeout(checkAndObserve, 2000);
       }
     };
 
@@ -821,16 +886,16 @@ export class SubtitleEngine {
 
     // Listener para fullscreen
     document.addEventListener('fullscreenchange', () => {
-      setTimeout(() => {
+      this._setManagedTimeout(() => {
         this._repositionSubtitle();
       }, 100);
-    });
+    }, { signal: this._lifecycleController.signal });
 
     // Listener para resize da janela
     window.addEventListener('resize', () => {
       clearTimeout(this._repositionDebounce);
-      this._repositionDebounce = setTimeout(() => this._repositionSubtitle(), 150);
-    });
+      this._repositionDebounce = this._setManagedTimeout(() => this._repositionSubtitle(), 150);
+    }, { signal: this._lifecycleController.signal });
   }
 
   async _repositionSubtitle() {
@@ -1182,14 +1247,14 @@ export class SubtitleEngine {
         const newBottom = Math.max(0, startBottom + deltaY);
         host.style.bottom = `${newBottom}px`;
         this._currentBottom = newBottom;
-      });
+      }, { signal: this._lifecycleController.signal });
 
       window.addEventListener('mouseup', () => {
         if (isDragging) {
           isDragging = false;
           wrap.style.cursor = 'default';
         }
-      });
+      }, { signal: this._lifecycleController.signal });
       this._dragEventsAttached = true;
     }
 
@@ -1235,17 +1300,22 @@ export class SubtitleEngine {
         if (text) {
           this._showTranslationFlash(text);
         } else if (cue?.text) {
+          const navigation = this._navigationSnapshot();
           // Traduz agora
           translateBtn.textContent = '⏳';
           translateBtn.disabled = true;
           try {
             const { translator } = await import('../utils/translator.js');
+            if (!this._isNavigationCurrent(navigation)) return;
             const result = await translator.translate(cue.text, 'auto', this.targetLang);
+            if (!this._isNavigationCurrent(navigation) || this._currentCue !== cue) return;
             cue.translatedText = result.translation;
             this._showTranslationFlash(result.translation);
           } catch {}
-          translateBtn.textContent = '🌐 Traduzir';
-          translateBtn.disabled = false;
+          if (this._isNavigationCurrent(navigation) && translateBtn.isConnected) {
+            translateBtn.textContent = '🌐 Traduzir';
+            translateBtn.disabled = false;
+          }
         }
       });
     }
@@ -1376,7 +1446,7 @@ export class SubtitleEngine {
           if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
           if (e.key.toLowerCase() === 'c') switchWrapper.click();
           if (e.key.toLowerCase() === 'o') btnSettings.click();
-        });
+        }, { signal: this._lifecycleController.signal });
         this._kbAttached = true;
       }
 
@@ -1387,7 +1457,7 @@ export class SubtitleEngine {
 
     // Tenta por no máximo 30 segundos (20 tentativas de 1.5s)
     let attempts = 0;
-    const iv = setInterval(() => {
+    const iv = this._setManagedInterval(() => {
       attempts++;
       if (tryInject() || attempts > 20) clearInterval(iv);
     }, 1500);
@@ -2487,14 +2557,16 @@ export class SubtitleEngine {
     return cues;
   }
 
-  async _fetchYoutubeSubtitles() {
+  async _fetchYoutubeSubtitles(navigation = this._navigationSnapshot()) {
+    if (!this._isNavigationCurrent(navigation)) return;
     if (this.cues.length > 0) return;
 
     try {
       const { lastYoutubeSubtitleUrls } = await chrome.storage.local.get('lastYoutubeSubtitleUrls');
+      if (!this._isNavigationCurrent(navigation)) return;
       const urls = lastYoutubeSubtitleUrls ?? [];
 
-      const videoId = new URL(window.location.href).searchParams.get('v');
+      const videoId = new URL(navigation.url).searchParams.get('v');
       if (!videoId) return;
 
       // Filtra URLs que pertencem ao vídeo atual
@@ -2532,11 +2604,14 @@ export class SubtitleEngine {
       console.debug(`[LinguaFlow] Legendas: ${urlsToTry.length} candidatas (lang=${srcLang})`);
 
       for (const url of urlsToTry) {
+        if (!this._isNavigationCurrent(navigation)) return;
         console.debug('[LinguaFlow] Tentando carregar legendas de:', url);
-        const response = await fetch(new URL(url).toString());
+        const response = await fetch(new URL(url).toString(), { signal: navigation.signal });
+        if (!this._isNavigationCurrent(navigation)) return;
         if (!response.ok) continue;
 
         const text = await response.text();
+        if (!this._isNavigationCurrent(navigation)) return;
         let data = null;
 
         if (text.startsWith('{')) {
@@ -2548,6 +2623,7 @@ export class SubtitleEngine {
         if (data && data.events) {
           const cues = this._processYtSub(data);
           if (cues && cues.length > 0) {
+            if (!this._isNavigationCurrent(navigation)) return;
             this.cues = cues;
             this.xhrCues = cues;
             this.usingXhr = true;
@@ -2560,6 +2636,7 @@ export class SubtitleEngine {
         }
       }
     } catch (e) {
+      if (e?.name === 'AbortError' || !this._isNavigationCurrent(navigation)) return;
       console.error('[LinguaFlow] Erro ao recuperar legendas:', e);
     }
   }
@@ -2984,7 +3061,13 @@ export class SubtitleEngine {
 
   // A injeção do youtube-hook.js agora é feita pelo injector.js em document_start
 
-  _processYouTubeRawSubtitles(url, raw) {
+  _processYouTubeRawSubtitles(url, raw, navigation = this._navigationSnapshot()) {
+    if (!this._isNavigationCurrent(navigation)) return;
+    try {
+      const cueVideoId = new URL(url).searchParams.get('v');
+      const currentVideoId = new URL(navigation.url).searchParams.get('v');
+      if (cueVideoId && currentVideoId && cueVideoId !== currentVideoId) return;
+    } catch { return; }
     if (!raw || raw.length < 10) return;
     let cues = [];
 
@@ -2998,7 +3081,7 @@ export class SubtitleEngine {
       cues = this._parseVTT(raw); // VTT/SRT unificado
     }
 
-    if (cues.length > 0) {
+    if (cues.length > 0 && this._isNavigationCurrent(navigation)) {
       this.cues = cues;
       this.xhrCues = cues; // Unifica para garantir que o sync loop e sidebar vejam o mesmo
       this._renderVideoWordPrep();
@@ -3026,6 +3109,9 @@ export class SubtitleEngine {
 
   // ── Atualização via DOM (Netflix/etc) ─────────────────────────────────────
   async _onDomSubtitleUpdate(text, timeMs) {
+    const navigation = this._navigationSnapshot();
+    const subtitleEpoch = ++this._domSubtitleEpoch;
+    if (!this._isNavigationCurrent(navigation)) return;
     if (!text) {
       this.renderDual('', '');
       return;
@@ -3041,7 +3127,11 @@ export class SubtitleEngine {
     // Traduz INSTANTANEAMENTE com detecção automática de idioma
     try {
       const { translator } = await import('../utils/translator.js');
+      if (!this._isNavigationCurrent(navigation) || subtitleEpoch !== this._domSubtitleEpoch) return;
       const result = await translator.translate(text, 'auto', this.targetLang);
+      if (!this._isNavigationCurrent(navigation)
+        || subtitleEpoch !== this._domSubtitleEpoch
+        || !this.cues.includes(cue)) return;
       cue.translatedText = result.translation;
       this.renderDual(text, result.translation);
 
@@ -3052,6 +3142,7 @@ export class SubtitleEngine {
         );
       }
     } catch (e) {
+      if (!this._isNavigationCurrent(navigation) || subtitleEpoch !== this._domSubtitleEpoch) return;
       console.error('[LinguaFlow] Erro na tradução:', e);
       this.renderDual(text, '');
     }
@@ -3193,6 +3284,7 @@ export class SubtitleEngine {
   }
 
   _prefetchTranslations(cues, currentIdx) {
+    const navigation = this._navigationSnapshot();
     const nextCues = cues
       .slice(currentIdx + 1, currentIdx + 5)
       .filter((c) => !c.translatedText && !c.isTranslating);
@@ -3206,6 +3298,7 @@ export class SubtitleEngine {
           to: this.targetLang,
         },
         (res) => {
+          if (!this._isNavigationCurrent(navigation) || !this.cues.includes(c)) return;
           if (res?.translation) c.translatedText = res.translation;
           c.isTranslating = false;
         },
@@ -3407,13 +3500,16 @@ export class SubtitleEngine {
       this.renderDual(cue.text, trans);
     } else {
       console.warn('[LinguaFlow] ⚠️ shadowContainer não pronto em onSubtitle. Tentando injetar...');
+      const navigation = this._navigationSnapshot();
       this._injectSubtitleUI().then(() => {
+        if (!this._isNavigationCurrent(navigation) || this._currentCue !== cue) return;
         this.renderDual(cue.text, trans);
       });
     }
 
     // 4. Se a tradução chegou depois, atualiza
     if (!cue.translatedText && !cue.isTranslating) {
+      const navigation = this._navigationSnapshot();
       cue.isTranslating = true;
       chrome.runtime.sendMessage(
         {
@@ -3423,6 +3519,7 @@ export class SubtitleEngine {
           to: this.targetLang,
         },
         (res) => {
+          if (!this._isNavigationCurrent(navigation) || !this.cues.includes(cue)) return;
           cue.isTranslating = false;
           if (res?.translation) {
             cue.translatedText = res.translation;
@@ -3713,6 +3810,13 @@ export class SubtitleEngine {
     const origDiv = this.shadowContainer?.getElementById('lf-orig');
     if (!origDiv) return;
 
+    if (this._saveButtonObservers) {
+      this._saveButtonObservers.forEach((item) => item.disconnect());
+      this._saveButtonObservers.clear();
+    } else {
+      this._saveButtonObservers = new Set();
+    }
+
     const observer = new MutationObserver(() => {
       const saveBtn = this.shadowContainer?.getElementById('lf-save-btn');
       if (!saveBtn) return;
@@ -3729,6 +3833,8 @@ export class SubtitleEngine {
       characterData: true,
       subtree: true,
     });
+    this._saveButtonObservers.add(observer);
+    this._managedObservers.add(observer);
 
     // Também observa mudanças no atributo style
     const styleObserver = new MutationObserver(() => {
@@ -3745,6 +3851,8 @@ export class SubtitleEngine {
       attributes: true,
       attributeFilter: ['style'],
     });
+    this._saveButtonObservers.add(styleObserver);
+    this._managedObservers.add(styleObserver);
   }
 
   toggleSubtitles(forceState = null) {
@@ -3969,15 +4077,19 @@ export class SubtitleEngine {
 
       // Auto-tradução na barra lateral se estiver faltando
       if (!cue.translatedText && showTrans) {
+        const navigation = this._navigationSnapshot();
         import('../utils/translator.js').then(({ translator }) => {
+          if (!this._isNavigationCurrent(navigation)) return;
           translator
             .translate(cue.text, 'auto', this.targetLang)
             .then((res) => {
+              if (!this._isNavigationCurrent(navigation) || !this.cues.includes(cue)) return;
               cue.translatedText = res.translation;
               const tDiv = item.querySelector('.lf-translation-text');
               if (tDiv) tDiv.textContent = res.translation;
             })
             .catch(() => {
+              if (!this._isNavigationCurrent(navigation)) return;
               const tDiv = item.querySelector('.lf-translation-text');
               if (tDiv) tDiv.textContent = '';
             });
@@ -4158,8 +4270,24 @@ export class SubtitleEngine {
   }
 
   destroy() {
+    if (this._disposed) return;
+    this._disposed = true;
+    this._navigationController?.abort('engine-disposed');
+    this._lifecycleController.abort('engine-disposed');
+    this._managedTimeouts.forEach((id) => clearTimeout(id));
+    this._managedIntervals.forEach((id) => clearInterval(id));
+    this._managedTimeouts.clear();
+    this._managedIntervals.clear();
+    this._managedObservers.forEach((observer) => observer.disconnect());
+    this._managedObservers.clear();
     if (this.ytObserver) this.ytObserver.disconnect();
     if (this.resizeObserver) this.resizeObserver.disconnect();
+    if (this._ytXhrListener) {
+      document.removeEventListener('youtubeSubtitleXhrEvent', this._ytXhrListener);
+    }
+    if (this._runtimeMessageListener) {
+      try { chrome.runtime.onMessage.removeListener(this._runtimeMessageListener); } catch {}
+    }
 
     const v = this.videoElement || document.querySelector('video');
     if (this.syncInterval) {
@@ -4171,7 +4299,11 @@ export class SubtitleEngine {
       else cancelAnimationFrame(this._syncTimer);
     }
     if (this._loopInterval) clearInterval(this._loopInterval);
-    this.domCapture.stop();
+    if (this._watchdogInterval) clearInterval(this._watchdogInterval);
+    if (this._videoWaitInterval) clearInterval(this._videoWaitInterval);
+    this._stopSyncLoop();
+    this.domCapture?.stop?.();
+    this.wordPopup?.destroy?.();
     this.shadowContainer?.host?.remove();
     document.getElementById('lf-yt-btn')?.remove();
     document.getElementById('lf-float-btn')?.remove();

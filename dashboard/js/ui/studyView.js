@@ -31,6 +31,8 @@ let studyViewGeneration = 0;
 let studyViewActive = false;
 const studyTimers = new Set();
 const feedbackAudioContexts = new Set();
+const cardPresentationIds = new WeakMap();
+let nextCardPresentationId = 0;
 
 const TOPIC_LABELS = { word: 'Palavras', phrasal: 'Phrasal Verbs', slang: 'Gírias', idiom: 'Expressões' };
 
@@ -558,6 +560,7 @@ async function loadNextCard(app) {
 
   currentCard = dueQueue[0];
   const card = currentCard;
+  cardPresentationIds.set(card, ++nextCardPresentationId);
   chatHistory = [];
 
   // Reset UI
@@ -957,7 +960,10 @@ async function revealCard() {
       await persistChunks(card, chunks, null);
       if (currentCard !== card) return;
 
-      renderReveal(word, context, ctxEntry, wordEntry, wordData, card);
+      // Atualiza apenas os dados textuais. Recriar controles de vídeo aqui
+      // perderia o estado play/pause e deixaria o callback do iframe anterior
+      // apontando para botões já removidos.
+      renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { renderVideo: false });
       renderChunksList(chunks, context);
     } catch (e) {
       if (currentCard === card) phonEl.classList.add('hidden');
@@ -966,7 +972,11 @@ async function revealCard() {
   }
 }
 
-function renderReveal(word, context, ctxEntry, wordEntry, wordData, card) {
+function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { renderVideo = true } = {}) {
+  const presentationId = cardPresentationIds.get(card);
+  const isCurrentPresentation = () => studyViewActive
+    && currentCard === card
+    && cardPresentationIds.get(card) === presentationId;
   const phonEl = document.getElementById('pump-phonetics');
   if (ctxEntry && ctxEntry.phon) {
     phonEl.textContent = `🗣️ ${ctxEntry.phon}`;
@@ -1031,6 +1041,8 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card) {
     }
   };
 
+  if (!renderVideo) return;
+
   // Onda 2.5: player YouTube único e reutilizável — trocar de card troca só
   // o vídeo carregado (cueVideoById), nunca recria o iframe do zero.
   const videoContainer = document.getElementById('saved-video-context');
@@ -1053,7 +1065,7 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card) {
         <span class="video-context-label">🎬 Salvo de ${platform}</span>
         <span class="video-context-title" title="${title}">${title}</span>
         <div class="video-context-actions">
-          <button type="button" class="video-context-embed clip-control" id="play-saved-clip">▶ Ouvir em loop (${clipDuration} s)</button>
+          <button type="button" class="video-context-embed clip-control" id="play-saved-clip" aria-pressed="false">▶ Ouvir em loop (${clipDuration} s)</button>
           <button type="button" class="video-context-embed clip-control hidden" id="replay-saved-clip">↻ Do início</button>
           <a href="${escapeHtml(vctx.externalUrl)}" target="_blank" rel="noopener noreferrer">Abrir no YouTube ↗</a>
         </div>
@@ -1069,30 +1081,37 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card) {
         if (isClipPlaying()) {
           pausePlayer();
           button.textContent = '▶ Continuar trecho';
+          button.setAttribute('aria-pressed', 'false');
           if (status) status.textContent = 'Pausado no trecho';
         } else {
           playClip();
           button.textContent = '⏸ Pausar';
+          button.setAttribute('aria-pressed', 'true');
           if (status) status.textContent = 'Repetindo somente esta frase';
         }
         return;
       }
       button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
       button.textContent = 'Carregando trecho…';
       if (status) status.textContent = 'Preparando o trecho no ponto salvo…';
-      ytMount.classList.remove('hidden');
       setClipLoop(true);
       const ok = await loadVideo(ytMount, vctx.videoId, { start: clipStart, end: clipEnd });
-      if (!ok || currentCard !== card) {
-        if (currentCard === card) ytMount.classList.add('hidden');
-        if (currentCard === card && status) status.textContent = 'Não foi possível carregar este vídeo. Use “Abrir no YouTube”.';
+      if (!ok || !isCurrentPresentation()) {
+        if (isCurrentPresentation()) ytMount.classList.add('hidden');
+        if (isCurrentPresentation() && status) status.textContent = 'Não foi possível carregar este vídeo. Use “Abrir no YouTube”.';
         button.disabled = false;
+        button.removeAttribute('aria-busy');
+        button.setAttribute('aria-pressed', 'false');
         button.textContent = 'Tentar novamente';
         return;
       }
+      ytMount.classList.remove('hidden');
       replayClip();
       clipLoaded = true;
       button.disabled = false;
+      button.removeAttribute('aria-busy');
+      button.setAttribute('aria-pressed', 'true');
       button.textContent = '⏸ Pausar';
       replayButton?.classList.remove('hidden');
       if (status) status.textContent = hasExactBounds
@@ -1103,7 +1122,10 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card) {
       if (!clipLoaded) return;
       replayClip();
       const playButton = document.getElementById('play-saved-clip');
-      if (playButton) playButton.textContent = '⏸ Pausar';
+      if (playButton) {
+        playButton.textContent = '⏸ Pausar';
+        playButton.setAttribute('aria-pressed', 'true');
+      }
       if (status) status.textContent = 'Reiniciado no começo da frase';
     });
   } else if (vctx && vctx.externalUrl) {

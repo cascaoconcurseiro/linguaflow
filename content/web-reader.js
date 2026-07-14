@@ -5,6 +5,19 @@
  */
 
 (async function WebReader() {
+  // Defesa em profundidade: o manifest exclui os hosts estáveis e esta
+  // barreira cobre previews da Vercel, desenvolvimento local e futuros
+  // domínios identificados pelo shell do app.
+  let isLinguaFlowPage;
+  try {
+    ({ isLinguaFlowPage } = await import(chrome.runtime.getURL('utils/site-boundary.js')));
+  } catch {
+    // Contexto da extensão invalidado durante update/reload: não deixe um
+    // content script parcialmente inicializado na página.
+    return;
+  }
+  if (isLinguaFlowPage(window.location, document)) return;
+
   // Não ativar em sites de vídeo (já têm o subtitle engine)
   const hostname = window.location.hostname;
   const videoSites = [
@@ -23,27 +36,37 @@
   if (window.__LF_READER_LOADED__) return;
   window.__LF_READER_LOADED__ = true;
 
+  const lifecycle = {
+    active: true,
+    interactionEpoch: 0,
+    selectionTimer: null,
+    feedbackTimer: null,
+  };
+  window.__LF_READER_LIFECYCLE__ = lifecycle;
+
+  const isActive = () => lifecycle.active && !!chrome?.runtime?.id;
+
   console.debug('[LinguaFlow Reader] Modo Leitura ativado em:', hostname);
 
   // ── Dependências ──────────────────────────────────────────────────────────
-  let db,
-    tts,
+  let tts,
     offlineDict,
     popupEl = null,
     currentWord = '',
     currentContext = '';
 
   try {
-    const [dbMod, ttsMod, dictMod] = await Promise.all([
-      import(chrome.runtime.getURL('utils/db.js')),
+    const [ttsMod, dictMod] = await Promise.all([
       import(chrome.runtime.getURL('utils/tts.js')),
       import(chrome.runtime.getURL('utils/offline-dict.js')),
     ]);
-    db = dbMod.db;
     tts = ttsMod.tts;
     offlineDict = dictMod.offlineDict;
   } catch (e) {
     console.warn('[LinguaFlow Reader] Falha ao carregar dependências:', e.message);
+    lifecycle.active = false;
+    delete window.__LF_READER_LIFECYCLE__;
+    window.__LF_READER_LOADED__ = false;
     return;
   }
 
@@ -83,7 +106,7 @@
 
   // ── Popup UI ──────────────────────────────────────────────────────────────
   function buildPopup() {
-    if (popupEl) return;
+    if (!isActive() || popupEl) return;
     popupEl = document.createElement('div');
     popupEl.id = 'lf-reader-popup';
     popupEl.innerHTML = `
@@ -141,22 +164,28 @@
     `;
     document.body.appendChild(popupEl);
 
-    document.getElementById('lf-r-close').addEventListener('click', hidePopup);
-    document
-      .getElementById('lf-r-speak')
+    popupEl.querySelector('#lf-r-close').addEventListener('click', hidePopup);
+    popupEl
+      .querySelector('#lf-r-speak')
       .addEventListener('click', () => tts.play(currentWord, 'en-US'));
-    document.getElementById('lf-r-save').addEventListener('click', saveWord);
-    document.getElementById('lf-r-dashboard').addEventListener('click', () => {
-      chrome.runtime.sendMessage({ type: 'OPEN_DASHBOARD' });
+    popupEl.querySelector('#lf-r-save').addEventListener('click', saveWord);
+    popupEl.querySelector('#lf-r-dashboard').addEventListener('click', () => {
+      chrome.runtime.sendMessage({ type: 'OPEN_DASHBOARD' }).catch(() => {});
     });
   }
 
   function showPopup(x, y, word, translation) {
+    if (!isActive()) return;
     buildPopup();
+    if (!popupEl) return;
     currentWord = word;
-    document.getElementById('lf-r-word').textContent = word;
-    const transEl = document.getElementById('lf-r-translation');
-    const saveBtn = document.getElementById('lf-r-save');
+    popupEl.querySelector('#lf-r-word').textContent = word;
+    const transEl = popupEl.querySelector('#lf-r-translation');
+    const saveBtn = popupEl.querySelector('#lf-r-save');
+    clearTimeout(lifecycle.feedbackTimer);
+    saveBtn.textContent = '💾 Salvar';
+    saveBtn.disabled = false;
+    saveBtn.style.background = '';
 
     if (translation) {
       transEl.textContent = translation;
@@ -186,22 +215,34 @@
   }
 
   async function saveWord() {
-    if (!currentWord) return;
-    const btn = document.getElementById('lf-r-save');
+    if (!isActive() || !currentWord || !popupEl?.isConnected) return;
+    const wordAtStart = currentWord;
+    const contextAtStart = currentContext;
+    const epochAtStart = lifecycle.interactionEpoch;
+    const btn = popupEl.querySelector('#lf-r-save');
     btn.textContent = '⏳ Salvando...';
     btn.disabled = true;
     try {
-      const translation = await quickTranslate(currentWord);
-      await db.saveWord({
-        word: currentWord,
-        translation: translation || '',
-        lang: 'en',
-        context_sentence: currentContext || '',
-        added_at: Date.now(),
+      // O clique confirma assim que a intenção fica durável no storage local
+      // do service worker. Rede, banco e enriquecimento rodam depois com retry.
+      const translation = translateCache.get(wordAtStart.toLowerCase()) || '';
+      const response = await chrome.runtime.sendMessage({
+        type: 'QUEUE_WORD_SAVE',
+        payload: {
+          word: wordAtStart,
+          translation: translation || '',
+          lang: 'en',
+          context_sentence: contextAtStart || '',
+          added_at: Date.now(),
+        },
       });
+      if (!response?.ok) throw new Error(response?.error || 'queue_save_failed');
+      if (!isActive() || epochAtStart !== lifecycle.interactionEpoch || !btn?.isConnected) return;
       btn.textContent = '✅ Salvo!';
       btn.style.background = '#10b981';
-      setTimeout(() => {
+      clearTimeout(lifecycle.feedbackTimer);
+      lifecycle.feedbackTimer = setTimeout(() => {
+        if (!isActive() || !btn.isConnected) return;
         btn.textContent = '💾 Salvar';
         btn.style.background = '';
         btn.disabled = false;
@@ -210,6 +251,7 @@
       // Notifica outras abas
       chrome.runtime.sendMessage({ type: 'WORD_SAVED' }).catch(() => {});
     } catch (e) {
+      if (!isActive() || epochAtStart !== lifecycle.interactionEpoch || !btn?.isConnected) return;
       btn.textContent = '❌ Erro';
       btn.disabled = false;
     }
@@ -217,6 +259,7 @@
 
   // ── Interação com Texto ───────────────────────────────────────────────────
   async function handleWordClick(e) {
+    if (!isActive()) return;
     // Ignora inputs, textareas, contenteditable
     if (e.target.closest('input, textarea, [contenteditable="true"], #lf-reader-popup')) return;
 
@@ -245,13 +288,15 @@
     word = word.replace(/[^a-zA-ZÀ-ÖØ-öø-ÿ'’-]/g, '').trim();
     if (!word || word.length < 2 || word.length > 40) return;
 
+    const interactionEpoch = ++lifecycle.interactionEpoch;
     showPopup(e.clientX, e.clientY, word, null);
 
     // Tradução assíncrona
     const translation = await quickTranslate(word);
-    const transEl = document.getElementById('lf-r-translation');
-    const saveBtn = document.getElementById('lf-r-save');
-    if (transEl && popupEl.style.display !== 'none') {
+    if (!isActive() || interactionEpoch !== lifecycle.interactionEpoch || currentWord !== word) return;
+    const transEl = popupEl?.querySelector('#lf-r-translation');
+    const saveBtn = popupEl?.querySelector('#lf-r-save');
+    if (transEl && popupEl?.isConnected && popupEl.style.display !== 'none') {
       transEl.textContent = translation || '(sem tradução)';
       transEl.classList.remove('lf-r-loading');
       if (saveBtn) saveBtn.style.display = '';
@@ -281,26 +326,62 @@
   }
 
   // ── Event Listeners ───────────────────────────────────────────────────────
-  document.addEventListener('dblclick', handleWordClick);
-  document.addEventListener('mouseup', (e) => {
+  const handleDoubleClick = (e) => {
+    // O segundo mouseup do duplo-clique já deixou um callback agendado.
+    // Cancelá-lo garante uma única seleção/tradução por gesto.
+    clearTimeout(lifecycle.selectionTimer);
+    lifecycle.selectionTimer = null;
+    handleWordClick(e);
+  };
+
+  const handleMouseUp = (e) => {
     // Se houve seleção de texto com o mouse, mostra popup após 300ms
     const sel = window.getSelection();
     if (sel && sel.toString().trim().length > 1 && sel.toString().trim().length < 200) {
-      setTimeout(() => handleWordClick(e), 300);
+      clearTimeout(lifecycle.selectionTimer);
+      lifecycle.selectionTimer = setTimeout(() => {
+        if (isActive()) handleWordClick(e);
+      }, 300);
     }
-  });
+  };
 
   // Fecha popup ao clicar fora
-  document.addEventListener('click', (e) => {
+  const handleDocumentClick = (e) => {
     if (popupEl && popupEl.style.display !== 'none' && !popupEl.contains(e.target)) {
       hidePopup();
     }
-  });
+  };
 
   // Tecla Escape fecha popup
-  document.addEventListener('keydown', (e) => {
+  const handleKeyDown = (e) => {
     if (e.key === 'Escape') hidePopup();
-  });
+  };
+
+  const dispose = () => {
+    if (!lifecycle.active) return;
+    lifecycle.active = false;
+    lifecycle.interactionEpoch += 1;
+    clearTimeout(lifecycle.selectionTimer);
+    clearTimeout(lifecycle.feedbackTimer);
+    document.removeEventListener('dblclick', handleDoubleClick);
+    document.removeEventListener('mouseup', handleMouseUp);
+    document.removeEventListener('click', handleDocumentClick);
+    document.removeEventListener('keydown', handleKeyDown);
+    popupEl?.remove();
+    popupEl = null;
+    try { tts?.stop?.(); } catch { /* lifecycle cleanup best-effort */ }
+    if (window.__LF_READER_LIFECYCLE__ === lifecycle) {
+      delete window.__LF_READER_LIFECYCLE__;
+      window.__LF_READER_LOADED__ = false;
+    }
+  };
+  lifecycle.dispose = dispose;
+
+  document.addEventListener('dblclick', handleDoubleClick);
+  document.addEventListener('mouseup', handleMouseUp);
+  document.addEventListener('click', handleDocumentClick);
+  document.addEventListener('keydown', handleKeyDown);
+  window.addEventListener('pagehide', dispose, { once: true });
 
   console.debug('[LinguaFlow Reader] ✅ Pronto — duplo-clique em qualquer palavra para traduzir.');
 })();

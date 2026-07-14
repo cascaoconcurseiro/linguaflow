@@ -6,7 +6,13 @@
     "test:engine": "node tests/engine.test.mjs",
     "test:local-day": "node tests/local-day.test.mjs",
     "test:video": "node tests/video-context.test.mjs",
+    "test:yt-player": "node tests/yt-player.test.mjs",
     "test:audio": "node tests/audio-race.test.mjs",
+    "test:site-boundary": "node tests/site-boundary.test.mjs",
+    "test:web-reader": "node tests/web-reader-contract.test.mjs",
+    "test:subtitle-lifecycle": "node tests/subtitle-lifecycle.test.mjs",
+    "test:study-video": "node tests/study-video-race.test.mjs",
+    "test:stage2": "npm run test:yt-player && npm run test:video && npm run test:study-video && npm run test:site-boundary && npm run test:web-reader && npm run test:subtitle-lifecycle",
     "test:release": "node tests/release-smoke.mjs"
   },
   "dependencies": {

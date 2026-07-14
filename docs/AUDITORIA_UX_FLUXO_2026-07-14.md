@@ -4,6 +4,13 @@
 **Frentes:** direção de UX/arquitetura de informação, product design de aprendizagem e engenharia frontend/áudio.  
 **Regra do projeto:** nenhuma função será removida. Recursos serão priorizados, agrupados e revelados no momento certo.
 
+## Estado de execução
+
+- **Etapa 1 — concluída por Codex em 2026-07-14:** áudio exclusivo, lifecycle/navegação seguros e mutações de revisão confirmadas antes de avançar.
+- **Etapa 2 — concluída por Codex em 2026-07-14:** máquina única do player, bounds exatos, epochs de vídeo/legenda, descarte de traduções antigas e Web Reader isolado/local-first.
+- **Gate atual:** QA autenticado do preview e extensão real; produção não deve ser promovida antes desse gate.
+- **Próxima etapa:** modo foco do Estudo e reorganização progressiva dos cards, preservando todos os recursos na gaveta Explorar.
+
 ## Diagnóstico executivo
 
 O LinguaFlow tem boas funções, mas apresenta três problemas sistêmicos:

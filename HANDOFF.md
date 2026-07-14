@@ -1,5 +1,44 @@
 # Handoff — LinguaFlow
 
+## Handoff Codex — Plano UX/Races, Etapa 2 (2026-07-14)
+
+**Estado:** implementação concluída na branch `codex/review-mobile-video`. Produção permanece intacta até o QA autenticado do preview e o teste da extensão carregada no Chrome.
+
+### O que Codex e as frentes sêniores fizeram
+
+- `dashboard/js/core/ytPlayer.js`: máquina de estados única por request/ciclo; somente um monitor de fim; `ENDED` é fallback deduplicado; loop usa `seekTo` no mesmo iframe; callbacks antigos são invalidados; falha/timeout permite retry.
+- `dashboard/js/core/videoContext.js` e `dashboard/js/ui/studyView.js`: usam `video_start_ms`/`video_end_ms`, link canônico no início da frase, mount oculto até o player ficar pronto, identidade por apresentação do card e controles acessíveis.
+- `content/subtitle-engine.js`: epoch e `AbortController` por navegação; fetch de cue e traduções só publicam se vídeo/cue ainda forem atuais; navegação duplicada é deduplicada; `destroy()` limpa listeners, observers, timers, RAFs e recursos auxiliares.
+- `utils/site-boundary.js`, `manifest.json` e `background/service-worker.js`: Web Reader não injeta no produto; context menu respeita a fronteira; `OPEN_DASHBOARD` reutiliza/foca uma aba existente.
+- `content/web-reader.js`: tradução tokenizada, gesto `mouseup`/`dblclick` deduplicado, lifecycle descartável e salvamento durável em fila local-first antes da sincronização de rede.
+
+### Contratos que precisam ser preservados
+
+1. Exatamente um dono decide o fim do trecho; não reintroduzir polling e `ENDED` como transições independentes.
+2. Toda publicação assíncrona de cue/tradução verifica epoch e identidade depois de cada `await`.
+3. O iframe só aparece depois de pronto e nunca é recarregado a cada loop.
+4. O Web Reader nunca roda no próprio LinguaFlow e salvar não espera o Supabase.
+5. Trocar de página/vídeo chama cleanup e invalida callbacks anteriores.
+
+### Evidência automatizada
+
+- `npm run test:stage2`: player 12, contexto 10, estudo/vídeo 4, domínio 14, Web Reader 6 e legendas 13.
+- Regressões: áudio 8/8, motor 37/37 e calendário local 5/5.
+- `npm run test:release -- --allow-dirty`, `node --check` e `git diff --check` verdes antes do commit.
+
+### QA manual antes de produção
+
+- Card com bounds exatos começa no início, pausa no fim e repete sem tela preta.
+- Pausar, continuar e “Do início” mantêm o mesmo trecho.
+- Trocar rapidamente card A→B nunca reproduz nem exibe estado de A em B.
+- Na extensão, navegar YouTube A→B mantém somente cues/traduções de B e não duplica painel/listeners.
+- No dashboard, duplo clique não abre o Web Reader; em site externo abre uma vez.
+- Salvar confirma imediatamente; offline mantém a intenção na fila e sincroniza depois.
+
+**Próximo:** Etapa 3 — modo foco do Estudo, frente/verso do card, dock mobile compacto e gaveta Explorar sem remover funções.
+
+---
+
 ## Execução Fable — 2026-07-12 (ONDA 6 — responsividade mobile, "todos seniors das áreas envolvidas")
 > Pedido do dono: "A versão no celular precisa de diversos ajustes... Preciso de todos sênior das áreas envolvidas... o sistema já pode ir pra produção?". Investigado com Chromium/Playwright headless em viewports de 320/375/390px.
 

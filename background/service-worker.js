@@ -1,6 +1,7 @@
 // background/service-worker.js
 import { db } from '../utils/db.js';
 import { translator } from '../utils/translator.js';
+import { OFFICIAL_SITE_URL, isLinguaFlowUrl } from '../utils/site-boundary.js';
 
 // Garbage Collector para limpar dicionários velhos e liberar espaço (QuotaExceeded)
 function _sweepStaleCache() {
@@ -53,6 +54,8 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'linguaflow-save') {
+    // O dashboard é o produto, não uma página hospedeira da extensão.
+    if (isLinguaFlowUrl(tab?.url)) return;
     chrome.tabs.sendMessage(tab.id, {
       action: 'openWordPopup',
       payload: { word: info.selectionText.trim() },
@@ -63,6 +66,35 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 // ── Listener de mensagens ─────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.debug('[LinguaFlow SW] Mensagem recebida:', request.type || request.action);
+
+  if (request.type === 'OPEN_DASHBOARD') {
+    (async () => {
+      try {
+        // Se a mensagem partiu do próprio dashboard, nunca abra uma cópia.
+        if (isLinguaFlowUrl(sender?.tab?.url)) {
+          sendResponse({ ok: true, reused: true, tabId: sender.tab.id });
+          return;
+        }
+
+        const tabs = await chrome.tabs.query({});
+        const existing = tabs.find((tab) => isLinguaFlowUrl(tab.url));
+        if (existing?.id) {
+          await chrome.tabs.update(existing.id, { active: true });
+          if (existing.windowId != null) {
+            await chrome.windows?.update?.(existing.windowId, { focused: true });
+          }
+          sendResponse({ ok: true, reused: true, tabId: existing.id });
+          return;
+        }
+
+        const created = await chrome.tabs.create({ url: OFFICIAL_SITE_URL });
+        sendResponse({ ok: true, reused: false, tabId: created?.id });
+      } catch (error) {
+        sendResponse({ ok: false, error: error?.message || String(error) });
+      }
+    })();
+    return true;
+  }
 
   // Local-first: o popup confirma assim que a intenção fica persistida no
   // storage da extensão. A rede, criação do card e enriquecimentos acontecem
@@ -1292,7 +1324,7 @@ async function maybeNotifyDue(due) {
 
 chrome.notifications?.onClicked?.addListener((id) => {
   if (id === 'lf-due-reminder') {
-    chrome.tabs.create({ url: 'https://linguaflow-web-tau.vercel.app/' });
+    chrome.tabs.create({ url: OFFICIAL_SITE_URL });
     chrome.notifications.clear(id);
   }
 });

@@ -21,7 +21,7 @@ function validMilliseconds(value) {
   return Number.isInteger(numeric) && numeric >= 0 && numeric <= 86400000 ? numeric : null;
 }
 
-export function getVideoContext(videoUrl, { startMs = null, endMs = null } = {}) {
+export function getVideoContext(videoUrl, metadata = {}) {
   if (typeof videoUrl !== 'string' || videoUrl.length > 2048) return null;
   let url;
   try {
@@ -44,10 +44,20 @@ export function getVideoContext(videoUrl, { startMs = null, endMs = null } = {})
 
   const hashTime = new URLSearchParams(url.hash.replace(/^#/, '')).get('t');
   const legacyStart = Math.min(parseSeconds(url.searchParams.get('t') || url.searchParams.get('start') || hashTime), 86400);
-  const persistedStart = validMilliseconds(startMs);
-  const persistedEnd = validMilliseconds(endMs);
+  // PostgREST devolve os nomes canônicos em snake_case; utilitários internos e
+  // testes antigos também usam camelCase. Aceitar ambos evita descartar os
+  // limites exatos da legenda e reconstruir um trecho aproximado por engano.
+  const persistedStart = validMilliseconds(metadata.video_start_ms ?? metadata.startMs);
+  const persistedEnd = validMilliseconds(metadata.video_end_ms ?? metadata.endMs);
   const start = persistedStart === null ? legacyStart : persistedStart / 1000;
   const end = persistedEnd !== null && persistedEnd > start * 1000 ? persistedEnd / 1000 : null;
+  if (persistedStart !== null) {
+    // O link externo deve abrir no início da frase, não no instante (geralmente
+    // próximo ao fim da cue) em que o usuário clicou para salvá-la.
+    url.hash = '';
+    url.searchParams.delete('start');
+    url.searchParams.set('t', `${Math.floor(start)}s`);
+  }
   const embedUrl = new URL(`https://www.youtube-nocookie.com/embed/${videoId}`);
   embedUrl.searchParams.set('start', String(start));
   embedUrl.searchParams.set('rel', '0');

@@ -52,6 +52,10 @@
     },
     {
       "matches": ["<all_urls>"],
+      "exclude_matches": [
+        "*://linguaflow-web-tau.vercel.app/*",
+        "*://linguaflow.vercel.app/*"
+      ],
       "js": ["content/web-reader.js"],
       "run_at": "document_idle",
       "match_about_blank": false,

@@ -717,3 +717,28 @@ fluxo já reorganizado com usuários antes de nova expansão visual. Ver
 P0-B: painel `Entender melhor`, com trecho original primeiro, explicação/tutor contextual, prática curta e fontes adicionais progressivas. Depois: P0-C de nomenclatura e estados globais.
 
 ---
+# Handoff Codex — Reforma UX P0-B (2026-07-15)
+
+## Entregue
+
+- `Explorar esta frase` virou `Entender melhor`.
+- Ordem: trecho original, significado/tutor, prática curta e fontes adicionais.
+- Tutor tem três perguntas sugeridas e permanece estritamente sob demanda.
+- Chunks: dois recomendados primeiro, restante em `Ver mais`.
+- YouGlish/Tatoeba continuam lazy em `Mais exemplos e fontes`.
+- Undo, regeneração e bury ficam no menu `⋯` separado.
+- Painel lateral no desktop; bottom sheet acima das notas no celular.
+- Engine e player não foram alterados; build web `3.0.5`.
+
+## Gates
+
+- `npm run test:p0-b`.
+- `npm run test:study-focus`.
+- `npm run test:study-video`.
+- `npm run test:audio`.
+
+## Próximo
+
+P0-C: nomenclatura, estados globais e componentes compartilhados. Antes de produção, executar QA autenticado do P0-A/P0-B em desktop e celular real.
+
+---

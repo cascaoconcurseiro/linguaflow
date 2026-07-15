@@ -249,67 +249,100 @@ export async function renderStudy(container, app, params = {}) {
 
         <!-- Tudo que ajuda a aprofundar continua disponível, mas não compete
              com recordar e avaliar. A gaveta só aparece após a resposta. -->
-        <aside class="study-explore" aria-label="Recursos adicionais do card">
-        <details id="study-resources" class="study-resources hidden">
-          <summary><span>Explorar esta frase</span><span aria-hidden="true">⌄</span></summary>
-          <div class="study-resources-content">
-        ${(topicFilter || weakOnly) ? `
-        <div class="study-session-context">
-          <span>${topicFilter ? `🧭 Tópico: <strong>${TOPIC_LABELS[topicFilter] || topicFilter}</strong>` : '🔎 Prática de palavras fracas'}</span>
-          <button id="clear-topic-filter-btn">Voltar à revisão completa</button>
-        </div>` : ''}
-        <div class="study-card-actions">
-          <button id="btn-undo" style="display:none">↩️ Desfazer última (Z)</button>
-          <button id="improve-btn" class="hidden">✨ Gerar uma frase melhor</button>
-          <button id="bury-btn" title="Adia este card para amanhã sem afetar o agendamento">💤 Deixar pra amanhã</button>
-        </div>
+        <aside class="study-explore" aria-label="Aprofundamento opcional do card">
+          <div class="study-explore-row">
+            <details id="study-resources" class="study-resources hidden">
+              <summary><span>Entender melhor</span><span aria-hidden="true">⌄</span></summary>
+              <div class="study-resources-content">
+                <div class="study-resource-panel-header">
+                  <strong>Entender melhor</strong>
+                  <button id="close-study-resources" type="button">Fechar</button>
+                </div>
+                <section id="video-resource-section" class="learning-resource-section learning-resource-video hidden" aria-labelledby="video-resource-title">
+                  <p class="learning-resource-kicker">OUVIR NO CONTEXTO</p>
+                  <h3 id="video-resource-title">Trecho original</h3>
+                  <p class="learning-resource-description">Volte ao instante em que a frase foi falada e repita sem sair do card.</p>
+                  <div id="saved-video-context" class="study-video-context"></div>
+                  <div id="study-yt-mount" class="hidden" aria-label="Trecho do vídeo salvo"></div>
+                </section>
 
-        <details id="tutor-details" class="study-tutor">
-          <summary class="sidebar-title">🎓 Perguntar ao tutor <span>(abrir)</span></summary>
-          <div id="grammar-chat">
-            <div id="grammar-messages" role="log" aria-live="polite">
-              <div class="chat-bubble-ai chat-placeholder">Só respondo quando você perguntar. 😉 Manda sua dúvida sobre a frase.</div>
-            </div>
-            <form id="grammar-form">
-              <input id="grammar-input" type="text" placeholder="Revele o card primeiro…" aria-label="Pergunte sua dúvida sobre a frase" autocomplete="off" maxlength="140" disabled />
-              <button type="submit" id="grammar-send" aria-label="Enviar pergunta" disabled>➤</button>
-            </form>
+                <section class="learning-resource-section" aria-labelledby="understand-resource-title">
+                  <p class="learning-resource-kicker">ENTENDER</p>
+                  <h3 id="understand-resource-title">Significado nesta frase</h3>
+                  <div id="isolated-word-box" class="isolated-word-summary hidden">
+                    <div id="iso-word"></div>
+                    <div id="iso-trans"></div>
+                    <div id="iso-phonetics"></div>
+                    <div id="iso-mnemonic-box">
+                      <button id="iso-mnemonic-btn">Criar um truque para lembrar</button>
+                      <div id="iso-mnemonic-text" class="hidden"></div>
+                    </div>
+                  </div>
+                  <details id="tutor-details" class="study-tutor">
+                    <summary>Explicar com o tutor <span>(sob demanda)</span></summary>
+                    <div class="tutor-prompts" aria-label="Perguntas sugeridas">
+                      <button type="button" data-tutor-prompt="Por que esta palavra foi usada nesta frase?" disabled>Por que usaram assim?</button>
+                      <button type="button" data-tutor-prompt="Explique esta expressão de forma simples e contextual." disabled>Explique a expressão</button>
+                      <button type="button" data-tutor-prompt="Mostre uma variação natural desta frase sem mudar o sentido." disabled>Outra forma natural</button>
+                    </div>
+                    <div id="grammar-chat">
+                      <div id="grammar-messages" role="log" aria-live="polite">
+                        <div class="chat-bubble-ai chat-placeholder">Revele o card e escolha uma pergunta ou escreva sua dúvida.</div>
+                      </div>
+                      <form id="grammar-form">
+                        <input id="grammar-input" type="text" placeholder="Revele o card primeiro…" aria-label="Pergunte sua dúvida sobre a frase" autocomplete="off" maxlength="140" disabled />
+                        <button type="submit" id="grammar-send" aria-label="Enviar pergunta" disabled>➤</button>
+                      </form>
+                    </div>
+                  </details>
+                </section>
+
+                <section class="learning-resource-section" aria-labelledby="practice-resource-title">
+                  <p class="learning-resource-kicker">PRATICAR</p>
+                  <h3 id="practice-resource-title">Blocos úteis desta frase</h3>
+                  <p class="learning-resource-description">Ouça e repita os blocos que podem reaparecer em outras situações.</p>
+                  <div class="chunks-list" id="chunks-container"></div>
+                </section>
+
+                <details class="more-contexts">
+                  <summary>Mais exemplos e fontes</summary>
+                  <div class="more-contexts-content">
+                    <section aria-labelledby="native-examples-title">
+                      <h3 id="native-examples-title">Ouvir em outros contextos</h3>
+                      <div id="youglish-box" class="hidden">
+                        <button id="yg-load-btn" class="btn btn-secondary">Ver no YouGlish</button>
+                        <div id="yg-widget-embed"></div>
+                        <a id="youglish-fallback" href="#" target="_blank" rel="noopener" class="hidden">Abrir no YouGlish</a>
+                      </div>
+                    </section>
+                    <section aria-labelledby="real-sentences-title">
+                      <h3 id="real-sentences-title">Outros exemplos</h3>
+                      <div id="tatoeba-box">
+                        <button id="tatoeba-load-btn" class="btn btn-secondary">Ver exemplos adicionais</button>
+                        <div id="tatoeba-list" class="hidden"></div>
+                      </div>
+                    </section>
+                  </div>
+                </details>
+              </div>
+            </details>
+
+            <details id="study-card-menu" class="study-card-menu hidden">
+              <summary aria-label="Abrir ações do card">⋯</summary>
+              <div class="study-card-menu-content">
+                ${(topicFilter || weakOnly) ? `
+                <div class="study-session-context">
+                  <span>${topicFilter ? `Tópico: <strong>${TOPIC_LABELS[topicFilter] || topicFilter}</strong>` : 'Prática de palavras fracas'}</span>
+                  <button id="clear-topic-filter-btn">Voltar à revisão completa</button>
+                </div>` : ''}
+                <div class="study-card-actions">
+                  <button id="btn-undo" style="display:none">Desfazer última (Z)</button>
+                  <button id="improve-btn" class="hidden">Editar ou regenerar frase</button>
+                  <button id="bury-btn" title="Adia este card para amanhã sem afetar o agendamento">Deixar para amanhã</button>
+                </div>
+              </div>
+            </details>
           </div>
-        </details>
-
-        <section id="video-resource-section" class="explore-section hidden" aria-labelledby="video-resource-title">
-          <h3 id="video-resource-title" class="sidebar-title">Trecho original 🎬</h3>
-          <div id="saved-video-context" class="study-video-context"></div>
-          <div id="study-yt-mount" class="hidden" aria-label="Trecho do vídeo salvo"></div>
-        </section>
-
-        <div id="isolated-word-box" class="hidden" style="margin-bottom: 28px; padding: 24px; background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align:center;">
-          <div style="font-size: 28px; font-weight: 900; color: var(--color-primary); margin-bottom: 8px;" id="iso-word"></div>
-          <div style="font-size: 18px; color: var(--color-text); font-weight: 700; margin-bottom: 8px;" id="iso-trans"></div>
-          <div style="font-size: 14px; color: var(--color-secondary); font-style: italic; background: rgba(28, 176, 246, 0.1); padding: 4px 12px; border-radius: 16px; display: inline-block;" id="iso-phonetics"></div>
-          <div id="iso-mnemonic-box" style="margin-top:14px; text-align:left;">
-            <button id="iso-mnemonic-btn" style="background:none; border:none; color:var(--color-secondary); font-family:var(--font-main); font-weight:800; font-size:13px; cursor:pointer; text-decoration:underline;">💡 Me dá um truque pra lembrar</button>
-            <div id="iso-mnemonic-text" class="hidden" style="margin-top:8px; font-size:13px; color:var(--color-text); background:rgba(255,200,0,0.12); border:1px solid var(--color-warning); border-radius:8px; padding:10px 12px; line-height:1.5;"></div>
-          </div>
-        </div>
-
-        <h3 class="sidebar-title">Nativos falando 📺</h3>
-        <div id="youglish-box" class="hidden">
-          <button id="yg-load-btn" class="btn btn-secondary" style="width:100%; padding:10px; font-size:13px;">▶ Ver nativos falando esta palavra</button>
-          <div id="yg-widget-embed"></div>
-          <a id="youglish-fallback" href="#" target="_blank" rel="noopener" class="hidden" style="color: var(--color-secondary); font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 8px;">📺 Abrir no YouGlish</a>
-        </div>
-
-        <h3 class="sidebar-title" style="margin-top:32px;">Frases reais (Tatoeba) 📚</h3>
-        <div id="tatoeba-box">
-          <button id="tatoeba-load-btn" class="btn btn-secondary" style="width:100%; padding:10px; font-size:13px;">🔎 Ver exemplos de falantes reais</button>
-          <div id="tatoeba-list" class="hidden"></div>
-        </div>
-
-        <h3 class="sidebar-title" style="margin-top:32px;">Frases úteis (Chunks) ✨</h3>
-        <div class="chunks-list" id="chunks-container"></div>
-          </div>
-        </details>
         </aside>
       </div>
     </div>
@@ -322,6 +355,10 @@ export async function renderStudy(container, app, params = {}) {
   // Progressive disclosure é igual em qualquer tamanho de tela: recursos
   // auxiliares começam invisíveis e recolhidos até a resposta ser revelada.
   document.getElementById('study-resources').open = false;
+  document.getElementById('study-card-menu').open = false;
+  document.getElementById('close-study-resources')?.addEventListener('click', () => {
+    document.getElementById('study-resources').open = false;
+  });
 
   document.getElementById('grammar-form').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -330,6 +367,12 @@ export async function renderStudy(container, app, params = {}) {
     if (!text || chatBusy) return;
     input.value = '';
     sendGrammarQuestion(text);
+  });
+  document.querySelectorAll('[data-tutor-prompt]').forEach(button => {
+    button.addEventListener('click', () => {
+      if (button.disabled || chatBusy) return;
+      sendGrammarQuestion(button.dataset.tutorPrompt || 'Explique esta frase.');
+    });
   });
 
   document.querySelectorAll('.grade-btn').forEach(btn => {
@@ -599,6 +642,9 @@ async function loadNextCard(app) {
   const resources = document.getElementById('study-resources');
   resources?.classList.add('hidden');
   if (resources) resources.open = false;
+  const cardMenu = document.getElementById('study-card-menu');
+  cardMenu?.classList.add('hidden');
+  if (cardMenu) cardMenu.open = false;
   const tutorDetails = document.getElementById('tutor-details');
   if (tutorDetails) tutorDetails.open = false;
   const wave = document.getElementById('audio-wave');
@@ -1013,6 +1059,7 @@ async function revealCard() {
   document.getElementById('grading-area').classList.remove('hidden');
   document.querySelector('.study-layout')?.classList.add('is-revealed');
   document.getElementById('study-resources')?.classList.remove('hidden');
+  document.getElementById('study-card-menu')?.classList.remove('hidden');
   scheduleStudyTask(() => document.querySelector('.grade-btn:not(.hidden):not(:disabled)')?.focus({ preventScroll: true }));
 
   // 2. Fonética e tradução DA FRASE DO CARD (não de outra frase — bug antigo)
@@ -1245,7 +1292,14 @@ function renderChunksList(chunks, context) {
     return;
   }
 
-  container.innerHTML = visible.map((c, i) => renderChunkCard(c, i)).join('');
+  const recommended = visible.slice(0, 2);
+  const additional = visible.slice(2);
+  container.innerHTML = recommended.map((c, i) => renderChunkCard(c, i)).join('')
+    + (additional.length ? `
+      <details class="chunk-more">
+        <summary>Ver mais ${additional.length} ${additional.length === 1 ? 'bloco' : 'blocos'}</summary>
+        <div>${additional.map((c, i) => renderChunkCard(c, i + recommended.length)).join('')}</div>
+      </details>` : '');
   attachChunkAudioListeners();
 }
 
@@ -1308,6 +1362,7 @@ function resetChat() {
   const send = document.getElementById('grammar-send');
   if (input) input.disabled = true;
   if (send) send.disabled = true;
+  document.querySelectorAll('[data-tutor-prompt]').forEach(button => { button.disabled = true; });
 }
 
 function escapeHtml(str) {
@@ -1358,6 +1413,7 @@ async function startGrammarChat(card, word, sentence) {
     input.placeholder = 'Ficou com dúvida? Pergunte aqui…';
   }
   if (send) send.disabled = false;
+  document.querySelectorAll('[data-tutor-prompt]').forEach(button => { button.disabled = false; });
 }
 
 async function sendGrammarQuestion(text) {
@@ -1806,21 +1862,53 @@ function injectStyles() {
     .btn-secondary { background: var(--color-secondary); box-shadow: 0 4px 0 var(--color-secondary-shadow); }
 
     .study-explore { width:min(100%, 720px); margin-top:20px; }
-    .study-resources { width:100%; border:2px solid var(--color-border); border-radius:var(--radius-lg); background:var(--color-surface); overflow:hidden; }
+    .study-explore-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:start; }
+    .study-resources { width:100%; border:2px solid var(--color-border); border-radius:var(--radius-lg); background:var(--color-surface); }
     .study-resources > summary { min-height:52px; padding:0 18px; cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between; color:var(--color-text); font-weight:900; }
     .study-resources > summary::-webkit-details-marker { display:none; }
     .study-resources > summary > span:last-child { color:var(--color-text-light); transition:transform .15s ease; }
     .study-resources[open] > summary > span:last-child { transform:rotate(180deg); }
-    .study-resources-content { padding:4px 20px 24px; border-top:1px solid var(--color-border); }
+    .study-resources-content { position:fixed; z-index:42; right:0; top:var(--topbar-height); bottom:0; width:min(440px, 100vw); padding:0 20px 28px; overflow-y:auto; border-left:1px solid var(--color-border); background:var(--color-surface); box-shadow:-18px 0 50px rgba(0,0,0,.14); }
+    .study-resource-panel-header { position:sticky; top:0; z-index:2; min-height:58px; margin:0 -20px 18px; padding:0 18px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--color-border); background:var(--color-surface); }
+    .study-resource-panel-header strong { font-size:18px; }
+    .study-resource-panel-header button { min-height:44px; border:0; background:transparent; color:var(--color-secondary); font-weight:900; cursor:pointer; }
+    .learning-resource-section { margin:0 0 18px; padding:18px; border:1px solid var(--color-border); border-radius:16px; background:var(--color-surface); }
+    .learning-resource-section h3 { margin:4px 0 6px; font-size:20px; }
+    .learning-resource-kicker { margin:0; color:var(--color-primary); font-size:11px; font-weight:900; letter-spacing:.1em; }
+    .learning-resource-description { margin:0 0 14px; color:var(--color-text-light); font-size:13px; line-height:1.5; }
+    .learning-resource-video { border-color:var(--color-secondary); background:color-mix(in srgb, var(--color-secondary) 6%, var(--color-surface)); }
     .study-session-context { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:16px 0; padding:10px 12px; border-radius:10px; background:var(--color-bg-alt); color:var(--color-text-light); font-size:13px; }
     .study-session-context button, .study-card-actions button { min-height:44px; border:0; background:transparent; color:var(--color-secondary); font:inherit; font-weight:800; cursor:pointer; }
-    .study-card-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:8px; margin:10px 0; }
-    .study-tutor { width:100%; box-sizing:border-box; margin:16px auto 24px; text-align:left; border:2px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-surface); padding:12px 16px; }
+    .study-card-menu { position:relative; }
+    .study-card-menu > summary { width:52px; height:52px; display:grid; place-items:center; list-style:none; border:2px solid var(--color-border); border-radius:var(--radius-lg); background:var(--color-surface); color:var(--color-text); font-size:24px; font-weight:900; cursor:pointer; }
+    .study-card-menu > summary::-webkit-details-marker { display:none; }
+    .study-card-menu-content { position:absolute; z-index:35; right:0; top:calc(100% + 8px); width:min(300px, calc(100vw - 24px)); padding:10px; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); box-shadow:var(--shadow-md); }
+    .study-card-actions { display:grid; gap:4px; }
+    .study-card-actions button { width:100%; text-align:left; padding:8px 10px; border-radius:9px; }
+    .study-card-actions button:hover, .study-card-actions button:focus-visible { background:var(--color-bg-alt); }
+    .study-tutor { width:100%; box-sizing:border-box; margin:14px auto 0; text-align:left; border:1px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-surface); padding:12px; }
     .study-tutor summary { cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px; }
     .study-tutor summary::-webkit-details-marker { display:none; }
     .study-tutor summary span { font-size:12px; color:var(--color-text-light); font-weight:600; }
+    .tutor-prompts { display:flex; flex-wrap:wrap; gap:7px; margin:12px 0; }
+    .tutor-prompts button { min-height:40px; padding:7px 10px; border:1px solid var(--color-border); border-radius:999px; background:var(--color-bg-alt); color:var(--color-text); font:800 12px var(--font-main); cursor:pointer; }
+    .tutor-prompts button:disabled { opacity:.55; cursor:default; }
+    .isolated-word-summary { margin:12px 0; padding:14px; border-radius:14px; background:var(--color-bg-alt); text-align:left; }
+    #iso-word { font-size:22px; font-weight:900; color:var(--color-primary); }
+    #iso-trans { margin-top:3px; font-size:17px; font-weight:800; color:var(--color-text); }
+    #iso-phonetics { margin-top:5px; color:var(--color-secondary); font-style:italic; }
+    #iso-mnemonic-box { margin-top:10px; }
+    #iso-mnemonic-btn { min-height:40px; padding:0; border:0; background:transparent; color:var(--color-secondary); font-weight:900; cursor:pointer; }
+    #iso-mnemonic-text { margin-top:8px; padding:10px 12px; border:1px solid var(--color-warning); border-radius:10px; background:rgba(255,200,0,.12); color:var(--color-text); font-size:13px; line-height:1.5; }
+    .more-contexts { border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); }
+    .more-contexts > summary { min-height:48px; padding:0 14px; display:flex; align-items:center; cursor:pointer; color:var(--color-text); font-weight:900; }
+    .more-contexts-content { padding:0 14px 14px; display:grid; gap:16px; }
+    .more-contexts-content h3 { margin:8px 0; font-size:16px; }
     .sidebar-title { font-size: 22px; font-weight: 900; margin-bottom: 24px; color: var(--color-text); display:flex; align-items:center; gap:8px;}
     .chunks-list { display: flex; flex-direction: column; gap: 16px; }
+    .chunk-more { border-top:1px solid var(--color-border); }
+    .chunk-more > summary { min-height:44px; display:flex; align-items:center; color:var(--color-secondary); font-weight:900; cursor:pointer; }
+    .chunk-more > div { display:flex; flex-direction:column; gap:16px; padding-top:8px; }
 
     .chunk-card { background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); position: relative; overflow: hidden;}
     .chunk-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--color-primary);}
@@ -1847,8 +1935,9 @@ function injectStyles() {
     #grammar-send { background: var(--color-primary); color: #fff; border: none; width: 44px; cursor: pointer; font-size: 16px; }
     #grammar-send:disabled { opacity: 0.5; cursor: default; }
 
-    #youglish-box { background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    #tatoeba-box { background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    #youglish-box, #tatoeba-box { padding:10px; border-radius:12px; background:var(--color-bg-alt); }
+    #youglish-box .btn, #tatoeba-box .btn { width:100%; min-height:44px; padding:9px; font-size:13px; }
+    #youglish-fallback { margin-top:8px; display:inline-flex; color:var(--color-secondary); font-weight:900; }
     #yg-widget-embed { width: 100%; min-height: 0; }
     #yg-widget-embed iframe { max-width: 100%; border-radius: var(--radius-md); }
     .study-video-context { width:min(100%, 620px); margin:18px auto 0; text-align:left; }
@@ -1868,6 +1957,10 @@ function injectStyles() {
     .exercise-grade-prompt { margin-top:14px; color:var(--color-text-light); font-size:15px; font-weight:700; }
     #bury-btn, #btn-undo, .clip-control, .ex-chip { min-height:44px; }
 
+    @media (min-width: 1100px) {
+      .study-layout:has(.study-resources[open]) .study-main { padding-right:460px; }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       .wave-bar, #shadowing-overlay { animation:none !important; }
       * { scroll-behavior:auto !important; }
@@ -1879,7 +1972,9 @@ function injectStyles() {
       .study-layout { min-height:100dvh; }
       .study-main { min-height:calc(100dvh - var(--topbar-height)); padding:18px 14px 28px; justify-content:flex-start; }
       .study-layout.is-revealed .study-main { padding-bottom:calc(92px + env(safe-area-inset-bottom)); }
-      .study-resources-content { padding:4px 14px calc(20px + env(safe-area-inset-bottom)); }
+      .study-resources-content { top:auto; left:0; right:0; bottom:calc(82px + env(safe-area-inset-bottom)); width:100%; height:min(72dvh, 680px); padding:0 14px 22px; border-left:0; border-top:1px solid var(--color-border); border-radius:22px 22px 0 0; box-shadow:0 -18px 50px rgba(0,0,0,.18); }
+      .study-resource-panel-header { margin-left:-14px; margin-right:-14px; }
+      .study-card-menu-content { position:fixed; left:10px; right:10px; top:auto; bottom:calc(82px + env(safe-area-inset-bottom)); width:auto; }
       .grading-buttons { position:fixed; z-index:20; left:0; right:0; bottom:0; margin:0; padding:10px 12px calc(10px + env(safe-area-inset-bottom)); background:var(--color-surface); border-top:2px solid var(--color-border); box-shadow:0 -8px 24px rgba(0,0,0,.10); }
       .grading-row { grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; max-width:680px; margin:0 auto; }
       .grade-btn { min-width:0; min-height:58px; padding:7px 2px; font-size:13px; gap:2px; }

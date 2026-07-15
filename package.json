@@ -24,11 +24,12 @@
     "test:review-economy": "node tests/review-economy-p0-2.test.mjs",
     "test:product-ux": "node tests/product-ux-stage4.test.mjs",
     "test:p0-a": "node tests/navigation-home-p0-a.test.mjs",
+    "test:p0-b": "node tests/understand-panel-p0-b.test.mjs",
     "test:design-system": "node tests/design-system-stage5.test.mjs",
     "test:stage3": "npm run test:focus-shell && npm run test:study-focus",
     "test:study-video": "node tests/study-video-race.test.mjs",
     "test:stage2": "npm run test:yt-player && npm run test:video && npm run test:study-video && npm run test:site-boundary && npm run test:web-reader && npm run test:subtitle-lifecycle && npm run test:max-ui",
-    "test:release": "npm run test:review-ux && npm run test:card-writes && npm run test:card-permissions && npm run test:evidence-indexes && npm run test:pedagogy && npm run test:review-economy && npm run test:max-ui && npm run test:p0-a && npm run test:focus-shell && node tests/release-smoke.mjs"
+    "test:release": "npm run test:review-ux && npm run test:card-writes && npm run test:card-permissions && npm run test:evidence-indexes && npm run test:pedagogy && npm run test:review-economy && npm run test:max-ui && npm run test:p0-a && npm run test:p0-b && npm run test:focus-shell && node tests/release-smoke.mjs"
   },
   "dependencies": {
     "acorn": "^8.17.0"

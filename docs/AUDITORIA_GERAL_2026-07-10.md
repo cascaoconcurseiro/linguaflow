@@ -547,3 +547,41 @@ vertical Max fixa em `137px` e detecção do popup por retângulo visível, sem 
 - **Próximo corte:** P0-B — substituir a gaveta plana `Explorar esta frase` pelo painel responsivo `Entender melhor`, organizado em Ouvir no contexto → Entender → Praticar → Mais contextos, sem alterar o player/engine.
 
 ---
+# Execução Codex — P0-B Painel Entender melhor (2026-07-15)
+
+**Responsável:** Codex, com especificação revisada pelas frentes sêniores de UX, design de interação, produto pedagógico e frontend.
+**Regra:** engine, FSRS, máquina do player, bounds do vídeo, persistência e economia permaneceram intactos.
+
+## O que o Codex implementou
+
+- `Explorar esta frase` foi renomeado para **Entender melhor** e deixou de ser uma lista plana de ferramentas.
+- Nova hierarquia: **Ouvir no contexto → Entender → Praticar → Mais exemplos e fontes**.
+- O trecho original passou a ser o primeiro bloco quando existe vídeo. Replay, pausa, loop, mount e fallbacks anteriores foram preservados sem alteração do player.
+- Palavra-alvo, tradução, pronúncia e mnemônico foram condensados em um resumo contextual.
+- O tutor continua opt-in e sem chamadas automáticas, mas agora oferece três perguntas contextuais antes do campo livre.
+- Chunks mostram no máximo dois blocos inicialmente; os demais ficam em `Ver mais`, preservando todos os dados e ações de áudio/download.
+- YouGlish e Tatoeba foram movidos para `Mais exemplos e fontes` e continuam lazy/on-demand.
+- Desfazer, editar/regenerar e deixar para amanhã foram removidos do conteúdo pedagógico e colocados no menu `⋯` do card.
+- Desktop abre um painel lateral de até 440 px e desloca a área principal quando há espaço. Mobile abre bottom sheet acima dos botões de nota, mantendo-os visíveis.
+- O build web/PWA passou para `3.0.5`.
+
+## Contratos e evidência
+
+- Novo gate `tests/understand-panel-p0-b.test.mjs`, incluído em `test:release`.
+- O teste protege ordem pedagógica, separação das ações administrativas, prompts do tutor, limite inicial de chunks, painel responsivo e preservação dos IDs/player.
+- Regressões já executadas: modo foco 14/14, vídeo 4/4 e áudio 8/8.
+
+## Decisões que devem ser preservadas
+
+1. O painel só aparece depois de revelar a resposta.
+2. Avaliar continua sendo a decisão dominante; o painel é opcional.
+3. No celular, o painel termina acima do dock de notas.
+4. Tutor e fontes externas não carregam antes da intenção do aluno.
+5. Ações administrativas nunca voltam a competir com Ouvir/Entender/Praticar.
+6. Qualquer mudança futura no layout deve preservar `saved-video-context`, `study-yt-mount` e a máquina única do player.
+
+## Próximo corte
+
+P0-C — nomenclatura única (`frase salva`, `palavra-alvo`, `card` técnico), estados globais de carregamento/vazio/erro/retry e componentes compartilhados entre Cofre, Histórias e Leitor.
+
+---

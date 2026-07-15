@@ -114,6 +114,8 @@ O GitHub Actions não executou os testes remotos: o job foi recusado antes de re
 ### Estado operacional
 
 - P0.2b **não aplicado remotamente** nesta fatia.
+- Código publicado em produção no commit `e357c7b`; deployment Vercel
+  `dpl_ATazDnkq1XPmNvkgx23cwGqDSWjM` ficou `READY` e serviu o build `3.0.3`.
 - O cliente deve ser publicado e a extensão recarregada antes do revogue.
 - Não interpretar o teste estático como smoke autenticado; ainda são necessários
   os cinco fluxos reais no Chrome.

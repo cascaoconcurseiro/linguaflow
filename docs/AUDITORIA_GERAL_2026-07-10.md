@@ -420,3 +420,9 @@ Postgres descartável; Docker/Supabase CLI não estão disponíveis nesta máqui
 **Próximo corte:** publicar/recarregar a extensão `3.0.3`, executar os cinco
 smokes reais e então aplicar P0.2b, verificar grants/policies/advisors e observar
 403/5xx. FSRS ainda recebe a proposta de estado do cliente e continua como P1.
+
+**Publicação desta preparação:** commit `e357c7b`, preview
+`dpl_Hn65eVsQcbq6ZwZUEiVvy9KhF1tK` e produção
+`dpl_ATazDnkq1XPmNvkgx23cwGqDSWjM`, ambos `READY`. Produção serviu
+`app.js?v=3.0.3`, sem overflow em 390 px e sem erros de runtime Vercel na janela
+observada. O contrato P0.2b permaneceu deliberadamente sem aplicação remota.

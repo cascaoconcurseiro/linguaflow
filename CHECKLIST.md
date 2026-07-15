@@ -424,7 +424,8 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 - [x] Restringir restore a card virgem, auditá-lo e impedir revisão imediata.
 - [x] Fazer a migration abortar se policies remotas mudarem após o preflight.
 - [x] Adicionar teste SQL comportamental das ACLs/RPCs P0.2b.
-- [ ] Publicar e recarregar a extensão `3.0.3` no Chrome do usuário.
+- [x] Publicar código/manifest `3.0.3` no GitHub e Vercel (`e357c7b`).
+- [ ] Recarregar a extensão `3.0.3` no Chrome do usuário.
 - [ ] Smoke real: criar, revisar, enterrar, suspender/reativar e restaurar backup.
 - [ ] Executar replay SQL P0.2b em Postgres descartável.
 - [ ] Aplicar P0.2b no Supabase e conferir advisors/logs.

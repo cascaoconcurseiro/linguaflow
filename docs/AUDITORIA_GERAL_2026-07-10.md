@@ -570,6 +570,8 @@ vertical Max fixa em `137px` e detecção do popup por retângulo visível, sem 
 - Novo gate `tests/understand-panel-p0-b.test.mjs`, incluído em `test:release`.
 - O teste protege ordem pedagógica, separação das ações administrativas, prompts do tutor, limite inicial de chunks, painel responsivo e preservação dos IDs/player.
 - Regressões já executadas: modo foco 14/14, vídeo 4/4 e áudio 8/8.
+- Commit funcional `1401b46`; preview Vercel `dpl_3YRiNr7aTNXQXroE5YQP1kD7TtXv` ficou `READY` em `https://linguaflow-n7ynd84lp-wesleys-projects-de111a83.vercel.app`.
+- A raiz respondeu HTTP 200, o build terminou sem erros e a consulta pós-deploy não encontrou logs `error`/`fatal`.
 
 ## Decisões que devem ser preservadas
 

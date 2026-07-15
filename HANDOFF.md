@@ -729,6 +729,7 @@ P0-B: painel `Entender melhor`, com trecho original primeiro, explicação/tutor
 - Undo, regeneração e bury ficam no menu `⋯` separado.
 - Painel lateral no desktop; bottom sheet acima das notas no celular.
 - Engine e player não foram alterados; build web `3.0.5`.
+- Commit funcional `1401b46`; preview Vercel `dpl_3YRiNr7aTNXQXroE5YQP1kD7TtXv` em estado `READY`, raiz HTTP 200 e nenhum erro de build/runtime na janela consultada.
 
 ## Gates
 

@@ -1,7 +1,7 @@
 // Service Worker do Web App (Vercel) — estudo offline
 // Estratégias: app shell pré-cacheado; network-first para código;
 // navegação network-first com fallback pro shell; Supabase NUNCA é cacheado.
-const CACHE_NAME = 'linguaflow-v3.0.8';
+const CACHE_NAME = 'linguaflow-v3.0.9';
 
 // URLs como o Vercel serve de verdade (via rewrites de vercel.json)
 const APP_SHELL = [

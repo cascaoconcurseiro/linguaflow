@@ -739,3 +739,26 @@ P1-C — onboarding progressivo: objetivo, nível aproximado, carga inicial segu
 e primeira experiência real, sem prometer fluência ou forçar configuração SRS.
 
 ---
+
+# Execução Codex — P1-C Onboarding seguro (2026-07-15)
+
+**Responsável:** Codex. O teste de nivelamento e o agendador não foram
+modificados; apenas apresentação e confirmação da configuração inicial.
+
+- Nível virou “ponto de partida aproximado”; o teste curto é chamado de
+  estimativa e não de medição CEFR real.
+- Carga inicial mostra Leve/Regular/Intensa, explicitando revisões/dia e o teto
+  correspondente de 5/10/20 novas expressões.
+- A confirmação final explica exatamente o que será configurado e mantém a
+  primeira ação real: começar por uma história e salvar uma expressão.
+- Corrigida race de persistência: CEFR e `new_per_day` eram disparados sem
+  `await`, enquanto o onboarding já ficava concluído. Agora todas as
+  preferências são confirmadas primeiro; só então `onboarding_v1` é marcado e
+  a navegação acontece. Falha mantém o usuário no passo final com retry.
+- Build `3.0.9`; novo gate `tests/onboarding-p1-c.test.mjs` dentro do release.
+- `test:p1-c`, `test:p0-a` e release completo passaram.
+
+**Próximo:** P1-D — separar Prática de Progresso, explicar o que cada atividade
+mede e tornar retenção/carga as métricas principais.
+
+---

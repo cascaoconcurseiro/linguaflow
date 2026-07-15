@@ -818,3 +818,15 @@ Prática/Progresso e QA autenticado.
 **Próximo:** P1-C onboarding; depois Prática/Progresso e QA autenticado.
 
 ---
+
+# Handoff Codex — Reforma UX P1-C (2026-07-15)
+
+- Onboarding usa nível aproximado e carga Leve/Regular/Intensa.
+- Cargas correspondem a 5/10/20 novas expressões, dentro do cap server-side.
+- Preferências reais são aguardadas e confirmadas antes de marcar onboarding
+  concluído; não há mais writes fire-and-forget.
+- Build `3.0.9`; gate `npm run test:p1-c` no release.
+
+**Próximo:** P1-D Prática/Progresso; depois QA autenticado.
+
+---

@@ -136,21 +136,21 @@ function renderOnboarding(container, app, initial = {}) {
     const draw = () => {
         const content = step === 1 ? `
             <p class="onboarding-kicker">PASSO 1 DE 3</p>
-            <h2 id="onboarding-title">Como você se sente no inglês?</h2>
-            <p>Isso personaliza o seu ponto de partida; você pode ajustar depois.</p>
+            <h2 id="onboarding-title">Qual ponto de partida parece mais próximo?</h2>
+            <p>É apenas uma estimativa inicial para ajustar textos e explicações. Você pode mudar depois.</p>
             <div class="onboarding-options" role="radiogroup" aria-label="Nível atual de inglês">
                 ${levels.map(([value, title, description]) => `<button type="button" class="onboarding-option ${level === value ? 'selected' : ''}" role="radio" aria-checked="${level === value}" data-level="${value}"><strong>${title}</strong><span>${description}</span></button>`).join('')}
             </div>
-            <button type="button" class="onboarding-back" id="btn-onboarding-placement" style="margin-top:12px;">🎯 Prefiro medir com o teste de nivelamento (3 fases, ~4 min)</button>` : step === 2 ? `
+            <button type="button" class="onboarding-back" id="btn-onboarding-placement" style="margin-top:12px;">🎯 Prefiro estimar com um teste curto (~4 min)</button>` : step === 2 ? `
             <p class="onboarding-kicker">PASSO 2 DE 3</p>
-            <h2 id="onboarding-title">Qual é sua meta diária?</h2>
-            <p>Ela passa a ser sua missão diária de revisões. Comece leve: consistência vence intensidade.</p>
+            <h2 id="onboarding-title">Com que carga você quer começar?</h2>
+            <p>Comece leve. Expressões novas geram revisões futuras, e você pode ajustar isso depois.</p>
             <div class="onboarding-options" role="radiogroup" aria-label="Meta diária de revisões">
-                ${goals.map(goal => `<button type="button" class="onboarding-option ${dailyGoal === goal ? 'selected' : ''}" role="radio" aria-checked="${dailyGoal === goal}" data-goal="${goal}"><strong>${goal} revisões</strong><span>${goal === 10 ? 'Cerca de 5 minutos' : goal === 20 ? 'Cerca de 10 minutos' : 'Cerca de 20 minutos'}</span></button>`).join('')}
+                ${goals.map(goal => `<button type="button" class="onboarding-option ${dailyGoal === goal ? 'selected' : ''}" role="radio" aria-checked="${dailyGoal === goal}" data-goal="${goal}"><strong>${goal === 10 ? 'Leve' : goal === 20 ? 'Regular' : 'Intensa'}</strong><span>${goal} revisões/dia · até ${GOAL_TO_NEW_PER_DAY[goal]} expressões novas</span></button>`).join('')}
             </div>` : `
             <p class="onboarding-kicker">PASSO 3 DE 3</p>
             <h2 id="onboarding-title">Seu plano está pronto</h2>
-            <p><strong>${dailyGoal} revisões por dia</strong>, no ritmo ${levels.find(item => item[0] === level)?.[1].toLowerCase() || 'escolhido'}.</p>
+            <p><strong>${dailyGoal} revisões por dia</strong> e até <strong>${GOAL_TO_NEW_PER_DAY[dailyGoal]} expressões novas</strong>, no ponto de partida ${levels.find(item => item[0] === level)?.[1].toLowerCase() || 'escolhido'}.</p>
             <p>Comece por uma história curta e adicione a primeira expressão que quiser praticar. Ela aparecerá no Cofre e no seu plano de revisão.</p>`;
         container.innerHTML = `
             <section class="onboarding-shell" aria-labelledby="onboarding-title">
@@ -190,15 +190,19 @@ function renderOnboarding(container, app, initial = {}) {
             status.textContent = 'Salvando seu plano…';
             const record = JSON.stringify({ version: 1, completed: true, level, dailyGoal, updatedAt: new Date().toISOString() });
             try {
-                const saved = await app.db.setSetting(ONBOARDING_KEY, record);
-                if (!saved) throw new Error('Configuração não confirmada');
-                // Fiação real: CEFR (se o teste não gravou) + cota de novas/dia
+                // Salva preferências reais primeiro. O onboarding só é marcado
+                // como concluído depois que todas forem confirmadas.
+                const writes = [];
                 if (!placementCefr && LEVEL_TO_CEFR[level]) {
-                    app.db.setSetting('lf_cefr_level', LEVEL_TO_CEFR[level]).catch(() => {});
-                    app.db.setSetting('cefrTargetLevel', LEVEL_TO_CEFR[level]).catch(() => {});
+                    writes.push(app.db.setSetting('lf_cefr_level', LEVEL_TO_CEFR[level]));
+                    writes.push(app.db.setSetting('cefrTargetLevel', LEVEL_TO_CEFR[level]));
                 }
                 const newPerDay = GOAL_TO_NEW_PER_DAY[dailyGoal];
-                if (newPerDay) app.db.setSetting('new_per_day', String(newPerDay)).catch(() => {});
+                if (newPerDay) writes.push(app.db.setSetting('new_per_day', String(newPerDay)));
+                const confirmed = await Promise.all(writes);
+                if (confirmed.some(saved => !saved)) throw new Error('Preferência não confirmada');
+                const saved = await app.db.setSetting(ONBOARDING_KEY, record);
+                if (!saved) throw new Error('Configuração não confirmada');
                 app.navigate?.('stories');
             } catch (error) {
                 console.warn('[Onboarding] Não foi possível salvar:', error);

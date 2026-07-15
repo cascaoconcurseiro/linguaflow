@@ -505,3 +505,42 @@ dock horizontal concorria com a legenda e que o popup ainda caía no ramo
 genérico. O Codex corrigiu a versão `3.0.5` com dock vertical à direita, posição
 vertical Max fixa em `137px` e detecção do popup por retângulo visível, sem usar
 `offsetParent`. O engine permaneceu novamente sem alterações.
+# Execução Codex — P0-A Arquitetura de Informação e Hoje (2026-07-15)
+
+**Responsável:** Codex, com revisão independente das frentes sêniores de produto/pedagogia, UX/arquitetura de informação e design de interação.
+**Escopo:** primeiro corte da reforma integral de UX. O engine de revisão, FSRS, áudio, vídeo, persistência e RPCs não foi alterado.
+
+## O que o Codex implementou
+
+- A navegação principal passou de sete módulos concorrentes para quatro destinos pedagógicos: **Hoje, Aprender, Cofre e Progresso**.
+- Foram criados os hubs `Aprender` e `Progresso`. Histórias, Leitor, Prática, Estatísticas e Ligas continuam existentes e acessíveis, mas agora estão subordinados à intenção do aluno.
+- Configurações, tema e saída foram movidos para um menu de perfil acessível no desktop e no celular.
+- Rotas antigas e cache de views foram preservados. Entrar em História, Leitor ou Prática mantém `Aprender` ativo; Estatísticas e Ligas mantêm `Progresso` ativo.
+- O shell exclusivo do Estudo continua escondendo toda a navegação global e preserva progresso, menu e lifecycle existentes.
+- A Home ganhou um resolvedor determinístico `chooseTodayAction()`. Revisões vencidas levam ao Estudo; fila vazia leva a conteúdo real e nunca abre uma sessão sem cards.
+- O topo da Home agora possui uma única CTA, motivo e carga real. XP, ofensiva, forecast, missões, diagnóstico, conquistas e heatmap foram preservados dentro de divulgação progressiva.
+- Não foi exibida duração estimada: ainda não existe medição confiável de tempo médio por revisão, portanto o produto não deve inventar a promessa.
+- O cache do PWA foi versionado para o build web `3.0.4`.
+
+## Contratos adicionados pelo Codex
+
+- `tests/navigation-home-p0-a.test.mjs` cobre quatro destinos, hubs, rotas preservadas, menu de perfil, agrupamento ativo e sete estados do treinador diário.
+- O gate `test:p0-a` foi incluído no `test:release`, junto do contrato do shell de foco.
+- `tests/product-ux-stage4.test.mjs` deixou de exigir a navegação antiga e passou a exigir próxima ação antes das informações secundárias.
+
+## Decisões que devem ser preservadas
+
+1. Apenas uma ação primária aparece no primeiro bloco de Hoje.
+2. Fila vazia nunca navega para Estudo.
+3. XP, ofensiva e maturidade FSRS não são apresentados como domínio linguístico.
+4. Nenhuma rota ou função foi removida; funções secundárias foram agrupadas.
+5. O engine permanece congelado durante os cortes de UX.
+6. Aprender e Progresso são hubs; suas telas filhas continuam podendo ser abertas diretamente.
+
+## Estado e sequência
+
+- Implementação local concluída e contratos específicos verdes.
+- Preview e QA visual autenticado em 1440/1024/768/390/320 px permanecem como gate antes de produção.
+- **Próximo corte:** P0-B — substituir a gaveta plana `Explorar esta frase` pelo painel responsivo `Entender melhor`, organizado em Ouvir no contexto → Entender → Praticar → Mais contextos, sem alterar o player/engine.
+
+---

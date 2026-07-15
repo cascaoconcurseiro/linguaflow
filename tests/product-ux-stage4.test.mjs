@@ -11,21 +11,22 @@ const [html, css, app, home, library, stories, settings] = await Promise.all([
   readFile(new URL('../dashboard/js/ui/settingsView.js', import.meta.url), 'utf8'),
 ]);
 
-// Navegação móvel: quatro destinos mentais, não uma cópia espremida do desktop.
-for (const label of ['Início', 'Conteúdo', 'Cofre', 'Mais']) assert.match(html, new RegExp(`>${label}<`));
+// Navegação: quatro destinos pedagógicos iguais em desktop e mobile.
+for (const label of ['Hoje', 'Aprender', 'Cofre', 'Progresso']) assert.match(html, new RegExp(`>${label}<`));
+assert.doesNotMatch(html, />Mais</);
 assert.match(html, /aria-label="Navegação principal"/);
 assert.match(app, /aria-current', 'page'/);
 assert.match(app, /event\.key === 'Escape'/);
 assert.match(css, /@media \(max-width: 390px\)/);
 assert.match(css, /@media \(max-width: 340px\)/);
 
-// Home: próximo passo primeiro, informação diagnóstica depois.
+// Home: próximo passo primeiro; metas e números ficam sob demanda.
 const today = home.indexOf("section('home-today'");
-const missions = home.indexOf("section('home-missions'");
-const insights = home.indexOf("section('home-insights'");
-const achievements = home.indexOf("section('home-achievements'");
-assert.ok(today < missions && missions < insights && insights < achievements);
-assert.match(home, /CONTINUAR SEU PLANO/);
+const next = home.indexOf("section('home-next'");
+const more = home.indexOf("more\.id = 'home-more'");
+assert.ok(today < next && next < more);
+assert.match(home, /chooseTodayAction/);
+assert.match(home, /id="home-primary-plan"/);
 assert.match(home, /competitive-details/);
 
 // Cofre: busca é primária; filtros raros e ações destrutivas são progressivos.

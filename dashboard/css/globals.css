@@ -148,7 +148,8 @@ a { color:var(--color-link); }
 
 .nav-links {
   display: flex;
-  gap: 16px;
+  align-items: center;
+  gap: 6px;
 }
 
 .nav-btn {
@@ -175,8 +176,17 @@ a { color:var(--color-link); }
 
 .stats {
   display: flex;
+  align-items: center;
   gap: 16px;
 }
+
+.profile-menu-wrap { position:relative; }
+.profile-menu-toggle { width:44px; height:44px; border:1px solid var(--color-border); border-radius:50%; background:var(--color-surface); color:var(--color-text); font:900 18px var(--font-main); cursor:pointer; }
+.profile-menu { position:absolute; right:0; top:calc(100% + 8px); z-index:140; min-width:210px; padding:8px; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); box-shadow:var(--shadow-md); }
+.profile-menu[hidden] { display:none; }
+.profile-menu button { width:100%; min-height:44px; padding:10px 12px; border:0; border-radius:10px; text-align:left; background:transparent; color:var(--color-text); font:800 14px var(--font-main); cursor:pointer; }
+.profile-menu button:hover, .profile-menu button:focus-visible { background:var(--color-bg-alt); }
+.profile-menu .btn-logout { color:var(--color-danger); }
 
 .stat {
   display: flex;
@@ -230,6 +240,17 @@ a { color:var(--color-link); }
 .home-flow-section .stats-grid { margin-bottom:16px; }
 .home-flow-section .quests-card { width:100%; }
 .home-flow-section .competitive-details > summary { min-height:44px; padding:10px 0; }
+.home-primary-plan { padding:clamp(22px, 4vw, 38px); border:2px solid var(--color-primary); border-radius:24px; background:linear-gradient(145deg, color-mix(in srgb, var(--color-primary) 10%, var(--color-surface)), var(--color-surface)); box-shadow:var(--shadow-md); }
+.home-primary-plan h1 { max-width:720px; margin:5px 0 8px; font-size:clamp(28px, 4vw, 42px); line-height:1.08; }
+.home-primary-reason { max-width:680px; margin:0; color:var(--color-text); font-size:17px; line-height:1.55; }
+.home-primary-meta { margin:12px 0 20px; color:var(--color-text-light); font-weight:800; }
+.home-primary-plan .btn-action { width:auto; min-width:230px; margin:0; padding:14px 24px; }
+.home-secondary-actions .btn-action { font-size:14px; }
+.home-secondary-actions .btn-study { background:var(--color-surface); color:var(--color-link); border:2px solid var(--color-secondary); box-shadow:none; }
+.home-more { margin:4px 0 32px; border:1px solid var(--color-border); border-radius:16px; background:var(--color-surface); }
+.home-more > summary { min-height:52px; padding:14px 18px; cursor:pointer; color:var(--color-text); font-weight:900; }
+.home-more-body { padding:0 18px 18px; display:grid; gap:18px; }
+.home-more-body > * { margin:0 !important; }
 .competitive-details { margin-top:20px; padding-top:16px; border-top:2px dashed var(--color-border); }
 .competitive-details > summary { font-weight:800; color:var(--color-text-light); }
 .competitive-details-body { margin-top:12px; }
@@ -238,6 +259,23 @@ a { color:var(--color-link); }
 .settings-group { margin:0 0 14px; border:1px solid var(--color-border); border-radius:16px; background:var(--color-surface); overflow:hidden; }
 .settings-group > summary { min-height:68px; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:16px; cursor:pointer; list-style:none; }
 .settings-group > summary::-webkit-details-marker { display:none; }
+
+/* P0-A — hubs orientados à intenção do aluno. */
+.product-hub { width:min(1080px, 100%); margin:0 auto; padding:clamp(24px, 5vw, 56px); box-sizing:border-box; }
+.product-hub-header { max-width:760px; margin-bottom:28px; }
+.product-hub-header h1 { margin:5px 0 10px; font-size:clamp(30px, 5vw, 48px); line-height:1.08; }
+.product-hub-header > p:last-child { margin:0; color:var(--color-text-light); font-size:17px; line-height:1.55; }
+.product-kicker { margin:0; color:var(--color-primary); font-size:12px; font-weight:900; letter-spacing:.11em; }
+.source-callout { display:flex; justify-content:space-between; gap:24px; align-items:center; margin-bottom:24px; padding:22px; border:2px solid var(--color-primary); border-radius:20px; background:color-mix(in srgb, var(--color-primary) 8%, var(--color-surface)); }
+.source-callout h2 { margin:5px 0 6px; }
+.source-callout p:last-child { margin:0; color:var(--color-text-light); }
+.source-callout-status { flex:0 0 auto; padding:8px 12px; border-radius:999px; background:var(--color-surface); color:var(--color-text); font-size:12px; font-weight:900; }
+.product-hub-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; }
+.product-hub-grid-two { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+.product-destination-card { display:flex; flex-direction:column; min-height:260px; padding:22px; border:1px solid var(--color-border); border-radius:20px; background:var(--color-surface); box-shadow:var(--shadow-sm); }
+.product-destination-card h2 { margin:6px 0 8px; font-size:23px; }
+.product-destination-card > p:not(.product-kicker) { margin:0 0 20px; color:var(--color-text-light); line-height:1.55; }
+.product-destination-card .btn { width:100%; min-height:46px; margin-top:auto; }
 .settings-group > summary strong, .settings-group > summary small { display:block; }
 .settings-group > summary strong { color:var(--color-text); font-size:17px; }
 .settings-group > summary small { margin-top:3px; color:var(--color-text-light); font-size:12px; font-weight:600; }
@@ -463,6 +501,7 @@ body.lf-focus-mode .study-sidebar { overflow: visible !important; }
 
   .topbar .nav-links { display: none; }
   .topbar .stats { margin-left: auto; }
+  .profile-menu { position:fixed; left:10px; right:10px; top:62px; min-width:0; }
 
   body:not(.lf-focus-mode) #app-root { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
   .mobile-nav {
@@ -474,14 +513,15 @@ body.lf-focus-mode .study-sidebar { overflow: visible !important; }
   .mobile-nav-btn { min-width:0; min-height:50px; border:0; background:transparent; color:var(--color-text-light); border-radius:12px; font:800 11px/1.1 var(--font-main); display:grid; place-content:center; gap:4px; cursor:pointer; }
   .mobile-nav-btn > span:first-child { font-size:20px; line-height:1; }
   .mobile-nav-btn.active { color:var(--color-link); background:rgba(28,176,246,.1); }
-  .mobile-more-menu { position:absolute; right:10px; bottom:calc(60px + env(safe-area-inset-bottom)); width:min(260px, calc(100vw - 20px)); padding:8px; border:1px solid var(--color-border); border-radius:16px; background:var(--color-surface); box-shadow:0 16px 44px rgba(0,0,0,.18); }
-  .mobile-more-menu[hidden] { display:none; }
-  .mobile-more-menu button { width:100%; min-height:44px; padding:10px 12px; border:0; border-radius:10px; text-align:left; background:transparent; color:var(--color-text); font:800 14px var(--font-main); }
-  .mobile-more-menu button:hover, .mobile-more-menu button:focus-visible { background:var(--color-bg-alt); }
-
   .home-flow-section { margin-bottom:24px; }
   .home-flow-section .action-buttons { display:grid; grid-template-columns:1fr; }
   .home-flow-section .action-buttons .btn-game { background:var(--color-surface); color:var(--color-text); border:2px solid var(--color-border); box-shadow:none; }
+  .home-primary-plan { padding:22px 18px; border-radius:20px; }
+  .home-primary-plan .btn-action { width:100%; min-width:0; }
+  .product-hub { padding:24px 16px; }
+  .product-hub-grid, .product-hub-grid-two { grid-template-columns:1fr; }
+  .product-destination-card { min-height:0; }
+  .source-callout { align-items:flex-start; flex-direction:column; }
   .lib-header { align-items:flex-start; gap:12px; }
   .lib-title-block h2 { font-size:25px; }
   .cat-tabs { flex-wrap:nowrap; overflow-x:auto; padding-bottom:6px; }
@@ -529,6 +569,7 @@ body.lf-focus-mode .study-sidebar { overflow: visible !important; }
   .topbar .logo-text { display:none; }
   .topbar .stats { gap:7px; }
   .topbar .stat { font-size:12px; }
+  .profile-menu-toggle { width:40px; height:40px; }
   .mobile-nav { padding-left:4px; padding-right:4px; }
   .mobile-nav-btn { font-size:10px; }
   .home-section-heading h2 { font-size:20px; }

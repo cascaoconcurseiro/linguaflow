@@ -8,9 +8,11 @@ import { renderReader } from '../ui/readerView.js';
 import { renderGame } from '../ui/gameView.js';
 import { renderLogin } from '../ui/loginView.js';
 import { renderStats } from '../ui/statsView.js';
+import { renderLearn } from '../ui/learnView.js';
+import { renderProgress } from '../ui/progressView.js';
 import { db } from '../../../utils/db.js';
 
-const CLIENT_BUILD = '3.0.3';
+const CLIENT_BUILD = '3.0.4';
 
 // Uma versão antiga do PWA podia misturar HTML/app novo com db.js antigo.
 // Antes de inicializar qualquer tela, elimina esse estado e recarrega uma vez.
@@ -44,8 +46,8 @@ class App {
     this.root = document.getElementById('app-root');
     this.navBtns = document.querySelectorAll('.nav-btn');
     this.mobileNavBtns = document.querySelectorAll('.mobile-nav-btn[data-route], .mobile-more-menu [data-route]');
-    this.mobileMoreToggle = document.getElementById('mobile-more-toggle');
-    this.mobileMoreMenu = document.getElementById('mobile-more-menu');
+    this.profileMenuToggle = document.getElementById('profile-menu-toggle');
+    this.profileMenu = document.getElementById('profile-menu');
     this.currentRoute = 'home';
     this.viewContainers = {}; // Armazena as telas já carregadas (DOM Caching)
     // Cada navegação e cada tentativa de render recebem uma época monotônica.
@@ -93,30 +95,28 @@ class App {
     });
     this.mobileNavBtns.forEach(btn => btn.addEventListener('click', (event) => {
       const route = event.currentTarget.dataset.route;
-      this.closeMobileMore();
       if (route) this.navigate(route);
     }));
-    this.mobileMoreToggle?.addEventListener('click', () => {
-      const open = this.mobileMoreMenu?.hidden !== false;
-      if (this.mobileMoreMenu) this.mobileMoreMenu.hidden = !open;
-      this.mobileMoreToggle.setAttribute('aria-expanded', String(open));
-      if (open) this.mobileMoreMenu?.querySelector('[role="menuitem"]')?.focus();
+    this.profileMenuToggle?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const open = this.profileMenu?.hidden !== false;
+      this.setProfileMenuOpen(open);
     });
     document.addEventListener('click', event => {
-      if (!event.target.closest('#mobile-nav')) this.closeMobileMore();
+      if (!event.target.closest('.profile-menu-wrap')) this.setProfileMenuOpen(false);
     });
-    this.mobileMoreMenu?.addEventListener('keydown', event => {
-      if (event.key === 'Escape') {
-        this.closeMobileMore();
-        this.mobileMoreToggle?.focus();
+    this.profileMenu?.addEventListener('click', event => {
+      const route = event.target.closest('[data-route]')?.dataset.route;
+      if (route) {
+        this.setProfileMenuOpen(false);
+        this.navigate(route);
       }
     });
-    document.getElementById('mobile-theme-toggle')?.addEventListener('click', () => {
-      const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-      this.setTheme(current === 'light' ? 'dark' : 'light');
-      this.closeMobileMore();
+    this.profileMenu?.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        this.setProfileMenuOpen(false, true);
+      }
     });
-    document.getElementById('mobile-logout')?.addEventListener('click', () => this.logout());
     this.setupFocusShell();
     // BFCache/restauração de aba pode preservar classes do <body>. Antes de
     // qualquer await de autenticação, normalize o shell para a rota inicial.
@@ -135,6 +135,7 @@ class App {
       this.themeToggleBtn.addEventListener('click', () => {
         const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
         this.setTheme(currentTheme === 'light' ? 'dark' : 'light');
+        this.setProfileMenuOpen(false);
       });
     }
 
@@ -227,6 +228,14 @@ class App {
     else if (restoreFocus) this.focusMenuToggle.focus();
   }
 
+  setProfileMenuOpen(open, restoreFocus = false) {
+    if (!this.profileMenu || !this.profileMenuToggle) return;
+    this.profileMenu.hidden = !open;
+    this.profileMenuToggle.setAttribute('aria-expanded', String(open));
+    if (open) this.profileMenu.querySelector('[role="menuitem"]')?.focus();
+    else if (restoreFocus) this.profileMenuToggle.focus();
+  }
+
   updateFocusStatus(progress = null) {
     const status = document.getElementById('study-focus-status');
     const track = document.getElementById('study-focus-track');
@@ -268,6 +277,7 @@ class App {
     document.body.classList.toggle('lf-focus-mode', focus);
     if (this.focusHeader) this.focusHeader.hidden = !focus;
     if (!focus) this.setFocusMenuOpen(false);
+    this.setProfileMenuOpen(false);
     if (focus) {
       this._focusProgressBound = false;
       const due = Number(document.getElementById('due-val')?.textContent);
@@ -296,23 +306,24 @@ class App {
     this.syncShellForRoute(route);
 
     // Update active state on buttons
+    const learnRoutes = new Set(['learn', 'stories', 'reader', 'game']);
+    const progressRoutes = new Set(['progress', 'stats', 'leagues']);
     this.navBtns.forEach(btn => {
-      if(btn.dataset.route === route) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
-      }
-    });
-    const contentRoutes = new Set(['stories', 'reader']);
-    this.mobileNavBtns.forEach(btn => {
       const active = btn.dataset.route === route
-        || (btn.dataset.navGroup === 'content' && contentRoutes.has(route));
+        || (btn.dataset.navGroup === 'learn' && learnRoutes.has(route))
+        || (btn.dataset.navGroup === 'progress' && progressRoutes.has(route));
       btn.classList.toggle('active', active);
       if (active) btn.setAttribute('aria-current', 'page');
       else btn.removeAttribute('aria-current');
     });
-    this.mobileMoreToggle?.classList.toggle('active', ['leagues', 'stats', 'settings'].includes(route));
-    this.closeMobileMore();
+    this.mobileNavBtns.forEach(btn => {
+      const active = btn.dataset.route === route
+        || (btn.dataset.navGroup === 'learn' && learnRoutes.has(route))
+        || (btn.dataset.navGroup === 'progress' && progressRoutes.has(route));
+      btn.classList.toggle('active', active);
+      if (active) btn.setAttribute('aria-current', 'page');
+      else btn.removeAttribute('aria-current');
+    });
 
     // Ocultar todas as telas (views) carregadas
     for (let key in this.viewContainers) {
@@ -349,11 +360,6 @@ class App {
     this.renderRouteView(route, targetContainer, this.routeParams);
   }
 
-  closeMobileMore() {
-    if (this.mobileMoreMenu) this.mobileMoreMenu.hidden = true;
-    this.mobileMoreToggle?.setAttribute('aria-expanded', 'false');
-  }
-
   // Views com recursos que precisam ser liberados ao sair (ex.: AudioContext
   // do Jogo) registram uma função aqui; navigate() a chama automaticamente
   // antes de trocar de rota. Só uma pendente por vez (a view atual).
@@ -373,6 +379,8 @@ class App {
       stories: renderStories,
       reader: renderReader,
       stats: renderStats,
+      learn: renderLearn,
+      progress: renderProgress,
     };
     const renderer = renderers[route] || renderHome;
     this.activeRender?.controller.abort('render-superseded');

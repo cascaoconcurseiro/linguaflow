@@ -24,24 +24,24 @@ function organizeHomeSections(container) {
 
     const today = section('home-today', '', '');
     append(today, '.dashboard-header');
-    append(today, '#home-return-banner');
-    append(today, '#home-streak-banner');
-    append(today, '#home-today-plan');
-    append(today, '.action-buttons');
+    append(today, '#home-primary-plan');
 
-    const missions = section('home-missions', 'Missões', 'Metas de prática, não atalhos para pontuação.');
-    append(missions, '.quests-card');
+    const next = section('home-next', 'Depois', 'Continue em contexto real ou faça uma prática curta.');
+    append(next, '#home-secondary-actions');
 
-    const insights = section('home-insights', 'Insights', 'Sinais da sua memória para decidir o próximo passo.');
-    append(insights, '.stats-grid');
-    append(insights, '#home-memory-insight');
-    append(insights, '#diagnosis-details');
-    append(insights, '.heatmap-section');
+    const more = document.createElement('details');
+    more.id = 'home-more';
+    more.className = 'home-more';
+    more.innerHTML = '<summary>Ver metas, memória e conquistas</summary><div class="home-more-body"></div>';
+    const moreBody = more.querySelector('.home-more-body');
+    append(moreBody, '#home-today-plan');
+    append(moreBody, '.quests-card');
+    append(moreBody, '.stats-grid');
+    append(moreBody, '#home-memory-insight');
+    append(moreBody, '.achievements-section');
+    append(moreBody, '.heatmap-section');
 
-    const achievements = section('home-achievements', 'Conquistas', 'Marcos do seu percurso, sem transformar repetição livre em domínio.');
-    append(achievements, '.achievements-section');
-
-    main.replaceChildren(today, missions, insights, achievements);
+    main.replaceChildren(today, next, more);
     sidebar.remove();
 }
 
@@ -74,6 +74,25 @@ const GOAL_TO_NEW_PER_DAY = { 10: 5, 20: 10, 40: 20 };
 
 const ONBOARDING_KEY = 'onboarding_v1';
 const ONBOARDING_LEVELS = new Set(['beginner', 'intermediate', 'advanced']);
+
+export function chooseTodayAction(state = {}) {
+    const totalWords = Math.max(0, Number(state.totalWords) || 0);
+    const dueCards = Math.max(0, Number(state.dueCards) || 0);
+    const dueLearning = Math.min(dueCards, Math.max(0, Number(state.dueLearning) || 0));
+    const dueReview = Math.max(0, dueCards - dueLearning);
+    const reviewsToday = Math.max(0, Number(state.reviewsToday) || 0);
+    const daysAway = Math.max(0, Number(state.daysAway) || 0);
+    const dueTomorrow = Math.max(0, Number(state.dueTomorrow) || 0);
+    const retention30 = state.retention30 === null || state.retention30 === undefined
+        ? null : Number(state.retention30);
+    if (totalWords === 0) return { kind:'first-context', route:'learn', label:'Encontrar uma frase', title:'Aprenda sua primeira frase real', reason:'Escolha um conteúdo, encontre uma frase útil e transforme esse momento em memória.', meta:'Vídeos, histórias ou textos — você escolhe a fonte.' };
+    if (dueCards > 0 && daysAway >= 2) return { kind:'return-review', route:'study', label:'Retomar revisões', title:'Vamos retomar de onde você parou', reason:'Sua memória precisa de atenção, sem pressa e sem tentar recuperar dias perdidos.', meta:`${dueReview} ${dueReview === 1 ? 'revisão' : 'revisões'}${dueLearning ? ` · ${dueLearning} em aprendizado` : ''}` };
+    if (dueLearning > 0 && dueReview === 0) return { kind:'learning', route:'study', label:'Continuar aprendizado', title:'Continue o que começou', reason:'Estas frases voltaram agora para reforçar a primeira memória.', meta:`${dueLearning} ${dueLearning === 1 ? 'frase em aprendizado' : 'frases em aprendizado'}` };
+    if (dueReview > 0) return { kind:'review', route:'study', label:'Revisar agora', title:'Proteja o que você já aprendeu', reason:retention30 !== null && Number.isFinite(retention30) && retention30 < 70 ? 'Hoje vale consolidar o que já existe antes de adicionar frases novas.' : dueReview >= 15 ? 'A fila está maior; faça uma sessão confortável e retome depois.' : 'Estas frases chegaram ao momento certo de serem lembradas.', meta:`${dueReview} ${dueReview === 1 ? 'revisão' : 'revisões'}${dueLearning ? ` · ${dueLearning} em aprendizado` : ''}` };
+    if (reviewsToday > 0) return { kind:'completed', route:'learn', label:'Continuar em imersão', title:'Plano de memória concluído', reason:`Você fez ${reviewsToday} ${reviewsToday === 1 ? 'revisão' : 'revisões'} hoje. As próximas frases voltarão no momento certo.`, meta:dueTomorrow ? `Amanhã: ${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}` : 'Nada mais é obrigatório hoje.' };
+    if (daysAway >= 2) return { kind:'return-clear', route:'learn', label:'Continuar em imersão', title:'Você voltou na hora certa', reason:'Não há revisões vencidas. Escolha um conteúdo e descubra uma nova frase.', meta:dueTomorrow ? `Amanhã: ${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}` : 'Sua memória está em dia.' };
+    return { kind:'clear', route:'learn', label:'Continuar em imersão', title:'Sua memória está em dia', reason:'Você pode continuar aprendendo com conteúdo real ou encerrar por hoje.', meta:dueTomorrow ? `Amanhã: ${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}` : 'Nada mais é obrigatório hoje.' };
+}
 
 function parseOnboarding(value) {
     if (typeof value !== 'string') return null;
@@ -403,14 +422,32 @@ export async function renderHome(container, app) {
 
     const allQuestsDone = coreQuests.every(q => q.done);
 
+    const todayAction = chooseTodayAction({
+        totalWords: safeStats.totalWords,
+        dueCards: safeStats.dueCards,
+        dueLearning: dueLearningNow,
+        reviewsToday,
+        daysAway,
+        dueTomorrow,
+        retention30,
+    });
+
     if (myGen !== _homeRenderGen) return; // uma chamada mais nova já assumiu a tela (Onda 9)
     container.innerHTML = `
         <div class="gamified-home">
             <div class="dashboard-main">
                 <div class="dashboard-header">
                     <h2>Hoje</h2>
-                    <p>Um plano curto para manter a memória em dia.</p>
+                    <p>Uma próxima ação clara, escolhida pelo estado real da sua memória.</p>
                 </div>
+
+                <section id="home-primary-plan" class="home-primary-plan" data-plan-kind="${todayAction.kind}" aria-labelledby="home-primary-title">
+                    <p class="product-kicker">PRÓXIMO PASSO</p>
+                    <h1 id="home-primary-title">${todayAction.title}</h1>
+                    <p class="home-primary-reason">${todayAction.reason}</p>
+                    <p class="home-primary-meta">${todayAction.meta}</p>
+                    <button class="btn-action btn-study" id="btn-study-now" type="button">${todayAction.label}</button>
+                </section>
                 
                 <div class="stats-grid">
                     <div class="stat-card">
@@ -493,14 +530,12 @@ export async function renderHome(container, app) {
                     </div>
                 </div>
 
-                <div class="action-buttons">
-                    <button class="btn-action btn-study" id="btn-study-now">
-                        <span class="btn-icon">🧠</span>
-                        CONTINUAR SEU PLANO
+                <div id="home-secondary-actions" class="action-buttons home-secondary-actions">
+                    <button class="btn-action btn-study" id="btn-open-learning">
+                        EXPLORAR CONTEÚDO
                     </button>
                     <button class="btn-action btn-game" id="btn-play-match">
-                        <span class="btn-icon">🎮</span>
-                        PRÁTICA LIVRE
+                        PRÁTICA LIVRE · SEM PLACAR
                     </button>
                 </div>
 
@@ -623,8 +658,9 @@ export async function renderHome(container, app) {
         if (app && app.navigate) app.navigate('study');
     });
     document.getElementById('btn-study-now')?.addEventListener('click', () => {
-        if (app && app.navigate) app.navigate('study');
+        if (app && app.navigate) app.navigate(todayAction.route);
     });
+    document.getElementById('btn-open-learning')?.addEventListener('click', () => app?.navigate?.('learn'));
 
     // Onda 9: modo de estudo customizado (paridade Anki) — revisar só as
     // palavras fracas/leech, ignorando a cota diária normal.

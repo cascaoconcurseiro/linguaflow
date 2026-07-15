@@ -692,3 +692,27 @@ fluxo já reorganizado com usuários antes de nova expansão visual. Ver
 - Nenhuma migration aplicada no Supabase remoto; nenhuma promoção para produção.
 
 ---
+# Handoff Codex — Reforma UX P0-A (2026-07-15)
+
+## Entregue
+
+- Navegação global: Hoje | Aprender | Cofre | Progresso.
+- Novos hubs: `learnView.js` e `progressView.js`, preservando todas as rotas anteriores.
+- Perfil reúne Configurações, tema e saída.
+- Home usa `chooseTodayAction()` e exibe uma única CTA baseada na fila real.
+- Metas, memória, XP, ofensiva, diagnóstico, conquistas e heatmap continuam disponíveis sob `Ver metas, memória e conquistas`.
+- PWA web atualizado para `3.0.4`.
+- Novo gate `npm run test:p0-a`, incluído no release.
+
+## Não alterar neste corte
+
+- Engine/FSRS, áudio, vídeo, RPCs, persistência e economia.
+- Shell de foco do Estudo.
+- Contrato: fila vazia direciona para Aprender, nunca para Estudo.
+- Contrato: uma única CTA no primeiro nível da Home.
+
+## Próximo
+
+P0-B: painel `Entender melhor`, com trecho original primeiro, explicação/tutor contextual, prática curta e fontes adicionais progressivas. Depois: P0-C de nomenclatura e estados globais.
+
+---

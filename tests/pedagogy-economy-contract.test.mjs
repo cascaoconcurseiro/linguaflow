@@ -42,7 +42,8 @@ check(/Missões não podem ser “ganhar XP” nem “salvar palavras”/.test(c
 // Etapa 4: o contrato precisa aparecer na arquitetura de informação, não só
 // existir num documento. Estes testes deliberadamente evitam cor, posição ou
 // classes CSS; verificam somente linguagem e decisão de produto.
-check(/Continuar seu plano/i.test(home),
+check((home.match(/id="home-primary-plan"/g) || []).length === 1
+    && (home.match(/id="btn-study-now"/g) || []).length === 1,
   'Home oferece uma única continuação explícita do plano');
 check(!/Ganhar \$\{xpTarget\} XP/.test(home) && !/id:\s*['"]xp['"]/.test(home),
   'Home não usa missão circular de ganhar XP');

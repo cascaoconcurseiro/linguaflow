@@ -539,8 +539,11 @@ vertical Max fixa em `137px` e detecção do popup por retângulo visível, sem 
 
 ## Estado e sequência
 
-- Implementação local concluída e contratos específicos verdes.
-- Preview e QA visual autenticado em 1440/1024/768/390/320 px permanecem como gate antes de produção.
+- Implementação registrada pelo Codex no commit `566bf1b` e publicada somente no branch `codex/review-mobile-video`.
+- Preview Vercel `dpl_DwQechHca5i3N7uMuoQsRUmmVAyk` ficou `READY`: `https://linguaflow-hferjto3i-wesleys-projects-de111a83.vercel.app`.
+- A raiz respondeu HTTP 200 servindo os quatro destinos e `app.js?v=3.0.4`; build sem erros e nenhum log de runtime `error`/`fatal` na janela consultada.
+- QA estrutural local em desktop e 390 px confirmou ausência de overflow horizontal e troca correta entre navegação desktop/mobile.
+- QA visual **autenticado** em 1440/1024/768/390/320 px permanece como gate antes de produção.
 - **Próximo corte:** P0-B — substituir a gaveta plana `Explorar esta frase` pelo painel responsivo `Entender melhor`, organizado em Ouvir no contexto → Entender → Praticar → Mais contextos, sem alterar o player/engine.
 
 ---

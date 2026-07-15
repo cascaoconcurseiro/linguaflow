@@ -703,6 +703,7 @@ fluxo já reorganizado com usuários antes de nova expansão visual. Ver
 - Metas, memória, XP, ofensiva, diagnóstico, conquistas e heatmap continuam disponíveis sob `Ver metas, memória e conquistas`.
 - PWA web atualizado para `3.0.4`.
 - Novo gate `npm run test:p0-a`, incluído no release.
+- Commit funcional: `566bf1b`; preview Vercel `dpl_DwQechHca5i3N7uMuoQsRUmmVAyk` em estado `READY`, raiz HTTP 200, build sem erro e build web `3.0.4` confirmado.
 
 ## Não alterar neste corte
 

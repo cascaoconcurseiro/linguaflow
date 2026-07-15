@@ -475,3 +475,27 @@ coisa.
 **Próximo corte técnico:** FSRS totalmente server-side, removendo a proposta de
 estado calculada pelo cliente. Depois: identidades server-side verificáveis para
 jogo/quiz/vídeo/quests e P0.3 do ledger anti-farm.
+
+---
+
+## Atualização Codex — correção visual Max/HBO sem tocar no engine (2026-07-15)
+
+**Diagnóstico:** os controles existentes eram limitados explicitamente ao
+YouTube; a Max usava distância inferior fixa em vez da timeline real; e popup e
+legenda eram calculados em sistemas de coordenadas diferentes. O retângulo da
+palavra clicada também era recebido, mas ignorado.
+
+**Implementação:** o Codex criou uma camada visual isolada em
+`content/max-player-ui.js`, com safe-area derivada dos controles/timeline, dock
+Max e coordenação de normal/fullscreen/remount. O popup passou a compartilhar o
+mesmo overlay, ancorar no termo clicado e reduzir sua altura com scroll para
+nunca ocupar a legenda. A extensão foi versionada como `3.0.4`.
+
+**Proteção solicitada pelo dono:** `content/subtitle-engine.js` e todo
+`content/engine/*` permaneceram sem alteração. Nenhuma regra de captura,
+sincronização, tradução ou mecânica foi modificada.
+
+**Evidência:** testes geométricos cobrem 1280×720, 854×480, barra oculta, clamps
+horizontal/vertical, popup alto, fullscreen/remount e contrato dos seis controles.
+O smoke visual autenticado na HBO permanece pendente até a extensão ser
+recarregada no Chrome do dono.

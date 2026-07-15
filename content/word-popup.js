@@ -1,5 +1,7 @@
 // LinguaFlow Pro — Word Popup v5 (unified storage, bilingual examples, full grammar)
 
+import { computeMaxPopupLayout } from './max-player-ui.js';
+
 export class WordPopup {
   constructor(engine, platform) {
     this.engine = engine;
@@ -270,6 +272,10 @@ export class WordPopup {
   }
   destroy() {
     this._posObserver?.disconnect();
+    this._maxPositionObserver?.disconnect();
+    this._maxPositionMutationObserver?.disconnect();
+    this._maxPositionAbort?.abort();
+    cancelAnimationFrame(this._positionFrame || 0);
     this.popup?.remove();
   }
 
@@ -555,13 +561,17 @@ export class WordPopup {
     this.word = await this._expandTermInContext(cleanedWord, this.context);
     this.context = this._truncateContext(this.word, this.context);
     this.currentCue = cue; // Armazena a cue completa com contexto expandido
+    this._anchorRect = rect || null;
     this._chunksBuilt = false;
     this._exBuilt = false;
     this._contextExplained = false;
 
-    // Sempre mantém o popup grudado no player para que siga miniplayer/PiP nativamente
+    // Na Max, legenda e popup vivem no mesmo overlay fixo. Em outros players,
+    // mantemos o comportamento local existente.
     const player = this._findPlayerContainer();
-    const targetParent = player || document.body;
+    const targetParent = this.platform === 'max'
+      ? (document.fullscreenElement || document.body)
+      : (player || document.body);
 
     if (this.popup.parentElement !== targetParent) {
       targetParent.appendChild(this.popup);
@@ -703,7 +713,7 @@ export class WordPopup {
     // Trigger animation
     requestAnimationFrame(() => {
       this.popup.style.opacity = '1';
-      this.popup.style.transform = 'translateY(0) scale(1)';
+      this.popup.style.transform = this.platform === 'max' ? 'none' : 'translateY(0) scale(1)';
     });
 
     this._loadData(this.word);
@@ -1509,6 +1519,39 @@ export class WordPopup {
   _startPosLoop() {
     if (this._posLoopRunning) return;
     this._posLoopRunning = true;
+
+    if (this.platform === 'max') {
+      const schedule = () => {
+        if (!this.popup || this.popup.style.display === 'none' || this._positionFrame) return;
+        this._positionFrame = requestAnimationFrame(() => {
+          this._positionFrame = 0;
+          this._position();
+        });
+      };
+      if (!this._maxPositionAbort) {
+        this._maxPositionAbort = new AbortController();
+        const signal = this._maxPositionAbort.signal;
+        window.addEventListener('resize', schedule, { signal });
+        document.addEventListener('fullscreenchange', () => {
+          const root = document.fullscreenElement || document.body;
+          if (this.popup.parentElement !== root) root.appendChild(this.popup);
+          schedule();
+        }, { signal });
+        this._maxPositionObserver = new ResizeObserver(schedule);
+        this._maxPositionObserver.observe(this.popup);
+        const subtitleHost = document.getElementById('linguaflow-subtitle-host');
+        if (subtitleHost) this._maxPositionObserver.observe(subtitleHost);
+        this._maxPositionMutationObserver = new MutationObserver(schedule);
+        if (subtitleHost) {
+          this._maxPositionMutationObserver.observe(subtitleHost, {
+            attributes: true,
+            attributeFilter: ['style'],
+          });
+        }
+      }
+      schedule();
+      return;
+    }
     
     const loop = () => {
       if (!this.popup || this.popup.style.display === 'none') {
@@ -1524,10 +1567,44 @@ export class WordPopup {
   _position() {
     this.popup.style.display = 'block';
 
-    const player = this.engine?._findPlayerContainer?.();
     const subtitleHost = document.getElementById('linguaflow-subtitle-host');
 
     const pw = 340;
+
+    if (this.platform === 'max' && subtitleHost?.offsetParent) {
+      const root = document.fullscreenElement || document.body;
+      if (this.popup.parentElement !== root) root.appendChild(this.popup);
+      const subtitleRect = subtitleHost.getBoundingClientRect();
+      const layout = computeMaxPopupLayout({
+        viewportWidth: window.innerWidth,
+        subtitleTop: subtitleRect.top,
+        popupWidth: pw,
+        popupHeight: this.popup.scrollHeight || this.popup.offsetHeight,
+        anchorRect: this._anchorRect,
+      });
+      const signature = `${layout.left}:${layout.top}:${layout.maxHeight}`;
+      if (this._lastMaxLayout !== signature) {
+        this._lastMaxLayout = signature;
+        Object.assign(this.popup.style, {
+          position: 'fixed',
+          top: `${layout.top}px`,
+          left: `${layout.left}px`,
+          right: 'auto',
+          bottom: 'auto',
+          transform: 'none',
+          width: `${pw}px`,
+          maxWidth: 'calc(100vw - 20px)',
+          height: 'auto',
+          maxHeight: `${layout.maxHeight}px`,
+          borderRadius: '16px',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
+          overflowY: 'auto',
+        });
+      }
+      return;
+    }
+
+    const player = this.engine?._findPlayerContainer?.();
     
     if (player && this.popup.parentElement === player) {
       // Relative to player
@@ -1625,7 +1702,7 @@ export class WordPopup {
 
     this._isHiding = true;
     this.popup.style.opacity = '0';
-    this.popup.style.transform = 'translateY(10px) scale(0.95)';
+    this.popup.style.transform = this.platform === 'max' ? 'none' : 'translateY(10px) scale(0.95)';
 
     if (resumeVideo && this.engine?.videoElement) {
       const vid = this.engine.videoElement;
@@ -1659,6 +1736,7 @@ export class WordPopup {
     this._hideTimeout = setTimeout(() => {
       this.popup.style.display = 'none';
       this.popup.style.pointerEvents = 'auto'; // Restaura para o próximo uso
+      this._posLoopRunning = false;
       this._hideTimeout = null;
     }, 200);
   }

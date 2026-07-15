@@ -1,5 +1,39 @@
 # Handoff — LinguaFlow
 
+## Handoff Codex — UI Max/HBO sem alterar o engine (2026-07-15)
+
+### Escopo preservado
+
+`content/subtitle-engine.js` e `content/engine/*` não foram modificados. Captura,
+parsing, cues, sincronização, tradução e mecânica permanecem exatamente como no
+build aprovado.
+
+### Implementado pelo Codex
+
+- `manifest.json`: versão `3.0.4` para identificar o pacote Max/HBO.
+- `content/max-player-ui.js`: camada visual específica da Max/HBO; mede a barra
+  ou timeline visível, cria safe-area e mantém legenda/dock no mesmo overlay root
+  inclusive em fullscreen e após remount do player.
+- Dock compacto com paridade e atalhos úteis: mostrar/ocultar, anterior, repetir,
+  próxima, painel de legendas e configurações.
+- `content/word-popup.js`: na Max o popup usa coordenadas fixas do mesmo overlay,
+  ancora no termo clicado, limita X à viewport e limita a altura ao espaço acima
+  da legenda, usando scroll interno em vez de cobrir o texto.
+- O reposicionamento do popup Max passou de loop contínuo para eventos de resize,
+  fullscreen, mudança do host e alteração de tamanho.
+- `tests/max-player-ui.test.mjs`: contratos geométricos e de controles incluídos
+  nos gates `test:stage2` e `test:release`.
+
+### QA manual ainda necessário
+
+Recarregar a extensão e validar numa sessão HBO/Max: normal e fullscreen,
+controles visíveis/ocultos, legenda de uma/duas linhas, popup antes/depois do
+carregamento e troca de episódio. O Codex não conseguiu acessar a sessão HBO
+porque a integração do ChatGPT com o perfil do Chrome não está instalada; isso
+não é falha da extensão LinguaFlow.
+
+---
+
 ## Handoff Codex — Redefinição estratégica do produto (2026-07-14)
 
 **Decisão:** a antiga Etapa 4 de apenas reorganizar Home/Cofre/Stories/Config foi suspensa. A auditoria multidisciplinar confirmou que o problema é sistêmico: as áreas são conectadas por navegação e XP, não por evidências de aprendizagem.

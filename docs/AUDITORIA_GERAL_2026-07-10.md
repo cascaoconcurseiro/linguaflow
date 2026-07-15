@@ -732,6 +732,9 @@ contrato.
 - Novo `tests/reading-experience-p1-b.test.mjs` dentro de `test:release`.
 - `test:p1-b`, `test:web-reader`, produto UX, design system e release completo
   passaram.
+- Commit funcional `768221e`; preview Vercel
+  `dpl_3Fv2Y53ntRFEepgE5bs784x51i9i` ficou `READY` em
+  `https://linguaflow-ipcg8n8kn-wesleys-projects-de111a83.vercel.app`.
 
 ## Próximo corte
 
@@ -757,6 +760,9 @@ modificados; apenas apresentação e confirmação da configuração inicial.
   a navegação acontece. Falha mantém o usuário no passo final com retry.
 - Build `3.0.9`; novo gate `tests/onboarding-p1-c.test.mjs` dentro do release.
 - `test:p1-c`, `test:p0-a` e release completo passaram.
+- Commit funcional `285d6a3`; preview Vercel
+  `dpl_7Rmw53ngcTQBekdVrWn9ftR7eJT1` ficou `READY` em
+  `https://linguaflow-nebgifb96-wesleys-projects-de111a83.vercel.app`.
 
 **Próximo:** P1-D — separar Prática de Progresso, explicar o que cada atividade
 mede e tornar retenção/carga as métricas principais.
@@ -797,6 +803,11 @@ alterados.
 - Novo `tests/practice-progress-p1-d.test.mjs` dentro de `test:release` cobre
   habilidades, não-farming, prioridade das métricas e Liga opcional.
 - `test:p1-d`, contrato pedagógico, sintaxe e release completo passaram.
+- Commit funcional `c7f0c4a`; preview Vercel
+  `dpl_6WeDKTx9Di6K3yUqPsR6YBo7ATAD` ficou `READY` em
+  `https://linguaflow-aee5u6518-wesleys-projects-de111a83.vercel.app`.
+- A raiz respondeu HTTP 200 com `app.js?v=3.0.10`; build concluiu sem erros e
+  não houve runtime `error`/`fatal` na janela consultada.
 
 ## Próximo corte
 

@@ -814,6 +814,8 @@ Prática/Progresso e QA autenticado.
 - Ajuda do Leitor ficou recolhida; importação é a ação principal.
 - Histórias usa familiaridade estimada e não chama exposição de fixação.
 - Build `3.0.8`; gate `npm run test:p1-b` no release.
+- Preview `dpl_3Fv2Y53ntRFEepgE5bs784x51i9i` `READY` em
+  `https://linguaflow-ipcg8n8kn-wesleys-projects-de111a83.vercel.app`.
 
 **Próximo:** P1-C onboarding; depois Prática/Progresso e QA autenticado.
 
@@ -826,6 +828,8 @@ Prática/Progresso e QA autenticado.
 - Preferências reais são aguardadas e confirmadas antes de marcar onboarding
   concluído; não há mais writes fire-and-forget.
 - Build `3.0.9`; gate `npm run test:p1-c` no release.
+- Preview `dpl_7Rmw53ngcTQBekdVrWn9ftR7eJT1` `READY` em
+  `https://linguaflow-nebgifb96-wesleys-projects-de111a83.vercel.app`.
 
 **Próximo:** P1-D Prática/Progresso; depois QA autenticado.
 
@@ -846,6 +850,9 @@ Prática/Progresso e QA autenticado.
 - Percentual de lembrança é identificado como autoavaliação; Liga declara que
   seu XP agrega atividades e não mede domínio.
 - Build `3.0.10`; gate `npm run test:p1-d` dentro do release.
+- Commit `c7f0c4a`; preview `dpl_6WeDKTx9Di6K3yUqPsR6YBo7ATAD` `READY` em
+  `https://linguaflow-aee5u6518-wesleys-projects-de111a83.vercel.app`, HTTP 200,
+  build sem erros e nenhum runtime `error`/`fatal` observado.
 - Preservar engine, handlers dos três jogos, FSRS, economia e regras da Liga.
 
 **Próximo:** QA autenticado desktop/mobile de toda a reforma antes de produção.

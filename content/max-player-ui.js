@@ -23,7 +23,9 @@ export function computeMaxOverlayLayout({
   const timelineTop = visibleTops.length ? Math.min(...visibleTops) : playerBottom - 72;
   const occupiedBottom = clamp(viewportHeight - timelineTop, 56, viewportHeight * 0.34);
   const dockBottom = Math.round(occupiedBottom + 8);
-  const subtitleBottom = Math.round(dockBottom + dockHeight + gap);
+  // A Max usa uma composição própria e previsível: 137px mantém a legenda
+  // acima da timeline sem variar quando os controles nativos aparecem/somem.
+  const subtitleBottom = 137;
 
   return { dockBottom, subtitleBottom, timelineTop };
 }
@@ -147,8 +149,8 @@ export class MaxPlayerUI {
     const style = document.createElement('style');
     style.id = 'lf-max-controls-style';
     style.textContent = `
-      #lf-max-controls{position:fixed;left:50%;transform:translateX(-50%);z-index:2147483642;
-        display:flex;align-items:center;gap:4px;height:42px;padding:4px 7px;border-radius:999px;
+      #lf-max-controls{position:fixed;right:20px;top:50%;transform:translateY(-50%);z-index:2147483642;
+        display:flex;flex-direction:column;align-items:center;gap:4px;width:42px;padding:7px 4px;border-radius:999px;
         background:rgba(8,12,22,.78);border:1px solid rgba(255,255,255,.16);
         box-shadow:0 8px 30px rgba(0,0,0,.42);backdrop-filter:blur(14px) saturate(150%);
         pointer-events:auto;transition:opacity .16s ease,transform .16s ease;}
@@ -159,8 +161,8 @@ export class MaxPlayerUI {
         color:#7dd3fc;outline:2px solid transparent;transform:scale(1.06);}
       #lf-max-controls button[data-action="toggle"]{font-size:11px;letter-spacing:.03em;color:#7dd3fc;}
       #lf-max-controls button[data-action="toggle"][aria-pressed="false"]{color:#94a3b8;}
-      #lf-max-controls .lf-max-separator{width:1px;height:20px;background:rgba(255,255,255,.14);margin:0 2px;}
-      @media (max-width:640px){#lf-max-controls{gap:1px;padding-inline:4px}#lf-max-controls button{width:31px;height:31px}}
+      #lf-max-controls .lf-max-separator{width:20px;height:1px;background:rgba(255,255,255,.14);margin:2px 0;}
+      @media (max-width:640px){#lf-max-controls{right:10px;gap:1px;padding-block:4px}#lf-max-controls button{width:31px;height:31px}}
       @media (prefers-reduced-motion:reduce){#lf-max-controls,#lf-max-controls button{transition:none}}
     `;
     if (!document.getElementById(style.id)) document.head.appendChild(style);
@@ -212,7 +214,11 @@ export class MaxPlayerUI {
     this.lastLayout = signature;
 
     this.dock.style.display = 'flex';
-    this.dock.style.setProperty('bottom', `${layout.dockBottom}px`, 'important');
+    this.dock.style.removeProperty('bottom');
+    this.dock.style.setProperty('right', '20px', 'important');
+    this.dock.style.setProperty('top', '50%', 'important');
+    this.dock.style.setProperty('left', 'auto', 'important');
+    this.dock.style.setProperty('transform', 'translateY(-50%)', 'important');
     subtitleHost.style.setProperty('position', 'fixed', 'important');
     subtitleHost.style.setProperty('bottom', `${layout.subtitleBottom}px`, 'important');
     subtitleHost.style.setProperty('left', '50%', 'important');

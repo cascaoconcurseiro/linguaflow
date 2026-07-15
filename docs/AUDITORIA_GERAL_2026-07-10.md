@@ -499,3 +499,9 @@ sincronização, tradução ou mecânica foi modificada.
 horizontal/vertical, popup alto, fullscreen/remount e contrato dos seis controles.
 O smoke visual autenticado na HBO permanece pendente até a extensão ser
 recarregada no Chrome do dono.
+
+**Correção após QA real:** as imagens do dono na versão `3.0.4` provaram que o
+dock horizontal concorria com a legenda e que o popup ainda caía no ramo
+genérico. O Codex corrigiu a versão `3.0.5` com dock vertical à direita, posição
+vertical Max fixa em `137px` e detecção do popup por retângulo visível, sem usar
+`offsetParent`. O engine permaneceu novamente sem alterações.

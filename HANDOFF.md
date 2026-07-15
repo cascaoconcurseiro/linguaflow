@@ -2,6 +2,15 @@
 
 ## Handoff Codex — UI Max/HBO sem alterar o engine (2026-07-15)
 
+### Ajuste após QA real do dono — versão 3.0.5
+
+As capturas da versão 3.0.4 mostraram o dock horizontal sobre a legenda e o
+popup ainda no ramo genérico. A causa do popup foi objetiva: elementos
+`position: fixed` podem ter `offsetParent === null`, apesar de estarem visíveis.
+Na 3.0.5, o dock passou para uma coluna fixa à direita, a legenda Max usa
+`bottom: 137px` e o popup decide pela geometria real de `getBoundingClientRect()`;
+sua borda inferior fica acima da borda superior da legenda.
+
 ### Escopo preservado
 
 `content/subtitle-engine.js` e `content/engine/*` não foram modificados. Captura,
@@ -10,7 +19,7 @@ build aprovado.
 
 ### Implementado pelo Codex
 
-- `manifest.json`: versão `3.0.4` para identificar o pacote Max/HBO.
+- `manifest.json`: versão `3.0.5` para identificar o pacote corrigido após QA.
 - `content/max-player-ui.js`: camada visual específica da Max/HBO; mede a barra
   ou timeline visível, cria safe-area e mantém legenda/dock no mesmo overlay root
   inclusive em fullscreen e após remount do player.

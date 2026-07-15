@@ -17,7 +17,7 @@ const desktop = computeMaxOverlayLayout({
   videoRect: { bottom: 720 },
 });
 assert.ok(desktop.dockBottom > 100, 'dock fica acima da timeline');
-assert.ok(desktop.subtitleBottom >= desktop.dockBottom + 54, 'legenda fica acima do dock');
+assert.equal(desktop.subtitleBottom, 137, 'posição vertical da legenda Max é estável');
 
 const hiddenControls = computeMaxOverlayLayout({
   viewportHeight: 720,
@@ -25,7 +25,7 @@ const hiddenControls = computeMaxOverlayLayout({
   videoRect: { bottom: 720 },
 });
 assert.ok(hiddenControls.dockBottom >= 64, 'fallback mantém dock fora da borda inferior');
-assert.ok(hiddenControls.subtitleBottom > hiddenControls.dockBottom);
+assert.equal(hiddenControls.subtitleBottom, 137);
 
 const compact = computeMaxOverlayLayout({
   viewportHeight: 480,
@@ -33,7 +33,7 @@ const compact = computeMaxOverlayLayout({
   progressRect: { top: 402, width: 760, height: 6 },
   videoRect: { bottom: 480 },
 });
-assert.ok(compact.subtitleBottom < 480 * 0.5, 'safe-area não ocupa metade da tela compacta');
+assert.equal(compact.subtitleBottom, 137);
 
 const popup = computeMaxPopupLayout({
   viewportWidth: 1280,
@@ -70,5 +70,6 @@ assert.match(popupSource, /this\._anchorRect = rect \|\| null/);
 assert.match(popupSource, /document\.fullscreenElement \|\| document\.body/);
 assert.match(popupSource, /computeMaxPopupLayout/);
 assert.match(popupSource, /ResizeObserver/);
+assert.doesNotMatch(popupSource, /platform === 'max' && subtitleHost\?\.offsetParent/);
 
 console.log('Max/HBO player UI contracts passed.');

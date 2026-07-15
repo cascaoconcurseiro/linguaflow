@@ -1571,13 +1571,15 @@ export class WordPopup {
 
     const pw = 340;
 
-    if (this.platform === 'max' && subtitleHost?.offsetParent) {
+    const maxSubtitleRect = this.platform === 'max' && subtitleHost
+      ? subtitleHost.getBoundingClientRect()
+      : null;
+    if (maxSubtitleRect && maxSubtitleRect.width > 0 && maxSubtitleRect.height > 0) {
       const root = document.fullscreenElement || document.body;
       if (this.popup.parentElement !== root) root.appendChild(this.popup);
-      const subtitleRect = subtitleHost.getBoundingClientRect();
       const layout = computeMaxPopupLayout({
         viewportWidth: window.innerWidth,
-        subtitleTop: subtitleRect.top,
+        subtitleTop: maxSubtitleRect.top,
         popupWidth: pw,
         popupHeight: this.popup.scrollHeight || this.popup.offsetHeight,
         anchorRect: this._anchorRect,

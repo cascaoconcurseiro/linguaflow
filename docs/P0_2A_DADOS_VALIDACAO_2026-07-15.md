@@ -1,7 +1,7 @@
 # P0.2a — revisão autoritativa e validação de dados
 
 **Implementado por:** Codex, frente sênior Supabase/Postgres, em 2026-07-15.
-**Estado:** código e gates locais concluídos; não aplicado ao Supabase remoto por esta frente.
+**Estado:** código/gates concluídos e migrations expand aplicadas ao Supabase remoto em 2026-07-15 pela coordenação Codex; P0.2b ainda retida.
 
 ## O que foi alterado
 
@@ -26,3 +26,9 @@
 2. O cliente compatível já propaga `outcome`, `eligibility_reason` e `reward_reason`; os gates garantem que `ineligible` não entra no caminho de sucesso.
 3. Depois de publicar e validar esse cliente, P0.2b deve revogar INSERT/UPDATE diretos; os chamadores já foram migrados para RPCs estreitas.
 4. O FSRS completo continua no cliente por decisão do contrato P0.2; o servidor valida forma, versão por `reps` e elegibilidade, mas ainda não recalcula a fórmula integral.
+
+## Pós-deploy expand
+
+- P0, P0.1 e P0.2a aplicadas em ordem no projeto `qnutoswrufznztoznlql`.
+- Advisor corrigido com `20260715160836_evidence_fk_index_hardening_p0_2.sql`: FKs compostas ganharam índices de cobertura e o índice duplicado de cards foi removido.
+- O cliente `3.0.3` está no preview; a contração P0.2b depende apenas do QA autenticado.

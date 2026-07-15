@@ -508,6 +508,11 @@ Além disso, `getAllSentences()` e `getAllKnownWords()` nunca ganharam a otimiza
 - P0.2b está em `20260715155802_card_review_permissions_contract_p0_2b.sql`:
   validada no PostgreSQL local com apenas `SELECT` para `authenticated`, mas
   não deve ser aplicada antes do preview com o cliente `3.0.3`.
+- Rollout expand remoto concluído: P0, P0.1, P0.2a e hardening de índices
+  aplicados com sucesso no projeto `qnutoswrufznztoznlql`. Preview Vercel
+  `dpl_ABJQVUdSXFJhgQMcS5QV6dwUkKYn` confirmou o SHA `96139b4` e cliente
+  `3.0.3`. QA público 320/375/390 e console passaram; falta sessão autenticada
+  para liberar P0.2b.
 
 ## Plano UX/Races, Etapa 1 (2026-07-14)
 

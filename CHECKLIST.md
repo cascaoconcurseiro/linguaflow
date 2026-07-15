@@ -33,7 +33,7 @@
 - [x] P0.2/cliente — contrato confiável de review: `operation_id` nasce antes da tentativa e é conservado no retry; accepted/duplicate são explícitos; duplicate nunca anima XP; falha mantém o card no site e na revisão rápida.
 - [x] P0.2/UX — revisão rápida bloqueia clique+tecla concorrentes, distingue falha de carga de fila vazia, não anuncia conclusão após erro e expõe estados de salvamento via `aria-live`; toasts globais ganharam semântica acessível.
 - [x] P0.2/QA cliente — contratos automatizados em `tests/review-outcome-ux.test.mjs`, incluídos no `test:release`; regressões de motor, áudio, vídeo, shell, evidência e release revalidadas.
-- [x] P0.2a/banco expand — implementado e validado localmente: elegibilidade/locks/snapshots server-side, ledger P0.1, undo append-only e RPCs estreitas; aplicação remota ainda segue o gate de rollout.
+- [x] P0.2a/banco expand — implementado, validado em PG17.6 e aplicado remotamente: elegibilidade/locks/snapshots server-side, ledger P0.1, undo append-only e RPCs estreitas.
 - [x] P0.2/cliente cutover (código) — bury/suspender/restore/criação migrados para RPCs estreitas; nenhum chamador de tela usa `PATCH cards`.
 - [ ] P0.2/preview autenticado — validar o cliente integrado antes de contrair grants.
 - [ ] P0.2b/banco contract — migration versionada e validada localmente; aplicar remotamente somente depois do cliente publicado, removendo policy ampla e devolvendo apenas `SELECT` ao autenticado.
@@ -136,6 +136,7 @@
 - [x] Extrair estilos inline relevantes para componentes/tokens.
 - [x] Uma CTA primária por estado e padrões únicos de loading/erro/retry/offline.
 - [x] Auditoria automatizada de acessibilidade, responsividade e performance de layout.
+- [x] Preview `96139b4`/cliente `3.0.3`: READY, zero erro próprio de console e sem overflow em 320/375/390 px na superfície pública.
 - [ ] Preview aprovado → produção → observação pós-deploy.
 
 ## 🔴 ONDA 10 — Auditoria de bugs (só erros, sem features) (2026-07-12)

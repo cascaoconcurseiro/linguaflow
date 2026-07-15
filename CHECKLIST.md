@@ -137,7 +137,7 @@
 - [x] Uma CTA primária por estado e padrões únicos de loading/erro/retry/offline.
 - [x] Auditoria automatizada de acessibilidade, responsividade e performance de layout.
 - [x] Preview `96139b4`/cliente `3.0.3`: READY, zero erro próprio de console e sem overflow em 320/375/390 px na superfície pública.
-- [ ] Preview aprovado → produção → observação pós-deploy.
+- [x] Preview aprovado → produção `53a69d8` → observação inicial sem erro Vercel/console e API Supabase respondendo 200/204.
 
 ## 🔴 ONDA 10 — Auditoria de bugs (só erros, sem features) (2026-07-12)
 > Pedido do dono: "Faça uma auditoria em busca somente de erros e bugs." 3 agentes em paralelo, cada um cobrindo o código das Ondas 6-9 (nunca tinha passado por uma auditoria dedicada). 9 achados reais confirmados e corrigidos, 1 descartado por baixa confiança.

@@ -513,6 +513,11 @@ Além disso, `getAllSentences()` e `getAllKnownWords()` nunca ganharam a otimiza
   `dpl_ABJQVUdSXFJhgQMcS5QV6dwUkKYn` confirmou o SHA `96139b4` e cliente
   `3.0.3`. QA público 320/375/390 e console passaram; falta sessão autenticada
   para liberar P0.2b.
+- Produção: `main`/`53a69d8`, Vercel
+  `dpl_5GuwRZEJGhEPVpRyVXUyPSsN3Sry` READY. A P0.2b deve ser o próximo corte,
+  mas somente depois de recarregar a extensão e provar cinco operações reais:
+  salvar palavra/criar card, avaliar review, bury, suspender/reativar e restore.
+  Depois disso, aplicar a contract migration e confirmar grants/policies/advisors.
 
 ## Plano UX/Races, Etapa 1 (2026-07-14)
 

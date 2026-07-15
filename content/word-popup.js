@@ -1556,86 +1556,47 @@ export class WordPopup {
 
     const pw = 340;
     
-    if (player && this.popup.parentElement === player) {
-      // Relative to player
-      const playerW = player.offsetWidth || player.clientWidth;
-      const playerH = player.offsetHeight || player.clientHeight;
+    // Always use viewport relative position for stability (fixed)
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+    const centerX = viewportW / 2;
+    let leftViewport = centerX - pw / 2;
+    leftViewport = Math.max(10, Math.min(leftViewport, viewportW - pw - 10));
 
-      const centerX = playerW / 2;
-      let localLeft = centerX - pw / 2;
-      localLeft = Math.max(10, Math.min(localLeft, playerW - pw - 10));
+    let ceilingViewport = viewportH;
+    if (subtitleHost && subtitleHost.offsetParent) {
+      ceilingViewport = subtitleHost.getBoundingClientRect().top;
+    }
 
-      let ceilingLocal = playerH;
-      if (subtitleHost && subtitleHost.offsetParent) {
-        // Obter posição relativa ao player subtraindo os tops
-        const playerRect = player.getBoundingClientRect();
-        const subRect = subtitleHost.getBoundingClientRect();
-        ceilingLocal = subRect.top - playerRect.top;
-      }
+    let topViewport = ceilingViewport - this.popup.offsetHeight - 16;
+    if (topViewport < 10) topViewport = 10;
 
-      let localTop = ceilingLocal - this.popup.offsetHeight - 16;
-      if (localTop < 10) localTop = 10;
+    const newTop = `${topViewport}px`;
+    const newLeft = `${leftViewport}px`;
 
-      const newTop = `${localTop}px`;
-      const newLeft = `${localLeft}px`;
+    if (this._lastTop !== newTop || this._lastLeft !== newLeft) {
+      this._lastTop = newTop;
+      this._lastLeft = newLeft;
+      Object.assign(this.popup.style, {
+        position: 'fixed',
+        top: newTop,
+        left: newLeft,
+        right: 'auto',
+        bottom: 'auto',
+        transform: 'none',
+        width: `${pw}px`,
+        maxWidth: '90vw',
+        height: 'auto',
+        maxHeight: '80vh',
+        borderRadius: '16px',
+        boxShadow: '0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
+        overflowY: 'auto',
+      });
+    }
 
-      if (this._lastTop !== newTop || this._lastLeft !== newLeft) {
-        this._lastTop = newTop;
-        this._lastLeft = newLeft;
-        Object.assign(this.popup.style, {
-          position: 'absolute',
-          top: newTop,
-          left: newLeft,
-          right: 'auto',
-          bottom: 'auto',
-          transform: 'none',
-          width: `${pw}px`,
-          maxWidth: '90%',
-          height: 'auto',
-          maxHeight: '80%',
-          borderRadius: '16px',
-          boxShadow: '0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
-          overflowY: 'auto',
-        });
-      }
-    } else {
-      // Fallback relative to viewport
-      const viewportW = window.innerWidth;
-      const viewportH = window.innerHeight;
-      const centerX = viewportW / 2;
-      let leftViewport = centerX - pw / 2;
-      leftViewport = Math.max(10, Math.min(leftViewport, viewportW - pw - 10));
-
-      let ceilingViewport = viewportH;
-      if (subtitleHost && subtitleHost.offsetParent) {
-        ceilingViewport = subtitleHost.getBoundingClientRect().top;
-      }
-
-      let topViewport = ceilingViewport - this.popup.offsetHeight - 16;
-      if (topViewport < 10) topViewport = 10;
-
-      const newTop = `${topViewport}px`;
-      const newLeft = `${leftViewport}px`;
-
-      if (this._lastTop !== newTop || this._lastLeft !== newLeft) {
-        this._lastTop = newTop;
-        this._lastLeft = newLeft;
-        Object.assign(this.popup.style, {
-          position: 'fixed',
-          top: newTop,
-          left: newLeft,
-          right: 'auto',
-          bottom: 'auto',
-          transform: 'none',
-          width: `${pw}px`,
-          maxWidth: '90vw',
-          height: 'auto',
-          maxHeight: '80vh',
-          borderRadius: '16px',
-          boxShadow: '0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
-          overflowY: 'auto',
-        });
-      }
+    // Assegura que está anexado ao body (necessário para position: fixed funcionar bem sem bugs de stacking context do player)
+    if (this.popup.parentElement !== document.body) {
+      document.body.appendChild(this.popup);
     }
     // Garante o keyframe de animação popup
     if (!document.getElementById('lfp-pop-k')) {

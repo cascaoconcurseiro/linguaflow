@@ -443,7 +443,6 @@ export class SubtitleEngine {
 
     await this._injectSubtitleUI();
     this._injectYouTubeControls();
-    this._injectHBOControls();
     // this._injectNavigationControls(); // Removido a pedido do usuário
     this._injectFloatingButton();
     this._setupResizeObserver();
@@ -750,6 +749,13 @@ export class SubtitleEngine {
 
       // Carrega modo de exibição (displayMode)
       let mode = await db.getSetting('subtitleMode');
+      if (mode === 'translated') {
+        console.debug(
+          '[LinguaFlow] Resetando modo "Somente Tradução" para "Bilíngue" para evitar confusão.',
+        );
+        mode = 'bilingual';
+        await db.setSetting('subtitleMode', 'bilingual');
+      }
       if (mode) {
         this.displayMode = mode;
         console.debug(`[LinguaFlow] Modo de exibição carregado: ${mode}`);
@@ -849,7 +855,7 @@ export class SubtitleEngine {
     }
 
     // HBO/Max: recalcula bottom baseado na barra de controles real
-    if (this.platform === 'max' && !this._userSavedBottom) {
+    if (this.platform === 'max' && this._currentBottom === undefined) {
       const selectors = [
         '[data-testid="control_footer"]',
         '[class*="ControlsFooter"]',
@@ -861,9 +867,7 @@ export class SubtitleEngine {
         if (el) {
           const rect = el.getBoundingClientRect();
           if (rect.height > 0) {
-            const dynamicBottom = rect.height + 40; // 40px safe margin above controls
-            host.style.bottom = `${dynamicBottom}px`;
-            this._currentBottom = dynamicBottom;
+            host.style.bottom = `${rect.height + 20}px`;
             return;
           }
         }
@@ -904,7 +908,6 @@ export class SubtitleEngine {
     if (bottomPos === null) bottomPos = 100; // fallback temporário, será recalculado
 
     // Salva em memoria para o ResizeObserver nao sobrescrever
-    this._userSavedBottom = userSavedBottom;
     this._currentBottom = bottomPos;
     this._currentHorizontal = horizontalPos;
 
@@ -921,7 +924,7 @@ export class SubtitleEngine {
     }
 
     if (this.platform === 'max') {
-      const effectiveBottom = userSavedBottom ? bottomPos : 160; // Increased default margin for HBO Max
+      const effectiveBottom = userSavedBottom ? bottomPos : 120;
       this._currentBottom = effectiveBottom;
       host.style.cssText = `
                 position: fixed !important;
@@ -1383,118 +1386,6 @@ export class SubtitleEngine {
     };
 
     // Tenta por no máximo 30 segundos (20 tentativas de 1.5s)
-    let attempts = 0;
-    const iv = setInterval(() => {
-      attempts++;
-      if (tryInject() || attempts > 20) clearInterval(iv);
-    }, 1500);
-  }
-
-  _injectHBOControls() {
-    if (this.platform !== 'max') return;
-
-    const tryInject = () => {
-      // Find HBO footer
-      const footer = document.querySelector('[data-testid="control_footer"], [class*="ControlsFooter"], [class*="controls-footer"]');
-      if (!footer || document.getElementById('lf-hbo-btn')) return false;
-
-      // Injeta estilos (reusa lf-yt-styles)
-      if (!document.getElementById('lf-yt-styles')) {
-        const style = document.createElement('style');
-        style.id = 'lf-yt-styles';
-        style.textContent = `
-                    .lf-yt-btn {
-                        width: 44px; height: 44px;
-                        display: inline-flex; align-items: center; justify-content: center;
-                        background: transparent; border: none; cursor: pointer;
-                        vertical-align: top; opacity: 0.9;
-                        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-                        position: relative;
-                        z-index: 99999;
-                    }
-                    .lf-yt-btn:hover { opacity: 1; transform: scale(1.1); }
-                    .lf-yt-btn svg { width: 22px; height: 22px; fill: #FFF; transition: fill 0.3s; }
-                    .lf-yt-btn.active svg { fill: #38BDF8; filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.5)); }
-
-                    .lf-switch-wrapper {
-                        display: inline-flex; align-items: center; justify-content: center;
-                        width: 50px; height: 44px; vertical-align: top; cursor: pointer;
-                        opacity: 0.9; transition: opacity 0.2s;
-                        z-index: 99999;
-                    }
-                    .lf-switch-wrapper:hover { opacity: 1; }
-                    .lf-switch {
-                        width: 34px; height: 18px;
-                        background: rgba(255, 255, 255, 0.3);
-                        border-radius: 20px; position: relative;
-                        transition: background 0.3s;
-                    }
-                    .lf-switch.active { background: rgba(56, 189, 248, 0.6); }
-                    .lf-switch-slider {
-                        width: 12px; height: 12px;
-                        background: #FFF; border-radius: 50%;
-                        position: absolute; top: 3px; left: 3px;
-                        transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-                    }
-                    .lf-switch.active .lf-switch-slider {
-                        left: 19px; background: #FFF;
-                        box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
-                    }
-                `;
-        document.head.appendChild(style);
-      }
-
-      const container = document.createElement('div');
-      container.id = 'lf-hbo-btn';
-      container.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-left: auto; margin-right: 16px; position: relative; z-index: 999999;';
-
-      const isSubVisible = false;
-      const switchWrapper = document.createElement('div');
-      switchWrapper.className = 'lf-switch-wrapper';
-      switchWrapper.title = isSubVisible ? 'Desativar LinguaFlow (C)' : 'Ativar LinguaFlow (C)';
-      switchWrapper.innerHTML = `
-                <div class="lf-switch ${isSubVisible ? 'active' : ''}" id="lf-hbo-switch">
-                    <div class="lf-switch-slider"></div>
-                </div>
-            `;
-
-      switchWrapper.onclick = (e) => {
-        e.stopPropagation();
-        const sw = document.getElementById('lf-hbo-switch');
-        if (!sw) return;
-
-        const nowVisible = !sw.classList.contains('active');
-        localStorage.setItem('lf_sub_visible', nowVisible);
-        switchWrapper.title = nowVisible ? 'Desativar LinguaFlow (C)' : 'Ativar LinguaFlow (C)';
-        this.toggleSubtitles(nowVisible);
-      };
-
-      const btnSettings = document.createElement('button');
-      btnSettings.className = 'lf-yt-btn';
-      btnSettings.title = 'Configurações LinguaFlow (O)';
-      btnSettings.innerHTML = `
-                <svg viewBox="0 0 24 24">
-                    <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z" />
-                </svg>`;
-      btnSettings.onclick = (e) => {
-        e.stopPropagation();
-        this.openSettingsMenu();
-      };
-
-      container.appendChild(switchWrapper);
-      container.appendChild(btnSettings);
-      
-      const rightGroup = footer.lastElementChild;
-      if (rightGroup && rightGroup.tagName === 'DIV') {
-        rightGroup.style.display = 'flex';
-        rightGroup.style.alignItems = 'center';
-        rightGroup.insertBefore(container, rightGroup.children[0]);
-      } else {
-        footer.appendChild(container);
-      }
-      return true;
-    };
-
     let attempts = 0;
     const iv = setInterval(() => {
       attempts++;
@@ -2914,14 +2805,14 @@ export class SubtitleEngine {
           m.push({ text: b, start: d / 1000, end: (d + x) / 1000 });
         });
       } else {
-        // Estratégia de Precisão e Agrupamento (Contexto completo)
-        const fragments = [];
+        // Estratégia de Precisão: Captura eventos e respeita os tempos de cada segmento (word-level timing)
         s.events.forEach((evt) => {
           if (!evt.segs || evt.segs.length === 0) return;
 
           const startMs = evt.tStartMs ?? 0;
           const durationMs = evt.dDurationMs ?? 0;
 
+          // Se houver múltiplos segmentos, tentamos capturar a frase inteira com seu tempo real
           let text = '';
           evt.segs.forEach((seg) => {
             text += seg.utf8 || '';
@@ -2930,54 +2821,19 @@ export class SubtitleEngine {
           text = text.replace(/\n/g, ' ').trim();
           if (!text) return;
 
+          // Higienização de texto (remove marcadores de música/ruído [Music], [Laughter])
           const cleanText = text.replace(/\[.*?\]/g, '').trim();
           if (!cleanText) return;
 
-          fragments.push({
+          m.push({
             text: cleanText,
             start: startMs / 1000,
             end: (startMs + durationMs) / 1000,
           });
         });
 
-        fragments.sort((a, b) => a.start - b.start);
-
-        // Agrupamento inteligente de fragmentos (Resolve overlaps e incrementos)
-        if (fragments.length > 0) {
-          let currentCue = { ...fragments[0] };
-          for (let i = 1; i < fragments.length; i++) {
-            const f = fragments[i];
-            const gap = f.start - currentCue.end;
-            
-            let isIncremental = false;
-            // Legendas auto-geradas do YouTube costumam enviar o histórico junto.
-            if (f.text.toLowerCase().startsWith(currentCue.text.toLowerCase().trim())) {
-              currentCue.text = f.text;
-              currentCue.end = Math.max(currentCue.end, f.end);
-              isIncremental = true;
-            } else if (f.text.toLowerCase() === currentCue.text.toLowerCase()) {
-              currentCue.end = Math.max(currentCue.end, f.end);
-              isIncremental = true;
-            }
-
-            if (isIncremental) {
-              continue;
-            }
-
-            const endsWithPunctuation = /[.!?]$/.test(currentCue.text);
-            const isTooLong = currentCue.text.length > 80;
-            
-            // Agrupa se a diferença de tempo for pequena (< 0.8s) E não terminar em pontuação E não for muito longo
-            if (gap < 0.8 && !endsWithPunctuation && !isTooLong) {
-              currentCue.text += (currentCue.text.endsWith('-') ? '' : ' ') + f.text;
-              currentCue.end = Math.max(currentCue.end, f.end);
-            } else {
-              m.push(currentCue);
-              currentCue = { ...f };
-            }
-          }
-          m.push(currentCue);
-        }
+        // Ordenação e remoção de sobreposições
+        m.sort((a, b) => a.start - b.start);
       }
       return m;
     }
@@ -3036,10 +2892,8 @@ export class SubtitleEngine {
 
       // Injeta botões e controles
       this._injectYouTubeControls();
-      this._injectHBOControls();
       vid.addEventListener('play', () => {
         this._injectYouTubeControls();
-        this._injectHBOControls();
         this._wasPausedByHover = false;
       });
       vid.addEventListener('seeking', () => {
@@ -3130,45 +2984,6 @@ export class SubtitleEngine {
 
   // A injeção do youtube-hook.js agora é feita pelo injector.js em document_start
 
-  async _prefetchTranslations() {
-    if (!this.cues || this.cues.length === 0) return;
-    console.debug(`[LinguaFlow] Iniciando pre-fetching de traduções para ${this.cues.length} frases...`);
-    
-    // Traduz as próximas N legendas em lotes para não sobrecarregar
-    const batchSize = this.translationSpeed || 20;
-    for (let i = 0; i < this.cues.length; i += batchSize) {
-      const batch = this.cues.slice(i, i + batchSize);
-      await Promise.all(batch.map(cue => {
-        if (!cue.translatedText && !cue.isTranslating) {
-          cue.isTranslating = true;
-          return new Promise(resolve => {
-            chrome.runtime.sendMessage(
-              {
-                action: 'translate',
-                text: cue.text,
-                from: this.sourceLang,
-                to: this.targetLang,
-              },
-              (res) => {
-                cue.isTranslating = false;
-                if (res?.translation) {
-                  cue.translatedText = res.translation;
-                  // Atualiza a interface instantaneamente caso a legenda pre-fetcheada já esteja na tela
-                  if (this._currentCue && this._currentCue.text === cue.text) {
-                    this.renderDual(this._currentCue.text, res.translation);
-                  }
-                }
-                resolve();
-              }
-            );
-          });
-        }
-        return Promise.resolve();
-      }));
-    }
-    console.debug('[LinguaFlow] Pre-fetching de traduções concluído.');
-  }
-
   _processYouTubeRawSubtitles(url, raw) {
     if (!raw || raw.length < 10) return;
     let cues = [];
@@ -3187,7 +3002,6 @@ export class SubtitleEngine {
       this.cues = cues;
       this.xhrCues = cues; // Unifica para garantir que o sync loop e sidebar vejam o mesmo
       this._renderVideoWordPrep();
-      this._prefetchTranslations(); // Tradução antecipada (correção de delay)
       this._rebuildSubtitleList(); // Atualiza painel lateral IMEDIATAMENTE
       // this.toggleSubtitles(); // Removido: Não forçar ativação automática
 
@@ -3378,6 +3192,26 @@ export class SubtitleEngine {
     this._continueLoop(loop, this.videoElement || document.querySelector('video'));
   }
 
+  _prefetchTranslations(cues, currentIdx) {
+    const nextCues = cues
+      .slice(currentIdx + 1, currentIdx + 5)
+      .filter((c) => !c.translatedText && !c.isTranslating);
+    nextCues.forEach((c) => {
+      c.isTranslating = true;
+      chrome.runtime.sendMessage(
+        {
+          action: 'translate',
+          text: c.text,
+          from: this.sourceLang,
+          to: this.targetLang,
+        },
+        (res) => {
+          if (res?.translation) c.translatedText = res.translation;
+          c.isTranslating = false;
+        },
+      );
+    });
+  }
 
   _cleanSubtitleText(text) {
     if (!text) return '';

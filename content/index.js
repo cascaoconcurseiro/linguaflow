@@ -1,5 +1,6 @@
 import { SettingsPanel } from './settings-panel.js';
 import { SubtitleEngine } from './subtitle-engine.js';
+import { VideoSessionTracker } from './video-session-tracker.js';
 
 // Verifica se está em um site suportado
 const hostname = window.location.hostname;
@@ -24,6 +25,9 @@ if (!isSupported) {
   const bootstrap = async () => {
     const engine = new SubtitleEngine();
     engine.init();
+
+    // Independente do motor de legendas: só contabiliza reprodução visível e contínua.
+    new VideoSessionTracker().start();
 
     // Painel de configurações globais
     const settingsPanel = new SettingsPanel(engine);

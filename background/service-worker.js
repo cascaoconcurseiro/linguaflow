@@ -60,6 +60,39 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.debug('[LinguaFlow SW] Mensagem recebida:', request.type || request.action);
 
+  // Evento emitido somente pelo rastreador de reprodução da extensão. O navegador
+  // ainda pode reiniciar o SW, por isso o throttle persistente mora aqui, não na página.
+  if (request.type === 'LF_VIDEO_SESSION_COMPLETED') {
+    const watchedSeconds = Number(request.watchedSeconds);
+    if (!sender.tab?.id || watchedSeconds !== 300) {
+      sendResponse({ ok: false, reason: 'invalid_video_session' });
+      return;
+    }
+
+    (async () => {
+      const key = 'lf_video_session_last_claim_at';
+      const now = Date.now();
+      const minimumIntervalMs = 30 * 60 * 1000;
+      const stored = await chrome.storage.local.get(key);
+      const lastClaimAt = Number(stored[key]) || 0;
+      if (now - lastClaimAt < minimumIntervalMs) {
+        sendResponse({ ok: true, throttled: true });
+        return;
+      }
+
+      try {
+        // Amount 1 = 5 XP; the RPC independently enforces the daily 30 XP cap.
+        const result = await db.recordEvent('video_session', 1);
+        await chrome.storage.local.set({ [key]: now });
+        sendResponse({ ok: true, result });
+      } catch (error) {
+        console.warn('[LinguaFlow SW] Não foi possível registrar sessão de vídeo:', error);
+        sendResponse({ ok: false, error: error?.message || String(error) });
+      }
+    })();
+    return true;
+  }
+
 
   // Proxy para chamadas de banco de dados (Sincronização global entre sites)
   if (request.type === 'DB_CALL') {

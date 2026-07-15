@@ -624,6 +624,11 @@ alteração em engine, FSRS, player, áudio, RPC, migration ou economia.
   contrato compartilhado, em vez de depender de markup literal incidental.
 - `npm run test:release -- --allow-dirty`, `npm run test:design-system` e
   `npm run test:product-ux` passaram localmente.
+- Commit funcional `dab4da7`; preview Vercel
+  `dpl_HCzxdDNFChuezeadpP5oZzEK7Zau` ficou `READY` em
+  `https://linguaflow-jdm5nae3k-wesleys-projects-de111a83.vercel.app`.
+- A raiz respondeu HTTP 200 com `app.js?v=3.0.6`; build sem erros e nenhum log
+  de runtime `error`/`fatal` na janela consultada.
 
 ## Decisões que devem ser preservadas
 

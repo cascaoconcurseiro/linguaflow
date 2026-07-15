@@ -756,6 +756,10 @@ P0-C: nomenclatura, estados globais e componentes compartilhados. Antes de produ
   card/FSRS permanece apenas em áreas técnicas.
 - Home não apresenta `mature` como conhecimento ou domínio.
 - Build web/PWA `3.0.6`; gate `npm run test:p0-c` dentro do release.
+- Commit funcional `dab4da7`; preview
+  `dpl_HCzxdDNFChuezeadpP5oZzEK7Zau` `READY` em
+  `https://linguaflow-jdm5nae3k-wesleys-projects-de111a83.vercel.app`, raiz
+  HTTP 200, build sem erros e nenhum runtime `error`/`fatal` observado.
 
 ## Preservar
 

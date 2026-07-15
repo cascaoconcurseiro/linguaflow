@@ -35,8 +35,8 @@
 - [x] P0.2/QA cliente — contratos automatizados em `tests/review-outcome-ux.test.mjs`, incluídos no `test:release`; regressões de motor, áudio, vídeo, shell, evidência e release revalidadas.
 - [x] P0.2a/banco expand — implementado, validado em PG17.6 e aplicado remotamente: elegibilidade/locks/snapshots server-side, ledger P0.1, undo append-only e RPCs estreitas.
 - [x] P0.2/cliente cutover (código) — bury/suspender/restore/criação migrados para RPCs estreitas; nenhum chamador de tela usa `PATCH cards`.
-- [ ] P0.2/preview autenticado — validar o cliente integrado antes de contrair grants.
-- [ ] P0.2b/banco contract — migration versionada e validada localmente; aplicar remotamente somente depois do cliente publicado, removendo policy ampla e devolvendo apenas `SELECT` ao autenticado.
+- [x] P0.2/preview/extensão autenticados — cliente `3.0.3` recarregado e cinco fluxos reais aprovados pelo dono antes da contração de grants.
+- [x] P0.2b/banco contract — aplicado remotamente como `20260715165807`: `cards`/`review_log` somente `SELECT` para `authenticated`, policies owner-only e oito RPCs estreitas sem `anon`/`PUBLIC`.
 - [ ] P0.2: identidades server-side para review, jogo, quiz, vídeo e quests.
 - [ ] P0.3: opening balance diferencial e neutralização atômica de todos os escritores legados.
 - [ ] XP calculado no servidor por evidência, não por quantidade declarada.
@@ -425,7 +425,10 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 - [x] Fazer a migration abortar se policies remotas mudarem após o preflight.
 - [x] Adicionar teste SQL comportamental das ACLs/RPCs P0.2b.
 - [x] Publicar código/manifest `3.0.3` no GitHub e Vercel (`e357c7b`).
-- [ ] Recarregar a extensão `3.0.3` no Chrome do usuário.
-- [ ] Smoke real: criar, revisar, enterrar, suspender/reativar e restaurar backup.
+- [x] Recarregar a extensão `3.0.3` no Chrome do usuário.
+- [x] Smoke real: criar, revisar, enterrar, suspender/reativar e restaurar backup.
 - [ ] Executar replay SQL P0.2b em Postgres descartável.
-- [ ] Aplicar P0.2b no Supabase e conferir advisors/logs.
+- [x] Aplicar P0.2b no Supabase e conferir grants, policies, ACLs das RPCs, constraints, advisors e logs.
+- [x] Executar smoke transacional remoto com `ROLLBACK`: escrita direta bloqueada; create/review/bury/suspend/restore/backup/delete seguro aprovados, sem resíduos de fixture.
+- [x] Corrigir validação numérica do restore em migration append-only `restore_card_state_numeric_types_p0_2b`; `null` e string nos três campos FSRS são rejeitados sem mutação/evento.
+- [ ] Observar 403/5xx e falhas de RPC por 24 h de uso real após o cutover.

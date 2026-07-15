@@ -391,7 +391,7 @@ Sua proposta: usar o **vídeo original** como *contexto* do card (a frase falada
 
 ---
 
-## Atualização Codex — preparação segura do P0.2b (2026-07-15)
+## Atualização Codex — preparação segura do P0.2b (estado antes do cutover, 2026-07-15)
 
 **Responsável:** Codex, com revisão paralela de banco/Supabase, extensão/PWA e QA.
 
@@ -426,3 +426,52 @@ smokes reais e então aplicar P0.2b, verificar grants/policies/advisors e observ
 `dpl_ATazDnkq1XPmNvkgx23cwGqDSWjM`, ambos `READY`. Produção serviu
 `app.js?v=3.0.3`, sem overflow em 390 px e sem erros de runtime Vercel na janela
 observada. O contrato P0.2b permaneceu deliberadamente sem aplicação remota.
+
+---
+
+## Atualização Codex — fechamento do cutover P0.2b (2026-07-15)
+
+**Responsável:** Codex, com revisão independente de banco/Supabase e QA.
+
+O contrato foi aplicado no projeto Supabase `qnutoswrufznztoznlql` como migration
+remota `20260715165807` (`card_review_permissions_contract_p0_2b`), somente após
+o dono recarregar a extensão `3.0.3` e aprovar os cinco fluxos reais: criar,
+revisar, enterrar, suspender/reativar e restaurar backup.
+
+**Estado comprovado depois da migration:**
+
+- `cards` e `review_log`: somente `SELECT` para `authenticated`; nenhum grant
+  para `anon`/`PUBLIC`;
+- policies reconstruídas como `SELECT` owner-only com `(select auth.uid())`;
+- as oito RPCs estreitas de card/review/delete executam para `authenticated` e
+  não executam para `anon`/`PUBLIC`;
+- `words.DELETE` direto foi removido; palavra revisada preserva o histórico;
+- constraints de `learning_events` aceitam o evento não competitivo
+  `card_state_restored` apenas com subject `card`;
+- smoke transacional remoto, integralmente revertido com `ROLLBACK`, confirmou
+  bloqueio de escrita direta e os caminhos create/review/bury/suspend/restore,
+  backup e delete seguro sem deixar fixtures;
+- na janela pós-corte consultada, logs API/Postgres tiveram zero erro 4xx/5xx,
+  `permission denied`, `ERROR` ou `FATAL`.
+
+Uma revisão adversarial encontrou ainda que `difficulty`, `stability` e
+`pre_lapse_interval` aceitariam JSON `null` no restore. O Codex corrigiu isso de
+forma append-only na migration `restore_card_state_numeric_types_p0_2b`, aplicada
+remotamente no mesmo dia, e ampliou o gate para rejeitar `null` e string sem
+alterar o card ou criar evento.
+
+**Advisors:** permanecem somente avisos conhecidos/explicitados: `pg_net` em
+`public`, proteção de senha vazada indisponível no plano atual e RPCs
+`SECURITY DEFINER` intencionalmente expostas ao usuário autenticado, todas com
+`auth.uid()`, checagem de propriedade, `search_path=''` e ACL explícita. Os
+avisos de performance são informativos de índices ainda sem uso e não justificam
+remoção sem janela de observação.
+
+**Limite honesto:** o replay integral do histórico em Postgres descartável não
+foi executado nesta máquina por falta de Supabase CLI/`psql`. Ele não foi marcado
+como concluído; o smoke remoto com rollback é evidência complementar, não a mesma
+coisa.
+
+**Próximo corte técnico:** FSRS totalmente server-side, removendo a proposta de
+estado calculada pelo cliente. Depois: identidades server-side verificáveis para
+jogo/quiz/vídeo/quests e P0.3 do ledger anti-farm.

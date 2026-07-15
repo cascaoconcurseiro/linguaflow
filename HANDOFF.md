@@ -95,7 +95,7 @@ O GitHub Actions não executou os testes remotos: o job foi recusado antes de re
 
 ---
 
-## Handoff Codex — preparação P0.2b sem quebra de clientes (2026-07-15)
+## Handoff Codex — cutover P0.2b concluído sem quebra de clientes (2026-07-15)
 
 ### Implementado pelo Codex
 
@@ -113,22 +113,30 @@ O GitHub Actions não executou os testes remotos: o job foi recusado antes de re
 
 ### Estado operacional
 
-- P0.2b **não aplicado remotamente** nesta fatia.
+- P0.2b aplicado remotamente como `20260715165807` no projeto
+  `qnutoswrufznztoznlql`, após o cliente/extensão `3.0.3` e os cinco smokes reais.
 - Código publicado em produção no commit `e357c7b`; deployment Vercel
   `dpl_ATazDnkq1XPmNvkgx23cwGqDSWjM` ficou `READY` e serviu o build `3.0.3`.
-- O cliente deve ser publicado e a extensão recarregada antes do revogue.
-- Não interpretar o teste estático como smoke autenticado; ainda são necessários
-  os cinco fluxos reais no Chrome.
+- Grants/policies conferidos: `cards`/`review_log` somente leitura para
+  `authenticated`; policies owner-only; oito RPCs estreitas executáveis somente
+  por `authenticated`.
+- Smoke transacional remoto com `ROLLBACK` aprovou bloqueios e todos os caminhos
+  estreitos sem deixar fixtures. Logs API/Postgres ficaram sem erro na janela
+  pós-corte consultada.
+- A migration append-only `restore_card_state_numeric_types_p0_2b`, versão
+  remota `20260715170511`, corrige a rejeição de `null`/string nos campos FSRS
+  do restore e também está aplicada.
+- O replay completo do zero em Postgres descartável continua pendente por falta
+  de Supabase CLI/`psql`; não confundir com o smoke remoto transacional.
 - O contrato não conclui o P1: cálculo FSRS totalmente server-side permanece
   pendente e não deve ser descrito como pronto.
 
 ### Sequência de retomada
 
-1. Confirmar extensão `3.0.3` carregada.
-2. Executar criar/revisar/bury/suspend-restore/backup restore.
-3. Rodar o gate SQL descartável.
-4. Aplicar P0.2b e verificar `has_table_privilege`, policies e advisors.
-5. Observar logs Supabase/Vercel e documentar o deployment final.
+1. Observar por 24 h os 403/5xx e erros das RPCs no uso real.
+2. Implementar FSRS totalmente server-side, mantendo idempotência e undo.
+3. Implementar identidades verificáveis para jogo/quiz/vídeo/quests e o P0.3.
+4. Instrumentar o funil vídeo → captura → primeira revisão → D1/D7.
 
 ---
 
@@ -539,6 +547,8 @@ Além disso, `getAllSentences()` e `getAllKnownWords()` nunca ganharam a otimiza
 - O snapshot do undo nasce antes das projeções; `stats_revision` impede que
   undo antigo apague atividade posterior. Review elegível com XP zero ainda
   pode sustentar streak, inclusive no ciclo review → undo → redo.
+**Estado à época (superado pelo fechamento P0.2b acima):**
+
 - Antes de produção: executar as propriedades SQL dinâmicas da migration,
   aplicar no Supabase pelo fluxo aprovado, validar preview autenticado e só
   então promover/observar produção.
@@ -600,7 +610,11 @@ Etapa 1 implementada na branch `codex/review-mobile-video`; ainda não promover 
 
 ## Próximo
 
-P0.2a de dados: substituir internamente `record_card_review` mantendo sua assinatura pública, integrar o portão privado P0.1, capturar estado anterior no servidor e criar undo append-only. Depois migrar bury/suspender/reset para RPCs estreitas; somente com o cliente validado no preview executar P0.2b e revogar escritas diretas. Em UX visual, a próxima etapa é a Arquitetura de Informação (Home, Cofre, Histórias, Configurações e navegação), seguida do design system. Ver `CHECKLIST.md` e `docs/AUDITORIA_UX_FLUXO_2026-07-14.md`.
+Este próximo passo era válido em 2026-07-14 e foi concluído no handoff P0.2b do
+topo. O corte atual é FSRS integralmente server-side; depois identidades
+verificáveis/P0.3 e instrumentação do funil de aprendizagem. Em UX, validar o
+fluxo já reorganizado com usuários antes de nova expansão visual. Ver
+`CHECKLIST.md` e `docs/AUDITORIA_UX_FLUXO_2026-07-14.md`.
 
 ---
 

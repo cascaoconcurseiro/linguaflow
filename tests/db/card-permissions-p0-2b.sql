@@ -44,7 +44,14 @@ SELECT set_config('request.jwt.claim.sub','a2000000-0000-4000-8000-000000000001'
 SET ROLE authenticated;
 
 DO $$
-DECLARE r jsonb; cid uuid; cross_rows integer;
+DECLARE
+  r jsonb;
+  cid uuid;
+  cross_rows integer;
+  pristine_rows integer;
+  restore_state jsonb;
+  numeric_field text;
+  invalid_value jsonb;
 BEGIN
   SELECT count(*) INTO cross_rows FROM public.cards
    WHERE user_id='a2000000-0000-4000-8000-000000000002';
@@ -70,12 +77,43 @@ BEGIN
   r := public.restore_card(cid);
   IF (r->>'suspended')::boolean THEN RAISE EXCEPTION 'restore falhou'; END IF;
 
-  r := public.restore_card_state('c2000000-0000-4000-8000-000000000003', jsonb_build_object(
+  restore_state := jsonb_build_object(
     'id','c2000000-0000-4000-8000-000000000003','status','mature','interval',30,
     'ease_factor',2.5,'step_index',0,'reps',8,'lapses',1,'difficulty',5,
     'stability',20,'pre_lapse_interval',10,'due_date',now()-interval '30 days',
     'last_review',now()-interval '60 days','introduced_at',now()-interval '90 days',
-    'suspended',false,'is_leech',false));
+    'suspended',false,'is_leech',false);
+
+  FOREACH numeric_field IN ARRAY ARRAY['difficulty','stability','pre_lapse_interval'] LOOP
+    FOREACH invalid_value IN ARRAY ARRAY['null'::jsonb, '"5"'::jsonb] LOOP
+      BEGIN
+        PERFORM public.restore_card_state(
+          'c2000000-0000-4000-8000-000000000003',
+          jsonb_set(restore_state, ARRAY[numeric_field], invalid_value)
+        );
+        RAISE EXCEPTION 'backup aceitou tipo inválido em %: %', numeric_field, invalid_value;
+      EXCEPTION WHEN invalid_parameter_value THEN
+        IF SQLERRM <> 'invalid_backup_card_state' THEN RAISE; END IF;
+      END;
+    END LOOP;
+  END LOOP;
+
+  SELECT count(*) INTO pristine_rows
+    FROM public.cards
+   WHERE id='c2000000-0000-4000-8000-000000000003'
+     AND status='new' AND reps=0 AND last_review IS NULL
+     AND difficulty IS NULL AND stability IS NULL
+     AND pre_lapse_interval=0;
+  IF pristine_rows <> 1 OR EXISTS (
+    SELECT 1 FROM public.learning_events
+     WHERE event_type='card_state_restored'
+       AND subject_id='c2000000-0000-4000-8000-000000000003'
+  ) THEN
+    RAISE EXCEPTION 'backup inválido deixou mutação ou evento residual';
+  END IF;
+
+  r := public.restore_card_state(
+    'c2000000-0000-4000-8000-000000000003', restore_state);
   IF (r#>>'{card,due_date}')::timestamptz < current_date + interval '1 day' THEN
     RAISE EXCEPTION 'backup fabricou revisão imediata: %', r;
   END IF;

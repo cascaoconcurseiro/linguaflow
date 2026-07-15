@@ -7,6 +7,10 @@ const sql = await readFile(new URL(
   '../supabase/migrations/20260715155802_card_review_permissions_contract_p0_2b.sql',
   import.meta.url,
 ), 'utf8');
+const numericTypeFix = await readFile(new URL(
+  '../supabase/migrations/20260715190000_restore_card_state_numeric_types_p0_2b.sql',
+  import.meta.url,
+), 'utf8');
 const executable = sql.replace(/--.*$/gm, '');
 
 assert.match(sql, /REVOKE ALL ON TABLE public\.cards, public\.review_log FROM PUBLIC, anon, authenticated/i);
@@ -27,5 +31,16 @@ assert.match(sql, /ON public\.cards\s+FOR SELECT\s+TO authenticated/i);
 assert.match(sql, /ON public\.review_log\s+FOR SELECT\s+TO authenticated/i);
 assert.doesNotMatch(executable, /GRANT\s+(?:INSERT|UPDATE|DELETE|TRUNCATE|ALL)/i);
 assert.doesNotMatch(executable, /CREATE\s+POLICY[\s\S]*?FOR\s+(?:ALL|INSERT|UPDATE|DELETE)/i);
+
+for (const field of ['difficulty', 'stability', 'pre_lapse_interval']) {
+  assert.match(
+    numericTypeFix,
+    new RegExp(`jsonb_typeof\\(p_state->'${field}'\\)<>('|")number\\1`, 'i'),
+    `restore_card_state exige ${field} como número JSON`,
+  );
+}
+assert.match(numericTypeFix, /SECURITY DEFINER\s+SET search_path = ''/i);
+assert.match(numericTypeFix, /REVOKE ALL ON FUNCTION public\.restore_card_state\(uuid, jsonb\)[\s\S]*FROM PUBLIC, anon, authenticated, service_role/i);
+assert.match(numericTypeFix, /GRANT EXECUTE ON FUNCTION public\.restore_card_state\(uuid, jsonb\) TO authenticated/i);
 
 console.log('P0.2b least-privilege card contracts passed.');

@@ -774,3 +774,30 @@ P1-A: Cofre e Configurações. Depois Histórias/Leitor, onboarding,
 Prática/Progresso e QA autenticado desktop/mobile antes de produção.
 
 ---
+
+# Handoff Codex — Reforma UX P1-A (2026-07-15)
+
+## Entregue pelo Codex
+
+- Cofre prioriza frase contextual, usa estado real do card e mantém todas as
+  ações/vídeo.
+- Dados salvos exibidos no Cofre são escapados antes do HTML.
+- Filtros têm estado acessível e vazios oferecem próximo passo real.
+- Settings não substitui falha remota por defaults salváveis.
+- Novas expressões: default 5 e máximo 20, alinhado ao contrato server-side.
+- CEFR/retention/leech ganharam microcopy honesta, sem trocar chaves técnicas.
+- Build `3.0.7`; gate `npm run test:p1-a` dentro do release.
+
+## Preservar
+
+- `renderVideoContext`, `attachVideoContext`, UUIDs e rota de revisão por
+  categoria.
+- Todas as chaves de Settings consumidas pelo agendador.
+- Falha de leitura de Settings deve bloquear save e oferecer retry.
+
+## Próximo
+
+P1-B: unificar a arquitetura de Histórias e Leitor; depois onboarding,
+Prática/Progresso e QA autenticado.
+
+---

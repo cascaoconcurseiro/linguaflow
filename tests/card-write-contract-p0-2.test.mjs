@@ -24,7 +24,7 @@ assert.doesNotMatch(library, /lfDb\.updateCard\(/);
 assert.doesNotMatch(settings, /lfDb\.updateCard\(/);
 assert.match(study, /lfDb\.buryCard\(card\.id\)/);
 assert.match(library, /lfDb\.setCardSuspended\(card\.id, !card\.suspended\)/);
-assert.match(library, /reviewed_word_cannot_be_deleted[\s\S]*Suspenda-o/);
+assert.match(library, /reviewed_word_cannot_be_deleted[\s\S]*Pause as revisões/);
 assert.match(settings, /lfDb\.restoreCardState\(newCard\.id/);
 assert.match(worker, /'buryCard'[\s\S]*'setCardSuspended'[\s\S]*'restoreCardState'/);
 assert.match(worker, /method === 'updateCard'[\s\S]*LEGACY_CARD_WRITE_BLOCKED/);

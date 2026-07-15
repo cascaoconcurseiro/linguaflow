@@ -647,3 +647,54 @@ P1-A — reforma do Cofre e Configurações; depois unificação Histórias/Leit
 onboarding, Prática/Progresso e QA autenticado antes da decisão de produção.
 
 ---
+
+# Execução Codex — P1-A Cofre e Configurações (2026-07-15)
+
+**Responsável:** Codex, após revisão sênior independente de UX/IA, produto
+pedagógico e frontend/acessibilidade. Engine, FSRS, writers, player e banco não
+foram alterados.
+
+## Cofre
+
+- O card virou um `article` escaneável: estado real, frase de contexto como
+  informação principal, expressão-alvo, tradução, origem/vídeo e ações.
+- O badge deixou de inferir memória por `w.reps`; usa `card.status`, `due_date`
+  e `suspended`: Nova, Começando, Consolidando, Memória estável, Revisar hoje e
+  Revisões pausadas.
+- Conteúdo salvo (`word`, tradução, contexto e busca) agora é escapado antes de
+  entrar no HTML, fechando a injeção encontrada na auditoria.
+- Categorias, estados e A–Z expõem `aria-pressed`; card pausado continua legível
+  e é diferenciado por borda, não por opacidade extrema.
+- Empty real leva a Aprender; empty filtrado limpa os filtros. Editar,
+  pausar/retomar, excluir, revisão por categoria e vídeo foram preservados.
+- Confirmações e toasts passaram a falar em frase/revisões, não em entidades de
+  banco.
+
+## Configurações
+
+- Corrigido risco funcional: falha em `getSettings()` não vira mais defaults
+  editáveis que poderiam sobrescrever preferências reais. Agora há erro
+  bloqueante e retry, sem montar o formulário.
+- `new_per_day` ficou coerente com o limite server-side: default inicial 5,
+  máximo visível 20; valores antigos acima do teto são limitados na UI.
+- CEFR é apresentado como estimativa, B2/C2 deixaram de prometer fluência ou
+  maestria, e o teste explica seus limites.
+- Retenção de 90% é ponto inicial recomendado, não “equilíbrio ideal”. Leech,
+  passos e ações ganharam linguagem compreensível sem renomear nenhuma chave.
+- O botão agora diz `Salvar configurações`; todas as chaves e IDs consumidos
+  pelo motor foram preservados.
+
+## Gates
+
+- Novo `tests/cofre-settings-p1-a.test.mjs` dentro de `test:release` cobre
+  escaping, hierarquia, status real, ações, falha segura de Settings e cap 20.
+- `test:p1-a`, `test:product-ux`, `test:design-system`, `test:p0-c` e a suíte de
+  release completa passaram com árvore suja permitida.
+- Build web/PWA: `3.0.7`.
+
+## Próximo corte
+
+P1-B — Histórias e Leitor como duas entradas de uma única experiência de
+leitura contextual, sem remover geração, importação, áudio, quiz ou salvamento.
+
+---

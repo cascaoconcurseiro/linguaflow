@@ -2,9 +2,8 @@ import { db as lfDb } from '../../../utils/db.js';
 import { playNaturalAudio } from '../core/tts.js';
 
 // Onda 2.4: o Jogo virou um menu de mini-jogos — "Ligar Colunas" (existente)
-// e "Ouça e Escolha" (novo, treina listening de verdade). Ambos usam o mesmo
-// evento de XP do Learning Engine (game_match), então o teto diário é
-// compartilhado — trocar de jogo não é brecha pra farmar XP em dobro.
+// e "Ouça e Escolha" (novo, treina listening de verdade). Jogos são prática
+// livre repetível: não alteram XP, ofensiva, liga nem o agendamento do SRS.
 //
 // Onda 8 (Diretor de Arte + Prof. didático): auditoria de UX apontou que
 // esta tela tinha uma paleta escura própria (tipo terminal), desconectada
@@ -20,6 +19,7 @@ export async function renderGame(container, app) {
     <div class="game-container">
       <h2>🎮 Modo Jogo</h2>
       <p>Escolha um mini-jogo pra praticar seu vocabulário.</p>
+      <p class="game-free-practice">Prática livre — sem alterar seu placar, ofensiva ou liga.</p>
       <div style="display:flex; gap:16px; margin-top:20px; flex-wrap:wrap; justify-content:center;">
         <button class="match-btn" id="mode-match" style="width:220px;">🔗 Ligar Colunas</button>
         <button class="match-btn" id="mode-listen" style="width:220px;">🎧 Ouça e Escolha</button>
@@ -33,8 +33,7 @@ export async function renderGame(container, app) {
 }
 
 // ── Combo (Onda 8): acertos em sequência aumentam o multiplicador visual.
-// Não muda o XP real (o Learning Engine no banco continua sendo a única
-// fonte de verdade) — é só a "sensação de jogo" que faltava, um contador
+// Não muda o progresso real — é só feedback local de sequência, um contador
 // que sobe/zera na tela conforme o Duolingo faz.
 // Onda 9 (auditoria de bugs): "Ouça e Escolha" e "Monte a Frase" recriam o
 // container (e portanto o badge) a CADA rodada — se o contador de combo
@@ -231,31 +230,18 @@ async function renderMatchGame(container, app) {
     }
   }
 
-  async function finishGame() {
+  function finishGame() {
     audioCtx.close().catch(() => {}); // libera o AudioContext ao terminar a partida
-    // XP REAL via Learning Engine (RPC no banco, com cap diário anti-farm).
-    // A tela antiga dizia "Você ganhou XP!" e não dava nada — era decorativa.
     container.innerHTML = `
       <div class="game-container">
-        <h2 id="game-result">Calculando XP... ⏳</h2>
+        <h2 id="game-result">Prática concluída</h2>
         <p>Ótimo trabalho revisando essas palavras.</p>
+        <p>Prática livre — sem alterar seu placar, ofensiva ou liga.</p>
       </div>
     `;
     celebrate(document.querySelector('.game-container'));
-    let msg = 'Jogo concluído! 🎉';
-    try {
-      const res = await lfDb.recordEvent('game_match', words.length);
-      if (res && res.xp_awarded > 0) {
-        msg = `+${res.xp_awarded} XP de verdade! 🎉`;
-        if (res.first_of_day) msg += ' (inclui bônus do primeiro estudo do dia)';
-      } else if (res && res.capped) {
-        msg = 'Jogo concluído! 🎮 (limite diário de XP do jogo já atingido)';
-      }
-    } catch (e) {
-      console.warn('[Game] Falha ao registrar XP:', e);
-      msg = 'Jogo concluído! (XP não registrado — sem conexão?)';
-    }
-    if (combo.best() >= 3) msg += ` · melhor combo: x${combo.best()} 🔥`;
+    let msg = 'Prática concluída';
+    if (combo.best() >= 3) msg += ` · melhor combo: x${combo.best()}`;
     const el = document.getElementById('game-result');
     if (el) el.textContent = msg;
     setTimeout(() => {
@@ -285,7 +271,7 @@ async function renderMatchGame(container, app) {
 
 // Ouça e Escolha (Onda 2.4): toca o áudio da palavra e o aluno escolhe a
 // tradução certa entre 4 opções — treina listening puro, sem depender da
-// leitura. Reaproveita o mesmo evento 'game_match' do Learning Engine.
+// leitura. O resultado fica local e não alimenta o placar.
 async function renderListenGame(container, app) {
   container.innerHTML = `<div class="game-container"><h2>🎧 Ouça e Escolha</h2><p>Carregando palavras...</p></div>`;
 
@@ -377,28 +363,17 @@ async function renderListenGame(container, app) {
     });
   }
 
-  async function finishListenGame() {
+  function finishListenGame() {
     audioCtx.close().catch(() => {}); // libera o AudioContext ao terminar a partida
     container.innerHTML = `
       <div class="game-container">
-        <h2 id="listen-result">Calculando XP... ⏳</h2>
+        <h2 id="listen-result">Prática concluída</h2>
         <p>${correctCount} de ${order.length} certas de ouvido.</p>
+        <p>Prática livre — sem alterar seu placar, ofensiva ou liga.</p>
       </div>
     `;
     celebrate(document.querySelector('.game-container'));
-    let msg = 'Jogo concluído! 🎉';
-    try {
-      const res = await lfDb.recordEvent('game_match', correctCount);
-      if (res && res.xp_awarded > 0) {
-        msg = `+${res.xp_awarded} XP de verdade! 🎉`;
-        if (res.first_of_day) msg += ' (inclui bônus do primeiro estudo do dia)';
-      } else if (res && res.capped) {
-        msg = 'Jogo concluído! 🎮 (limite diário de XP do jogo já atingido)';
-      }
-    } catch (e) {
-      console.warn('[Game] Falha ao registrar XP:', e);
-      msg = 'Jogo concluído! (XP não registrado — sem conexão?)';
-    }
+    const msg = 'Prática concluída';
     const el = document.getElementById('listen-result');
     if (el) el.textContent = msg;
     setTimeout(() => app.navigate('home'), 2500);
@@ -518,28 +493,17 @@ async function renderBuilderGame(container, app) {
     });
   }
 
-  async function finishBuilderGame() {
+  function finishBuilderGame() {
     audioCtx.close().catch(() => {});
     container.innerHTML = `
       <div class="game-container">
-        <h2 id="builder-result">Calculando XP... ⏳</h2>
+        <h2 id="builder-result">Prática concluída</h2>
         <p>${correctCount} de ${words.length} frases certas.</p>
+        <p>Prática livre — sem alterar seu placar, ofensiva ou liga.</p>
       </div>
     `;
     celebrate(document.querySelector('.game-container'));
-    let msg = 'Jogo concluído! 🎉';
-    try {
-      const res = await lfDb.recordEvent('game_match', correctCount);
-      if (res && res.xp_awarded > 0) {
-        msg = `+${res.xp_awarded} XP de verdade! 🎉`;
-        if (res.first_of_day) msg += ' (inclui bônus do primeiro estudo do dia)';
-      } else if (res && res.capped) {
-        msg = 'Jogo concluído! 🎮 (limite diário de XP do jogo já atingido)';
-      }
-    } catch (e) {
-      console.warn('[Game] Falha ao registrar XP:', e);
-      msg = 'Jogo concluído! (XP não registrado — sem conexão?)';
-    }
+    const msg = 'Prática concluída';
     const el = document.getElementById('builder-result');
     if (el) el.textContent = msg;
     setTimeout(() => app.navigate('home'), 2500);

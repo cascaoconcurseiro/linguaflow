@@ -7,12 +7,15 @@ let filteredWords = [];
 let cardByWordId = {};
 let currentCategory = 'all'; // all, words, phrasal, slang, idioms
 let currentLetter = null; // 'A', 'B', etc. or null for all
+let currentStatus = 'all'; // all, due, learning, mature, suspended
+let searchQuery = '';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
 export async function renderLibrary(container, app) {
   injectStyles();
-  container.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--color-text-light);">Carregando cofre...</div>';
+  container.setAttribute('aria-busy', 'true');
+  container.innerHTML = '<div class="view-state" role="status" aria-live="polite">Carregando seu Cofre…</div>';
 
   try {
     const [words, cards] = await Promise.all([lfDb.getAllWords(), lfDb.getAllCards()]);
@@ -25,8 +28,13 @@ export async function renderLibrary(container, app) {
     })).filter(w => w.category !== 'sentence');
   } catch (err) {
     console.error("Failed to load library", err);
+    container.innerHTML = `<section class="view-state view-state-error" role="alert"><strong>Não foi possível carregar seu Cofre.</strong><span>Suas frases continuam seguras. Verifique a conexão e tente novamente.</span><button type="button" class="btn btn-primary" id="btn-library-retry">Tentar novamente</button></section>`;
+    container.querySelector('#btn-library-retry')?.addEventListener('click', () => renderLibrary(container, app));
+    container.setAttribute('aria-busy', 'false');
+    return;
   }
 
+  container.setAttribute('aria-busy', 'false');
   renderUI(container, app);
 }
 
@@ -53,6 +61,22 @@ function renderUI(container, app) {
   if (currentLetter) {
       filteredWords = filteredWords.filter(w => (w.word||'').toUpperCase().startsWith(currentLetter));
   }
+  if (searchQuery) {
+      const query = searchQuery.toLocaleLowerCase('pt-BR');
+      filteredWords = filteredWords.filter(w => [w.word, w.translation, w.context_sentence, w.video_title]
+        .some(value => String(value || '').toLocaleLowerCase('pt-BR').includes(query)));
+  }
+  if (currentStatus !== 'all') {
+      filteredWords = filteredWords.filter(w => {
+        const card = cardByWordId[w.id];
+        if (currentStatus === 'suspended') return !!card?.suspended;
+        if (!card || card.suspended) return false;
+        if (currentStatus === 'due') return card.due_date && new Date(card.due_date).getTime() <= Date.now();
+        if (currentStatus === 'learning') return card.status === 'new' || card.status === 'learning';
+        if (currentStatus === 'mature') return card.status === 'mature';
+        return true;
+      });
+  }
   filteredWords.sort((a, b) => (a.word||'').localeCompare(b.word||''));
 
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
@@ -66,7 +90,7 @@ function renderUI(container, app) {
           <span style="font-size:20px;">✨</span> 
           <span>Você tem <strong>${missingContext.length} palavras</strong> (incluindo salvas do vídeo) sem contexto IA preenchido. Gere com IA para não demorar na hora de estudar!</span>
         </div>
-        <button id="btn-run-backfill" style="background: var(--color-surface); color: var(--color-primary); border: none; padding: 8px 16px; border-radius: var(--radius-sm); font-weight: 800; cursor: pointer; transition: all 0.2s;">Gerar Agora</button>
+        <button id="btn-run-backfill" style="background: var(--color-surface); color: var(--color-success-text); border: none; padding: 8px 16px; border-radius: var(--radius-sm); font-weight: 800; cursor: pointer; transition: color var(--motion-fast), background-color var(--motion-fast);">Gerar agora</button>
       </div>
     `;
   }
@@ -76,8 +100,8 @@ function renderUI(container, app) {
     <div class="library-container">
       <div class="lib-header">
         <div class="lib-title-block">
-          <h2>O Cofre A-Z</h2>
-          <p>Sua coleção de vocabulário inteligente.</p>
+          <h2>Seu Cofre</h2>
+          <p>Encontre uma frase e decida o que fazer com ela.</p>
         </div>
         <div class="lib-stats">
           <div class="stat-number">${filteredWords.length}</div>
@@ -85,8 +109,13 @@ function renderUI(container, app) {
         </div>
       </div>
 
-      <!-- Category Tabs -->
-      <div class="cat-tabs">
+      <label class="lib-search" for="library-search">
+        <span class="sr-only">Buscar no Cofre</span>
+        <input id="library-search" type="search" value="${searchQuery.replace(/"/g, '&quot;')}" placeholder="Buscar palavra, tradução, frase ou vídeo" autocomplete="off">
+      </label>
+
+      <!-- Category chips: o filtro mais frequente fica sempre visível. -->
+      <div class="cat-tabs" aria-label="Filtrar por tipo">
         <button class="cat-tab ${currentCategory === 'all' ? 'active' : ''}" data-cat="all">Tudo</button>
         <button class="cat-tab ${currentCategory === 'words' ? 'active' : ''}" data-cat="words">Palavras</button>
         <button class="cat-tab ${currentCategory === 'phrasal' ? 'active' : ''}" data-cat="phrasal">Phrasal Verbs</button>
@@ -95,18 +124,25 @@ function renderUI(container, app) {
         ${currentCategory !== 'all' ? `<button class="btn btn-secondary" id="btn-review-topic" style="margin-left:auto; padding:8px 16px; font-size:13px;" title="Estudar só os cards desta categoria">🧠 Revisar este tópico</button>` : ''}
       </div>
 
-      <!-- A-Z Calendar Grid -->
-      <div class="az-grid">
-        <button class="az-letter ${currentLetter === null ? 'active' : ''}" data-letter="ALL">ALL</button>
-        ${alphabet.map(l => `
-          <button class="az-letter ${currentLetter === l ? 'active' : ''}" data-letter="${l}">${l}</button>
-        `).join('')}
-      </div>
+      <details class="lib-filters" ${currentLetter || currentStatus !== 'all' ? 'open' : ''}>
+        <summary>Mais filtros <span>${currentLetter || currentStatus !== 'all' ? '· ativos' : ''}</span></summary>
+        <div class="status-chips" aria-label="Filtrar por estado">
+          ${[['all','Todos'],['due','Vencidos'],['learning','Em aprendizagem'],['mature','Maduros no SRS'],['suspended','Suspensos']].map(([value,label]) => `<button class="status-chip ${currentStatus === value ? 'active' : ''}" type="button" data-status="${value}">${label}</button>`).join('')}
+        </div>
+        <div class="az-grid" aria-label="Filtrar por letra inicial">
+          <button class="az-letter ${currentLetter === null ? 'active' : ''}" data-letter="ALL">Todas</button>
+          ${alphabet.map(l => `<button class="az-letter ${currentLetter === l ? 'active' : ''}" data-letter="${l}">${l}</button>`).join('')}
+        </div>
+      </details>
 
       <!-- Words List -->
       <div class="words-list">
         ${filteredWords.length === 0 ? `
-          <div class="empty-state">Nenhum item encontrado nesta categoria/letra.</div>
+          <div class="empty-state" role="status">
+            <strong>${allWords.length ? 'Nenhuma frase corresponde a estes filtros.' : 'Seu Cofre ainda está vazio.'}</strong>
+            <span>${allWords.length ? 'Limpe os filtros para voltar à coleção completa.' : 'Salve uma frase de um vídeo para criar seu primeiro card com contexto.'}</span>
+            ${allWords.length ? '<button type="button" class="btn btn-secondary" id="btn-clear-library-filters">Limpar filtros</button>' : ''}
+          </div>
         ` : `
           ${filteredWords.map(w => {
             const card = cardByWordId[w.id];
@@ -120,9 +156,14 @@ function renderUI(container, app) {
               </div>
               <div class="word-actions">
                 ${renderStatus(w.reps)}
-                <button class="btn-edit-word" data-id="${w.id}" title="Editar tradução, frase, categoria e nível">✏️</button>
-                ${card ? `<button class="btn-suspend" data-card-id="${card.id}" title="${suspended ? 'Reativar o card no estudo' : 'Suspender: some do estudo até reativar'}">${suspended ? '▶️' : '⏸️'}</button>` : ''}
-                <button class="btn-delete" data-id="${w.id}" title="Excluir">🗑️</button>
+                <details class="word-action-menu">
+                  <summary aria-label="Abrir ações para ${w.word}">Ações</summary>
+                  <div>
+                    <button class="btn-edit-word" data-id="${w.id}">Editar</button>
+                    ${card ? `<button class="btn-suspend" data-card-id="${card.id}">${suspended ? 'Reativar no estudo' : 'Suspender do estudo'}</button>` : ''}
+                    <button class="btn-delete" data-id="${w.id}">Excluir</button>
+                  </div>
+                </details>
               </div>
             </div>
           `;}).join('')}
@@ -137,6 +178,27 @@ function renderUI(container, app) {
           currentCategory = e.target.dataset.cat;
           renderUI(container, app);
       });
+  });
+  const searchInput = document.getElementById('library-search');
+  searchInput?.addEventListener('input', (event) => {
+      searchQuery = event.currentTarget.value.trim();
+      renderUI(container, app);
+      requestAnimationFrame(() => {
+        const next = document.getElementById('library-search');
+        next?.focus({ preventScroll: true });
+        next?.setSelectionRange(searchQuery.length, searchQuery.length);
+      });
+  });
+  document.querySelectorAll('.status-chip').forEach(btn => btn.addEventListener('click', (event) => {
+      currentStatus = event.currentTarget.dataset.status;
+      renderUI(container, app);
+  }));
+  document.getElementById('btn-clear-library-filters')?.addEventListener('click', () => {
+      currentCategory = 'all';
+      currentLetter = null;
+      currentStatus = 'all';
+      searchQuery = '';
+      renderUI(container, app);
   });
 
   // Onda 2.2: "Revisar este tópico" manda pro Estudo já filtrado pela
@@ -190,7 +252,7 @@ function renderUI(container, app) {
           const card = Object.values(cardByWordId).find(c => c.id === cardId);
           if (!card) return;
           try {
-            await lfDb.updateCard({ ...card, suspended: !card.suspended });
+            await lfDb.setCardSuspended(card.id, !card.suspended);
             card.suspended = !card.suspended;
             renderUI(container, app);
             app.showToast(card.suspended ? 'Card suspenso ⏸️' : 'Card reativado ▶️', 'info');
@@ -389,7 +451,7 @@ function injectStyles() {
             font-weight: bold;
             cursor: pointer;
             white-space: nowrap;
-            transition: all 0.2s;
+            transition: color var(--motion-fast), background-color var(--motion-fast), border-color var(--motion-fast);
         }
         .cat-tab.active {
             background: var(--color-primary);
@@ -418,7 +480,7 @@ function injectStyles() {
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.1s;
+            transition: color var(--motion-fast), background-color var(--motion-fast);
         }
         .az-letter:hover {
             background: var(--color-border);
@@ -439,7 +501,7 @@ function injectStyles() {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            transition: transform 0.2s;
+            transition: transform var(--motion-fast), box-shadow var(--motion-fast);
         }
         .word-card:hover {
             transform: translateY(-2px);
@@ -487,7 +549,7 @@ function injectStyles() {
         .badge-new { background: var(--color-bg-alt); color: var(--color-text-light); }
         .badge-learning { background: var(--color-warning); color: white; }
         .badge-mature { background: var(--color-primary); color: white; }
-        .empty-state {
+        .view-state, .empty-state {
             text-align: center;
             padding: 60px;
             color: var(--color-text-light);
@@ -496,6 +558,11 @@ function injectStyles() {
             border: 2px dashed var(--color-border);
             border-radius: var(--radius-lg);
         }
+        .view-state { width:min(620px, calc(100% - 32px)); margin:32px auto; display:grid; justify-items:center; gap:10px; }
+        .view-state-error { border-color:var(--color-danger); }
+        .view-state strong, .empty-state strong, .empty-state span { display:block; }
+        .view-state strong, .empty-state strong { color:var(--color-text); font-size:17px; }
+        .empty-state span { margin:7px auto 14px; max-width:520px; font-weight:600; }
         @media (max-width: 768px) {
             .library-container { padding: 16px; padding-bottom: 100px; }
             .lib-header { flex-wrap: wrap; gap: 16px; }

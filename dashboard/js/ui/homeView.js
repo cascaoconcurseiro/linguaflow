@@ -4,6 +4,47 @@ import { runPlacementTest } from './settingsView.js';
 import { generateWeeklyDiagnosis, getCefrLevel } from '../core/ai.js';
 import { computeAchievements, newlyUnlocked } from '../core/achievements.js';
 
+function organizeHomeSections(container) {
+    const main = container.querySelector('.dashboard-main');
+    const sidebar = container.querySelector('.sidebar');
+    if (!main || !sidebar) return;
+
+    const section = (id, title, description) => {
+        const el = document.createElement('section');
+        el.id = id;
+        el.className = 'home-flow-section';
+        el.setAttribute('aria-labelledby', `${id}-title`);
+        if (title) el.insertAdjacentHTML('beforeend', `<header class="home-section-heading"><h2 id="${id}-title">${title}</h2>${description ? `<p>${description}</p>` : ''}</header>`);
+        return el;
+    };
+    const append = (target, selector) => {
+        const node = container.querySelector(selector);
+        if (node) target.appendChild(node);
+    };
+
+    const today = section('home-today', '', '');
+    append(today, '.dashboard-header');
+    append(today, '#home-return-banner');
+    append(today, '#home-streak-banner');
+    append(today, '#home-today-plan');
+    append(today, '.action-buttons');
+
+    const missions = section('home-missions', 'Missões', 'Metas de prática, não atalhos para pontuação.');
+    append(missions, '.quests-card');
+
+    const insights = section('home-insights', 'Insights', 'Sinais da sua memória para decidir o próximo passo.');
+    append(insights, '.stats-grid');
+    append(insights, '#home-memory-insight');
+    append(insights, '#diagnosis-details');
+    append(insights, '.heatmap-section');
+
+    const achievements = section('home-achievements', 'Conquistas', 'Marcos do seu percurso, sem transformar repetição livre em domínio.');
+    append(achievements, '.achievements-section');
+
+    main.replaceChildren(today, missions, insights, achievements);
+    sidebar.remove();
+}
+
 // Onda 9 (auditoria de bugs): weakWords[].word vem direto de words.word (o
 // próprio texto salvo pelo usuário, sem sanitização — pode ter vindo de
 // legenda/página capturada) e era interpolado sem escape num innerHTML.
@@ -338,16 +379,12 @@ export async function renderHome(container, app) {
     // A meta escolhida no onboarding é a missão principal. Em retorno após
     // ausência, reduzimos apenas essa primeira missão para evitar fricção.
     const revTarget = isReturning ? Math.min(onboarding.dailyGoal, 5) : onboarding.dailyGoal;
-    const xpTarget = isReturning ? 30 : clamp((avgReviews7 * 1.2 * 10) / 10, 3, 20) * 10;
-    const newTarget = isReturning ? 2 : clamp(avgWords7 * 1.2, 2, 10);
-
-    // 3 missões CORE (a recompensa depende só destas — não gate no foco).
+    // Missões medem recuperação real. Capturar conteúdo e ganhar XP não são
+    // objetivos pedagógicos: podem acontecer sem que o aluno recupere nada.
     const coreQuests = [
         isReturning
             ? { id: 'comeback', text: `De volta! Revise ${revTarget} cartas pra reacender o fogo 🔥`, target: revTarget, current: Math.min(reviewsToday, revTarget) }
             : { id: 'rev', text: `Revisar ${revTarget} cartas`, target: revTarget, current: Math.min(reviewsToday, revTarget) },
-        { id: 'xp', text: `Ganhar ${xpTarget} XP`, target: xpTarget, current: Math.min(xpToday, xpTarget) },
-        { id: 'new', text: `Aprender ${newTarget} novas palavras`, target: newTarget, current: Math.min(wordsToday, newTarget) },
     ].map(q => ({ ...q, done: q.current >= q.target }));
 
     // Missão de FOCO (Onda 1.2): só aparece quando há uma fraqueza real.
@@ -364,27 +401,15 @@ export async function renderHome(container, app) {
 
     const quests = focusQuest ? [...coreQuests, focusQuest] : coreQuests;
 
-    // Recompensa REAL por fechar as 3 missões CORE: +30 XP via Learning Engine
-    // (RPC com cap 1x/dia no banco — não dá pra farmar).
     const allQuestsDone = coreQuests.every(q => q.done);
-    const countersToday = userStats?.counters_date === todayISO ? (userStats?.daily_counters || {}) : {};
-    const questRewardClaimed = (countersToday.quests_complete || 0) > 0;
-
-    // ── MISSÃO SEMANAL (Onda 1.5): meta de XP na semana, +100 XP ────────────
-    const weeklyTarget = 500;
-    const xpWeek = userStats?.xp_week ?? 0;
-    const todayDow = new Date().getDay();            // 0=Dom..6=Sáb
-    const weekStartKey = localDateKey(addLocalDays(-((todayDow + 6) % 7))); // segunda local
-    const weeklyDone = xpWeek >= weeklyTarget;
-    const weeklyClaimed = !!(userStats?.weekly_claim_week && userStats.weekly_claim_week >= weekStartKey);
 
     if (myGen !== _homeRenderGen) return; // uma chamada mais nova já assumiu a tela (Onda 9)
     container.innerHTML = `
         <div class="gamified-home">
             <div class="dashboard-main">
                 <div class="dashboard-header">
-                    <h2>Seu Resumo</h2>
-                    <p>Continue construindo seu hábito diário!</p>
+                    <h2>Hoje</h2>
+                    <p>Um plano curto para manter a memória em dia.</p>
                 </div>
                 
                 <div class="stats-grid">
@@ -412,16 +437,16 @@ export async function renderHome(container, app) {
                 </div>
 
                 ${isReturning ? `
-                <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px; background:rgba(28,176,246,0.1); border:2px solid var(--color-secondary); border-radius:var(--radius-md); padding:14px 18px;">
+                <div id="home-return-banner" style="display:flex; gap:12px; align-items:center; margin-bottom:16px; background:rgba(28,176,246,0.1); border:2px solid var(--color-secondary); border-radius:var(--radius-md); padding:14px 18px;">
                     <span style="font-size:28px;">👋</span>
                     <div style="flex:1;">
                         <div style="font-weight:900; color:var(--color-text);">Sentimos sua falta! Você ficou ${daysAway} dias fora.</div>
-                        <div style="font-size:13px; color:var(--color-text-light);">Sua missão de hoje é leve: só ${revTarget} cartas pra voltar ao ritmo. O primeiro estudo do dia dá bônus de XP.</div>
+                        <div style="font-size:13px; color:var(--color-text-light);">Sua missão de hoje é leve: só ${revTarget} cartas para voltar ao ritmo.</div>
                     </div>
                     <button class="btn btn-primary" id="btn-comeback" style="padding:10px 18px; font-size:13px;">Voltar agora</button>
                 </div>` : ''}
                 ${streak > 0 && reviewsToday === 0 && !isReturning ? `
-                <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px; background:rgba(255,150,0,0.1); border:2px solid #ff9600; border-radius:var(--radius-md); padding:14px 18px;">
+                <div id="home-streak-banner" style="display:flex; gap:12px; align-items:center; margin-bottom:16px; background:rgba(255,150,0,0.1); border:2px solid #ff9600; border-radius:var(--radius-md); padding:14px 18px;">
                     <span style="font-size:28px;">🔥</span>
                     <div style="flex:1;">
                         <div style="font-weight:900; color:var(--color-text);">Sua ofensiva de ${streak} ${streak === 1 ? 'dia' : 'dias'} está em risco!</div>
@@ -429,7 +454,7 @@ export async function renderHome(container, app) {
                     </div>
                     <button class="btn btn-primary" id="btn-save-streak" style="padding:10px 18px; font-size:13px;">Salvar ofensiva</button>
                 </div>` : ''}
-                <div style="display:flex; gap:10px; margin-bottom:16px; background:linear-gradient(135deg, rgba(88,204,2,0.08), rgba(28,176,246,0.08)); border:2px solid var(--color-primary); border-radius:var(--radius-md); padding:16px 18px; align-items:flex-start;">
+                <div id="home-today-plan" style="display:flex; gap:10px; margin-bottom:16px; background:linear-gradient(135deg, rgba(88,204,2,0.08), rgba(28,176,246,0.08)); border:2px solid var(--color-primary); border-radius:var(--radius-md); padding:16px 18px; align-items:flex-start;">
                     <span style="font-size:26px;">🧑‍🏫</span>
                     <div style="flex:1;">
                         <div style="font-weight:900; color:var(--color-text); font-size:14px; margin-bottom:4px;">Plano de hoje
@@ -446,7 +471,7 @@ export async function renderHome(container, app) {
                         </details>
                     </div>
                 </div>
-                <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:24px; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:14px 18px; align-items:center;">
+                <div id="home-memory-insight" style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:24px; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:14px 18px; align-items:center;">
                     <div style="font-weight:800; color:var(--color-text); font-size:14px;">📈 Memória:</div>
                     <div style="font-size:14px; color:var(--color-text-light);">Palavras conhecidas: <strong style="color:var(--color-primary);">${knownFamilies}</strong></div>
                     <div style="font-size:14px; color:var(--color-text-light);">Retenção 30d: <strong style="color:${retention30 === null ? 'var(--color-text-light)' : retention30 >= 85 ? 'var(--color-primary)' : retention30 >= 70 ? '#ffc800' : 'var(--color-danger)'};">${retention30 === null ? '—' : retention30 + '%'}</strong></div>
@@ -471,11 +496,11 @@ export async function renderHome(container, app) {
                 <div class="action-buttons">
                     <button class="btn-action btn-study" id="btn-study-now">
                         <span class="btn-icon">🧠</span>
-                        ESTUDAR AGORA
+                        CONTINUAR SEU PLANO
                     </button>
                     <button class="btn-action btn-game" id="btn-play-match">
                         <span class="btn-icon">🎮</span>
-                        JOGAR MATCH
+                        PRÁTICA LIVRE
                     </button>
                 </div>
 
@@ -503,7 +528,7 @@ export async function renderHome(container, app) {
 
             <div class="sidebar">
                 <div class="quests-card">
-                    <h3>Missões Diárias <span style="font-size:11px; font-weight:700; color:var(--color-text-light);">(no seu ritmo${isReturning ? ' — modo retorno' : ''})</span></h3>
+                        <h3>Missões de hoje <span style="font-size:11px; font-weight:700; color:var(--color-text-light);">(no seu ritmo${isReturning ? ' — modo retorno' : ''})</span></h3>
                     <div class="quests-list">
                         ${quests.map(q => `
                             <div class="quest-item ${q.done ? 'quest-done' : ''}" ${q.focus ? 'style="background:rgba(255,150,0,0.08); border-radius:10px; padding:8px; margin:-8px -8px 0;"' : ''}>
@@ -520,32 +545,22 @@ export async function renderHome(container, app) {
                             </div>
                         `).join('')}
                     </div>
-                    ${allQuestsDone && !questRewardClaimed ? `
-                    <button id="btn-claim-quests" class="btn btn-primary" style="width:100%; margin-top:16px; padding:14px; font-size:15px;">🎁 Resgatar recompensa: +30 XP</button>
-                    ` : ''}
-                    ${allQuestsDone && questRewardClaimed ? `
-                    <div style="text-align:center; margin-top:16px; font-weight:800; color:var(--color-primary); font-size:14px;">🏅 Missões do dia completas — recompensa resgatada!</div>
+                    ${allQuestsDone ? `
+                    <div style="text-align:center; margin-top:16px; font-weight:800; color:var(--color-primary); font-size:14px;">Missão de memória concluída por hoje.</div>
                     ` : ''}
 
-                    <div style="margin-top:20px; padding-top:16px; border-top:2px dashed var(--color-border);">
-                        <h3 style="margin:0 0 10px 0; font-size:16px; color:var(--color-text);">🗓️ Missão da Semana</h3>
-                        <div class="quest-item">
-                            <div class="quest-icon">${weeklyDone ? '🏆' : '⚡'}</div>
-                            <div class="quest-details">
-                                <div class="quest-text">Ganhar ${weeklyTarget} XP esta semana</div>
-                                <div class="quest-progress">
-                                    <div class="progress-bar"><div class="progress-fill" style="width:${Math.min(100, (xpWeek / weeklyTarget) * 100)}%; background:#ce82ff;"></div></div>
-                                    <span class="progress-text">${Math.min(xpWeek, weeklyTarget)} / ${weeklyTarget}</span>
-                                </div>
-                            </div>
+                    <details class="competitive-details">
+                        <summary>Como funciona o placar</summary>
+                        <div class="competitive-details-body">
+                        <p>O placar registra apenas atividades qualificadas de aprendizagem. Prática livre continua disponível, mas não altera XP, ofensiva ou liga.</p>
                         </div>
-                        ${weeklyDone && !weeklyClaimed ? `<button id="btn-claim-weekly" class="btn btn-primary" style="width:100%; margin-top:12px; padding:14px; font-size:15px; background:#ce82ff; box-shadow:0 4px 0 #a561cf;">🎁 Resgatar recompensa semanal: +100 XP</button>` : ''}
-                        ${weeklyDone && weeklyClaimed ? `<div style="text-align:center; margin-top:12px; font-weight:800; color:#ce82ff; font-size:14px;">🏆 Missão da semana concluída — recompensa resgatada!</div>` : ''}
-                    </div>
+                    </details>
                 </div>
             </div>
         </div>
     `;
+
+    organizeHomeSections(container);
 
     // ── Diagnóstico do linguista: cache semanal + geração sob demanda ───────
     // (1x/semana no automático; botão regenera. Gate de 10 revisões: sem dados
@@ -606,46 +621,6 @@ export async function renderHome(container, app) {
     });
     document.getElementById('btn-comeback')?.addEventListener('click', () => {
         if (app && app.navigate) app.navigate('study');
-    });
-    document.getElementById('btn-claim-quests')?.addEventListener('click', async (e) => {
-        const btn = e.currentTarget;
-        btn.disabled = true;
-        btn.textContent = 'Resgatando...';
-        try {
-            const res = await db.recordEvent('quests_complete');
-            if (res && res.xp_awarded > 0) {
-                app.showToast?.(`🎁 +${res.xp_awarded} XP pela dedicação de hoje!`, 'success');
-            } else {
-                app.showToast?.('Recompensa de hoje já foi resgatada. 😉', 'info');
-            }
-        } catch (err) {
-            console.error('[Home] Falha ao resgatar:', err);
-            app.showToast?.('Erro ao resgatar. Tente de novo.', 'error');
-            btn.disabled = false;
-            btn.textContent = '🎁 Resgatar recompensa: +30 XP';
-            return;
-        }
-        renderHome(container, app); // re-render com XP/estado novos
-    });
-    document.getElementById('btn-claim-weekly')?.addEventListener('click', async (e) => {
-        const btn = e.currentTarget;
-        btn.disabled = true;
-        btn.textContent = 'Resgatando...';
-        try {
-            const res = await db.claimWeeklyQuest(weeklyTarget);
-            if (res && res.ok) {
-                app.showToast?.(`🏆 +${res.xp_awarded || 100} XP pela semana campeã!`, 'success');
-            } else {
-                app.showToast?.('Recompensa da semana já foi resgatada. 😉', 'info');
-            }
-        } catch (err) {
-            console.error('[Home] Falha ao resgatar semanal:', err);
-            app.showToast?.('Erro ao resgatar. Tente de novo.', 'error');
-            btn.disabled = false;
-            btn.textContent = '🎁 Resgatar recompensa semanal: +100 XP';
-            return;
-        }
-        renderHome(container, app);
     });
     document.getElementById('btn-study-now')?.addEventListener('click', () => {
         if (app && app.navigate) app.navigate('study');

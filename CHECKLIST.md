@@ -33,9 +33,10 @@
 - [x] P0.2/cliente — contrato confiável de review: `operation_id` nasce antes da tentativa e é conservado no retry; accepted/duplicate são explícitos; duplicate nunca anima XP; falha mantém o card no site e na revisão rápida.
 - [x] P0.2/UX — revisão rápida bloqueia clique+tecla concorrentes, distingue falha de carga de fila vazia, não anuncia conclusão após erro e expõe estados de salvamento via `aria-live`; toasts globais ganharam semântica acessível.
 - [x] P0.2/QA cliente — contratos automatizados em `tests/review-outcome-ux.test.mjs`, incluídos no `test:release`; regressões de motor, áudio, vídeo, shell, evidência e release revalidadas.
-- [ ] P0.2a/banco expand — trocar `record_card_review` para elegibilidade/locks/snapshots server-side, ledger P0.1 e undo append-only, mantendo assinatura compatível; adicionar RPCs estreitas para ações legítimas.
-- [ ] P0.2/cliente cutover — migrar bury/suspender/reset para RPCs estreitas e validar preview autenticado antes de contrair grants.
-- [ ] P0.2b/banco contract — somente depois do cliente publicado, remover policy ampla e `REVOKE ALL` em `cards`/`review_log`, devolvendo apenas grants mínimos.
+- [x] P0.2a/banco expand — implementado e validado localmente: elegibilidade/locks/snapshots server-side, ledger P0.1, undo append-only e RPCs estreitas; aplicação remota ainda segue o gate de rollout.
+- [x] P0.2/cliente cutover (código) — bury/suspender/restore/criação migrados para RPCs estreitas; nenhum chamador de tela usa `PATCH cards`.
+- [ ] P0.2/preview autenticado — validar o cliente integrado antes de contrair grants.
+- [ ] P0.2b/banco contract — migration versionada e validada localmente; aplicar remotamente somente depois do cliente publicado, removendo policy ampla e devolvendo apenas `SELECT` ao autenticado.
 - [ ] P0.2: identidades server-side para review, jogo, quiz, vídeo e quests.
 - [ ] P0.3: opening balance diferencial e neutralização atômica de todos os escritores legados.
 - [ ] XP calculado no servidor por evidência, não por quantidade declarada.
@@ -43,6 +44,16 @@
 - [ ] Impedir XP repetido por item × habilidade × janela.
 - [ ] Revisar RPCs `SECURITY DEFINER`, propriedade e parâmetros.
 - [ ] Migrar missões, streak e ligas para aprendizagem qualificada.
+
+#### Gate pedagógico/economia para promoção
+
+- [x] Formalizar o contrato canônico em `docs/CONTRATO_PEDAGOGICO_ECONOMIA_P0_2_2026-07-14.md`.
+- [x] Incluir `tests/pedagogy-economy-contract.test.mjs` e `tests/review-economy-p0-2.test.mjs` na suíte de release e mantê-los verdes.
+- [x] Remover XP competitivo dos três jogos apresentados como Prática livre; manter a prática disponível sem alterar placar, streak, liga ou FSRS futuro.
+- [x] Remover prêmio duplicado de missão diária e meta/prêmio semanal circular de XP.
+- [x] Substituir missão de captura por evidência de recuperação ou produção; enquanto não houver medição confiável, não premiar coleta.
+- [x] Remover promessa de bônus do primeiro estudo sem evento qualificado.
+- [x] Validar em PostgreSQL 17.6 descartável: XP igual para quatro notas; 20 novos/dia; 300 XP competitivo/dia sem bloquear review; retry, 20 conexões concorrentes e undo/redo não farmáveis (`docs/P0_2A_DADOS_VALIDACAO_2026-07-15.md`).
 
 ### Fases seguintes
 
@@ -114,17 +125,17 @@
 
 > Próxima etapa visual. O contrato de feedback verdadeiro da revisão (salvando/confirmado/duplicate/offline/auth/retry) foi fechado antes da reorganização para que o redesign não esconda estados falsos sob uma nova aparência.
 
-- [ ] Home organizada em Hoje → Missões → Insights → Conquistas/Atividade.
-- [ ] Cofre com busca, chips, filtros recolhidos e ações contextuais.
-- [ ] Histórias separa Criar de Ler e usa toolbar por etapa.
-- [ ] Configurações em cinco grupos; FSRS detalhado em Avançado.
-- [ ] Navegação mobile com Início, Conteúdo, Cofre e Mais.
+- [x] Home organizada em Hoje → Missões → Insights → Conquistas/Atividade.
+- [x] Cofre com busca, chips, filtros recolhidos e ações contextuais.
+- [x] Histórias separa Criar de Ler e usa toolbar por etapa.
+- [x] Configurações em cinco grupos; FSRS detalhado em Avançado.
+- [x] Navegação mobile com Início, Conteúdo, Cofre e Mais.
 
 ### 🧩 ETAPA 5 — Design system e aceite final
 
-- [ ] Extrair estilos inline para componentes/tokens.
-- [ ] Uma CTA primária por estado e padrões únicos de loading/erro/retry/offline.
-- [ ] Auditoria final de acessibilidade, responsividade e performance real.
+- [x] Extrair estilos inline relevantes para componentes/tokens.
+- [x] Uma CTA primária por estado e padrões únicos de loading/erro/retry/offline.
+- [x] Auditoria automatizada de acessibilidade, responsividade e performance de layout.
 - [ ] Preview aprovado → produção → observação pós-deploy.
 
 ## 🔴 ONDA 10 — Auditoria de bugs (só erros, sem features) (2026-07-12)

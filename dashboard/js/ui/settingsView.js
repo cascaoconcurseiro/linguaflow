@@ -271,21 +271,21 @@ export async function renderSettings(container, app) {
   const audioBack = audioBackRaw === null || audioBackRaw === true || audioBackRaw === 'true';
 
   container.innerHTML = `
-    <div style="padding: clamp(16px, 5vw, 40px); max-width: 800px; margin: 0 auto; padding-bottom:100px;">
-      <h1 style="font-size: 32px; color: var(--color-text); margin-bottom: 8px;">Configurações do Cofre</h1>
-      <p style="color:var(--color-text-light); margin-bottom: 32px;">Personalize seu aprendizado com as opções avançadas do sistema LinguaFlow (Inspirado no Anki V3).</p>
+    <div class="settings-page" style="padding: clamp(16px, 5vw, 40px); max-width: 800px; margin: 0 auto; padding-bottom:100px;">
+      <h1 class="settings-page-title">Configurações</h1>
+      <p class="settings-page-lede">Ajuste o essencial agora. Controles técnicos do motor ficam em Avançado.</p>
 
       <!-- CEFR Level Selector -->
       <div style="background: var(--color-surface); border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px;">
         <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 8px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">Meu Nível CEFR</h2>
         <p style="color:var(--color-text-light); margin-bottom:16px; font-size:14px;">Declare seu nível atual para calibrar sua Jornada Fluente. Referência: Cambridge English Scale.</p>
         <div id="cefr-selector" style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="cefr-btn lf-btn-bounce" data-level="A1" style="flex:1; min-width:80px; padding:12px 8px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); color:var(--color-text); font-family:var(--font-main); font-weight:800; font-size:16px; cursor:pointer; transition:all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);">A1<br><span style="font-size:11px; font-weight:600; color:var(--color-text-light);">Iniciante</span></button>
-          <button class="cefr-btn lf-btn-bounce" data-level="A2" style="flex:1; min-width:80px; padding:12px 8px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); color:var(--color-text); font-family:var(--font-main); font-weight:800; font-size:16px; cursor:pointer; transition:all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);">A2<br><span style="font-size:11px; font-weight:600; color:var(--color-text-light);">Básico</span></button>
-          <button class="cefr-btn lf-btn-bounce" data-level="B1" style="flex:1; min-width:80px; padding:12px 8px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); color:var(--color-text); font-family:var(--font-main); font-weight:800; font-size:16px; cursor:pointer; transition:all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);">B1<br><span style="font-size:11px; font-weight:600; color:var(--color-text-light);">Intermediário</span></button>
-          <button class="cefr-btn lf-btn-bounce" data-level="B2" style="flex:1; min-width:80px; padding:12px 8px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); color:var(--color-text); font-family:var(--font-main); font-weight:800; font-size:16px; cursor:pointer; transition:all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);">B2<br><span style="font-size:11px; font-weight:600; color:var(--color-text-light);">Fluente Base</span></button>
-          <button class="cefr-btn lf-btn-bounce" data-level="C1" style="flex:1; min-width:80px; padding:12px 8px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); color:var(--color-text); font-family:var(--font-main); font-weight:800; font-size:16px; cursor:pointer; transition:all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);">C1<br><span style="font-size:11px; font-weight:600; color:var(--color-text-light);">Avançado</span></button>
-          <button class="cefr-btn lf-btn-bounce" data-level="C2" style="flex:1; min-width:80px; padding:12px 8px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); color:var(--color-text); font-family:var(--font-main); font-weight:800; font-size:16px; cursor:pointer; transition:all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);">C2<br><span style="font-size:11px; font-weight:600; color:var(--color-text-light);">Maestria</span></button>
+          <button class="cefr-btn lf-btn-bounce" data-level="A1">A1<br><span>Iniciante</span></button>
+          <button class="cefr-btn lf-btn-bounce" data-level="A2">A2<br><span>Básico</span></button>
+          <button class="cefr-btn lf-btn-bounce" data-level="B1">B1<br><span>Intermediário</span></button>
+          <button class="cefr-btn lf-btn-bounce" data-level="B2">B2<br><span>Fluente Base</span></button>
+          <button class="cefr-btn lf-btn-bounce" data-level="C1">C1<br><span>Avançado</span></button>
+          <button class="cefr-btn lf-btn-bounce" data-level="C2">C2<br><span>Maestria</span></button>
         </div>
         <button id="btn-placement" class="btn btn-secondary" style="margin-top:16px; width:100%;">🎯 Não sei meu nível — fazer o teste de nivelamento (3 fases, ~4 min)</button>
         <p style="font-size:12px; color:var(--color-text-light); margin-top:8px;">Vocabulário (anti-chute) + gramática em contexto (adaptativo) + escuta. Combina as 3 habilidades, mostra suas lacunas e configura o sistema inteiro (IA, histórias, legendas).</p>
@@ -520,6 +520,38 @@ export async function renderSettings(container, app) {
       </div>
     </div>
   `;
+
+  // A interface antiga apresentava onze painéis de igual peso. Os mesmos
+  // controles e IDs permanecem, mas agora formam cinco decisões reconhecíveis.
+  // Isso preserva o poder do Anki sem exigir que todo aluno pense como operador.
+  const settingsPage = container.querySelector('.settings-page');
+  const cards = [...settingsPage.children].filter(node => node.querySelector?.('h2'));
+  const cardByTitle = new Map(cards.map(card => [card.querySelector('h2').textContent.trim(), card]));
+  const group = (title, description, titles, { open = false, advanced = false } = {}) => {
+    const details = document.createElement('details');
+    details.className = `settings-group${advanced ? ' settings-group-advanced' : ''}`;
+    details.open = open;
+    details.innerHTML = `<summary><span><strong>${title}</strong><small>${description}</small></span><span class="settings-chevron" aria-hidden="true">⌄</span></summary><div class="settings-group-body"></div>`;
+    const body = details.querySelector('.settings-group-body');
+    titles.forEach(name => {
+      const card = cardByTitle.get(name);
+      if (card) body.appendChild(card);
+    });
+    return details;
+  };
+  const saveBar = container.querySelector('#btn-save')?.parentElement;
+  const groups = [
+    group('Seu aprendizado', 'Nível e carga diária', ['Meu Nível CEFR', 'Limites Diários'], { open: true }),
+    group('Memória', 'Retenção e passos de aprendizagem', ['Motor de Memória (FSRS v4)']),
+    group('Som e lembretes', 'Áudio, notificações e resumo', ['Opções de Áudio (TTS Google Neural)', '🔔 Lembretes diários', '📧 Resumo por e-mail']),
+    group('Dados e conta', 'Exportação, backup e sessão', ['Dados e Portabilidade', 'Conta']),
+    group('Avançado', 'SRS detalhado, perfis e integrações', ['SRS Avançado (Nível Anki)', 'Perfis de SRS por Categoria', '🤖 Inteligência Artificial (DeepSeek)'], { advanced: true }),
+  ];
+  settingsPage.querySelectorAll(':scope > div').forEach(node => {
+    if (node !== saveBar && !groups.some(section => section.contains(node))) node.remove();
+  });
+  groups.forEach(section => settingsPage.insertBefore(section, saveBar));
+  saveBar?.classList.add('settings-save-bar');
 
   document.getElementById('retention-slider').addEventListener('input', function(e) {
     document.getElementById('retention-val').innerText = e.target.value + '%';
@@ -888,7 +920,7 @@ export async function renderSettings(container, app) {
           try {
             const newCard = await lfDb.getCardByWordId(newWordId);
             if (!newCard) continue;
-            await lfDb.updateCard({
+            await lfDb.restoreCardState(newCard.id, {
               ...newCard,
               status: oldCard.status,
               interval: oldCard.interval,

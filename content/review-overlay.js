@@ -222,6 +222,30 @@ export class ReviewOverlay {
     try {
       const result = await this._db.logReview(card.id, operation.quality, null, null, operation.operationId);
       if (!result?.persisted) throw new Error('A gravação não foi confirmada');
+      if (result?.outcome === 'ineligible') {
+        this._pendingReview = null;
+        const reasonMessages = {
+          not_due: 'Este card ainda não venceu e continua aqui.',
+          new_daily_limit: 'Limite de cards novos de hoje atingido; o card continua aqui.',
+          suspended: 'Este card está suspenso e não foi alterado.',
+          stale_card_state: 'O card mudou em outro lugar. Reabra a revisão rápida.',
+        };
+        document.getElementById('lf-ro-hint').textContent = reasonMessages[result.eligibilityReason]
+          || 'Esta avaliação não era elegível; o card continua aqui.';
+        if (result.eligibilityReason === 'stale_card_state') {
+          await this._loadCards();
+          this.index = 0;
+          this._render();
+        } else if (['not_due', 'new_daily_limit', 'suspended'].includes(result.eligibilityReason)) {
+          this.cards.splice(this.index, 1);
+          this._render();
+          if (!this.cards.length) {
+            document.getElementById('lf-ro-hint').textContent =
+              'Nada elegível nesta fila. A prática livre continua disponível no app, sem alterar o placar.';
+          }
+        }
+        return;
+      }
       this._pendingReview = null;
       this.index++;
       if (this.index >= this.cards.length) {

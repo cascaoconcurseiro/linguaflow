@@ -403,17 +403,9 @@ class Database {
 
     let card = await this.getCardByWordId(savedWord.id);
     if (!card) {
-      await this._fetch('cards', {
+      card = await this._fetch('rpc/create_card_for_word', {
         method: 'POST',
-        headers: { 'Prefer': 'return=representation' },
-        body: {
-          word_id: savedWord.id,
-          interval: 0,
-          ease_factor: 2.5,
-          due_date: new Date().toISOString(),
-          reps: 0,
-          status: 'new'
-        }
+        body: { p_word_id: savedWord.id }
       });
     }
 
@@ -645,6 +637,33 @@ class Database {
       body: cleanCard
     });
     return { ok: !!res };
+  }
+
+  async buryCard(cardId) {
+    this._invalidateReadCache();
+    if (this.isProxyMode) return this._proxy('buryCard', [cardId]);
+    return this._fetch('rpc/bury_card', {
+      method: 'POST',
+      body: { p_card_id: cardId },
+    });
+  }
+
+  async setCardSuspended(cardId, suspended = true) {
+    this._invalidateReadCache();
+    if (this.isProxyMode) return this._proxy('setCardSuspended', [cardId, suspended]);
+    return this._fetch(`rpc/${suspended ? 'suspend_card' : 'restore_card'}`, {
+      method: 'POST',
+      body: { p_card_id: cardId },
+    });
+  }
+
+  async restoreCardState(cardId, state) {
+    this._invalidateReadCache();
+    if (this.isProxyMode) return this._proxy('restoreCardState', [cardId, state]);
+    return this._fetch('rpc/restore_card_state', {
+      method: 'POST',
+      body: { p_card_id: cardId, p_state: state },
+    });
   }
 
   // ── ESTATÍSTICAS E LOGS ───────────────────────────────────────────────────
@@ -1079,7 +1098,11 @@ class Database {
     const idempotent = Boolean(saved?.idempotent);
     return {
       ok: true,
-      outcome: idempotent ? 'duplicate' : 'accepted',
+      outcome: saved?.outcome || (idempotent ? 'duplicate' : 'accepted'),
+      accepted: saved?.accepted !== false,
+      eligible: saved?.eligible !== false,
+      eligibilityReason: saved?.eligibility_reason || null,
+      rewardReason: saved?.reward_reason || null,
       operationId: clientReviewId,
       persisted: true,
       idempotent,
@@ -1461,19 +1484,9 @@ class Database {
     // BUG antigo: suspender empurrava due_date +365d (corrompia o agendamento).
     // Agora a fila filtra suspended no banco; due_date fica intacto. Ao
     // reativar, cards corrompidos pelo sistema antigo voltam pra "agora".
-    let body = { suspended: suspend };
-    if (!suspend) {
-      const card = await this.getCardByWordId(wordId);
-      if (card && new Date(card.due_date).getTime() - Date.now() > 180 * 86400000) {
-        body.due_date = new Date().toISOString();
-      }
-    }
-    const res = await this._fetch(`cards?word_id=eq.${wordId}`, {
-      method: 'PATCH',
-      headers: { 'Prefer': 'return=representation' },
-      body
-    });
-    return !!res;
+    const card = await this.getCardByWordId(wordId);
+    if (!card) return false;
+    return !!(await this.setCardSuspended(card.id, suspend));
   }
 
   async addTagsToWord(wordId, tags) {

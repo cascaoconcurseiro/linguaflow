@@ -16,10 +16,16 @@
     "test:evidence": "node tests/evidence-foundation.test.mjs",
     "test:evidence-commit": "node tests/evidence-commit-p0-1.test.mjs",
     "test:review-ux": "node tests/review-outcome-ux.test.mjs",
+    "test:card-writes": "node tests/card-write-contract-p0-2.test.mjs",
+    "test:card-permissions": "node tests/card-permissions-p0-2b.test.mjs",
+    "test:pedagogy": "node tests/pedagogy-economy-contract.test.mjs",
+    "test:review-economy": "node tests/review-economy-p0-2.test.mjs",
+    "test:product-ux": "node tests/product-ux-stage4.test.mjs",
+    "test:design-system": "node tests/design-system-stage5.test.mjs",
     "test:stage3": "npm run test:focus-shell && npm run test:study-focus",
     "test:study-video": "node tests/study-video-race.test.mjs",
     "test:stage2": "npm run test:yt-player && npm run test:video && npm run test:study-video && npm run test:site-boundary && npm run test:web-reader && npm run test:subtitle-lifecycle",
-    "test:release": "node tests/review-outcome-ux.test.mjs && node tests/release-smoke.mjs"
+    "test:release": "npm run test:review-ux && npm run test:card-writes && npm run test:card-permissions && npm run test:pedagogy && npm run test:review-economy && node tests/release-smoke.mjs"
   },
   "dependencies": {
     "acorn": "^8.17.0"

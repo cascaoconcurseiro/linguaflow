@@ -485,9 +485,33 @@ Além disso, `getAllSentences()` e `getAllKnownWords()` nunca ganharam a otimiza
 **Descartado**: possível divergência de fuso entre o cálculo client-side do início de semana (missão semanal) e a RPC server-side — degrada bem (servidor sempre vence), não confirmado como reproduzível na prática.
 
 **[QA] Testado**: 34/34 `engine.test.mjs`, `release-smoke` verde, `node --check` em todos os 8 arquivos tocados. As correções de regex/tokenizer foram verificadas diretamente no interpretador Node (o projeto não tem jsdom pra testar renderização de DOM em teste automatizado).
-# Handoff Codex — Plano UX/Races, Etapa 1 (2026-07-14)
+# Handoff Codex — programa de integridade e UX
 
-## Estado
+## Handoff Codex — contrato pedagógico/economia P0.2 (2026-07-15)
+
+- Contrato canônico: `docs/CONTRATO_PEDAGOGICO_ECONOMIA_P0_2_2026-07-14.md`.
+- Gates: `tests/pedagogy-economy-contract.test.mjs` (19/19),
+  `tests/review-economy-p0-2.test.mjs` (23/23),
+  `tests/review-outcome-ux.test.mjs` e `tests/card-write-contract-p0-2.test.mjs`.
+- Regras que não podem regredir: XP igual nas quatro notas; 20 novos/dia;
+  300 XP competitivo/dia sem bloquear review; prática livre sem XP/streak/liga
+  ou FSRS; retry conserva outcome; undo não reabre recompensa nem quota.
+- `ineligible` não entra no caminho de sucesso: stale refaz a fila; futuro,
+  novo excedente e suspenso saem apenas da fila atual; nenhum deles incrementa
+  sessão, combo ou XP.
+- O snapshot do undo nasce antes das projeções; `stats_revision` impede que
+  undo antigo apague atividade posterior. Review elegível com XP zero ainda
+  pode sustentar streak, inclusive no ciclo review → undo → redo.
+- Antes de produção: executar as propriedades SQL dinâmicas da migration,
+  aplicar no Supabase pelo fluxo aprovado, validar preview autenticado e só
+  então promover/observar produção.
+- P0.2b está em `20260715155802_card_review_permissions_contract_p0_2b.sql`:
+  validada no PostgreSQL local com apenas `SELECT` para `authenticated`, mas
+  não deve ser aplicada antes do preview com o cliente `3.0.3`.
+
+## Plano UX/Races, Etapa 1 (2026-07-14)
+
+### Estado
 
 Etapa 1 implementada na branch `codex/review-mobile-video`; ainda não promover para produção antes do QA visual do preview. Objetivo desta etapa: estabilizar áudio, navegação e persistência da sessão antes do redesign.
 

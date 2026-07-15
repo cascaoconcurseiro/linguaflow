@@ -64,9 +64,24 @@
     <!-- Main Content Area (Views are injected here) -->
     <main id="app-root"></main>
 
+    <nav id="mobile-nav" class="mobile-nav" aria-label="Navegação principal">
+      <button class="mobile-nav-btn active" type="button" data-route="home"><span aria-hidden="true">⌂</span><span>Início</span></button>
+      <button class="mobile-nav-btn" type="button" data-route="stories" data-nav-group="content"><span aria-hidden="true">▶</span><span>Conteúdo</span></button>
+      <button class="mobile-nav-btn" type="button" data-route="library"><span aria-hidden="true">◇</span><span>Cofre</span></button>
+      <button id="mobile-more-toggle" class="mobile-nav-btn" type="button" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">•••</span><span>Mais</span></button>
+      <div id="mobile-more-menu" class="mobile-more-menu" role="menu" hidden>
+        <button type="button" role="menuitem" data-route="reader">Leitor</button>
+        <button type="button" role="menuitem" data-route="leagues">Ligas</button>
+        <button type="button" role="menuitem" data-route="stats">Progresso</button>
+        <button type="button" role="menuitem" data-route="settings">Configurações</button>
+        <button type="button" role="menuitem" id="mobile-theme-toggle">Alternar tema</button>
+        <button type="button" role="menuitem" id="mobile-logout">Sair</button>
+      </div>
+    </nav>
+
     <!-- Global Toast Container -->
     <div id="toast-container"></div>
 
-    <script type="module" src="js/core/app.js?v=3.0.2"></script>
+    <script type="module" src="js/core/app.js?v=3.0.3"></script>
   </body>
 </html>

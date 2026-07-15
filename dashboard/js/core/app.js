@@ -10,7 +10,7 @@ import { renderLogin } from '../ui/loginView.js';
 import { renderStats } from '../ui/statsView.js';
 import { db } from '../../../utils/db.js';
 
-const CLIENT_BUILD = '3.0.2';
+const CLIENT_BUILD = '3.0.3';
 
 // Uma versão antiga do PWA podia misturar HTML/app novo com db.js antigo.
 // Antes de inicializar qualquer tela, elimina esse estado e recarrega uma vez.
@@ -43,6 +43,9 @@ class App {
   constructor() {
     this.root = document.getElementById('app-root');
     this.navBtns = document.querySelectorAll('.nav-btn');
+    this.mobileNavBtns = document.querySelectorAll('.mobile-nav-btn[data-route], .mobile-more-menu [data-route]');
+    this.mobileMoreToggle = document.getElementById('mobile-more-toggle');
+    this.mobileMoreMenu = document.getElementById('mobile-more-menu');
     this.currentRoute = 'home';
     this.viewContainers = {}; // Armazena as telas já carregadas (DOM Caching)
     // Cada navegação e cada tentativa de render recebem uma época monotônica.
@@ -84,10 +87,36 @@ class App {
     // Setup Navigation Listeners
     this.navBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {
-        const route = e.target.dataset.route;
+        const route = e.currentTarget.dataset.route;
         if(route) this.navigate(route);
       });
     });
+    this.mobileNavBtns.forEach(btn => btn.addEventListener('click', (event) => {
+      const route = event.currentTarget.dataset.route;
+      this.closeMobileMore();
+      if (route) this.navigate(route);
+    }));
+    this.mobileMoreToggle?.addEventListener('click', () => {
+      const open = this.mobileMoreMenu?.hidden !== false;
+      if (this.mobileMoreMenu) this.mobileMoreMenu.hidden = !open;
+      this.mobileMoreToggle.setAttribute('aria-expanded', String(open));
+      if (open) this.mobileMoreMenu?.querySelector('[role="menuitem"]')?.focus();
+    });
+    document.addEventListener('click', event => {
+      if (!event.target.closest('#mobile-nav')) this.closeMobileMore();
+    });
+    this.mobileMoreMenu?.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        this.closeMobileMore();
+        this.mobileMoreToggle?.focus();
+      }
+    });
+    document.getElementById('mobile-theme-toggle')?.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+      this.setTheme(current === 'light' ? 'dark' : 'light');
+      this.closeMobileMore();
+    });
+    document.getElementById('mobile-logout')?.addEventListener('click', () => this.logout());
     this.setupFocusShell();
     // BFCache/restauração de aba pode preservar classes do <body>. Antes de
     // qualquer await de autenticação, normalize o shell para a rota inicial.
@@ -274,6 +303,16 @@ class App {
         btn.classList.remove('active');
       }
     });
+    const contentRoutes = new Set(['stories', 'reader']);
+    this.mobileNavBtns.forEach(btn => {
+      const active = btn.dataset.route === route
+        || (btn.dataset.navGroup === 'content' && contentRoutes.has(route));
+      btn.classList.toggle('active', active);
+      if (active) btn.setAttribute('aria-current', 'page');
+      else btn.removeAttribute('aria-current');
+    });
+    this.mobileMoreToggle?.classList.toggle('active', ['leagues', 'stats', 'settings'].includes(route));
+    this.closeMobileMore();
 
     // Ocultar todas as telas (views) carregadas
     for (let key in this.viewContainers) {
@@ -308,6 +347,11 @@ class App {
 
     // Chama o render para desenhar (se for a primeira vez) ou atualizar "por baixo dos panos"
     this.renderRouteView(route, targetContainer, this.routeParams);
+  }
+
+  closeMobileMore() {
+    if (this.mobileMoreMenu) this.mobileMoreMenu.hidden = true;
+    this.mobileMoreToggle?.setAttribute('aria-expanded', 'false');
   }
 
   // Views com recursos que precisam ser liberados ao sair (ex.: AudioContext

@@ -1591,6 +1591,29 @@ async function handleGrade(grade, app) {
     const res = await mutationPromise;
     if (!studyViewActive || operationGeneration !== studyViewGeneration || currentCard !== gradedCard) return;
     if (!res?.persisted) throw new Error('A gravação da revisão não foi confirmada');
+    if (res?.outcome === 'ineligible') {
+      pendingReviewOperations.delete(gradedCard.id);
+      const reasonMessages = {
+        not_due: 'Este card ainda não venceu. Ele continua aqui até a fila ser atualizada.',
+        new_daily_limit: 'Seu limite de cards novos de hoje foi atingido. As revisões continuam normalmente.',
+        suspended: 'Este card está suspenso e não foi alterado.',
+        stale_card_state: 'O card mudou em outro lugar. Recarregue a fila antes de avaliar novamente.',
+        invalid_card_state: 'O agendamento proposto não era válido. O card não foi alterado.',
+      };
+      const message = reasonMessages[res.eligibilityReason]
+        || 'Esta avaliação não era elegível e não alterou o card.';
+      if (liveStatus) liveStatus.textContent = message;
+      app.showToast(message, 'info');
+      if (res.eligibilityReason === 'stale_card_state') {
+        app.navigate('study');
+      } else if (['not_due', 'new_daily_limit', 'suspended'].includes(res.eligibilityReason)) {
+        if (dueQueue[0] === gradedCard) dueQueue.shift();
+        else dueQueue = dueQueue.filter(card => card.id !== gradedCard.id);
+        app.showToast('O card saiu desta fila; a prática livre continua disponível sem alterar seu placar.', 'info');
+        loadNextCard(app);
+      }
+      return;
+    }
     pendingReviewOperations.delete(gradedCard.id);
     if (liveStatus) liveStatus.textContent = res.idempotent
       ? 'A avaliação já estava salva. Próximo card.'
@@ -1707,13 +1730,9 @@ async function buryCard(app) {
   const buryBtn = document.getElementById('bury-btn');
   if (buryBtn) buryBtn.disabled = true;
   document.querySelectorAll('.grade-btn').forEach(btn => { btn.disabled = true; });
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(0, 0, 0, 0);
   try {
-    // Remove props de runtime (_ctx/_chunks/_reverse não são colunas do banco)
-    const { wordData, _ctx, _chunks, _reverse, _mode, _gradePreviews, _exerciseFinished, ...clean } = card;
-    const mutationPromise = lfDb.updateCard({ ...clean, due_date: tomorrow.toISOString() });
+    // O servidor calcula o próximo dia no fuso do usuário e preserva o FSRS.
+    const mutationPromise = lfDb.buryCard(card.id);
     cardMutationPromise = mutationPromise;
     await mutationPromise;
     if (!studyViewActive || operationGeneration !== studyViewGeneration || currentCard !== card) return;

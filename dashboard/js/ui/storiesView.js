@@ -56,19 +56,21 @@ async function translateText(text) {
 
 export function renderStories(container, app) {
   container.innerHTML = `
-    <div style="padding: clamp(16px, 5vw, 40px); max-width: 900px; margin: 0 auto; padding-bottom:100px; animation: fadeIn 0.4s ease-out; position:relative;">
-      <h1 style="font-size: 32px; color: var(--color-text); margin-bottom: 8px;">📚 Histórias Dinâmicas</h1>
-      <p style="color:var(--color-text-light); margin-bottom: 24px;">Gere histórias adaptadas ao seu nível, ouça o texto completo ou selecione trechos, estilo LingQ.</p>
+    <div class="story-page">
+      <h1 class="story-page-title">Histórias</h1>
+      <p class="story-page-lede">Leia no seu nível e reencontre palavras que sua memória precisa praticar.</p>
 
       <!-- Tabs -->
-      <div style="display:flex; gap:16px; margin-bottom:24px; border-bottom:2px solid var(--color-border); padding-bottom:12px;">
-        <button id="tab-new" class="lf-tab active" style="background:none; border:none; font-size:18px; font-weight:bold; color:var(--color-primary); cursor:pointer;">✨ Nova História</button>
-        <button id="tab-history" class="lf-tab" style="background:none; border:none; font-size:18px; font-weight:bold; color:var(--color-text-light); cursor:pointer;">📖 Meu Histórico</button>
+      <div class="story-mode-tabs" role="tablist" aria-label="Escolher modo de histórias">
+        <button id="tab-new" role="tab" aria-selected="true" aria-controls="panel-new" class="lf-tab active">Criar</button>
+        <button id="tab-history" role="tab" aria-selected="false" aria-controls="panel-history" class="lf-tab">Ler</button>
       </div>
 
       <!-- Control Panel (New Story) -->
-      <div id="panel-new" style="background: var(--color-surface); border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px;" class="lf-card-hover">
-        <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Escolha o Tema da História</label>
+      <div id="panel-new" role="tabpanel" aria-labelledby="tab-new" class="story-create-panel lf-card-hover">
+        <h2 style="font-size:20px; color:var(--color-text); margin:0 0 6px;">Criar uma história</h2>
+        <p style="color:var(--color-text-light); margin:0 0 16px; font-size:14px;">O texto usa seu nível e prioriza reencontros úteis.</p>
+        <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;" for="story-genre">Tema</label>
         <div style="display:flex; gap: 16px; flex-wrap:wrap;">
           <select id="story-genre" style="flex:1; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); font-size:16px; min-width: 200px; cursor: pointer; transition: border-color 0.2s;">
             <option value="Dia a Dia">☕ Dia a Dia</option>
@@ -81,13 +83,14 @@ export function renderStories(container, app) {
             <option value="História (Fatos reais)">📜 Fatos Históricos</option>
           </select>
           <button id="btn-generate-story" class="btn btn-primary lf-btn-bounce" style="padding: 12px 24px; font-size: 16px; display:flex; align-items:center; gap:8px;">
-            <span class="icon">✨</span> Gerar História
+            <span class="icon" aria-hidden="true">✨</span> Criar história
           </button>
         </div>
       </div>
 
       <!-- History Panel -->
-      <div id="panel-history" style="display:none; margin-bottom:24px;">
+      <div id="panel-history" role="tabpanel" aria-labelledby="tab-history" hidden style="margin-bottom:24px;">
+        <div class="story-library-heading"><h2>Prontas para ler</h2><p>Continue uma história salva ou releia para consolidar contexto.</p></div>
         <div id="history-list" style="display:flex; flex-direction:column; gap:12px;">
           <!-- History items injected here -->
         </div>
@@ -175,7 +178,7 @@ export function renderStories(container, app) {
     style.innerHTML = `
       @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-      .story-word { cursor: pointer; transition: all 0.2s; border-radius: 4px; padding: 0 1px; }
+      .story-word { cursor: pointer; transition: color var(--motion-fast), background-color var(--motion-fast); border-radius: 4px; padding: 0 1px; }
       .story-word:hover { background-color: rgba(88,204,2,0.2); color: var(--color-primary); font-weight: 600; }
       .story-word:focus-visible { outline: 3px solid var(--color-secondary); outline-offset: 2px; }
       .story-word.saved { border-bottom: 2px dashed #ffc800; background: rgba(255,200,0,0.12); } /* aprendendo (LingQ amarelo) */
@@ -187,6 +190,12 @@ export function renderStories(container, app) {
       .history-item { padding: 16px; border: 2px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); cursor: pointer; display:flex; justify-content:space-between; align-items:center; }
       .history-item:hover { border-color: var(--color-primary); }
       .history-item .level-tag { font-size:11px; font-weight:bold; padding:2px 6px; border-radius:8px; background:var(--color-primary); color:white; margin-left:8px; vertical-align:middle; }
+      .story-mode-tabs { display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:5px; margin-bottom:24px; border:1px solid var(--color-border); border-radius:14px; background:var(--color-bg-alt); }
+      .story-mode-tabs .lf-tab { min-height:46px; border:0; border-radius:10px; background:transparent; color:var(--color-text-light); font:800 15px var(--font-main); cursor:pointer; }
+      .story-mode-tabs .lf-tab.active { color:var(--color-text); background:var(--color-surface); box-shadow:var(--shadow-sm); }
+      .story-library-heading { margin-bottom:16px; }
+      .story-library-heading h2 { margin:0 0 4px; color:var(--color-text); font-size:20px; }
+      .story-library-heading p { margin:0; color:var(--color-text-light); font-size:14px; }
       @media (max-width: 480px) {
         #story-content { font-size: 17px !important; line-height: 1.7 !important; }
         #story-title-display { font-size: 20px !important; }
@@ -489,16 +498,16 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
 
   // Tab Logic
   function switchTab(isNew) {
+    tabNew.classList.toggle('active', isNew);
+    tabHistory.classList.toggle('active', !isNew);
+    tabNew.setAttribute('aria-selected', String(isNew));
+    tabHistory.setAttribute('aria-selected', String(!isNew));
     if (isNew) {
-      tabNew.style.color = 'var(--color-primary)';
-      tabHistory.style.color = 'var(--color-text-light)';
       panelNew.style.display = 'block';
-      panelHistory.style.display = 'none';
+      panelHistory.hidden = true;
     } else {
-      tabNew.style.color = 'var(--color-text-light)';
-      tabHistory.style.color = 'var(--color-primary)';
       panelNew.style.display = 'none';
-      panelHistory.style.display = 'block';
+      panelHistory.hidden = false;
       storyContainer.style.display = 'none'; 
       stopFullStoryTTS();
       loadHistory();
@@ -613,6 +622,8 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
 
   async function loadHistory() {
     // Fonte da verdade: banco (sincroniza entre dispositivos); local = fallback
+    historyList.setAttribute('aria-busy', 'true');
+    historyList.innerHTML = '<div class="story-empty" role="status" aria-live="polite"><span>Carregando suas histórias…</span></div>';
     let stories = [];
     try {
       const rows = await db.getStories(50);
@@ -624,13 +635,15 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
       stories = await new Promise((resolve) => readStories(resolve));
     }
     renderHistoryItems(stories);
+    historyList.setAttribute('aria-busy', 'false');
   }
 
   function renderHistoryItems(stories) {
     {
       historyList.innerHTML = '';
       if (stories.length === 0) {
-        historyList.innerHTML = '<p style="color:var(--color-text-light); text-align:center; padding:20px;">Nenhuma história salva ainda. Gere sua primeira!</p>';
+        historyList.innerHTML = '<div class="story-empty"><strong>Nenhuma história pronta ainda.</strong><span>Abra Criar e escolha um tema para começar.</span><button type="button" class="btn btn-primary" id="btn-empty-create">Criar primeira história</button></div>';
+        historyList.querySelector('#btn-empty-create')?.addEventListener('click', () => switchTab(true));
         return;
       }
 
@@ -638,6 +651,8 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
         const d = new Date(story.date);
         const div = document.createElement('div');
         div.className = 'history-item';
+        div.tabIndex = 0;
+        div.setAttribute('role', 'button');
         div.innerHTML = `
           <div>
             <div style="font-weight:bold; font-size:18px; color:var(--color-text);">
@@ -657,7 +672,14 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
           storyContent.style.display = 'block';
           setCurrentStory(story.text);
           renderStoryText(story.text, false);
-          storyContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+          storyContainer.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+        });
+        div.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            div.click();
+          }
         });
         historyList.appendChild(div);
       });
@@ -672,6 +694,8 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     storyHeader.style.display = 'none';
     storyLoading.style.display = 'block';
     btnGenerate.disabled = true;
+    btnGenerate.setAttribute('aria-busy', 'true');
+    storyContainer.setAttribute('aria-busy', 'true');
     floatingToolbar.style.display = 'none';
     stopFullStoryTTS();
     
@@ -729,6 +753,8 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
       storyLoading.style.display = 'none';
       storyContent.style.display = 'block';
       btnGenerate.disabled = false;
+      btnGenerate.setAttribute('aria-busy', 'false');
+      storyContainer.setAttribute('aria-busy', 'false');
     }
   });
 

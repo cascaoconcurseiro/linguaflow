@@ -703,3 +703,39 @@ P1-B — Histórias e Leitor como duas entradas de uma única experiência de
 leitura contextual, sem remover geração, importação, áudio, quiz ou salvamento.
 
 ---
+
+# Execução Codex — P1-B Experiência unificada de leitura (2026-07-15)
+
+**Responsável:** Codex. Engine, geração, importação, TTS, quiz, marcação,
+salvamento no Cofre e persistência permaneceram funcionais e sem mudança de
+contrato.
+
+## Implementado
+
+- Criado `readingHub.js`: Histórias e Leitor compartilham o mesmo cabeçalho,
+  promessa e seletor acessível `Histórias guiadas | Meus textos`.
+- A troca entre as duas fontes acontece dentro da experiência de leitura, sem
+  obrigar o aluno a voltar ao hub Aprender.
+- As instruções extensas do Leitor viraram ajuda recolhida; importar/salvar um
+  texto passou a ser a ação dominante da tela.
+- `loadStatusSets()` agora informa sucesso/falha. Em falha, o texto permanece
+  utilizável, a interface avisa que as cores podem estar incompletas e oferece
+  retry; não apresenta progresso desconhecido como zero.
+- Histórias mostra `Familiaridade estimada`, explicando que mistura marcações do
+  aluno e memória estável e não mede compreensão.
+- A promessa “reencontrar fixa” foi removida; o texto orienta tentativa de
+  lembrança antes de tocar. Loading de geração deixou de expor “a IA”.
+- Build web/PWA `3.0.8`.
+
+## Gates
+
+- Novo `tests/reading-experience-p1-b.test.mjs` dentro de `test:release`.
+- `test:p1-b`, `test:web-reader`, produto UX, design system e release completo
+  passaram.
+
+## Próximo corte
+
+P1-C — onboarding progressivo: objetivo, nível aproximado, carga inicial segura
+e primeira experiência real, sem prometer fluência ou forçar configuração SRS.
+
+---

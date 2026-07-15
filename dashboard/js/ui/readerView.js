@@ -10,6 +10,7 @@ import { translator } from '../../../utils/translator.js';
 import { lemma } from '../../../utils/lemma.js';
 import { parseEpub } from '../core/epub.js';
 import { renderViewState } from './viewState.js';
+import { bindReadingHeader, renderReadingHeader } from './readingHub.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 const TEXTS_KEY = 'lf_reader_texts';
@@ -93,8 +94,10 @@ async function loadStatusSets() {
       else if (st) learningLemmas.add(l); // card existe (status 'new'/'learning') mas ainda não avançou
       // sem `st`: sem card nenhum ainda — fica 'new' (nenhum set), igual ao comportamento padrão de wordStatus()
     });
+    return true;
   } catch (e) {
     console.warn('[Reader] Erro ao carregar status das palavras:', e);
+    return false;
   }
 }
 
@@ -138,22 +141,23 @@ export async function renderReader(container, app) {
   injectStyles();
   container.setAttribute('aria-busy', 'true');
   container.innerHTML = renderViewState({ kind: 'loading', title: 'Carregando seus textos…', message: 'Preparando sua leitura e o estado da memória.' });
-  await loadStatusSets();
+  const statusLoaded = await loadStatusSets();
   container.setAttribute('aria-busy', 'false');
 
   const texts = loadTexts();
   container.innerHTML = `
     <div style="padding:clamp(16px, 5vw, 40px); max-width:900px; margin:0 auto; padding-bottom:100px;">
-      <h1 style="font-size:32px; color:var(--color-text); margin-bottom:8px;">📖 Leitor</h1>
-      <div style="background:rgba(28,176,246,0.08); border:2px solid var(--color-secondary); border-radius:var(--radius-md); padding:16px 20px; margin-bottom:24px;">
-        <p style="color:var(--color-text); font-weight:700; margin-bottom:8px;">Como funciona (3 passos):</p>
+      ${renderReadingHeader('reader')}
+      ${statusLoaded ? '' : '<div class="reading-partial-notice" role="status">O texto está disponível, mas não foi possível carregar seu progresso; algumas cores podem estar incompletas.<button type="button" id="btn-reader-status-retry">Tentar novamente</button></div>'}
+      <details class="reading-help">
+        <summary>Como funciona</summary>
         <p style="color:var(--color-text-light); font-size:14px; line-height:1.7; margin:0;">
           <strong>1.</strong> Cole qualquer texto em inglês (letra de música, artigo, roteiro de série).<br>
           <strong>2.</strong> Leia — cada palavra ganha uma cor pelo estágio real na memória: <span class="rw rw-new" style="cursor:default;">azul = nunca viu</span> · <span class="rw rw-learning" style="cursor:default;">amarela = aprendendo</span> · <span class="rw rw-review" style="cursor:default;">verde clara = já graduou, ainda fixando</span> · sem cor = consolidada.<br>
           <strong>3.</strong> Clique num termo para ver a tradução, ouvir, <strong>salvar no Cofre para revisar</strong> ou marcar <strong>"já sei"</strong>. Quanto mais você lê, mais o app conhece seu vocabulário real.
         </p>
         <button id="rd-try-sample" style="margin-top:12px; background:none; border:none; color:var(--color-secondary); font-family:var(--font-main); font-weight:800; font-size:14px; cursor:pointer; text-decoration:underline;">✨ Experimentar com um texto de exemplo</button>
-      </div>
+      </details>
 
       <div id="reader-import" style="background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:24px; margin-bottom:24px;">
         <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Importar novo texto</label>
@@ -209,6 +213,8 @@ export async function renderReader(container, app) {
       </div>
     </div>
   `;
+  bindReadingHeader(container, app);
+  container.querySelector('#btn-reader-status-retry')?.addEventListener('click', () => renderReader(container, app));
 
   const shelf = document.getElementById('reader-shelf');
   const importBox = document.getElementById('reader-import');

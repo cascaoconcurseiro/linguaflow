@@ -805,3 +805,16 @@ P1-B: unificar a arquitetura de Histórias e Leitor; depois onboarding,
 Prática/Progresso e QA autenticado.
 
 ---
+
+# Handoff Codex — Reforma UX P1-B (2026-07-15)
+
+- `readingHub.js` une Histórias e Leitor sob `Ler com contexto`.
+- Rotas, geração, importação, áudio, quiz e salvamento foram preservados.
+- Leitor diferencia progresso indisponível de vocabulário realmente novo.
+- Ajuda do Leitor ficou recolhida; importação é a ação principal.
+- Histórias usa familiaridade estimada e não chama exposição de fixação.
+- Build `3.0.8`; gate `npm run test:p1-b` no release.
+
+**Próximo:** P1-C onboarding; depois Prática/Progresso e QA autenticado.
+
+---

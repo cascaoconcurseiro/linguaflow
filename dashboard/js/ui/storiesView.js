@@ -4,6 +4,7 @@ import { generateStoryWeb, aiChat } from '../core/ai.js';
 import { translator } from '../../../utils/translator.js';
 import { lemma } from '../../../utils/lemma.js';
 import { bindViewStateAction, renderViewState } from './viewState.js';
+import { bindReadingHeader, renderReadingHeader } from './readingHub.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
@@ -58,8 +59,7 @@ async function translateText(text) {
 export function renderStories(container, app) {
   container.innerHTML = `
     <div class="story-page">
-      <h1 class="story-page-title">Histórias</h1>
-      <p class="story-page-lede">Leia no seu nível e reencontre palavras que sua memória precisa praticar.</p>
+      ${renderReadingHeader('stories')}
 
       <!-- Tabs -->
       <div class="story-mode-tabs" role="tablist" aria-label="Escolher modo de histórias">
@@ -101,7 +101,7 @@ export function renderStories(container, app) {
       <div id="story-reader-container" style="display:none; background: var(--color-surface); border-radius: var(--radius-md); padding: clamp(16px, 4vw, 32px); border: 2px solid var(--color-border); box-shadow: 0 4px 12px rgba(0,0,0,0.05); position:relative;">
         <div id="story-loading" style="display:none; text-align:center; padding: 40px; color:var(--color-text-light);">
           <div class="lf-spin" style="width: 40px; height: 40px; border: 4px solid var(--color-border); border-top-color: var(--color-primary); border-radius: 50%; margin: 0 auto 16px;"></div>
-          <p style="font-size: 16px; font-weight:bold;">A IA está escrevendo sua história sob medida...</p>
+          <p style="font-size: 16px; font-weight:bold;">Criando sua história…</p>
         </div>
         
         <div id="story-header" style="display:none; margin-bottom:24px; border-bottom:1px solid var(--color-border); padding-bottom:16px;">
@@ -109,7 +109,7 @@ export function renderStories(container, app) {
             <div>
               <h2 id="story-title-display" style="margin-top:0; color:var(--color-text); font-size:24px; margin-bottom:8px;"></h2>
               <span id="story-level-badge" style="background:var(--color-primary); color:white; font-size:12px; font-weight:bold; padding:4px 8px; border-radius:12px;">B1</span>
-              <span id="story-known-badge" style="background:var(--color-secondary); color:white; font-size:12px; font-weight:bold; padding:4px 8px; border-radius:12px; margin-left:6px; display:none;" title="Percentual de palavras desta história que você já conhece (métrica LingQ)"></span>
+              <span id="story-known-badge" style="background:var(--color-secondary); color:white; font-size:12px; font-weight:bold; padding:4px 8px; border-radius:12px; margin-left:6px; display:none;" title="Estimativa que combina termos marcados por você e itens com memória estável; não mede compreensão."></span>
               <div id="story-reencounter" style="display:none; font-size:12px; color:var(--color-text-light); margin-top:6px;"></div>
             </div>
 
@@ -172,6 +172,7 @@ export function renderStories(container, app) {
       <div id="lf-tb-translation-result" style="display:none; padding:8px; background:var(--color-bg); border-radius:4px; font-size:14px; color:var(--color-text); max-width:250px; line-height:1.4;"></div>
     </div>
   `;
+  bindReadingHeader(container, app);
 
   if (!document.getElementById('lf-story-styles')) {
     const style = document.createElement('style');
@@ -756,7 +757,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
         const found = (response.requestedWords || reencounterWords || [])
           .filter(w => new RegExp(`\\b${esc(w)}`, 'i').test(contentToRender));
         if (found.length) {
-          reBox.innerHTML = `🔁 <strong>Reencontro:</strong> esta história usa ${found.length} ${found.length === 1 ? 'palavra sua' : 'palavras suas'} — ${found.map(w => `<strong>${w}</strong>`).join(', ')}. Encontrá-las em contexto novo é o que fixa.`;
+      reBox.innerHTML = `🔁 <strong>Reencontro:</strong> esta história usa ${found.length} ${found.length === 1 ? 'termo do seu Cofre' : 'termos do seu Cofre'} — ${found.map(w => `<strong>${w}</strong>`).join(', ')}. Tente lembrar o sentido antes de tocar.`;
           reBox.style.display = 'block';
         } else {
           reBox.style.display = 'none';
@@ -890,7 +891,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     const knownBadge = document.getElementById('story-known-badge');
     if (knownBadge && totalTokens > 0) {
       const pct = Math.round((knownCount / totalTokens) * 100);
-      knownBadge.textContent = `📖 ${pct}% conhecido`;
+    knownBadge.textContent = `📖 Familiaridade estimada: ${pct}%`;
       knownBadge.style.display = 'inline';
     }
   }

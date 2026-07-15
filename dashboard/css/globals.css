@@ -290,6 +290,17 @@ a { color:var(--color-link); }
 .story-empty { display:grid; justify-items:center; gap:8px; padding:30px 18px; border:1px dashed var(--color-border); border-radius:14px; text-align:center; color:var(--color-text); }
 .story-empty span { color:var(--color-text-light); font-size:14px; }
 .story-sync-notice { margin:0 0 14px; padding:12px 14px; border:1px solid var(--color-warning); border-radius:12px; background:color-mix(in srgb, var(--color-warning) 10%, var(--color-surface)); color:var(--color-text); font-size:13px; font-weight:700; }
+.reading-hub-header { margin-bottom:24px; }
+.reading-hub-header h1 { margin:5px 0 8px; font-size:clamp(30px, 5vw, 40px); }
+.reading-hub-header > p:not(.product-kicker) { max-width:720px; color:var(--color-text-light); line-height:1.55; }
+.reading-hub-nav { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:20px; padding:5px; border:1px solid var(--color-border); border-radius:14px; background:var(--color-bg-alt); }
+.reading-hub-nav button { min-height:46px; border:0; border-radius:10px; background:transparent; color:var(--color-text-light); font:800 15px var(--font-main); cursor:pointer; }
+.reading-hub-nav button[aria-current="page"] { background:var(--color-surface); color:var(--color-text); box-shadow:var(--shadow-sm); }
+.reading-help { margin-bottom:24px; padding:14px 18px; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); }
+.reading-help summary { min-height:44px; display:flex; align-items:center; cursor:pointer; color:var(--color-text); font-weight:900; }
+.reading-help[open] summary { margin-bottom:10px; }
+.reading-partial-notice { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; padding:12px 14px; border:1px solid var(--color-warning); border-radius:12px; background:color-mix(in srgb, var(--color-warning) 10%, var(--color-surface)); color:var(--color-text); font-size:13px; font-weight:700; }
+.reading-partial-notice button { min-height:40px; padding:7px 12px; border:1px solid var(--color-border); border-radius:9px; background:var(--color-surface); color:var(--color-text); font-weight:800; cursor:pointer; }
 .settings-page-title, .story-page-title { margin:0 0 8px; color:var(--color-text); font-size:clamp(27px, 5vw, 32px); }
 .settings-page-lede, .story-page-lede { margin:0 0 24px; color:var(--color-text-light); line-height:1.5; }
 .story-page { padding:clamp(16px, 5vw, 40px); max-width:900px; margin:0 auto; padding-bottom:100px; animation:fadeIn var(--motion-fast) ease-out; position:relative; }

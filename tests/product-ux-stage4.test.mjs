@@ -35,7 +35,7 @@ assert.match(library, /<details class="lib-filters"/);
 assert.match(library, /class="status-chip/);
 assert.match(library, /<details class="word-action-menu">/);
 assert.doesNotMatch(library, /class="btn-delete"[^>]*title=/);
-assert.match(library, /id="btn-library-retry"/);
+assert.match(library, /actionId:\s*'btn-library-retry'/);
 assert.match(library, /id="btn-clear-library-filters"/);
 
 // Histórias: criar e consumir são modos separados e operáveis por teclado.

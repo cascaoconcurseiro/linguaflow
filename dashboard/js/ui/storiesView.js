@@ -3,6 +3,7 @@ import { playNaturalAudio, stopAudio } from '../core/tts.js';
 import { generateStoryWeb, aiChat } from '../core/ai.js';
 import { translator } from '../../../utils/translator.js';
 import { lemma } from '../../../utils/lemma.js';
+import { bindViewStateAction, renderViewState } from './viewState.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
@@ -623,28 +624,43 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
   async function loadHistory() {
     // Fonte da verdade: banco (sincroniza entre dispositivos); local = fallback
     historyList.setAttribute('aria-busy', 'true');
-    historyList.innerHTML = '<div class="story-empty" role="status" aria-live="polite"><span>Carregando suas histórias…</span></div>';
+    historyList.innerHTML = renderViewState({ kind: 'loading', title: 'Carregando suas histórias…', message: 'Sincronizando o que você já criou.', compact: true });
     let stories = [];
+    let remoteFailed = false;
     try {
       const rows = await db.getStories(50);
       stories = (rows || []).map(r => ({ id: r.id, title: r.title, text: r.content, level: r.level || 'N/A', date: r.created_at }));
     } catch (e) {
+      remoteFailed = true;
       console.warn('[Stories] Banco indisponível, usando histórico local:', e.message);
     }
     if (stories.length === 0) {
       stories = await new Promise((resolve) => readStories(resolve));
     }
-    renderHistoryItems(stories);
+    renderHistoryItems(stories, { remoteFailed });
     historyList.setAttribute('aria-busy', 'false');
   }
 
-  function renderHistoryItems(stories) {
+  function renderHistoryItems(stories, { remoteFailed = false } = {}) {
     {
       historyList.innerHTML = '';
+      if (remoteFailed && stories.length === 0) {
+        historyList.innerHTML = renderViewState({ kind: 'error', title: 'Não foi possível carregar suas histórias', message: 'Verifique a conexão e tente novamente. Nenhuma coleção vazia será assumida enquanto a leitura falhar.', actionLabel: 'Tentar novamente', actionId: 'btn-stories-retry', compact: true });
+        bindViewStateAction(historyList, 'btn-stories-retry', loadHistory);
+        return;
+      }
       if (stories.length === 0) {
         historyList.innerHTML = '<div class="story-empty"><strong>Nenhuma história pronta ainda.</strong><span>Abra Criar e escolha um tema para começar.</span><button type="button" class="btn btn-primary" id="btn-empty-create">Criar primeira história</button></div>';
         historyList.querySelector('#btn-empty-create')?.addEventListener('click', () => switchTab(true));
         return;
+      }
+
+      if (remoteFailed) {
+        const notice = document.createElement('div');
+        notice.className = 'story-sync-notice';
+        notice.setAttribute('role', 'status');
+        notice.textContent = 'Mostrando histórias deste dispositivo. A sincronização está indisponível no momento.';
+        historyList.appendChild(notice);
       }
 
       stories.forEach(story => {

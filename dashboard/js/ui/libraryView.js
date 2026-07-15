@@ -1,6 +1,7 @@
 import { db as lfDb } from '../../../utils/db.js';
 import { generateChunksWeb } from '../core/ai.js';
 import { attachVideoContext, renderVideoContext } from '../core/videoContext.js';
+import { bindViewStateAction, renderViewState } from './viewState.js';
 
 let allWords = [];
 let filteredWords = [];
@@ -15,7 +16,7 @@ const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrom
 export async function renderLibrary(container, app) {
   injectStyles();
   container.setAttribute('aria-busy', 'true');
-  container.innerHTML = '<div class="view-state" role="status" aria-live="polite">Carregando seu Cofre…</div>';
+  container.innerHTML = renderViewState({ kind: 'loading', title: 'Abrindo seu Cofre…', message: 'Organizando suas frases salvas.' });
 
   try {
     const [words, cards] = await Promise.all([lfDb.getAllWords(), lfDb.getAllCards()]);
@@ -28,8 +29,8 @@ export async function renderLibrary(container, app) {
     })).filter(w => w.category !== 'sentence');
   } catch (err) {
     console.error("Failed to load library", err);
-    container.innerHTML = `<section class="view-state view-state-error" role="alert"><strong>Não foi possível carregar seu Cofre.</strong><span>Suas frases continuam seguras. Verifique a conexão e tente novamente.</span><button type="button" class="btn btn-primary" id="btn-library-retry">Tentar novamente</button></section>`;
-    container.querySelector('#btn-library-retry')?.addEventListener('click', () => renderLibrary(container, app));
+    container.innerHTML = renderViewState({ kind: 'error', title: 'Não foi possível abrir seu Cofre', message: 'Suas frases continuam seguras. Verifique a conexão e tente novamente.', actionLabel: 'Tentar novamente', actionId: 'btn-library-retry' });
+    bindViewStateAction(container, 'btn-library-retry', () => renderLibrary(container, app));
     container.setAttribute('aria-busy', 'false');
     return;
   }
@@ -88,9 +89,9 @@ function renderUI(container, app) {
       <div id="ai-backfill-banner" style="background: var(--color-primary); color: white; padding: 12px 20px; border-radius: var(--radius-md); margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(88,204,2,0.3);">
         <div style="font-weight: 600; display:flex; align-items:center; gap:8px;">
           <span style="font-size:20px;">✨</span> 
-          <span>Você tem <strong>${missingContext.length} palavras</strong> (incluindo salvas do vídeo) sem contexto IA preenchido. Gere com IA para não demorar na hora de estudar!</span>
+          <span><strong>${missingContext.length} itens antigos</strong> estão sem detalhes de apoio. Complete-os antes da próxima revisão.</span>
         </div>
-        <button id="btn-run-backfill" style="background: var(--color-surface); color: var(--color-success-text); border: none; padding: 8px 16px; border-radius: var(--radius-sm); font-weight: 800; cursor: pointer; transition: color var(--motion-fast), background-color var(--motion-fast);">Gerar agora</button>
+        <button id="btn-run-backfill" style="background: var(--color-surface); color: var(--color-success-text); border: none; padding: 8px 16px; border-radius: var(--radius-sm); font-weight: 800; cursor: pointer; transition: color var(--motion-fast), background-color var(--motion-fast);">Completar detalhes</button>
       </div>
     `;
   }
@@ -101,7 +102,7 @@ function renderUI(container, app) {
       <div class="lib-header">
         <div class="lib-title-block">
           <h2>Seu Cofre</h2>
-          <p>Encontre uma frase e decida o que fazer com ela.</p>
+          <p>Frases salvas, expressões-alvo e seus contextos originais.</p>
         </div>
         <div class="lib-stats">
           <div class="stat-number">${filteredWords.length}</div>
@@ -121,13 +122,13 @@ function renderUI(container, app) {
         <button class="cat-tab ${currentCategory === 'phrasal' ? 'active' : ''}" data-cat="phrasal">Phrasal Verbs</button>
         <button class="cat-tab ${currentCategory === 'slang' ? 'active' : ''}" data-cat="slang">Gírias</button>
         <button class="cat-tab ${currentCategory === 'idioms' ? 'active' : ''}" data-cat="idioms">Expressões</button>
-        ${currentCategory !== 'all' ? `<button class="btn btn-secondary" id="btn-review-topic" style="margin-left:auto; padding:8px 16px; font-size:13px;" title="Estudar só os cards desta categoria">🧠 Revisar este tópico</button>` : ''}
+        ${currentCategory !== 'all' ? `<button class="btn btn-secondary" id="btn-review-topic" style="margin-left:auto; padding:8px 16px; font-size:13px;" title="Revisar apenas os itens desta categoria">🧠 Revisar este tópico</button>` : ''}
       </div>
 
       <details class="lib-filters" ${currentLetter || currentStatus !== 'all' ? 'open' : ''}>
         <summary>Mais filtros <span>${currentLetter || currentStatus !== 'all' ? '· ativos' : ''}</span></summary>
         <div class="status-chips" aria-label="Filtrar por estado">
-          ${[['all','Todos'],['due','Vencidos'],['learning','Em aprendizagem'],['mature','Maduros no SRS'],['suspended','Suspensos']].map(([value,label]) => `<button class="status-chip ${currentStatus === value ? 'active' : ''}" type="button" data-status="${value}">${label}</button>`).join('')}
+          ${[['all','Todos'],['due','Para hoje'],['learning','Começando'],['mature','Memória estável'],['suspended','Pausados']].map(([value,label]) => `<button class="status-chip ${currentStatus === value ? 'active' : ''}" type="button" data-status="${value}">${label}</button>`).join('')}
         </div>
         <div class="az-grid" aria-label="Filtrar por letra inicial">
           <button class="az-letter ${currentLetter === null ? 'active' : ''}" data-letter="ALL">Todas</button>
@@ -140,7 +141,7 @@ function renderUI(container, app) {
         ${filteredWords.length === 0 ? `
           <div class="empty-state" role="status">
             <strong>${allWords.length ? 'Nenhuma frase corresponde a estes filtros.' : 'Seu Cofre ainda está vazio.'}</strong>
-            <span>${allWords.length ? 'Limpe os filtros para voltar à coleção completa.' : 'Salve uma frase de um vídeo para criar seu primeiro card com contexto.'}</span>
+            <span>${allWords.length ? 'Limpe os filtros para voltar à coleção completa.' : 'Adicione uma expressão à revisão a partir de um vídeo para começar.'}</span>
             ${allWords.length ? '<button type="button" class="btn btn-secondary" id="btn-clear-library-filters">Limpar filtros</button>' : ''}
           </div>
         ` : `

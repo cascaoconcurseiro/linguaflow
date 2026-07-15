@@ -9,6 +9,7 @@ import { playNaturalAudio } from '../core/tts.js';
 import { translator } from '../../../utils/translator.js';
 import { lemma } from '../../../utils/lemma.js';
 import { parseEpub } from '../core/epub.js';
+import { renderViewState } from './viewState.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 const TEXTS_KEY = 'lf_reader_texts';
@@ -135,8 +136,10 @@ function textStats(content) {
 
 export async function renderReader(container, app) {
   injectStyles();
-  container.innerHTML = '<div style="padding:40px; text-align:center; color:var(--color-text-light);">Carregando leitor…</div>';
+  container.setAttribute('aria-busy', 'true');
+  container.innerHTML = renderViewState({ kind: 'loading', title: 'Carregando seus textos…', message: 'Preparando sua leitura e o estado da memória.' });
   await loadStatusSets();
+  container.setAttribute('aria-busy', 'false');
 
   const texts = loadTexts();
   container.innerHTML = `
@@ -147,7 +150,7 @@ export async function renderReader(container, app) {
         <p style="color:var(--color-text-light); font-size:14px; line-height:1.7; margin:0;">
           <strong>1.</strong> Cole qualquer texto em inglês (letra de música, artigo, roteiro de série).<br>
           <strong>2.</strong> Leia — cada palavra ganha uma cor pelo estágio real na memória: <span class="rw rw-new" style="cursor:default;">azul = nunca viu</span> · <span class="rw rw-learning" style="cursor:default;">amarela = aprendendo</span> · <span class="rw rw-review" style="cursor:default;">verde clara = já graduou, ainda fixando</span> · sem cor = consolidada.<br>
-          <strong>3.</strong> Clique numa palavra pra ver a tradução, ouvir, <strong>salvar como flashcard</strong> ou marcar <strong>"já sei"</strong>. Quanto mais você lê, mais o app conhece seu vocabulário real.
+          <strong>3.</strong> Clique num termo para ver a tradução, ouvir, <strong>salvar no Cofre para revisar</strong> ou marcar <strong>"já sei"</strong>. Quanto mais você lê, mais o app conhece seu vocabulário real.
         </p>
         <button id="rd-try-sample" style="margin-top:12px; background:none; border:none; color:var(--color-secondary); font-family:var(--font-main); font-weight:800; font-size:14px; cursor:pointer; text-decoration:underline;">✨ Experimentar com um texto de exemplo</button>
       </div>
@@ -167,13 +170,13 @@ export async function renderReader(container, app) {
 
         <input id="rd-title" type="text" placeholder="Título (ex: Artigo sobre viagem)" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); margin-bottom:12px; background:var(--color-bg-alt); color:var(--color-text);">
         <textarea id="rd-content" rows="5" placeholder="Cole aqui o texto em inglês (letra de música, artigo, roteiro, legenda…) — ou use os botões acima pra importar de uma URL/EPUB" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text); resize:vertical;"></textarea>
-        <button id="rd-add" class="btn btn-primary" style="margin-top:12px;">Adicionar à biblioteca</button>
+        <button id="rd-add" class="btn btn-primary" style="margin-top:12px;">Salvar texto</button>
       </div>
 
       <div id="reader-shelf">
-        <h3 style="color:var(--color-text); margin-bottom:12px;">Minha biblioteca (${texts.length})</h3>
+        <h3 style="color:var(--color-text); margin-bottom:12px;">Meus textos (${texts.length})</h3>
         <div id="rd-list">
-          ${texts.length === 0 ? '<p style="color:var(--color-text-light);">Nenhum texto ainda. Cole o primeiro acima! 👆</p>' : texts.map(t => `
+          ${texts.length === 0 ? renderViewState({ kind: 'empty', title: 'Você ainda não adicionou textos', message: 'Cole, importe ou experimente o texto de exemplo acima.', compact: true }) : texts.map(t => `
             <div class="rd-item" data-id="${t.id}" style="display:flex; justify-content:space-between; align-items:center; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:14px 18px; margin-bottom:10px; cursor:pointer;">
               <div>
                 <div style="font-weight:800; color:var(--color-text);">${t.title}</div>
@@ -185,7 +188,7 @@ export async function renderReader(container, app) {
       </div>
 
       <div id="reader-view" class="hidden">
-        <button id="rd-back" style="background:none; border:none; color:var(--color-secondary); font-family:var(--font-main); font-weight:800; cursor:pointer; margin-bottom:16px;">← Voltar à biblioteca</button>
+        <button id="rd-back" style="background:none; border:none; color:var(--color-secondary); font-family:var(--font-main); font-weight:800; cursor:pointer; margin-bottom:16px;">← Voltar aos textos</button>
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:16px;">
           <h2 id="rd-view-title" style="color:var(--color-text);"></h2>
           <div id="rd-view-stats" style="font-size:13px; font-weight:700; color:var(--color-text-light);"></div>
@@ -200,7 +203,7 @@ export async function renderReader(container, app) {
         </div>
         <div id="rdp-trans" style="color:var(--color-text-light); font-size:14px; margin-bottom:12px; min-height:18px;">…</div>
         <div style="display:flex; gap:8px;">
-          <button id="rdp-save" class="btn btn-primary" style="flex:1; padding:8px; font-size:12px;">💾 Salvar</button>
+          <button id="rdp-save" class="btn btn-primary" style="flex:1; padding:8px; font-size:12px;">Salvar no Cofre</button>
           <button id="rdp-known" class="btn btn-secondary" style="flex:1; padding:8px; font-size:12px;">✓ Já sei</button>
         </div>
       </div>
@@ -261,7 +264,7 @@ export async function renderReader(container, app) {
   });
 
   // Onda 3.1: importar por URL — preenche título/texto pro usuário revisar
-  // antes de "Adicionar à biblioteca" (mesmo fluxo de sempre, sem atalho novo).
+  // antes de "Salvar texto" (mesmo fluxo de sempre, sem atalho novo).
   const importStatus = document.getElementById('rd-import-status');
   document.getElementById('rd-url-fetch').addEventListener('click', async () => {
     const urlInput = document.getElementById('rd-url');
@@ -274,7 +277,7 @@ export async function renderReader(container, app) {
       const { title, text } = await importFromUrl(url);
       document.getElementById('rd-title').value = title || '';
       document.getElementById('rd-content').value = text || '';
-      importStatus.textContent = `✅ Texto importado (${(text.match(/[a-zA-Z][a-zA-Z'-]*/g) || []).length} palavras). Revise abaixo e clique em "Adicionar à biblioteca".`;
+      importStatus.textContent = `✅ Texto importado (${(text.match(/[a-zA-Z][a-zA-Z'-]*/g) || []).length} palavras). Revise abaixo e clique em "Salvar texto".`;
       urlInput.value = '';
     } catch (err) {
       importStatus.textContent = '';
@@ -295,7 +298,7 @@ export async function renderReader(container, app) {
       const { title, content } = await parseEpub(buffer);
       document.getElementById('rd-title').value = title || file.name.replace(/\.epub$/i, '');
       document.getElementById('rd-content').value = content || '';
-      importStatus.textContent = `✅ EPUB importado (${(content.match(/[a-zA-Z][a-zA-Z'-]*/g) || []).length} palavras). Revise abaixo e clique em "Adicionar à biblioteca".`;
+      importStatus.textContent = `✅ EPUB importado (${(content.match(/[a-zA-Z][a-zA-Z'-]*/g) || []).length} palavras). Revise abaixo e clique em "Salvar texto".`;
     } catch (err) {
       importStatus.textContent = '';
       app.showToast(err.message || 'Erro ao ler o EPUB.', 'error');
@@ -364,10 +367,10 @@ export async function renderReader(container, app) {
       learningLemmas.add(lemma(w));
       knownLemmas.delete(lemma(w));
       recolor(w);
-      app.showToast(`"${w}" salva nos flashcards! 💾`, 'success');
+      app.showToast(`"${w}" foi salva no Cofre para revisão.`, 'success');
     } catch (err) {
       console.error(err);
-      app.showToast('Erro ao salvar. Está logado?', 'error');
+      app.showToast('Não foi possível salvar no Cofre. Tente novamente.', 'error');
     }
     popup.classList.add('hidden');
   });
@@ -383,7 +386,7 @@ export async function renderReader(container, app) {
       app.showToast(`"${w}" marcada como conhecida ✓`, 'success');
     } catch (err) {
       console.error(err);
-      app.showToast('Erro ao marcar. Está logado?', 'error');
+      app.showToast('Não foi possível marcar este termo como conhecido.', 'error');
     }
     popup.classList.add('hidden');
   });

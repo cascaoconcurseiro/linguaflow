@@ -3,6 +3,7 @@ import { addLocalDays, daysBetweenLocalKeys, localDateKey } from '../../../utils
 import { runPlacementTest } from './settingsView.js';
 import { generateWeeklyDiagnosis, getCefrLevel } from '../core/ai.js';
 import { computeAchievements, newlyUnlocked } from '../core/achievements.js';
+import { bindViewStateAction, renderViewState } from './viewState.js';
 
 function organizeHomeSections(container) {
     const main = container.querySelector('.dashboard-main');
@@ -114,16 +115,9 @@ function parseOnboarding(value) {
 }
 
 function renderHomeLoadError(container, app) {
-    container.innerHTML = `
-        <section class="onboarding-shell" aria-labelledby="home-load-error-title">
-            <div class="onboarding-card" role="alert">
-                <p class="onboarding-kicker">CONEXÃO</p>
-                <h2 id="home-load-error-title">Não foi possível carregar seus dados</h2>
-                <p>Seus cards não foram apagados. Verifique a conexão e tente novamente.</p>
-                <button type="button" class="btn-action btn-study" id="btn-retry-home">Tentar novamente</button>
-            </div>
-        </section>`;
-    container.querySelector('#btn-retry-home')?.addEventListener('click', () => renderHome(container, app));
+    container.setAttribute('aria-busy', 'false');
+    container.innerHTML = renderViewState({ kind: 'error', title: 'Não foi possível preparar seu plano de hoje', message: 'Suas frases salvas continuam seguras. Verifique a conexão e tente novamente.', actionLabel: 'Tentar novamente', actionId: 'btn-retry-home' });
+    bindViewStateAction(container, 'btn-retry-home', () => renderHome(container, app));
 }
 
 function renderOnboarding(container, app, initial = {}) {
@@ -157,7 +151,7 @@ function renderOnboarding(container, app, initial = {}) {
             <p class="onboarding-kicker">PASSO 3 DE 3</p>
             <h2 id="onboarding-title">Seu plano está pronto</h2>
             <p><strong>${dailyGoal} revisões por dia</strong>, no ritmo ${levels.find(item => item[0] === level)?.[1].toLowerCase() || 'escolhido'}.</p>
-            <p>Comece por uma história curta e salve a primeira palavra que quiser praticar. Ela aparecerá nos seus flashcards.</p>`;
+            <p>Comece por uma história curta e adicione a primeira expressão que quiser praticar. Ela aparecerá no Cofre e no seu plano de revisão.</p>`;
         container.innerHTML = `
             <section class="onboarding-shell" aria-labelledby="onboarding-title">
                 <div class="onboarding-card">
@@ -223,7 +217,8 @@ export async function renderHome(container, app) {
     // Stats via db unificado (Supabase) exposto em app.db
     const db = app?.db;
     container.setAttribute('aria-busy', 'true');
-    container.innerHTML = '<p class="home-loading" role="status">Carregando seu painel…</p>';
+    container.setAttribute('aria-busy', 'true');
+    container.innerHTML = renderViewState({ kind: 'loading', title: 'Preparando seu plano de hoje…', message: 'Organizando as revisões que mais ajudam sua memória agora.' });
     if (!db) {
         container.removeAttribute('aria-busy');
         if (myGen === _homeRenderGen) renderHomeLoadError(container, app);
@@ -453,13 +448,13 @@ export async function renderHome(container, app) {
                     <div class="stat-card">
                         <div class="stat-icon" style="color:var(--color-primary)">📚</div>
                         <div class="stat-value">${safeStats.dueCards || 0}</div>
-                        <div class="stat-label">Para Revisar</div>
-                        ${dueLearningNow > 0 ? `<div style="font-size:11px; color:var(--color-text-light); margin-top:2px;" title="Cards em learning steps: voltam em minutos dentro da sessão — não são dívida acumulada">💭 ${dueLearningNow} em aprendizado</div>` : ''}
+                        <div class="stat-label">Revisões de hoje</div>
+                        ${dueLearningNow > 0 ? `<div style="font-size:11px; color:var(--color-text-light); margin-top:2px;" title="Frases começando voltam em minutos dentro desta sessão">💭 ${dueLearningNow} começando</div>` : ''}
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon" style="color:var(--color-secondary)">⭐</div>
                         <div class="stat-value">${safeStats.byStatus?.mature || 0}</div>
-                        <div class="stat-label">Palavras Maduras</div>
+                        <div class="stat-label">Memória estável</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon" style="color:#ffc800">⚡</div>
@@ -478,7 +473,7 @@ export async function renderHome(container, app) {
                     <span style="font-size:28px;">👋</span>
                     <div style="flex:1;">
                         <div style="font-weight:900; color:var(--color-text);">Sentimos sua falta! Você ficou ${daysAway} dias fora.</div>
-                        <div style="font-size:13px; color:var(--color-text-light);">Sua missão de hoje é leve: só ${revTarget} cartas para voltar ao ritmo.</div>
+                        <div style="font-size:13px; color:var(--color-text-light);">Seu plano de hoje é leve: só ${revTarget} revisões para voltar ao ritmo.</div>
                     </div>
                     <button class="btn btn-primary" id="btn-comeback" style="padding:10px 18px; font-size:13px;">Voltar agora</button>
                 </div>` : ''}
@@ -487,7 +482,7 @@ export async function renderHome(container, app) {
                     <span style="font-size:28px;">🔥</span>
                     <div style="flex:1;">
                         <div style="font-weight:900; color:var(--color-text);">Sua ofensiva de ${streak} ${streak === 1 ? 'dia' : 'dias'} está em risco!</div>
-                        <div style="font-size:13px; color:var(--color-text-light);">Revise 1 card hoje pra não perder o fogo.</div>
+                        <div style="font-size:13px; color:var(--color-text-light);">Conclua 1 revisão hoje para manter a ofensiva.</div>
                     </div>
                     <button class="btn btn-primary" id="btn-save-streak" style="padding:10px 18px; font-size:13px;">Salvar ofensiva</button>
                 </div>` : ''}
@@ -495,12 +490,12 @@ export async function renderHome(container, app) {
                     <span style="font-size:26px;">🧑‍🏫</span>
                     <div style="flex:1;">
                         <div style="font-weight:900; color:var(--color-text); font-size:14px; margin-bottom:4px;">Plano de hoje
-                            <span style="font-weight:700; color:var(--color-text-light); font-size:12px;">— ${dueReviewNow} ${dueReviewNow === 1 ? 'revisão' : 'revisões'}${dueLearningNow ? ` · ${dueLearningNow} em aprendizado` : ''}${weakWords.length ? ` · ${weakWords.length} ${weakWords.length === 1 ? 'palavra fraca' : 'palavras fracas'}` : ''}</span>
+                            <span style="font-weight:700; color:var(--color-text-light); font-size:12px;">— ${dueReviewNow} ${dueReviewNow === 1 ? 'revisão' : 'revisões'}${dueLearningNow ? ` · ${dueLearningNow} começando` : ''}${weakWords.length ? ` · ${weakWords.length} ${weakWords.length === 1 ? 'termo para reforçar' : 'termos para reforçar'}` : ''}</span>
                         </div>
                         <div style="font-size:13px; color:var(--color-text); line-height:1.5;">${professorTip}</div>
                         ${weakWords.length ? `<div style="font-size:12px; color:var(--color-text-light); margin-top:6px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                             <span>🔎 No radar: ${weakWords.map(w => `<strong>${escapeHtml(w.word)}</strong> (${w.lapses}x)`).join(' · ')}</span>
-                            <button id="btn-study-weak" class="btn btn-secondary" style="padding:4px 12px; font-size:11px;" title="Modo de estudo customizado (paridade Anki): revisa só cards fracos/leech, fora da cota diária normal">Revisar só estas</button>
+                            <button id="btn-study-weak" class="btn btn-secondary" style="padding:4px 12px; font-size:11px;" title="Praticar apenas os termos que precisam de atenção">Reforçar estes termos</button>
                         </div>` : ''}
                         <details id="diagnosis-details" style="margin-top:10px;">
                             <summary style="cursor:pointer; font-size:13px; font-weight:800; color:var(--color-secondary); list-style:none;">🔬 Diagnóstico semanal do linguista <span style="font-weight:600; color:var(--color-text-light);">(clique pra abrir)</span></summary>
@@ -510,9 +505,9 @@ export async function renderHome(container, app) {
                 </div>
                 <div id="home-memory-insight" style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:24px; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:14px 18px; align-items:center;">
                     <div style="font-weight:800; color:var(--color-text); font-size:14px;">📈 Memória:</div>
-                    <div style="font-size:14px; color:var(--color-text-light);">Palavras conhecidas: <strong style="color:var(--color-primary);">${knownFamilies}</strong></div>
+                    <div style="font-size:14px; color:var(--color-text-light);">Itens familiares: <strong style="color:var(--color-primary);">${knownFamilies}</strong></div>
                     <div style="font-size:14px; color:var(--color-text-light);">Retenção 30d: <strong style="color:${retention30 === null ? 'var(--color-text-light)' : retention30 >= 85 ? 'var(--color-primary)' : retention30 >= 70 ? '#ffc800' : 'var(--color-danger)'};">${retention30 === null ? '—' : retention30 + '%'}</strong></div>
-                    <div style="font-size:14px; color:var(--color-text-light);">Amanhã: <strong style="color:var(--color-text);">${dueTomorrow} ${dueTomorrow === 1 ? 'card' : 'cards'}</strong></div>
+                    <div style="font-size:14px; color:var(--color-text-light);">Amanhã: <strong style="color:var(--color-text);">${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}</strong></div>
                     <div style="font-size:14px; color:var(--color-text-light);">Próximos 7 dias: <strong style="color:var(--color-text);">${dueWeek}</strong></div>
                     <div style="font-size:14px; color:var(--color-text-light);" title="Protege sua ofensiva se você pular 1 dia. Ganhe 1 a cada 7 dias de ofensiva.">🧊 Freezes: <strong style="color:var(--color-secondary);">${userStats?.streak_freezes ?? 1}</strong></div>
                     <div style="flex-basis:100%; display:flex; align-items:flex-end; gap:4px; height:42px; margin-top:4px;" title="Previsão de revisões (estilo Anki): quantos cards vencem em cada um dos próximos 7 dias">

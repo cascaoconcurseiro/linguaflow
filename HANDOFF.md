@@ -743,3 +743,30 @@ P0-B: painel `Entender melhor`, com trecho original primeiro, explicação/tutor
 P0-C: nomenclatura, estados globais e componentes compartilhados. Antes de produção, executar QA autenticado do P0-A/P0-B em desktop e celular real.
 
 ---
+
+# Handoff Codex — Reforma UX P0-C (2026-07-15)
+
+## Entregue pelo Codex
+
+- Helper compartilhado `viewState.js` para loading/vazio/erro/retry.
+- Adoção em Hoje, Cofre, Progresso, Leitor, Histórias e Prática.
+- Histórias diferencia falha remota, fallback local e vazio real.
+- Práticas não ficam presas em loading quando uma consulta rejeita.
+- Linguagem principal usa frase/expressão/revisão/memória estável; jargão de
+  card/FSRS permanece apenas em áreas técnicas.
+- Home não apresenta `mature` como conhecimento ou domínio.
+- Build web/PWA `3.0.6`; gate `npm run test:p0-c` dentro do release.
+
+## Preservar
+
+- Engine, FSRS, player, áudio, persistência e economia não foram alterados.
+- Erro de leitura não pode ser convertido em vazio.
+- Prática livre não altera placar, ofensiva, liga ou agendamento.
+- Estados compartilhados têm uma ação primária no máximo.
+
+## Próximo
+
+P1-A: Cofre e Configurações. Depois Histórias/Leitor, onboarding,
+Prática/Progresso e QA autenticado desktop/mobile antes de produção.
+
+---

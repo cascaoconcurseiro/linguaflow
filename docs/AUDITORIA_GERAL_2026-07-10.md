@@ -587,3 +587,58 @@ vertical Max fixa em `137px` e detecção do popup por retângulo visível, sem 
 P0-C — nomenclatura única (`frase salva`, `palavra-alvo`, `card` técnico), estados globais de carregamento/vazio/erro/retry e componentes compartilhados entre Cofre, Histórias e Leitor.
 
 ---
+
+# Execução Codex — P0-C Linguagem pedagógica e estados globais (2026-07-15)
+
+**Responsável:** Codex, coordenando revisões independentes de produto/pedagogia,
+UX/arquitetura de informação e design/frontend. **Escopo protegido:** nenhuma
+alteração em engine, FSRS, player, áudio, RPC, migration ou economia.
+
+## O que o Codex implementou
+
+- Criou `dashboard/js/ui/viewState.js`, contrato compartilhado e acessível para
+  loading, vazio e erro, com `role`, `aria-live`, ação única e HTML escapado.
+- Hoje, Cofre, Progresso, Leitor, Histórias e Prática passaram a usar estados
+  consistentes, altura estável e retry local onde existe leitura remota.
+- Histórias não converte mais falha do Supabase em “nenhuma história”: sem
+  fallback local mostra erro/retry; com fallback mostra os dados do dispositivo
+  e avisa que a sincronização está indisponível.
+- Os três modos de Prática agora capturam rejeição de consulta. O usuário não
+  fica preso em loading e pode tentar novamente com segurança.
+- O vocabulário principal passou a distinguir frase/contexto, expressão-alvo,
+  item de revisão e estado da memória. `card`, `mature`, `leech` e FSRS ficam
+  restritos ao contexto técnico/avançado.
+- Home deixou de chamar estado FSRS de conhecimento: exibe “memória estável” e
+  “itens familiares”; “palavras fracas” virou “termos para reforçar”.
+- Progresso usa “expressões na memória” e “estado da memória”; zero dados ganha
+  próximo passo real em vez de quatro gráficos vazios.
+- Leitor diferencia seus “textos” do Cofre e explica que salvar adiciona à
+  revisão. Prática diferencia treino livre de revisão agendada.
+- Web/PWA versionado como `3.0.6`.
+
+## Contratos e validação
+
+- Novo gate `tests/product-language-state-p0-c.test.mjs`, incluído em
+  `test:release`, protege semântica, escaping, retries e microcopy proibida.
+- Testes legados de design system e produto foram atualizados para validar o
+  contrato compartilhado, em vez de depender de markup literal incidental.
+- `npm run test:release -- --allow-dirty`, `npm run test:design-system` e
+  `npm run test:product-ux` passaram localmente.
+
+## Decisões que devem ser preservadas
+
+1. Falha de leitura nunca pode aparecer como coleção vazia.
+2. Prática livre não atualiza FSRS, XP, ofensiva ou liga.
+3. “Aprendido/dominado” não pode ser inferido de salvar, acertar uma vez ou
+   atingir estado `mature`.
+4. Toda tela bloqueada por erro remoto oferece retry local; nenhum retry entra
+   em loop automático.
+5. Estados operacionais de player, geração e salvamento continuam locais; o
+   helper é apenas para página/região sem conteúdo utilizável.
+
+## Próxima sequência
+
+P1-A — reforma do Cofre e Configurações; depois unificação Histórias/Leitor,
+onboarding, Prática/Progresso e QA autenticado antes da decisão de produção.
+
+---

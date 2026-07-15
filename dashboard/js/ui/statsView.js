@@ -11,6 +11,7 @@ import {
   forecastByDay,
   summarize,
 } from '../core/statsEngine.js';
+import { bindViewStateAction, renderViewState } from './viewState.js';
 
 function injectStylesOnce() {
   if (document.getElementById('stats-styles')) return;
@@ -107,16 +108,16 @@ function renderForecastBars(days) {
 }
 
 const MATURITY_META = [
-  ['new', 'Novos', 'var(--color-border)'],
-  ['learning', 'Aprendendo', 'var(--color-warning)'],
+  ['new', 'Novas', 'var(--color-border)'],
+  ['learning', 'Começando', 'var(--color-warning)'],
   ['review', 'Em revisão', 'var(--color-secondary)'],
-  ['mature', 'Maduros', 'var(--color-primary)'],
-  ['suspended', 'Suspensos', 'var(--color-danger)'],
+  ['mature', 'Memória estável', 'var(--color-primary)'],
+  ['suspended', 'Pausadas', 'var(--color-danger)'],
 ];
 
 function renderMaturity(dist) {
   const total = Object.values(dist).reduce((a, b) => a + b, 0);
-  if (!total) return `<div class="stats-empty">Nenhum card salvo ainda.</div>`;
+  if (!total) return `<div class="stats-empty">Nenhuma expressão adicionada à revisão ainda.</div>`;
   const bar = MATURITY_META.map(([key, , color]) => {
     const pct = (dist[key] / total) * 100;
     return pct > 0 ? `<div style="width:${pct}%; background:${color};" title="${key}: ${dist[key]}"></div>` : '';
@@ -129,10 +130,8 @@ function renderMaturity(dist) {
 
 export async function renderStats(container, app) {
   injectStylesOnce();
-  container.innerHTML = `
-    <div class="stats-page">
-      <div class="stats-header"><h2>📊 Estatísticas</h2><p>Carregando seus dados reais…</p></div>
-    </div>`;
+  container.setAttribute('aria-busy', 'true');
+  container.innerHTML = renderViewState({ kind: 'loading', title: 'Calculando seu progresso…', message: 'Lendo revisões, retenção e tempo de prática.' });
 
   let cards = [], reviewLog = [], sessions = [];
   try {
@@ -142,13 +141,13 @@ export async function renderStats(container, app) {
       lfDb.getSessions(60),
     ]);
   } catch (err) {
-    container.innerHTML = `
-      <div class="stats-page">
-        <div class="stats-header"><h2>📊 Estatísticas</h2></div>
-        <div class="stats-panel"><div class="stats-empty">⚠️ Não foi possível carregar os dados agora. Tente novamente em instantes.</div></div>
-      </div>`;
+    container.setAttribute('aria-busy', 'false');
+    container.innerHTML = renderViewState({ kind: 'error', title: 'Não foi possível calcular seu progresso', message: 'Seus registros continuam seguros. Verifique a conexão e tente novamente.', actionLabel: 'Tentar novamente', actionId: 'btn-stats-retry' });
+    bindViewStateAction(container, 'btn-stats-retry', () => renderStats(container, app));
     return;
   }
+
+  container.setAttribute('aria-busy', 'false');
 
   const summary = summarize(cards, sessions, reviewLog);
   const retention = retentionByDay(reviewLog, 30);
@@ -156,15 +155,21 @@ export async function renderStats(container, app) {
   const maturity = maturityDistribution(cards);
   const forecast = forecastByDay(cards, 14);
 
+  if (summary.totalCards === 0) {
+    container.innerHTML = renderViewState({ kind: 'empty', title: 'Seu progresso começa com a primeira frase', message: 'Adicione uma expressão à revisão e conclua uma sessão para ver sua evolução.', actionLabel: 'Encontrar uma frase', actionId: 'btn-stats-learn' });
+    bindViewStateAction(container, 'btn-stats-learn', () => app.navigate('learn'));
+    return;
+  }
+
   container.innerHTML = `
     <div class="stats-page">
       <div class="stats-header">
-        <h2>📊 Estatísticas</h2>
-        <p>Sua jornada de aprendizado, com números reais — nada decorativo.</p>
+        <h2>📊 Progresso</h2>
+        <p>Memória, constância e carga das próximas revisões.</p>
       </div>
 
       <div class="stats-summary-grid">
-        ${summaryCard('📚', summary.totalCards, 'Cards no total')}
+        ${summaryCard('📚', summary.totalCards, 'Expressões na memória')}
         ${summaryCard('⏱️', summary.totalMinutes, 'Minutos estudados (60d)')}
         ${summaryCard('🔁', summary.totalReviews, 'Revisões (60d)')}
         ${summaryCard('🎯', summary.overallRetention === null ? '—' : summary.overallRetention + '%', 'Retenção geral')}
@@ -181,7 +186,7 @@ export async function renderStats(container, app) {
       </div>
 
       <div class="stats-panel">
-        <h3>Maturidade dos cards</h3>
+        <h3>Estado da memória</h3>
         ${renderMaturity(maturity)}
       </div>
 

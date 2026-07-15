@@ -95,6 +95,41 @@ O GitHub Actions não executou os testes remotos: o job foi recusado antes de re
 
 ---
 
+## Handoff Codex — preparação P0.2b sem quebra de clientes (2026-07-15)
+
+### Implementado pelo Codex
+
+- `utils/db.js`: removido PATCH genérico `updateCard`; `deleteWord` usa
+  `delete_word_safely` com fallback apenas quando a RPC ainda não existe durante
+  a janela de rollout.
+- `background/service-worker.js`: caller legado `updateCard` recebe
+  `LEGACY_CARD_WRITE_BLOCKED`; não é encaminhado ao banco.
+- `settingsView.js`: restore informa falhas de cards e palavras separadamente.
+- `libraryView.js`: tentativa de excluir card revisado orienta suspensão, sem
+  destruir histórico.
+- `20260715155802_card_review_permissions_contract_p0_2b.sql`: preflight de
+  policies, grants mínimos, exclusão segura e restore auditado de card virgem.
+- `tests/db/card-permissions-p0-2b.sql`: gate dinâmico pós-migration.
+
+### Estado operacional
+
+- P0.2b **não aplicado remotamente** nesta fatia.
+- O cliente deve ser publicado e a extensão recarregada antes do revogue.
+- Não interpretar o teste estático como smoke autenticado; ainda são necessários
+  os cinco fluxos reais no Chrome.
+- O contrato não conclui o P1: cálculo FSRS totalmente server-side permanece
+  pendente e não deve ser descrito como pronto.
+
+### Sequência de retomada
+
+1. Confirmar extensão `3.0.3` carregada.
+2. Executar criar/revisar/bury/suspend-restore/backup restore.
+3. Rodar o gate SQL descartável.
+4. Aplicar P0.2b e verificar `has_table_privilege`, policies e advisors.
+5. Observar logs Supabase/Vercel e documentar o deployment final.
+
+---
+
 ## Handoff Codex — Plano UX/Races, Etapa 2 (2026-07-14)
 
 **Estado:** implementação concluída na branch `codex/review-mobile-video`. Produção permanece intacta até o QA autenticado do preview e o teste da extensão carregada no Chrome.

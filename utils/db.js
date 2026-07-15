@@ -427,8 +427,20 @@ class Database {
   async deleteWord(id) {
     this._invalidateReadCache();
     if (this.isProxyMode) return this._proxy('deleteWord', [id]);
-    await this._fetch(`words?id=eq.${id}`, { method: 'DELETE' });
-    return true;
+    try {
+      await this._fetch('rpc/delete_word_safely', {
+        method: 'POST',
+        body: { p_word_id: id },
+      });
+      return true;
+    } catch (error) {
+      // Janela de rollout: o cliente novo pode chegar antes da migration.
+      // Só a ausência explícita da RPC permite o fallback legado; erros de
+      // ownership, histórico ou permissão nunca viram DELETE direto.
+      if (error?.status !== 404 && error?.code !== 'PGRST202') throw error;
+      await this._fetch(`words?id=eq.${id}`, { method: 'DELETE' });
+      return true;
+    }
   }
 
   // Editor do Cofre (Onda 2.3): corrige tradução/frase/categoria/nível SEM
@@ -625,18 +637,6 @@ class Database {
       reviewsToday: (logToday || []).length,
       newIntroducedToday: (introduced || []).length,
     };
-  }
-
-  async updateCard(card) {
-    this._invalidateReadCache();
-    if (this.isProxyMode) return this._proxy('updateCard', [card]);
-    const { wordData, ...cleanCard } = card;
-    const res = await this._fetch(`cards?id=eq.${card.id}`, {
-      method: 'PATCH',
-      headers: { 'Prefer': 'return=representation' },
-      body: cleanCard
-    });
-    return { ok: !!res };
   }
 
   async buryCard(cardId) {

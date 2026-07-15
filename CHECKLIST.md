@@ -414,3 +414,17 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 - [ ] Dicionário de palavra clicada funciona com sessão expirada
 - [ ] IA contextual se recupera sozinha via refresh automático (Fase 0) + Edge Function (Fase 2), sem erro visível
 - [ ] Fallback BYOK continua funcionando para quem configurou chave própria
+
+## P0.2b — preparação Codex (2026-07-15)
+
+- [x] Remover `updateCard()` e bloquear caller legado no proxy.
+- [x] Alinhar manifest da extensão em `3.0.3`.
+- [x] Corrigir confirmação enganosa da restauração de backup.
+- [x] Preservar `review_log`: exclusão segura recusa palavra já revisada.
+- [x] Restringir restore a card virgem, auditá-lo e impedir revisão imediata.
+- [x] Fazer a migration abortar se policies remotas mudarem após o preflight.
+- [x] Adicionar teste SQL comportamental das ACLs/RPCs P0.2b.
+- [ ] Publicar e recarregar a extensão `3.0.3` no Chrome do usuário.
+- [ ] Smoke real: criar, revisar, enterrar, suspender/reativar e restaurar backup.
+- [ ] Executar replay SQL P0.2b em Postgres descartável.
+- [ ] Aplicar P0.2b no Supabase e conferir advisors/logs.

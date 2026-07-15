@@ -890,6 +890,8 @@ export async function renderSettings(container, app) {
     btn.disabled = true;
     let okCount = 0;
     let failCount = 0;
+    let cardOkCount = 0;
+    let cardFailCount = 0;
 
     try {
       // 1. Palavras (upsert preserva added_at do backup)
@@ -936,13 +938,22 @@ export async function renderSettings(container, app) {
               suspended: oldCard.suspended,
               is_leech: oldCard.is_leech,
             });
+            cardOkCount++;
           } catch (err) {
             console.warn('[Restore] Falha no card de', oldWord.word, err);
+            cardFailCount++;
           }
         }
       }
 
-      app.showToast(`Backup restaurado: ${okCount} palavras${failCount ? ` (${failCount} falharam)` : ''}. ✅`, failCount ? 'info' : 'success');
+      const partial = failCount > 0 || cardFailCount > 0;
+      const cardSummary = Array.isArray(backup.cards)
+        ? `; ${cardOkCount} estados de card${cardFailCount ? ` (${cardFailCount} falharam)` : ''}`
+        : '';
+      app.showToast(
+        `Backup restaurado: ${okCount} palavras${failCount ? ` (${failCount} falharam)` : ''}${cardSummary}.${partial ? ' Revise as falhas.' : ' ✅'}`,
+        partial ? 'info' : 'success'
+      );
     } finally {
       btn.disabled = false;
       btn.textContent = '♻️ Restaurar backup';

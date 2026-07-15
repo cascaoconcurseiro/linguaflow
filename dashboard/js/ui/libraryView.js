@@ -235,7 +235,13 @@ function renderUI(container, app) {
                 await lfDb.deleteWord(id);
               } catch (err) {
                 console.error(err);
-                app.showToast('Erro ao excluir.', 'error');
+                const reviewed = /reviewed_word_cannot_be_deleted/.test(err?.message || '');
+                app.showToast(
+                  reviewed
+                    ? 'Este card já tem histórico. Suspenda-o para preservar seu progresso.'
+                    : 'Erro ao excluir.',
+                  reviewed ? 'info' : 'error'
+                );
                 return;
               }
               allWords = allWords.filter(w => w.id !== id);

@@ -125,6 +125,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // Proxy para chamadas de banco de dados (Sincronização global entre sites)
   if (request.type === 'DB_CALL') {
     const { method, args } = request;
+    // P0.2b: card state is never accepted as an arbitrary client PATCH.
+    // Keep an explicit tombstone so an outdated caller gets a clear error
+    // instead of reaching the generic database proxy.
+    if (method === 'updateCard') {
+      sendResponse({
+        error: 'updateCard foi removido; use as operações seguras de revisão do LinguaFlow.',
+        errorCode: 'LEGACY_CARD_WRITE_BLOCKED',
+        errorRetryable: false,
+      });
+      return false;
+    }
     if (typeof db[method] === 'function') {
       (async () => {
         try {
@@ -145,7 +156,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           const writeMethods = [
             'saveWord',
             'updateWord',
-            'updateCard',
             'buryCard',
             'setCardSuspended',
             'restoreCardState',

@@ -388,3 +388,35 @@ Sua proposta: usar o **vídeo original** como *contexto* do card (a frase falada
 5. **Corrija a fundação antes de adicionar features.** Segurança, `settings`, fila de cards e configs reais (Etapas 0–3) valem mais que 10 telas novas — porque sustentam todas elas.
 
 **Riscos se nada mudar:** o aluno perde a confiança (cards que voltam, botões que mentem), o sistema fica mais lento a cada vídeo assistido (settings crescendo), e a gamificação não segura ninguém (jogo/ligas/missões vazias). **Risco das mudanças:** a Etapa 1 mexe na fila de estudo (testar bem o encerramento de sessão) e a Etapa 2 migra dados de `settings` (fazer backup/expurgo com cuidado). O resto é aditivo e de baixo risco.
+
+---
+
+## Atualização Codex — preparação segura do P0.2b (2026-07-15)
+
+**Responsável:** Codex, com revisão paralela de banco/Supabase, extensão/PWA e QA.
+
+O P0.2b ainda **não foi aplicado no Supabase remoto**. A revisão adversarial
+encontrou caminhos que precisavam ser fechados antes do revogue definitivo:
+
+- removido `updateCard()` (PATCH arbitrário de cards) e adicionado tombstone
+  explícito `LEGACY_CARD_WRITE_BLOCKED` no service worker;
+- versão da extensão alinhada para `3.0.3`, tornando a atualização verificável;
+- restauração de backup agora contabiliza separadamente falhas de palavras e
+  de estados de card; a interface não anuncia mais sucesso falso;
+- `restore_card_state` do contrato passa a aceitar somente card virgem, cria
+  evento imutável `card_state_restored`, impede nova sobrescrita e nunca
+  antecipa o primeiro vencimento restaurado para o mesmo dia;
+- exclusão direta de `words` será revogada. `delete_word_safely` exclui somente
+  palavra sem review; cards com histórico devem ser suspensos;
+- migration ganhou preflight fail-closed: se o conjunto de policies remotas
+  divergir do auditado, aborta em vez de apagar policy desconhecida;
+- criado gate SQL comportamental `tests/db/card-permissions-p0-2b.sql`, cobrindo
+  ACLs, RLS entre usuários, bloqueio de escrita direta e as RPCs estreitas.
+
+**Evidência desta fatia:** contratos P0.2 de cliente/permissão aprovados,
+JavaScript validado e `git diff --check` limpo. O replay SQL completo depende de
+Postgres descartável; Docker/Supabase CLI não estão disponíveis nesta máquina.
+
+**Próximo corte:** publicar/recarregar a extensão `3.0.3`, executar os cinco
+smokes reais e então aplicar P0.2b, verificar grants/policies/advisors e observar
+403/5xx. FSRS ainda recebe a proposta de estado do cliente e continua como P1.

@@ -29,11 +29,12 @@
     "test:p1-a": "node tests/cofre-settings-p1-a.test.mjs",
     "test:p1-b": "node tests/reading-experience-p1-b.test.mjs",
     "test:p1-c": "node tests/onboarding-p1-c.test.mjs",
+    "test:p1-d": "node tests/practice-progress-p1-d.test.mjs",
     "test:design-system": "node tests/design-system-stage5.test.mjs",
     "test:stage3": "npm run test:focus-shell && npm run test:study-focus",
     "test:study-video": "node tests/study-video-race.test.mjs",
     "test:stage2": "npm run test:yt-player && npm run test:video && npm run test:study-video && npm run test:site-boundary && npm run test:web-reader && npm run test:subtitle-lifecycle && npm run test:max-ui",
-    "test:release": "npm run test:review-ux && npm run test:card-writes && npm run test:card-permissions && npm run test:evidence-indexes && npm run test:pedagogy && npm run test:review-economy && npm run test:max-ui && npm run test:p0-a && npm run test:p0-b && npm run test:p0-c && npm run test:p1-a && npm run test:p1-b && npm run test:p1-c && npm run test:focus-shell && node tests/release-smoke.mjs"
+    "test:release": "npm run test:review-ux && npm run test:card-writes && npm run test:card-permissions && npm run test:evidence-indexes && npm run test:pedagogy && npm run test:review-economy && npm run test:max-ui && npm run test:p0-a && npm run test:p0-b && npm run test:p0-c && npm run test:p1-a && npm run test:p1-b && npm run test:p1-c && npm run test:p1-d && npm run test:focus-shell && node tests/release-smoke.mjs"
   },
   "dependencies": {
     "acorn": "^8.17.0"

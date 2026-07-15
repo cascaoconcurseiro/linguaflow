@@ -276,6 +276,8 @@ a { color:var(--color-link); }
 .product-destination-card h2 { margin:6px 0 8px; font-size:23px; }
 .product-destination-card > p:not(.product-kicker) { margin:0 0 20px; color:var(--color-text-light); line-height:1.55; }
 .product-destination-card .btn { width:100%; min-height:46px; margin-top:auto; }
+.product-destination-card-primary { border-color:var(--color-primary); box-shadow:var(--shadow-md, var(--shadow-sm)); }
+.product-destination-card-optional { background:var(--color-bg-alt); box-shadow:none; }
 .settings-group > summary strong, .settings-group > summary small { display:block; }
 .settings-group > summary strong { color:var(--color-text); font-size:17px; }
 .settings-group > summary small { margin-top:3px; color:var(--color-text-light); font-size:12px; font-weight:600; }

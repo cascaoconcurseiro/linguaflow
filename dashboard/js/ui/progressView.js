@@ -5,13 +5,15 @@ const PROGRESS_DESTINATIONS = [
     title: 'Retenção e carga de revisão',
     description: 'Veja constância, retenção recente e o que está programado para os próximos dias.',
     action: 'Ver estatísticas',
+    emphasis: 'primary',
   },
   {
     route: 'leagues',
     eyebrow: 'OPCIONAL',
-    title: 'Liga',
-    description: 'Acompanhe atividades qualificadas sem confundir repetição livre com aprendizagem.',
+    title: 'Atividade competitiva',
+    description: 'Veja o placar semanal opcional. XP mostra atividade no app e não mede domínio do idioma.',
     action: 'Ver liga',
+    emphasis: 'optional',
   },
 ];
 
@@ -25,11 +27,11 @@ export function renderProgress(container, app) {
       </header>
       <section class="product-hub-grid product-hub-grid-two" aria-label="Áreas de progresso">
         ${PROGRESS_DESTINATIONS.map(item => `
-          <article class="product-destination-card">
+          <article class="product-destination-card product-destination-card-${item.emphasis}">
             <p class="product-kicker">${item.eyebrow}</p>
             <h2>${item.title}</h2>
             <p>${item.description}</p>
-            <button class="btn btn-secondary" type="button" data-progress-route="${item.route}">${item.action}</button>
+            <button class="btn ${item.emphasis === 'primary' ? 'btn-primary' : 'btn-secondary'}" type="button" data-progress-route="${item.route}">${item.action}</button>
           </article>`).join('')}
       </section>
     </main>`;

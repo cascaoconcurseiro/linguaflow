@@ -830,3 +830,24 @@ Prática/Progresso e QA autenticado.
 **Próximo:** P1-D Prática/Progresso; depois QA autenticado.
 
 ---
+
+# Handoff Codex — Reforma UX P1-D (2026-07-15)
+
+- Prática explica antes do início o que cada modo treina: Reconhecimento,
+  Escuta ou Produção guiada.
+- Resultado da rodada é local e não altera agendamento, XP, ofensiva ou Liga;
+  combo permanece somente visual.
+- A seleção de Prática exclui expressões atualmente devidas, evitando ensaio
+  antes da revisão SRS; preservar `getPracticeWords()` e esse filtro.
+- Progresso prioriza retenção/carga e apresenta Liga como atividade competitiva
+  opcional.
+- Estatísticas põe retenção, agenda e estado da memória acima de minutos e
+  volume; atividade não é apresentada como domínio.
+- Percentual de lembrança é identificado como autoavaliação; Liga declara que
+  seu XP agrega atividades e não mede domínio.
+- Build `3.0.10`; gate `npm run test:p1-d` dentro do release.
+- Preservar engine, handlers dos três jogos, FSRS, economia e regras da Liga.
+
+**Próximo:** QA autenticado desktop/mobile de toda a reforma antes de produção.
+
+---

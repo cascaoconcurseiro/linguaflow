@@ -13,6 +13,20 @@ async function openPractice(container, app, renderMode, retryId) {
   }
 }
 
+// Prática livre não deve ensaiar a resposta de uma expressão vencida antes da
+// revisão SRS. Seleciona somente itens fora da fila devida neste instante.
+async function getPracticeWords(limit) {
+  const [allWords, dueCards] = await Promise.all([
+    lfDb.getAllWords(),
+    lfDb.getCardsDue(500, false),
+  ]);
+  const dueWordIds = new Set((dueCards || []).map(card => String(card.word_id)));
+  return (allWords || [])
+    .filter(word => word?.id && !dueWordIds.has(String(word.id)))
+    .sort(() => 0.5 - Math.random())
+    .slice(0, limit);
+}
+
 // Onda 2.4: o Jogo virou um menu de mini-jogos — "Ligar Colunas" (existente)
 // e "Ouça e Escolha" (novo, treina listening de verdade). Jogos são prática
 // livre repetível: não alteram XP, ofensiva, liga nem o agendamento do SRS.
@@ -21,8 +35,8 @@ async function openPractice(container, app, renderMode, retryId) {
 // esta tela tinha uma paleta escura própria (tipo terminal), desconectada
 // da identidade verde/branco do resto do app — parecia outro produto. Agora
 // usa as mesmas variáveis de `globals.css`. Também ganhou o que faltava pra
-// "parecer um jogo de verdade" no estilo Duolingo: combo visual (acertos em
-// sequência aumentam o XP), celebração ao terminar, e um 3º modo — "Monte a
+// "parecer um jogo de verdade" no estilo Duolingo: combo visual (feedback
+// local de sequência), celebração ao terminar, e um 3º modo — "Monte a
 // Frase" — que reaproveita a mecânica de banco de palavras já usada no
 // Estudo (studyView.js:renderBuilder), sem inventar nada novo no banco.
 export async function renderGame(container, app) {
@@ -30,13 +44,28 @@ export async function renderGame(container, app) {
   container.innerHTML = `
     <div class="game-container">
       <h2>🎮 Prática</h2>
-      <p>Escolha a habilidade que quer treinar.</p>
-      <p class="game-free-practice">Prática livre — sem alterar seu placar, ofensiva ou liga.</p>
-      <div style="display:flex; gap:16px; margin-top:20px; flex-wrap:wrap; justify-content:center;">
-        <button class="match-btn" id="mode-match" style="width:220px;">🔗 Ligar Colunas</button>
-        <button class="match-btn" id="mode-listen" style="width:220px;">🎧 Ouça e Escolha</button>
-        <button class="match-btn" id="mode-builder" style="width:220px;">🧩 Monte a Frase</button>
+      <p>Escolha uma habilidade para treinar nesta rodada.</p>
+      <div class="practice-mode-grid" aria-label="Habilidades disponíveis">
+        <button class="practice-mode-card" id="mode-match" type="button">
+          <span class="practice-mode-icon" aria-hidden="true">🔗</span>
+          <strong>Ligar colunas</strong>
+          <span>Reconhecimento</span>
+          <small>Associe expressões e significados.</small>
+        </button>
+        <button class="practice-mode-card" id="mode-listen" type="button">
+          <span class="practice-mode-icon" aria-hidden="true">🎧</span>
+          <strong>Ouça e escolha</strong>
+          <span>Escuta</span>
+          <small>Identifique a expressão pelo áudio.</small>
+        </button>
+        <button class="practice-mode-card" id="mode-builder" type="button">
+          <span class="practice-mode-icon" aria-hidden="true">🧩</span>
+          <strong>Monte a frase</strong>
+          <span>Reconstrução de frase</span>
+          <small>Reconstrua a frase na ordem correta.</small>
+        </button>
       </div>
+      <p class="game-free-practice"><strong>Prática livre:</strong> o resultado fica nesta rodada e não altera agendamento, XP, ofensiva ou liga.</p>
     </div>
   `;
   document.getElementById('mode-match').onclick = () => openPractice(container, app, renderMatchGame, 'btn-retry-match');
@@ -134,19 +163,7 @@ async function renderMatchGame(container, app) {
   container.setAttribute('aria-busy', 'true');
   container.innerHTML = renderViewState({ kind: 'loading', title: 'Preparando associação…', message: 'Selecionando expressões do seu Cofre.' });
 
-  let cards = await lfDb.getCardsDue(8, true);
-  let words = cards.map(c => c.wordData).filter(Boolean);
-
-  if (words.length < 5) {
-    const all = await lfDb.getAllWords();
-    const shuffledAll = all.sort(() => 0.5 - Math.random());
-    for (let w of shuffledAll) {
-      if (!words.find(exist => exist.id === w.id)) {
-        words.push(w);
-      }
-      if (words.length >= 8) break;
-    }
-  }
+  let words = await getPracticeWords(8);
 
   if (words.length === 0) {
     container.setAttribute('aria-busy', 'false');
@@ -287,16 +304,7 @@ async function renderListenGame(container, app) {
   container.setAttribute('aria-busy', 'true');
   container.innerHTML = renderViewState({ kind: 'loading', title: 'Preparando prática de escuta…', message: 'Selecionando expressões com tradução.' });
 
-  let cards = await lfDb.getCardsDue(8, true);
-  let words = cards.map(c => c.wordData).filter(Boolean);
-  if (words.length < 4) {
-    const all = await lfDb.getAllWords();
-    const shuffledAll = all.sort(() => 0.5 - Math.random());
-    for (const w of shuffledAll) {
-      if (!words.find(exist => exist.id === w.id)) words.push(w);
-      if (words.length >= 8) break;
-    }
-  }
+  let words = await getPracticeWords(16);
   words = words.filter(w => w.word && w.translation).slice(0, 8);
 
   if (words.length < 4) {
@@ -399,16 +407,7 @@ async function renderBuilderGame(container, app) {
   container.setAttribute('aria-busy', 'true');
   container.innerHTML = renderViewState({ kind: 'loading', title: 'Preparando frases…', message: 'Selecionando contextos completos do seu Cofre.' });
 
-  let cards = await lfDb.getCardsDue(12, true);
-  let words = cards.map(c => c.wordData).filter(Boolean);
-  if (words.length < 5) {
-    const all = await lfDb.getAllWords();
-    const shuffledAll = all.sort(() => 0.5 - Math.random());
-    for (const w of shuffledAll) {
-      if (!words.find(exist => exist.id === w.id)) words.push(w);
-      if (words.length >= 12) break;
-    }
-  }
+  let words = await getPracticeWords(24);
   words = words.filter(w => w.context_sentence && w.context_sentence.trim().split(/\s+/).length >= 3).slice(0, 6);
 
   if (words.length < 3) {
@@ -541,6 +540,29 @@ function injectGameStyles() {
       position: relative;
     }
     .game-container h2 { margin: 0 0 10px 0; color: var(--color-text); }
+    .practice-mode-grid {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px; width: 100%; margin: 20px 0 16px;
+    }
+    .practice-mode-card {
+      display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+      min-height: 170px; padding: 18px; border: 2px solid var(--color-border);
+      border-bottom-width: 4px; border-radius: var(--radius-md, 12px);
+      background: var(--color-bg-alt); color: var(--color-text); cursor: pointer;
+      font: inherit; text-align: left; transition: border-color .15s, transform .15s;
+    }
+    .practice-mode-card:hover, .practice-mode-card:focus-visible { border-color: var(--color-secondary); }
+    .practice-mode-card:active { transform: translateY(2px); }
+    .practice-mode-icon { font-size: 26px; margin-bottom: 4px; }
+    .practice-mode-card strong { font-size: 16px; }
+    .practice-mode-card > span:not(.practice-mode-icon) { color: var(--color-secondary); font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; }
+    .practice-mode-card small { color: var(--color-text-light); line-height: 1.4; }
+    .game-free-practice { max-width: 520px; margin: 0; color: var(--color-text-light); font-size: 13px; line-height: 1.5; text-align: center; }
+    @media (max-width: 640px) {
+      .game-container { margin: 20px 12px; padding: 20px 16px; }
+      .practice-mode-grid { grid-template-columns: 1fr; }
+      .practice-mode-card { min-height: 0; }
+    }
     .game-board {
       display: flex;
       gap: 24px;

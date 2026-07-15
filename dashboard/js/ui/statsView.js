@@ -33,6 +33,8 @@ function injectStylesOnce() {
     .stats-summary-card .icon { font-size: 22px; }
     .stats-summary-card .value { font-size: 24px; font-weight: 900; color: var(--color-text); margin: 4px 0; }
     .stats-summary-card .label { font-size: 12px; color: var(--color-text-light); }
+    .stats-summary-card-primary { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 7%, var(--color-surface)); }
+    .stats-evidence-note { margin: -10px 0 24px; color: var(--color-text-light); font-size: 13px; line-height: 1.5; }
     .stats-panel {
       background: var(--color-surface); border: 2px solid var(--color-border);
       border-radius: var(--radius-md, 12px); padding: 16px 18px; margin-bottom: 20px;
@@ -52,12 +54,15 @@ function injectStylesOnce() {
     .stats-maturity-bar { display: flex; height: 26px; border-radius: 6px; overflow: hidden; border: 1px solid var(--color-border); }
     .stats-maturity-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 12px; color: var(--color-text-light); }
     .stats-maturity-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+    .stats-activity-details { margin-top: 4px; }
+    .stats-activity-details > summary { cursor: pointer; color: var(--color-text); font-weight: 800; padding: 14px 2px; }
+    .stats-activity-details > p { margin: 0 0 12px; color: var(--color-text-light); font-size: 13px; }
   `;
   document.head.appendChild(style);
 }
 
-function summaryCard(icon, value, label) {
-  return `<div class="stats-summary-card">
+function summaryCard(icon, value, label, primary = false) {
+  return `<div class="stats-summary-card${primary ? ' stats-summary-card-primary' : ''}">
     <div class="icon">${icon}</div>
     <div class="value">${value}</div>
     <div class="label">${label}</div>
@@ -169,11 +174,12 @@ export async function renderStats(container, app) {
       </div>
 
       <div class="stats-summary-grid">
-        ${summaryCard('📚', summary.totalCards, 'Expressões na memória')}
-        ${summaryCard('⏱️', summary.totalMinutes, 'Minutos estudados (60d)')}
+        ${summaryCard('🎯', summary.overallRetention === null ? '—' : summary.overallRetention + '%', 'Lembradas nas revisões · pelas suas notas', true)}
+        ${summaryCard('📚', summary.totalCards, 'Expressões na revisão')}
         ${summaryCard('🔁', summary.totalReviews, 'Revisões (60d)')}
-        ${summaryCard('🎯', summary.overallRetention === null ? '—' : summary.overallRetention + '%', 'Retenção geral')}
+        ${summaryCard('⏱️', summary.totalMinutes, 'Minutos de atividade (60d)')}
       </div>
+      <p class="stats-evidence-note">O percentual de lembrança é uma estimativa baseada nas suas notas em ${summary.totalReviews} revisões. Estado da memória e agenda ajudam a orientar a próxima sessão. Tempo e volume mostram atividade — não comprovam domínio do idioma.</p>
 
       <div class="stats-panel">
         <h3>Retenção por dia (últimos 30 dias)</h3>
@@ -181,8 +187,8 @@ export async function renderStats(container, app) {
       </div>
 
       <div class="stats-panel">
-        <h3>Tempo de estudo por dia (últimos 30 dias)</h3>
-        ${renderMinutesBars(studyTime)}
+        <h3>Previsão de revisões (próximos 14 dias)</h3>
+        ${renderForecastBars(forecast)}
       </div>
 
       <div class="stats-panel">
@@ -190,10 +196,14 @@ export async function renderStats(container, app) {
         ${renderMaturity(maturity)}
       </div>
 
-      <div class="stats-panel">
-        <h3>Previsão de revisões (próximos 14 dias)</h3>
-        ${renderForecastBars(forecast)}
-      </div>
+      <details class="stats-activity-details">
+        <summary>Ver métricas de atividade</summary>
+        <p>Úteis para observar constância, mas secundárias à retenção e à carga de revisão.</p>
+        <div class="stats-panel">
+          <h3>Tempo de atividade por dia (últimos 30 dias)</h3>
+          ${renderMinutesBars(studyTime)}
+        </div>
+      </details>
     </div>
   `;
 }

@@ -74,6 +74,11 @@ export async function renderLeagues(container, app) {
       color: var(--color-text-light);
       margin: 0;
     }
+    .league-context {
+      margin: 12px 0 0; padding: 10px 12px; border-radius: 10px;
+      background: var(--color-bg-alt); color: var(--color-text-light);
+      font-size: 12px; line-height: 1.45; text-align: left;
+    }
     .leaderboard {
       list-style: none;
       padding: 0;
@@ -192,6 +197,7 @@ export async function renderLeagues(container, app) {
       <div class="league-header">
         <h2 class="league-title">🏆 Liga ${currentLeague}</h2>
         <p class="league-subtitle">Top 5 avançam para a próxima liga</p>
+        <p class="league-context"><strong>Liga opcional:</strong> XP registra diferentes atividades no app e não mede domínio. Prática livre não pontua nem altera sua revisão.</p>
       </div>
       
       <div class="leaderboard">
@@ -241,7 +247,7 @@ export async function renderLeagues(container, app) {
       const msLeft = nextMonday.getTime() - now.getTime();
       const d = Math.floor(msLeft / 86400000);
       const h = Math.floor((msLeft % 86400000) / 3600000);
-      cdEl.textContent = `Faltam ${d}d ${h}h — top 5 com XP sobem; inativos descem.`;
+      cdEl.textContent = `Faltam ${d}d ${h}h — a colocação semanal define promoção ou rebaixamento.`;
   }
 
   // Scroll to user item

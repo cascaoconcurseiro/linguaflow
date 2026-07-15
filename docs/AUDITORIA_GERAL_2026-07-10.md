@@ -762,3 +762,45 @@ modificados; apenas apresentação e confirmação da configuração inicial.
 mede e tornar retenção/carga as métricas principais.
 
 ---
+
+# Execução Codex — P1-D Prática e Progresso com papéis claros (2026-07-15)
+
+**Responsável:** Codex, com revisão pedagógica sênior independente. Engine,
+FSRS, economia, writers, player, áudio, Supabase e regras da Liga não foram
+alterados.
+
+## Implementado
+
+- A entrada de Prática agora apresenta cada modo como treino de uma habilidade:
+  Reconhecimento, Escuta ou Produção guiada, com descrição curta do exercício.
+- A interface declara antes da escolha que a rodada é prática livre: resultado
+  local, sem alterar agendamento, XP, ofensiva ou liga. O comentário legado que
+  dizia que o combo aumentava XP também foi corrigido; combo continua apenas
+  como feedback visual.
+- Corrigida contaminação cognitiva encontrada na revisão sênior: os três modos
+  deixaram de usar prioritariamente expressões vencidas. A seleção exclui a fila
+  devida, evitando ensaio imediato antes da revisão SRS.
+- Progresso diferencia visualmente a rota principal de memória da Liga
+  opcional. A ação de retenção/carga é primária; competição permanece acessível,
+  mas secundária.
+- Estatísticas passou a abrir por retenção nas revisões, agenda futura e estado
+  da memória. Minutos e volume são identificados como atividade, não como prova
+  de domínio; o gráfico de tempo ficou em detalhe expansível.
+- Métricas passaram a dizer “lembradas pelas suas notas” e “expressões na
+  revisão”, sem tratar presença no banco como memória nem autoavaliação como
+  teste objetivo. A Liga explica que XP agrega atividades e não mede domínio.
+- Nenhuma função foi removida e IDs/handlers dos três modos foram preservados.
+- Build web/PWA `3.0.10`.
+
+## Gates
+
+- Novo `tests/practice-progress-p1-d.test.mjs` dentro de `test:release` cobre
+  habilidades, não-farming, prioridade das métricas e Liga opcional.
+- `test:p1-d`, contrato pedagógico, sintaxe e release completo passaram.
+
+## Próximo corte
+
+QA autenticado desktop/mobile dos cortes P0-A a P1-D; corrigir qualquer falha
+observada e só então decidir promoção para produção.
+
+---

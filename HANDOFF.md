@@ -787,6 +787,10 @@ Prática/Progresso e QA autenticado desktop/mobile antes de produção.
 - Novas expressões: default 5 e máximo 20, alinhado ao contrato server-side.
 - CEFR/retention/leech ganharam microcopy honesta, sem trocar chaves técnicas.
 - Build `3.0.7`; gate `npm run test:p1-a` dentro do release.
+- Commit funcional `28a64a8`; preview
+  `dpl_5VjfRUnCWukiL6kew9ubZpQqQnvS` `READY` em
+  `https://linguaflow-c543kzmik-wesleys-projects-de111a83.vercel.app`, HTTP 200,
+  build sem erros e nenhum runtime `error`/`fatal` observado.
 
 ## Preservar
 

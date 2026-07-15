@@ -691,6 +691,11 @@ foram alterados.
 - `test:p1-a`, `test:product-ux`, `test:design-system`, `test:p0-c` e a suíte de
   release completa passaram com árvore suja permitida.
 - Build web/PWA: `3.0.7`.
+- Commit funcional `28a64a8`; preview Vercel
+  `dpl_5VjfRUnCWukiL6kew9ubZpQqQnvS` ficou `READY` em
+  `https://linguaflow-c543kzmik-wesleys-projects-de111a83.vercel.app`.
+- A raiz respondeu HTTP 200; build sem erros e nenhum runtime `error`/`fatal`
+  na janela consultada.
 
 ## Próximo corte
 

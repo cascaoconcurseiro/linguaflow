@@ -1117,4 +1117,29 @@ maior ainda não é compromisso. Modularizar pode inclusive aumentar LOC.
 upgrade real numa aba controlada pelo worker 3.0.11. O preview tem proteção da
 Vercel e a sessão automatizada não possui credenciais LinguaFlow.
 
+### Complemento Onda 0 — comportamento e schema canônico
+
+- [x] Extraída renderização segura dos chunks e instalação do callback YouGlish
+  para `dashboard/js/core/studySafety.js`, sem mudar a mecânica pedagógica.
+- [x] Teste comportamental executa timeout real de refresh preservando a sessão,
+  reentrada YouGlish com a palavra mais recente, payload XSS em texto/atributos e
+  os handlers reais install/activate/fetch do service worker.
+- [x] Upgrade 3.0.11→3.0.12 reproduzido no mesmo origin local: o cliente antigo
+  reiniciava ao assumir o worker; o novo não reiniciou e entrou em 3.0.12 somente
+  após navegação explícita, como esperado.
+- [x] Criados `docs/SCHEMA_CANONICO_SUPABASE_2026-07-16.md` e
+  `scripts/schema-inventory-readonly.sql`. O script abriu transação read-only,
+  não leu dados de usuário e retornou fingerprint remoto
+  `a7a1728be0e6e03159471d8a52b8f9d0` no PostgreSQL 17.6.
+- [x] Mapeadas 29 migrations locais para 38 remotas: uma baseline representa dez
+  migrations antigas, 16 correspondem diretamente e 12 por efeito semântico.
+  Essa divergência deve continuar documentada, nunca reparada artificialmente.
+- [x] Gate completo integrado verde em 26,7 s.
+
+O item `upgrade real` acima fica reclassificado como **comportamento reproduzido
+em laboratório no mesmo origin**. No domínio oficial ainda é necessário canário
+pós-promoção com rollback pronto. QA autenticado continua pendente porque a
+integração da ChatGPT Chrome Extension não está disponível; nenhuma senha deve
+ser solicitada ou persistida para contornar esse bloqueio.
+
 ---

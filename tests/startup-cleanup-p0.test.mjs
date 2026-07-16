@@ -22,9 +22,9 @@ assert.match(study, /id="youglish-box"(?![^>]*class="hidden")/,
   'YouGlish deve ser descobrível sem um segundo details');
 assert.match(study, /id="yg-widget-embed" class="hidden"/,
   'o widget pesado continua lazy até a ação do usuário');
-assert.ok(study.indexOf('window.onYouglishAPIReady =') < study.indexOf("getElementById('yg-script')"),
+assert.ok(study.indexOf('installYouglishReadyHandler(window') < study.indexOf("getElementById('yg-script')"),
   'reentrada no estudo reinstala o callback antes de reutilizar o script YouGlish');
-assert.match(study, /escapeHtml\(c\.eng \|\| ''\)/,
+assert.match(study, /renderStudyChunkCard\(c, i\)/,
   'chunks vindos de IA ou banco devem ser escapados antes do HTML');
 
 console.log('Contratos P0 de startup e limpeza pedagógica passaram.');

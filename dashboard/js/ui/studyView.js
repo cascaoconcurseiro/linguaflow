@@ -4,6 +4,7 @@ import { aiChat, aiChatStream, getCefrLevel, grammarTutorPersona, grammarInitial
 import { attachVideoContext, renderVideoContext, getVideoContext } from '../core/videoContext.js';
 import { buildSessionQueue, isWeakCard, prioritizeDueLearning } from '../core/sessionQueue.js';
 import { loadVideo, playClip, replayClip, pausePlayer, setClipLoop, isClipPlaying, hidePlayer } from '../core/ytPlayer.js';
+import { installYouglishReadyHandler, renderStudyChunkCard } from '../core/studySafety.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
@@ -1296,24 +1297,7 @@ function renderChunksList(chunks, context) {
 }
 
 function renderChunkCard(c, i) {
-  const safeEng = escapeHtml(c.eng || '');
-  const safePhon = escapeHtml(c.phon || '');
-  const safePt = escapeHtml(c.pt || '');
-  return `
-    <div class="chunk-card" style="animation: slideIn 0.3s ease forwards; animation-delay: ${i * 0.1}s; opacity:0;">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-        <div style="flex:1;">
-          <div class="chunk-en">${safeEng}</div>
-          <div class="chunk-br">${safePhon}</div>
-          <div class="chunk-pt">${safePt}</div>
-        </div>
-        <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0; margin-left:8px;">
-          <button class="chunk-action-btn chunk-audio-btn" data-text="${safeEng}" aria-label="Ouvir: ${safeEng}" title="Ouvir">🔊</button>
-          <button class="chunk-action-btn chunk-save-btn" data-text="${safeEng}" aria-label="Salvar áudio de: ${safeEng}" title="Salvar áudio (MP3)">⬇️</button>
-        </div>
-      </div>
-    </div>
-  `;
+  return renderStudyChunkCard(c, i);
 }
 
 function attachChunkAudioListeners() {
@@ -1493,9 +1477,7 @@ function loadYouglishAnd(word) {
     return;
   }
   ygQueuedWord = word;
-  window.onYouglishAPIReady = () => {
-    if (ygQueuedWord) ygFetch(ygQueuedWord);
-  };
+  installYouglishReadyHandler(window, () => ygQueuedWord, ygFetch);
   if (document.getElementById('yg-script')) return;
 
   const s = document.createElement('script');

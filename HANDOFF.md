@@ -1,5 +1,29 @@
 # Handoff — LinguaFlow
 
+## Handoff Codex — Onda 0 comportamental e schema canônico (2026-07-16)
+
+O Codex e as frentes sêniores fecharam as lacunas apontadas na revisão do PR
+`#10`. `tests/startup-behavior-p0.test.mjs` agora executa comportamentos reais de
+timeout/refresh de auth, reinstalação do callback YouGlish, payload XSS em chunks
+e handlers install/activate/fetch do service worker em VM. A renderização segura
+foi isolada em `dashboard/js/core/studySafety.js` para ser testável sem DOM.
+
+O upgrade 3.0.11→3.0.12 também foi reproduzido no mesmo origin local. O 3.0.11
+registrou duas inicializações por causa do reload em `controllerchange`; o 3.0.12
+registrou uma única inicialização e manteve a aba antiga estável. Por desenho, a
+aba aberta continua no cliente antigo até uma navegação/recarga explícita.
+
+O schema agora possui documento canônico e inventário SQL read-only:
+`docs/SCHEMA_CANONICO_SUPABASE_2026-07-16.md` e
+`scripts/schema-inventory-readonly.sql`. Foram mapeadas 29 migrations locais
+para 38 remotas; snapshot remoto PostgreSQL 17.6, 17 tabelas com RLS e fingerprint
+`a7a1728be0e6e03159471d8a52b8f9d0`. Nenhuma alteração remota foi feita.
+
+Gate integrado: `npm run test:release -- --allow-dirty` verde em 26,7 s. QA
+autenticado permanece bloqueado porque a ChatGPT Chrome Extension não está
+disponível no perfil desta máquina; não inserir credenciais em testes nem
+contornar essa integração.
+
 ## Handoff Codex — startup estável e limpeza pedagógica (2026-07-16)
 
 Build 3.0.12, ainda candidato de branch até CI/preview/QA. O service worker não recarrega mais a aplicação durante o

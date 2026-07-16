@@ -871,11 +871,12 @@ Prática/Progresso e QA autenticado.
   competitivo qualificado.
 - Privacidade: cliente usa `rpc/get_leaderboard` e não depende mais da leitura
   global de `user_stats`.
-- Migrations preparadas e não aplicadas: primeiro
-  `20260716124439_expand_safe_leaderboard_p0_3.sql` cria a projeção mínima sem
-  quebrar o cliente antigo; depois do deploy,
+- A etapa expand local `20260716124439_expand_safe_leaderboard_p0_3.sql` foi
+  aplicada remotamente como `20260716160424_expand_safe_leaderboard_p0_3` e
+  verificada sem retirar as policies do cliente antigo. Depois do deploy,
   `20260716124440_contract_user_stats_and_legacy_xp_p0_3.sql` revoga as RPCs
-  legadas e remove INSERT/leitura global de `user_stats`.
+  legadas e remove INSERT/leitura global de `user_stats`; contract ainda não foi
+  aplicada.
 - Build `3.0.11`; rotas Vercel incluem `/learn` e `/progress`.
 - `npm run test:release -- --allow-dirty` aprovado; a gate agora cobre também
   engine, áudio, YouTube, vídeo, legendas, HBO/Max e os três contratos novos.
@@ -883,9 +884,13 @@ Prática/Progresso e QA autenticado.
   `supabase db push`, porque há divergência histórica de timestamps entre o
   repositório e o projeto remoto.
 
-**Ainda falta antes de produção:** preview do SHA, PR/Actions verde, expand,
-QA autenticado desktop/mobile/extensão, promoção do mesmo SHA, contract e smoke
-pós-migration. Produção atual permanece em `ca9fbc9`;
+**Evidência:** commit funcional `0a8688a`, PR GitHub `#8`, preview Vercel
+`dpl_9rHjmtmYqizxsEC8YPckb5dmFW1A` `READY`, raiz HTTP 200, build limpo e sem
+runtime errors observados.
+
+**Ainda falta antes de produção:** PR/Actions verde, validar Liga e QA
+autenticado desktop/mobile/extensão no preview, promoção do mesmo SHA, contract
+e smoke pós-migration. Produção atual permanece em `ca9fbc9`;
 rollback web disponível em `dpl_8eLCZupbmkBtAvGJVeYaLytSRghw`.
 
 ---

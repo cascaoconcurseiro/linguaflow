@@ -876,21 +876,30 @@ legadas aceitavam XP declarado pelo navegador; e a policy pública de
 - Novos contratos: `auth-ux-resilience-p0-p1`,
   `pedagogy-production-cut` e `user-stats-security-p0-3`.
 - Replay local SQL não foi executado porque Docker/Supabase CLI não estão
-  disponíveis nesta máquina. A migration também **ainda não foi aplicada** no
-  Supabase de produção.
+  disponíveis nesta máquina.
+- Commit funcional `0a8688a`; PR GitHub `#8` aberto como draft. Preview Vercel
+  `dpl_9rHjmtmYqizxsEC8YPckb5dmFW1A` ficou `READY` em
+  `https://linguaflow-dn4mg4a2m-wesleys-projects-de111a83.vercel.app`, raiz
+  HTTP 200, build sem erros e nenhum runtime error observado.
+- Etapa expand aplicada no Supabase como migration remota
+  `20260716160424_expand_safe_leaderboard_p0_3`. Verificação pós-DDL confirmou
+  `SECURITY DEFINER`, `search_path` vazio, EXECUTE para `authenticated` e
+  ausência de EXECUTE para `anon`. Policies antigas permanecem de propósito
+  até o contract; o site de produção não foi quebrado.
+- Etapa contract **não aplicada**: ela continua bloqueada até o dashboard
+  3.0.11 ser promovido e validado.
 
 ## Estado e ordem obrigatória de rollout
 
 O código está apto a seguir para preview, mas ainda é **NO-GO para produção**
 até cumprir, nesta ordem:
 
-1. commit/push e preview Vercel exato do build 3.0.11;
-2. PR com workflow GitHub `verify` verde;
-3. aplicar a etapa expand por operação controlada e validar o placar no preview;
-4. QA autenticado desktop/mobile/extensão no preview;
-5. integrar/promover o mesmo SHA aprovado;
-6. aplicar imediatamente a etapa contract e fazer smoke do placar/revisão;
-7. executar smoke final de produção. Nunca usar `supabase db push`, pois os
+1. PR com workflow GitHub `verify` verde;
+2. validar o placar no preview com a etapa expand já aplicada;
+3. QA autenticado desktop/mobile/extensão no preview;
+4. integrar/promover o mesmo SHA aprovado;
+5. aplicar imediatamente a etapa contract e fazer smoke do placar/revisão;
+6. executar smoke final de produção. Nunca usar `supabase db push`, pois os
    timestamps do histórico remoto anterior não correspondem aos nomes locais.
 
 Rollback web preservado: produção anterior `ca9fbc9` /

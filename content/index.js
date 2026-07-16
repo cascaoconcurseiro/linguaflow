@@ -25,6 +25,15 @@ if (!isSupported) {
     const engine = new SubtitleEngine();
     engine.init();
 
+    // Max/HBO recebe uma camada visual própria. O motor de captura/sincronia
+    // permanece intocado; este módulo só coordena safe-area, dock e fullscreen.
+    if (engine.platform === 'max') {
+      const { MaxPlayerUI } = await import(chrome.runtime.getURL('content/max-player-ui.js'));
+      const maxPlayerUI = new MaxPlayerUI(engine);
+      maxPlayerUI.init();
+      window.__lfMaxPlayerUI = maxPlayerUI;
+    }
+
     // Painel de configurações globais
     const settingsPanel = new SettingsPanel(engine);
     window.__lfSettingsPanel = settingsPanel;

@@ -2,7 +2,7 @@ import { db } from '../../../utils/db.js';
 
 export function renderLogin(container, app) {
   container.innerHTML = `
-    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; max-width: 400px; margin: 0 auto; width: 100%;">
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100dvh; padding: 24px; max-width: 400px; margin: 0 auto; width: 100%;">
       
       <div style="text-align: center; margin-bottom: 32px;">
         <img src="../../icon_full.png" alt="LinguaFlow Logo" style="width: 80px; height: 80px; margin: 0 auto 16px auto; display: block; object-fit: contain;" onerror="this.src='../icon_full.png'" />
@@ -31,6 +31,7 @@ export function renderLogin(container, app) {
           <span id="auth-toggle-text">Ainda não tem conta?</span>
           <button id="auth-toggle-btn" style="background: none; border: none; color: var(--color-secondary); font-weight: 800; cursor: pointer; font-size: 14px; margin-left: 4px; font-family: var(--font-main);">Criar uma</button>
         </div>
+        <p id="auth-status" role="status" aria-live="polite" hidden style="margin:16px 0 0; padding:12px; border-radius:10px; background:rgba(28,176,246,.12); color:var(--color-text); font-size:14px; line-height:1.5;"></p>
       </div>
     </div>
   `;
@@ -43,25 +44,15 @@ export function renderLogin(container, app) {
   const title = document.getElementById('auth-title');
   const toggleText = document.getElementById('auth-toggle-text');
   const toggleBtn = document.getElementById('auth-toggle-btn');
-  const topbar = document.querySelector('.topbar');
-
-  // Hide topbar while on login screen
-  if (topbar) {
-    topbar.style.display = 'none';
-  }
+  const authStatus = document.getElementById('auth-status');
 
   let isLogin = true;
-
-  // Cleanup function to restore topbar if user navigates away (e.g. after successful login)
-  const cleanup = () => {
-    if (topbar) {
-      topbar.style.display = 'flex';
-    }
-  };
 
   toggleBtn.addEventListener('click', (e) => {
     e.preventDefault();
     isLogin = !isLogin;
+    authStatus.hidden = true;
+    authStatus.textContent = '';
     if (isLogin) {
       title.textContent = 'Entrar';
       submitBtn.textContent = 'Entrar';
@@ -94,8 +85,8 @@ export function renderLogin(container, app) {
       if (isLogin) {
         const res = await db.login(email, password);
         if (res.ok) {
+          app.setAuthenticated?.(true);
           app.showToast('Login realizado com sucesso!', 'success');
-          cleanup();
           app.navigate('home');
         } else {
           app.showToast(res.error || 'Erro ao fazer login', 'error');
@@ -106,11 +97,27 @@ export function renderLogin(container, app) {
       } else {
         const res = await db.signUp(email, password);
         if (res.ok) {
-          app.showToast('Conta criada com sucesso!', 'success');
-          cleanup();
-          // If auto login is enabled in Supabase, we might already have a session.
-          // Let's just navigate to home. App will redirect back if no session.
-          app.navigate('home');
+          const hasSession = !!res.session?.access_token || await db.checkSession().catch(() => false);
+          if (hasSession) {
+            app.setAuthenticated?.(true);
+            app.showToast('Conta criada com sucesso!', 'success');
+            app.navigate('home');
+            return;
+          }
+
+          // Com confirmação de e-mail ativa, criar a conta não autentica.
+          // Permanecemos na rota pública e explicamos a próxima ação.
+          app.setAuthenticated?.(false);
+          isLogin = true;
+          title.textContent = 'Confirme seu e-mail';
+          toggleText.textContent = 'Já confirmou sua conta?';
+          toggleBtn.textContent = 'Entrar';
+          passInput.value = '';
+          authStatus.hidden = false;
+          authStatus.textContent = 'Enviamos um link de confirmação para seu e-mail. Confirme a conta e depois entre com sua senha.';
+          submitBtn.disabled = false;
+          submitBtn.style.opacity = '1';
+          submitBtn.textContent = 'Entrar';
         } else {
           app.showToast(res.error || 'Erro ao criar conta', 'error');
           submitBtn.disabled = false;

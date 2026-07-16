@@ -20,15 +20,10 @@
         <div class="logo-text">LinguaFlow</div>
       </div>
       <nav class="nav-links">
-        <button class="nav-btn active" data-route="home">Início</button>
-        <button class="nav-btn" data-route="stories">Histórias</button>
-        <button class="nav-btn" data-route="reader">Leitor</button>
-        <button class="nav-btn" data-route="leagues">Ligas</button>
+        <button class="nav-btn active" data-route="home">Hoje</button>
+        <button class="nav-btn" data-route="learn" data-nav-group="learn">Aprender</button>
         <button class="nav-btn" data-route="library">O Cofre</button>
-        <button class="nav-btn" data-route="stats">Estatísticas</button>
-        <button class="nav-btn" data-route="settings">Config</button>
-        <button class="nav-btn" id="theme-toggle-btn" style="margin-left: auto; padding: 4px 8px; font-size: 20px;">🌙</button>
-        <button class="nav-btn btn-logout" id="logout-btn" style="color: #ff4b4b; font-weight: bold;">Sair</button>
+        <button class="nav-btn" data-route="progress" data-nav-group="progress">Progresso</button>
       </nav>
       <div class="stats">
         <div class="stat streak" title="Ofensiva Diária">
@@ -38,6 +33,14 @@
         <div class="stat due" title="Revisões Pendentes">
           <span class="icon">🎯</span>
           <span id="due-val">0</span>
+        </div>
+        <div class="profile-menu-wrap">
+          <button id="profile-menu-toggle" class="profile-menu-toggle" type="button" aria-label="Abrir perfil e configurações" aria-haspopup="menu" aria-expanded="false">◉</button>
+          <div id="profile-menu" class="profile-menu" role="menu" hidden>
+            <button type="button" role="menuitem" data-route="settings">Configurações</button>
+            <button type="button" role="menuitem" id="theme-toggle-btn">Alternar tema</button>
+            <button type="button" role="menuitem" class="btn-logout" id="logout-btn">Sair</button>
+          </div>
         </div>
       </div>
     </header>
@@ -65,23 +68,15 @@
     <main id="app-root"></main>
 
     <nav id="mobile-nav" class="mobile-nav" aria-label="Navegação principal">
-      <button class="mobile-nav-btn active" type="button" data-route="home"><span aria-hidden="true">⌂</span><span>Início</span></button>
-      <button class="mobile-nav-btn" type="button" data-route="stories" data-nav-group="content"><span aria-hidden="true">▶</span><span>Conteúdo</span></button>
+      <button class="mobile-nav-btn active" type="button" data-route="home"><span aria-hidden="true">⌂</span><span>Hoje</span></button>
+      <button class="mobile-nav-btn" type="button" data-route="learn" data-nav-group="learn"><span aria-hidden="true">▶</span><span>Aprender</span></button>
       <button class="mobile-nav-btn" type="button" data-route="library"><span aria-hidden="true">◇</span><span>Cofre</span></button>
-      <button id="mobile-more-toggle" class="mobile-nav-btn" type="button" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">•••</span><span>Mais</span></button>
-      <div id="mobile-more-menu" class="mobile-more-menu" role="menu" hidden>
-        <button type="button" role="menuitem" data-route="reader">Leitor</button>
-        <button type="button" role="menuitem" data-route="leagues">Ligas</button>
-        <button type="button" role="menuitem" data-route="stats">Progresso</button>
-        <button type="button" role="menuitem" data-route="settings">Configurações</button>
-        <button type="button" role="menuitem" id="mobile-theme-toggle">Alternar tema</button>
-        <button type="button" role="menuitem" id="mobile-logout">Sair</button>
-      </div>
+      <button class="mobile-nav-btn" type="button" data-route="progress" data-nav-group="progress"><span aria-hidden="true">↗</span><span>Progresso</span></button>
     </nav>
 
     <!-- Global Toast Container -->
     <div id="toast-container"></div>
 
-    <script type="module" src="js/core/app.js?v=3.0.3"></script>
+    <script type="module" src="js/core/app.js?v=3.0.11"></script>
   </body>
 </html>

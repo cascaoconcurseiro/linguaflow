@@ -11,6 +11,7 @@
     "test:site-boundary": "node tests/site-boundary.test.mjs",
     "test:web-reader": "node tests/web-reader-contract.test.mjs",
     "test:subtitle-lifecycle": "node tests/subtitle-lifecycle.test.mjs",
+    "test:max-ui": "node tests/max-player-ui.test.mjs",
     "test:focus-shell": "node tests/focus-shell.test.mjs",
     "test:study-focus": "node tests/study-focus.test.mjs",
     "test:evidence": "node tests/evidence-foundation.test.mjs",
@@ -22,11 +23,21 @@
     "test:pedagogy": "node tests/pedagogy-economy-contract.test.mjs",
     "test:review-economy": "node tests/review-economy-p0-2.test.mjs",
     "test:product-ux": "node tests/product-ux-stage4.test.mjs",
+    "test:p0-a": "node tests/navigation-home-p0-a.test.mjs",
+    "test:p0-b": "node tests/understand-panel-p0-b.test.mjs",
+    "test:p0-c": "node tests/product-language-state-p0-c.test.mjs",
+    "test:p1-a": "node tests/cofre-settings-p1-a.test.mjs",
+    "test:p1-b": "node tests/reading-experience-p1-b.test.mjs",
+    "test:p1-c": "node tests/onboarding-p1-c.test.mjs",
+    "test:p1-d": "node tests/practice-progress-p1-d.test.mjs",
+    "test:auth-ux": "node tests/auth-ux-resilience-p0-p1.test.mjs",
+    "test:production-pedagogy": "node tests/pedagogy-production-cut.test.mjs",
+    "test:p0-3": "node tests/user-stats-security-p0-3.test.mjs",
     "test:design-system": "node tests/design-system-stage5.test.mjs",
     "test:stage3": "npm run test:focus-shell && npm run test:study-focus",
     "test:study-video": "node tests/study-video-race.test.mjs",
-    "test:stage2": "npm run test:yt-player && npm run test:video && npm run test:study-video && npm run test:site-boundary && npm run test:web-reader && npm run test:subtitle-lifecycle",
-    "test:release": "npm run test:review-ux && npm run test:card-writes && npm run test:card-permissions && npm run test:evidence-indexes && npm run test:pedagogy && npm run test:review-economy && node tests/release-smoke.mjs"
+    "test:stage2": "npm run test:yt-player && npm run test:video && npm run test:study-video && npm run test:site-boundary && npm run test:web-reader && npm run test:subtitle-lifecycle && npm run test:max-ui",
+    "test:release": "npm run test:engine && npm run test:local-day && npm run test:audio && npm run test:stage2 && npm run test:evidence && npm run test:evidence-commit && npm run test:review-ux && npm run test:card-writes && npm run test:card-permissions && npm run test:evidence-indexes && npm run test:pedagogy && npm run test:review-economy && npm run test:production-pedagogy && npm run test:p0-3 && npm run test:p0-a && npm run test:p0-b && npm run test:p0-c && npm run test:p1-a && npm run test:p1-b && npm run test:p1-c && npm run test:p1-d && npm run test:auth-ux && npm run test:stage3 && npm run test:product-ux && npm run test:design-system && node tests/release-smoke.mjs"
   },
   "dependencies": {
     "acorn": "^8.17.0"

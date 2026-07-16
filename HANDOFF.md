@@ -1,5 +1,48 @@
 # Handoff — LinguaFlow
 
+## Handoff Codex — UI Max/HBO sem alterar o engine (2026-07-15)
+
+### Ajuste após QA real do dono — versão 3.0.5
+
+As capturas da versão 3.0.4 mostraram o dock horizontal sobre a legenda e o
+popup ainda no ramo genérico. A causa do popup foi objetiva: elementos
+`position: fixed` podem ter `offsetParent === null`, apesar de estarem visíveis.
+Na 3.0.5, o dock passou para uma coluna fixa à direita, a legenda Max usa
+`bottom: 137px` e o popup decide pela geometria real de `getBoundingClientRect()`;
+sua borda inferior fica acima da borda superior da legenda.
+
+### Escopo preservado
+
+`content/subtitle-engine.js` e `content/engine/*` não foram modificados. Captura,
+parsing, cues, sincronização, tradução e mecânica permanecem exatamente como no
+build aprovado.
+
+### Implementado pelo Codex
+
+- `manifest.json`: versão `3.0.5` para identificar o pacote corrigido após QA.
+- `content/max-player-ui.js`: camada visual específica da Max/HBO; mede a barra
+  ou timeline visível, cria safe-area e mantém legenda/dock no mesmo overlay root
+  inclusive em fullscreen e após remount do player.
+- Dock compacto com paridade e atalhos úteis: mostrar/ocultar, anterior, repetir,
+  próxima, painel de legendas e configurações.
+- `content/word-popup.js`: na Max o popup usa coordenadas fixas do mesmo overlay,
+  ancora no termo clicado, limita X à viewport e limita a altura ao espaço acima
+  da legenda, usando scroll interno em vez de cobrir o texto.
+- O reposicionamento do popup Max passou de loop contínuo para eventos de resize,
+  fullscreen, mudança do host e alteração de tamanho.
+- `tests/max-player-ui.test.mjs`: contratos geométricos e de controles incluídos
+  nos gates `test:stage2` e `test:release`.
+
+### QA manual ainda necessário
+
+Recarregar a extensão e validar numa sessão HBO/Max: normal e fullscreen,
+controles visíveis/ocultos, legenda de uma/duas linhas, popup antes/depois do
+carregamento e troca de episódio. O Codex não conseguiu acessar a sessão HBO
+porque a integração do ChatGPT com o perfil do Chrome não está instalada; isso
+não é falha da extensão LinguaFlow.
+
+---
+
 ## Handoff Codex — Redefinição estratégica do produto (2026-07-14)
 
 **Decisão:** a antiga Etapa 4 de apenas reorganizar Home/Cofre/Stories/Config foi suspensa. A auditoria multidisciplinar confirmou que o problema é sistêmico: as áreas são conectadas por navegação e XP, não por evidências de aprendizagem.
@@ -647,5 +690,235 @@ fluxo já reorganizado com usuários antes de nova expansão visual. Ver
 - Commit funcional: `25f65e4` (`codex/review-mobile-video`).
 - Preview Vercel: `dpl_FnwVZLxMrVYoTrk5MKpYCrVjNoo6`, SHA confirmado, `READY`, sem erro de runtime na janela de uma hora.
 - Nenhuma migration aplicada no Supabase remoto; nenhuma promoção para produção.
+
+---
+# Handoff Codex — Reforma UX P0-A (2026-07-15)
+
+## Entregue
+
+- Navegação global: Hoje | Aprender | Cofre | Progresso.
+- Novos hubs: `learnView.js` e `progressView.js`, preservando todas as rotas anteriores.
+- Perfil reúne Configurações, tema e saída.
+- Home usa `chooseTodayAction()` e exibe uma única CTA baseada na fila real.
+- Metas, memória, XP, ofensiva, diagnóstico, conquistas e heatmap continuam disponíveis sob `Ver metas, memória e conquistas`.
+- PWA web atualizado para `3.0.4`.
+- Novo gate `npm run test:p0-a`, incluído no release.
+- Commit funcional: `566bf1b`; preview Vercel `dpl_DwQechHca5i3N7uMuoQsRUmmVAyk` em estado `READY`, raiz HTTP 200, build sem erro e build web `3.0.4` confirmado.
+
+## Não alterar neste corte
+
+- Engine/FSRS, áudio, vídeo, RPCs, persistência e economia.
+- Shell de foco do Estudo.
+- Contrato: fila vazia direciona para Aprender, nunca para Estudo.
+- Contrato: uma única CTA no primeiro nível da Home.
+
+## Próximo
+
+P0-B: painel `Entender melhor`, com trecho original primeiro, explicação/tutor contextual, prática curta e fontes adicionais progressivas. Depois: P0-C de nomenclatura e estados globais.
+
+---
+# Handoff Codex — Reforma UX P0-B (2026-07-15)
+
+## Entregue
+
+- `Explorar esta frase` virou `Entender melhor`.
+- Ordem: trecho original, significado/tutor, prática curta e fontes adicionais.
+- Tutor tem três perguntas sugeridas e permanece estritamente sob demanda.
+- Chunks: dois recomendados primeiro, restante em `Ver mais`.
+- YouGlish/Tatoeba continuam lazy em `Mais exemplos e fontes`.
+- Undo, regeneração e bury ficam no menu `⋯` separado.
+- Painel lateral no desktop; bottom sheet acima das notas no celular.
+- Engine e player não foram alterados; build web `3.0.5`.
+- Commit funcional `1401b46`; preview Vercel `dpl_3YRiNr7aTNXQXroE5YQP1kD7TtXv` em estado `READY`, raiz HTTP 200 e nenhum erro de build/runtime na janela consultada.
+
+## Gates
+
+- `npm run test:p0-b`.
+- `npm run test:study-focus`.
+- `npm run test:study-video`.
+- `npm run test:audio`.
+
+## Próximo
+
+P0-C: nomenclatura, estados globais e componentes compartilhados. Antes de produção, executar QA autenticado do P0-A/P0-B em desktop e celular real.
+
+---
+
+# Handoff Codex — Reforma UX P0-C (2026-07-15)
+
+## Entregue pelo Codex
+
+- Helper compartilhado `viewState.js` para loading/vazio/erro/retry.
+- Adoção em Hoje, Cofre, Progresso, Leitor, Histórias e Prática.
+- Histórias diferencia falha remota, fallback local e vazio real.
+- Práticas não ficam presas em loading quando uma consulta rejeita.
+- Linguagem principal usa frase/expressão/revisão/memória estável; jargão de
+  card/FSRS permanece apenas em áreas técnicas.
+- Home não apresenta `mature` como conhecimento ou domínio.
+- Build web/PWA `3.0.6`; gate `npm run test:p0-c` dentro do release.
+- Commit funcional `dab4da7`; preview
+  `dpl_HCzxdDNFChuezeadpP5oZzEK7Zau` `READY` em
+  `https://linguaflow-jdm5nae3k-wesleys-projects-de111a83.vercel.app`, raiz
+  HTTP 200, build sem erros e nenhum runtime `error`/`fatal` observado.
+
+## Preservar
+
+- Engine, FSRS, player, áudio, persistência e economia não foram alterados.
+- Erro de leitura não pode ser convertido em vazio.
+- Prática livre não altera placar, ofensiva, liga ou agendamento.
+- Estados compartilhados têm uma ação primária no máximo.
+
+## Próximo
+
+P1-A: Cofre e Configurações. Depois Histórias/Leitor, onboarding,
+Prática/Progresso e QA autenticado desktop/mobile antes de produção.
+
+---
+
+# Handoff Codex — Reforma UX P1-A (2026-07-15)
+
+## Entregue pelo Codex
+
+- Cofre prioriza frase contextual, usa estado real do card e mantém todas as
+  ações/vídeo.
+- Dados salvos exibidos no Cofre são escapados antes do HTML.
+- Filtros têm estado acessível e vazios oferecem próximo passo real.
+- Settings não substitui falha remota por defaults salváveis.
+- Novas expressões: default 5 e máximo 20, alinhado ao contrato server-side.
+- CEFR/retention/leech ganharam microcopy honesta, sem trocar chaves técnicas.
+- Build `3.0.7`; gate `npm run test:p1-a` dentro do release.
+- Commit funcional `28a64a8`; preview
+  `dpl_5VjfRUnCWukiL6kew9ubZpQqQnvS` `READY` em
+  `https://linguaflow-c543kzmik-wesleys-projects-de111a83.vercel.app`, HTTP 200,
+  build sem erros e nenhum runtime `error`/`fatal` observado.
+
+## Preservar
+
+- `renderVideoContext`, `attachVideoContext`, UUIDs e rota de revisão por
+  categoria.
+- Todas as chaves de Settings consumidas pelo agendador.
+- Falha de leitura de Settings deve bloquear save e oferecer retry.
+
+## Próximo
+
+P1-B: unificar a arquitetura de Histórias e Leitor; depois onboarding,
+Prática/Progresso e QA autenticado.
+
+---
+
+# Handoff Codex — Reforma UX P1-B (2026-07-15)
+
+- `readingHub.js` une Histórias e Leitor sob `Ler com contexto`.
+- Rotas, geração, importação, áudio, quiz e salvamento foram preservados.
+- Leitor diferencia progresso indisponível de vocabulário realmente novo.
+- Ajuda do Leitor ficou recolhida; importação é a ação principal.
+- Histórias usa familiaridade estimada e não chama exposição de fixação.
+- Build `3.0.8`; gate `npm run test:p1-b` no release.
+- Preview `dpl_3Fv2Y53ntRFEepgE5bs784x51i9i` `READY` em
+  `https://linguaflow-ipcg8n8kn-wesleys-projects-de111a83.vercel.app`.
+
+**Próximo:** P1-C onboarding; depois Prática/Progresso e QA autenticado.
+
+---
+
+# Handoff Codex — Reforma UX P1-C (2026-07-15)
+
+- Onboarding usa nível aproximado e carga Leve/Regular/Intensa.
+- Cargas correspondem a 5/10/20 novas expressões, dentro do cap server-side.
+- Preferências reais são aguardadas e confirmadas antes de marcar onboarding
+  concluído; não há mais writes fire-and-forget.
+- Build `3.0.9`; gate `npm run test:p1-c` no release.
+- Preview `dpl_7Rmw53ngcTQBekdVrWn9ftR7eJT1` `READY` em
+  `https://linguaflow-nebgifb96-wesleys-projects-de111a83.vercel.app`.
+
+**Próximo:** P1-D Prática/Progresso; depois QA autenticado.
+
+---
+
+# Handoff Codex — Reforma UX P1-D (2026-07-15)
+
+- Prática explica antes do início o que cada modo treina: Reconhecimento,
+  Escuta ou Produção guiada.
+- Resultado da rodada é local e não altera agendamento, XP, ofensiva ou Liga;
+  combo permanece somente visual.
+- A seleção de Prática exclui expressões atualmente devidas, evitando ensaio
+  antes da revisão SRS; preservar `getPracticeWords()` e esse filtro.
+- Progresso prioriza retenção/carga e apresenta Liga como atividade competitiva
+  opcional.
+- Estatísticas põe retenção, agenda e estado da memória acima de minutos e
+  volume; atividade não é apresentada como domínio.
+- Percentual de lembrança é identificado como autoavaliação; Liga declara que
+  seu XP agrega atividades e não mede domínio.
+- Build `3.0.10`; gate `npm run test:p1-d` dentro do release.
+- Commit `c7f0c4a`; preview `dpl_6WeDKTx9Di6K3yUqPsR6YBo7ATAD` `READY` em
+  `https://linguaflow-aee5u6518-wesleys-projects-de111a83.vercel.app`, HTTP 200,
+  build sem erros e nenhum runtime `error`/`fatal` observado.
+- Preservar engine, handlers dos três jogos, FSRS, economia e regras da Liga.
+
+**Próximo:** QA autenticado desktop/mobile de toda a reforma antes de produção.
+
+---
+
+# Handoff Codex — P0.3 candidato de produção 3.0.11 (2026-07-16)
+
+- Responsável: Codex, com auditorias sênior independentes de UX/QA,
+  pedagogia/economia e Infra/Supabase.
+- Fechados: guarda de autenticação, signup sem sessão, erros falsamente vazios,
+  listeners globais, popup mobile, CEFR em dois espelhos, weak-only vencido e
+  prática sem truncamento em 500.
+- Economia: Stories/quiz/vídeo não mintam XP declarado pelo browser; os métodos
+  cliente legados foram removidos. Review atômico continua sendo o escritor
+  competitivo qualificado.
+- Privacidade: cliente usa `rpc/get_leaderboard` e não depende mais da leitura
+  global de `user_stats`.
+- A etapa expand local `20260716124439_expand_safe_leaderboard_p0_3.sql` foi
+  aplicada remotamente como `20260716160424_expand_safe_leaderboard_p0_3` e
+  verificada sem retirar as policies do cliente antigo. Depois do deploy,
+  `20260716124440_contract_user_stats_and_legacy_xp_p0_3.sql` revoga as RPCs
+  legadas e remove INSERT/leitura global de `user_stats`; contract ainda não foi
+  aplicada.
+- Build `3.0.11`; rotas Vercel incluem `/learn` e `/progress`.
+- `npm run test:release -- --allow-dirty` aprovado; a gate agora cobre também
+  engine, áudio, YouTube, vídeo, legendas, HBO/Max e os três contratos novos.
+- Docker/Supabase CLI indisponíveis: sem replay local SQL. Não usar
+  `supabase db push`, porque há divergência histórica de timestamps entre o
+  repositório e o projeto remoto.
+
+**Evidência:** commit funcional `0a8688a`, PR GitHub `#8`, preview Vercel
+`dpl_9rHjmtmYqizxsEC8YPckb5dmFW1A` `READY`, raiz HTTP 200, build limpo e sem
+runtime errors observados. Smoke SQL autenticado confirmou a RPC do placar. QA
+público `390x844` confirmou guarda de `/learn`, shell oculto, ausência de
+overflow e console limpo.
+
+**Bloqueios externos:** workflow `29514178635` não iniciou porque o GitHub
+informa conta bloqueada por cobrança; ChatGPT Chrome Extension/native host não
+estão instalados, impedindo usar a sessão real. Não confundir esses bloqueios
+com falha da suíte, que passou localmente duas vezes.
+
+**Ainda falta antes de produção:** desbloquear Actions, CI verde, QA autenticado
+desktop/mobile/extensão, promoção do mesmo SHA, contract e smoke pós-migration.
+Produção atual permanece em `ca9fbc9`;
+rollback web disponível em `dpl_8eLCZupbmkBtAvGJVeYaLytSRghw`.
+
+## Atualização de release — 2026-07-16
+
+- GitHub Actions foi desbloqueado; rerun `29514633988` passou integralmente.
+- PR `#8` está pronto para revisão e o preview mais recente
+  `dpl_13DyPNiDQf2gmB8FhTrG2Qz1tqbZ` está `READY`.
+- Codex atualizou `checkout`/`setup-node` para `v5`, removendo o aviso do
+  runtime interno Node 20 das actions sem mudar o Node 20 usado para testar o
+  produto.
+- `test:release` agora inclui `test:stage3` (focus shell + study focus),
+  `test:product-ux` e `test:design-system`; `max-ui` deixou de rodar duas vezes.
+- GitHub Actions usa privilégio mínimo: leitura global, escrita somente no job
+  de release por tag e checkout sem credencial persistida.
+- Ordem restante: validar o CI do commit final; smoke autenticado; promover o
+  SHA aprovado; aplicar somente então
+  `20260716124440_contract_user_stats_and_legacy_xp_p0_3.sql`; smoke de placar,
+  revisão e produção. Não usar `supabase db push`.
+- Candidato final `123aac3`: release local verde, Actions `29515494106`
+  `success`, preview `dpl_HSMLfAnL9PokuVGCiGPhJgsCZhUy` `READY` e build sem
+  erros. Próximo gate é exclusivamente o smoke autenticado; não aplicar o
+  contract antes dele e da promoção do dashboard.
 
 ---

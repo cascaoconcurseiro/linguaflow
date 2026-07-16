@@ -1,5 +1,18 @@
 # Checklist — LinguaFlow
 
+## 🟠 MAX/HBO — safe-area, controles e popup (Codex, 2026-07-15)
+
+- [x] Versionar a extensão como `3.0.4` para tornar a atualização verificável.
+- [x] QA real 3.0.4: identificar dock horizontal sobre a legenda e fallback incorreto do popup fixo.
+- [x] Corrigir em `3.0.5`: dock vertical à direita, legenda Max em `137px` e popup sempre acima do retângulo visível.
+- [x] Preservar integralmente `content/subtitle-engine.js` e `content/engine/*`.
+- [x] Posicionar legenda acima da timeline/barra real, com fallback estável quando controles somem.
+- [x] Adicionar dock Max com toggle, anterior, replay, próxima, painel e configurações.
+- [x] Reancorar popup no retângulo clicado, sempre acima da legenda e com scroll quando não couber.
+- [x] Usar o mesmo overlay root em modo normal/fullscreen e sobreviver a remount da barra.
+- [x] Adicionar testes determinísticos de desktop, viewport compacta, controles ocultos e popup alto.
+- [ ] Revalidar visualmente a versão `3.0.5` na HBO autenticada.
+
 ## 🧠 REVOLUÇÃO DE PRODUTO — plano mestre real (Codex, 2026-07-14)
 
 > Documento canônico: `docs/PLANO_MESTRE_PRODUTO_REAL_2026-07-14.md`. A antiga Etapa 4 de reorganização visual isolada não deve começar antes destas fundações.

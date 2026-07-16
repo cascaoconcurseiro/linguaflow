@@ -16,7 +16,7 @@ assert.match(css, /:where\(button, a, input, select, textarea, summary\):focus-v
 assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
 assert.match(css, /@media \(forced-colors: active\)/);
 assert.match(css, /min-height:var\(--touch-target\)/);
-assert.match(css, /\.view-state \{ min-block-size:240px/);
+assert.match(css, /\.view-state\s*\{[\s\S]*?min-block-size:240px/);
 
 assert.match(home, /class="competitive-details-body"/);
 assert.doesNotMatch(home, /<details class="competitive-details" style=/);

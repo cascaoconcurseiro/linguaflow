@@ -1,6 +1,7 @@
 import { db as lfDb } from '../../../utils/db.js';
 import { generateChunksWeb } from '../core/ai.js';
 import { attachVideoContext, renderVideoContext } from '../core/videoContext.js';
+import { bindViewStateAction, escapeHtml, renderViewState } from './viewState.js';
 
 let allWords = [];
 let filteredWords = [];
@@ -15,7 +16,7 @@ const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrom
 export async function renderLibrary(container, app) {
   injectStyles();
   container.setAttribute('aria-busy', 'true');
-  container.innerHTML = '<div class="view-state" role="status" aria-live="polite">Carregando seu Cofre…</div>';
+  container.innerHTML = renderViewState({ kind: 'loading', title: 'Abrindo seu Cofre…', message: 'Organizando suas frases salvas.' });
 
   try {
     const [words, cards] = await Promise.all([lfDb.getAllWords(), lfDb.getAllCards()]);
@@ -28,8 +29,8 @@ export async function renderLibrary(container, app) {
     })).filter(w => w.category !== 'sentence');
   } catch (err) {
     console.error("Failed to load library", err);
-    container.innerHTML = `<section class="view-state view-state-error" role="alert"><strong>Não foi possível carregar seu Cofre.</strong><span>Suas frases continuam seguras. Verifique a conexão e tente novamente.</span><button type="button" class="btn btn-primary" id="btn-library-retry">Tentar novamente</button></section>`;
-    container.querySelector('#btn-library-retry')?.addEventListener('click', () => renderLibrary(container, app));
+    container.innerHTML = renderViewState({ kind: 'error', title: 'Não foi possível abrir seu Cofre', message: 'Suas frases continuam seguras. Verifique a conexão e tente novamente.', actionLabel: 'Tentar novamente', actionId: 'btn-library-retry' });
+    bindViewStateAction(container, 'btn-library-retry', () => renderLibrary(container, app));
     container.setAttribute('aria-busy', 'false');
     return;
   }
@@ -88,9 +89,9 @@ function renderUI(container, app) {
       <div id="ai-backfill-banner" style="background: var(--color-primary); color: white; padding: 12px 20px; border-radius: var(--radius-md); margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(88,204,2,0.3);">
         <div style="font-weight: 600; display:flex; align-items:center; gap:8px;">
           <span style="font-size:20px;">✨</span> 
-          <span>Você tem <strong>${missingContext.length} palavras</strong> (incluindo salvas do vídeo) sem contexto IA preenchido. Gere com IA para não demorar na hora de estudar!</span>
+          <span><strong>${missingContext.length} itens antigos</strong> estão sem detalhes de apoio. Complete-os antes da próxima revisão.</span>
         </div>
-        <button id="btn-run-backfill" style="background: var(--color-surface); color: var(--color-success-text); border: none; padding: 8px 16px; border-radius: var(--radius-sm); font-weight: 800; cursor: pointer; transition: color var(--motion-fast), background-color var(--motion-fast);">Gerar agora</button>
+        <button id="btn-run-backfill" style="background: var(--color-surface); color: var(--color-success-text); border: none; padding: 8px 16px; border-radius: var(--radius-sm); font-weight: 800; cursor: pointer; transition: color var(--motion-fast), background-color var(--motion-fast);">Completar detalhes</button>
       </div>
     `;
   }
@@ -101,71 +102,71 @@ function renderUI(container, app) {
       <div class="lib-header">
         <div class="lib-title-block">
           <h2>Seu Cofre</h2>
-          <p>Encontre uma frase e decida o que fazer com ela.</p>
+          <p>Frases salvas, expressões-alvo e seus contextos originais.</p>
         </div>
         <div class="lib-stats">
           <div class="stat-number">${filteredWords.length}</div>
-          <div class="stat-lbl">Itens</div>
+          <div class="stat-lbl">Frases</div>
         </div>
       </div>
 
       <label class="lib-search" for="library-search">
         <span class="sr-only">Buscar no Cofre</span>
-        <input id="library-search" type="search" value="${searchQuery.replace(/"/g, '&quot;')}" placeholder="Buscar palavra, tradução, frase ou vídeo" autocomplete="off">
+        <input id="library-search" type="search" value="${escapeHtml(searchQuery)}" placeholder="Buscar termo, tradução, frase ou vídeo" autocomplete="off">
       </label>
 
       <!-- Category chips: o filtro mais frequente fica sempre visível. -->
       <div class="cat-tabs" aria-label="Filtrar por tipo">
-        <button class="cat-tab ${currentCategory === 'all' ? 'active' : ''}" data-cat="all">Tudo</button>
-        <button class="cat-tab ${currentCategory === 'words' ? 'active' : ''}" data-cat="words">Palavras</button>
-        <button class="cat-tab ${currentCategory === 'phrasal' ? 'active' : ''}" data-cat="phrasal">Phrasal Verbs</button>
-        <button class="cat-tab ${currentCategory === 'slang' ? 'active' : ''}" data-cat="slang">Gírias</button>
-        <button class="cat-tab ${currentCategory === 'idioms' ? 'active' : ''}" data-cat="idioms">Expressões</button>
-        ${currentCategory !== 'all' ? `<button class="btn btn-secondary" id="btn-review-topic" style="margin-left:auto; padding:8px 16px; font-size:13px;" title="Estudar só os cards desta categoria">🧠 Revisar este tópico</button>` : ''}
+        <button type="button" class="cat-tab ${currentCategory === 'all' ? 'active' : ''}" aria-pressed="${currentCategory === 'all'}" data-cat="all">Tudo</button>
+        <button type="button" class="cat-tab ${currentCategory === 'words' ? 'active' : ''}" aria-pressed="${currentCategory === 'words'}" data-cat="words">Palavras</button>
+        <button type="button" class="cat-tab ${currentCategory === 'phrasal' ? 'active' : ''}" aria-pressed="${currentCategory === 'phrasal'}" data-cat="phrasal">Phrasal Verbs</button>
+        <button type="button" class="cat-tab ${currentCategory === 'slang' ? 'active' : ''}" aria-pressed="${currentCategory === 'slang'}" data-cat="slang">Gírias</button>
+        <button type="button" class="cat-tab ${currentCategory === 'idioms' ? 'active' : ''}" aria-pressed="${currentCategory === 'idioms'}" data-cat="idioms">Expressões</button>
+        ${currentCategory !== 'all' ? `<button class="btn btn-secondary" id="btn-review-topic" style="margin-left:auto; padding:8px 16px; font-size:13px;" title="Revisar apenas os itens desta categoria">🧠 Revisar este tópico</button>` : ''}
       </div>
 
       <details class="lib-filters" ${currentLetter || currentStatus !== 'all' ? 'open' : ''}>
         <summary>Mais filtros <span>${currentLetter || currentStatus !== 'all' ? '· ativos' : ''}</span></summary>
         <div class="status-chips" aria-label="Filtrar por estado">
-          ${[['all','Todos'],['due','Vencidos'],['learning','Em aprendizagem'],['mature','Maduros no SRS'],['suspended','Suspensos']].map(([value,label]) => `<button class="status-chip ${currentStatus === value ? 'active' : ''}" type="button" data-status="${value}">${label}</button>`).join('')}
+          ${[['all','Todos'],['due','Para hoje'],['learning','Começando'],['mature','Memória estável'],['suspended','Pausados']].map(([value,label]) => `<button class="status-chip ${currentStatus === value ? 'active' : ''}" type="button" aria-pressed="${currentStatus === value}" data-status="${value}">${label}</button>`).join('')}
         </div>
         <div class="az-grid" aria-label="Filtrar por letra inicial">
-          <button class="az-letter ${currentLetter === null ? 'active' : ''}" data-letter="ALL">Todas</button>
-          ${alphabet.map(l => `<button class="az-letter ${currentLetter === l ? 'active' : ''}" data-letter="${l}">${l}</button>`).join('')}
+          <button type="button" class="az-letter ${currentLetter === null ? 'active' : ''}" aria-pressed="${currentLetter === null}" data-letter="ALL">Todas</button>
+          ${alphabet.map(l => `<button type="button" class="az-letter ${currentLetter === l ? 'active' : ''}" aria-pressed="${currentLetter === l}" data-letter="${l}">${l}</button>`).join('')}
         </div>
       </details>
 
       <!-- Words List -->
       <div class="words-list">
-        ${filteredWords.length === 0 ? `
-          <div class="empty-state" role="status">
-            <strong>${allWords.length ? 'Nenhuma frase corresponde a estes filtros.' : 'Seu Cofre ainda está vazio.'}</strong>
-            <span>${allWords.length ? 'Limpe os filtros para voltar à coleção completa.' : 'Salve uma frase de um vídeo para criar seu primeiro card com contexto.'}</span>
-            ${allWords.length ? '<button type="button" class="btn btn-secondary" id="btn-clear-library-filters">Limpar filtros</button>' : ''}
-          </div>
-        ` : `
+        ${filteredWords.length === 0 ? renderViewState(allWords.length
+          ? { kind: 'empty', title: 'Nenhuma frase corresponde aos filtros', message: 'Limpe os filtros para voltar à coleção completa.', actionLabel: 'Limpar filtros', actionId: 'btn-clear-library-filters', actionClass: 'btn btn-secondary', compact: true }
+          : { kind: 'empty', title: 'Seu Cofre ainda está vazio', message: 'Salve uma frase em um vídeo, história ou texto para começar.', actionLabel: 'Encontrar uma frase', actionId: 'btn-empty-library-learn', compact: true }) : `
           ${filteredWords.map(w => {
             const card = cardByWordId[w.id];
             const suspended = !!(card && card.suspended);
+            const safeWord = escapeHtml(w.word);
+            const safeTranslation = escapeHtml(w.translation);
+            const safeContext = escapeHtml(w.context_sentence);
             return `
-            <div class="word-card" style="${suspended ? 'opacity:0.55;' : ''}">
+            <article class="word-card${suspended ? ' is-paused' : ''}">
               <div class="word-info">
-                <div class="word-main">${w.word} ${suspended ? '<span style="font-size:11px; font-weight:800; color:var(--color-warning); border:1px solid var(--color-warning); border-radius:6px; padding:1px 6px; vertical-align:middle;">SUSPENSO</span>' : ''}</div>
-                <div class="word-trans">${w.translation}</div>
+                <div class="word-card-meta">${renderStatus(card)}</div>
+                ${w.context_sentence && w.context_sentence.trim() !== w.word?.trim() ? `<blockquote class="word-context">${safeContext}</blockquote>` : ''}
+                <div class="word-main">${safeWord}</div>
+                <div class="word-trans">${safeTranslation}</div>
                 ${renderVideoContext(w, `library-video-${w.id}`)}
               </div>
               <div class="word-actions">
-                ${renderStatus(w.reps)}
                 <details class="word-action-menu">
-                  <summary aria-label="Abrir ações para ${w.word}">Ações</summary>
+                  <summary aria-label="Abrir ações para ${safeWord}">Ações</summary>
                   <div>
                     <button class="btn-edit-word" data-id="${w.id}">Editar</button>
-                    ${card ? `<button class="btn-suspend" data-card-id="${card.id}">${suspended ? 'Reativar no estudo' : 'Suspender do estudo'}</button>` : ''}
+                    ${card ? `<button class="btn-suspend" data-card-id="${card.id}">${suspended ? 'Retomar revisões' : 'Pausar revisões'}</button>` : ''}
                     <button class="btn-delete" data-id="${w.id}">Excluir</button>
                   </div>
                 </details>
               </div>
-            </div>
+            </article>
           `;}).join('')}
         `}
       </div>
@@ -200,6 +201,7 @@ function renderUI(container, app) {
       searchQuery = '';
       renderUI(container, app);
   });
+  bindViewStateAction(container, 'btn-empty-library-learn', () => app.navigate('learn'));
 
   // Onda 2.2: "Revisar este tópico" manda pro Estudo já filtrado pela
   // categoria selecionada — mesma chave 'category' que o card carrega
@@ -228,7 +230,7 @@ function renderUI(container, app) {
 
   document.querySelectorAll('.btn-delete').forEach(btn => {
       btn.addEventListener('click', async (e) => {
-          if(confirm('Tem certeza que deseja excluir este item?')) {
+          if(confirm('Excluir esta frase do Cofre?')) {
               // IDs são UUIDs — o parseInt antigo quebrava a exclusão
               const id = e.currentTarget.dataset.id;
               try {
@@ -238,15 +240,15 @@ function renderUI(container, app) {
                 const reviewed = /reviewed_word_cannot_be_deleted/.test(err?.message || '');
                 app.showToast(
                   reviewed
-                    ? 'Este card já tem histórico. Suspenda-o para preservar seu progresso.'
-                    : 'Erro ao excluir.',
+                    ? 'Esta frase já tem histórico de revisão. Pause as revisões para preservar esse histórico.'
+                    : 'Não foi possível excluir esta frase.',
                   reviewed ? 'info' : 'error'
                 );
                 return;
               }
               allWords = allWords.filter(w => w.id !== id);
               renderUI(container, app);
-              app.showToast('Item excluído.', 'info');
+              app.showToast('Frase excluída do Cofre.', 'info');
           }
       });
   });
@@ -261,10 +263,10 @@ function renderUI(container, app) {
             await lfDb.setCardSuspended(card.id, !card.suspended);
             card.suspended = !card.suspended;
             renderUI(container, app);
-            app.showToast(card.suspended ? 'Card suspenso ⏸️' : 'Card reativado ▶️', 'info');
+            app.showToast(card.suspended ? 'Revisões pausadas.' : 'Revisões retomadas.', 'info');
           } catch (err) {
             console.error(err);
-            app.showToast('Erro ao alterar o card.', 'error');
+            app.showToast('Não foi possível atualizar esta frase. Tente novamente.', 'error');
           }
       });
   });
@@ -380,7 +382,7 @@ function openWordEditor(w, app, container) {
       Object.assign(w, patch);
       close();
       renderUI(container, app);
-      app.showToast('Card atualizado ✅', 'info');
+      app.showToast('Frase atualizada.', 'info');
     } catch (err) {
       console.error(err);
       app.showToast('Erro ao salvar as alterações.', 'error');
@@ -390,10 +392,13 @@ function openWordEditor(w, app, container) {
   });
 }
 
-function renderStatus(reps) {
-    if (!reps || reps === 0) return `<span class="badge badge-new">Novo</span>`;
-    if (reps < 3) return `<span class="badge badge-learning">Aprendendo</span>`;
-    return `<span class="badge badge-mature">Maduro</span>`;
+function renderStatus(card) {
+    if (!card) return `<span class="badge badge-new">Nova</span>`;
+    if (card.suspended) return `<span class="badge badge-paused">Revisões pausadas</span>`;
+    if (card.due_date && new Date(card.due_date).getTime() <= Date.now()) return `<span class="badge badge-due">Revisar hoje</span>`;
+    if (card.status === 'mature') return `<span class="badge badge-mature">Memória estável</span>`;
+    if (card.status === 'review') return `<span class="badge badge-review">Consolidando</span>`;
+    return `<span class="badge badge-learning">Começando</span>`;
 }
 
 function injectStyles() {
@@ -509,6 +514,9 @@ function injectStyles() {
             align-items: center;
             transition: transform var(--motion-fast), box-shadow var(--motion-fast);
         }
+        .word-card.is-paused { border-style:dashed; }
+        .word-info { min-width:0; flex:1; }
+        .word-card-meta { margin-bottom:8px; }
         .word-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
@@ -523,6 +531,7 @@ function injectStyles() {
             font-size: 15px;
             color: var(--color-text-light);
         }
+        .word-context { max-width:620px; margin:12px 0 0; padding:10px 12px; border-left:3px solid var(--color-secondary); background:var(--color-bg-alt); color:var(--color-text); font-size:14px; line-height:1.5; }
         .video-context { margin-top: 10px; max-width: 560px; }
         .video-context-label { color: var(--color-text-light); font-size: 12px; font-weight: 800; }
         .video-context-title { display: block; color: var(--color-text); font-size: 13px; margin: 3px 0 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -554,7 +563,10 @@ function injectStyles() {
         }
         .badge-new { background: var(--color-bg-alt); color: var(--color-text-light); }
         .badge-learning { background: var(--color-warning); color: white; }
+        .badge-due { background:var(--color-danger); color:white; }
+        .badge-review { background: var(--color-secondary); color: white; }
         .badge-mature { background: var(--color-primary); color: white; }
+        .badge-paused { background: var(--color-bg-alt); color: var(--color-text-light); border:1px solid var(--color-border); }
         .view-state, .empty-state {
             text-align: center;
             padding: 60px;

@@ -3,6 +3,7 @@ import { addLocalDays, daysBetweenLocalKeys, localDateKey } from '../../../utils
 import { runPlacementTest } from './settingsView.js';
 import { generateWeeklyDiagnosis, getCefrLevel } from '../core/ai.js';
 import { computeAchievements, newlyUnlocked } from '../core/achievements.js';
+import { bindViewStateAction, renderViewState } from './viewState.js';
 
 function organizeHomeSections(container) {
     const main = container.querySelector('.dashboard-main');
@@ -24,24 +25,25 @@ function organizeHomeSections(container) {
 
     const today = section('home-today', '', '');
     append(today, '.dashboard-header');
-    append(today, '#home-return-banner');
-    append(today, '#home-streak-banner');
-    append(today, '#home-today-plan');
-    append(today, '.action-buttons');
+    append(today, '.home-data-warning');
+    append(today, '#home-primary-plan');
 
-    const missions = section('home-missions', 'Missões', 'Metas de prática, não atalhos para pontuação.');
-    append(missions, '.quests-card');
+    const next = section('home-next', 'Depois', 'Continue em contexto real ou faça uma prática curta.');
+    append(next, '#home-secondary-actions');
 
-    const insights = section('home-insights', 'Insights', 'Sinais da sua memória para decidir o próximo passo.');
-    append(insights, '.stats-grid');
-    append(insights, '#home-memory-insight');
-    append(insights, '#diagnosis-details');
-    append(insights, '.heatmap-section');
+    const more = document.createElement('details');
+    more.id = 'home-more';
+    more.className = 'home-more';
+    more.innerHTML = '<summary>Ver metas, memória e conquistas</summary><div class="home-more-body"></div>';
+    const moreBody = more.querySelector('.home-more-body');
+    append(moreBody, '#home-today-plan');
+    append(moreBody, '.quests-card');
+    append(moreBody, '.stats-grid');
+    append(moreBody, '#home-memory-insight');
+    append(moreBody, '.achievements-section');
+    append(moreBody, '.heatmap-section');
 
-    const achievements = section('home-achievements', 'Conquistas', 'Marcos do seu percurso, sem transformar repetição livre em domínio.');
-    append(achievements, '.achievements-section');
-
-    main.replaceChildren(today, missions, insights, achievements);
+    main.replaceChildren(today, next, more);
     sidebar.remove();
 }
 
@@ -75,6 +77,25 @@ const GOAL_TO_NEW_PER_DAY = { 10: 5, 20: 10, 40: 20 };
 const ONBOARDING_KEY = 'onboarding_v1';
 const ONBOARDING_LEVELS = new Set(['beginner', 'intermediate', 'advanced']);
 
+export function chooseTodayAction(state = {}) {
+    const totalWords = Math.max(0, Number(state.totalWords) || 0);
+    const dueCards = Math.max(0, Number(state.dueCards) || 0);
+    const dueLearning = Math.min(dueCards, Math.max(0, Number(state.dueLearning) || 0));
+    const dueReview = Math.max(0, dueCards - dueLearning);
+    const reviewsToday = Math.max(0, Number(state.reviewsToday) || 0);
+    const daysAway = Math.max(0, Number(state.daysAway) || 0);
+    const dueTomorrow = Math.max(0, Number(state.dueTomorrow) || 0);
+    const retention30 = state.retention30 === null || state.retention30 === undefined
+        ? null : Number(state.retention30);
+    if (totalWords === 0) return { kind:'first-context', route:'learn', label:'Encontrar uma frase', title:'Aprenda sua primeira frase real', reason:'Escolha um conteúdo, encontre uma frase útil e transforme esse momento em memória.', meta:'Vídeos, histórias ou textos — você escolhe a fonte.' };
+    if (dueCards > 0 && daysAway >= 2) return { kind:'return-review', route:'study', label:'Retomar revisões', title:'Vamos retomar de onde você parou', reason:'Sua memória precisa de atenção, sem pressa e sem tentar recuperar dias perdidos.', meta:`${dueReview} ${dueReview === 1 ? 'revisão' : 'revisões'}${dueLearning ? ` · ${dueLearning} em aprendizado` : ''}` };
+    if (dueLearning > 0 && dueReview === 0) return { kind:'learning', route:'study', label:'Continuar aprendizado', title:'Continue o que começou', reason:'Estas frases voltaram agora para reforçar a primeira memória.', meta:`${dueLearning} ${dueLearning === 1 ? 'frase em aprendizado' : 'frases em aprendizado'}` };
+    if (dueReview > 0) return { kind:'review', route:'study', label:'Revisar agora', title:'Proteja o que você já aprendeu', reason:retention30 !== null && Number.isFinite(retention30) && retention30 < 70 ? 'Hoje vale consolidar o que já existe antes de adicionar frases novas.' : dueReview >= 15 ? 'A fila está maior; faça uma sessão confortável e retome depois.' : 'Estas frases chegaram ao momento certo de serem lembradas.', meta:`${dueReview} ${dueReview === 1 ? 'revisão' : 'revisões'}${dueLearning ? ` · ${dueLearning} em aprendizado` : ''}` };
+    if (reviewsToday > 0) return { kind:'completed', route:'learn', label:'Continuar em imersão', title:'Plano de memória concluído', reason:`Você fez ${reviewsToday} ${reviewsToday === 1 ? 'revisão' : 'revisões'} hoje. As próximas frases voltarão no momento certo.`, meta:dueTomorrow ? `Amanhã: ${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}` : 'Nada mais é obrigatório hoje.' };
+    if (daysAway >= 2) return { kind:'return-clear', route:'learn', label:'Continuar em imersão', title:'Você voltou na hora certa', reason:'Não há revisões vencidas. Escolha um conteúdo e descubra uma nova frase.', meta:dueTomorrow ? `Amanhã: ${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}` : 'Sua memória está em dia.' };
+    return { kind:'clear', route:'learn', label:'Continuar em imersão', title:'Sua memória está em dia', reason:'Você pode continuar aprendendo com conteúdo real ou encerrar por hoje.', meta:dueTomorrow ? `Amanhã: ${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}` : 'Nada mais é obrigatório hoje.' };
+}
+
 function parseOnboarding(value) {
     if (typeof value !== 'string') return null;
     try {
@@ -95,16 +116,9 @@ function parseOnboarding(value) {
 }
 
 function renderHomeLoadError(container, app) {
-    container.innerHTML = `
-        <section class="onboarding-shell" aria-labelledby="home-load-error-title">
-            <div class="onboarding-card" role="alert">
-                <p class="onboarding-kicker">CONEXÃO</p>
-                <h2 id="home-load-error-title">Não foi possível carregar seus dados</h2>
-                <p>Seus cards não foram apagados. Verifique a conexão e tente novamente.</p>
-                <button type="button" class="btn-action btn-study" id="btn-retry-home">Tentar novamente</button>
-            </div>
-        </section>`;
-    container.querySelector('#btn-retry-home')?.addEventListener('click', () => renderHome(container, app));
+    container.setAttribute('aria-busy', 'false');
+    container.innerHTML = renderViewState({ kind: 'error', title: 'Não foi possível preparar seu plano de hoje', message: 'Suas frases salvas continuam seguras. Verifique a conexão e tente novamente.', actionLabel: 'Tentar novamente', actionId: 'btn-retry-home' });
+    bindViewStateAction(container, 'btn-retry-home', () => renderHome(container, app));
 }
 
 function renderOnboarding(container, app, initial = {}) {
@@ -123,22 +137,22 @@ function renderOnboarding(container, app, initial = {}) {
     const draw = () => {
         const content = step === 1 ? `
             <p class="onboarding-kicker">PASSO 1 DE 3</p>
-            <h2 id="onboarding-title">Como você se sente no inglês?</h2>
-            <p>Isso personaliza o seu ponto de partida; você pode ajustar depois.</p>
+            <h2 id="onboarding-title">Qual ponto de partida parece mais próximo?</h2>
+            <p>É apenas uma estimativa inicial para ajustar textos e explicações. Você pode mudar depois.</p>
             <div class="onboarding-options" role="radiogroup" aria-label="Nível atual de inglês">
                 ${levels.map(([value, title, description]) => `<button type="button" class="onboarding-option ${level === value ? 'selected' : ''}" role="radio" aria-checked="${level === value}" data-level="${value}"><strong>${title}</strong><span>${description}</span></button>`).join('')}
             </div>
-            <button type="button" class="onboarding-back" id="btn-onboarding-placement" style="margin-top:12px;">🎯 Prefiro medir com o teste de nivelamento (3 fases, ~4 min)</button>` : step === 2 ? `
+            <button type="button" class="onboarding-back" id="btn-onboarding-placement" style="margin-top:12px;">🎯 Prefiro estimar com um teste curto (~4 min)</button>` : step === 2 ? `
             <p class="onboarding-kicker">PASSO 2 DE 3</p>
-            <h2 id="onboarding-title">Qual é sua meta diária?</h2>
-            <p>Ela passa a ser sua missão diária de revisões. Comece leve: consistência vence intensidade.</p>
+            <h2 id="onboarding-title">Com que carga você quer começar?</h2>
+            <p>Comece leve. Expressões novas geram revisões futuras, e você pode ajustar isso depois.</p>
             <div class="onboarding-options" role="radiogroup" aria-label="Meta diária de revisões">
-                ${goals.map(goal => `<button type="button" class="onboarding-option ${dailyGoal === goal ? 'selected' : ''}" role="radio" aria-checked="${dailyGoal === goal}" data-goal="${goal}"><strong>${goal} revisões</strong><span>${goal === 10 ? 'Cerca de 5 minutos' : goal === 20 ? 'Cerca de 10 minutos' : 'Cerca de 20 minutos'}</span></button>`).join('')}
+                ${goals.map(goal => `<button type="button" class="onboarding-option ${dailyGoal === goal ? 'selected' : ''}" role="radio" aria-checked="${dailyGoal === goal}" data-goal="${goal}"><strong>${goal === 10 ? 'Leve' : goal === 20 ? 'Regular' : 'Intensa'}</strong><span>${goal} revisões/dia · até ${GOAL_TO_NEW_PER_DAY[goal]} expressões novas</span></button>`).join('')}
             </div>` : `
             <p class="onboarding-kicker">PASSO 3 DE 3</p>
             <h2 id="onboarding-title">Seu plano está pronto</h2>
-            <p><strong>${dailyGoal} revisões por dia</strong>, no ritmo ${levels.find(item => item[0] === level)?.[1].toLowerCase() || 'escolhido'}.</p>
-            <p>Comece por uma história curta e salve a primeira palavra que quiser praticar. Ela aparecerá nos seus flashcards.</p>`;
+            <p><strong>${dailyGoal} revisões por dia</strong> e até <strong>${GOAL_TO_NEW_PER_DAY[dailyGoal]} expressões novas</strong>, no ponto de partida ${levels.find(item => item[0] === level)?.[1].toLowerCase() || 'escolhido'}.</p>
+            <p>Comece por uma história curta e adicione a primeira expressão que quiser praticar. Ela aparecerá no Cofre e no seu plano de revisão.</p>`;
         container.innerHTML = `
             <section class="onboarding-shell" aria-labelledby="onboarding-title">
                 <div class="onboarding-card">
@@ -177,15 +191,19 @@ function renderOnboarding(container, app, initial = {}) {
             status.textContent = 'Salvando seu plano…';
             const record = JSON.stringify({ version: 1, completed: true, level, dailyGoal, updatedAt: new Date().toISOString() });
             try {
-                const saved = await app.db.setSetting(ONBOARDING_KEY, record);
-                if (!saved) throw new Error('Configuração não confirmada');
-                // Fiação real: CEFR (se o teste não gravou) + cota de novas/dia
+                // Salva preferências reais primeiro. O onboarding só é marcado
+                // como concluído depois que todas forem confirmadas.
+                const writes = [];
                 if (!placementCefr && LEVEL_TO_CEFR[level]) {
-                    app.db.setSetting('lf_cefr_level', LEVEL_TO_CEFR[level]).catch(() => {});
-                    app.db.setSetting('cefrTargetLevel', LEVEL_TO_CEFR[level]).catch(() => {});
+                    writes.push(app.db.setSetting('lf_cefr_level', LEVEL_TO_CEFR[level]));
+                    writes.push(app.db.setSetting('cefrTargetLevel', LEVEL_TO_CEFR[level]));
                 }
                 const newPerDay = GOAL_TO_NEW_PER_DAY[dailyGoal];
-                if (newPerDay) app.db.setSetting('new_per_day', String(newPerDay)).catch(() => {});
+                if (newPerDay) writes.push(app.db.setSetting('new_per_day', String(newPerDay)));
+                const confirmed = await Promise.all(writes);
+                if (confirmed.some(saved => !saved)) throw new Error('Preferência não confirmada');
+                const saved = await app.db.setSetting(ONBOARDING_KEY, record);
+                if (!saved) throw new Error('Configuração não confirmada');
                 app.navigate?.('stories');
             } catch (error) {
                 console.warn('[Onboarding] Não foi possível salvar:', error);
@@ -204,7 +222,8 @@ export async function renderHome(container, app) {
     // Stats via db unificado (Supabase) exposto em app.db
     const db = app?.db;
     container.setAttribute('aria-busy', 'true');
-    container.innerHTML = '<p class="home-loading" role="status">Carregando seu painel…</p>';
+    container.setAttribute('aria-busy', 'true');
+    container.innerHTML = renderViewState({ kind: 'loading', title: 'Preparando seu plano de hoje…', message: 'Organizando as revisões que mais ajudam sua memória agora.' });
     if (!db) {
         container.removeAttribute('aria-busy');
         if (myGen === _homeRenderGen) renderHomeLoadError(container, app);
@@ -255,6 +274,7 @@ export async function renderHome(container, app) {
     let weakCategory = null;   // categoria mais fraca da semana (missão de foco)
     let weakCatReviewsToday = 0;
     let storiesCount = 0;      // Onda 8: usado nas conquistas ("1ª história" etc.)
+    let supplementaryDataAvailable = true;
     try {
         // Onda 7 (perf): getStats() (wave 1, acima) já buscou 30 dias de
         // review_log inteiro (stats.reviewLog) — pedir de novo aqui era uma
@@ -336,7 +356,10 @@ export async function renderHome(container, app) {
                 .filter(r => activityDate(r) === todayISO && (catByCardId[r.card_id] || 'word') === weakCategory.cat)
                 .length;
         }
-    } catch (e) { console.warn('[Home] Erro ao calcular missões:', e); }
+    } catch (e) {
+        supplementaryDataAvailable = false;
+        console.warn('[Home] Dados complementares indisponíveis:', e);
+    }
 
     // Onda 8 (Gerente + Eng. SRS): conquistas — puramente derivadas de dados
     // que já existem (streak, palavras salvas, palavras maduras, histórias).
@@ -403,26 +426,51 @@ export async function renderHome(container, app) {
 
     const allQuestsDone = coreQuests.every(q => q.done);
 
+    const todayAction = chooseTodayAction({
+        totalWords: safeStats.totalWords,
+        dueCards: safeStats.dueCards,
+        dueLearning: dueLearningNow,
+        reviewsToday,
+        daysAway,
+        dueTomorrow,
+        retention30,
+    });
+
     if (myGen !== _homeRenderGen) return; // uma chamada mais nova já assumiu a tela (Onda 9)
     container.innerHTML = `
         <div class="gamified-home">
             <div class="dashboard-main">
                 <div class="dashboard-header">
                     <h2>Hoje</h2>
-                    <p>Um plano curto para manter a memória em dia.</p>
+                    <p>Uma próxima ação clara, escolhida pelo estado real da sua memória.</p>
                 </div>
+
+                ${supplementaryDataAvailable ? '' : `
+                <div class="home-data-warning" role="status">
+                    <strong>Alguns detalhes não foram carregados.</strong>
+                    <span>A fila principal está disponível, mas previsão, fraquezas e atividade recente podem estar incompletas. Nenhum zero exibido nessas áreas deve ser interpretado como dado confirmado.</span>
+                    <button type="button" id="btn-home-details-retry">Tentar novamente</button>
+                </div>`}
+
+                <section id="home-primary-plan" class="home-primary-plan" data-plan-kind="${todayAction.kind}" aria-labelledby="home-primary-title">
+                    <p class="product-kicker">PRÓXIMO PASSO</p>
+                    <h1 id="home-primary-title">${todayAction.title}</h1>
+                    <p class="home-primary-reason">${todayAction.reason}</p>
+                    <p class="home-primary-meta">${todayAction.meta}</p>
+                    <button class="btn-action btn-study" id="btn-study-now" type="button">${todayAction.label}</button>
+                </section>
                 
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-icon" style="color:var(--color-primary)">📚</div>
                         <div class="stat-value">${safeStats.dueCards || 0}</div>
-                        <div class="stat-label">Para Revisar</div>
-                        ${dueLearningNow > 0 ? `<div style="font-size:11px; color:var(--color-text-light); margin-top:2px;" title="Cards em learning steps: voltam em minutos dentro da sessão — não são dívida acumulada">💭 ${dueLearningNow} em aprendizado</div>` : ''}
+                        <div class="stat-label">Revisões de hoje</div>
+                        ${dueLearningNow > 0 ? `<div style="font-size:11px; color:var(--color-text-light); margin-top:2px;" title="Frases começando voltam em minutos dentro desta sessão">💭 ${dueLearningNow} começando</div>` : ''}
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon" style="color:var(--color-secondary)">⭐</div>
                         <div class="stat-value">${safeStats.byStatus?.mature || 0}</div>
-                        <div class="stat-label">Palavras Maduras</div>
+                        <div class="stat-label">Memória estável</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon" style="color:#ffc800">⚡</div>
@@ -441,7 +489,7 @@ export async function renderHome(container, app) {
                     <span style="font-size:28px;">👋</span>
                     <div style="flex:1;">
                         <div style="font-weight:900; color:var(--color-text);">Sentimos sua falta! Você ficou ${daysAway} dias fora.</div>
-                        <div style="font-size:13px; color:var(--color-text-light);">Sua missão de hoje é leve: só ${revTarget} cartas para voltar ao ritmo.</div>
+                        <div style="font-size:13px; color:var(--color-text-light);">Seu plano de hoje é leve: só ${revTarget} revisões para voltar ao ritmo.</div>
                     </div>
                     <button class="btn btn-primary" id="btn-comeback" style="padding:10px 18px; font-size:13px;">Voltar agora</button>
                 </div>` : ''}
@@ -450,7 +498,7 @@ export async function renderHome(container, app) {
                     <span style="font-size:28px;">🔥</span>
                     <div style="flex:1;">
                         <div style="font-weight:900; color:var(--color-text);">Sua ofensiva de ${streak} ${streak === 1 ? 'dia' : 'dias'} está em risco!</div>
-                        <div style="font-size:13px; color:var(--color-text-light);">Revise 1 card hoje pra não perder o fogo.</div>
+                        <div style="font-size:13px; color:var(--color-text-light);">Conclua 1 revisão hoje para manter a ofensiva.</div>
                     </div>
                     <button class="btn btn-primary" id="btn-save-streak" style="padding:10px 18px; font-size:13px;">Salvar ofensiva</button>
                 </div>` : ''}
@@ -458,12 +506,12 @@ export async function renderHome(container, app) {
                     <span style="font-size:26px;">🧑‍🏫</span>
                     <div style="flex:1;">
                         <div style="font-weight:900; color:var(--color-text); font-size:14px; margin-bottom:4px;">Plano de hoje
-                            <span style="font-weight:700; color:var(--color-text-light); font-size:12px;">— ${dueReviewNow} ${dueReviewNow === 1 ? 'revisão' : 'revisões'}${dueLearningNow ? ` · ${dueLearningNow} em aprendizado` : ''}${weakWords.length ? ` · ${weakWords.length} ${weakWords.length === 1 ? 'palavra fraca' : 'palavras fracas'}` : ''}</span>
+                            <span style="font-weight:700; color:var(--color-text-light); font-size:12px;">— ${dueReviewNow} ${dueReviewNow === 1 ? 'revisão' : 'revisões'}${dueLearningNow ? ` · ${dueLearningNow} começando` : ''}${weakWords.length ? ` · ${weakWords.length} ${weakWords.length === 1 ? 'termo para reforçar' : 'termos para reforçar'}` : ''}</span>
                         </div>
                         <div style="font-size:13px; color:var(--color-text); line-height:1.5;">${professorTip}</div>
                         ${weakWords.length ? `<div style="font-size:12px; color:var(--color-text-light); margin-top:6px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                             <span>🔎 No radar: ${weakWords.map(w => `<strong>${escapeHtml(w.word)}</strong> (${w.lapses}x)`).join(' · ')}</span>
-                            <button id="btn-study-weak" class="btn btn-secondary" style="padding:4px 12px; font-size:11px;" title="Modo de estudo customizado (paridade Anki): revisa só cards fracos/leech, fora da cota diária normal">Revisar só estas</button>
+                            <button id="btn-study-weak" class="btn btn-secondary" style="padding:4px 12px; font-size:11px;" title="Praticar apenas os termos que precisam de atenção">Reforçar estes termos</button>
                         </div>` : ''}
                         <details id="diagnosis-details" style="margin-top:10px;">
                             <summary style="cursor:pointer; font-size:13px; font-weight:800; color:var(--color-secondary); list-style:none;">🔬 Diagnóstico semanal do linguista <span style="font-weight:600; color:var(--color-text-light);">(clique pra abrir)</span></summary>
@@ -473,9 +521,9 @@ export async function renderHome(container, app) {
                 </div>
                 <div id="home-memory-insight" style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:24px; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:14px 18px; align-items:center;">
                     <div style="font-weight:800; color:var(--color-text); font-size:14px;">📈 Memória:</div>
-                    <div style="font-size:14px; color:var(--color-text-light);">Palavras conhecidas: <strong style="color:var(--color-primary);">${knownFamilies}</strong></div>
+                    <div style="font-size:14px; color:var(--color-text-light);">Itens familiares: <strong style="color:var(--color-primary);">${knownFamilies}</strong></div>
                     <div style="font-size:14px; color:var(--color-text-light);">Retenção 30d: <strong style="color:${retention30 === null ? 'var(--color-text-light)' : retention30 >= 85 ? 'var(--color-primary)' : retention30 >= 70 ? '#ffc800' : 'var(--color-danger)'};">${retention30 === null ? '—' : retention30 + '%'}</strong></div>
-                    <div style="font-size:14px; color:var(--color-text-light);">Amanhã: <strong style="color:var(--color-text);">${dueTomorrow} ${dueTomorrow === 1 ? 'card' : 'cards'}</strong></div>
+                    <div style="font-size:14px; color:var(--color-text-light);">Amanhã: <strong style="color:var(--color-text);">${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}</strong></div>
                     <div style="font-size:14px; color:var(--color-text-light);">Próximos 7 dias: <strong style="color:var(--color-text);">${dueWeek}</strong></div>
                     <div style="font-size:14px; color:var(--color-text-light);" title="Protege sua ofensiva se você pular 1 dia. Ganhe 1 a cada 7 dias de ofensiva.">🧊 Freezes: <strong style="color:var(--color-secondary);">${userStats?.streak_freezes ?? 1}</strong></div>
                     <div style="flex-basis:100%; display:flex; align-items:flex-end; gap:4px; height:42px; margin-top:4px;" title="Previsão de revisões (estilo Anki): quantos cards vencem em cada um dos próximos 7 dias">
@@ -493,14 +541,12 @@ export async function renderHome(container, app) {
                     </div>
                 </div>
 
-                <div class="action-buttons">
-                    <button class="btn-action btn-study" id="btn-study-now">
-                        <span class="btn-icon">🧠</span>
-                        CONTINUAR SEU PLANO
+                <div id="home-secondary-actions" class="action-buttons home-secondary-actions">
+                    <button class="btn-action btn-study" id="btn-open-learning">
+                        EXPLORAR CONTEÚDO
                     </button>
                     <button class="btn-action btn-game" id="btn-play-match">
-                        <span class="btn-icon">🎮</span>
-                        PRÁTICA LIVRE
+                        PRÁTICA LIVRE · SEM PLACAR
                     </button>
                 </div>
 
@@ -623,8 +669,12 @@ export async function renderHome(container, app) {
         if (app && app.navigate) app.navigate('study');
     });
     document.getElementById('btn-study-now')?.addEventListener('click', () => {
-        if (app && app.navigate) app.navigate('study');
+        if (app && app.navigate) app.navigate(todayAction.route);
     });
+    document.getElementById('btn-home-details-retry')?.addEventListener('click', () => {
+        renderHome(container, app);
+    });
+    document.getElementById('btn-open-learning')?.addEventListener('click', () => app?.navigate?.('learn'));
 
     // Onda 9: modo de estudo customizado (paridade Anki) — revisar só as
     // palavras fracas/leech, ignorando a cota diária normal.
@@ -749,6 +799,10 @@ function injectStyles() {
             margin: 0;
             font-weight: bold;
         }
+
+        .home-data-warning { display:grid; gap:6px; padding:14px 16px; border:2px solid var(--color-warning); border-radius:14px; background:color-mix(in srgb, var(--color-warning) 12%, var(--color-surface)); color:var(--color-text); }
+        .home-data-warning span { color:var(--color-text-light); font-size:13px; line-height:1.5; }
+        .home-data-warning button { justify-self:start; min-height:44px; padding:0; border:0; background:transparent; color:var(--color-secondary); font:800 14px var(--font-main); cursor:pointer; }
 
         .stats-grid {
             display: grid;

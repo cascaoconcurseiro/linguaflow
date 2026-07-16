@@ -7,6 +7,7 @@ import {
 } from '../core/placement.js';
 import { playNaturalAudio, stopAudio, preloadKokoro } from '../core/tts.js';
 import { gradeWriting } from '../core/ai.js';
+import { bindViewStateAction, renderViewState } from './viewState.js';
 
 const isExtensionCtx = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
@@ -215,11 +216,15 @@ export async function runPlacementTest(app, onDone) {
     box.querySelector('#pl-apply').addEventListener('click', async () => {
       if (combo.retestRequired) return;
       try {
-        await lfDb.setSetting('lf_cefr_level', combo.level);
-        lfDb.setSetting('cefrTargetLevel', combo.level).catch(() => {});
+        const saved = await Promise.all([
+          lfDb.setSetting('lf_cefr_level', combo.level),
+          lfDb.setSetting('cefrTargetLevel', combo.level),
+        ]);
+        if (saved.some(result => !result)) throw new Error('Sincronização não confirmada');
         app.showToast(`Nível ${combo.level} aplicado! 🎓`, 'success');
       } catch {
         app.showToast('Erro ao salvar o nível.', 'error');
+        return;
       }
       closeAll();
       if (onDone) onDone(combo.level);
@@ -248,7 +253,19 @@ export async function renderSettings(container, app) {
     'leech_action', 'lf_srs_retention', 'learning_steps', 'new_per_day',
     'max_reviews_per_day', 'lf_reverse_cards', 'lf_varied_exercises',
     'lf_audio_auto_front', 'lf_audio_auto_back'];
-  const settings = await lfDb.getSettings(settingKeys).catch(() => ({}));
+  container.setAttribute('aria-busy', 'true');
+  container.innerHTML = renderViewState({ kind: 'loading', title: 'Carregando suas configurações…', message: 'Lendo suas preferências sem alterar nenhum valor.' });
+  let settings;
+  try {
+    settings = await lfDb.getSettings(settingKeys);
+  } catch (error) {
+    console.error('[Settings] Não foi possível carregar preferências:', error);
+    container.setAttribute('aria-busy', 'false');
+    container.innerHTML = renderViewState({ kind: 'error', title: 'Não foi possível carregar suas configurações', message: 'Nenhum valor padrão será salvo por cima das suas preferências. Verifique a conexão e tente novamente.', actionLabel: 'Tentar novamente', actionId: 'btn-settings-retry' });
+    bindViewStateAction(container, 'btn-settings-retry', () => renderSettings(container, app));
+    return;
+  }
+  container.setAttribute('aria-busy', 'false');
   const [savedCefr, savedTtsLang, savedTtsSpeed, srsGradInt, srsMaxInt, srsIntMod,
     srsLeech, srsLeechAction, srsRetentionRaw, srsSteps, srsNewPerDay, srsMaxRev,
     srsReverseRaw, srsVariedRaw, audioFrontRaw, audioBackRaw] = settingKeys.map(key => settings[key] ?? null);
@@ -263,7 +280,7 @@ export async function renderSettings(container, app) {
   const leechAction = srsLeechAction || 'tag';
   const srsRetention = Math.round((Number(srsRetentionRaw) || 0.9) * 100);
   const learningSteps = srsSteps || '1 10';
-  const newPerDay = srsNewPerDay || '20';
+  const newPerDay = String(Math.min(20, Math.max(0, Number(srsNewPerDay ?? 5) || 5)));
   const maxRevPerDay = srsMaxRev || '200';
   const srsReverse = srsReverseRaw === true || srsReverseRaw === 'true';
   const srsVaried = srsVariedRaw === null || srsVariedRaw === true || srsVariedRaw === 'true';
@@ -277,18 +294,18 @@ export async function renderSettings(container, app) {
 
       <!-- CEFR Level Selector -->
       <div style="background: var(--color-surface); border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px;">
-        <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 8px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">Meu Nível CEFR</h2>
-        <p style="color:var(--color-text-light); margin-bottom:16px; font-size:14px;">Declare seu nível atual para calibrar sua Jornada Fluente. Referência: Cambridge English Scale.</p>
+        <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 8px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">Seu nível aproximado</h2>
+        <p style="color:var(--color-text-light); margin-bottom:16px; font-size:14px;">Usamos esta estimativa para ajustar textos e explicações. Você pode mudar depois.</p>
         <div id="cefr-selector" style="display:flex; gap:10px; flex-wrap:wrap;">
           <button class="cefr-btn lf-btn-bounce" data-level="A1">A1<br><span>Iniciante</span></button>
           <button class="cefr-btn lf-btn-bounce" data-level="A2">A2<br><span>Básico</span></button>
           <button class="cefr-btn lf-btn-bounce" data-level="B1">B1<br><span>Intermediário</span></button>
-          <button class="cefr-btn lf-btn-bounce" data-level="B2">B2<br><span>Fluente Base</span></button>
+          <button class="cefr-btn lf-btn-bounce" data-level="B2">B2<br><span>Intermediário alto</span></button>
           <button class="cefr-btn lf-btn-bounce" data-level="C1">C1<br><span>Avançado</span></button>
-          <button class="cefr-btn lf-btn-bounce" data-level="C2">C2<br><span>Maestria</span></button>
+          <button class="cefr-btn lf-btn-bounce" data-level="C2">C2<br><span>Proficiente</span></button>
         </div>
-        <button id="btn-placement" class="btn btn-secondary" style="margin-top:16px; width:100%;">🎯 Não sei meu nível — fazer o teste de nivelamento (3 fases, ~4 min)</button>
-        <p style="font-size:12px; color:var(--color-text-light); margin-top:8px;">Vocabulário (anti-chute) + gramática em contexto (adaptativo) + escuta. Combina as 3 habilidades, mostra suas lacunas e configura o sistema inteiro (IA, histórias, legendas).</p>
+        <button id="btn-placement" class="btn btn-secondary" style="margin-top:16px; width:100%;">🎯 Estimar meu nível (~4 min)</button>
+        <p style="font-size:12px; color:var(--color-text-light); margin-top:8px;">Uma estimativa inicial com vocabulário, gramática em contexto e escuta — não substitui uma avaliação CEFR completa.</p>
       </div>
 
       <!-- Daily Limits (agora REAIS: controlam a fila de estudo) -->
@@ -296,15 +313,15 @@ export async function renderSettings(container, app) {
         <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 16px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">Limites Diários</h2>
         <div style="display:flex; gap: 24px; margin-bottom: 8px;">
           <div style="flex:1;">
-            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Novas cartas/dia</label>
-            <input type="number" id="srs-new-per-day" value="${newPerDay}" min="0" max="200" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; background:var(--color-bg-alt); color:var(--color-text);">
+          <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Novas expressões por dia</label>
+            <input type="number" id="srs-new-per-day" value="${newPerDay}" min="0" max="20" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; background:var(--color-bg-alt); color:var(--color-text);">
           </div>
           <div style="flex:1;">
             <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Revisões máximas/dia</label>
             <input type="number" id="srs-max-rev" value="${maxRevPerDay}" min="10" max="1000" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; background:var(--color-bg-alt); color:var(--color-text);">
           </div>
         </div>
-        <p style="font-size:12px; color:var(--color-text-light);">Protege contra a "avalanche de cards": novas cartas além da cota ficam pra amanhã, e a sessão respeita o teto de revisões.</p>
+        <p style="font-size:12px; color:var(--color-text-light);">Cada expressão nova gera revisões futuras. Comece com 5; por segurança, o sistema introduz no máximo 20 por dia.</p>
       </div>
 
       <!-- Advanced FSRS Section -->
@@ -316,11 +333,11 @@ export async function renderSettings(container, app) {
         
         <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Retenção Desejada (Recomendado: 90%): <span id="retention-val" style="color:var(--color-primary);">${srsRetention}%</span></label>
         <input type="range" id="retention-slider" min="80" max="97" value="${srsRetention}" style="width:100%; margin-bottom: 8px;">
-        <p style="font-size:12px; color:var(--color-text-light); margin-bottom:16px;">Mais alto = você revisa com mais frequência e esquece menos. Mais baixo = menos revisões, mais esquecimento. 90% é o equilíbrio ideal.</p>
+        <p style="font-size:12px; color:var(--color-text-light); margin-bottom:16px;">90% é um bom ponto inicial. Valores maiores geram mais revisões; menores aceitam mais esquecimento.</p>
         
-        <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Passos de Aprendizagem (minutos)</label>
+        <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Repetições iniciais (minutos)</label>
         <input type="text" id="srs-learning-steps" value="${learningSteps}" placeholder="1 10" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; margin-bottom:16px; background:var(--color-bg-alt); color:var(--color-text);">
-        <p style="font-size:12px; color:var(--color-text-light);">Ex: "1 10" = a carta nova volta em 1 min e depois em 10 min antes de graduar. É por isso que cards reaparecem na mesma sessão — como no Anki.</p>
+        <p style="font-size:12px; color:var(--color-text-light);">Exemplo: "1 10" faz uma expressão nova voltar em 1 e 10 minutos antes do agendamento normal.</p>
       </div>
 
       <!-- Advanced SRS -->
@@ -340,14 +357,14 @@ export async function renderSettings(container, app) {
             <input type="number" id="srs-int-mod" value="${intMod}" min="50" max="200" step="5" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
           </div>
           <div style="flex:1; min-width:180px;">
-            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Marcar leech após N erros</label>
+            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Sinalizar item após N esquecimentos</label>
             <input type="number" id="srs-leech-thresh" value="${leechThresh}" min="1" max="50" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
           </div>
           <div style="flex:1; min-width:180px;">
-            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Ação para leeches</label>
+            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Quando um item precisar de atenção</label>
             <select id="srs-leech-action" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
-              <option value="tag" ${leechAction === 'tag' ? 'selected' : ''}>Só marcar (tag)</option>
-              <option value="suspend" ${leechAction === 'suspend' ? 'selected' : ''}>Suspender o card</option>
+              <option value="tag" ${leechAction === 'tag' ? 'selected' : ''}>Sinalizar e continuar</option>
+              <option value="suspend" ${leechAction === 'suspend' ? 'selected' : ''}>Pausar revisões desse item</option>
             </select>
           </div>
         </div>
@@ -516,7 +533,7 @@ export async function renderSettings(container, app) {
       </div>
       
       <div style="text-align:right;">
-        <button id="btn-save" class="btn btn-primary" style="padding: 16px 32px; font-size: 16px;">Salvar Todas as Configurações</button>
+      <button id="btn-save" class="btn btn-primary" style="padding: 16px 32px; font-size: 16px;">Salvar configurações</button>
       </div>
     </div>
   `;
@@ -541,7 +558,7 @@ export async function renderSettings(container, app) {
   };
   const saveBar = container.querySelector('#btn-save')?.parentElement;
   const groups = [
-    group('Seu aprendizado', 'Nível e carga diária', ['Meu Nível CEFR', 'Limites Diários'], { open: true }),
+      group('Seu aprendizado', 'Nível e carga diária', ['Seu nível aproximado', 'Limites Diários'], { open: true }),
     group('Memória', 'Retenção e passos de aprendizagem', ['Motor de Memória (FSRS v4)']),
     group('Som e lembretes', 'Áudio, notificações e resumo', ['Opções de Áudio (TTS Google Neural)', '🔔 Lembretes diários', '📧 Resumo por e-mail']),
     group('Dados e conta', 'Exportação, backup e sessão', ['Dados e Portabilidade', 'Conta']),
@@ -570,10 +587,20 @@ export async function renderSettings(container, app) {
       btn.style.background = 'var(--color-primary)';
       btn.style.color = 'white';
       btn.style.borderColor = 'var(--color-primary)';
-      await lfDb.setSetting('lf_cefr_level', btn.dataset.level);
-      // Espelha na chave usada pela extensão (coloração de palavras na legenda)
-      lfDb.setSetting('cefrTargetLevel', btn.dataset.level).catch(() => {});
-      app.showToast(`Nível ${btn.dataset.level} selecionado! A IA foi atualizada.`, 'success');
+      try {
+        // Dashboard e extensão só confirmam sucesso depois que os dois
+        // espelhos persistem; assim a legenda nunca fica em outro nível.
+        const saved = await Promise.all([
+          lfDb.setSetting('lf_cefr_level', btn.dataset.level),
+          lfDb.setSetting('cefrTargetLevel', btn.dataset.level),
+        ]);
+        if (saved.some(result => !result)) throw new Error('Sincronização não confirmada');
+        app.showToast(`Nível ${btn.dataset.level} selecionado! A IA foi atualizada.`, 'success');
+      } catch (error) {
+        console.warn('[Settings] Não foi possível sincronizar o CEFR:', error);
+        app.showToast('Não foi possível salvar o nível em todo o sistema. Tente novamente.', 'error');
+        renderSettings(container, app);
+      }
     });
   });
 
@@ -761,7 +788,7 @@ export async function renderSettings(container, app) {
 
     try {
       await Promise.all(writes);
-      app.showToast('Configurações salvas — o motor de memória já está usando os valores novos. ✅', 'success');
+      app.showToast('Configurações salvas. As próximas revisões já usarão os novos valores.', 'success');
     } catch (e) {
       console.error('[Settings] Falha ao salvar:', e);
       app.showToast('Erro ao salvar as configurações. Verifique a conexão.', 'error');

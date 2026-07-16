@@ -3,8 +3,11 @@ import { playNaturalAudio, stopAudio } from '../core/tts.js';
 import { generateStoryWeb, aiChat } from '../core/ai.js';
 import { translator } from '../../../utils/translator.js';
 import { lemma } from '../../../utils/lemma.js';
+import { bindViewStateAction, renderViewState } from './viewState.js';
+import { bindReadingHeader, renderReadingHeader } from './readingHub.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
+let storiesDocumentController = null;
 
 // Roteadores extensão/web: na extensão o service worker faz o trabalho;
 // no site (Vercel) chamamos a Edge Function (história) e o translator
@@ -55,10 +58,17 @@ async function translateText(text) {
 }
 
 export function renderStories(container, app) {
+  storiesDocumentController?.abort();
+  const documentController = new AbortController();
+  storiesDocumentController = documentController;
+  app.onLeaveView?.(() => {
+    if (storiesDocumentController === documentController) storiesDocumentController = null;
+    documentController.abort();
+    stopAudio();
+  });
   container.innerHTML = `
     <div class="story-page">
-      <h1 class="story-page-title">Histórias</h1>
-      <p class="story-page-lede">Leia no seu nível e reencontre palavras que sua memória precisa praticar.</p>
+      ${renderReadingHeader('stories')}
 
       <!-- Tabs -->
       <div class="story-mode-tabs" role="tablist" aria-label="Escolher modo de histórias">
@@ -90,7 +100,7 @@ export function renderStories(container, app) {
 
       <!-- History Panel -->
       <div id="panel-history" role="tabpanel" aria-labelledby="tab-history" hidden style="margin-bottom:24px;">
-        <div class="story-library-heading"><h2>Prontas para ler</h2><p>Continue uma história salva ou releia para consolidar contexto.</p></div>
+        <div class="story-library-heading"><h2>Prontas para ler</h2><p>Continue uma história salva ou reencontre expressões em outro contexto.</p></div>
         <div id="history-list" style="display:flex; flex-direction:column; gap:12px;">
           <!-- History items injected here -->
         </div>
@@ -100,7 +110,7 @@ export function renderStories(container, app) {
       <div id="story-reader-container" style="display:none; background: var(--color-surface); border-radius: var(--radius-md); padding: clamp(16px, 4vw, 32px); border: 2px solid var(--color-border); box-shadow: 0 4px 12px rgba(0,0,0,0.05); position:relative;">
         <div id="story-loading" style="display:none; text-align:center; padding: 40px; color:var(--color-text-light);">
           <div class="lf-spin" style="width: 40px; height: 40px; border: 4px solid var(--color-border); border-top-color: var(--color-primary); border-radius: 50%; margin: 0 auto 16px;"></div>
-          <p style="font-size: 16px; font-weight:bold;">A IA está escrevendo sua história sob medida...</p>
+          <p style="font-size: 16px; font-weight:bold;">Criando sua história…</p>
         </div>
         
         <div id="story-header" style="display:none; margin-bottom:24px; border-bottom:1px solid var(--color-border); padding-bottom:16px;">
@@ -108,7 +118,7 @@ export function renderStories(container, app) {
             <div>
               <h2 id="story-title-display" style="margin-top:0; color:var(--color-text); font-size:24px; margin-bottom:8px;"></h2>
               <span id="story-level-badge" style="background:var(--color-primary); color:white; font-size:12px; font-weight:bold; padding:4px 8px; border-radius:12px;">B1</span>
-              <span id="story-known-badge" style="background:var(--color-secondary); color:white; font-size:12px; font-weight:bold; padding:4px 8px; border-radius:12px; margin-left:6px; display:none;" title="Percentual de palavras desta história que você já conhece (métrica LingQ)"></span>
+              <span id="story-known-badge" style="background:var(--color-secondary); color:white; font-size:12px; font-weight:bold; padding:4px 8px; border-radius:12px; margin-left:6px; display:none;" title="Estimativa que combina termos marcados por você e itens com memória estável; não mede compreensão."></span>
               <div id="story-reencounter" style="display:none; font-size:12px; color:var(--color-text-light); margin-top:6px;"></div>
             </div>
 
@@ -171,6 +181,7 @@ export function renderStories(container, app) {
       <div id="lf-tb-translation-result" style="display:none; padding:8px; background:var(--color-bg); border-radius:4px; font-size:14px; color:var(--color-text); max-width:250px; line-height:1.4;"></div>
     </div>
   `;
+  bindReadingHeader(container, app);
 
   if (!document.getElementById('lf-story-styles')) {
     const style = document.createElement('style');
@@ -245,8 +256,7 @@ export function renderStories(container, app) {
   let currentStoryText = '';         // texto da história atual (pro quiz)
   let currentStorySentences = []; // This will also be used by the TTS chunker
   let currentSelectionText = '';
-  let storyDoneAwarded = false;      // evita duplo clique em "Marcar como lida"
-  let storyQuizScored = false;       // uma história só concede XP por quiz uma vez
+  let storyMarkedThisView = false;
   let previousQuizQuestions = [];
   let modalRequestId = 0;
 
@@ -292,8 +302,8 @@ export function renderStories(container, app) {
   btnStopStory.addEventListener('click', stopFullStoryTTS);
 
   // ── Quiz de compreensão (LingQ-style) ─────────────────────────────────────
-  // 3 perguntas geradas DA PRÓPRIA história; acertos valem XP real via
-  // Learning Engine (story_quiz, cap diário no banco).
+  // Perguntas geradas da própria história oferecem feedback local. Como o
+  // gabarito é gerado por IA no cliente, o resultado não alimenta o placar.
   const btnQuizStory = document.getElementById('btn-quiz-story');
   const quizBox = document.getElementById('story-quiz-box');
 
@@ -425,19 +435,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
         if (answered === questions.length) {
           const resultEl = document.getElementById('quiz-result');
           resultEl.textContent = `Você acertou ${correct} de ${questions.length}! `;
-          if (correct > 0 && !storyQuizScored) {
-            storyQuizScored = true;
-            try {
-              const res = await db.recordEvent('story_quiz', correct);
-              if (res && res.xp_awarded > 0) resultEl.textContent += `+${res.xp_awarded} XP 🎉`;
-              else if (res?.capped) resultEl.textContent += '(limite diário de XP do quiz atingido)';
-            } catch (e) {
-              storyQuizScored = false;
-              console.warn('[Stories] XP do quiz falhou:', e);
-            }
-          } else if (correct > 0) {
-            resultEl.textContent += '(XP desta história já foi contabilizado)';
-          }
+          resultEl.textContent += 'Prática de compreensão — sem alterar XP, ofensiva ou liga.';
         }
       });
     });
@@ -459,33 +457,21 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     }
   });
 
-  // "Marcar como lida": XP real de leitura (story_read, cap 3/dia no banco)
+  // Marcar como lida é feedback local enquanto não existe uma evidência de
+  // leitura identificável e idempotente no servidor.
   const btnStoryDone = document.getElementById('btn-story-done');
   btnStoryDone.addEventListener('click', async () => {
     if (!currentStoryText) { app.showToast('Gere ou abra uma história primeiro.', 'info'); return; }
-    if (storyDoneAwarded) { app.showToast('Esta história já foi marcada. 😉', 'info'); return; }
+    if (storyMarkedThisView) { app.showToast('Esta história já foi marcada nesta leitura.', 'info'); return; }
     btnStoryDone.disabled = true;
-    try {
-      const res = await db.recordEvent('story_read');
-      storyDoneAwarded = true;
-      if (res && res.xp_awarded > 0) {
-        btnStoryDone.textContent = `✅ Lida! +${res.xp_awarded} XP`;
-        app.showToast(`📚 +${res.xp_awarded} XP por leitura!`, 'success');
-      } else {
-        btnStoryDone.textContent = '✅ Lida!';
-        app.showToast('História marcada. (Limite diário de XP de leitura atingido.)', 'info');
-      }
-    } catch (e) {
-      console.error('[Stories] XP de leitura falhou:', e);
-      app.showToast('Erro ao registrar. Tente de novo.', 'error');
-      btnStoryDone.disabled = false;
-    }
+    storyMarkedThisView = true;
+    btnStoryDone.textContent = '✅ Lida nesta sessão';
+    app.showToast('Leitura concluída. Esta marca não altera XP, ofensiva ou liga.', 'success');
   });
 
   function setCurrentStory(text) {
     currentStoryText = text || '';
-    storyDoneAwarded = false;
-    storyQuizScored = false;
+    storyMarkedThisView = false;
     previousQuizQuestions = [];
     btnStoryDone.disabled = false;
     btnStoryDone.textContent = '✅ Marcar como lida';
@@ -623,28 +609,43 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
   async function loadHistory() {
     // Fonte da verdade: banco (sincroniza entre dispositivos); local = fallback
     historyList.setAttribute('aria-busy', 'true');
-    historyList.innerHTML = '<div class="story-empty" role="status" aria-live="polite"><span>Carregando suas histórias…</span></div>';
+    historyList.innerHTML = renderViewState({ kind: 'loading', title: 'Carregando suas histórias…', message: 'Sincronizando o que você já criou.', compact: true });
     let stories = [];
+    let remoteFailed = false;
     try {
       const rows = await db.getStories(50);
       stories = (rows || []).map(r => ({ id: r.id, title: r.title, text: r.content, level: r.level || 'N/A', date: r.created_at }));
     } catch (e) {
+      remoteFailed = true;
       console.warn('[Stories] Banco indisponível, usando histórico local:', e.message);
     }
     if (stories.length === 0) {
       stories = await new Promise((resolve) => readStories(resolve));
     }
-    renderHistoryItems(stories);
+    renderHistoryItems(stories, { remoteFailed });
     historyList.setAttribute('aria-busy', 'false');
   }
 
-  function renderHistoryItems(stories) {
+  function renderHistoryItems(stories, { remoteFailed = false } = {}) {
     {
       historyList.innerHTML = '';
+      if (remoteFailed && stories.length === 0) {
+        historyList.innerHTML = renderViewState({ kind: 'error', title: 'Não foi possível carregar suas histórias', message: 'Verifique a conexão e tente novamente. Nenhuma coleção vazia será assumida enquanto a leitura falhar.', actionLabel: 'Tentar novamente', actionId: 'btn-stories-retry', compact: true });
+        bindViewStateAction(historyList, 'btn-stories-retry', loadHistory);
+        return;
+      }
       if (stories.length === 0) {
         historyList.innerHTML = '<div class="story-empty"><strong>Nenhuma história pronta ainda.</strong><span>Abra Criar e escolha um tema para começar.</span><button type="button" class="btn btn-primary" id="btn-empty-create">Criar primeira história</button></div>';
         historyList.querySelector('#btn-empty-create')?.addEventListener('click', () => switchTab(true));
         return;
+      }
+
+      if (remoteFailed) {
+        const notice = document.createElement('div');
+        notice.className = 'story-sync-notice';
+        notice.setAttribute('role', 'status');
+        notice.textContent = 'Mostrando histórias deste dispositivo. A sincronização está indisponível no momento.';
+        historyList.appendChild(notice);
       }
 
       stories.forEach(story => {
@@ -740,7 +741,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
         const found = (response.requestedWords || reencounterWords || [])
           .filter(w => new RegExp(`\\b${esc(w)}`, 'i').test(contentToRender));
         if (found.length) {
-          reBox.innerHTML = `🔁 <strong>Reencontro:</strong> esta história usa ${found.length} ${found.length === 1 ? 'palavra sua' : 'palavras suas'} — ${found.map(w => `<strong>${w}</strong>`).join(', ')}. Encontrá-las em contexto novo é o que fixa.`;
+      reBox.innerHTML = `🔁 <strong>Reencontro:</strong> esta história usa ${found.length} ${found.length === 1 ? 'termo do seu Cofre' : 'termos do seu Cofre'} — ${found.map(w => `<strong>${w}</strong>`).join(', ')}. Tente lembrar o sentido antes de tocar.`;
           reBox.style.display = 'block';
         } else {
           reBox.style.display = 'none';
@@ -764,8 +765,8 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     try {
       const [words, cards, knownWords] = await Promise.all([
         db.getAllWords(),
-        db.getAllCards().catch(() => []),
-        db.getAllKnownWords().catch(() => []),
+        db.getAllCards(),
+        db.getAllKnownWords(),
       ]);
       const matureByWordId = {};
       (cards || []).forEach(c => { matureByWordId[c.word_id] = c.status === 'mature'; });
@@ -780,14 +781,15 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
         known.add((k.word || '').toLowerCase());
         const l = lemma(k.word); if (l) known.add(l);
       });
-      return { learning, known };
+      return { learning, known, available: true };
     } catch(e) {
-      return { learning: new Set(), known: new Set() };
+      console.warn('[Stories] Familiaridade indisponível:', e);
+      return { learning: new Set(), known: new Set(), available: false };
     }
   }
 
   async function renderStoryText(text, animate = false) {
-    const { learning: savedWordsSet, known: knownWordsSet } = await getWordStatusSets();
+    const { learning: savedWordsSet, known: knownWordsSet, available: statusAvailable } = await getWordStatusSets();
     let knownCount = 0;   // % conhecido da história (o número que engaja no LingQ)
     let totalTokens = 0;
     const paragraphs = text.split('\\n').filter(p => p.trim().length > 0);
@@ -872,9 +874,14 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
 
     // Badge "% conhecido" (LingQ): mede o quão compreensível a história é pra VOCÊ
     const knownBadge = document.getElementById('story-known-badge');
-    if (knownBadge && totalTokens > 0) {
+    if (knownBadge && !statusAvailable) {
+      knownBadge.textContent = '📖 Familiaridade indisponível';
+      knownBadge.title = 'Não foi possível consultar o estado do seu Cofre. O texto continua disponível para leitura.';
+      knownBadge.style.display = 'inline';
+    } else if (knownBadge && totalTokens > 0) {
       const pct = Math.round((knownCount / totalTokens) * 100);
-      knownBadge.textContent = `📖 ${pct}% conhecido`;
+      knownBadge.textContent = `📖 Familiaridade estimada: ${pct}%`;
+      knownBadge.removeAttribute('title');
       knownBadge.style.display = 'inline';
     }
   }
@@ -1035,7 +1042,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     } else {
       floatingToolbar.style.display = 'none';
     }
-  });
+  }, { signal: documentController.signal });
 
   tbBtnTts.addEventListener('click', (e) => {
     e.preventDefault();
@@ -1059,5 +1066,5 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     if (!floatingToolbar.contains(e.target) && !storyContent.contains(e.target)) {
       floatingToolbar.style.display = 'none';
     }
-  });
+  }, { signal: documentController.signal });
 }

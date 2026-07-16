@@ -27,10 +27,9 @@ export async function renderLeagues(container, app) {
   
   // Map real users to leaderboard format
   const allEntries = realUsers.map(u => ({
-      id: u.user_id,
       name: u.username || 'Estudante',
       xp: u.xp_week || 0,
-      isUser: userStats && u.user_id === userStats.user_id
+      isUser: u.is_current_user === true,
   }));
 
   // Só usuários REAIS — os "bots fantasmas" antigos eram dados falsos que
@@ -73,6 +72,11 @@ export async function renderLeagues(container, app) {
       font-size: 14px;
       color: var(--color-text-light);
       margin: 0;
+    }
+    .league-context {
+      margin: 12px 0 0; padding: 10px 12px; border-radius: 10px;
+      background: var(--color-bg-alt); color: var(--color-text-light);
+      font-size: 12px; line-height: 1.45; text-align: left;
     }
     .leaderboard {
       list-style: none;
@@ -192,6 +196,7 @@ export async function renderLeagues(container, app) {
       <div class="league-header">
         <h2 class="league-title">🏆 Liga ${currentLeague}</h2>
         <p class="league-subtitle">Top 5 avançam para a próxima liga</p>
+        <p class="league-context"><strong>Liga opcional:</strong> XP registra diferentes atividades no app e não mede domínio. Prática livre não pontua nem altera sua revisão.</p>
       </div>
       
       <div class="leaderboard">
@@ -209,10 +214,6 @@ export async function renderLeagues(container, app) {
           if (index === 4) { // After 5th place
             borderHtml = '</div><div class="leaderboard" style="border-top:none; border-bottom:none; border-radius:0;">';
           }
-          if (index === allEntries.length - 6) { // Before bottom 5
-             borderHtml = '</div><div class="demotion-zone">Zona de Rebaixamento</div><div class="leaderboard" style="border:none; border-radius:0;">';
-          }
-
           return `
             <div class="leaderboard-item ${entry.isUser ? 'is-user' : ''}" id="rank-${index}">
               <div class="${rankClasses}">${rankHtml}</div>
@@ -241,7 +242,7 @@ export async function renderLeagues(container, app) {
       const msLeft = nextMonday.getTime() - now.getTime();
       const d = Math.floor(msLeft / 86400000);
       const h = Math.floor((msLeft % 86400000) / 3600000);
-      cdEl.textContent = `Faltam ${d}d ${h}h — top 5 com XP sobem; inativos descem.`;
+      cdEl.textContent = `Faltam ${d}d ${h}h — os cinco primeiros com atividade avançam de liga.`;
   }
 
   // Scroll to user item

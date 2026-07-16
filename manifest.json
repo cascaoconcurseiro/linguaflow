@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LinguaFlow",
-  "version": "3.0.3",
+  "version": "3.0.5",
   "description": "Aprenda idiomas assistindo vídeos. Legendas duplas, dicionário, SRS Anki — 100% gratuito e offline.",
   "icons": {
     "16": "icon16.png",

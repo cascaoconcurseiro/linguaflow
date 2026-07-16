@@ -56,6 +56,17 @@ for (const relative of jsFiles) {
 }
 if (syntaxFailures === 0) pass(`${jsFiles.length} arquivos JavaScript parseados`);
 
+console.log('\nFronteira de código morto');
+try {
+  execFileSync(process.execPath, [file('tests/dead-code-boundary.test.mjs')], {
+    cwd: root,
+    stdio: 'pipe',
+  });
+  pass('módulos órfãos continuam ausentes e contratos vivos foram preservados');
+} catch (error) {
+  fail(`gate de código morto falhou: ${error.stderr?.toString().trim() || error.message}`);
+}
+
 console.log('\nExtensão Chrome');
 let extensionManifest;
 try {

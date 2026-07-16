@@ -1072,7 +1072,10 @@ maior ainda não é compromisso. Modularizar pode inclusive aumentar LOC.
   contratos YouTube/Max permaneceram.
 - [ ] Consolidar o cold start: Home e bootstrap fazem 10–12 operações e leem
   `user_stats` repetidamente. Criar snapshot/repository coalescido e renderizar o
-  CTA primário antes dos widgets secundários.
+  CTA primário antes dos widgets secundários. **P0 parcial concluído pelo Codex
+  em 2026-07-16:** chamadas concorrentes de `user_stats` agora são single-flight,
+  o shell reutiliza o snapshot da Home, mensagens são agrupadas e refresh não
+  apaga o CTA. O read-model/RPC mínimo antes dos widgets continua P1.
 - [x] Implementar paginação de cards/review_log e contenção do cache antes que
   o limite do free tier ou do PostgREST vire perda silenciosa de integridade.
 
@@ -1205,5 +1208,29 @@ históricos de RPCs `SECURITY DEFINER` intencionais, `pg_net` no schema público
 Produção web continua em 3.0.11; apenas o banco recebeu a contenção compatível.
 O candidato 3.0.12 permanece na PR `#10` até smoke autenticado/decisão de
 promoção.
+
+### Onda 1/P0 — cold start e refresh estável (Codex, 2026-07-16)
+
+- Removido do bootstrap o `updateGlobalStats()` concorrente que repetia
+  `user_stats` e cards enquanto `renderHome()` montava o mesmo snapshot.
+- A Home alimenta streak, pendências e shell de foco com `stats.userStats` e
+  `stats.dueCards` já carregados, sem segunda viagem à rede.
+- `getUserStats()` compartilha somente a Promise em voo. Não existe cache
+  persistente: uma leitura posterior continua fresca. Geração de dados/auth e
+  identidade da Promise impedem reutilização entre invalidação, login e logout;
+  proxy da extensão também é coberto.
+- Rajadas `WORD_SAVED`/`REFRESH_DASHBOARD` são consolidadas em uma atualização
+  após 150 ms. Logout cancela refresh pendente.
+- Reentrada/refresh da Home mantém o conteúdo e o único CTA visíveis enquanto
+  os dados são atualizados; apenas o primeiro acesso mostra o estado de loading.
+- Gates novos executam o `renderHome` real com DOM observável e o `Database`
+  real com fetch controlado: cold start 2→1, nenhuma cache obsoleta, um CTA,
+  resposta stale sem repaint e refresh sem retorno ao loader.
+
+**Limite consciente desta etapa:** o primeiro CTA ainda depende do agregado
+`getStats`, que busca dados secundários. A próxima mudança arquitetural deve
+criar `get_home_snapshot`/read-model pequeno e carregar memória, conquistas,
+heatmap, histórias e rotas não iniciais depois do CTA. Não misturar isso com o
+P0 já validado nem reescrever a Home em big-bang.
 
 ---

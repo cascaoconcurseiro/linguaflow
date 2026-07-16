@@ -1024,3 +1024,24 @@ extensão YouTube/Max; depois decidir promoção do mesmo SHA. Produção web
 continua em 3.0.11; a contenção de banco já está ativa e é compatível.
 
 ---
+
+# Handoff Codex — Onda 1/P0 cold start (2026-07-16)
+
+- O bootstrap não chama mais `updateGlobalStats` em paralelo com a Home. A Home
+  aplica seu próprio snapshot ao shell por `app.applyGlobalStats(stats)`.
+- `getUserStats` usa single-flight apenas durante a Promise em voo, com
+  invalidação por dados/auth e suporte ao proxy. Não transformar isso em cache
+  resolvido: XP e streak precisam continuar frescos em leituras sequenciais.
+- Mensagens de atualização usam debounce de 150 ms; logout cancela o timer.
+- Em refresh/reentrada, `renderHome` mantém `.gamified-home` ou
+  `.onboarding-shell` visível e não volta ao loader. O generation guard continua
+  responsável por impedir commit stale.
+- Gates: `db-user-stats-coalescing.test.mjs` e
+  `home-cold-start-behavior.test.mjs`, ambos no release.
+
+**Ainda falta nesta onda:** `get_home_snapshot`/read-model server-side para que
+o CTA não espere palavras, frases, histórico e widgets; lazy import das rotas
+secundárias; shell estático durante auth; medição p75 real. Fazer em migration
+expand-only + preview separado, preservando o P0 acima.
+
+---

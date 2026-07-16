@@ -217,6 +217,46 @@ class Database {
     }
   }
 
+  // PostgREST limita a quantidade de linhas devolvidas por requisição. Uma
+  // leitura que pare na primeira página parece válida, mas perde dados sem
+  // qualquer erro quando a conta passa desse limite. Este helper preserva a
+  // query original e só considera a coleção completa depois de receber uma
+  // página curta. Erros e respostas inválidas abortam a operação inteira.
+  async _fetchAllPages(baseQuery, { pageSize = 1000, maxPages = 10000 } = {}) {
+    if (!Number.isSafeInteger(pageSize) || pageSize < 1) {
+      throw new RangeError('pageSize deve ser um inteiro positivo.');
+    }
+    if (!Number.isSafeInteger(maxPages) || maxPages < 1) {
+      throw new RangeError('maxPages deve ser um inteiro positivo.');
+    }
+
+    const separator = baseQuery.includes('?')
+      ? (/[?&]$/.test(baseQuery) ? '' : '&')
+      : '?';
+    const rows = [];
+
+    for (let page = 0; page < maxPages; page += 1) {
+      const offset = page * pageSize;
+      if (!Number.isSafeInteger(offset)) {
+        throw new RangeError('Offset de paginação excedeu o limite seguro.');
+      }
+
+      const batch = await this._fetch(
+        `${baseQuery}${separator}limit=${pageSize}&offset=${offset}`
+      );
+      if (!Array.isArray(batch)) {
+        throw new Error(`Leitura paginada incompleta na página ${page + 1}.`);
+      }
+
+      // Não deduplicar aqui: duplicatas indicam um contrato de ordenação ou
+      // consistência quebrado e precisam permanecer visíveis ao chamador.
+      rows.push(...batch);
+      if (batch.length < pageSize) return rows;
+    }
+
+    throw new Error(`Leitura paginada excedeu o limite de ${maxPages} páginas.`);
+  }
+
   async _proxy(method, args) {
     if (!this.isProxyMode) return null;
     return new Promise((resolve, reject) => {
@@ -569,7 +609,7 @@ class Database {
     const gen = this._cacheGeneration; // ver comentário em _fetchWords
     let data;
     if (this.isProxyMode) data = await this._proxy('getAllCards', []);
-    else data = await this._fetch('cards?select=*');
+    else data = await this._fetchAllPages('cards?select=*&order=id.asc');
     if (gen !== this._cacheGeneration) return data || [];
     this._cardsCache = { data: data || [], ts: Date.now() };
     return data || [];
@@ -1134,7 +1174,9 @@ class Database {
   async getReviewLog(days = 30) {
     if (this.isProxyMode) return this._proxy('getReviewLog', [days]);
     const start = localDayBounds(addLocalDays(-(Math.max(1, days) - 1))).start;
-    return (await this._fetch(`review_log?ts=gte.${encodeURIComponent(start.toISOString())}`)) || [];
+    return this._fetchAllPages(
+      `review_log?ts=gte.${encodeURIComponent(start.toISOString())}&order=ts.asc,id.asc`
+    );
   }
 
   async saveSentence(data) {
@@ -1253,14 +1295,6 @@ class Database {
     if (this.isProxyMode) return this._proxy('getSessions', [days]);
     const minDate = localDateKey(addLocalDays(-(Math.max(1, days) - 1)));
     return (await this._fetch(`sessions?date=gte.${minDate}`)) || [];
-  }
-
-  async exportDatabase() {
-    return JSON.stringify({}); 
-  }
-
-  async importDatabase(jsonData) {
-    return true; 
   }
 
   // ── GAMIFICAÇÃO E ESTATÍSTICAS DO USUÁRIO ────────────────────────────────

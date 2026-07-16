@@ -36,4 +36,3 @@ export function installYouglishReadyHandler(target, getQueuedWord, fetchWord) {
   };
   return target.onYouglishAPIReady;
 }
-

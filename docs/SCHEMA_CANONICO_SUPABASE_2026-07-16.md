@@ -1,8 +1,10 @@
 # Schema canônico do Supabase — Onda 0
 
-**Projeto observado:** `qnutoswrufznztoznlql`  
-**Data do inventário:** 2026-07-16  
-**Responsável:** Codex — frente de arquitetura/dados  
+**Projeto observado:** `qnutoswrufznztoznlql`
+
+**Data do inventário:** 2026-07-16
+
+**Responsável:** Codex — frente de arquitetura/dados
 **Escopo:** somente leitura; nenhum objeto ou dado remoto foi alterado.
 
 ## O que é canônico neste projeto

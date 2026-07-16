@@ -125,4 +125,3 @@ handlers.get('fetch')({
 assert.equal(await (await responsePromise).text(), 'cached:/');
 
 console.log('Comportamentos P0 de auth, service worker, YouGlish e chunks passaram.');
-

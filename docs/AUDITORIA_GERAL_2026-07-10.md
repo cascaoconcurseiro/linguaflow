@@ -1101,4 +1101,20 @@ maior ainda não é compromisso. Modularizar pode inclusive aumentar LOC.
 - a arquitetura alvo é evolução gradual (`domain`, `data`, `ui`, web e extensão),
   com preview e rollback por onda, não uma reescrita total.
 
+### Evidência do candidato 3.0.12
+
+- commit funcional `9edb9804dbce937d2336ee751783982225afe7d4`, PR draft `#10`;
+- `npm run test:release -- --allow-dirty` verde em 26,1 s; smoke parseou
+  54 arquivos JavaScript e validou coerência de versão HTML/app/cache;
+- GitHub Actions `Build and Release` run `29518303487` concluído com `success`;
+- preview Vercel `dpl_9qKwYHuVV8kxYMCH4S1HjZCaDQHJ` em estado `READY`:
+  `https://linguaflow-h0t60dt7h-wesleys-projects-de111a83.vercel.app`;
+- QA público no preview: build 3.0.12 carregado, tela de login renderizada,
+  `lf-auth-pending` removido após auth, zero overflow em 390×844 e nenhum erro
+  do aplicativo no console observado.
+
+**Ainda pendente antes de produção:** QA autenticado de Home/Estudo/YouGlish e
+upgrade real numa aba controlada pelo worker 3.0.11. O preview tem proteção da
+Vercel e a sessão automatizada não possui credenciais LinguaFlow.
+
 ---

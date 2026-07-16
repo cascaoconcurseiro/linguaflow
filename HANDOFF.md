@@ -21,6 +21,12 @@ gate de release. A auditoria completa, a estimativa de redução de LOC e as ond
 seguintes estão em `docs/AUDITORIA_GERAL_2026-07-10.md`, seção
 `Auditoria de limpeza e escalabilidade`.
 
+Evidência automatizada: commit `9edb980`, PR draft `#10`, CI run `29518303487`
+verde e preview `dpl_9qKwYHuVV8kxYMCH4S1HjZCaDQHJ` READY. O QA público desktop
+e 390×844 confirmou login, remoção de `lf-auth-pending`, ausência de overflow e
+zero erro do app. Permanecem obrigatórios QA autenticado e upgrade real do worker
+3.0.11 antes de produção.
+
 ## Handoff Codex — UI Max/HBO sem alterar o engine (2026-07-15)
 
 ### Ajuste após QA real do dono — versão 3.0.5

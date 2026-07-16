@@ -109,7 +109,7 @@ export async function renderStudy(container, app, params = {}) {
       lfDb.getSetting('lf_varied_exercises').catch(() => null),
       lfDb.getSetting('lf_audio_auto_front').catch(() => null),
       lfDb.getSetting('lf_audio_auto_back').catch(() => null),
-      lfDb.getSRSSettings().catch(() => null),
+      lfDb.getSRSSettings(),
     ]);
     reverseEnabled = reverseRaw === true || reverseRaw === 'true';
     variedEnabled = variedRaw === null || variedRaw === true || variedRaw === 'true';
@@ -117,20 +117,15 @@ export async function renderStudy(container, app, params = {}) {
     audioAutoBack = audioBackRaw === null || audioBackRaw === true || audioBackRaw === 'true';
 
     if (weakOnly) {
-      // Onda 9 (paridade "Custom Study" do Anki): remediação de palavras
-      // fracas/leech IGNORA a cota diária de propósito — é prática extra,
-      // não a fila normal — e ignora due_date (revisa mesmo sem estar
-      // vencido ainda, porque o objetivo é atacar a fraqueza agora).
-      const [allCards, allWords] = await Promise.all([lfDb.getAllCards(), lfDb.getAllWords()]);
-      const wordById = {};
-      (allWords || []).forEach(w => { wordById[w.id] = w; });
-      const weakPool = (allCards || [])
-        .filter(c => !c.suspended && isWeakCard(c) && wordById[c.word_id])
-        .map(c => ({ ...c, wordData: wordById[c.word_id] }));
+      // Reforço graduado respeita o relógio do SRS. Mostrar a resposta de um
+      // card futuro antes da hora contaminaria a próxima medição de memória.
+      const dueCards = await lfDb.getCardsDue(200, true);
+      const weakPool = (dueCards || [])
+        .filter(c => !c.suspended && isWeakCard(c) && c.wordData);
       loadedQueue = buildSessionQueue(weakPool, {});
     } else {
       const [counts, cards, diag] = await Promise.all([
-        lfDb.getTodayCounts().catch(() => ({ reviewsToday: 0, newIntroducedToday: 0 })),
+        lfDb.getTodayCounts(),
         lfDb.getCardsDue(200, true),
         lfDb.getDiagnosisData(30).catch(() => null),
       ]);
@@ -171,7 +166,19 @@ export async function renderStudy(container, app, params = {}) {
     }
   } catch (e) {
     console.error('DB Error:', e);
-    loadedQueue = [];
+    if (!studyViewActive || viewGeneration !== studyViewGeneration) return;
+    container.innerHTML = `
+      <div class="study-layout" style="display:flex; min-height:60vh; width:100%; justify-content:center; align-items:center; background:var(--color-bg-alt);">
+        <div class="study-main" role="alert" style="text-align:center; padding:40px; background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-border);">
+          <h2 style="color:var(--color-text); margin-bottom:12px;">Não foi possível carregar sua revisão</h2>
+          <p style="color:var(--color-text-light);">A fila não foi alterada. Verifique a conexão e tente novamente.</p>
+          <button class="btn btn-primary" id="study-load-retry" type="button" style="margin-top:16px;">Tentar novamente</button>
+          <button class="btn btn-secondary" id="study-load-home" type="button" style="margin-top:16px;">Voltar ao início</button>
+        </div>
+      </div>`;
+    document.getElementById('study-load-retry')?.addEventListener('click', () => renderStudy(container, app, params));
+    document.getElementById('study-load-home')?.addEventListener('click', () => app.navigate('home'));
+    return;
   }
 
   // A navegação pode ter mudado enquanto as consultas iniciais estavam em voo.
@@ -183,8 +190,8 @@ export async function renderStudy(container, app, params = {}) {
 
   if (dueQueue.length === 0) {
     const topicLabel = topicFilter ? (TOPIC_LABELS[topicFilter] || topicFilter) : null;
-    const emptyTitle = weakOnly ? 'Nenhuma palavra fraca agora 🎉' : (topicLabel ? `Nada de "${topicLabel}" pra revisar agora 🎉` : 'Tudo feito por hoje! 🎉');
-    const emptyMsg = weakOnly ? 'Você não tem cards com 3+ erros ou marcados como leech no momento. Ótimo sinal!' : (topicLabel ? `Todos os cards de ${topicLabel} já estão em dia.` : 'Você revisou todas as suas frases pendentes.');
+    const emptyTitle = weakOnly ? 'Nenhum termo fraco vencido agora 🎉' : (topicLabel ? `Nada de "${topicLabel}" pra revisar agora 🎉` : 'Tudo feito por hoje! 🎉');
+    const emptyMsg = weakOnly ? 'Os termos que precisam de reforço ainda não chegaram ao horário de revisão. Eles voltarão no momento programado.' : (topicLabel ? `Todos os cards de ${topicLabel} já estão em dia.` : 'Você revisou todas as suas frases pendentes.');
     container.innerHTML = `
       <div class="study-layout" style="display: flex; height: 100%; width: 100%; justify-content: center; align-items: center; background-color: var(--color-bg-alt);">
         <div class="study-main" style="text-align:center; padding: 60px; background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 2px solid var(--color-border);">
@@ -537,7 +544,7 @@ function renderSessionComplete(app) {
       <div style="text-align:center; padding:60px; background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-border); box-shadow:0 10px 40px rgba(0,0,0,0.08); max-width:500px;">
         <div style="font-size:64px; margin-bottom:16px;">🎉</div>
         <h2 style="color:var(--color-primary); font-size:32px; margin-bottom:8px;">Sessão Concluída!</h2>
-        <p style="color:var(--color-text-light); margin-bottom:32px;">Continue assim e você será fluente!</p>
+        <p style="color:var(--color-text-light); margin-bottom:32px;">Sua sessão de revisão foi registrada. Volte quando houver novas frases vencidas.</p>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:${laterCount ? '16px' : '32px'};">
           <div style="background:var(--color-bg-alt); border-radius:var(--radius-md); padding:16px;">
             <div style="font-size:28px; font-weight:900; color:var(--color-text);">${sessionCards}</div>
@@ -714,8 +721,8 @@ async function loadNextCard(app) {
     const wordCount = context.split(/\s+/).length;
     const canBuild = variedEnabled && wordCount >= 3 && wordCount <= 12;
     const canDictate = variedEnabled && wordCount >= 2 && wordCount <= 12;
-    // PALAVRA FRACA → exercício de PRODUÇÃO (decisão do linguista: produzir
-    // fixa mais que reconhecer — é o tratamento certo pra leech em formação).
+    // Termo fraco → produção guiada, uma recuperação mais ativa que uma
+    // escolha simples, sem prometer domínio ou fixação.
     if (isWeakCard(card) && (canBuild || canDictate)) {
       card._mode = canBuild ? 'builder' : 'dictation';
     } else {

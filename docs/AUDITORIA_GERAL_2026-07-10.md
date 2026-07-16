@@ -815,3 +815,86 @@ QA autenticado desktop/mobile dos cortes P0-A a P1-D; corrigir qualquer falha
 observada e só então decidir promoção para produção.
 
 ---
+
+# Execução Codex — P0.3 Hardening de produção (2026-07-16)
+
+**Responsável:** Codex, coordenando revisões independentes sênior de UX/QA,
+pedagogia/economia e Infra/Supabase. A engine de legendas/vídeo e o algoritmo
+FSRS não foram alterados.
+
+## Por que este corte foi aberto
+
+A revisão pré-produção recusou o candidato 3.0.10 por quatro problemas que os
+checklists anteriores não detectavam: falha de banco na revisão aparecia como
+“Tudo feito”; rotas privadas não tinham uma guarda central de sessão; duas RPCs
+legadas aceitavam XP declarado pelo navegador; e a policy pública de
+`user_stats` expunha a linha inteira de todos os participantes e ainda permitia
+`INSERT` próprio com projeção arbitrária.
+
+## Implementado pelo Codex
+
+- Build web/PWA elevado para `3.0.11`, incluindo rotas diretas `/learn` e
+  `/progress` nos rewrites da Vercel.
+- Guarda central de autenticação: shell desktop/mobile fica oculto durante a
+  validação e no login; rota privada sem sessão volta para login; expiração e
+  logout atualizam o estado antes da navegação.
+- Cadastro com confirmação de e-mail não entra na Home sem uma sessão real;
+  permanece na autenticação e explica a próxima ação.
+- Rejeição assíncrona de qualquer view troca loading por erro com retry. Na
+  revisão, falha de fila/contagens/SRS não pode mais virar “Tudo feito”.
+- Listeners globais do Leitor e Histórias agora são abortados ao redesenhar ou
+  sair; popup do Leitor é limitado à viewport e prefere ficar acima quando não
+  cabe abaixo.
+- Home sinaliza dados complementares indisponíveis em vez de apresentar zeros
+  silenciosos; CEFR só confirma depois de persistir os dois espelhos usados por
+  dashboard e extensão.
+- Reforço de palavras fracas usa somente cards fracos já vencidos. Prática
+  consulta todos os cards e exclui toda a fila vencida, sem o antigo teto de
+  500 que podia contaminar uma revisão grande.
+- Histórias, quiz e duração de vídeo deixaram de conceder XP competitivo porque
+  são fatos declarados pelo cliente. Apenas reviews qualificados pelo writer
+  atômico continuam alimentando a economia competitiva.
+- Liga deixou de mostrar uma zona de rebaixamento incompatível com a regra do
+  banco. Promessas de fluência/fixação e familiaridade `0%` em falha foram
+  substituídas por estados observáveis.
+- Cliente do placar foi trocado para `rpc/get_leaderboard`; o retorno usa
+  `is_current_user` e não expõe UUID.
+- Duas migrations forward-only compatíveis foram preparadas. A etapa expand
+  `20260716124439_expand_safe_leaderboard_p0_3.sql` cria primeiro o leaderboard
+  mínimo sem UUID, timezone, datas, e-mail ou contadores privados. A etapa
+  contract `20260716124440_contract_user_stats_and_legacy_xp_p0_3.sql` revoga
+  `record_learning_event` e `claim_weekly_quest`, remove leitura global/escrita
+  direta de `user_stats` e mantém leitura somente da própria linha.
+
+## Gates executadas
+
+- `npm run test:release -- --allow-dirty`: aprovado em 2026-07-16.
+- A gate agora inclui engine, calendário local, concorrência de áudio, YouTube,
+  vídeo, race do estudo, isolamento de domínio, Web Reader, lifecycle de
+  legendas, HBO/Max, fundação de evidência, economia, autenticação/UX e P0.3.
+- 55 arquivos JavaScript passaram no parser e `git diff --check` passou.
+- Novos contratos: `auth-ux-resilience-p0-p1`,
+  `pedagogy-production-cut` e `user-stats-security-p0-3`.
+- Replay local SQL não foi executado porque Docker/Supabase CLI não estão
+  disponíveis nesta máquina. A migration também **ainda não foi aplicada** no
+  Supabase de produção.
+
+## Estado e ordem obrigatória de rollout
+
+O código está apto a seguir para preview, mas ainda é **NO-GO para produção**
+até cumprir, nesta ordem:
+
+1. commit/push e preview Vercel exato do build 3.0.11;
+2. PR com workflow GitHub `verify` verde;
+3. aplicar a etapa expand por operação controlada e validar o placar no preview;
+4. QA autenticado desktop/mobile/extensão no preview;
+5. integrar/promover o mesmo SHA aprovado;
+6. aplicar imediatamente a etapa contract e fazer smoke do placar/revisão;
+7. executar smoke final de produção. Nunca usar `supabase db push`, pois os
+   timestamps do histórico remoto anterior não correspondem aos nomes locais.
+
+Rollback web preservado: produção anterior `ca9fbc9` /
+`dpl_8eLCZupbmkBtAvGJVeYaLytSRghw`. A migration é forward-only; em incidente,
+o caminho seguro é corrigir por nova migration, não reescrever histórico.
+
+---

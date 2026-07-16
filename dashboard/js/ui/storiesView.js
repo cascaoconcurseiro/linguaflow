@@ -7,6 +7,7 @@ import { bindViewStateAction, renderViewState } from './viewState.js';
 import { bindReadingHeader, renderReadingHeader } from './readingHub.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
+let storiesDocumentController = null;
 
 // Roteadores extensão/web: na extensão o service worker faz o trabalho;
 // no site (Vercel) chamamos a Edge Function (história) e o translator
@@ -57,6 +58,14 @@ async function translateText(text) {
 }
 
 export function renderStories(container, app) {
+  storiesDocumentController?.abort();
+  const documentController = new AbortController();
+  storiesDocumentController = documentController;
+  app.onLeaveView?.(() => {
+    if (storiesDocumentController === documentController) storiesDocumentController = null;
+    documentController.abort();
+    stopAudio();
+  });
   container.innerHTML = `
     <div class="story-page">
       ${renderReadingHeader('stories')}
@@ -91,7 +100,7 @@ export function renderStories(container, app) {
 
       <!-- History Panel -->
       <div id="panel-history" role="tabpanel" aria-labelledby="tab-history" hidden style="margin-bottom:24px;">
-        <div class="story-library-heading"><h2>Prontas para ler</h2><p>Continue uma história salva ou releia para consolidar contexto.</p></div>
+        <div class="story-library-heading"><h2>Prontas para ler</h2><p>Continue uma história salva ou reencontre expressões em outro contexto.</p></div>
         <div id="history-list" style="display:flex; flex-direction:column; gap:12px;">
           <!-- History items injected here -->
         </div>
@@ -247,8 +256,7 @@ export function renderStories(container, app) {
   let currentStoryText = '';         // texto da história atual (pro quiz)
   let currentStorySentences = []; // This will also be used by the TTS chunker
   let currentSelectionText = '';
-  let storyDoneAwarded = false;      // evita duplo clique em "Marcar como lida"
-  let storyQuizScored = false;       // uma história só concede XP por quiz uma vez
+  let storyMarkedThisView = false;
   let previousQuizQuestions = [];
   let modalRequestId = 0;
 
@@ -294,8 +302,8 @@ export function renderStories(container, app) {
   btnStopStory.addEventListener('click', stopFullStoryTTS);
 
   // ── Quiz de compreensão (LingQ-style) ─────────────────────────────────────
-  // 3 perguntas geradas DA PRÓPRIA história; acertos valem XP real via
-  // Learning Engine (story_quiz, cap diário no banco).
+  // Perguntas geradas da própria história oferecem feedback local. Como o
+  // gabarito é gerado por IA no cliente, o resultado não alimenta o placar.
   const btnQuizStory = document.getElementById('btn-quiz-story');
   const quizBox = document.getElementById('story-quiz-box');
 
@@ -427,19 +435,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
         if (answered === questions.length) {
           const resultEl = document.getElementById('quiz-result');
           resultEl.textContent = `Você acertou ${correct} de ${questions.length}! `;
-          if (correct > 0 && !storyQuizScored) {
-            storyQuizScored = true;
-            try {
-              const res = await db.recordEvent('story_quiz', correct);
-              if (res && res.xp_awarded > 0) resultEl.textContent += `+${res.xp_awarded} XP 🎉`;
-              else if (res?.capped) resultEl.textContent += '(limite diário de XP do quiz atingido)';
-            } catch (e) {
-              storyQuizScored = false;
-              console.warn('[Stories] XP do quiz falhou:', e);
-            }
-          } else if (correct > 0) {
-            resultEl.textContent += '(XP desta história já foi contabilizado)';
-          }
+          resultEl.textContent += 'Prática de compreensão — sem alterar XP, ofensiva ou liga.';
         }
       });
     });
@@ -461,33 +457,21 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     }
   });
 
-  // "Marcar como lida": XP real de leitura (story_read, cap 3/dia no banco)
+  // Marcar como lida é feedback local enquanto não existe uma evidência de
+  // leitura identificável e idempotente no servidor.
   const btnStoryDone = document.getElementById('btn-story-done');
   btnStoryDone.addEventListener('click', async () => {
     if (!currentStoryText) { app.showToast('Gere ou abra uma história primeiro.', 'info'); return; }
-    if (storyDoneAwarded) { app.showToast('Esta história já foi marcada. 😉', 'info'); return; }
+    if (storyMarkedThisView) { app.showToast('Esta história já foi marcada nesta leitura.', 'info'); return; }
     btnStoryDone.disabled = true;
-    try {
-      const res = await db.recordEvent('story_read');
-      storyDoneAwarded = true;
-      if (res && res.xp_awarded > 0) {
-        btnStoryDone.textContent = `✅ Lida! +${res.xp_awarded} XP`;
-        app.showToast(`📚 +${res.xp_awarded} XP por leitura!`, 'success');
-      } else {
-        btnStoryDone.textContent = '✅ Lida!';
-        app.showToast('História marcada. (Limite diário de XP de leitura atingido.)', 'info');
-      }
-    } catch (e) {
-      console.error('[Stories] XP de leitura falhou:', e);
-      app.showToast('Erro ao registrar. Tente de novo.', 'error');
-      btnStoryDone.disabled = false;
-    }
+    storyMarkedThisView = true;
+    btnStoryDone.textContent = '✅ Lida nesta sessão';
+    app.showToast('Leitura concluída. Esta marca não altera XP, ofensiva ou liga.', 'success');
   });
 
   function setCurrentStory(text) {
     currentStoryText = text || '';
-    storyDoneAwarded = false;
-    storyQuizScored = false;
+    storyMarkedThisView = false;
     previousQuizQuestions = [];
     btnStoryDone.disabled = false;
     btnStoryDone.textContent = '✅ Marcar como lida';
@@ -781,8 +765,8 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     try {
       const [words, cards, knownWords] = await Promise.all([
         db.getAllWords(),
-        db.getAllCards().catch(() => []),
-        db.getAllKnownWords().catch(() => []),
+        db.getAllCards(),
+        db.getAllKnownWords(),
       ]);
       const matureByWordId = {};
       (cards || []).forEach(c => { matureByWordId[c.word_id] = c.status === 'mature'; });
@@ -797,14 +781,15 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
         known.add((k.word || '').toLowerCase());
         const l = lemma(k.word); if (l) known.add(l);
       });
-      return { learning, known };
+      return { learning, known, available: true };
     } catch(e) {
-      return { learning: new Set(), known: new Set() };
+      console.warn('[Stories] Familiaridade indisponível:', e);
+      return { learning: new Set(), known: new Set(), available: false };
     }
   }
 
   async function renderStoryText(text, animate = false) {
-    const { learning: savedWordsSet, known: knownWordsSet } = await getWordStatusSets();
+    const { learning: savedWordsSet, known: knownWordsSet, available: statusAvailable } = await getWordStatusSets();
     let knownCount = 0;   // % conhecido da história (o número que engaja no LingQ)
     let totalTokens = 0;
     const paragraphs = text.split('\\n').filter(p => p.trim().length > 0);
@@ -889,9 +874,14 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
 
     // Badge "% conhecido" (LingQ): mede o quão compreensível a história é pra VOCÊ
     const knownBadge = document.getElementById('story-known-badge');
-    if (knownBadge && totalTokens > 0) {
+    if (knownBadge && !statusAvailable) {
+      knownBadge.textContent = '📖 Familiaridade indisponível';
+      knownBadge.title = 'Não foi possível consultar o estado do seu Cofre. O texto continua disponível para leitura.';
+      knownBadge.style.display = 'inline';
+    } else if (knownBadge && totalTokens > 0) {
       const pct = Math.round((knownCount / totalTokens) * 100);
-    knownBadge.textContent = `📖 Familiaridade estimada: ${pct}%`;
+      knownBadge.textContent = `📖 Familiaridade estimada: ${pct}%`;
+      knownBadge.removeAttribute('title');
       knownBadge.style.display = 'inline';
     }
   }
@@ -1052,7 +1042,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     } else {
       floatingToolbar.style.display = 'none';
     }
-  });
+  }, { signal: documentController.signal });
 
   tbBtnTts.addEventListener('click', (e) => {
     e.preventDefault();
@@ -1076,5 +1066,5 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     if (!floatingToolbar.contains(e.target) && !storyContent.contains(e.target)) {
       floatingToolbar.style.display = 'none';
     }
-  });
+  }, { signal: documentController.signal });
 }

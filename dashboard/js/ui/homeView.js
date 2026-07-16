@@ -25,6 +25,7 @@ function organizeHomeSections(container) {
 
     const today = section('home-today', '', '');
     append(today, '.dashboard-header');
+    append(today, '.home-data-warning');
     append(today, '#home-primary-plan');
 
     const next = section('home-next', 'Depois', 'Continue em contexto real ou faça uma prática curta.');
@@ -273,6 +274,7 @@ export async function renderHome(container, app) {
     let weakCategory = null;   // categoria mais fraca da semana (missão de foco)
     let weakCatReviewsToday = 0;
     let storiesCount = 0;      // Onda 8: usado nas conquistas ("1ª história" etc.)
+    let supplementaryDataAvailable = true;
     try {
         // Onda 7 (perf): getStats() (wave 1, acima) já buscou 30 dias de
         // review_log inteiro (stats.reviewLog) — pedir de novo aqui era uma
@@ -354,7 +356,10 @@ export async function renderHome(container, app) {
                 .filter(r => activityDate(r) === todayISO && (catByCardId[r.card_id] || 'word') === weakCategory.cat)
                 .length;
         }
-    } catch (e) { console.warn('[Home] Erro ao calcular missões:', e); }
+    } catch (e) {
+        supplementaryDataAvailable = false;
+        console.warn('[Home] Dados complementares indisponíveis:', e);
+    }
 
     // Onda 8 (Gerente + Eng. SRS): conquistas — puramente derivadas de dados
     // que já existem (streak, palavras salvas, palavras maduras, histórias).
@@ -439,6 +444,13 @@ export async function renderHome(container, app) {
                     <h2>Hoje</h2>
                     <p>Uma próxima ação clara, escolhida pelo estado real da sua memória.</p>
                 </div>
+
+                ${supplementaryDataAvailable ? '' : `
+                <div class="home-data-warning" role="status">
+                    <strong>Alguns detalhes não foram carregados.</strong>
+                    <span>A fila principal está disponível, mas previsão, fraquezas e atividade recente podem estar incompletas. Nenhum zero exibido nessas áreas deve ser interpretado como dado confirmado.</span>
+                    <button type="button" id="btn-home-details-retry">Tentar novamente</button>
+                </div>`}
 
                 <section id="home-primary-plan" class="home-primary-plan" data-plan-kind="${todayAction.kind}" aria-labelledby="home-primary-title">
                     <p class="product-kicker">PRÓXIMO PASSO</p>
@@ -659,6 +671,9 @@ export async function renderHome(container, app) {
     document.getElementById('btn-study-now')?.addEventListener('click', () => {
         if (app && app.navigate) app.navigate(todayAction.route);
     });
+    document.getElementById('btn-home-details-retry')?.addEventListener('click', () => {
+        renderHome(container, app);
+    });
     document.getElementById('btn-open-learning')?.addEventListener('click', () => app?.navigate?.('learn'));
 
     // Onda 9: modo de estudo customizado (paridade Anki) — revisar só as
@@ -784,6 +799,10 @@ function injectStyles() {
             margin: 0;
             font-weight: bold;
         }
+
+        .home-data-warning { display:grid; gap:6px; padding:14px 16px; border:2px solid var(--color-warning); border-radius:14px; background:color-mix(in srgb, var(--color-warning) 12%, var(--color-surface)); color:var(--color-text); }
+        .home-data-warning span { color:var(--color-text-light); font-size:13px; line-height:1.5; }
+        .home-data-warning button { justify-self:start; min-height:44px; padding:0; border:0; background:transparent; color:var(--color-secondary); font:800 14px var(--font-main); cursor:pointer; }
 
         .stats-grid {
             display: grid;

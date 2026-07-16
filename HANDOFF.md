@@ -858,3 +858,34 @@ Prática/Progresso e QA autenticado.
 **Próximo:** QA autenticado desktop/mobile de toda a reforma antes de produção.
 
 ---
+
+# Handoff Codex — P0.3 candidato de produção 3.0.11 (2026-07-16)
+
+- Responsável: Codex, com auditorias sênior independentes de UX/QA,
+  pedagogia/economia e Infra/Supabase.
+- Fechados: guarda de autenticação, signup sem sessão, erros falsamente vazios,
+  listeners globais, popup mobile, CEFR em dois espelhos, weak-only vencido e
+  prática sem truncamento em 500.
+- Economia: Stories/quiz/vídeo não mintam XP declarado pelo browser; os métodos
+  cliente legados foram removidos. Review atômico continua sendo o escritor
+  competitivo qualificado.
+- Privacidade: cliente usa `rpc/get_leaderboard` e não depende mais da leitura
+  global de `user_stats`.
+- Migrations preparadas e não aplicadas: primeiro
+  `20260716124439_expand_safe_leaderboard_p0_3.sql` cria a projeção mínima sem
+  quebrar o cliente antigo; depois do deploy,
+  `20260716124440_contract_user_stats_and_legacy_xp_p0_3.sql` revoga as RPCs
+  legadas e remove INSERT/leitura global de `user_stats`.
+- Build `3.0.11`; rotas Vercel incluem `/learn` e `/progress`.
+- `npm run test:release -- --allow-dirty` aprovado; a gate agora cobre também
+  engine, áudio, YouTube, vídeo, legendas, HBO/Max e os três contratos novos.
+- Docker/Supabase CLI indisponíveis: sem replay local SQL. Não usar
+  `supabase db push`, porque há divergência histórica de timestamps entre o
+  repositório e o projeto remoto.
+
+**Ainda falta antes de produção:** preview do SHA, PR/Actions verde, expand,
+QA autenticado desktop/mobile/extensão, promoção do mesmo SHA, contract e smoke
+pós-migration. Produção atual permanece em `ca9fbc9`;
+rollback web disponível em `dpl_8eLCZupbmkBtAvGJVeYaLytSRghw`.
+
+---

@@ -39,6 +39,7 @@ let knownLemmas = new Set();
 let learningLemmas = new Set();
 let reviewLemmas = new Set(); // Onda 9: gradiente — card em 'review' (já graduou, ainda não é 'mature')
 let currentText = null; // { id, title, content, addedAt }
+let readerDocumentController = null;
 
 async function translateText(text) {
   if (isExtension) {
@@ -138,6 +139,15 @@ function textStats(content) {
 }
 
 export async function renderReader(container, app) {
+  // Voltar à estante e tentar novamente redesenham esta view sem navegar.
+  // Abortar o controlador anterior impede listeners globais duplicados.
+  readerDocumentController?.abort();
+  const documentController = new AbortController();
+  readerDocumentController = documentController;
+  app.onLeaveView?.(() => {
+    if (readerDocumentController === documentController) readerDocumentController = null;
+    documentController.abort();
+  });
   injectStyles();
   container.setAttribute('aria-busy', 'true');
   container.innerHTML = renderViewState({ kind: 'loading', title: 'Carregando seus textos…', message: 'Preparando sua leitura e o estado da memória.' });
@@ -221,6 +231,24 @@ export async function renderReader(container, app) {
   const view = document.getElementById('reader-view');
   const popup = document.getElementById('rd-popup');
   let popupWord = null;
+
+  function hidePopup() {
+    popup.classList.add('hidden');
+  }
+
+  function positionPopup(anchorRect) {
+    const viewportMargin = 12;
+    const mobileNavClearance = window.innerWidth <= 768 ? 82 : viewportMargin;
+    const popupRect = popup.getBoundingClientRect();
+    const maxLeft = Math.max(viewportMargin, window.innerWidth - popupRect.width - viewportMargin);
+    const left = Math.min(Math.max(viewportMargin, anchorRect.left), maxLeft);
+    const below = anchorRect.bottom + 8;
+    const maxTop = window.innerHeight - mobileNavClearance - popupRect.height;
+    const above = anchorRect.top - popupRect.height - 8;
+    const top = below <= maxTop ? below : Math.max(viewportMargin, Math.min(above, maxTop));
+    popup.style.left = `${left}px`;
+    popup.style.top = `${top}px`;
+  }
 
   function openText(t) {
     currentText = t;
@@ -339,10 +367,8 @@ export async function renderReader(container, app) {
     document.getElementById('rdp-word').textContent = popupWord;
     document.getElementById('rdp-trans').textContent = '…';
 
-    const rect = el.getBoundingClientRect();
-    popup.style.left = `${Math.min(rect.left, window.innerWidth - 280)}px`;
-    popup.style.top = `${rect.bottom + 8}px`;
     popup.classList.remove('hidden');
+    positionPopup(el.getBoundingClientRect());
 
     const trans = await translateText(popupWord.toLowerCase());
     if (popupWord === el.dataset.w) {
@@ -351,8 +377,10 @@ export async function renderReader(container, app) {
   });
 
   document.addEventListener('mousedown', (e) => {
-    if (!popup.contains(e.target) && !e.target.closest('.rw')) popup.classList.add('hidden');
-  });
+    if (!popup.contains(e.target) && !e.target.closest('.rw')) hidePopup();
+  }, { signal: documentController.signal });
+  window.addEventListener('resize', hidePopup, { signal: documentController.signal });
+  window.addEventListener('orientationchange', hidePopup, { signal: documentController.signal });
 
   document.getElementById('rdp-audio').addEventListener('click', () => {
     if (popupWord) playNaturalAudio(popupWord, { lang: localStorage.getItem('lf_tts_lang') || 'en-US' });

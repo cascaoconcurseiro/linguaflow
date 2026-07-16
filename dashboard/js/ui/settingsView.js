@@ -216,11 +216,15 @@ export async function runPlacementTest(app, onDone) {
     box.querySelector('#pl-apply').addEventListener('click', async () => {
       if (combo.retestRequired) return;
       try {
-        await lfDb.setSetting('lf_cefr_level', combo.level);
-        lfDb.setSetting('cefrTargetLevel', combo.level).catch(() => {});
+        const saved = await Promise.all([
+          lfDb.setSetting('lf_cefr_level', combo.level),
+          lfDb.setSetting('cefrTargetLevel', combo.level),
+        ]);
+        if (saved.some(result => !result)) throw new Error('Sincronização não confirmada');
         app.showToast(`Nível ${combo.level} aplicado! 🎓`, 'success');
       } catch {
         app.showToast('Erro ao salvar o nível.', 'error');
+        return;
       }
       closeAll();
       if (onDone) onDone(combo.level);
@@ -583,10 +587,20 @@ export async function renderSettings(container, app) {
       btn.style.background = 'var(--color-primary)';
       btn.style.color = 'white';
       btn.style.borderColor = 'var(--color-primary)';
-      await lfDb.setSetting('lf_cefr_level', btn.dataset.level);
-      // Espelha na chave usada pela extensão (coloração de palavras na legenda)
-      lfDb.setSetting('cefrTargetLevel', btn.dataset.level).catch(() => {});
-      app.showToast(`Nível ${btn.dataset.level} selecionado! A IA foi atualizada.`, 'success');
+      try {
+        // Dashboard e extensão só confirmam sucesso depois que os dois
+        // espelhos persistem; assim a legenda nunca fica em outro nível.
+        const saved = await Promise.all([
+          lfDb.setSetting('lf_cefr_level', btn.dataset.level),
+          lfDb.setSetting('cefrTargetLevel', btn.dataset.level),
+        ]);
+        if (saved.some(result => !result)) throw new Error('Sincronização não confirmada');
+        app.showToast(`Nível ${btn.dataset.level} selecionado! A IA foi atualizada.`, 'success');
+      } catch (error) {
+        console.warn('[Settings] Não foi possível sincronizar o CEFR:', error);
+        app.showToast('Não foi possível salvar o nível em todo o sistema. Tente novamente.', 'error');
+        renderSettings(container, app);
+      }
     });
   });
 

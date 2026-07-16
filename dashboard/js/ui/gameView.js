@@ -16,11 +16,14 @@ async function openPractice(container, app, renderMode, retryId) {
 // Prática livre não deve ensaiar a resposta de uma expressão vencida antes da
 // revisão SRS. Seleciona somente itens fora da fila devida neste instante.
 async function getPracticeWords(limit) {
-  const [allWords, dueCards] = await Promise.all([
+  const [allWords, allCards] = await Promise.all([
     lfDb.getAllWords(),
-    lfDb.getCardsDue(500, false),
+    lfDb.getAllCards(),
   ]);
-  const dueWordIds = new Set((dueCards || []).map(card => String(card.word_id)));
+  const now = Date.now();
+  const dueWordIds = new Set((allCards || [])
+    .filter(card => card?.due_date && new Date(card.due_date).getTime() <= now)
+    .map(card => String(card.word_id)));
   return (allWords || [])
     .filter(word => word?.id && !dueWordIds.has(String(word.id)))
     .sort(() => 0.5 - Math.random())

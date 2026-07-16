@@ -27,10 +27,9 @@ export async function renderLeagues(container, app) {
   
   // Map real users to leaderboard format
   const allEntries = realUsers.map(u => ({
-      id: u.user_id,
       name: u.username || 'Estudante',
       xp: u.xp_week || 0,
-      isUser: userStats && u.user_id === userStats.user_id
+      isUser: u.is_current_user === true,
   }));
 
   // Só usuários REAIS — os "bots fantasmas" antigos eram dados falsos que
@@ -215,10 +214,6 @@ export async function renderLeagues(container, app) {
           if (index === 4) { // After 5th place
             borderHtml = '</div><div class="leaderboard" style="border-top:none; border-bottom:none; border-radius:0;">';
           }
-          if (index === allEntries.length - 6) { // Before bottom 5
-             borderHtml = '</div><div class="demotion-zone">Zona de Rebaixamento</div><div class="leaderboard" style="border:none; border-radius:0;">';
-          }
-
           return `
             <div class="leaderboard-item ${entry.isUser ? 'is-user' : ''}" id="rank-${index}">
               <div class="${rankClasses}">${rankHtml}</div>
@@ -247,7 +242,7 @@ export async function renderLeagues(container, app) {
       const msLeft = nextMonday.getTime() - now.getTime();
       const d = Math.floor(msLeft / 86400000);
       const h = Math.floor((msLeft % 86400000) / 3600000);
-      cdEl.textContent = `Faltam ${d}d ${h}h — a colocação semanal define promoção ou rebaixamento.`;
+      cdEl.textContent = `Faltam ${d}d ${h}h — os cinco primeiros com atividade avançam de liga.`;
   }
 
   // Scroll to user item

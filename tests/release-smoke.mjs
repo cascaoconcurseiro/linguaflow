@@ -91,7 +91,7 @@ assert(workerSource.includes("chrome.storage.sync.get(['nativeLang', 'targetLang
 
 console.log('\nPWA estático e rotas Vercel');
 const pwaWorkerSource = read('dashboard/sw.js');
-assert(pwaWorkerSource.includes("CACHE_NAME = 'linguaflow-v3.0.10'"), 'cache PWA foi invalidado para o build 3.0.10');
+assert(pwaWorkerSource.includes("CACHE_NAME = 'linguaflow-v3.0.11'"), 'cache PWA foi invalidado para o build 3.0.11');
 assert(pwaWorkerSource.includes("req.destination === 'script'") && pwaWorkerSource.includes("fetch(req)"), 'JavaScript do PWA usa rede primeiro com fallback offline');
 const pwaFiles = [
   'dashboard/dashboard.html', 'dashboard/manifest.webmanifest', 'dashboard/sw.js',
@@ -104,9 +104,13 @@ try {
   const rewrites = vercel.rewrites || [];
   const rewriteText = JSON.stringify(rewrites);
   assert(rewriteText.includes('/dashboard/css/') && rewriteText.includes('/dashboard/icons/') && rewriteText.includes('/dashboard/manifest.webmanifest'), 'rewrites expõem CSS, ícones e manifest do PWA');
-  const spaRoutes = ['/', '/study', '/settings'];
+  const spaRoutes = ['/', '/study', '/settings', '/learn', '/progress'];
   const dashboardDestinations = rewrites.filter((entry) => entry.destination === '/dashboard/dashboard.html');
-  assert(dashboardDestinations.length >= 2 && spaRoutes.every((route) => route === '/' || rewriteText.includes('study') && rewriteText.includes('settings')), 'fallback SPA cobre /, /study e /settings');
+  assert(
+    dashboardDestinations.length >= 2
+      && spaRoutes.every((route) => route === '/' || rewriteText.includes(route.slice(1))),
+    `fallback SPA cobre ${spaRoutes.join(', ')}`,
+  );
 } catch (error) {
   fail(`vercel.json inválido: ${error.message}`);
 }

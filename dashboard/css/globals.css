@@ -468,6 +468,17 @@ body.lf-focus-mode .study-layout {
 body.lf-focus-mode .study-main,
 body.lf-focus-mode .study-sidebar { overflow: visible !important; }
 
+/* O shell autenticado nunca aparece enquanto a sessão ainda está sendo
+   verificada nem na rota pública de autenticação. A regra também cobre a
+   navegação móvel, que antes permanecia clicável sobre o formulário. */
+body.lf-auth-pending .topbar,
+body.lf-auth-pending .mobile-nav,
+body.lf-auth-route .topbar,
+body.lf-auth-route .mobile-nav { display: none !important; }
+
+body.lf-auth-pending #app-root,
+body.lf-auth-route #app-root { padding-bottom: 0 !important; }
+
 /* Base Buttons */
 .btn {
   font-family: var(--font-main);

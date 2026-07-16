@@ -886,6 +886,18 @@ legadas aceitavam XP declarado pelo navegador; e a policy pública de
   `SECURITY DEFINER`, `search_path` vazio, EXECUTE para `authenticated` e
   ausência de EXECUTE para `anon`. Policies antigas permanecem de propósito
   até o contract; o site de produção não foi quebrado.
+- Smoke SQL com identidade autenticada simulada retornou o leaderboard e marcou
+  corretamente `is_current_user`, sem devolver UUID no contrato público.
+- QA público no preview em viewport `390x844`: `/learn` foi servido pelo rewrite
+  e bloqueado pela guarda de sessão; topbar e navegação mobile ficaram ocultas,
+  sem overflow horizontal e sem erros de console. Alternância Entrar/Criar Conta
+  funcionou sem erro. QA autenticado não foi executado porque a ChatGPT Chrome
+  Extension não está instalada em nenhum perfil local e o native host não está
+  registrado; o Codex não instalou nem reparou essa integração.
+- O workflow GitHub do PR (`29514178635`) falhou antes de iniciar qualquer job:
+  a anotação oficial informa conta bloqueada por problema de cobrança. Portanto
+  é bloqueio de infraestrutura, não resultado de teste. A gate local equivalente
+  continua verde, mas não foi apresentada como substituta de CI.
 - Etapa contract **não aplicada**: ela continua bloqueada até o dashboard
   3.0.11 ser promovido e validado.
 
@@ -894,9 +906,10 @@ legadas aceitavam XP declarado pelo navegador; e a policy pública de
 O código está apto a seguir para preview, mas ainda é **NO-GO para produção**
 até cumprir, nesta ordem:
 
-1. PR com workflow GitHub `verify` verde;
+1. desbloquear a cobrança do GitHub e obter workflow `verify` verde;
 2. validar o placar no preview com a etapa expand já aplicada;
-3. QA autenticado desktop/mobile/extensão no preview;
+3. reinstalar a integração Chrome do ChatGPT e executar QA autenticado
+   desktop/mobile/extensão no preview;
 4. integrar/promover o mesmo SHA aprovado;
 5. aplicar imediatamente a etapa contract e fazer smoke do placar/revisão;
 6. executar smoke final de produção. Nunca usar `supabase db push`, pois os

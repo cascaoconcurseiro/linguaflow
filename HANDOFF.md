@@ -886,11 +886,18 @@ Prática/Progresso e QA autenticado.
 
 **Evidência:** commit funcional `0a8688a`, PR GitHub `#8`, preview Vercel
 `dpl_9rHjmtmYqizxsEC8YPckb5dmFW1A` `READY`, raiz HTTP 200, build limpo e sem
-runtime errors observados.
+runtime errors observados. Smoke SQL autenticado confirmou a RPC do placar. QA
+público `390x844` confirmou guarda de `/learn`, shell oculto, ausência de
+overflow e console limpo.
 
-**Ainda falta antes de produção:** PR/Actions verde, validar Liga e QA
-autenticado desktop/mobile/extensão no preview, promoção do mesmo SHA, contract
-e smoke pós-migration. Produção atual permanece em `ca9fbc9`;
+**Bloqueios externos:** workflow `29514178635` não iniciou porque o GitHub
+informa conta bloqueada por cobrança; ChatGPT Chrome Extension/native host não
+estão instalados, impedindo usar a sessão real. Não confundir esses bloqueios
+com falha da suíte, que passou localmente duas vezes.
+
+**Ainda falta antes de produção:** desbloquear Actions, CI verde, QA autenticado
+desktop/mobile/extensão, promoção do mesmo SHA, contract e smoke pós-migration.
+Produção atual permanece em `ca9fbc9`;
 rollback web disponível em `dpl_8eLCZupbmkBtAvGJVeYaLytSRghw`.
 
 ---

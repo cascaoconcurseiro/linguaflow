@@ -997,10 +997,11 @@ rollback web disponível em `dpl_8eLCZupbmkBtAvGJVeYaLytSRghw`.
 - Cards e `review_log` agora paginam além de 1.000 linhas com ordenação estável e
   falha fechada. Preservar `_fetchAllPages`, `order=id.asc` e
   `order=ts.asc,id.asc` até uma futura migração consciente para cursor.
-- A migration `20260716172603_contain_translation_cache_free_tier.sql` ainda não
-  foi aplicada. Ela implementa TTL 30 dias, teto 5.000/usuário, trigger por
-  statement, prune diário, grants mínimos e RLS explícita. Não usar
-  `supabase db push`; aplicar somente esta migration depois do replay CI verde.
+- A migration local `20260716172603_contain_translation_cache_free_tier.sql`
+  foi aplicada isoladamente após CI como remote
+  `20260716174457_contain_translation_cache_free_tier`. Ela implementa TTL 30
+  dias, teto 5.000/usuário, trigger por statement, prune diário, grants mínimos
+  e RLS explícita. Não usar `supabase db push` nem reescrever os timestamps.
 - O replay SQL valida 5.001 inserts, linha sobrevivente, TTL, policies, grants,
   funções e cron. Localmente só o contrato estático rodou porque não há
   PostgreSQL/Docker; o workflow GitHub possui o replay efêmero obrigatório.
@@ -1011,9 +1012,15 @@ rollback web disponível em `dpl_8eLCZupbmkBtAvGJVeYaLytSRghw`.
 - Gates novos: `test:db-pagination`, `test:translation-cache`,
   `dead-code-boundary` no release smoke e `translation-cache-budget.sql` no
   replay das migrations.
+- Evidência final: release local verde em 29,8 s; Actions `29520892615`
+  `success`; preview `dpl_7x9VqHKJurUwrL1T8Pom5sK8xzJE` `READY`, HTTP 200 e
+  build 3.0.12. Cache remoto em 5.000 linhas/zero expiradas; cron diário ativo;
+  quatro policies e funções administrativas sem EXECUTE pelos papéis da API.
+- Os ~35.956 registros removidos permanecem como espaço reutilizável até o
+  autovacuum. Não usar `VACUUM FULL` em produção apenas para diminuir o arquivo.
 
-**Próxima ordem:** release local completo; commit/push; CI e preview do mesmo
-SHA; aplicar a migration isolada; medir contagem/job/RLS/advisors; documentar;
-smoke autenticado e só então decidir promoção. Produção continua em 3.0.11.
+**Próxima ordem:** smoke autenticado do preview em Home/Estudo/YouGlish e
+extensão YouTube/Max; depois decidir promoção do mesmo SHA. Produção web
+continua em 3.0.11; a contenção de banco já está ativa e é compatível.
 
 ---

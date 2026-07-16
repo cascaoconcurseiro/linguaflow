@@ -1057,7 +1057,8 @@ maior ainda não é compromisso. Modularizar pode inclusive aumentar LOC.
   linhas.
 - [x] Definir teto/TTL/prune do `translation_cache`: migration forward-only
   preparada pelo Codex com 5.000 linhas/usuário, TTL de 30 dias e cron diário.
-  A aplicação remota e o alerta de capacidade dependem do gate CI desta onda.
+  Aplicada remotamente pelo Codex após o replay CI verde; o alerta de capacidade
+  permanece como observabilidade futura.
 - [ ] Ativar proteção contra senhas vazadas no Auth, se disponível no plano.
 
 #### Onda 1 — remoções seguras e performance
@@ -1181,11 +1182,28 @@ legendas, FSRS, áudio/vídeo nem a mecânica pedagógica.
   `translation-cache-budget-contract`, `translation-cache-budget.sql` no replay
   PostgreSQL e `dead-code-boundary` dentro do release smoke.
 
-**Estado de promoção:** código e migration ainda estão apenas no candidato da
-PR `#10`. O teste estático e os testes direcionados estão verdes. O replay SQL
-com 5.001 linhas exige o PostgreSQL efêmero do GitHub Actions porque Docker e
-`psql` não estão disponíveis neste Windows. Não aplicar no Supabase remoto nem
-promover produção antes de CI/replay e preview do mesmo SHA. Depois do apply,
-registrar contagem remanescente, job ativo, grants/policies e advisors.
+**Evidência de release e banco:** o SHA
+`35e14c0faeb8508ea5365327b2f5cd5dd96ac301` passou no workflow GitHub Actions
+`29520892615`, inclusive replay do zero e teste SQL com 5.001 linhas. O preview
+Vercel `dpl_7x9VqHKJurUwrL1T8Pom5sK8xzJE` ficou `READY`, HTTP 200, build 3.0.12
+e sem erros de build. Depois desses gates, o Codex aplicou somente esta migration
+como `20260716174457_contain_translation_cache_free_tier`.
+
+**Smoke remoto:** a tabela caiu de 40.531 para exatamente 5.000 linhas, um
+usuário, nenhuma entrada expirada e teto máximo de 5.000. O job
+`translation-cache-prune` está ativo em `17 3 * * *`; o trigger por statement,
+as quatro policies e os grants mínimos foram confirmados. `authenticated` e
+`service_role` não executam as funções administrativas. Tráfego real após a
+migration continuou retornando GET 200 e UPSERT 201 no cache. A remoção deixou
+aproximadamente 35.956 tuplas mortas/20 MB alocados que o autovacuum poderá
+reutilizar; não executar `VACUUM FULL`, pois ele bloquearia a tabela apenas para
+reduzir o arquivo físico.
+
+Os advisors não criaram alerta novo para `translation_cache`. Permanecem avisos
+históricos de RPCs `SECURITY DEFINER` intencionais, `pg_net` no schema público,
+índices com pouca amostra de uso e proteção contra senhas vazadas desativada.
+Produção web continua em 3.0.11; apenas o banco recebeu a contenção compatível.
+O candidato 3.0.12 permanece na PR `#10` até smoke autenticado/decisão de
+promoção.
 
 ---

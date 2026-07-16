@@ -919,4 +919,26 @@ Rollback web preservado: produção anterior `ca9fbc9` /
 `dpl_8eLCZupbmkBtAvGJVeYaLytSRghw`. A migration é forward-only; em incidente,
 o caminho seguro é corrigir por nova migration, não reescrever histórico.
 
+## Atualização do gate de produção — 2026-07-16
+
+- O bloqueio de cobrança do GitHub foi corrigido externamente pelo responsável
+  do projeto. O Codex reexecutou o workflow do PR e o run `29514633988` ficou
+  verde: job `Verify learning engine and release smoke` concluído com sucesso.
+- O PR `#8` foi retirado de draft e está pronto para revisão. O preview mais
+  recente do mesmo código é `dpl_13DyPNiDQf2gmB8FhTrG2Qz1tqbZ`, estado
+  `READY`, com raiz HTTP 200 e build sem erros.
+- O Codex atualizou `actions/checkout` e `actions/setup-node` de `v4` para `v5`
+  para usar o runtime Node 24 suportado pelas actions. A matriz do produto
+  permanece em Node 20 (`node-version: '20'`); não houve mudança do runtime da
+  aplicação.
+- A revisão sênior detectou três suítes existentes fora do agregador final. O
+  Codex incluiu `study-focus`, `product-ux` e `design-system` em
+  `test:release`, reutilizando `test:stage3`, e removeu a execução duplicada de
+  `max-ui` (ela já pertence a `test:stage2`).
+- O workflow passou a ter `contents: read` por padrão, `contents: write` apenas
+  no job de release por tag e checkout sem persistir credenciais nos dois jobs.
+- Permanecem obrigatórios antes da promoção: CI verde do commit final, smoke
+  autenticado desktop/mobile, promoção desse mesmo SHA, aplicação da migration
+  contract e smoke pós-migration/produção.
+
 ---

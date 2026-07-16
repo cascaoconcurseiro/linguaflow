@@ -900,4 +900,21 @@ desktop/mobile/extensão, promoção do mesmo SHA, contract e smoke pós-migrati
 Produção atual permanece em `ca9fbc9`;
 rollback web disponível em `dpl_8eLCZupbmkBtAvGJVeYaLytSRghw`.
 
+## Atualização de release — 2026-07-16
+
+- GitHub Actions foi desbloqueado; rerun `29514633988` passou integralmente.
+- PR `#8` está pronto para revisão e o preview mais recente
+  `dpl_13DyPNiDQf2gmB8FhTrG2Qz1tqbZ` está `READY`.
+- Codex atualizou `checkout`/`setup-node` para `v5`, removendo o aviso do
+  runtime interno Node 20 das actions sem mudar o Node 20 usado para testar o
+  produto.
+- `test:release` agora inclui `test:stage3` (focus shell + study focus),
+  `test:product-ux` e `test:design-system`; `max-ui` deixou de rodar duas vezes.
+- GitHub Actions usa privilégio mínimo: leitura global, escrita somente no job
+  de release por tag e checkout sem credencial persistida.
+- Ordem restante: validar o CI do commit final; smoke autenticado; promover o
+  SHA aprovado; aplicar somente então
+  `20260716124440_contract_user_stats_and_legacy_xp_p0_3.sql`; smoke de placar,
+  revisão e produção. Não usar `supabase db push`.
+
 ---

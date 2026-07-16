@@ -916,5 +916,9 @@ rollback web disponível em `dpl_8eLCZupbmkBtAvGJVeYaLytSRghw`.
   SHA aprovado; aplicar somente então
   `20260716124440_contract_user_stats_and_legacy_xp_p0_3.sql`; smoke de placar,
   revisão e produção. Não usar `supabase db push`.
+- Candidato final `123aac3`: release local verde, Actions `29515494106`
+  `success`, preview `dpl_HSMLfAnL9PokuVGCiGPhJgsCZhUy` `READY` e build sem
+  erros. Próximo gate é exclusivamente o smoke autenticado; não aplicar o
+  contract antes dele e da promoção do dashboard.
 
 ---

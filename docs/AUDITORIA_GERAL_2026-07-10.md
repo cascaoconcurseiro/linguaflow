@@ -941,4 +941,16 @@ o caminho seguro é corrigir por nova migration, não reescrever histórico.
   autenticado desktop/mobile, promoção desse mesmo SHA, aplicação da migration
   contract e smoke pós-migration/produção.
 
+### Evidência do candidato final
+
+- Commit `123aac3` (`ci: harden and complete release gate`) enviado ao PR `#8`.
+- `npm run test:release -- --allow-dirty` passou localmente com os gates de UX
+  e design recém-incluídos.
+- GitHub Actions run `29515494106` concluiu com `success` no mesmo commit.
+- Preview Vercel `dpl_HSMLfAnL9PokuVGCiGPhJgsCZhUy` ficou `READY` em
+  `https://linguaflow-ihxuraphq-wesleys-projects-de111a83.vercel.app`; consulta
+  de erros do build não retornou falha.
+- Estado: candidato automatizado aprovado. Falta evidência manual autenticada;
+  migration contract e promoção continuam deliberadamente pendentes.
+
 ---

@@ -921,4 +921,20 @@ rollback web disponível em `dpl_8eLCZupbmkBtAvGJVeYaLytSRghw`.
   erros. Próximo gate é exclusivamente o smoke autenticado; não aplicar o
   contract antes dele e da promoção do dashboard.
 
+## Handoff pós-produção — 2026-07-16
+
+- PR `#8` foi integrado em `main` no merge `bcc53ed`.
+- Produção `dpl_DWv1HTxD6DuS3ZP1Axzz5nvQwkcy` está `READY` no domínio oficial,
+  com build `3.0.11`, `/` e `/learn` HTTP 200 e logs Vercel sem erros.
+- Contract aplicado como migration remota
+  `20260716163329_contract_user_stats_and_legacy_xp_p0_3`.
+- Confirmado: RPCs antigas de XP sem EXECUTE; `user_stats` somente leitura da
+  própria linha; leaderboard e writer atômico de revisão apenas para
+  autenticado; tráfego real pós-corte retornando HTTP 200.
+- Não reverter apenas o site para `ca9fbc9`: esse cliente é incompatível com o
+  contract. Em incidente, corrigir web para frente e banco por nova migration;
+  nunca reescrever histórico ou usar `supabase db push`.
+- Limitação aceita pelo responsável: extensão/YouTube/Max não recebeu smoke
+  interativo do Codex porque a integração Chrome permaneceu indisponível.
+
 ---

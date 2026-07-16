@@ -953,4 +953,40 @@ o caminho seguro é corrigir por nova migration, não reescrever histórico.
 - Estado: candidato automatizado aprovado. Falta evidência manual autenticada;
   migration contract e promoção continuam deliberadamente pendentes.
 
+## Produção e encerramento do P0.3 — 2026-07-16
+
+**Responsável:** Codex. Promoção autorizada explicitamente pelo responsável do
+projeto mesmo sem o smoke interativo da extensão/Max, limitação registrada no
+handoff anterior.
+
+- PR `#8` integrado em `main` pelo merge
+  `bcc53ed5b935518be0fb79ae58f20b4e64bb30fd`.
+- Deployment Vercel de produção `dpl_DWv1HTxD6DuS3ZP1Axzz5nvQwkcy` ficou
+  `READY` e recebeu os aliases oficiais, inclusive
+  `https://linguaflow-web-tau.vercel.app`.
+- `/` e `/learn` responderam HTTP 200 com `app.js?v=3.0.11`; consulta de erros
+  do build não retornou falhas e não houve runtime `error`/`fatal` no
+  deployment.
+- Somente depois do dashboard novo ficar `READY`, o Codex aplicou a migration
+  contract como `20260716163329_contract_user_stats_and_legacy_xp_p0_3`.
+- Pós-contract: `record_learning_event` e `claim_weekly_quest` não são
+  executáveis por `anon`, `authenticated` ou `service_role`; `user_stats` não
+  permite SELECT anônimo nem INSERT/UPDATE autenticado. A única policy da
+  tabela é SELECT da própria linha para `authenticated`.
+- `get_leaderboard(integer,integer)` e
+  `record_card_review(uuid,smallint,jsonb,uuid)` permanecem `SECURITY DEFINER`,
+  executáveis por `authenticated` e bloqueadas para `anon`.
+- Smoke com identidade autenticada confirmou uma única linha própria visível,
+  leaderboard retornando linha e `is_current_user=true`. INSERT direto em
+  `review_log` continuou bloqueado por intenção; o writer válido é a RPC
+  atômica.
+- Logs da Data API após o corte mostraram tráfego autenticado real com HTTP 200
+  para `user_stats`, cards, `review_log`, configurações, histórias e conteúdo.
+
+**Estado final:** P0.3 promovido e contract aplicado. Rollback web anterior
+continua identificável em `dpl_8eLCZupbmkBtAvGJVeYaLytSRghw`, mas não deve ser
+usado isoladamente após o contract porque o cliente antigo depende das
+permissões removidas. Qualquer correção de banco deve ser uma nova migration
+forward-only.
+
 ---

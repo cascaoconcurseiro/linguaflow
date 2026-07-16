@@ -1,5 +1,56 @@
 # Handoff — LinguaFlow
 
+## Handoff Codex — Onda 0 comportamental e schema canônico (2026-07-16)
+
+O Codex e as frentes sêniores fecharam as lacunas apontadas na revisão do PR
+`#10`. `tests/startup-behavior-p0.test.mjs` agora executa comportamentos reais de
+timeout/refresh de auth, reinstalação do callback YouGlish, payload XSS em chunks
+e handlers install/activate/fetch do service worker em VM. A renderização segura
+foi isolada em `dashboard/js/core/studySafety.js` para ser testável sem DOM.
+
+O upgrade 3.0.11→3.0.12 também foi reproduzido no mesmo origin local. O 3.0.11
+registrou duas inicializações por causa do reload em `controllerchange`; o 3.0.12
+registrou uma única inicialização e manteve a aba antiga estável. Por desenho, a
+aba aberta continua no cliente antigo até uma navegação/recarga explícita.
+
+O schema agora possui documento canônico e inventário SQL read-only:
+`docs/SCHEMA_CANONICO_SUPABASE_2026-07-16.md` e
+`scripts/schema-inventory-readonly.sql`. Foram mapeadas 29 migrations locais
+para 38 remotas; snapshot remoto PostgreSQL 17.6, 17 tabelas com RLS e fingerprint
+`a7a1728be0e6e03159471d8a52b8f9d0`. Nenhuma alteração remota foi feita.
+
+Gate integrado: `npm run test:release -- --allow-dirty` verde em 26,7 s. QA
+autenticado permanece bloqueado porque a ChatGPT Chrome Extension não está
+disponível no perfil desta máquina; não inserir credenciais em testes nem
+contornar essa integração.
+
+## Handoff Codex — startup estável e limpeza pedagógica (2026-07-16)
+
+Build 3.0.12, ainda candidato de branch até CI/preview/QA. O service worker não recarrega mais a aplicação durante o
+bootstrap; o shell nasce protegido por `lf-auth-pending` e o roteador não injeta
+um spinner antes do loading da view. Isso elimina a sequência carrega/pisca/Home
+e a repetição visual do CTA `Revisar agora`.
+
+No painel de estudo, Tatoeba foi removido por duplicar chunks e por não ser
+evidência de fala. YouGlish agora é descobrível como `Ouvir em vídeos reais`, mas
+o embed continua lazy. A frase principal não reaparece como chunk; dados dos
+chunks são escapados antes do HTML. O engine de legendas e o banco remoto não
+foram alterados.
+
+Esta decisão revoga as entradas históricas abaixo que registravam Tatoeba como
+preservado/ativo; elas continuam no arquivo apenas como histórico datado.
+
+Testes novos/ajustados: `startup-cleanup-p0` e `understand-panel-p0-b`, ambos no
+gate de release. A auditoria completa, a estimativa de redução de LOC e as ondas
+seguintes estão em `docs/AUDITORIA_GERAL_2026-07-10.md`, seção
+`Auditoria de limpeza e escalabilidade`.
+
+Evidência automatizada: commit `9edb980`, PR draft `#10`, CI run `29518303487`
+verde e preview `dpl_9qKwYHuVV8kxYMCH4S1HjZCaDQHJ` READY. O QA público desktop
+e 390×844 confirmou login, remoção de `lf-auth-pending`, ausência de overflow e
+zero erro do app. Permanecem obrigatórios QA autenticado e upgrade real do worker
+3.0.11 antes de produção.
+
 ## Handoff Codex — UI Max/HBO sem alterar o engine (2026-07-15)
 
 ### Ajuste após QA real do dono — versão 3.0.5
@@ -936,5 +987,61 @@ rollback web disponível em `dpl_8eLCZupbmkBtAvGJVeYaLytSRghw`.
   nunca reescrever histórico ou usar `supabase db push`.
 - Limitação aceita pelo responsável: extensão/YouTube/Max não recebeu smoke
   interativo do Codex porque a integração Chrome permaneceu indisponível.
+
+---
+
+# Handoff Codex — Onda 0/P1 de integridade e limpeza (2026-07-16)
+
+- Responsável e coordenador: Codex; revisões independentes de arquitetura/dados,
+  Supabase/Postgres e QA/lifecycle.
+- Cards e `review_log` agora paginam além de 1.000 linhas com ordenação estável e
+  falha fechada. Preservar `_fetchAllPages`, `order=id.asc` e
+  `order=ts.asc,id.asc` até uma futura migração consciente para cursor.
+- A migration local `20260716172603_contain_translation_cache_free_tier.sql`
+  foi aplicada isoladamente após CI como remote
+  `20260716174457_contain_translation_cache_free_tier`. Ela implementa TTL 30
+  dias, teto 5.000/usuário, trigger por statement, prune diário, grants mínimos
+  e RLS explícita. Não usar `supabase db push` nem reescrever os timestamps.
+- O replay SQL valida 5.001 inserts, linha sobrevivente, TTL, policies, grants,
+  funções e cron. Localmente só o contrato estático rodou porque não há
+  PostgreSQL/Docker; o workflow GitHub possui o replay efêmero obrigatório.
+- Corte seguro removeu 553 linhas/arquivos órfãos. Não restaurar
+  `assets/cefr.json`, os dois adapters engine nem os dez métodos mortos do popup
+  sem novo consumidor e teste. Preservar `utils/cefr-wordlist.json`, lifecycle
+  do `WordPopup`, backup real, IA/chunks e tombstone `updateCard`.
+- Gates novos: `test:db-pagination`, `test:translation-cache`,
+  `dead-code-boundary` no release smoke e `translation-cache-budget.sql` no
+  replay das migrations.
+- Evidência final: release local verde em 29,8 s; Actions `29520892615`
+  `success`; preview `dpl_7x9VqHKJurUwrL1T8Pom5sK8xzJE` `READY`, HTTP 200 e
+  build 3.0.12. Cache remoto em 5.000 linhas/zero expiradas; cron diário ativo;
+  quatro policies e funções administrativas sem EXECUTE pelos papéis da API.
+- Os ~35.956 registros removidos permanecem como espaço reutilizável até o
+  autovacuum. Não usar `VACUUM FULL` em produção apenas para diminuir o arquivo.
+
+**Próxima ordem:** smoke autenticado do preview em Home/Estudo/YouGlish e
+extensão YouTube/Max; depois decidir promoção do mesmo SHA. Produção web
+continua em 3.0.11; a contenção de banco já está ativa e é compatível.
+
+---
+
+# Handoff Codex — Onda 1/P0 cold start (2026-07-16)
+
+- O bootstrap não chama mais `updateGlobalStats` em paralelo com a Home. A Home
+  aplica seu próprio snapshot ao shell por `app.applyGlobalStats(stats)`.
+- `getUserStats` usa single-flight apenas durante a Promise em voo, com
+  invalidação por dados/auth e suporte ao proxy. Não transformar isso em cache
+  resolvido: XP e streak precisam continuar frescos em leituras sequenciais.
+- Mensagens de atualização usam debounce de 150 ms; logout cancela o timer.
+- Em refresh/reentrada, `renderHome` mantém `.gamified-home` ou
+  `.onboarding-shell` visível e não volta ao loader. O generation guard continua
+  responsável por impedir commit stale.
+- Gates: `db-user-stats-coalescing.test.mjs` e
+  `home-cold-start-behavior.test.mjs`, ambos no release.
+
+**Ainda falta nesta onda:** `get_home_snapshot`/read-model server-side para que
+o CTA não espere palavras, frases, histórico e widgets; lazy import das rotas
+secundárias; shell estático durante auth; medição p75 real. Fazer em migration
+expand-only + preview separado, preservando o P0 acima.
 
 ---

@@ -96,6 +96,9 @@ run_pg "${PSQL[@]}" -f "$ROOT/tests/db/evidence-foundation.sql"
 echo "── contratos SQL do portão privado P0.1"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/db/evidence-commit-p0-1.sql"
 
+echo "── contenção do translation_cache no free tier"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/db/translation-cache-budget.sql"
+
 echo "── concorrência real do portão privado P0.1"
 bash "$ROOT/tests/db/evidence-commit-concurrency.sh" "$PGBIN/psql" "$PORT" "$SOCK" "$DB"
 

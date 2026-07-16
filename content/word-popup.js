@@ -11,8 +11,6 @@ export class WordPopup {
     this.context = '';
     this.cache = {};
 
-    this._gramBuilt = false;
-    this._exBuilt = false;
     this.freqList = null;
   }
 
@@ -562,8 +560,6 @@ export class WordPopup {
     this.context = this._truncateContext(this.word, this.context);
     this.currentCue = cue; // Armazena a cue completa com contexto expandido
     this._anchorRect = rect || null;
-    this._chunksBuilt = false;
-    this._exBuilt = false;
     this._contextExplained = false;
 
     // Na Max, legenda e popup vivem no mesmo overlay fixo. Em outros players,
@@ -843,212 +839,6 @@ export class WordPopup {
       this._generateContext(this.word);
     }
   }
-
-  async _buildGrammar() {
-    this._gramBuilt = true;
-    const q = (s) => this._q(s);
-    const d = this.cache[this.word] || {};
-
-    // Carrega DB de phrasal verbs
-    const BASE = chrome.runtime.getURL('utils/');
-    const { phrasalVerbsDB } = await import(BASE + 'phrasal-verbs.js');
-
-    // Usa o tipo já detectado (pode ter sido enriquecido pela IA)
-    const exprInfo = this._exprType || this._detectExprType(this.word, phrasalVerbsDB);
-    const isExpr =
-      this.word.includes(' ') ||
-      ['phrasal', 'idiom', 'chunk', 'collocation'].includes(exprInfo.type);
-    const lowerWord = this.word.toLowerCase();
-    const firstToken = lowerWord.split(/\s+/)[0];
-    const exactPhrasal = (phrasalVerbsDB[firstToken] || []).filter(
-      (e) => e.phrase?.toLowerCase() === lowerWord,
-    );
-    const phs =
-      exprInfo.type === 'phrasal' ? exactPhrasal : !isExpr ? phrasalVerbsDB[lowerWord] || [] : [];
-
-    const typeDescriptions = {
-      phrasal: {
-        title: 'Phrasal verb',
-        desc: 'Leia como uma ideia só. Traduzir palavra por palavra costuma enganar.',
-      },
-      idiom: {
-        title: 'Expressão idiomática',
-        desc: 'O sentido vem do conjunto, não das palavras separadas.',
-      },
-      chunk: {
-        title: 'Chunk',
-        desc: 'Bloco pronto que nativos usam sem montar palavra por palavra.',
-      },
-      collocation: {
-        title: 'Combinação natural',
-        desc: 'Palavras que soam certas juntas. Guarde o par completo.',
-      },
-      slang: {
-        title: 'Gíria',
-        desc: 'Uso informal. Bom para entender fala real, cuidado em contexto formal.',
-      },
-      formal: {
-        title: 'Registro formal',
-        desc: 'Mais comum em escrita, trabalho ou fala cuidadosa.',
-      },
-      word: {
-        title: 'Palavra',
-        desc: 'Aqui vale olhar o sentido no contexto antes de memorizar a tradução.',
-      },
-    };
-    const tinfo = typeDescriptions[exprInfo.type] || typeDescriptions.word;
-    const safeWord = this._escapeAttr(this.word);
-    const safeTranslation = this._escapeAttr(d.translation || '');
-    const safeDefinition = this._escapeAttr(d.definition || '');
-    const safeContext = this._escapeAttr(this.context || '');
-    const contextLine = safeContext
-      ? safeContext.replace(
-          new RegExp(`\\b(${this._escapeRegExp(safeWord)})\\b`, 'gi'),
-          '<b style="color:#7dd3fc">$1</b>',
-        )
-      : 'Sem frase de contexto para comparar.';
-    const chunkChips = this._usageChunks(exprInfo, phs)
-      .map((item) => `<span class="lfp-mini-chip">${this._escapeAttr(item)}</span>`)
-      .join('');
-    const simpleUse = this._simpleUsageLine(exprInfo, safeWord, safeTranslation);
-
-    let h = '';
-    h += `<div class="lfp-use-card">
-      <div class="lfp-use-title"><span>💡</span><span>O que olhar aqui</span></div>
-      <div class="lfp-use-text">${tinfo.title}: ${tinfo.desc}</div>
-    </div>`;
-
-    h += `<div class="lfp-use-card blue">
-      <div class="lfp-use-title"><span>🎬</span><span>Nesta frase</span></div>
-      <div class="lfp-use-text">${contextLine}</div>
-      ${safeTranslation ? `<div class="lfp-use-muted" style="margin-top:6px;">Tradução-base: <b style="color:#4ade80">${safeTranslation}</b></div>` : ''}
-    </div>`;
-
-    if (safeDefinition) {
-      h += `<div class="lfp-use-card green">
-        <div class="lfp-use-title"><span>📌</span><span>Sentido simples</span></div>
-        <div class="lfp-use-text">${safeDefinition}</div>
-      </div>`;
-    }
-
-    if (phs.length) {
-      h += `<div class="lfp-use-card amber">
-        <div class="lfp-use-title"><span>🔗</span><span>Use como bloco</span></div>
-        ${phs
-          .map(
-            (p) => `<div style="margin-bottom:8px;">
-          <div class="lfp-use-text"><b style="color:#fbbf24">${this._escapeAttr(p.phrase)}</b> = ${this._escapeAttr(p.meaning || '')}</div>
-          ${p.example ? `<div class="lfp-use-muted">"${this._escapeAttr(p.example)}"</div>` : ''}
-        </div>`,
-          )
-          .join('')}
-      </div>`;
-    }
-
-    h += `<div class="lfp-use-card">
-      <div class="lfp-use-title"><span>🧩</span><span>Blocos para lembrar</span></div>
-      <div class="lfp-use-text">${chunkChips || simpleUse}</div>
-    </div>`;
-
-    q('#fchunks-container').innerHTML = h;
-  }
-
-  _usageChunks(exprInfo, phs) {
-    if (phs?.length) return phs.slice(0, 3).map((p) => p.phrase);
-    const w = this.word;
-    if (exprInfo.type === 'phrasal' || w.includes(' ')) return [w];
-    const pos = (this.cache[this.word]?.partOfSpeech || '').toLowerCase();
-    if (pos === 'verb') return [`to ${w}`, `${w} it`, `${w} with`];
-    if (pos === 'noun') return [`a ${w}`, `the ${w}`, `${w} of`];
-    if (pos === 'adjective') return [`be ${w}`, `feel ${w}`, `${w} thing`];
-    return [w];
-  }
-
-  _simpleUsageLine(exprInfo, word, translation) {
-    if (exprInfo.type !== 'word') {
-      return `Memorize <b style="color:#7dd3fc">${word}</b> como uma peça só. O sentido real vem do bloco.`;
-    }
-    return `Use <b style="color:#7dd3fc">${word}</b>${translation ? ` como "${translation}"` : ''}, mas confirme pelo contexto da frase.`;
-  }
-
-  async _buildExamples() {
-    this._exBuilt = true;
-    const q = (s) => this._q(s);
-    const d = this.cache[this.word] || {};
-    const exs = [];
-    if (d.example) exs.push({ en: d.example, src: 'Dicionário Oxford' });
-    // Fetch more
-    try {
-      const res = await fetch(
-        `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(this.word)}`,
-      );
-      if (res.ok) {
-        const arr = await res.json();
-        arr[0]?.meanings?.forEach((m) =>
-          m.definitions?.forEach((def) => {
-            if (def.example && exs.length < 8) exs.push({ en: def.example, src: m.partOfSpeech });
-          }),
-        );
-      }
-    } catch {}
-    if (!exs.length) {
-      q('#fexb').innerHTML =
-        '<div style="color:#475569;font-size:13px;text-align:center;padding:16px 0;">Nenhum exemplo no dicionário.<br>Use "Explicar melhor" na aba Uso Real para ver o sentido no contexto.</div>';
-      return;
-    }
-    // Translate all examples
-    const hl = (t, w) =>
-      t.replace(new RegExp(`\\b(${w})\\b`, 'gi'), '<b style="color:#7dd3fc">$1</b>');
-    q('#fexb').innerHTML =
-      '<div style="color:#475569;font-size:12px;text-align:center;padding:8px;">Traduzindo exemplos…</div>';
-
-    // Tradução sequencial para não sobrecarregar o canal de mensagens
-    const translated = [];
-    for (const e of exs) {
-      const tr = await this._translate(e.en);
-      translated.push(tr);
-    }
-
-    q('#fexb').innerHTML = exs
-      .map(
-        (e, i) => `
-      <div class="lfp-ex">
-        <div style="margin-bottom:5px;">${hl(e.en, this.word)}</div>
-        <div style="font-size:12px;color:#7dd3fc;font-style:italic;line-height:1.5;">→ ${translated[i] || '…'}</div>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-          <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:.07em;">${e.src}</div>
-          <button class="lfp-shadow-btn" data-text="${e.en.replace(/"/g, '&quot;')}" style="background:rgba(56,189,248,0.1); border:none; border-radius:6px; color:#38bdf8; padding:3px 8px; font-size:11px; cursor:pointer; font-weight:700;">🎧 Shadowing</button>
-        </div>
-      </div>`,
-      )
-      .join('');
-
-    // Bind shadowing buttons
-    q('#fexb')
-      .querySelectorAll('.lfp-shadow-btn')
-      .forEach((btn) => {
-        btn.onclick = async () => {
-          const text = btn.dataset.text;
-          const BASE = chrome.runtime.getURL('utils/');
-          const { tts } = await import(BASE + 'tts.js');
-
-          btn.textContent = '🔊 Ouvindo...';
-          await tts.play(text, 'en-US');
-
-          btn.textContent = '🎙️ Sua vez!';
-          btn.style.background = 'rgba(74,222,128,0.1)';
-          btn.style.color = '#4ade80';
-
-          setTimeout(() => {
-            btn.textContent = '🎧 Shadowing';
-            btn.style.background = 'rgba(56,189,248,0.1)';
-            btn.style.color = '#38bdf8';
-          }, 3000);
-        };
-      });
-  }
-
-  // Os métodos _ai, _aiSentence e _aiGrammar foram movidos para o final do arquivo para melhor organização.
 
   async _getVideoUrlWithTimestamp() {
     const BASE = chrome.runtime.getURL('utils/');
@@ -1427,11 +1217,6 @@ export class WordPopup {
     window.open(url, '_blank');
   }
 
-  _phrasals(word) {
-    // Agora carregado dinamicamente no _buildGrammar para manter o arquivo principal leve.
-    return [];
-  }
-
   _posLabel(pos) {
     const map = {
       noun: 'substantivo',
@@ -1448,35 +1233,6 @@ export class WordPopup {
     };
     return map[pos?.toLowerCase()] || pos || '';
   }
-
-
-
-  _posDetail(pos, w) {
-    const m = {
-      noun: `<b style="color:#7dd3fc">Substantivo</b> — Pessoa, lugar, coisa ou ideia.<br>• Artigo: <span style="color:#7dd3fc">a/an/the ${w}</span><br>• Plural: <span style="color:#7dd3fc">${w}s</span> • Possessivo: <span style="color:#7dd3fc">${w}'s</span>`,
-      verb: `<b style="color:#4ade80">Verbo</b> — Ação ou estado.<br>• Base: <span style="color:#4ade80">${w}</span> • 3ª pessoa: <span style="color:#4ade80">${w}s</span><br>• Gerúndio: <span style="color:#4ade80">${w}ing</span> • Passado: <span style="color:#4ade80">${w}ed</span><br>• Passiva: <span style="color:#4ade80">be/was ${w}ed</span>`,
-      adjective: `<b style="color:#fbbf24">Adjetivo</b> — Descreve substantivos.<br>• Antes do noun: <span style="color:#fbbf24">${w} + noun</span><br>• Após linking verb: <span style="color:#fbbf24">be/seem/look + ${w}</span><br>• Comparativo: <span style="color:#fbbf24">more ${w}</span> • Superlativo: <span style="color:#fbbf24">most ${w}</span>`,
-      adverb: `<b style="color:#f472b6">Advérbio</b> — Modifica verbos, adjetivos ou advérbios.<br>• Geralmente termina em <b>-ly</b><br>• Ex: very, quite, rather, too + <span style="color:#f472b6">${w}</span>`,
-      preposition: `<b style="color:#a78bfa">Preposição</b> — Relação entre elementos.<br>• Lugar: in, on, at, under, over<br>• Tempo: at, on, in, before, after<br>• Movimento: to, from, into, through`,
-    };
-    return (
-      m[pos?.toLowerCase()] ||
-      `<span style="color:#64748b">Clique "Analisar com IA" para análise detalhada da classe gramatical desta palavra.</span>`
-    );
-  }
-
-  _patterns(pos, w) {
-    const m = {
-      verb: `• <b>S + ${w} + O</b> (transitivo)<br>• <b>S + ${w} + to-inf.</b> (ex: want to ${w})<br>• <b>S + ${w} + -ing</b> (ex: enjoy ${w}ing)<br>• <b>S + ${w} + that clause</b>`,
-      noun: `• <b>the/a/an + ${w}</b><br>• <b>adj + ${w}</b> (ex: big/small ${w})<br>• <b>${w} + of + sth</b><br>• <b>compound: ${w}+noun</b>`,
-      adjective: `• <b>${w} + noun</b> (atributivo)<br>• <b>be/seem/look/feel/sound + ${w}</b><br>• <b>too + ${w} / ${w} + enough</b><br>• <b>very/quite/rather/extremely + ${w}</b>`,
-    };
-    return (
-      m[pos?.toLowerCase()] ||
-      `<span style="color:#64748b">Use "Analisar com IA" para ver padrões específicos desta palavra.</span>`
-    );
-  }
-
   _findPlayerContainer() {
     const selectors = {
       youtube: ['#movie_player', '.html5-video-player', '#ytd-player'],
@@ -1795,43 +1551,6 @@ export class WordPopup {
     };
   }
 
-  async _loadSavedChunks() {
-    const q = (s) => this._q(s);
-    const container = q('#fchunks-container');
-    const btn = q('#fgenchunks');
-    try {
-      const BASE = chrome.runtime.getURL('utils/');
-      const { db } = await import(BASE + 'db.js');
-      const saved = await db.getWord(this.word, this.engine?.sourceLang || 'en');
-      if (saved?.chunks?.length) {
-        this._chunksBuilt = true;
-        this.generatedChunks = saved.chunks;
-        let html = '';
-        saved.chunks.forEach((c) => {
-          html += `<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px;margin-bottom:10px;">
-            <div style="font-size:14px;color:#e2e8f0;font-weight:700;margin-bottom:4px;">${c.eng}</div>
-            <div style="font-size:12px;color:#94a3b8;font-style:italic;margin-bottom:8px;">${c.pt}</div>
-            <div style="font-size:13px;color:#fbbf24;font-family:monospace;font-weight:600;background:rgba(251,191,36,.1);padding:4px 8px;border-radius:6px;display:inline-block;border:1px solid rgba(251,191,36,.3);">${c.phon}</div>
-          </div>`;
-        });
-        if (container) container.innerHTML = html;
-        if (btn) btn.textContent = '🔄 Regenerar Chunks';
-      } else if (container) {
-        container.innerHTML =
-          '<div style="text-align:center;color:#475569;font-size:13px;padding:16px;">Clique "Gerar" para criar chunks de treino com IA.</div>';
-        if (btn) {
-          btn.style.display = 'block';
-          btn.disabled = false;
-        }
-      }
-    } catch (e) {
-      if (container) {
-        container.innerHTML =
-          '<div style="text-align:center;color:#475569;font-size:13px;padding:16px;">Clique "Gerar" para criar chunks de treino com IA.</div>';
-      }
-    }
-  }
-
   async _generateChunks() {
     const q = (s) => this._q(s);
     const btn = q('#fgenchunks');
@@ -1862,7 +1581,6 @@ export class WordPopup {
       });
 
       if (response?.chunks) {
-        this._chunksBuilt = true;
         this.generatedChunks = response.chunks;
 
         let html = '';
@@ -1894,31 +1612,6 @@ export class WordPopup {
         btn.disabled = false;
       }
     }
-  }
-
-  _formatUseRealAI(text) {
-    const raw = String(text || '').trim();
-    const sections = [
-      ['Nesta frase', 'blue'],
-      ['Bloco importante', ''],
-      ['Não confunda com', 'amber'],
-      ['Use assim', 'green'],
-    ];
-    const escape = (value) => this._escapeAttr(value).replace(/\n/g, '<br>');
-    let html = '';
-
-    sections.forEach(([title, tone]) => {
-      const re = new RegExp(`\\*\\*${title}:?\\*\\*([\\s\\S]*?)(?=\\n\\s*\\*\\*|$)`, 'i');
-      const match = raw.match(re);
-      if (!match?.[1]?.trim()) return;
-      html += `<div class="lfp-use-card ${tone}">
-        <div class="lfp-use-title"><span>${title === 'Nesta frase' ? '🎬' : title === 'Bloco importante' ? '🧩' : title === 'Não confunda com' ? '⚠️' : '✅'}</span><span>${title}</span></div>
-        <div class="lfp-use-text">${escape(match[1].trim().replace(/^:/, '').trim())}</div>
-      </div>`;
-    });
-
-    if (html) return html;
-    return `<div class="lfp-use-card"><div class="lfp-use-text">${escape(raw)}</div></div>`;
   }
 
   _formatAI(text) {
@@ -2033,79 +1726,5 @@ export class WordPopup {
     formatted = formatted.replace(/<br>\s*<div/g, '<div').replace(/<\/div>\s*<br>/g, '</div>');
     return formatted;
 
-  }
-  // O hide original com animação está na linha ~734
-
-  async _renderBasicGrammarFallback(resEl, errorMsg) {
-    try {
-      const sentence = this.context || this.word;
-      const words = sentence.split(/[\s,.;!?'"()]+/).filter((w) => w.trim().length > 0);
-
-      let html = '<div>';
-      html += `<div class="lfp-use-card amber">
-            <div class="lfp-use-title"><span>⚠️</span><span>IA indisponível</span></div>
-            <div class="lfp-use-text">Não consegui gerar uma explicação contextual agora.${errorMsg ? `<br><br><b>Detalhe:</b> ${errorMsg}` : ''}</div>
-            <div class="lfp-use-muted" style="margin-top:6px;">Você ainda pode usar a tradução, a frase do vídeo e os exemplos para entender o uso.</div>
-        </div>`;
-      html +=
-        '<div class="lfp-use-card blue"><div class="lfp-use-title"><span>🔎</span><span>Palavras da frase</span></div>';
-
-      const { translator } = await import(chrome.runtime.getURL('utils/translator.js'));
-      const sourceLang = this.engine?.sourceLang || 'auto';
-
-      // Função auxiliar para buscar a classe gramatical (apenas inglês por enquanto, grátis)
-      const fetchPOS = async (word) => {
-        if (sourceLang !== 'en' && sourceLang !== 'auto') return '';
-        try {
-          const res = await fetch(
-            `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,
-          );
-          if (!res.ok) return '';
-          const data = await res.json();
-          if (data && data[0] && data[0].meanings && data[0].meanings[0]) {
-            const pos = data[0].meanings[0].partOfSpeech;
-            // Traduzir termos comuns
-            const map = {
-              noun: 'Substantivo',
-              verb: 'Verbo',
-              adjective: 'Adjetivo',
-              adverb: 'Advérbio',
-              pronoun: 'Pronome',
-              preposition: 'Preposição',
-              conjunction: 'Conjunção',
-              interjection: 'Interjeição',
-            };
-            return map[pos] || pos;
-          }
-        } catch (e) {}
-        return '';
-      };
-
-      // Traduz e busca classe gramatical em paralelo
-      const tasks = words.map(async (w) => {
-        const [trans, pos] = await Promise.all([
-          translator.translate(w, sourceLang, 'pt'),
-          fetchPOS(w),
-        ]);
-        return { word: w, translation: trans?.translation || '...', pos: pos };
-      });
-
-      const results = await Promise.all(tasks);
-
-      for (let r of results) {
-        const posTag = r.pos
-          ? `<br><span style="font-size:10px;color:#a78bfa;font-weight:normal;background:rgba(167,139,250,0.15);padding:1px 4px;border-radius:3px;">${r.pos}</span>`
-          : '';
-        html += `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)">
-                <div style="font-weight:700;color:#7dd3fc;">${r.word}${posTag}</div>
-                <div style="color:#e2e8f0;text-align:right;">${r.translation}</div>
-             </div>`;
-      }
-      html += '</div></div>';
-      resEl.innerHTML = html;
-      resEl.className = 'ai-res';
-    } catch (e) {
-      resEl.innerHTML = `<div class="lfp-use-card amber"><div class="lfp-use-title"><span>⚠️</span><span>IA indisponível</span></div><div class="lfp-use-text">Não consegui gerar a explicação agora.<br><br><b>Detalhe técnico:</b> ${e.message}</div></div>`;
-    }
   }
 }

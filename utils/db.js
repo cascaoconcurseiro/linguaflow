@@ -48,6 +48,8 @@ class Database {
     this.isProxyMode = this.isChromeContext && !this.isBackgroundWorker;
     this.initPromise = Promise.resolve();
     this._cacheGeneration = 0;
+    this._userStatsAuthGeneration = 0;
+    this._userStatsRead = null;
   }
 
   // Lê o objeto de sessão completo ({ access_token, refresh_token, expires_at, user })
@@ -110,6 +112,7 @@ class Database {
           method: 'POST',
           headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
           body: JSON.stringify({ refresh_token: session.refresh_token }),
+          signal: AbortSignal.timeout(10000),
         });
         const data = await res.json().catch(() => ({}));
 
@@ -216,6 +219,46 @@ class Database {
     }
   }
 
+  // PostgREST limita a quantidade de linhas devolvidas por requisição. Uma
+  // leitura que pare na primeira página parece válida, mas perde dados sem
+  // qualquer erro quando a conta passa desse limite. Este helper preserva a
+  // query original e só considera a coleção completa depois de receber uma
+  // página curta. Erros e respostas inválidas abortam a operação inteira.
+  async _fetchAllPages(baseQuery, { pageSize = 1000, maxPages = 10000 } = {}) {
+    if (!Number.isSafeInteger(pageSize) || pageSize < 1) {
+      throw new RangeError('pageSize deve ser um inteiro positivo.');
+    }
+    if (!Number.isSafeInteger(maxPages) || maxPages < 1) {
+      throw new RangeError('maxPages deve ser um inteiro positivo.');
+    }
+
+    const separator = baseQuery.includes('?')
+      ? (/[?&]$/.test(baseQuery) ? '' : '&')
+      : '?';
+    const rows = [];
+
+    for (let page = 0; page < maxPages; page += 1) {
+      const offset = page * pageSize;
+      if (!Number.isSafeInteger(offset)) {
+        throw new RangeError('Offset de paginação excedeu o limite seguro.');
+      }
+
+      const batch = await this._fetch(
+        `${baseQuery}${separator}limit=${pageSize}&offset=${offset}`
+      );
+      if (!Array.isArray(batch)) {
+        throw new Error(`Leitura paginada incompleta na página ${page + 1}.`);
+      }
+
+      // Não deduplicar aqui: duplicatas indicam um contrato de ordenação ou
+      // consistência quebrado e precisam permanecer visíveis ao chamador.
+      rows.push(...batch);
+      if (batch.length < pageSize) return rows;
+    }
+
+    throw new Error(`Leitura paginada excedeu o limite de ${maxPages} páginas.`);
+  }
+
   async _proxy(method, args) {
     if (!this.isProxyMode) return null;
     return new Promise((resolve, reject) => {
@@ -254,7 +297,11 @@ class Database {
 
   // ── AUTENTICAÇÃO ──────────────────────────────────────────────────────────
   async login(email, password) {
-    if (this.isProxyMode) return this._proxy('login', [email, password]);
+    if (this.isProxyMode) {
+      const result = await this._proxy('login', [email, password]);
+      if (result?.ok) this._invalidateUserStatsRead();
+      return result;
+    }
     const url = `${SUPABASE_URL}/auth/v1/token?grant_type=password`;
     const headers = { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
     try {
@@ -268,6 +315,7 @@ class Database {
         expires_at: Date.now() + ((data.expires_in || 3600) * 1000),
         user: data.user,
       });
+      this._invalidateUserStatsRead();
 
       return { ok: true, user: data.user };
     } catch (e) {
@@ -277,7 +325,11 @@ class Database {
   }
 
   async signUp(email, password) {
-    if (this.isProxyMode) return this._proxy('signUp', [email, password]);
+    if (this.isProxyMode) {
+      const result = await this._proxy('signUp', [email, password]);
+      if (result?.ok && result?.session) this._invalidateUserStatsRead();
+      return result;
+    }
     const url = `${SUPABASE_URL}/auth/v1/signup`;
     const headers = { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
     try {
@@ -293,6 +345,7 @@ class Database {
           expires_at: Date.now() + ((data.session.expires_in || 3600) * 1000),
           user: data.user,
         });
+        this._invalidateUserStatsRead();
       }
       return { ok: true, user: data.user, session: data.session };
     } catch (e) {
@@ -302,6 +355,7 @@ class Database {
   }
 
   async logout() {
+    this._invalidateUserStatsRead();
     if (this.isProxyMode) return this._proxy('logout', []);
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       chrome.storage.local.remove('lf_supabase_session');
@@ -507,6 +561,11 @@ class Database {
     this._knownWordsCache = null;
   }
 
+  _invalidateUserStatsRead() {
+    this._userStatsAuthGeneration = (this._userStatsAuthGeneration || 0) + 1;
+    this._userStatsRead = null;
+  }
+
   // Onda 4: aceita paginação real (limit/offset viram LIMIT/OFFSET no
   // Postgres) — sem eles, mantém o comportamento antigo (lista completa via
   // cache SWR de getAllWords/getAllCards), usado por getWordsByLetter.
@@ -568,7 +627,7 @@ class Database {
     const gen = this._cacheGeneration; // ver comentário em _fetchWords
     let data;
     if (this.isProxyMode) data = await this._proxy('getAllCards', []);
-    else data = await this._fetch('cards?select=*');
+    else data = await this._fetchAllPages('cards?select=*&order=id.asc');
     if (gen !== this._cacheGeneration) return data || [];
     this._cardsCache = { data: data || [], ts: Date.now() };
     return data || [];
@@ -1133,7 +1192,9 @@ class Database {
   async getReviewLog(days = 30) {
     if (this.isProxyMode) return this._proxy('getReviewLog', [days]);
     const start = localDayBounds(addLocalDays(-(Math.max(1, days) - 1))).start;
-    return (await this._fetch(`review_log?ts=gte.${encodeURIComponent(start.toISOString())}`)) || [];
+    return this._fetchAllPages(
+      `review_log?ts=gte.${encodeURIComponent(start.toISOString())}&order=ts.asc,id.asc`
+    );
   }
 
   async saveSentence(data) {
@@ -1254,19 +1315,37 @@ class Database {
     return (await this._fetch(`sessions?date=gte.${minDate}`)) || [];
   }
 
-  async exportDatabase() {
-    return JSON.stringify({}); 
-  }
-
-  async importDatabase(jsonData) {
-    return true; 
-  }
-
   // ── GAMIFICAÇÃO E ESTATÍSTICAS DO USUÁRIO ────────────────────────────────
   async getUserStats() {
-    if (this.isProxyMode) return this._proxy('getUserStats', []);
-    const res = await this._fetch('user_stats?select=*&limit=1');
-    return res && res.length > 0 ? res[0] : null;
+    const generation = this._cacheGeneration;
+    const authGeneration = this._userStatsAuthGeneration;
+    const activeRead = this._userStatsRead;
+    if (
+      activeRead
+      && activeRead.generation === generation
+      && activeRead.authGeneration === authGeneration
+    ) {
+      return activeRead.promise;
+    }
+
+    // O shell e a Home pedem estes mesmos dados em paralelo no cold start.
+    // Compartilhar só a Promise em voo elimina a segunda chamada REST sem
+    // manter um valor resolvido (XP/streak continuam frescos na próxima leitura).
+    const promise = (async () => {
+      if (this.isProxyMode) return this._proxy('getUserStats', []);
+      const res = await this._fetch('user_stats?select=*&limit=1');
+      return res && res.length > 0 ? res[0] : null;
+    })();
+    const read = { generation, authGeneration, promise };
+    this._userStatsRead = read;
+
+    try {
+      return await promise;
+    } finally {
+      // Uma invalidação pode ter iniciado uma leitura nova enquanto esta ainda
+      // estava em voo; a antiga nunca deve apagar a referência da nova.
+      if (this._userStatsRead === read) this._userStatsRead = null;
+    }
   }
 
   // Telemetria mínima: nunca envia texto do card, pergunta, token, e-mail ou

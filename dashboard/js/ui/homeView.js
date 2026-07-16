@@ -222,8 +222,12 @@ export async function renderHome(container, app) {
     // Stats via db unificado (Supabase) exposto em app.db
     const db = app?.db;
     container.setAttribute('aria-busy', 'true');
-    container.setAttribute('aria-busy', 'true');
-    container.innerHTML = renderViewState({ kind: 'loading', title: 'Preparando seu plano de hoje…', message: 'Organizando as revisões que mais ajudam sua memória agora.' });
+    // Em atualizações silenciosas, mantenha o plano e o CTA atuais visíveis.
+    // Trocar toda a Home pelo loader fazia "Revisar agora" sumir e reaparecer.
+    const hasCommittedHome = /class="(?:gamified-home|onboarding-shell)"/.test(container.innerHTML || '');
+    if (!hasCommittedHome) {
+        container.innerHTML = renderViewState({ kind: 'loading', title: 'Preparando seu plano de hoje…', message: 'Organizando as revisões que mais ajudam sua memória agora.' });
+    }
     if (!db) {
         container.removeAttribute('aria-busy');
         if (myGen === _homeRenderGen) renderHomeLoadError(container, app);
@@ -239,6 +243,7 @@ export async function renderHome(container, app) {
         return;
     }
     const stats = statsResult.value;
+    app.applyGlobalStats?.(stats || {});
     // getStats já consulta user_stats para streak/XP. Reusar evita uma chamada
     // REST duplicada no primeiro carregamento do painel.
     const userStats = stats?.userStats || null;

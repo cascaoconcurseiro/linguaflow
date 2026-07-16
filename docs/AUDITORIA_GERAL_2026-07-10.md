@@ -989,4 +989,248 @@ usado isoladamente após o contract porque o cliente antigo depende das
 permissões removidas. Qualquer correção de banco deve ser uma nova migration
 forward-only.
 
+## Auditoria de limpeza e escalabilidade — 2026-07-16
+
+**Responsável:** Codex, com revisões independentes de lifecycle/frontend,
+produto/UX e arquitetura/dados. Esta seção substitui estimativas genéricas por
+evidência do repositório e do Supabase de produção.
+
+### P0 corrigido no candidato local (build 3.0.12)
+
+Este bloco revoga especificamente as decisões históricas que diziam preservar
+Tatoeba. O código ainda é candidato de branch: CI do SHA, preview e QA de upgrade
+3.0.11→3.0.12 precisam ser registrados antes de produção.
+
+- [x] Removido o reload automático em `controllerchange` do service worker, causa
+  confirmada de um segundo bootstrap durante a troca/ativação do worker.
+- [x] O HTML nasce com `lf-auth-pending`; o shell não pisca antes da resolução
+  de autenticação.
+- [x] Removido o spinner genérico do roteador; cada view agora apresenta um único
+  estado de carregamento.
+- [x] Tatoeba removido integralmente (arquivo, import, UI, listener, CSS e gate).
+  Ele duplicava os chunks e era descrito incorretamente como fala real.
+- [x] YouGlish elevado de um `<details>` aninhado para recurso visível de contexto
+  real. O widget pesado permanece lazy e só carrega após clique.
+- [x] Chunks não repetem mais a frase do próprio card; continuam limitados a dois
+  inicialmente. Campos vindos de IA/banco passam por escape antes de `innerHTML`.
+- [x] Gate `startup-cleanup-p0` adicionado ao agregador de release.
+- [x] Refresh de autenticação ganhou timeout de 10 s para não manter o shell
+  invisível indefinidamente em rede pendurada.
+- [x] Reentrada no Estudo reinstala o callback do script YouGlish antes de
+  reutilizá-lo; falha transitória permite nova tentativa.
+
+O corte removeu 93 linhas líquidas de produção, sem retirar capacidade
+pedagógica. Não houve alteração no engine de legendas nem no schema remoto.
+
+### Tamanho e concentração reais
+
+- repositório rastreado: aproximadamente 42.515 LOC;
+- aplicação de produção sem SQL: 24.083 LOC;
+- produção + SQL/Edge: 27.786 LOC;
+- oito monólitos somam 14.620 LOC, cerca de 63% do JavaScript medido. São
+  `subtitle-engine.js` (4.314), `word-popup.js` (2.111), `studyView.js` (1.972),
+  `db.js` (1.487), `service-worker.js` (1.466), `settingsView.js` (1.144),
+  `storiesView.js` (1.070) e `homeView.js` (1.056).
+
+Hipótese inicial, a validar por inventário na Onda 0: redução conservadora de
+12–18% (2,9–4,3 mil LOC) e alvo forte de 18–25% (4,3–6 mil LOC). Mais que 25%
+exigiria cortar produto ou contar arquivos de teste arquivados como se fossem
+bundle. Já há aproximadamente 570 LOC/ativos órfãos identificados, mas a meta
+maior ainda não é compromisso. Modularizar pode inclusive aumentar LOC.
+
+### Dívida confirmada e ordem de execução
+
+#### Onda 0 — fundação de refatoração (em execução)
+
+- [ ] Criar testes comportamentais mínimos de startup, revisão, popup, subtitle
+  lifecycle e escrita; os testes atuais são majoritariamente contratos de fonte.
+- [ ] Adicionar lint, formatter, verificação de tipos gradual e snapshot canônico
+  do schema. Não usar `supabase db push`: 29 migrations locais e 38 remotas têm
+  histórico/timestamps divergentes.
+- [ ] Mapear telemetria de uso antes de apagar shims ou índices.
+- [ ] Fixar baseline e critérios de saída: tempo até CTA, requests no cold start,
+  erros, crescimento do cache, matriz web/extensão/backend, preview, rollback e
+  QA desktop/mobile por onda.
+- [x] Subir paginação de cards/review_log para P1 de integridade SRS; listas
+  somente visuais podem ser paginadas depois. Implementado pelo Codex em
+  2026-07-16 com ordenação determinística, falha fechada e gate acima de 1.000
+  linhas.
+- [x] Definir teto/TTL/prune do `translation_cache`: migration forward-only
+  preparada pelo Codex com 5.000 linhas/usuário, TTL de 30 dias e cron diário.
+  Aplicada remotamente pelo Codex após o replay CI verde; o alerta de capacidade
+  permanece como observabilidade futura.
+- [ ] Ativar proteção contra senhas vazadas no Auth, se disponível no plano.
+
+#### Onda 1 — remoções seguras e performance
+
+- [x] Excluir `content/engine/subtitle-fetcher.js` (111 LOC),
+  `content/engine/video-adapter.js` (61 LOC) e `assets/cefr.json` somente após gate
+  confirmar ausência de imports/runtime. Corte feito pelo Codex em 2026-07-16;
+  o gate também preserva o import dinâmico e lifecycle do `WordPopup`.
+- [x] Remover código inalcançável de `word-popup.js`; 381 linhas/métodos/flags
+  sem consumidor foram removidos pelo Codex. Save, IA, chunks, posição, popup e
+  contratos YouTube/Max permaneceram.
+- [ ] Consolidar o cold start: Home e bootstrap fazem 10–12 operações e leem
+  `user_stats` repetidamente. Criar snapshot/repository coalescido e renderizar o
+  CTA primário antes dos widgets secundários. **P0 parcial concluído pelo Codex
+  em 2026-07-16:** chamadas concorrentes de `user_stats` agora são single-flight,
+  o shell reutiliza o snapshot da Home, mensagens são agrupadas e refresh não
+  apaga o CTA. O read-model/RPC mínimo antes dos widgets continua P1.
+- [x] Implementar paginação de cards/review_log e contenção do cache antes que
+  o limite do free tier ou do PostgREST vire perda silenciosa de integridade.
+
+#### Onda 2 — lifecycle e fronteiras
+
+- [ ] Importar views sob demanda e substituir cache de DOM + rerender obrigatório
+  por lifecycle único com `AbortSignal`, cleanup e store observável.
+- [ ] Separar `studyView`, Home e `db.js` em UI, casos de uso e repositories.
+- [ ] Transformar listeners/timers de `subtitle-engine.js` em máquina de estados;
+  o arquivo concentra 38 listeners e 26 timers e continua sendo o maior risco de
+  races. Não fazer reescrita big-bang nem migrar para React sem necessidade.
+
+#### Onda 3 — dados, escala e free tier
+
+- [ ] Completar paginação de `getAllWords`, `getAllSentences` e `getAllKnownWords`;
+  trocar estatísticas por agregações server-side.
+- [ ] Substituir SELECT+PATCH/INSERT de sessão por incremento RPC atômico; duas
+  abas hoje podem perder segundos.
+- [ ] Remover a coluna legada `words.snapshot` por nova migration forward-only,
+  depois de backup e verificação: 15 linhas ocupam cerca de 8,1 MB em snapshots.
+- [ ] Revisar o resultado do teto/TTL/LRU do `translation_cache`; o Supabase não
+  possui hoje job de prune ativo. Não apagar o cache ativo cegamente.
+- [ ] Reduzir grants antigos por tabela/RPC depois de matriz de uso. RLS está
+  ligada nas 17 tabelas, mas grants legados ainda excedem least privilege.
+
+### Restrições de segurança da limpeza
+
+- migrations aplicadas são histórico imutável e não devem ser apagadas;
+- avisos de `SECURITY DEFINER` não autorizam revogação em massa: as RPCs
+  mutadoras verificadas usam `auth.uid()`, lock e `search_path` endurecido;
+- índices marcados como pouco usados não serão removidos com uma base de um
+  usuário e janela de observação curta;
+- a arquitetura alvo é evolução gradual (`domain`, `data`, `ui`, web e extensão),
+  com preview e rollback por onda, não uma reescrita total.
+
+### Evidência do candidato 3.0.12
+
+- commit funcional `9edb9804dbce937d2336ee751783982225afe7d4`, PR draft `#10`;
+- `npm run test:release -- --allow-dirty` verde em 26,1 s; smoke parseou
+  54 arquivos JavaScript e validou coerência de versão HTML/app/cache;
+- GitHub Actions `Build and Release` run `29518303487` concluído com `success`;
+- preview Vercel `dpl_9qKwYHuVV8kxYMCH4S1HjZCaDQHJ` em estado `READY`:
+  `https://linguaflow-h0t60dt7h-wesleys-projects-de111a83.vercel.app`;
+- QA público no preview: build 3.0.12 carregado, tela de login renderizada,
+  `lf-auth-pending` removido após auth, zero overflow em 390×844 e nenhum erro
+  do aplicativo no console observado.
+
+**Ainda pendente antes de produção:** QA autenticado de Home/Estudo/YouGlish e
+upgrade real numa aba controlada pelo worker 3.0.11. O preview tem proteção da
+Vercel e a sessão automatizada não possui credenciais LinguaFlow.
+
+### Complemento Onda 0 — comportamento e schema canônico
+
+- [x] Extraída renderização segura dos chunks e instalação do callback YouGlish
+  para `dashboard/js/core/studySafety.js`, sem mudar a mecânica pedagógica.
+- [x] Teste comportamental executa timeout real de refresh preservando a sessão,
+  reentrada YouGlish com a palavra mais recente, payload XSS em texto/atributos e
+  os handlers reais install/activate/fetch do service worker.
+- [x] Upgrade 3.0.11→3.0.12 reproduzido no mesmo origin local: o cliente antigo
+  reiniciava ao assumir o worker; o novo não reiniciou e entrou em 3.0.12 somente
+  após navegação explícita, como esperado.
+- [x] Criados `docs/SCHEMA_CANONICO_SUPABASE_2026-07-16.md` e
+  `scripts/schema-inventory-readonly.sql`. O script abriu transação read-only,
+  não leu dados de usuário e retornou fingerprint remoto
+  `a7a1728be0e6e03159471d8a52b8f9d0` no PostgreSQL 17.6.
+- [x] Mapeadas 29 migrations locais para 38 remotas: uma baseline representa dez
+  migrations antigas, 16 correspondem diretamente e 12 por efeito semântico.
+  Essa divergência deve continuar documentada, nunca reparada artificialmente.
+- [x] Gate completo integrado verde em 26,7 s.
+
+O item `upgrade real` acima fica reclassificado como **comportamento reproduzido
+em laboratório no mesmo origin**. No domínio oficial ainda é necessário canário
+pós-promoção com rollback pronto. QA autenticado continua pendente porque a
+integração da ChatGPT Chrome Extension não está disponível; nenhuma senha deve
+ser solicitada ou persistida para contornar esse bloqueio.
+
+### Onda 0/P1 — integridade, cache e corte seguro (Codex, 2026-07-16)
+
+Esta entrega foi coordenada e revisada pelo Codex com frentes independentes de
+arquitetura/dados, Supabase/Postgres e QA/lifecycle. Ela não altera o engine de
+legendas, FSRS, áudio/vídeo nem a mecânica pedagógica.
+
+- `Database._fetchAllPages` passa a consumir todas as páginas do PostgREST e
+  rejeita resposta inválida, falha intermediária ou servidor que ignora offset.
+  `getAllCards` ordena por `id`; `getReviewLog` ordena por `ts,id`, colunas
+  obrigatórias confirmadas no schema canônico e remoto. O teste cobre 2.050
+  cards, 1.005 reviews, duplicata, falha na segunda página e loop.
+- A migration `20260716172603_contain_translation_cache_free_tier.sql`, criada
+  pela CLI do Supabase, é forward-only. Ela limita o cache descartável a 5.000
+  entradas recentes por usuário, remove entradas com mais de 30 dias, cria
+  índices de recência/TTL e agenda prune diário às 03:17 UTC quando `pg_cron`
+  estiver disponível. O trigger é por statement e usuário distinto — não por
+  linha — para evitar custo quadrático em inserts em lote.
+- A policy ampla do cache é substituída por quatro policies próprias; `anon`
+  fica sem acesso, `authenticated` recebe somente CRUD coberto por RLS e não
+  recebe `TRUNCATE`. Funções administrativas usam `SECURITY DEFINER` com
+  `search_path` vazio e não são endpoints executáveis pelos papéis da API.
+- O inventário remoto mediu 40.531 entradas/16 MB em um único usuário, das
+  quais 35.531 excedem o teto. A migration faz um prune inicial limitado a 50
+  mil; o conteúdo removido é cache reconstruível, não cards ou palavras.
+- Removidos `assets/cefr.json`, dois módulos engine sem import/manifest, dez
+  métodos e três flags inalcançáveis do popup e dois stubs falsos de
+  export/import. Resultado do corte seguro: 553 linhas/arquivos órfãos a menos.
+  `utils/cefr-wordlist.json`, `WordPopup`, backup real, IA, chunks e o tombstone
+  de compatibilidade `updateCard` foram explicitamente preservados.
+- Novos gates: `db-pagination-integrity`,
+  `translation-cache-budget-contract`, `translation-cache-budget.sql` no replay
+  PostgreSQL e `dead-code-boundary` dentro do release smoke.
+
+**Evidência de release e banco:** o SHA
+`35e14c0faeb8508ea5365327b2f5cd5dd96ac301` passou no workflow GitHub Actions
+`29520892615`, inclusive replay do zero e teste SQL com 5.001 linhas. O preview
+Vercel `dpl_7x9VqHKJurUwrL1T8Pom5sK8xzJE` ficou `READY`, HTTP 200, build 3.0.12
+e sem erros de build. Depois desses gates, o Codex aplicou somente esta migration
+como `20260716174457_contain_translation_cache_free_tier`.
+
+**Smoke remoto:** a tabela caiu de 40.531 para exatamente 5.000 linhas, um
+usuário, nenhuma entrada expirada e teto máximo de 5.000. O job
+`translation-cache-prune` está ativo em `17 3 * * *`; o trigger por statement,
+as quatro policies e os grants mínimos foram confirmados. `authenticated` e
+`service_role` não executam as funções administrativas. Tráfego real após a
+migration continuou retornando GET 200 e UPSERT 201 no cache. A remoção deixou
+aproximadamente 35.956 tuplas mortas/20 MB alocados que o autovacuum poderá
+reutilizar; não executar `VACUUM FULL`, pois ele bloquearia a tabela apenas para
+reduzir o arquivo físico.
+
+Os advisors não criaram alerta novo para `translation_cache`. Permanecem avisos
+históricos de RPCs `SECURITY DEFINER` intencionais, `pg_net` no schema público,
+índices com pouca amostra de uso e proteção contra senhas vazadas desativada.
+Produção web continua em 3.0.11; apenas o banco recebeu a contenção compatível.
+O candidato 3.0.12 permanece na PR `#10` até smoke autenticado/decisão de
+promoção.
+
+### Onda 1/P0 — cold start e refresh estável (Codex, 2026-07-16)
+
+- Removido do bootstrap o `updateGlobalStats()` concorrente que repetia
+  `user_stats` e cards enquanto `renderHome()` montava o mesmo snapshot.
+- A Home alimenta streak, pendências e shell de foco com `stats.userStats` e
+  `stats.dueCards` já carregados, sem segunda viagem à rede.
+- `getUserStats()` compartilha somente a Promise em voo. Não existe cache
+  persistente: uma leitura posterior continua fresca. Geração de dados/auth e
+  identidade da Promise impedem reutilização entre invalidação, login e logout;
+  proxy da extensão também é coberto.
+- Rajadas `WORD_SAVED`/`REFRESH_DASHBOARD` são consolidadas em uma atualização
+  após 150 ms. Logout cancela refresh pendente.
+- Reentrada/refresh da Home mantém o conteúdo e o único CTA visíveis enquanto
+  os dados são atualizados; apenas o primeiro acesso mostra o estado de loading.
+- Gates novos executam o `renderHome` real com DOM observável e o `Database`
+  real com fetch controlado: cold start 2→1, nenhuma cache obsoleta, um CTA,
+  resposta stale sem repaint e refresh sem retorno ao loader.
+
+**Limite consciente desta etapa:** o primeiro CTA ainda depende do agregado
+`getStats`, que busca dados secundários. A próxima mudança arquitetural deve
+criar `get_home_snapshot`/read-model pequeno e carregar memória, conquistas,
+heatmap, histórias e rotas não iniciais depois do CTA. Não misturar isso com o
+P0 já validado nem reescrever a Home em big-bang.
+
 ---

@@ -9,12 +9,12 @@ assert.doesNotMatch(study, /<summary><span>Explorar esta frase<\/span>/);
 const video = study.indexOf('id="video-resource-section"');
 const understand = study.indexOf('id="understand-resource-title"');
 const practice = study.indexOf('id="practice-resource-title"');
-const more = study.indexOf('class="more-contexts"');
-assert.ok(video > 0 && video < understand && understand < practice && practice < more,
-  'painel segue Ouvir no contexto → Entender → Praticar → Mais contextos');
+const youglish = study.indexOf('class="learning-resource-section youglish-resource"');
+assert.ok(video > 0 && video < understand && understand < practice && practice < youglish,
+  'painel segue Ouvir no contexto → Entender → Praticar → YouGlish');
 
 const menu = study.indexOf('id="study-card-menu"');
-assert.ok(menu > more, 'ações administrativas ficam fora do conteúdo pedagógico');
+assert.ok(menu > youglish, 'ações administrativas ficam fora do conteúdo pedagógico');
 for (const id of ['btn-undo', 'improve-btn', 'bury-btn']) assert.ok(study.indexOf(`id="${id}"`, menu) > menu);
 
 assert.equal((study.match(/data-tutor-prompt=/g) || []).length, 3);
@@ -34,9 +34,12 @@ assert.match(study, /\.study-layout:has\(\.study-resources\[open\]\) \.study-mai
 assert.match(study, /id="close-study-resources"/);
 
 // IDs dos recursos e contratos do player continuam intactos.
-for (const id of ['saved-video-context','study-yt-mount','isolated-word-box','grammar-chat','youglish-box','tatoeba-box','chunks-container']) {
+for (const id of ['saved-video-context','study-yt-mount','isolated-word-box','grammar-chat','youglish-box','chunks-container']) {
   assert.match(study, new RegExp(`id="${id}"`));
 }
+assert.doesNotMatch(study, /tatoeba/i);
+assert.doesNotMatch(study, /class="more-contexts"/);
+assert.match(study, /if \(c\.is_word \|\| c\.is_context\) return false/);
 assert.match(study, /renderVideoContext\(wordData, 'study-video-context'\)/);
 assert.match(study, /hidePlayer\(\)/);
 

@@ -13,7 +13,7 @@ import { renderProgress } from '../ui/progressView.js';
 import { bindViewStateAction, renderViewState } from '../ui/viewState.js';
 import { db } from '../../../utils/db.js';
 
-const CLIENT_BUILD = '3.0.11';
+const CLIENT_BUILD = '3.0.12';
 
 // Uma versão antiga do PWA podia misturar HTML/app novo com db.js antigo.
 // Antes de inicializar qualquer tela, elimina esse estado e recarrega uma vez.
@@ -26,12 +26,6 @@ if (db.reviewWriteMode !== 'rpc-atomic-v1' && 'caches' in window) {
 
 // Register Service Worker for PWA (if not running as a Chrome Extension)
 if ('serviceWorker' in navigator && (!window.chrome || !window.chrome.runtime || !window.chrome.runtime.id)) {
-  let refreshingForWorker = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (refreshingForWorker || !navigator.serviceWorker.controller) return;
-    refreshingForWorker = true;
-    window.location.reload();
-  });
   window.addEventListener('load', () => {
     navigator.serviceWorker.register(`sw.js?v=${CLIENT_BUILD}`, { updateViaCache: 'none' })
       .then(reg => {
@@ -61,6 +55,7 @@ class App {
     this.isAuthenticated = false;
     this.db = db; // Expomos o db unificado (Supabase) para todas as views
     this._reportedErrors = new Set();
+    this._dashboardRefreshTimer = null;
     
     this.themeToggleBtn = document.getElementById('theme-toggle-btn');
     this.focusHeader = document.getElementById('study-focus-header');
@@ -163,11 +158,11 @@ class App {
     if (!isAuthenticated) {
       this.navigate('login');
     } else {
-      // Update global stats
-      this.updateGlobalStats().catch(e => console.warn('[App] Erro ao atualizar stats:', e));
       // Garante perfil de usuário no Supabase (XP/gamificação)
       db.ensureUserStats().catch(() => {});
-      // Load initial route
+      // A Home já carrega user_stats + cards no snapshot principal e alimenta
+      // o shell. Disparar updateGlobalStats aqui repetia as duas leituras e
+      // competia com o primeiro render.
       this.navigate('home');
       // Escuta mensagens do service worker (palavra salva no player)
       if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
@@ -176,12 +171,7 @@ class App {
             this.setAuthenticated(false);
             this.navigate('login');
           } else if (msg.type === 'REFRESH_DASHBOARD' || msg.type === 'WORD_SAVED') {
-            this.updateGlobalStats().catch(() => {});
-            // Se a view ativa for home ou library, força re-render
-            if (this.currentRoute === 'home' || this.currentRoute === 'library') {
-              const container = this.viewContainers[this.currentRoute];
-              if (container) this.renderRouteView(this.currentRoute, container);
-            }
+            this.scheduleDashboardRefresh();
           }
         });
       }
@@ -200,6 +190,27 @@ class App {
     const dueEl = document.getElementById('due-val');
     if (dueEl) dueEl.textContent = dueCards.length;
     this.updateFocusStatus(dueCards.length);
+  }
+
+  applyGlobalStats(stats = {}) {
+    const streakEl = document.getElementById('streak-val');
+    if (streakEl) streakEl.textContent = stats.userStats?.streak ?? stats.streak ?? 0;
+    const due = Number.isFinite(stats.dueCards) ? stats.dueCards : 0;
+    const dueEl = document.getElementById('due-val');
+    if (dueEl) dueEl.textContent = due;
+    this.updateFocusStatus(due);
+  }
+
+  scheduleDashboardRefresh() {
+    if (this._dashboardRefreshTimer) clearTimeout(this._dashboardRefreshTimer);
+    this._dashboardRefreshTimer = setTimeout(() => {
+      this._dashboardRefreshTimer = null;
+      this.updateGlobalStats().catch(() => {});
+      if (this.currentRoute === 'home' || this.currentRoute === 'library') {
+        const container = this.viewContainers[this.currentRoute];
+        if (container) this.renderRouteView(this.currentRoute, container);
+      }
+    }, 150);
   }
 
   setupFocusShell() {
@@ -348,23 +359,15 @@ class App {
     }
 
     // Verifica se a tela (view) já existe no cache
-    let isFirstLoad = false;
     let targetContainer = this.viewContainers[route];
 
     if (!targetContainer) {
-      // Primeira vez abrindo esta tela: cria um container vazio e mostra o loading
-      isFirstLoad = true;
+      // Cada view controla seu próprio estado de carregamento. Um spinner aqui
+      // criava uma segunda transição visual antes do skeleton da própria tela.
       targetContainer = document.createElement('div');
       targetContainer.style.width = '100%';
       targetContainer.style.height = '100%';
       targetContainer.style.display = 'block';
-      
-      targetContainer.innerHTML = `
-        <div style="display:flex;height:100%;width:100%;justify-content:center;align-items:center;flex-direction:column;color:var(--color-text-light);">
-          <div style="width:40px;height:40px;border:4px solid var(--color-border);border-top-color:var(--color-primary);border-radius:50%;animation:lf-spin 1s linear infinite;"></div>
-          <style>@keyframes lf-spin { to { transform: rotate(360deg); } }</style>
-        </div>
-      `;
       
       this.root.appendChild(targetContainer);
       this.viewContainers[route] = targetContainer;
@@ -512,6 +515,10 @@ class App {
   }
 
   async logout() {
+    if (this._dashboardRefreshTimer) {
+      clearTimeout(this._dashboardRefreshTimer);
+      this._dashboardRefreshTimer = null;
+    }
     try {
       await db.logout();
     } finally {

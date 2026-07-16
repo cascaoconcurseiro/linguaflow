@@ -110,6 +110,7 @@ class Database {
           method: 'POST',
           headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
           body: JSON.stringify({ refresh_token: session.refresh_token }),
+          signal: AbortSignal.timeout(10000),
         });
         const data = await res.json().catch(() => ({}));
 

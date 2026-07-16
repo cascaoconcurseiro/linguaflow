@@ -4,7 +4,6 @@ import { aiChat, aiChatStream, getCefrLevel, grammarTutorPersona, grammarInitial
 import { attachVideoContext, renderVideoContext, getVideoContext } from '../core/videoContext.js';
 import { buildSessionQueue, isWeakCard, prioritizeDueLearning } from '../core/sessionQueue.js';
 import { loadVideo, playClip, replayClip, pausePlayer, setClipLoop, isClipPlaying, hidePlayer } from '../core/ytPlayer.js';
-import { fetchTatoebaSentences } from '../core/tatoeba.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
@@ -311,26 +310,16 @@ export async function renderStudy(container, app, params = {}) {
                   <div class="chunks-list" id="chunks-container"></div>
                 </section>
 
-                <details class="more-contexts">
-                  <summary>Mais exemplos e fontes</summary>
-                  <div class="more-contexts-content">
-                    <section aria-labelledby="native-examples-title">
-                      <h3 id="native-examples-title">Ouvir em outros contextos</h3>
-                      <div id="youglish-box" class="hidden">
-                        <button id="yg-load-btn" class="btn btn-secondary">Ver no YouGlish</button>
-                        <div id="yg-widget-embed"></div>
-                        <a id="youglish-fallback" href="#" target="_blank" rel="noopener" class="hidden">Abrir no YouGlish</a>
-                      </div>
-                    </section>
-                    <section aria-labelledby="real-sentences-title">
-                      <h3 id="real-sentences-title">Outros exemplos</h3>
-                      <div id="tatoeba-box">
-                        <button id="tatoeba-load-btn" class="btn btn-secondary">Ver exemplos adicionais</button>
-                        <div id="tatoeba-list" class="hidden"></div>
-                      </div>
-                    </section>
+                <section class="learning-resource-section youglish-resource" aria-labelledby="native-examples-title">
+                  <p class="learning-resource-kicker">CONTEXTO REAL</p>
+                  <h3 id="native-examples-title">Ouvir em vídeos reais</h3>
+                  <p class="learning-resource-description">Compare a pronúncia em outros vídeos, sem sair da revisão.</p>
+                  <div id="youglish-box">
+                    <button id="yg-load-btn" class="btn btn-secondary">Ouvir no YouGlish</button>
+                    <div id="yg-widget-embed" class="hidden"></div>
+                    <a id="youglish-fallback" href="#" target="_blank" rel="noopener" class="hidden">Abrir no YouGlish</a>
                   </div>
-                </details>
+                </section>
               </div>
             </details>
 
@@ -667,12 +656,7 @@ async function loadNextCard(app) {
   document.getElementById('video-resource-section')?.classList.add('hidden');
   document.getElementById('study-yt-mount').classList.add('hidden');
   hidePlayer(); // troca de card: o vídeo do card anterior não deve tocar ao fundo
-  document.getElementById('youglish-box').classList.add('hidden');
-  document.getElementById('tatoeba-list').classList.add('hidden');
-  document.getElementById('tatoeba-list').innerHTML = '';
-  document.getElementById('tatoeba-load-btn').classList.remove('hidden');
-  document.getElementById('tatoeba-load-btn').disabled = false;
-  document.getElementById('tatoeba-load-btn').textContent = '🔎 Ver exemplos de falantes reais';
+  document.getElementById('yg-widget-embed')?.classList.add('hidden');
   document.getElementById('improve-btn').classList.add('hidden');
   document.getElementById('shadowing-overlay').classList.add('hidden');
   document.getElementById('shadowing-progress').style.width = '0%';
@@ -1078,7 +1062,6 @@ async function revealCard() {
   renderReveal(word, context, ctxEntry, wordEntry, wordData, card);
   renderChunksList(chunks, context);
   updateYouglish(word);
-  updateTatoeba(word);
   startGrammarChat(card, word, context);
 
   // 3. Se faltar fonética/tradução da frase ou da palavra, gera UMA vez e persiste
@@ -1290,12 +1273,14 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
 // ── Chunks (frases úteis) ────────────────────────────────────────────────────
 function renderChunksList(chunks, context) {
   const container = document.getElementById('chunks-container');
-  const visible = chunks.filter(c => !c.is_word);
-  // A frase do card sempre primeiro
-  visible.sort((a, b) => (b.is_context ? 1 : 0) - (a.is_context ? 1 : 0));
+  const normalizedContext = context.trim().toLowerCase();
+  const visible = chunks.filter(c => {
+    if (c.is_word || c.is_context) return false;
+    return String(c.eng || '').trim().toLowerCase() !== normalizedContext;
+  });
 
   if (visible.length === 0) {
-    container.innerHTML = `<div class="chunk-card" style="opacity:1;"><div class="chunk-en">${context}</div></div>`;
+    container.innerHTML = '<p class="chunks-empty">Nenhum bloco adicional para este card.</p>';
     return;
   }
 
@@ -1311,16 +1296,16 @@ function renderChunksList(chunks, context) {
 }
 
 function renderChunkCard(c, i) {
-  const safeEng = c.eng.replace(/"/g, '&quot;');
-  const label = c.is_context ? '<div style="font-size:11px; font-weight:800; color:var(--color-primary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">📌 A frase do card</div>' : '';
+  const safeEng = escapeHtml(c.eng || '');
+  const safePhon = escapeHtml(c.phon || '');
+  const safePt = escapeHtml(c.pt || '');
   return `
     <div class="chunk-card" style="animation: slideIn 0.3s ease forwards; animation-delay: ${i * 0.1}s; opacity:0;">
-      ${label}
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
         <div style="flex:1;">
-          <div class="chunk-en">${c.eng}</div>
-          <div class="chunk-br">${c.phon || ''}</div>
-          <div class="chunk-pt">${c.pt || ''}</div>
+          <div class="chunk-en">${safeEng}</div>
+          <div class="chunk-br">${safePhon}</div>
+          <div class="chunk-pt">${safePt}</div>
         </div>
         <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0; margin-left:8px;">
           <button class="chunk-action-btn chunk-audio-btn" data-text="${safeEng}" aria-label="Ouvir: ${safeEng}" title="Ouvir">🔊</button>
@@ -1373,7 +1358,12 @@ function resetChat() {
 }
 
 function escapeHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function appendChatBubble(role, htmlOrText) {
@@ -1464,42 +1454,6 @@ async function sendGrammarQuestion(text) {
   }
 }
 
-// ── Tatoeba: frases reais de falantes, sob demanda (Onda 3.5) ───────────────
-function updateTatoeba(word) {
-  const loadBtn = document.getElementById('tatoeba-load-btn');
-  const list = document.getElementById('tatoeba-list');
-  if (!loadBtn || !list) return;
-  loadBtn.classList.remove('hidden');
-  loadBtn.disabled = false;
-  loadBtn.textContent = '🔎 Ver exemplos de falantes reais';
-  list.classList.add('hidden');
-  list.innerHTML = '';
-
-  loadBtn.onclick = async () => {
-    loadBtn.disabled = true;
-    loadBtn.textContent = 'Buscando…';
-    try {
-      const sentences = await fetchTatoebaSentences(word);
-      if (sentences.length === 0) {
-        list.innerHTML = '<p style="font-size:12px; color:var(--color-text-light);">Nenhum exemplo encontrado pra essa palavra.</p>';
-      } else {
-        list.innerHTML = sentences.map(s => `
-          <div style="padding:10px 12px; background:var(--color-bg-alt); border-radius:8px; margin-bottom:8px; font-size:13px;">
-            <div style="color:var(--color-text); font-weight:600;">${escapeHtml(s.text)}</div>
-            ${s.translation ? `<div style="color:var(--color-text-light); margin-top:4px;">${escapeHtml(s.translation)}</div>` : ''}
-          </div>`).join('');
-      }
-      list.classList.remove('hidden');
-      loadBtn.classList.add('hidden');
-    } catch (e) {
-      console.warn('[Study] Tatoeba falhou:', e);
-      list.innerHTML = '<p style="font-size:12px; color:var(--color-text-light);">Não consegui buscar exemplos agora.</p>';
-      list.classList.remove('hidden');
-      loadBtn.classList.add('hidden');
-    }
-  };
-}
-
 // ── YouGlish embutido ────────────────────────────────────────────────────────
 // Lazy por design: o widget do YouGlish dá autoplay e é pesado — só carrega
 // quando o usuário CLICA. Ao trocar de card, o vídeo é pausado (bug antigo:
@@ -1539,17 +1493,20 @@ function loadYouglishAnd(word) {
     return;
   }
   ygQueuedWord = word;
-  if (document.getElementById('yg-script')) return;
-
   window.onYouglishAPIReady = () => {
     if (ygQueuedWord) ygFetch(ygQueuedWord);
   };
+  if (document.getElementById('yg-script')) return;
+
   const s = document.createElement('script');
   s.id = 'yg-script';
   s.async = true;
   s.src = 'https://youglish.com/public/emb/widget.js';
   s.charset = 'utf-8';
-  s.onerror = () => document.getElementById('youglish-fallback')?.classList.remove('hidden');
+  s.onerror = () => {
+    document.getElementById('youglish-fallback')?.classList.remove('hidden');
+    s.remove(); // uma falha transitória não pode bloquear a próxima tentativa
+  };
   document.head.appendChild(s);
 }
 
@@ -1907,12 +1864,9 @@ function injectStyles() {
     #iso-mnemonic-box { margin-top:10px; }
     #iso-mnemonic-btn { min-height:40px; padding:0; border:0; background:transparent; color:var(--color-secondary); font-weight:900; cursor:pointer; }
     #iso-mnemonic-text { margin-top:8px; padding:10px 12px; border:1px solid var(--color-warning); border-radius:10px; background:rgba(255,200,0,.12); color:var(--color-text); font-size:13px; line-height:1.5; }
-    .more-contexts { border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); }
-    .more-contexts > summary { min-height:48px; padding:0 14px; display:flex; align-items:center; cursor:pointer; color:var(--color-text); font-weight:900; }
-    .more-contexts-content { padding:0 14px 14px; display:grid; gap:16px; }
-    .more-contexts-content h3 { margin:8px 0; font-size:16px; }
     .sidebar-title { font-size: 22px; font-weight: 900; margin-bottom: 24px; color: var(--color-text); display:flex; align-items:center; gap:8px;}
     .chunks-list { display: flex; flex-direction: column; gap: 16px; }
+    .chunks-empty { margin:0; color:var(--color-text-light); font-size:13px; }
     .chunk-more { border-top:1px solid var(--color-border); }
     .chunk-more > summary { min-height:44px; display:flex; align-items:center; color:var(--color-secondary); font-weight:900; cursor:pointer; }
     .chunk-more > div { display:flex; flex-direction:column; gap:16px; padding-top:8px; }
@@ -1942,8 +1896,8 @@ function injectStyles() {
     #grammar-send { background: var(--color-primary); color: #fff; border: none; width: 44px; cursor: pointer; font-size: 16px; }
     #grammar-send:disabled { opacity: 0.5; cursor: default; }
 
-    #youglish-box, #tatoeba-box { padding:10px; border-radius:12px; background:var(--color-bg-alt); }
-    #youglish-box .btn, #tatoeba-box .btn { width:100%; min-height:44px; padding:9px; font-size:13px; }
+    #youglish-box { padding:10px; border-radius:12px; background:var(--color-bg-alt); }
+    #youglish-box .btn { width:100%; min-height:44px; padding:9px; font-size:13px; }
     #youglish-fallback { margin-top:8px; display:inline-flex; color:var(--color-secondary); font-weight:900; }
     #yg-widget-embed { width: 100%; min-height: 0; }
     #yg-widget-embed iframe { max-width: 100%; border-radius: var(--radius-md); }

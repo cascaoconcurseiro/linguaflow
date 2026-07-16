@@ -989,4 +989,116 @@ usado isoladamente após o contract porque o cliente antigo depende das
 permissões removidas. Qualquer correção de banco deve ser uma nova migration
 forward-only.
 
+## Auditoria de limpeza e escalabilidade — 2026-07-16
+
+**Responsável:** Codex, com revisões independentes de lifecycle/frontend,
+produto/UX e arquitetura/dados. Esta seção substitui estimativas genéricas por
+evidência do repositório e do Supabase de produção.
+
+### P0 corrigido no candidato local (build 3.0.12)
+
+Este bloco revoga especificamente as decisões históricas que diziam preservar
+Tatoeba. O código ainda é candidato de branch: CI do SHA, preview e QA de upgrade
+3.0.11→3.0.12 precisam ser registrados antes de produção.
+
+- [x] Removido o reload automático em `controllerchange` do service worker, causa
+  confirmada de um segundo bootstrap durante a troca/ativação do worker.
+- [x] O HTML nasce com `lf-auth-pending`; o shell não pisca antes da resolução
+  de autenticação.
+- [x] Removido o spinner genérico do roteador; cada view agora apresenta um único
+  estado de carregamento.
+- [x] Tatoeba removido integralmente (arquivo, import, UI, listener, CSS e gate).
+  Ele duplicava os chunks e era descrito incorretamente como fala real.
+- [x] YouGlish elevado de um `<details>` aninhado para recurso visível de contexto
+  real. O widget pesado permanece lazy e só carrega após clique.
+- [x] Chunks não repetem mais a frase do próprio card; continuam limitados a dois
+  inicialmente. Campos vindos de IA/banco passam por escape antes de `innerHTML`.
+- [x] Gate `startup-cleanup-p0` adicionado ao agregador de release.
+- [x] Refresh de autenticação ganhou timeout de 10 s para não manter o shell
+  invisível indefinidamente em rede pendurada.
+- [x] Reentrada no Estudo reinstala o callback do script YouGlish antes de
+  reutilizá-lo; falha transitória permite nova tentativa.
+
+O corte removeu 93 linhas líquidas de produção, sem retirar capacidade
+pedagógica. Não houve alteração no engine de legendas nem no schema remoto.
+
+### Tamanho e concentração reais
+
+- repositório rastreado: aproximadamente 42.515 LOC;
+- aplicação de produção sem SQL: 24.083 LOC;
+- produção + SQL/Edge: 27.786 LOC;
+- oito monólitos somam 14.620 LOC, cerca de 63% do JavaScript medido. São
+  `subtitle-engine.js` (4.314), `word-popup.js` (2.111), `studyView.js` (1.972),
+  `db.js` (1.487), `service-worker.js` (1.466), `settingsView.js` (1.144),
+  `storiesView.js` (1.070) e `homeView.js` (1.056).
+
+Hipótese inicial, a validar por inventário na Onda 0: redução conservadora de
+12–18% (2,9–4,3 mil LOC) e alvo forte de 18–25% (4,3–6 mil LOC). Mais que 25%
+exigiria cortar produto ou contar arquivos de teste arquivados como se fossem
+bundle. Já há aproximadamente 570 LOC/ativos órfãos identificados, mas a meta
+maior ainda não é compromisso. Modularizar pode inclusive aumentar LOC.
+
+### Dívida confirmada e ordem de execução
+
+#### Onda 0 — fundação de refatoração (próxima)
+
+- [ ] Criar testes comportamentais mínimos de startup, revisão, popup, subtitle
+  lifecycle e escrita; os testes atuais são majoritariamente contratos de fonte.
+- [ ] Adicionar lint, formatter, verificação de tipos gradual e snapshot canônico
+  do schema. Não usar `supabase db push`: 29 migrations locais e 38 remotas têm
+  histórico/timestamps divergentes.
+- [ ] Mapear telemetria de uso antes de apagar shims ou índices.
+- [ ] Fixar baseline e critérios de saída: tempo até CTA, requests no cold start,
+  erros, crescimento do cache, matriz web/extensão/backend, preview, rollback e
+  QA desktop/mobile por onda.
+- [ ] Subir paginação de cards/review_log para P1 de integridade SRS; listas
+  somente visuais podem ser paginadas depois.
+- [ ] Definir teto/TTL/prune e alerta de capacidade do `translation_cache`.
+- [ ] Ativar proteção contra senhas vazadas no Auth, se disponível no plano.
+
+#### Onda 1 — remoções seguras e performance
+
+- [ ] Excluir `content/engine/subtitle-fetcher.js` (111 LOC),
+  `content/engine/video-adapter.js` (61 LOC) e `assets/cefr.json` somente após gate
+  confirmar ausência de imports/runtime.
+- [ ] Remover aproximadamente 400–430 LOC inalcançáveis de `word-popup.js`; os
+  IDs e chamadores correspondentes não existem mais.
+- [ ] Consolidar o cold start: Home e bootstrap fazem 10–12 operações e leem
+  `user_stats` repetidamente. Criar snapshot/repository coalescido e renderizar o
+  CTA primário antes dos widgets secundários.
+- [ ] Implementar paginação de cards/review_log e contenção do cache antes que
+  o limite do free tier ou do PostgREST vire perda silenciosa de integridade.
+
+#### Onda 2 — lifecycle e fronteiras
+
+- [ ] Importar views sob demanda e substituir cache de DOM + rerender obrigatório
+  por lifecycle único com `AbortSignal`, cleanup e store observável.
+- [ ] Separar `studyView`, Home e `db.js` em UI, casos de uso e repositories.
+- [ ] Transformar listeners/timers de `subtitle-engine.js` em máquina de estados;
+  o arquivo concentra 38 listeners e 26 timers e continua sendo o maior risco de
+  races. Não fazer reescrita big-bang nem migrar para React sem necessidade.
+
+#### Onda 3 — dados, escala e free tier
+
+- [ ] Completar paginação de `getAllWords`, `getAllSentences` e `getAllKnownWords`;
+  trocar estatísticas por agregações server-side.
+- [ ] Substituir SELECT+PATCH/INSERT de sessão por incremento RPC atômico; duas
+  abas hoje podem perder segundos.
+- [ ] Remover a coluna legada `words.snapshot` por nova migration forward-only,
+  depois de backup e verificação: 15 linhas ocupam cerca de 8,1 MB em snapshots.
+- [ ] Revisar o resultado do teto/TTL/LRU do `translation_cache`; o Supabase não
+  possui hoje job de prune ativo. Não apagar o cache ativo cegamente.
+- [ ] Reduzir grants antigos por tabela/RPC depois de matriz de uso. RLS está
+  ligada nas 17 tabelas, mas grants legados ainda excedem least privilege.
+
+### Restrições de segurança da limpeza
+
+- migrations aplicadas são histórico imutável e não devem ser apagadas;
+- avisos de `SECURITY DEFINER` não autorizam revogação em massa: as RPCs
+  mutadoras verificadas usam `auth.uid()`, lock e `search_path` endurecido;
+- índices marcados como pouco usados não serão removidos com uma base de um
+  usuário e janela de observação curta;
+- a arquitetura alvo é evolução gradual (`domain`, `data`, `ui`, web e extensão),
+  com preview e rollback por onda, não uma reescrita total.
+
 ---

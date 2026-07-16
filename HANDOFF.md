@@ -1,5 +1,26 @@
 # Handoff — LinguaFlow
 
+## Handoff Codex — startup estável e limpeza pedagógica (2026-07-16)
+
+Build 3.0.12, ainda candidato de branch até CI/preview/QA. O service worker não recarrega mais a aplicação durante o
+bootstrap; o shell nasce protegido por `lf-auth-pending` e o roteador não injeta
+um spinner antes do loading da view. Isso elimina a sequência carrega/pisca/Home
+e a repetição visual do CTA `Revisar agora`.
+
+No painel de estudo, Tatoeba foi removido por duplicar chunks e por não ser
+evidência de fala. YouGlish agora é descobrível como `Ouvir em vídeos reais`, mas
+o embed continua lazy. A frase principal não reaparece como chunk; dados dos
+chunks são escapados antes do HTML. O engine de legendas e o banco remoto não
+foram alterados.
+
+Esta decisão revoga as entradas históricas abaixo que registravam Tatoeba como
+preservado/ativo; elas continuam no arquivo apenas como histórico datado.
+
+Testes novos/ajustados: `startup-cleanup-p0` e `understand-panel-p0-b`, ambos no
+gate de release. A auditoria completa, a estimativa de redução de LOC e as ondas
+seguintes estão em `docs/AUDITORIA_GERAL_2026-07-10.md`, seção
+`Auditoria de limpeza e escalabilidade`.
+
 ## Handoff Codex — UI Max/HBO sem alterar o engine (2026-07-15)
 
 ### Ajuste após QA real do dono — versão 3.0.5

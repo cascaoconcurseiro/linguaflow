@@ -91,7 +91,13 @@ assert(workerSource.includes("chrome.storage.sync.get(['nativeLang', 'targetLang
 
 console.log('\nPWA estático e rotas Vercel');
 const pwaWorkerSource = read('dashboard/sw.js');
-assert(pwaWorkerSource.includes("CACHE_NAME = 'linguaflow-v3.0.11'"), 'cache PWA foi invalidado para o build 3.0.11');
+const appSource = read('dashboard/js/core/app.js');
+const dashboardHtml = read('dashboard/dashboard.html');
+const clientBuild = appSource.match(/CLIENT_BUILD = '([^']+)'/)?.[1];
+assert(Boolean(clientBuild)
+  && pwaWorkerSource.includes(`CACHE_NAME = 'linguaflow-v${clientBuild}'`)
+  && dashboardHtml.includes(`app.js?v=${clientBuild}`),
+  'HTML, cliente e cache PWA usam a mesma versão de build');
 assert(pwaWorkerSource.includes("req.destination === 'script'") && pwaWorkerSource.includes("fetch(req)"), 'JavaScript do PWA usa rede primeiro com fallback offline');
 const pwaFiles = [
   'dashboard/dashboard.html', 'dashboard/manifest.webmanifest', 'dashboard/sw.js',

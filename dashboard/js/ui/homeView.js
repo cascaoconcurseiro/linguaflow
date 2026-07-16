@@ -222,7 +222,6 @@ export async function renderHome(container, app) {
     // Stats via db unificado (Supabase) exposto em app.db
     const db = app?.db;
     container.setAttribute('aria-busy', 'true');
-    container.setAttribute('aria-busy', 'true');
     container.innerHTML = renderViewState({ kind: 'loading', title: 'Preparando seu plano de hoje…', message: 'Organizando as revisões que mais ajudam sua memória agora.' });
     if (!db) {
         container.removeAttribute('aria-busy');

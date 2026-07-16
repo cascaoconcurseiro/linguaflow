@@ -13,7 +13,7 @@ import { renderProgress } from '../ui/progressView.js';
 import { bindViewStateAction, renderViewState } from '../ui/viewState.js';
 import { db } from '../../../utils/db.js';
 
-const CLIENT_BUILD = '3.0.11';
+const CLIENT_BUILD = '3.0.12';
 
 // Uma versão antiga do PWA podia misturar HTML/app novo com db.js antigo.
 // Antes de inicializar qualquer tela, elimina esse estado e recarrega uma vez.
@@ -26,12 +26,6 @@ if (db.reviewWriteMode !== 'rpc-atomic-v1' && 'caches' in window) {
 
 // Register Service Worker for PWA (if not running as a Chrome Extension)
 if ('serviceWorker' in navigator && (!window.chrome || !window.chrome.runtime || !window.chrome.runtime.id)) {
-  let refreshingForWorker = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (refreshingForWorker || !navigator.serviceWorker.controller) return;
-    refreshingForWorker = true;
-    window.location.reload();
-  });
   window.addEventListener('load', () => {
     navigator.serviceWorker.register(`sw.js?v=${CLIENT_BUILD}`, { updateViaCache: 'none' })
       .then(reg => {
@@ -348,23 +342,15 @@ class App {
     }
 
     // Verifica se a tela (view) já existe no cache
-    let isFirstLoad = false;
     let targetContainer = this.viewContainers[route];
 
     if (!targetContainer) {
-      // Primeira vez abrindo esta tela: cria um container vazio e mostra o loading
-      isFirstLoad = true;
+      // Cada view controla seu próprio estado de carregamento. Um spinner aqui
+      // criava uma segunda transição visual antes do skeleton da própria tela.
       targetContainer = document.createElement('div');
       targetContainer.style.width = '100%';
       targetContainer.style.height = '100%';
       targetContainer.style.display = 'block';
-      
-      targetContainer.innerHTML = `
-        <div style="display:flex;height:100%;width:100%;justify-content:center;align-items:center;flex-direction:column;color:var(--color-text-light);">
-          <div style="width:40px;height:40px;border:4px solid var(--color-border);border-top-color:var(--color-primary);border-radius:50%;animation:lf-spin 1s linear infinite;"></div>
-          <style>@keyframes lf-spin { to { transform: rotate(360deg); } }</style>
-        </div>
-      `;
       
       this.root.appendChild(targetContainer);
       this.viewContainers[route] = targetContainer;

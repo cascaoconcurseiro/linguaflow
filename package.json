@@ -31,13 +31,14 @@
     "test:p1-c": "node tests/onboarding-p1-c.test.mjs",
     "test:p1-d": "node tests/practice-progress-p1-d.test.mjs",
     "test:auth-ux": "node tests/auth-ux-resilience-p0-p1.test.mjs",
+    "test:startup-cleanup": "node tests/startup-cleanup-p0.test.mjs",
     "test:production-pedagogy": "node tests/pedagogy-production-cut.test.mjs",
     "test:p0-3": "node tests/user-stats-security-p0-3.test.mjs",
     "test:design-system": "node tests/design-system-stage5.test.mjs",
     "test:stage3": "npm run test:focus-shell && npm run test:study-focus",
     "test:study-video": "node tests/study-video-race.test.mjs",
     "test:stage2": "npm run test:yt-player && npm run test:video && npm run test:study-video && npm run test:site-boundary && npm run test:web-reader && npm run test:subtitle-lifecycle && npm run test:max-ui",
-    "test:release": "npm run test:engine && npm run test:local-day && npm run test:audio && npm run test:stage2 && npm run test:evidence && npm run test:evidence-commit && npm run test:review-ux && npm run test:card-writes && npm run test:card-permissions && npm run test:evidence-indexes && npm run test:pedagogy && npm run test:review-economy && npm run test:production-pedagogy && npm run test:p0-3 && npm run test:p0-a && npm run test:p0-b && npm run test:p0-c && npm run test:p1-a && npm run test:p1-b && npm run test:p1-c && npm run test:p1-d && npm run test:auth-ux && npm run test:stage3 && npm run test:product-ux && npm run test:design-system && node tests/release-smoke.mjs"
+    "test:release": "npm run test:engine && npm run test:local-day && npm run test:audio && npm run test:stage2 && npm run test:evidence && npm run test:evidence-commit && npm run test:review-ux && npm run test:card-writes && npm run test:card-permissions && npm run test:evidence-indexes && npm run test:pedagogy && npm run test:review-economy && npm run test:production-pedagogy && npm run test:p0-3 && npm run test:p0-a && npm run test:p0-b && npm run test:p0-c && npm run test:p1-a && npm run test:p1-b && npm run test:p1-c && npm run test:p1-d && npm run test:auth-ux && npm run test:startup-cleanup && npm run test:stage3 && npm run test:product-ux && npm run test:design-system && node tests/release-smoke.mjs"
   },
   "dependencies": {
     "acorn": "^8.17.0"

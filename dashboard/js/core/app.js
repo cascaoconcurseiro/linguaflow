@@ -55,6 +55,7 @@ class App {
     this.isAuthenticated = false;
     this.db = db; // Expomos o db unificado (Supabase) para todas as views
     this._reportedErrors = new Set();
+    this._dashboardRefreshTimer = null;
     
     this.themeToggleBtn = document.getElementById('theme-toggle-btn');
     this.focusHeader = document.getElementById('study-focus-header');
@@ -157,11 +158,11 @@ class App {
     if (!isAuthenticated) {
       this.navigate('login');
     } else {
-      // Update global stats
-      this.updateGlobalStats().catch(e => console.warn('[App] Erro ao atualizar stats:', e));
       // Garante perfil de usuário no Supabase (XP/gamificação)
       db.ensureUserStats().catch(() => {});
-      // Load initial route
+      // A Home já carrega user_stats + cards no snapshot principal e alimenta
+      // o shell. Disparar updateGlobalStats aqui repetia as duas leituras e
+      // competia com o primeiro render.
       this.navigate('home');
       // Escuta mensagens do service worker (palavra salva no player)
       if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
@@ -170,12 +171,7 @@ class App {
             this.setAuthenticated(false);
             this.navigate('login');
           } else if (msg.type === 'REFRESH_DASHBOARD' || msg.type === 'WORD_SAVED') {
-            this.updateGlobalStats().catch(() => {});
-            // Se a view ativa for home ou library, força re-render
-            if (this.currentRoute === 'home' || this.currentRoute === 'library') {
-              const container = this.viewContainers[this.currentRoute];
-              if (container) this.renderRouteView(this.currentRoute, container);
-            }
+            this.scheduleDashboardRefresh();
           }
         });
       }
@@ -194,6 +190,27 @@ class App {
     const dueEl = document.getElementById('due-val');
     if (dueEl) dueEl.textContent = dueCards.length;
     this.updateFocusStatus(dueCards.length);
+  }
+
+  applyGlobalStats(stats = {}) {
+    const streakEl = document.getElementById('streak-val');
+    if (streakEl) streakEl.textContent = stats.userStats?.streak ?? stats.streak ?? 0;
+    const due = Number.isFinite(stats.dueCards) ? stats.dueCards : 0;
+    const dueEl = document.getElementById('due-val');
+    if (dueEl) dueEl.textContent = due;
+    this.updateFocusStatus(due);
+  }
+
+  scheduleDashboardRefresh() {
+    if (this._dashboardRefreshTimer) clearTimeout(this._dashboardRefreshTimer);
+    this._dashboardRefreshTimer = setTimeout(() => {
+      this._dashboardRefreshTimer = null;
+      this.updateGlobalStats().catch(() => {});
+      if (this.currentRoute === 'home' || this.currentRoute === 'library') {
+        const container = this.viewContainers[this.currentRoute];
+        if (container) this.renderRouteView(this.currentRoute, container);
+      }
+    }, 150);
   }
 
   setupFocusShell() {
@@ -498,6 +515,10 @@ class App {
   }
 
   async logout() {
+    if (this._dashboardRefreshTimer) {
+      clearTimeout(this._dashboardRefreshTimer);
+      this._dashboardRefreshTimer = null;
+    }
     try {
       await db.logout();
     } finally {

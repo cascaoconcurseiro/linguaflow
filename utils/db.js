@@ -48,6 +48,8 @@ class Database {
     this.isProxyMode = this.isChromeContext && !this.isBackgroundWorker;
     this.initPromise = Promise.resolve();
     this._cacheGeneration = 0;
+    this._userStatsAuthGeneration = 0;
+    this._userStatsRead = null;
   }
 
   // Lê o objeto de sessão completo ({ access_token, refresh_token, expires_at, user })
@@ -295,7 +297,11 @@ class Database {
 
   // ── AUTENTICAÇÃO ──────────────────────────────────────────────────────────
   async login(email, password) {
-    if (this.isProxyMode) return this._proxy('login', [email, password]);
+    if (this.isProxyMode) {
+      const result = await this._proxy('login', [email, password]);
+      if (result?.ok) this._invalidateUserStatsRead();
+      return result;
+    }
     const url = `${SUPABASE_URL}/auth/v1/token?grant_type=password`;
     const headers = { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
     try {
@@ -309,6 +315,7 @@ class Database {
         expires_at: Date.now() + ((data.expires_in || 3600) * 1000),
         user: data.user,
       });
+      this._invalidateUserStatsRead();
 
       return { ok: true, user: data.user };
     } catch (e) {
@@ -318,7 +325,11 @@ class Database {
   }
 
   async signUp(email, password) {
-    if (this.isProxyMode) return this._proxy('signUp', [email, password]);
+    if (this.isProxyMode) {
+      const result = await this._proxy('signUp', [email, password]);
+      if (result?.ok && result?.session) this._invalidateUserStatsRead();
+      return result;
+    }
     const url = `${SUPABASE_URL}/auth/v1/signup`;
     const headers = { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
     try {
@@ -334,6 +345,7 @@ class Database {
           expires_at: Date.now() + ((data.session.expires_in || 3600) * 1000),
           user: data.user,
         });
+        this._invalidateUserStatsRead();
       }
       return { ok: true, user: data.user, session: data.session };
     } catch (e) {
@@ -343,6 +355,7 @@ class Database {
   }
 
   async logout() {
+    this._invalidateUserStatsRead();
     if (this.isProxyMode) return this._proxy('logout', []);
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       chrome.storage.local.remove('lf_supabase_session');
@@ -546,6 +559,11 @@ class Database {
     this._cardsCache = null;
     this._sentencesCache = null;
     this._knownWordsCache = null;
+  }
+
+  _invalidateUserStatsRead() {
+    this._userStatsAuthGeneration = (this._userStatsAuthGeneration || 0) + 1;
+    this._userStatsRead = null;
   }
 
   // Onda 4: aceita paginação real (limit/offset viram LIMIT/OFFSET no
@@ -1299,9 +1317,35 @@ class Database {
 
   // ── GAMIFICAÇÃO E ESTATÍSTICAS DO USUÁRIO ────────────────────────────────
   async getUserStats() {
-    if (this.isProxyMode) return this._proxy('getUserStats', []);
-    const res = await this._fetch('user_stats?select=*&limit=1');
-    return res && res.length > 0 ? res[0] : null;
+    const generation = this._cacheGeneration;
+    const authGeneration = this._userStatsAuthGeneration;
+    const activeRead = this._userStatsRead;
+    if (
+      activeRead
+      && activeRead.generation === generation
+      && activeRead.authGeneration === authGeneration
+    ) {
+      return activeRead.promise;
+    }
+
+    // O shell e a Home pedem estes mesmos dados em paralelo no cold start.
+    // Compartilhar só a Promise em voo elimina a segunda chamada REST sem
+    // manter um valor resolvido (XP/streak continuam frescos na próxima leitura).
+    const promise = (async () => {
+      if (this.isProxyMode) return this._proxy('getUserStats', []);
+      const res = await this._fetch('user_stats?select=*&limit=1');
+      return res && res.length > 0 ? res[0] : null;
+    })();
+    const read = { generation, authGeneration, promise };
+    this._userStatsRead = read;
+
+    try {
+      return await promise;
+    } finally {
+      // Uma invalidação pode ter iniciado uma leitura nova enquanto esta ainda
+      // estava em voo; a antiga nunca deve apagar a referência da nova.
+      if (this._userStatsRead === read) this._userStatsRead = null;
+    }
   }
 
   // Telemetria mínima: nunca envia texto do card, pergunta, token, e-mail ou

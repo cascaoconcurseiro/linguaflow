@@ -1040,7 +1040,7 @@ maior ainda não é compromisso. Modularizar pode inclusive aumentar LOC.
 
 ### Dívida confirmada e ordem de execução
 
-#### Onda 0 — fundação de refatoração (próxima)
+#### Onda 0 — fundação de refatoração (em execução)
 
 - [ ] Criar testes comportamentais mínimos de startup, revisão, popup, subtitle
   lifecycle e escrita; os testes atuais são majoritariamente contratos de fonte.
@@ -1051,22 +1051,28 @@ maior ainda não é compromisso. Modularizar pode inclusive aumentar LOC.
 - [ ] Fixar baseline e critérios de saída: tempo até CTA, requests no cold start,
   erros, crescimento do cache, matriz web/extensão/backend, preview, rollback e
   QA desktop/mobile por onda.
-- [ ] Subir paginação de cards/review_log para P1 de integridade SRS; listas
-  somente visuais podem ser paginadas depois.
-- [ ] Definir teto/TTL/prune e alerta de capacidade do `translation_cache`.
+- [x] Subir paginação de cards/review_log para P1 de integridade SRS; listas
+  somente visuais podem ser paginadas depois. Implementado pelo Codex em
+  2026-07-16 com ordenação determinística, falha fechada e gate acima de 1.000
+  linhas.
+- [x] Definir teto/TTL/prune do `translation_cache`: migration forward-only
+  preparada pelo Codex com 5.000 linhas/usuário, TTL de 30 dias e cron diário.
+  A aplicação remota e o alerta de capacidade dependem do gate CI desta onda.
 - [ ] Ativar proteção contra senhas vazadas no Auth, se disponível no plano.
 
 #### Onda 1 — remoções seguras e performance
 
-- [ ] Excluir `content/engine/subtitle-fetcher.js` (111 LOC),
+- [x] Excluir `content/engine/subtitle-fetcher.js` (111 LOC),
   `content/engine/video-adapter.js` (61 LOC) e `assets/cefr.json` somente após gate
-  confirmar ausência de imports/runtime.
-- [ ] Remover aproximadamente 400–430 LOC inalcançáveis de `word-popup.js`; os
-  IDs e chamadores correspondentes não existem mais.
+  confirmar ausência de imports/runtime. Corte feito pelo Codex em 2026-07-16;
+  o gate também preserva o import dinâmico e lifecycle do `WordPopup`.
+- [x] Remover código inalcançável de `word-popup.js`; 381 linhas/métodos/flags
+  sem consumidor foram removidos pelo Codex. Save, IA, chunks, posição, popup e
+  contratos YouTube/Max permaneceram.
 - [ ] Consolidar o cold start: Home e bootstrap fazem 10–12 operações e leem
   `user_stats` repetidamente. Criar snapshot/repository coalescido e renderizar o
   CTA primário antes dos widgets secundários.
-- [ ] Implementar paginação de cards/review_log e contenção do cache antes que
+- [x] Implementar paginação de cards/review_log e contenção do cache antes que
   o limite do free tier ou do PostgREST vire perda silenciosa de integridade.
 
 #### Onda 2 — lifecycle e fronteiras
@@ -1141,5 +1147,45 @@ em laboratório no mesmo origin**. No domínio oficial ainda é necessário can�
 pós-promoção com rollback pronto. QA autenticado continua pendente porque a
 integração da ChatGPT Chrome Extension não está disponível; nenhuma senha deve
 ser solicitada ou persistida para contornar esse bloqueio.
+
+### Onda 0/P1 — integridade, cache e corte seguro (Codex, 2026-07-16)
+
+Esta entrega foi coordenada e revisada pelo Codex com frentes independentes de
+arquitetura/dados, Supabase/Postgres e QA/lifecycle. Ela não altera o engine de
+legendas, FSRS, áudio/vídeo nem a mecânica pedagógica.
+
+- `Database._fetchAllPages` passa a consumir todas as páginas do PostgREST e
+  rejeita resposta inválida, falha intermediária ou servidor que ignora offset.
+  `getAllCards` ordena por `id`; `getReviewLog` ordena por `ts,id`, colunas
+  obrigatórias confirmadas no schema canônico e remoto. O teste cobre 2.050
+  cards, 1.005 reviews, duplicata, falha na segunda página e loop.
+- A migration `20260716172603_contain_translation_cache_free_tier.sql`, criada
+  pela CLI do Supabase, é forward-only. Ela limita o cache descartável a 5.000
+  entradas recentes por usuário, remove entradas com mais de 30 dias, cria
+  índices de recência/TTL e agenda prune diário às 03:17 UTC quando `pg_cron`
+  estiver disponível. O trigger é por statement e usuário distinto — não por
+  linha — para evitar custo quadrático em inserts em lote.
+- A policy ampla do cache é substituída por quatro policies próprias; `anon`
+  fica sem acesso, `authenticated` recebe somente CRUD coberto por RLS e não
+  recebe `TRUNCATE`. Funções administrativas usam `SECURITY DEFINER` com
+  `search_path` vazio e não são endpoints executáveis pelos papéis da API.
+- O inventário remoto mediu 40.531 entradas/16 MB em um único usuário, das
+  quais 35.531 excedem o teto. A migration faz um prune inicial limitado a 50
+  mil; o conteúdo removido é cache reconstruível, não cards ou palavras.
+- Removidos `assets/cefr.json`, dois módulos engine sem import/manifest, dez
+  métodos e três flags inalcançáveis do popup e dois stubs falsos de
+  export/import. Resultado do corte seguro: 553 linhas/arquivos órfãos a menos.
+  `utils/cefr-wordlist.json`, `WordPopup`, backup real, IA, chunks e o tombstone
+  de compatibilidade `updateCard` foram explicitamente preservados.
+- Novos gates: `db-pagination-integrity`,
+  `translation-cache-budget-contract`, `translation-cache-budget.sql` no replay
+  PostgreSQL e `dead-code-boundary` dentro do release smoke.
+
+**Estado de promoção:** código e migration ainda estão apenas no candidato da
+PR `#10`. O teste estático e os testes direcionados estão verdes. O replay SQL
+com 5.001 linhas exige o PostgreSQL efêmero do GitHub Actions porque Docker e
+`psql` não estão disponíveis neste Windows. Não aplicar no Supabase remoto nem
+promover produção antes de CI/replay e preview do mesmo SHA. Depois do apply,
+registrar contagem remanescente, job ativo, grants/policies e advisors.
 
 ---

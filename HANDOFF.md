@@ -989,3 +989,31 @@ rollback web disponível em `dpl_8eLCZupbmkBtAvGJVeYaLytSRghw`.
   interativo do Codex porque a integração Chrome permaneceu indisponível.
 
 ---
+
+# Handoff Codex — Onda 0/P1 de integridade e limpeza (2026-07-16)
+
+- Responsável e coordenador: Codex; revisões independentes de arquitetura/dados,
+  Supabase/Postgres e QA/lifecycle.
+- Cards e `review_log` agora paginam além de 1.000 linhas com ordenação estável e
+  falha fechada. Preservar `_fetchAllPages`, `order=id.asc` e
+  `order=ts.asc,id.asc` até uma futura migração consciente para cursor.
+- A migration `20260716172603_contain_translation_cache_free_tier.sql` ainda não
+  foi aplicada. Ela implementa TTL 30 dias, teto 5.000/usuário, trigger por
+  statement, prune diário, grants mínimos e RLS explícita. Não usar
+  `supabase db push`; aplicar somente esta migration depois do replay CI verde.
+- O replay SQL valida 5.001 inserts, linha sobrevivente, TTL, policies, grants,
+  funções e cron. Localmente só o contrato estático rodou porque não há
+  PostgreSQL/Docker; o workflow GitHub possui o replay efêmero obrigatório.
+- Corte seguro removeu 553 linhas/arquivos órfãos. Não restaurar
+  `assets/cefr.json`, os dois adapters engine nem os dez métodos mortos do popup
+  sem novo consumidor e teste. Preservar `utils/cefr-wordlist.json`, lifecycle
+  do `WordPopup`, backup real, IA/chunks e tombstone `updateCard`.
+- Gates novos: `test:db-pagination`, `test:translation-cache`,
+  `dead-code-boundary` no release smoke e `translation-cache-budget.sql` no
+  replay das migrations.
+
+**Próxima ordem:** release local completo; commit/push; CI e preview do mesmo
+SHA; aplicar a migration isolada; medir contagem/job/RLS/advisors; documentar;
+smoke autenticado e só então decidir promoção. Produção continua em 3.0.11.
+
+---

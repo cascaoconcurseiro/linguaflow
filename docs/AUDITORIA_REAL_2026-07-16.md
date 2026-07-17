@@ -10,7 +10,7 @@
 >
 > **Prova concreta de que isso já invalidou um achado:** a §4n.1 (bug da "Zona de Rebaixamento" em ligas de 6-9 membros) **não existe em `main`** — o bloco inteiro foi removido lá, junto com uma mudança de produto (a liga virou "opcional", com aviso de que XP não mede domínio).
 >
-> **Nenhum outro achado deste documento foi reconferido contra `main`.** Antes de agir sobre qualquer bug ou "já existe" listado aqui — corrigir, documentar, ou usar como base de decisão — **confirme primeiro que o trecho ainda existe em `origin/main`** com `git diff 13212d3 origin/main -- <arquivo>`. Esta auditoria continua válida como leitura de arquitetura e como método (as regras, os erros catalogados, o script de fiação), mas **não é mais confiável linha a linha sem essa reconferência**.
+> **Atualização (17/07): reconciliação parcial concluída — ver §4o.** A extensão inteira (`content/*`, `background/service-worker.js`, a maioria de `utils/*`) está **fora** da lista de arquivos que mudaram entre a divergência e `main` — todo achado nesses arquivos (§2, §3, §4b-§4e, §4g.1 o achado principal, §4h, §4j) segue válido sem reconferir. Do dashboard, os arquivos de maior risco (`studyView.js`, `storiesView.js`, `libraryView.js`, `settingsView.js`, `utils/db.js`) foram reconferidos — resultado na §4o. `app.js`, `gameView.js`, `homeView.js`, `readerView.js` mudaram mas não foram reconferidos em detalhe. `statsView.js`, `loginView.js` e os arquivos novos (`learnView.js`, `progressView.js`, `readingHub.js`, `viewState.js`) nunca foram auditados.
 
 ---
 
@@ -97,7 +97,11 @@ FALTA : 16.231   (69%)   em 46 arquivos abertos
 
 > **Atualização pós-§4k (segunda leitura em lote):** `homeView.js`, `gameView.js`, `app.js`, `libraryView.js` — **todos integrais** (3.166 linhas). **Lido: 15.438 de 23.558 (66%).**
 
-> **Atualização pós-§4l/§4m (terceira e quarta leituras em lote):** `subtitle-engine.js` **100% completo** (4.314) · `readerView.js`, `web-reader.js`, `settingsView.js` **integrais** · fim de `storiesView.js`. **Lido: 18.665 de 23.558 (79%).** Restam 4.893 em 37 arquivos: `studyView.js` (610, majoritariamente CSS) · `dashboard/js/core/tts.js` (343) · `supabase/functions/url-import` (304) · `utils/tts.js` (296) · `leaguesView.js` (255) · `ytPlayer.js` (252) · `max-player-ui.js` (229) · `statsView.js` (195) · `translator.js` (170) · `loginView.js` (130) · `dashboard/sw.js` (123) · `popup/popup.js` (112) · `youtube-hook.js` (111) · `functions/tts` (107) · `epub.js` (104) · demais ~20 arquivos pequenos, incluindo os 4 órfãos já provados mortos (`pronunciation.js`, `subtitle-parsers.js`, `engine/subtitle-fetcher.js`, `engine/video-adapter.js` — baixa prioridade, sem mais achados esperados ali).
+> **Atualização pós-§4l/§4m (terceira e quarta leituras em lote):** `subtitle-engine.js` **100% completo** (4.314) · `readerView.js`, `web-reader.js`, `settingsView.js` **integrais** · fim de `storiesView.js`. **Lido: 18.665 de 23.558 (79%).**
+
+> **Atualização pós-§4n:** `leaguesView.js` **integral** (255) — última view de peso da cópia velha. **Lido: 18.920 de 23.558 (80%) na cópia antiga.**
+
+> **Atualização pós-PR/§4o (17/07) — mudança de fronteira, não só de número.** A cópia auditada (`codex/extension-current`) ficou parada em 15/07; `main` seguiu 20 commits à frente no dia seguinte. A auditoria foi trazida para cima de `main` via cherry-pick e **reconciliada** (§4o): a extensão inteira (`content/*`, `background/service-worker.js`) não mudou entre as duas — todo achado ali segue válido sem reconferir. Do dashboard, `studyView.js`, `storiesView.js`, `libraryView.js`, `settingsView.js` e `utils/db.js` foram reconferidos contra `main` (§4o.2-§4o.4): a maioria sobrevive, dois problemas sérios (§3.7 XP duplo, §4d.6 XP passivo) já foram corrigidos **na raiz, por permissão de banco**, e uma policy de RLS que eu nem tinha visto (`user_stats` público) foi fechada junto. **A fronteira real de cobertura agora não são as ~4.600 linhas que faltavam na cópia velha — são os arquivos que `main` mudou e eu não reconferi em detalhe (`app.js`, `gameView.js`, `homeView.js`, `readerView.js`, §4o.5) e os que nunca foram auditados em lugar nenhum: `statsView.js`, `loginView.js`, e quatro views inteiras que só existem em `main` (`learnView.js`, `progressView.js`, `readingHub.js`, `viewState.js`, §4o.6).**
 
 **Nunca abertos, ≥100 linhas:** `homeView.js` 1.004 · `settings-panel.js` 907 · `gameView.js` 661 · `libraryView.js` 583 · `app.js` 518 · `readerView.js` 412 · `web-reader.js` 388 · `core/tts.js` 343 · `url-import` 304 · `utils/tts.js` 296 · `leaguesView.js` 255 · `ytPlayer.js` 252 · `max-player-ui.js` 229 · `statsView.js` 195 · `translator.js` 170 · `pronunciation.js` 149 · `phrasal-verbs.js` 142 · `subtitle-parsers.js` 133 · `loginView.js` 130 · `dashboard/sw.js` 123 · `subtitle-fetcher.js` 112 · `popup.js` 112 · `youtube-hook.js` 111 · `functions/tts` 107 · `epub.js` 104.
 
@@ -1105,6 +1109,60 @@ Os dois `if` são independentes, e o **segundo sobrescreve o primeiro** quando o
 - `maybeLeagueRollover()` é a rede de segurança lazy de um `pg_cron` que roda toda segunda 00:05 UTC — idempotente, comentário explica que substituiu um botão antigo de "Simular Fim da Semana" (removido).
 - Sem bots fantasmas: só usuários reais no ranking, decisão registrada no comentário como escolha deliberada de honestidade.
 - Countdown até a próxima segunda usa `Date.UTC` corretamente, sem risco de fuso horário.
+
+---
+
+## 4o. Reconciliação contra `origin/main` (17/07) — o que sobrevive, o que já foi corrigido
+
+Depois do PR trazer esta auditoria para cima de `main`, comparei os achados de maior risco contra o código real de produção (`git diff 13212d3 origin/main -- <arquivo>` + grep dirigido no checkout). **Resultado: a maioria sobrevive intacta, e dois problemas sérios já foram corrigidos — bem — antes mesmo de eu terminar de escrever sobre eles.**
+
+### 4o.1 🟢 A extensão inteira está fora da lista de arquivos que mudaram
+
+`git diff --stat 13212d3 origin/main` não lista **nenhum** arquivo de `content/*`, `background/service-worker.js`, nem a maior parte de `utils/*` (inclusive os 4 órfãos confirmados pela varredura de fiação). **Isso valida sem reconferir**: §2, §3 (exceto §3.7, ver 4o.3), §4b, §4c, §4d inteira, §4e inteira, §4g.1 (o achado principal — confirmado byte a byte, ver 4o.2), §4h inteira, §4j inteira. É a maior parte do documento.
+
+### 4o.2 🟢 O achado principal (W4/shadowing órfã) sobrevive palavra por palavra
+
+`playCurrentAudio()` em `studyView.js` — mesmo com o arquivo tendo mudado 274 linhas no total — está **idêntico** ao trecho citado na §4g.1: o overlay "Sua vez... Fale em voz alta!" ainda só conta 3 segundos, `pronunciationLab` continua com **zero importadores** em todo o `main`. A distância entre o LinguaFlow que existe e o prometido continua sendo, literalmente, um `import`.
+
+### 4o.3 🟢🟢 A §3.7 (XP duplo) não só foi corrigida — foi corrigida na raiz, no banco
+
+Esta é a melhor notícia da reconciliação. Duas migrations novas (`20260716124439_expand_safe_leaderboard_p0_3.sql`, `..._contract_user_stats_and_legacy_xp_p0_3.sql`) fecham o problema que a §3.7 e a §4d.6 apontaram — não com um ajuste no cliente, mas **revogando a permissão no Postgres**:
+
+```sql
+-- Eventos declarados pelo navegador não são evidência competitiva.
+REVOKE ALL ON FUNCTION public.record_learning_event(text, integer)
+  FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.claim_weekly_quest(integer)
+  FROM PUBLIC, anon, authenticated, service_role;
+```
+
+`db.recordEvent()` — a função que eu chamei de "caminho legado" — **não existe mais em `utils/db.js`**, e `grep -rn ".recordEvent(" --include=*.js .` não bate em lugar nenhum do repo. Não é código morto que sobrou: a RPC que ele chamava está **revogada de todos os papéis**, inclusive `service_role`. Ninguém consegue reintroduzir esse caminho por acidente.
+
+Fecha também a §4d.6 (o XP passivo por assistir vídeo): `logSession()` em `main` não credita mais XP nenhum por tempo assistido — o bloco de `blocksCrossed`/`recordEvent('video_session', ...)` foi deletado, substituído pelo comentário: *"Tempo assistido continua sendo métrica de atividade. Ele não concede XP: duração enviada pelo cliente não é evidência competitiva verificável."*
+
+**Bônus que eu não tinha encontrado:** a migration também fecha uma policy de RLS que deixava `user_stats` legível por **qualquer usuário autenticado** (`"Anyone can read user_stats"`) — trocada por leitura restrita à própria linha, com o placar coletivo passando exclusivamente pela nova `rpc/get_leaderboard` (SECURITY DEFINER, projeção mínima: username, avatar, xp da semana, sem nenhum outro dado da conta). Isso não estava na minha auditoria — encontrei ao verificar o contexto da correção.
+
+E a §4i.4 (a dúvida que registrei sobre `recordEvent` ser "legado" ou "real" no `storiesView`) está resolvida: `story_quiz`/`story_read` **não dão XP nenhum agora**, com o texto explícito na tela — *"Prática de compreensão — sem alterar XP, ofensiva ou liga."* — e — *"Leitura concluída. Esta marca não altera XP, ofensiva ou liga."* Meu instinto de não decidir sem ler estava certo: a resposta não era "legado vs. real", era "vai deixar de dar XP".
+
+### 4o.4 🟢 Confirmados válidos em `main`, sem alteração relevante
+
+- **§4n.1** (bug da Zona de Rebaixamento) — confirmado removido, como já provado antes do PR.
+- **§4h.3 / §4g.8** (`#app-view` assimétrico) — `renderWaitingScreen` em `studyView.js` continua com `studyContainer || document.body`, sem o fallback de três níveis que `renderSessionComplete` tem. Bug ainda vivo.
+- **§4k.1** (guard `hasGoodVideoContext` duplicado) — continua em exatamente 2 lugares (`service-worker.js` inalterado, `libraryView.js:296`). Ainda vulnerável ao bug de truncamento da §3.2.
+- **§4i.1** (reencontro narrativo) — `getReencounterWords()` intacta em `storiesView.js`.
+- **§4l.4** (mojibake `âœ…`) — **ainda ativo**, linha 989 de `storiesView.js` em `main`. Não foi corrigido.
+- **§4l.5** (`lf-reveal-context` código morto) — ainda lá, linhas 946-950.
+- **§4m.1** (comentário confirmando o fix da §4b.7) — ainda no código.
+- **§4m.2** (backup/restore real) — `btn-backup-json`/`btn-restore-json` intactos.
+- **§4i.2/§4l.3** (gradiente LingQ 4×) — sobrevive, com uma nuance: o título do selo `story-known-badge` ganhou uma ressalva nova — *"Estimativa que combina termos marcados por você e itens com memória estável; não mede compreensão."* — sinal de que alguém já vinha suavizando a mesma preocupação que a auditoria levantaria.
+
+### 4o.5 🟡 Ainda não reconferidos em detalhe (mudaram, mas não abri o diff completo)
+
+`app.js` (126 linhas, §4k.3 — o Proxy de renderização), `gameView.js` (190 linhas, §4k.4), `homeView.js` (176 linhas, §4k), `readerView.js` (83 linhas, §4b.1/§4l.3 além do já confirmado por grep). Nenhum indício de que estejam quebrados — o padrão desta reconciliação é "sobrevive ou foi corrigido para melhor" — mas não têm o mesmo nível de verificação dos demais.
+
+### 4o.6 ❌ Nunca auditados, nem na branch velha nem em `main`
+
+`statsView.js`, `loginView.js`, e quatro views **inteiras** que só existem em `main`: `learnView.js`, `progressView.js`, `readingHub.js`, `viewState.js` (~158 linhas somadas, conteúdo desconhecido). Dado o padrão da sessão — toda view nova revelou algo —, estas são a fronteira real da cobertura agora, não os ~20% que faltavam ler na cópia velha.
 
 ---
 

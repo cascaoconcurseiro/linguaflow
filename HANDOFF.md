@@ -1,5 +1,21 @@
 # Handoff — LinguaFlow
 
+## Handoff Claude — Auditoria real, 3ª atualização — reconciliação contra `main` (2026-07-17)
+
+**A auditoria mudou de base.** Ela foi feita lendo `codex/extension-current`, uma cópia parada em 15/07. `origin/main` recebeu 20 commits reais no dia seguinte (rollout P0.3) que essa cópia nunca teve. O trabalho foi trazido para `main` via cherry-pick (PR `docs/code-audit-2026-07-16` → `main`) e **reconciliado** contra o código atual — ver §4o do documento.
+
+**Resultado da reconciliação, resumido:**
+- A extensão inteira (`content/*`, `background/service-worker.js`) não mudou entre a cópia velha e `main` — **todo achado ali é válido sem reconferir**, inclusive o achado principal (W4/shadowing órfã, confirmado byte a byte).
+- **Duas coisas sérias já foram corrigidas em `main`, na raiz:** o XP duplo (§3.7) foi resolvido revogando a RPC `record_learning_event` de todos os papéis no Postgres (não um ajuste de cliente — uma revogação de permissão), e o XP passivo por assistir vídeo (§4d.6) foi removido do `logSession()`. De brinde, uma migration fechou uma policy de RLS que deixava `user_stats` legível por qualquer usuário autenticado — achado que eu nem tinha visto.
+- O bug da "Zona de Rebaixamento" (§4n.1) confirmadamente não existe mais em `main` — já sabíamos disso antes do PR.
+- O resto dos achados de maior risco (mojibake no toast de Histórias, código morto `lf-reveal-context`, guard duplicado `hasGoodVideoContext`, `#app-view` assimétrico, backup real, gradiente LingQ 4×) **sobrevivem intactos em `main`** — verificados um a um, não por amostragem.
+
+**A fronteira real de cobertura mudou.** Não são mais as ~4.600 linhas que faltavam na cópia velha — são: `app.js`, `gameView.js`, `homeView.js`, `readerView.js` (mudaram em `main`, não reconferidos em detalhe) e, mais importante, **quatro views inteiras que só existem em `main` e nunca foram lidas**: `learnView.js`, `progressView.js`, `readingHub.js`, `viewState.js` — mais `statsView.js` e `loginView.js`, que nunca foram auditados em lugar nenhum, nem na cópia velha nem em `main`.
+
+**Próximo passo recomendado:** ler as 4 views novas primeiro (nomes sugerem uma reorganização de produto — "hub de leitura", "estado de visualização" — que pode ser mais um caso do padrão da §4f). Depois `statsView.js`/`loginView.js`. Só então voltar a `app.js`/`gameView.js`/`homeView.js`/`readerView.js` para reconferência linha a linha.
+
+---
+
 ## Handoff Claude — Auditoria real, 2ª sessão, atualização final (2026-07-16, noite)
 
 **Onde parou: 18.665 de 23.558 linhas — 79% lido.** Medido por script, não estimado. Na reta final, a leitura virou **paralela em lotes grandes** (até 5 arquivos por chamada) em vez de arquivo por arquivo — foi assim que se saiu de 39% para 79% no mesmo período. Ver §0 da auditoria para o porquê disso ser seguro: nenhum achado entra sem verificação dirigida (grep/leitura do trecho), mesmo vindo de um lote — o método está documentado, com os falsos positivos que ele produziu e como foram pegos.

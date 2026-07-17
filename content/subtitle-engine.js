@@ -576,12 +576,17 @@ export class SubtitleEngine {
           e.preventDefault();
           window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
           break;
-        case 'KeyC': // Toggle Legendas
+        case 'KeyC': { // Toggle Legendas
           e.preventDefault();
-          this.toggleSubtitles();
+          // No YouTube o switch injetado é o dono do estado (localStorage,
+          // title e visual). Clicá-lo mantém tecla e botão sincronizados.
+          const ytSwitch = document.getElementById('lf-yt-toggle-wrapper');
+          if (ytSwitch) ytSwitch.click();
+          else this.toggleSubtitles();
           const isVisible = localStorage.getItem('lf_sub_visible') === 'true';
           this._showNotification(isVisible ? '👁️ Legendas Ativadas' : '🙈 Legendas Ocultas');
           break;
+        }
         case 'Space': // Play/Pause
           e.preventDefault();
           if (vid.paused) {
@@ -1225,16 +1230,22 @@ export class SubtitleEngine {
     // Auto-pause video on hover (Language Reactor feature) e Arrastar Legenda
     const wrap = this.shadowContainer.getElementById('lf-wrap');
 
-    let isDragging = false;
-    let startY = 0;
-    let startBottom = 0;
+    // §4d.5: o estado do drag vive na INSTÂNCIA, não em closures. Os listeners
+    // de janela abaixo são presos uma única vez (_dragEventsAttached) e, na
+    // versão antiga, fechavam sobre isDragging/startY/host da PRIMEIRA
+    // injeção — a segunda injeção (via _waitForVideo) criava um wrap novo cujo
+    // mousedown setava um closure novo que o mousemove da janela nunca lia.
+    // Resultado: arrastar a legenda nunca funcionava no YouTube/Max.
+    this._drag = { active: false, startY: 0, startBottom: 0, wrap };
 
     wrap.addEventListener('mousedown', (e) => {
       if (e.target.classList.contains('lf-word')) return;
-      isDragging = true;
-      startY = e.clientY;
-      const computedBottom = window.getComputedStyle(host).bottom;
-      startBottom = parseFloat(computedBottom);
+      const liveHost = document.getElementById('linguaflow-subtitle-host');
+      if (!liveHost) return;
+      this._drag.active = true;
+      this._drag.startY = e.clientY;
+      this._drag.startBottom = parseFloat(window.getComputedStyle(liveHost).bottom) || 0;
+      this._drag.wrap = wrap;
       wrap.style.cursor = 'grabbing';
       e.preventDefault();
     });
@@ -1242,24 +1253,26 @@ export class SubtitleEngine {
     // Listeners de janela protegidos contra duplicação
     if (!this._dragEventsAttached) {
       window.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        const deltaY = startY - e.clientY;
-        const newBottom = Math.max(0, startBottom + deltaY);
-        host.style.bottom = `${newBottom}px`;
+        if (!this._drag?.active) return;
+        const liveHost = document.getElementById('linguaflow-subtitle-host');
+        if (!liveHost) return;
+        const deltaY = this._drag.startY - e.clientY;
+        const newBottom = Math.max(0, this._drag.startBottom + deltaY);
+        liveHost.style.bottom = `${newBottom}px`;
         this._currentBottom = newBottom;
       }, { signal: this._lifecycleController.signal });
 
       window.addEventListener('mouseup', () => {
-        if (isDragging) {
-          isDragging = false;
-          wrap.style.cursor = 'default';
+        if (this._drag?.active) {
+          this._drag.active = false;
+          if (this._drag.wrap) this._drag.wrap.style.cursor = 'default';
         }
       }, { signal: this._lifecycleController.signal });
       this._dragEventsAttached = true;
     }
 
     wrap.addEventListener('mouseenter', () => {
-      if (!isDragging) wrap.style.cursor = 'grab';
+      if (!this._drag?.active) wrap.style.cursor = 'grab';
       if (this._pauseCooldown) return; // Ignora se acabou de dar play
       if (this.videoElement && !this.videoElement.paused) {
         this.videoElement.pause();
@@ -1440,15 +1453,9 @@ export class SubtitleEngine {
       rightCtrl.insertBefore(btnSettings, btnPanel);
       rightCtrl.insertBefore(switchWrapper, btnSettings);
 
-      // Atalhos de teclado (apenas se ainda não houver)
-      if (!this._kbAttached) {
-        document.addEventListener('keydown', (e) => {
-          if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
-          if (e.key.toLowerCase() === 'c') switchWrapper.click();
-          if (e.key.toLowerCase() === 'o') btnSettings.click();
-        }, { signal: this._lifecycleController.signal });
-        this._kbAttached = true;
-      }
+      // Atalhos C/O ficam SÓ em _setupKeyboardShortcuts. O listener duplicado
+      // que vivia aqui fazia C ligar+desligar a legenda na mesma tecla e O
+      // abrir+fechar as configurações no YouTube (§4d.4 da auditoria).
 
       // Inicia sempre DESLIGADO (OFF by default)
       this.toggleSubtitles(false);
@@ -2260,12 +2267,17 @@ export class SubtitleEngine {
         const freshSaved = new Map();
         const freshKnown = new Set(this.knownWords); // mantém os marcados em sessão
         words.forEach((w) => {
-          const status = cardStatus[w.id];
-          if (status) freshSaved.set(w.word.toLowerCase(), status);
+          // §4d.3: palavra salva SEM card não pode sumir do mapa — antes, o
+          // `if (status)` descartava e `this.savedWords = freshSaved` apagava
+          // a palavra da legenda ao vivo (voltava a cor de "nunca vista").
+          freshSaved.set(w.word.toLowerCase(), cardStatus[w.id] || 'new');
         });
         // Atualiza o mapa em memória também
         this.savedWords = freshSaved;
         renderStats(freshKnown, freshSaved);
+        // Repinta a legenda com os status reais dos cards (learning/review/
+        // mature), que são mais precisos que o 'new' genérico do boot.
+        this._updateSubtitleColors();
       } catch (e) {
         console.warn('[LinguaFlow] Stats: erro ao recarregar do DB', e.message);
       }
@@ -3311,7 +3323,18 @@ export class SubtitleEngine {
     return text
       .replace(/\[.*?\]/g, '') // Remove [Music], [Laughter]
       .replace(/\(.*?\)/g, '') // Remove (shouting)
+      // §4j.1/§4l.2: entidades HTML decodificadas AQUI, na fonte da cue —
+      // antes só a legenda na tela era consertada (_makeClickable) e o card
+      // recebia "don&#39;t" cru em context_sentence, contaminando frente,
+      // builder, ditado e TTS. Numéricas (dec/hex) + as nomeadas comuns.
+      .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
       .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
       .replace(/\s+/g, ' ') // Unifica espaços
       .trim();
   }

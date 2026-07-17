@@ -401,15 +401,17 @@ class Database {
     if (!res || !res.length) return { ok: false };
     const savedWord = res[0];
 
-    let card = await this.getCardByWordId(savedWord.id);
-    if (!card) {
-      card = await this._fetch('rpc/create_card_for_word', {
+    // isNew = a palavra ainda não tinha card ANTES deste save. A versão
+    // anterior testava `!card` depois de criar o card — sempre false (§3.4).
+    const existingCard = await this.getCardByWordId(savedWord.id);
+    if (!existingCard) {
+      await this._fetch('rpc/create_card_for_word', {
         method: 'POST',
         body: { p_word_id: savedWord.id }
       });
     }
 
-    return { ok: true, id: savedWord.id, isNew: !card };
+    return { ok: true, id: savedWord.id, isNew: !existingCard };
   }
 
   async getWord(word, lang = 'en') {

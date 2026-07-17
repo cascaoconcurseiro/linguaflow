@@ -445,3 +445,69 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 - [x] Executar smoke transacional remoto com `ROLLBACK`: escrita direta bloqueada; create/review/bury/suspend/restore/backup/delete seguro aprovados, sem resíduos de fixture.
 - [x] Corrigir validação numérica do restore em migration append-only `restore_card_state_numeric_types_p0_2b`; `null` e string nos três campos FSRS são rejeitados sem mutação/evento.
 - [ ] Observar 403/5xx e falhas de RPC por 24 h de uso real após o cutover.
+
+## 🔍 Auditoria real de código — plano de execução (Claude, 2026-07-17)
+
+> Documento canônico: [`docs/AUDITORIA_REAL_2026-07-16.md`](docs/AUDITORIA_REAL_2026-07-16.md) (80% do código lido, reconciliado contra `origin/main` na §4o). PR aberto: `docs/code-audit-2026-07-16` → `main`. Todo item abaixo tem arquivo:linha na auditoria — buscar pela seção citada entre parênteses antes de mexer.
+
+> **ORDEM DE EXECUÇÃO APROVADA PELO DONO (17/07):** `0 → 1 → 2 → 3 → 6 → 4 → 5`.
+> A Fase 6 (terminar a leitura dos 20%) sobe para ANTES das Fases 4 e 5, porque:
+> - **Fase 5 apaga código.** "Órfão" = "ninguém importa" — só se pode afirmar isso sobre código já lido. Os 20% não lidos (`translator.js`, `ytPlayer.js`, `max-player-ui.js`…) podem importar os "órfãos". Apagar antes de ler os vizinhos é o mesmo erro que gerou a W3 inventada.
+> - **Fase 4 são decisões de produto** — ficam melhores com o app inteiro visível (ex.: a decisão do fallback de voz depende de como `max-player-ui`/`ytPlayer` usam TTS).
+> - Fases 1-3 são autossuficientes: vivem em código 100% lido. Podem rodar já.
+>
+> **PROTOCOLO DE DOCUMENTAÇÃO (obrigatório, para o Codex e qualquer sessão paralela):** ao executar qualquer item: (1) marcar `[x]` aqui com a data; (2) registrar o que foi feito + arquivo:linha no `HANDOFF.md` (seção "Execução da auditoria"); (3) se o achado da auditoria se revelar errado durante o conserto, corrigir a seção `§` correspondente em `AUDITORIA_REAL_2026-07-16.md` — o documento canônico nunca pode ficar mentindo. Nenhum item é "feito" sem os 3 passos.
+
+### Fase 0 — Git (fazer primeiro, é só documentação)
+
+- [ ] **BLOQUEADO — ação do dono:** mergear `docs/code-audit-2026-07-16` → `main` (o classificador de permissões negou `git checkout`/`merge` à sessão de 17/07; a branch está 0 commits atrás de main, merge é fast-forward limpo). Link do PR: github.com/cascaoconcurseiro/linguaflow/pull/new/docs/code-audit-2026-07-16.
+- [x] (17/07, Claude) A branch deixou de ser docs-only: as correções da Fase 1 foram commitadas nela (`fix: Fase 1 da auditoria`) porque o merge estava bloqueado. Ajustar a descrição do PR ao abrir.
+
+### Fase 1 — Correções de 1 linha, alta confiança, sem decisão de produto envolvida — ✅ CONCLUÍDA (17/07, Claude, commit "fix: Fase 1 da auditoria", test:release verde)
+
+- [x] (17/07) `content/review-overlay.js` — `preventDefault()`+`stopPropagation()` nas teclas `1`-`4` (§4e.2) **e** listener movido para fase de captura (`addEventListener(..., true)`): o engine registra o keydown dele primeiro, então sem captura o Espaço continuaria dando play/pause junto com o revelar — isto fecha também o §4e.3, que estava na Fase 2.
+- [x] (17/07) `dashboard/js/ui/storiesView.js:989` — `âœ…` → `✅` (§4l.4).
+- [x] (17/07) `content/subtitle-engine.js` — listener duplicado de `C`/`O` removido de `_injectYouTubeControls()`; o handler global de `C` agora clica o switch injetado quando ele existe (mantém visual+localStorage+title em sincronia) (§4d.4).
+- [x] (17/07) `dashboard/js/ui/studyView.js:426` — comentário do undo corrigido (a linha real era 426, não 377 — o arquivo derivou desde a auditoria) (§4g.9).
+- [x] (17/07) `content/settings-panel.js:786` — `C` e `Espaço` adicionados à grade de atalhos (§4j.3).
+- [x] (17/07) `utils/db.js` (`saveWord`) — `isNew` calculado a partir de `existingCard` capturado ANTES de criar o card (§3.4).
+
+### Fase 2 — Correções reais, precisam de teste manual antes de subir
+
+- [x] (17/07, Claude — código pronto, commit `fix: Fase 2 (1-3)`) `_convertIPAtoPT` reescrito para passada única com regex alternado (dígrafos primeiro). **Provado por teste automatizado**: antes ship=sheep (`chíp`), sit=seat (`sít`), full=fool (`fúl`); agora os 3 pares são distintos; `judge` corrigiu de `diãdi` para `djãdj` (§3.1).
+- [x] (17/07, Claude — código pronto, mesmo commit) Decisão tomada: **a tela pode truncar, o card não.** Novo `_sentenceContaining()` extrai a frase completa que contém o termo (sem janela de ±5 palavras, sem `...`) e vai para `saveContext`; `_save` usa `saveContext || context`. `_generateContext` (frase da IA) também atualiza `saveContext` (§3.2).
+- [x] (17/07, Claude — código pronto, mesmo commit) Guarda de re-save: palavra já salva agora **desabilita** o botão com title explicativo ("re-salvar sobrescreveria a cena original"), tanto na abertura quanto após salvar (o reset de 2s morreu). O check assíncrono ganhou guarda de corrida A→B (§3.3 + §3.8 parcial).
+- [ ] **TESTE MANUAL DO DONO (obrigatório antes de considerar a Fase 2.1-2.3 entregue):** recarregar a extensão → num vídeo: (a) clicar palavra em frase longa (>80 chars), salvar, conferir no Cofre que a frase está completa e sem `...`; (b) clicar a MESMA palavra de novo → botão deve vir verde e desabilitado; (c) conferir fonética de `ship` vs `sheep` no popup.
+- [x] (17/07, Claude — commit `fix: Fase 2 (4)`) Drag da legenda consertado pela RAIZ do §4d.5: não era a dupla injeção em si — os listeners de janela (`mousemove`/`mouseup`), presos uma única vez, fechavam sobre closures (`isDragging`/`host`) da PRIMEIRA injeção; a segunda criava um wrap cujo mousedown eles nunca liam. Estado movido para `this._drag` (instância) e host resolvido ao vivo por id. **Teste manual do dono pendente:** arrastar a legenda antes e depois de trocar de vídeo.
+- [x] (17/07, Claude — commit `fix: Fase 2 (5)`) Painel lateral: `freshSaved` agora inclui palavra sem card (`status || 'new'`) e chama `_updateSubtitleColors()` — abrir `L` deixou de apagar palavras da legenda e passou a REFINAR as cores com o status real do card (§4d.3). **Teste manual pendente:** abrir painel num vídeo e conferir cores.
+- [ ] `content/subtitle-engine.js` (`_loadSettings`) — reescreve `translationAnticipation`/`subtitleMode` no banco do usuário sempre que a página carrega, se detectar valores legados. **Tem decisão de produto embutida** (o painel ainda oferece esses valores?) — movido na prática para a Fase 4; decidir com o dono (§4d.7).
+- [x] (17/07, Claude — commit `fix: Fase 2 (7)`) `_cleanSubtitleText` decodifica entidades numéricas (dec/hex) e nomeadas na fonte da cue — provado: `"I don&#39;t know [Music] &amp; I won&#x27;t go"` → `"I don't know & I won't go"` (§4j.1, §4l.2).
+
+### Fase 3 — O achado principal: religar o shadowing — ✅ CÓDIGO PRONTO (17/07, Claude, commit `feat: Fase 3`)
+
+- [x] (17/07) `pronunciationLab` importado pela primeira vez na história do projeto. O overlay ganhou botão `🎤 Falar agora`: grava por clique (nunca auto-inicia mic), para o TTS antes de gravar, compara com a frase do card e mostra **score + diff palavra a palavra** (verde/riscado, com fallback de cores do dashboard). Clicar o mic "pinna" o overlay (o auto-hide de 3s não engole a gravação); trocar de card ou sair da rota chama `stop()` — o mic nunca fica aberto. Provado por teste puro: 5/6 palavras = 83%; ship vs sheep = 0% (§4g.1, §4g.2).
+- [ ] **TESTE MANUAL DO DONO:** num card com áudio, esperar o overlay → clicar `🎤 Falar agora` → conceder permissão → repetir a frase → conferir score e diff. Testar também: negar a permissão (deve mostrar erro amigável, não travar) e trocar de card no meio da gravação (mic deve fechar).
+
+### Fase 4 — Decisões de produto (perguntar ao Wesley antes de codificar)
+
+- [ ] **Paleta de cores para daltônicos** — implementada em `settingsView`/`settings-panel`, escondida com `display:none` no HTML. Reativar o seletor, ou remover a lógica morta? (§4j.2 — achado de acessibilidade, prioridade alta para decidir mesmo que a implementação espere.)
+- [ ] **`blurSubtitles`** — configuração lida/aplicada mas sem `<select>` no painel (`#sel-blur` não existe). Restaurar o controle, ou remover a configuração órfã? (§4j.4)
+- [ ] **`lf_auto_backup`** — o service worker grava um backup silencioso que nunca é lido em lugar nenhum, redundante com o backup real e funcional em Configurações → Dados (`btn-backup-json`). Remover a escrita morta? (§4j.7)
+- [ ] **`utils/tts.js` (`_playWebSpeech`)** — 118 linhas mortas (fallback de voz desligado com `return false` no topo). Apagar, ou religar como último recurso — igual ao que `dashboard/js/core/tts.js` (site) já faz — para fechar a assimetria de confiabilidade entre extensão e site? (§4p.2)
+- [ ] **`#app-view`** — `renderSessionComplete` e `renderWaitingScreen` em `studyView.js` caem para um elemento `#app-view` que **não existe em lugar nenhum do HTML**. Criar o elemento (fallback real), ou remover o fallback morto e garantir que `studyContainer` nunca seja nulo nesses pontos? (§4g.8, confirmado ainda vivo em `main` na §4o.4)
+- [ ] **CEFR sincroniza só num sentido** — mudar o nível na tela de Configurações do site grava só `lf_cefr_level`; o painel da extensão grava as duas chaves (`lf_cefr_level` + `cefrTargetLevel`). Replicar a escrita dupla no site (§4b.8).
+
+### Fase 5 — Limpeza de código morto (segura, baixo risco, sem decisão de produto)
+
+- [ ] Apagar `content/engine/subtitle-fetcher.js` e `content/engine/video-adapter.js` — confirmados órfãos pela varredura de fiação, zero importadores em `main`. **Atenção:** o `HANDOFF.md` do Codex (15/07) afirma que esses arquivos foram preservados de propósito — avisar antes de apagar (§4h.1, §4h.2).
+- [ ] Apagar `utils/subtitle-parsers.js` — mesmo caso, órfão confirmado (§4h.1).
+- [ ] `content/subtitle-engine.js` — remover os stubs vazios `_injectDeckSelector()`, `_injectFloatingButton()`, `_injectNavigationControls()`, `_createNavButton()`, e as referências a `#lf-deck-host`, `#lf-btn-loop`, `#lf-save-btn`, `#lf-hbo-switch`, `#lf-float-btn`, `#lf-float-panel-btn`, `#lf-nav-controls` no `destroy()` (§4b.6, §4h.3).
+- [ ] `content/subtitle-engine.js` — remover `_renderVideoWordPrep()` (80 linhas, container `#lf-video-words` nunca existe) e as ~160 linhas mortas dentro de `_processYtSub` (`decodeHtml`, `detectLang`, os objetos `D`/`l`) (§4d.10, §4d.11).
+- [ ] `dashboard/js/ui/storiesView.js` — remover o handler órfão de `#lf-reveal-context`/`#lf-context-trans` (versão antiga de uma feature já substituída) (§4l.5).
+- [ ] `background/service-worker.js:163,166` — `createDeck`/`deleteDeck` listados em `writeMethods`, mas os decks foram removidos do `db`. Limpar a lista (§4b.6).
+
+### Fase 6 — Terminar a leitura (menor prioridade — o padrão da sessão foi achado forte por arquivo até aqui, mas os que sobram são infraestrutura de borda, não superfície de produto)
+
+- [ ] Reconferir contra `main` em detalhe: `app.js`, `gameView.js`, `homeView.js`, `readerView.js` (mudaram no rollout P0.3, não foram reabertos linha a linha — §4o.5).
+- [x] (17/07, Claude) Ler pela primeira vez: `translator.js`, `ytPlayer.js`, `max-player-ui.js`, `epub.js`, `popup/popup.js`, `youtube-hook.js`, `dashboard/sw.js`, Edge `url-import`/`tts`/`push-reminder`/`email-reengagement` — **~1.700 linhas, ZERO bug funcional** (achados e elogios em §4q). Único alerta: o e-mail de reengajamento aponta para `linguaflow.vercel.app` — **dono verificar em 1 clique se o alias existe no Vercel** (§4q.2).
+- [ ] Ler `content/engine/subtitle-fetcher.js`/`video-adapter.js` e `utils/subtitle-parsers.js` só se a Fase 5 decidir manter em vez de apagar — senão, dispensar.

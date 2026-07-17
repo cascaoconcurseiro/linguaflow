@@ -200,6 +200,16 @@ export class WordPopup {
     return String(value ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
+  // Frase completa que contém o termo — SEM janela de palavras, SEM "..." —
+  // é o que vai para words.context_sentence (§3.2). Multi-frase vira a frase
+  // alvo; sem pontuação, devolve o contexto inteiro como veio.
+  _sentenceContaining(word, fullContext) {
+    if (!fullContext) return '';
+    const sentences = fullContext.match(/[^.!?]+[.!?]*/g) || [fullContext];
+    const target = sentences.find((s) => s.toLowerCase().includes(word.toLowerCase()));
+    return (target || fullContext).trim();
+  }
+
   _truncateContext(word, fullContext) {
     if (!fullContext) return '';
     // if it's already short, keep it
@@ -557,9 +567,14 @@ export class WordPopup {
     if (!word) return;
     this._isHiding = false;
     const cleanedWord = word.replace(/[.,!?()"]+/g, '').trim();
-    this.context = context || '';
-    this.word = await this._expandTermInContext(cleanedWord, this.context);
-    this.context = this._truncateContext(this.word, this.context);
+    const rawContext = context || '';
+    this.word = await this._expandTermInContext(cleanedWord, rawContext);
+    // A TELA pode truncar; o CARD não (§3.2 da auditoria): antes, o snippet
+    // "±5 palavras com ..." era salvo como context_sentence e contaminava a
+    // frente do card, o builder, o ditado e o TTS. saveContext guarda a frase
+    // completa que contém o termo; this.context segue truncado só pra exibir.
+    this.saveContext = this._sentenceContaining(this.word, rawContext);
+    this.context = this._truncateContext(this.word, rawContext);
     this.currentCue = cue; // Armazena a cue completa com contexto expandido
     this._anchorRect = rect || null;
     this._chunksBuilt = false;
@@ -695,13 +710,21 @@ export class WordPopup {
       );
       q('#fc').style.display = '';
     }
-    // Buttons state
+    // Buttons state — palavra já salva DESABILITA o botão (§3.3): re-salvar
+    // faz upsert e sobrescreve context_sentence/video_url/bounds da captura
+    // original em silêncio. Enquanto não existir "adicionar novo contexto",
+    // a proteção honesta é não oferecer o clique.
+    q('#fsave').disabled = false; // popup é reaproveitado entre palavras
     (async () => {
+      const wordAtCheck = this.word; // §3.8: clique rápido A→B não pode rotular B com a resposta de A
       const BASE = chrome.runtime.getURL('utils/');
       const { db } = await import(BASE + 'db.js');
       const lang = this.engine?.sourceLang || 'en';
-      const saved = await db.getWord(this.word, lang);
-      q('#fsave').textContent = saved ? '✅ Salvo nos Flashcards' : '+ Salvar nos Flashcards';
+      const saved = await db.getWord(wordAtCheck, lang);
+      if (this.word !== wordAtCheck) return;
+      q('#fsave').textContent = saved ? '✅ Já salvo nos Flashcards' : '+ Salvar nos Flashcards';
+      q('#fsave').disabled = !!saved;
+      q('#fsave').title = saved ? 'Já está no seu Cofre — re-salvar sobrescreveria a cena original' : '';
       q('#fsave').style.background = saved
         ? 'linear-gradient(135deg,#15803d,#16a34a)'
         : 'linear-gradient(135deg,#1d4ed8,#2563eb)';
@@ -1113,7 +1136,9 @@ export class WordPopup {
         phonetic: d.phonetic || '',
         pronunciation_pt: d.pronunciation_pt || this._convertIPAtoPT(d.phonetic || '') || '',
         definition: d.definition || '',
-        context_sentence: this.context || '',
+        // saveContext = frase completa (sem "..."); this.context é a versão
+        // truncada de exibição e fica só como último fallback (§3.2).
+        context_sentence: this.saveContext || this.context || '',
         video_url: videoClip.video_url,
         video_start_ms: videoClip.video_start_ms,
         video_end_ms: videoClip.video_end_ms,
@@ -1133,15 +1158,14 @@ export class WordPopup {
       }
       console.debug('[WordPopup] ✅ Palavra guardada; sincronização em segundo plano:', result.queueId);
 
-      btn.textContent = '✅ Salvo!';
+      // §3.3: o botão NÃO volta a "+ Salvar" depois de 2s — esse reset
+      // convidava um segundo clique que sobrescrevia a captura original.
+      // Fica verde, desabilitado e explicado; showForWord reavalia o estado
+      // na próxima palavra/abertura.
+      btn.textContent = '✅ Salvo nos Flashcards';
       btn.style.background = 'linear-gradient(135deg,#15803d,#16a34a)';
-
-      // ← FIX: Reset button after 2 seconds
-      setTimeout(() => {
-        btn.textContent = '+ Salvar nos Flashcards';
-        btn.style.background = 'linear-gradient(135deg,#1d4ed8,#2563eb)';
-        btn.disabled = false;
-      }, 2000);
+      btn.title = 'Já está no seu Cofre — re-salvar sobrescreveria a cena original';
+      btn.disabled = true;
 
       // Mostra toast de confirmação
       this._showSaveToast();
@@ -1276,9 +1300,15 @@ export class WordPopup {
       ɹ: 'r',
       r: 'r',
     };
-    for (const [k, v] of Object.entries(map)) {
-      s = s.split(k).join(v);
-    }
+    // Passada ÚNICA com regex alternado (§3.1 da auditoria): a versão antiga
+    // aplicava o mapa em cascata sobre a mesma string, então a SAÍDA de uma
+    // regra virava ENTRADA da seguinte — ɪ→'i' e depois i→'í' faziam todo som
+    // curto virar longo: "sit" saía "sít" (lê-se como "seat"). Exatamente a
+    // distinção ship/sheep, a mais difícil para brasileiros, destruída em
+    // toda palavra. Dígrafos vêm primeiro no alternado para vencer o match.
+    const keys = Object.keys(map).sort((a, b) => b.length - a.length);
+    const pattern = new RegExp(keys.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g');
+    s = s.replace(pattern, (m) => map[m]);
     s = s.replace(/([bcdfghjklmnpqrstvwxyz])\1+/g, '$1');
     return s;
   }
@@ -1402,6 +1432,7 @@ export class WordPopup {
       if (response?.sentence) {
         // Save back so the user can save it in flashcards
         this.context = response.sentence;
+        this.saveContext = response.sentence; // frase da IA é completa por construção
         
         el.innerHTML = `
           <div style="background:rgba(56,189,248,0.1); border-left:3px solid #38bdf8; padding:8px; border-radius:4px; margin-bottom:8px;">

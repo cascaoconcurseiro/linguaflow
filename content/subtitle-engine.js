@@ -785,13 +785,11 @@ export class SubtitleEngine {
       const { db } = await import('../utils/db.js');
       await db.initPromise;
 
-      // Carrega antecipação de tradução (Força 0 se for o valor antigo indesejado)
-      let anticipation = await db.getSetting('translationAnticipation');
-      if (anticipation === 2 || anticipation === -2) {
-        console.debug('[LinguaFlow] Resetando offset de 2.0 para 0.0 (Padrão de Fábrica)');
-        anticipation = 0;
-        await db.setSetting('translationAnticipation', 0);
-      }
+      // Fase 4.7 da auditoria (§4d.7): o engine NÃO reescreve mais a escolha
+      // do usuário no banco. A versão antiga "migrava" 2.0→0 a cada carga —
+      // quem escolhia antecipação de 2s no painel tinha a escolha desfeita
+      // em silêncio no próximo carregamento.
+      const anticipation = await db.getSetting('translationAnticipation');
       if (anticipation !== undefined && anticipation !== null) {
         this.translationAnticipation = parseFloat(anticipation);
       }
@@ -817,15 +815,11 @@ export class SubtitleEngine {
         console.debug(`[LinguaFlow] Velocidade carregada: ${speed}`);
       }
 
-      // Carrega modo de exibição (displayMode)
-      let mode = await db.getSetting('subtitleMode');
-      if (mode === 'translated') {
-        console.debug(
-          '[LinguaFlow] Resetando modo "Somente Tradução" para "Bilíngue" para evitar confusão.',
-        );
-        mode = 'bilingual';
-        await db.setSetting('subtitleMode', 'bilingual');
-      }
+      // Fase 4.7 (§4d.7): "Apenas Tradução" é uma opção REAL do painel
+      // (sel-mode oferece 'translated') — o engine revertia para 'bilingual'
+      // em silêncio a cada carga, desfazendo a escolha que a própria UI
+      // vendia. A escolha do usuário agora vale.
+      const mode = await db.getSetting('subtitleMode');
       if (mode) {
         this.displayMode = mode;
         console.debug(`[LinguaFlow] Modo de exibição carregado: ${mode}`);

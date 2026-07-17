@@ -579,9 +579,11 @@ function renderSessionComplete(app) {
   hidePlayer(); // a sessão acabou — nenhum vídeo deve continuar tocando ao fundo
   const sessionTime = Math.round((Date.now() - sessionStart) / 60000);
   const laterCount = pendingLearning.length;
-  // BUG antigo: escrevia em #app-view, que não existe → caía no <body> e
-  // destruía o app inteiro. Usa o container real da view de estudo.
-  const rootContainer = studyContainer || document.getElementById('app-view') || document.body;
+  // Fase 4.5 da auditoria (§4g.8): #app-view nunca existiu; cair no <body>
+  // destruía o app. Sem container real (rota já trocada), NÃO renderizar —
+  // uma tela de fim de sessão fora da view de estudo é sempre errada.
+  const rootContainer = studyContainer;
+  if (!rootContainer) return;
   rootContainer.innerHTML = `
     <div style="display:flex; height:100%; align-items:center; justify-content:center; background:var(--color-bg-alt);">
       <div style="text-align:center; padding:60px; background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-border); box-shadow:0 10px 40px rgba(0,0,0,0.08); max-width:500px;">

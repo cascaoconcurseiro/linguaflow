@@ -55,9 +55,15 @@ class TTS {
             console.debug('[TTS] Google TTS falhou, usando Web Speech API');
         }
 
-        // Prioridade 3 removida: Sem fallback para voz robótica (Web Speech API)
-        console.warn('[TTS] Google TTS falhou, e o áudio robótico foi desativado.');
-        return false;
+        // Prioridade 3 (Fase 4.4 da auditoria, §4p.2): Web Speech como ÚLTIMO
+        // recurso, religado em paridade com o site (dashboard/js/core/tts.js
+        // já fazia isso). Offline/Google fora do ar, card com áudio ruim vale
+        // mais que card mudo — e o filtro interno rejeita vozes robóticas.
+        try {
+            return await this._playWebSpeech(text, lang, rate, token);
+        } catch {
+            return false;
+        }
     }
 
     async _playGoogleTTS(text, lang, rate = 1.0, token) {
@@ -156,8 +162,10 @@ class TTS {
         });
     }
 
-    async _playWebSpeech(text, lang, rate = 1.0) {
-        return false;
+    // token: integração com ExclusivePlayback — sem ele, este fallback
+    // reintroduziria o áudio duplo que a Etapa 1 eliminou.
+    async _playWebSpeech(text, lang, rate = 1.0, token = null) {
+        if (!this.synth) return false;
         if (this.voices.length === 0) {
             this.voices = this.synth.getVoices();
             if (this.voices.length === 0) {
@@ -180,6 +188,7 @@ class TTS {
         }
 
         return new Promise(resolve => {
+            if (token !== null && !this.playback.isCurrent(token)) return resolve(false);
             const utter = new SpeechSynthesisUtterance(text);
             utter.lang = lang || 'en-US';
             utter.rate = Math.max(0.1, Math.min(rate, 4.0));
@@ -271,9 +280,23 @@ class TTS {
             
             utter.voice = voice;
 
-            utter.onend = () => resolve(true);
-            utter.onerror = () => resolve(false);
+            let settled = false;
+            const settle = (ok) => {
+                if (settled) return;
+                settled = true;
+                if (token !== null) this.playback.release(token, cancel);
+                resolve(ok);
+            };
+            const cancel = () => {
+                utter.onend = null;
+                utter.onerror = null;
+                try { this.synth.cancel(); } catch { /* API opcional */ }
+                settle(false);
+            };
+            utter.onend = () => settle(true);
+            utter.onerror = () => settle(false);
 
+            if (token !== null && !this.playback.activate(token, cancel)) return;
             this.synth.cancel();
             this.synth.speak(utter);
         });

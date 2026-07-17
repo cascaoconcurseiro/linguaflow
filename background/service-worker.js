@@ -31,14 +31,18 @@ console.debug('LinguaFlow: Service Worker inicializado.');
 
 // ── Alarmes ──────────────────────────────────────────────────────────────────
 chrome.alarms.create('srs-reminder', { periodInMinutes: 60 });
-chrome.alarms.create('auto-backup', { periodInMinutes: 1440 });
 chrome.alarms.create('word-save-sync', { periodInMinutes: 1 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'srs-reminder') updateBadge();
-  if (alarm.name === 'auto-backup') runAutoBackup();
   if (alarm.name === 'word-save-sync') syncPendingWordSaves();
 });
+// Fase 4.3 da auditoria (§4j.7): o alarme 'auto-backup' e o runAutoBackup
+// morreram — gravavam um backup que NENHUM código lia, redundante com o
+// backup real de Configurações → Dados, e consumiam cota do chrome.storage.
+// A limpeza abaixo remove o alarme e o dado órfão de instalações antigas.
+chrome.alarms.clear('auto-backup').catch?.(() => {});
+chrome.storage.local.remove(['lf_auto_backup', 'lf_auto_backup_date']);
 
 chrome.runtime.onStartup?.addListener(() => syncPendingWordSaves());
 
@@ -1376,15 +1380,6 @@ function clearBadLingueeCache() {
     );
     if (keys.length) chrome.storage.local.remove(keys);
   });
-}
-
-async function runAutoBackup() {
-  try {
-    const words = await db.getAllWords();
-    if (!words.length) return;
-    const backup = { version: 4, exportedAt: new Date().toISOString(), db: { words } };
-    chrome.storage.local.set({ lf_auto_backup: backup, lf_auto_backup_date: Date.now() });
-  } catch (e) {}
 }
 
 async function generateAIVariation(word, sentence) {

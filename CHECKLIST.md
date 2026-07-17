@@ -445,3 +445,59 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 - [x] Executar smoke transacional remoto com `ROLLBACK`: escrita direta bloqueada; create/review/bury/suspend/restore/backup/delete seguro aprovados, sem resíduos de fixture.
 - [x] Corrigir validação numérica do restore em migration append-only `restore_card_state_numeric_types_p0_2b`; `null` e string nos três campos FSRS são rejeitados sem mutação/evento.
 - [ ] Observar 403/5xx e falhas de RPC por 24 h de uso real após o cutover.
+
+## 🔍 Auditoria real de código — plano de execução (Claude, 2026-07-17)
+
+> Documento canônico: [`docs/AUDITORIA_REAL_2026-07-16.md`](docs/AUDITORIA_REAL_2026-07-16.md) (80% do código lido, reconciliado contra `origin/main` na §4o). PR aberto: `docs/code-audit-2026-07-16` → `main`. Todo item abaixo tem arquivo:linha na auditoria — buscar pela seção citada entre parênteses antes de mexer.
+
+### Fase 0 — Git (fazer primeiro, é só documentação)
+
+- [ ] Abrir o PR `docs/code-audit-2026-07-16` → `main` (link: github.com/cascaoconcurseiro/linguaflow/pull/new/docs/code-audit-2026-07-16).
+- [ ] Revisar e mergear — zero mudança de código de produto, só docs + script de auditoria.
+
+### Fase 1 — Correções de 1 linha, alta confiança, sem decisão de produto envolvida
+
+- [ ] `content/review-overlay.js:126` — adicionar `preventDefault()`/`stopPropagation()` nas teclas `1`-`4`, que hoje pulam o vídeo do YouTube para 10/20/30/40% em vez de avaliar o card (§4e.2). **O mais provável culpado de a feature parecer quebrada.**
+- [ ] `dashboard/js/ui/storiesView.js:989` — trocar `âœ…` por `✅` no toast de salvar palavra (mojibake ativo, confirmado em `main`) (§4l.4).
+- [ ] `content/subtitle-engine.js` — separar o listener de teclado `C`/`O` entre `_setupKeyboardShortcuts()` e `_injectYouTubeControls()`; hoje disparam 2× no YouTube (§4d.4).
+- [ ] `dashboard/js/ui/studyView.js:377` — comentário diz "Ctrl+Z / tecla Z", código só testa `KeyZ`; ajustar o comentário (o código está certo) (§4g.9).
+- [ ] `content/settings-panel.js` (lista de atalhos, seção "Atalhos do Teclado") — adicionar `C` e `Espaço`, que faltam na única lista de atalhos que o app mostra ao usuário (§4j.3).
+- [ ] `utils/db.js` — `isNew` sempre `false` em `saveWord`/`getCardByWordId`: a variável `card` sempre existe depois do `if`, então `!card` nunca é `true`. Corrigir a lógica (§3.4).
+
+### Fase 2 — Correções reais, precisam de teste manual antes de subir
+
+- [ ] `content/word-popup.js` (`_convertIPAtoPT`) — o mapa de fonética aplica substituições em cascata na mesma string (`ɪ→i` depois `i→í`), destruindo o par ship/sheep. Trocar por regex alternado com callback, uma única passada (§3.1).
+- [ ] `content/word-popup.js` (`_truncateContext`) — frase salva pode vir picotada com `"..."`. Decidir: salvar a frase completa, ou marcar visivelmente como truncada no card (§3.2). **Isto também destrava dois bugs derivados sem precisar tocar neles**: §4j.5 (o guard `hasGoodVideoContext`, duplicado em `service-worker.js` e `libraryView.js`, é enganado por frases truncadas) e §4k.5 (o editor do Cofre existe mas nada avisa que a frase está quebrada).
+- [ ] `content/word-popup.js` (`_showSaveToast`/estado do botão) — "já salvo" reseta em 2s e um segundo clique sobrescreve `context_sentence`/`video_url`/bounds da captura original. Adicionar guarda contra re-save silencioso (§3.3).
+- [ ] `content/subtitle-engine.js` (`_injectSubtitleUI` chamada 2× no boot) — arrastar a legenda nunca funciona no YouTube/Max porque os listeners de drag ficam presos no host destruído na primeira chamada. Consolidar numa única injeção (§4d.5).
+- [ ] `content/subtitle-engine.js` (`_createSubtitlePanel` vs `_loadSavedWords`) — abrir o painel lateral (`L`) reconstrói `savedWords` só a partir de `cards.status`, apagando palavras salvas sem card e pintando-as como "nunca vistas" na legenda ao vivo. Unificar a fonte do mapa (§4d.3).
+- [ ] `content/subtitle-engine.js` (`_loadSettings`) — reescreve `translationAnticipation`/`subtitleMode` no banco do usuário sempre que a página carrega, se detectar valores legados. Confirmar se ainda existe caminho para o usuário escolher esses valores hoje; se não, remover a migração forçada (§4d.7).
+- [ ] `content/subtitle-engine.js` (`_cleanSubtitleText`) — não decodifica entidades HTML (`&#39;` etc.), só `&nbsp;`. A legenda na tela já tem esse conserto em `_makeClickable`, mas ele não alimenta o texto salvo no card. Mover/centralizar a decodificação para antes de `context_sentence` ser gravado (§4j.1, §4l.2).
+
+### Fase 3 — O achado principal: religar o shadowing
+
+- [ ] `dashboard/js/ui/studyView.js` + `utils/pronunciation.js` — o overlay "Sua vez... Fale em voz alta!" só conta 3 segundos; `pronunciationLab` (com `SpeechRecognition`/`getUserMedia` prontos) tem **zero importadores** em todo o projeto. Importar e conectar: capturar a fala do aluno, comparar com a palavra/frase, dar feedback. É a peça que fecha a W4 (shadowing) inteira — as outras 3 partes já existem e funcionam (§4g.1, §4g.2).
+
+### Fase 4 — Decisões de produto (perguntar ao Wesley antes de codificar)
+
+- [ ] **Paleta de cores para daltônicos** — implementada em `settingsView`/`settings-panel`, escondida com `display:none` no HTML. Reativar o seletor, ou remover a lógica morta? (§4j.2 — achado de acessibilidade, prioridade alta para decidir mesmo que a implementação espere.)
+- [ ] **`blurSubtitles`** — configuração lida/aplicada mas sem `<select>` no painel (`#sel-blur` não existe). Restaurar o controle, ou remover a configuração órfã? (§4j.4)
+- [ ] **`lf_auto_backup`** — o service worker grava um backup silencioso que nunca é lido em lugar nenhum, redundante com o backup real e funcional em Configurações → Dados (`btn-backup-json`). Remover a escrita morta? (§4j.7)
+- [ ] **`utils/tts.js` (`_playWebSpeech`)** — 118 linhas mortas (fallback de voz desligado com `return false` no topo). Apagar, ou religar como último recurso — igual ao que `dashboard/js/core/tts.js` (site) já faz — para fechar a assimetria de confiabilidade entre extensão e site? (§4p.2)
+- [ ] **`#app-view`** — `renderSessionComplete` e `renderWaitingScreen` em `studyView.js` caem para um elemento `#app-view` que **não existe em lugar nenhum do HTML**. Criar o elemento (fallback real), ou remover o fallback morto e garantir que `studyContainer` nunca seja nulo nesses pontos? (§4g.8, confirmado ainda vivo em `main` na §4o.4)
+- [ ] **CEFR sincroniza só num sentido** — mudar o nível na tela de Configurações do site grava só `lf_cefr_level`; o painel da extensão grava as duas chaves (`lf_cefr_level` + `cefrTargetLevel`). Replicar a escrita dupla no site (§4b.8).
+
+### Fase 5 — Limpeza de código morto (segura, baixo risco, sem decisão de produto)
+
+- [ ] Apagar `content/engine/subtitle-fetcher.js` e `content/engine/video-adapter.js` — confirmados órfãos pela varredura de fiação, zero importadores em `main`. **Atenção:** o `HANDOFF.md` do Codex (15/07) afirma que esses arquivos foram preservados de propósito — avisar antes de apagar (§4h.1, §4h.2).
+- [ ] Apagar `utils/subtitle-parsers.js` — mesmo caso, órfão confirmado (§4h.1).
+- [ ] `content/subtitle-engine.js` — remover os stubs vazios `_injectDeckSelector()`, `_injectFloatingButton()`, `_injectNavigationControls()`, `_createNavButton()`, e as referências a `#lf-deck-host`, `#lf-btn-loop`, `#lf-save-btn`, `#lf-hbo-switch`, `#lf-float-btn`, `#lf-float-panel-btn`, `#lf-nav-controls` no `destroy()` (§4b.6, §4h.3).
+- [ ] `content/subtitle-engine.js` — remover `_renderVideoWordPrep()` (80 linhas, container `#lf-video-words` nunca existe) e as ~160 linhas mortas dentro de `_processYtSub` (`decodeHtml`, `detectLang`, os objetos `D`/`l`) (§4d.10, §4d.11).
+- [ ] `dashboard/js/ui/storiesView.js` — remover o handler órfão de `#lf-reveal-context`/`#lf-context-trans` (versão antiga de uma feature já substituída) (§4l.5).
+- [ ] `background/service-worker.js:163,166` — `createDeck`/`deleteDeck` listados em `writeMethods`, mas os decks foram removidos do `db`. Limpar a lista (§4b.6).
+
+### Fase 6 — Terminar a leitura (menor prioridade — o padrão da sessão foi achado forte por arquivo até aqui, mas os que sobram são infraestrutura de borda, não superfície de produto)
+
+- [ ] Reconferir contra `main` em detalhe: `app.js`, `gameView.js`, `homeView.js`, `readerView.js` (mudaram no rollout P0.3, não foram reabertos linha a linha — §4o.5).
+- [ ] Ler pela primeira vez: `utils/translator.js` (170), `dashboard/js/core/ytPlayer.js` (252), `content/max-player-ui.js` (229), `dashboard/js/core/epub.js` (104), `popup/popup.js` (112), `content/youtube-hook.js` (111), `dashboard/sw.js` (123), `supabase/functions/url-import` (304), `supabase/functions/tts` (107), demais Edge Functions (`push-reminder`, `email-reengagement`).
+- [ ] Ler `content/engine/subtitle-fetcher.js`/`video-adapter.js` e `utils/subtitle-parsers.js` só se a Fase 5 decidir manter em vez de apagar — senão, dispensar.

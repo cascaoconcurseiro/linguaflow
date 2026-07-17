@@ -350,7 +350,7 @@ Consequências reais:
 
 Não é lista truncada por acidente: é a lista Fry-1000 clássica com o nome errado.
 
-### 4d.3 🔴 Abrir o painel lateral altera as cores da legenda
+### 4d.3 🔴 Abrir o painel lateral altera as cores da legenda — ✅ CORRIGIDO (17/07, Fase 2: palavra sem card entra como new; painel agora REFINA as cores com status real + repinta)
 
 Duas fontes de verdade para o mesmo `this.savedWords`:
 
@@ -379,7 +379,7 @@ O guard `_kbAttached` protege o segundo listener contra si mesmo, mas **não exi
 
 Isso reforça a hipótese central: ninguém sabe que os atalhos existem — inclusive porque metade deles não funciona onde o app mais roda, e ninguém notou.
 
-### 4d.5 🔴 Arrastar a legenda para de funcionar após a primeira navegação SPA
+### 4d.5 🔴 Arrastar a legenda para de funcionar após a primeira navegação SPA — ✅ CORRIGIDO (17/07, Fase 2: causa exata eram closures da 1ª injeção presos nos listeners de janela; estado movido para this._drag e host resolvido ao vivo)
 
 [`_injectSubtitleUI()`:1243-1259](../content/subtitle-engine.js:1243): os listeners de `mousemove`/`mouseup` são presos em `window` **uma única vez** (`_dragEventsAttached`), mas fecham sobre o `host` e o `isDragging` **daquela chamada**.
 

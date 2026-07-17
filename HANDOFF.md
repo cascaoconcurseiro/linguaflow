@@ -17,9 +17,24 @@
 
 **Merge para `main` foi negado pelo classificador de permissões** (`git checkout`/`git merge` bloqueados para a sessão). A branch está à frente e 0 atrás de `main` — fast-forward limpo. Dono precisa mergear ou liberar a permissão. A branch **deixou de ser docs-only** (contém a Fase 1); ajustar a descrição do PR.
 
-### Próximo passo concreto — Fase 2
+### Fase 2 — 6 de 7 CONCLUÍDOS na mesma sessão (commits `fix: Fase 2 (1-3)`, `(4)`, `(5)`, `(7)` — todos com `test:release` verde)
 
-Começar por `content/word-popup.js` `_convertIPAtoPT` (§3.1, ship/sheep): trocar o mapa em cascata por substituição de passada única. Depois `_truncateContext` (§3.2) e a guarda de re-save (§3.3). **Cada item: corrigir → teste manual na extensão recarregada → `test:release` → commit individual → `[x]` no CHECKLIST + entrada aqui.** Não pular o teste manual: Fase 2 mexe em como o card nasce.
+1. **§3.1 fonética** — `_convertIPAtoPT` em passada única. Provado por teste: antes ship=sheep (`chíp`), sit=seat, full=fool; agora distintos. `judge` corrigiu `diãdi`→`djãdj`.
+2. **§3.2 frase picotada** — decisão: a tela trunca, o card não. `_sentenceContaining()` + `this.saveContext`; `_save` usa `saveContext || context`; `_generateContext` também atualiza.
+3. **§3.3 re-save** — palavra já salva desabilita o botão (abertura E pós-save; reset de 2s morreu) com title explicativo; check assíncrono com guarda de corrida A→B (§3.8 parcial).
+4. **§4d.5 drag** — causa real: listeners de janela presos 1× fechando closures da 1ª injeção. Estado agora em `this._drag`; host resolvido ao vivo por id.
+5. **§4d.3 painel** — palavra sem card entra como `'new'`; painel repinta a legenda com status reais via `_updateSubtitleColors()`.
+6. **§4j.1/§4l.2 entidades** — `_cleanSubtitleText` decodifica `&#39;`/`&#x27;`/nomeadas na fonte da cue (provado: `don&#39;t`→`don't`).
+
+**Único item restante da Fase 2:** §4d.7 (`_loadSettings` reescreve `translationAnticipation`/`subtitleMode` legados no banco a cada carga) — tem decisão de produto embutida ("o painel ainda oferece esses valores?"), movido na prática para a Fase 4.
+
+### TESTE MANUAL DO DONO — pendência única que trava a entrega da Fase 2
+
+Recarregar a extensão e, num vídeo: (a) salvar palavra de frase longa → Cofre deve mostrar frase completa sem `...`; (b) clicar a mesma palavra → botão verde e desabilitado; (c) fonética de `ship` vs `sheep` distinta no popup; (d) arrastar a legenda antes e depois de trocar de vídeo; (e) abrir painel `L` e conferir que as cores da legenda não somem (devem até melhorar); (f) revisar card com teclas 1-4 no YouTube sem o vídeo pular.
+
+### Próximo passo concreto — Fase 3
+
+Religar o shadowing (§4g.1/§4g.2): importar `pronunciationLab` de `utils/pronunciation.js` em `dashboard/js/ui/studyView.js` e conectar ao overlay "Sua vez... Fale em voz alta!" (que hoje só conta 3s). As outras 3 partes já funcionam. Depois: Fase 6 (ler os 20% restantes) ANTES das Fases 4 e 5.
 
 ### Regras vivas
 

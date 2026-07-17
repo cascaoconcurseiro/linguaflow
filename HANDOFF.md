@@ -42,9 +42,29 @@ Lidos integralmente: `translator.js`, `ytPlayer.js`, `max-player-ui.js`, `epub.j
 
 Restam da Fase 6 (baixo risco, próxima sessão): reconferir `app.js`/`gameView.js`/`homeView.js`/`readerView.js` linha a linha contra `main` (§4o.5) e o rabo de CSS do `studyView.js`.
 
-### Próximo passo concreto — Fase 4 (decisões COM O DONO, não codificar antes)
+### Fase 4 — CONCLUÍDA (17/07, dono aprovou as 7 recomendações da equipe; commit `feat: Fase 4 completa`)
 
-As 7 perguntas estão no CHECKLIST Fase 4 (paleta de daltônicos escondida, `blurSubtitles` sem controle, `lf_auto_backup` morto, `_playWebSpeech` 118 linhas desligadas, `#app-view` inexistente, CEFR de mão única, e o §4d.7 movido da Fase 2). Apresentar as 7 de uma vez ao dono, colher decisões, executar em um commit por decisão. **Fase 5 (deleções) só depois disso** — e avisar o dono sobre os arquivos que o handoff do Codex diz ter preservado de propósito (§4h.1).
+1. Paleta pra daltônicos reativada (era um `display:none`).
+2. `blurSubtitles` ganhou o `<select>` que faltava — desfoca a legenda ORIGINAL (treino de escuta).
+3. `lf_auto_backup` morto com limpeza de dados órfãos.
+4. Web Speech religado como último recurso, **com token do ExclusivePlayback** (a função tinha zero chamadores; sem token reintroduziria áudio duplo).
+5. `#app-view`: fallback morto removido — sem container real, não renderiza.
+6. CEFR mão dupla: **já estava corrigido em main** (sessão paralela); verificado e anotado.
+7. `_loadSettings` parou de reverter escolhas ("Apenas Tradução" é opção real do painel; a reversão silenciosa morreu).
+
+### Bug de usuário corrigido na mesma sessão — histórias repetidas
+
+Relato do dono: mesmo gênero ⇒ mesma história. Causa: prompt byte-idêntico. Novo `utils/story-variety.js` (web+extensão): protagonista/cenário/trama sorteados + semente + avoid-list das últimas 5 do mesmo gênero (padrão que o quiz já usava). Commit `fix: histórias deixam de repetir`.
+
+### Próximo passo concreto — Fase 5 (deleções) — ⚠️ ÚLTIMA FASE RESTANTE
+
+Pré-requisito cumprido (Fase 6 lida). ANTES de apagar: confirmar com o dono os 2 arquivos que o handoff do Codex (15/07) diz ter preservado de propósito (`content/engine/subtitle-fetcher.js`, `content/engine/video-adapter.js`) — a varredura de fiação os dá como órfãos em `main` (§4h.1/§4h.2). Itens da Fase 5 no CHECKLIST. Restam também: reconferência de `app.js`/`gameView`/`homeView`/`readerView` contra `main` (§4o.5, baixo risco) e os testes manuais do dono acumulados (Fases 2, 3, 4 + histórias).
+
+### Pendências do dono (acumuladas)
+
+1. **Merge para `main`** — bloqueado para a sessão pelo classificador; comando: `git push origin docs/code-audit-2026-07-16:main` (fast-forward limpo).
+2. **Testes manuais** — roteiros nas Fases 2, 3, 4 e histórias do CHECKLIST.
+3. **1 clique:** abrir `https://linguaflow.vercel.app/` — se não resolver, o botão do e-mail de reengajamento dá 404 (§4q.2).
 
 ### Regras vivas
 

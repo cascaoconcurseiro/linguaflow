@@ -488,14 +488,21 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 - [x] (17/07) `pronunciationLab` importado pela primeira vez na história do projeto. O overlay ganhou botão `🎤 Falar agora`: grava por clique (nunca auto-inicia mic), para o TTS antes de gravar, compara com a frase do card e mostra **score + diff palavra a palavra** (verde/riscado, com fallback de cores do dashboard). Clicar o mic "pinna" o overlay (o auto-hide de 3s não engole a gravação); trocar de card ou sair da rota chama `stop()` — o mic nunca fica aberto. Provado por teste puro: 5/6 palavras = 83%; ship vs sheep = 0% (§4g.1, §4g.2).
 - [ ] **TESTE MANUAL DO DONO:** num card com áudio, esperar o overlay → clicar `🎤 Falar agora` → conceder permissão → repetir a frase → conferir score e diff. Testar também: negar a permissão (deve mostrar erro amigável, não travar) e trocar de card no meio da gravação (mic deve fechar).
 
-### Fase 4 — Decisões de produto (perguntar ao Wesley antes de codificar)
+### Fase 4 — Decisões de produto — ✅ TODAS EXECUTADAS (17/07, aprovadas pelo dono "deixo tudo na decisão da equipe", commit `feat: Fase 4 completa`)
 
-- [ ] **Paleta de cores para daltônicos** — implementada em `settingsView`/`settings-panel`, escondida com `display:none` no HTML. Reativar o seletor, ou remover a lógica morta? (§4j.2 — achado de acessibilidade, prioridade alta para decidir mesmo que a implementação espere.)
-- [ ] **`blurSubtitles`** — configuração lida/aplicada mas sem `<select>` no painel (`#sel-blur` não existe). Restaurar o controle, ou remover a configuração órfã? (§4j.4)
-- [ ] **`lf_auto_backup`** — o service worker grava um backup silencioso que nunca é lido em lugar nenhum, redundante com o backup real e funcional em Configurações → Dados (`btn-backup-json`). Remover a escrita morta? (§4j.7)
-- [ ] **`utils/tts.js` (`_playWebSpeech`)** — 118 linhas mortas (fallback de voz desligado com `return false` no topo). Apagar, ou religar como último recurso — igual ao que `dashboard/js/core/tts.js` (site) já faz — para fechar a assimetria de confiabilidade entre extensão e site? (§4p.2)
-- [ ] **`#app-view`** — `renderSessionComplete` e `renderWaitingScreen` em `studyView.js` caem para um elemento `#app-view` que **não existe em lugar nenhum do HTML**. Criar o elemento (fallback real), ou remover o fallback morto e garantir que `studyContainer` nunca seja nulo nesses pontos? (§4g.8, confirmado ainda vivo em `main` na §4o.4)
-- [ ] **CEFR sincroniza só num sentido** — mudar o nível na tela de Configurações do site grava só `lf_cefr_level`; o painel da extensão grava as duas chaves (`lf_cefr_level` + `cefrTargetLevel`). Replicar a escrita dupla no site (§4b.8).
+- [x] (17/07) **Paleta pra daltônicos REATIVADA** — `display:none` removido; fiação já existia. Só existia no painel da extensão (o site nunca teve — checklist original citava `settingsView` por engano) (§4j.2).
+- [x] (17/07) **`blurSubtitles` RESTAURADO** — `<select id="sel-blur">` criado na seção Exibição, com rótulo honesto: desfoca a legenda ORIGINAL (treino de escuta; hover revela) (§4j.4).
+- [x] (17/07) **`lf_auto_backup` MORTO** — alarme + função removidos, com limpeza dos dados órfãos em instalações antigas (`chrome.alarms.clear` + `storage.remove`) (§4j.7).
+- [x] (17/07) **Web Speech RELIGADO como último recurso** — kill switch removido E a função (que tinha zero chamadores) foi fiada no `play()` com token do `ExclusivePlayback`; sem o token, o fallback reintroduziria o áudio duplo da Etapa 1 (§4p.2).
+- [x] (17/07) **`#app-view`** — fallback morto removido; sem `studyContainer` (rota já trocada) a tela de fim de sessão não renderiza, em vez de cair no `<body>`. `renderWaitingScreen` já tinha sido consertada antes (§4g.8).
+- [x] (17/07) **CEFR mão dupla — JÁ ESTAVA FEITO**: a sessão paralela corrigiu depois da auditoria; as duas escritas do site (nivelamento L218-222 e botões L592-596) gravam ambas as chaves em `Promise.all` (§4b.8 desatualizada — anotada).
+- [x] (17/07) **`_loadSettings` parou de reverter** (item movido da Fase 2): prova encontrada de que `sel-mode` OFERECE "Apenas Tradução" — o engine desfazia em silêncio uma opção que a própria UI vende. As duas migrações forçadas (modo e antecipação 2.0s) morreram; a escolha do usuário vale (§4d.7).
+- [ ] **TESTE MANUAL DO DONO (Fase 4):** recarregar extensão → (a) painel: seletor de Paleta visível e trocando cores; (b) painel: "Desfocar Legenda Original" ligado borra o inglês e hover revela; (c) escolher "Apenas Tradução", recarregar a página, conferir que NÃO voltou pra Bilíngue; (d) sem internet, tocar áudio de um card → voz do navegador toca em vez de silêncio.
+
+### 🐛 Bug de usuário (17/07) — histórias repetidas — ✅ CORRIGIDO
+
+- [x] (17/07, commit `fix: histórias deixam de repetir`) Relato do dono: mesmo gênero ⇒ sempre a mesma história. Causa: prompt byte-idêntico a cada clique. Novo `utils/story-variety.js` (compartilhado web+extensão) sorteia protagonista/cenário/2 ingredientes de trama + semente + "NÃO repita" com aberturas das últimas 5 histórias do mesmo gênero — o mesmo padrão que o quiz da tela já usava. Testado determinístico (rand injetável).
+- [ ] **TESTE MANUAL DO DONO:** gerar 2 histórias seguidas do MESMO gênero e conferir que personagens/enredo mudam.
 
 ### Fase 5 — Limpeza de código morto (segura, baixo risco, sem decisão de produto)
 

@@ -407,7 +407,7 @@ this._setManagedInterval(async () => {
 
 A cada 10s de vídeo **tocando** — sem nenhuma interação, sem legenda ativa, sem clique — grava sessão pelo caminho legado que escreve direto em `user_stats`. Deixar o vídeo rolando sozinho gera progresso. É o contrato pedagógico do Codex violado por um `setInterval`, e a dedupe de 9s prova que alguém já se preocupou com contagem dupla entre abas — mas não com a contagem em si.
 
-### 4d.7 🟡 Duas configurações que a UI oferece e o engine reescreve silenciosamente
+### 4d.7 🟡 Duas configurações que a UI oferece e o engine reescreve silenciosamente — ✅ EXECUTADO (17/07, Fase 4: migrações forçadas removidas; prova: sel-mode OFERECE "Apenas Tradução")
 
 [`_loadSettings()`](../content/subtitle-engine.js:778), **em toda carga de página**:
 
@@ -616,7 +616,7 @@ Isso reaproveita retry, dedupe e o alarme que já existem. **A W1 deixa de ser i
 
 A tabela `settings` real contém `lf_srs_ease`, `lf_srs_min_interval`, `lf_srs_penalty`, `lf_srs_suspend` — **nenhuma dessas está em `baseKeys` de `getSRSSettings()`**. São da era SM-2: a tela gravava, o motor lia outras chaves. O `db.js` já documenta o bug; as linhas órfãs continuam lá.
 
-### 4b.8 🟡 O nível CEFR sincroniza só num sentido
+### 4b.8 🟡 O nível CEFR sincroniza só num sentido — ✅ JÁ CORRIGIDO em main por sessão paralela (verificado 17/07: settingsView grava as duas chaves em Promise.all)
 
 [settings-panel.js:215-219](../content/settings-panel.js:215): mudar o nível **no painel da extensão** grava `cefrTargetLevel` **e** espelha em `lf_cefr_level`. Mas a tela de Configurações do site grava **só** `lf_cefr_level`.
 
@@ -767,7 +767,7 @@ if (isWeakCard(card) && (canBuild || canDictate)) card._mode = canBuild ? 'build
 
 O `exerciseFinish()` ([778-802](../dashboard/js/ui/studyView.js:778)) fecha o desenho: **erro só oferece "Errei"; acerto oferece Difícil/Bom/Fácil** — a verificação é objetiva, mas a autoavaliação continua do aluno, e *"a sessão nunca avança por timeout"*.
 
-### 4g.8 🟡 Um bug antigo documentado no próprio código
+### 4g.8 🟡 Um bug antigo documentado no próprio código — ✅ EXECUTADO (17/07, Fase 4: fallback morto removido; sem container real, não renderiza)
 
 [489-491](../dashboard/js/ui/studyView.js:489): *"BUG antigo: escrevia em `#app-view`, que não existe → caía no `<body>` e destruía o app inteiro."* Corrigido, mas `renderWaitingScreen` ([528](../dashboard/js/ui/studyView.js:528)) usa `studyContainer || document.body` — **sem o fallback `#app-view` do irmão**. Se `studyContainer` for null, escreve no `<body>` e reproduz exatamente o bug que o comentário diz ter matado. **Hipótese** — depende de `studyContainer` poder ser null aqui; não rastreei todos os caminhos.
 
@@ -870,7 +870,7 @@ Trata **só** `&nbsp;`. Nenhum `&amp;`, `&#39;`, `&quot;`. E `decodeHtml()` — 
 
 **Toda legenda de VTT/HTML com entidade chega intacta** à legenda na tela, ao clique, ao popup e ao `context_sentence` salvo no card. `don&#39;t` vira card com `don&#39;t` escrito literalmente. Constatado, não hipótese.
 
-### 4j.2 🔴🔴 Um recurso de acessibilidade inteiro está escondido com `display:none` — e continua rodando por baixo
+### 4j.2 🔴🔴 Um recurso de acessibilidade inteiro está escondido com `display:none` — e continua rodando por baixo — ✅ EXECUTADO (17/07, Fase 4: display:none removido, seletor visível)
 
 `content/settings-panel.js` lido **por completo** (907 linhas). No HTML do painel, a seção de paleta de cores:
 
@@ -910,7 +910,7 @@ Revisão Rápida R · Painel Lateral L · Configurações O
 
 E a lista, mesmo documentando `R`, **está incompleta**: faltam `C` (toggle legenda) e `Espaço` (play/pause) — dois dos nove atalhos reais do `_setupKeyboardShortcuts`. Nem o inventário interno do próprio app está completo.
 
-### 4j.4 🟡 `blurSubtitles`: configuração sem controle, mas com guard — não quebra, só está presa
+### 4j.4 🟡 `blurSubtitles`: configuração sem controle, mas com guard — não quebra, só está presa — ✅ EXECUTADO (17/07, Fase 4: sel-blur criado; desfoca a legenda ORIGINAL, treino de escuta)
 
 `readAllSettings()` ainda lê `blurSubtitles` do banco, `this.cfg.blurSubtitles` ainda existe, `_applyToEngine()` ainda aplica em `engine.blurSubtitles`. **Mas não há `id="sel-blur"` em lugar nenhum do `_html()`** — confirma o achado da varredura de fiação (§4h.3). Diferente do `#app-view` (§4h.3, que quebra), aqui o código é defensivo: `const selBlur = s.getElementById('sel-blur'); if (selBlur) selBlur.value = ...` — não lança erro, só nunca executa. **A configuração ficou congelada no valor que tinha quando a UI foi removida**, e ninguém pode mudá-la de novo.
 
@@ -930,7 +930,7 @@ O guard é `> 2 palavras`. **A §3.2 mostrou que `_truncateContext` pode salvar 
 
 [service-worker.js:1240-1256](../background/service-worker.js:1240): função **idêntica** a `getReencounterWords()` do `storiesView.js` (§4i.1), com o comentário *"Onda 1.4 — paridade com a web"*. Não é o padrão de reinvenção cega da §4f/§4i — é duplicação **deliberada** porque a extensão e o site não compartilham módulos ES facilmente. Ainda é risco: se a regra de priorização mudar num lado (ex.: pesar `is_leech` diferente), o outro lado diverge sem aviso. Baixa severidade, registrado por precaução.
 
-### 4j.7 🟡 `lf_auto_backup` — escrito, nunca lido
+### 4j.7 🟡 `lf_auto_backup` — escrito, nunca lido — ✅ EXECUTADO (17/07, Fase 4: alarme+função removidos, dados órfãos limpos)
 
 [service-worker.js:1375-1382](../background/service-worker.js:1375) — `runAutoBackup()` salva todas as `words` (não cards, não reviews) em `chrome.storage.local` sob `lf_auto_backup` + `lf_auto_backup_date`. **Busca no repo inteiro: a chave só aparece nesta linha, a que escreve.** Não existe import, não existe tela de restore, não existe leitura em lugar nenhum. Backup fantasma — existe no disco do usuário e não serve para nada hoje.
 
@@ -1178,7 +1178,7 @@ E a §4i.4 (a dúvida que registrei sobre `recordEvent` ser "legado" ou "real" n
 - `statsView.js` mantém a mesma disciplina de linguagem das outras telas revistas: *"Tempo e volume mostram atividade — não comprovam domínio do idioma."* — o mesmo texto-espírito que já apareceu em `leaguesView.js` e `storiesView.js` (§4o.4). Não é coincidência — é uma reescrita de linguagem de produto aplicada consistentemente (commit `feat: standardize product language and view states`).
 - `app.js` já tem `learn`/`progress` no mapa de rotas — roteamento novo integrado corretamente, confirmado por leitura direta (fecha uma ponta da §4o.5).
 
-### 4p.2 🔴 Código morto real, agora num método privado: `_playWebSpeech()` em `utils/tts.js`
+### 4p.2 🔴 Código morto real, agora num método privado: `_playWebSpeech()` em `utils/tts.js` — ✅ EXECUTADO (17/07, Fase 4: religado como último recurso, com token do ExclusivePlayback; a função tinha zero chamadores)
 
 `utils/tts.js` (o motor de TTS da **extensão** — diferente de `dashboard/js/core/tts.js`, o do site) tem um método de 118 linhas **inteiramente inatingível**:
 

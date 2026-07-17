@@ -1,5 +1,95 @@
 # Handoff — LinguaFlow
 
+## Handoff Claude — Auditoria real, 2ª sessão, atualização final (2026-07-16, noite)
+
+**Onde parou: 18.665 de 23.558 linhas — 79% lido.** Medido por script, não estimado. Na reta final, a leitura virou **paralela em lotes grandes** (até 5 arquivos por chamada) em vez de arquivo por arquivo — foi assim que se saiu de 39% para 79% no mesmo período. Ver §0 da auditoria para o porquê disso ser seguro: nenhum achado entra sem verificação dirigida (grep/leitura do trecho), mesmo vindo de um lote — o método está documentado, com os falsos positivos que ele produziu e como foram pegos.
+
+**Arquivos integrais completados nesta reta final:** `subtitle-engine.js` (4.314, 100%) · `readerView.js` · `web-reader.js` · `settingsView.js` (1.118) · `storiesView.js` · `homeView.js` · `gameView.js` · `app.js` · `libraryView.js` · `settings-panel.js` · `service-worker.js`.
+
+**Únicos arquivos de peso real ainda não lidos:** `studyView.js` (610 linhas restantes, majoritariamente CSS — baixo risco) · `dashboard/js/core/tts.js` (343) · `supabase/functions/url-import` (304) · `utils/tts.js` (296) · **`leaguesView.js` (255 — a liga/ranking, nunca auditada, prioridade alta pra próxima sessão)** · `ytPlayer.js` (252) · `max-player-ui.js` (229) · `statsView.js` (195) · `translator.js` (170) · demais ~25 arquivos pequenos, incluindo os 4 já provados órfãos (`pronunciation.js`, `subtitle-parsers.js`, `engine/subtitle-fetcher.js`, `engine/video-adapter.js` — ler só por completude).
+
+**Recomendação de próximo passo:** `leaguesView.js` primeiro — é a única view de peso do dashboard que a sessão inteira nunca tocou, e o padrão desta sessão foi achado forte a cada arquivo de UI aberto pela primeira vez.
+
+### O que a reta final descobriu (§4l, §4m — novas)
+
+- **Resolvido, não-bug:** `cefrColorsEnabled` é respeitado de verdade (§4l.1) — a hipótese da §4d.8 estava certa em detalhe e errada em impacto.
+- **Refinamento do §4j.1:** existe um conserto de apóstrofo (`&#39;` → `'`), mas só no lugar que desenha a legenda na tela (`_makeClickable`) — não no lugar que salva o card (`_cleanSubtitleText`). Quem audita por amostragem vendo a legenda funcionar concluiria "está tratado". Não está.
+- **Correção de contagem:** o gradiente estilo LingQ (§4i.2) existe **4 vezes**, não 3 — faltava o `readerView.js` (Modo Leitor), que também é o único chamador confirmado de `markAsKnown()` (fecha §4b.1 de novo, por leitura completa desta vez).
+- **Bug ativo, não histórico:** `storiesView.js:982` mostra `"Expressão salva no Cofre! âœ…"` — mojibake real na tela, agora, não um bug de comentário passado.
+- **Confirmado por leitura (não só varredura):** `#lf-reveal-context` em `storiesView.js` é código morto real — a versão antiga de uma feature de revelar tradução, substituída por uma nova sem esse id, com o handler velho esquecido.
+- **`web-reader.js`** é uma **quarta superfície de captura** (legenda de vídeo, Leitor do dashboard, Histórias, e agora: qualquer site da internet via duplo-clique) — e ao contrário do padrão da §4f, as quatro reusam o mesmo `QUEUE_WORD_SAVE`/`db.saveWord`. Contraponto real: o projeto sabe reusar quando quer.
+- **`settingsView.js` confirma a §4b.7 corrigida**, no próprio comentário do código: *"Bug da auditoria: a tela salvava lf_srs_* e o motor lia outras chaves"* — já consertado, as chaves órfãs no banco são resíduo histórico.
+- **Existe um backup real e completo** (`btn-backup-json`/`btn-restore-json`, exporta e restaura até o estado do FSRS) — **diferente** do `lf_auto_backup` fantasma do service worker (§4j.7, que segue morto). O projeto tem backup; só tem dois, e um não serve pra nada.
+- **Três capacidades novas, documentadas em lugar nenhum:** voz neural offline (Kokoro, ~90MB, funciona sem internet), Web Push real com VAPID, resumo semanal por e-mail — as três com Edge Functions correspondentes confirmadas como vivas pelo lado do frontend.
+
+**Placar final da sessão:** 5 features que o plano suspenso queria construir e já existiam (W3 legenda, W6.2, revisão-no-vídeo, W4 shadowing, W3-Histórias) · 4 implementações independentes do mesmo gradiente LingQ · 11 erros próprios corrigidos na §1 · 1 auditoria de fiação por script, com seus próprios 3 falsos positivos documentados.
+
+**Critério de parada acordado com o dono:** não é 100%. É quando um arquivo inteiro não produzir nenhum "já existe". Se `studyView` + `settingsView` + `storiesView` + `homeView` não revelarem nada novo, está saturado — para de ler e escreve o inventário.
+
+**Ainda em aberto no `subtitle-engine.js` 2.400-4.314** (rebaixado na fila, não esquecido) — **`_cleanSubtitleText` (linha 3309)** decide dois achados marcados como *hipótese*:
+- §4d.11 — `decodeHtml()` existe e nunca é chamada; se o `_cleanSubtitleText` também não decodificar, entidades HTML (`don&#39;t`) chegam à legenda, ao popup e ao card.
+- §4d.8 — se `cefrColorsEnabled` é respeitado no `renderDual` ou se a flag é lida e ignorada.
+Confirmar também os chamadores de `toggleLoop()` (§4d.12). Depois: `settings-panel.js` (906) → `max-player-ui.js` + `engine/subtitle-fetcher.js` (ausentes da §0) → `utils/exclusive-playback` → resto do `word-popup.js`/`service-worker.js` → `app.js` → 9 views → `utils/*` → Edge Functions.
+
+### 🔧 Ferramenta nova: `node scripts/wiring-audit.js` (§4h) — rode ANTES de ler
+
+**A §4f diz que o problema é fiação. Fiação é grafo, e grafo se calcula.** O script prova *ausência de ligação* (símbolo exportado sem importador, id lido sem criador, evento escutado sem emissor) em **8 segundos** sobre os 46 arquivos. Não viola a regra 1: não conclui sobre comportamento, prova ausência — a mesma prova que derrubou `lf-video-words`, `pronunciationLab` e `LF_WORD_KNOWN`, só que como varredura em vez de sorte.
+
+**Ela aponta, não conclui.** Todo achado precisa de verificação dirigida (buscar o nome do arquivo como string solta, ou ler o trecho). **Falsos positivos conhecidos (§4h.5), já pagos com o próprio erro:** imports por concatenação (`import(BASE + 'x.js')` — foi assim que acusei `phrasal-verbs.js` de órfão sendo importado 4×), `postMessage` (a seção "emitidos e nunca escutados" é inútil), e DOM de terceiro (`#movie_player` é do YouTube).
+
+**Achados dela, já verificados um a um:**
+- **4 módulos órfãos, 453 linhas que não rodam:** `utils/pronunciation.js` (148) · `utils/subtitle-parsers.js` (132) · `content/engine/subtitle-fetcher.js` (111) · `content/engine/video-adapter.js` (62).
+- **`content/engine/` inteiro está morto** — e o handoff do Codex (15/07, abaixo) diz *"`content/engine/*` não foram modificados... permanecem exatamente como no original"*. **O escopo foi preservado com cuidado num diretório que não roda.** Há ≥2 gerações de motor de legenda coabitando, e a morta é a que o handoff protege.
+- **12 ids lidos e nunca criados**, com duas pistas para arquivos ainda não lidos: **`#sel-blur`** no `settings-panel.js` (o painel lê um seletor de blur inexistente) e **`#lf-reveal-context` + `#lf-context-trans`** no `storiesView.js`.
+- **`#app-view` não existe → confirma o §4g.8 de hipótese para fato:** o bug que o comentário do `studyView.js:489` diz ter matado ("escrevia no `<body>` e destruía o app inteiro") continua alcançável — `renderWaitingScreen` nem tem o degrau do meio.
+- **`LF_WORD_KNOWN` confirmado**: é o único evento escutado e nunca emitido no projeto inteiro.
+
+### O que esta sessão mudou (§4d, §4e, §4f — novas)
+
+**A hipótese central foi CONFIRMADA, e a causa não era a suposta.** Não é "falta feature" nem "ninguém sabe o que existe" — **as features estão invisíveis porque estão quebradas na superfície, e estão quebradas porque foram construídas isoladas umas das outras.** Todos os bugs novos são duas partes boas que não se conhecem. Ver §4f.
+
+**Isso reordena o entregável:** "inventariar e revelar" (conclusão anterior) é insuficiente — revelar a tecla `R` hoje entrega uma feature que salta o vídeo do usuário. A ordem virou: **1) consertar a superfície (horas de trabalho) → 2) inventariar e revelar → 3) só então reescrever o plano de ondas.**
+
+**QUINTA (§4i.1):** `getReencounterWords()` no `storiesView` — a IA escreve uma **história sob medida para reencontrar suas palavras leech/fracas**, priorizadas por lapsos, dirigida pelo estado do FSRS. O projeto chama de "Marco 3". Nenhum documento menciona. É a W3 pela **segunda** vez (a 1ª é a legenda).
+
+**O placar por conceito é pior que por onda:** gradiente LingQ implementado **3×** (legenda, Histórias, popup) · "% que você conhece" **3×** · reencontro dirigido pela memória **2×**. **O projeto teve as mesmas boas ideias três vezes, em três lugares, sem que ninguém soubesse das outras duas.** É a §4f na camada de produto.
+
+**QUARTA feature que foi proposta e já existia — e é o achado da auditoria (§4g.1):**
+
+> **A W4 (shadowing) está inteira no disco, desconectada.** O `studyView` mostra um overlay "⏳ **Sua vez... Fale em voz alta!**" com barra de progresso, dispara quando o TTS termina, conta **3 segundos e some — sem escutar nada**. E `utils/pronunciation.js` (148 linhas) exporta `pronunciationLab` com `SpeechRecognition` + `getUserMedia` **funcionando** — e **zero importadores em todo o repo** (verificado; os 8 hits de "pronunciation" são todos a coluna `pronunciation_pt`, outra coisa).
+>
+> **Eu escrevi na §4c que "da W4 só falta a gravação da voz". A gravação da voz também já estava pronta. Falta um `import`.**
+
+As 4 peças da W4: replay na legenda (tecla `S`) ✅ · replay do clipe no card (`ytPlayer.playClip`) ✅ · prompt de shadowing ✅ · gravação da voz ✅ **órfã**. Nenhuma conectada.
+
+**Terceira feature que foi proposta e já existia** (depois da W3 e da W6.2): **`content/review-overlay.js` — tecla `R`, revisão de SRS completa por cima do vídeo, 289 linhas.** Cadeia de carga verificada (`manifest` → `boot.js` → `index.js`), está em produção. **É o melhor código do projeto:** idempotência com `operationId`, trata os 4 `eligibilityReason` do contrato P0.2b, distingue offline/auth/retryable, exige `persisted`, a11y com `aria-live`. O arquivo **não estava na §0**.
+
+**Correções aos meus próprios erros (§1 atualizada):**
+- **`known_words = 0` NÃO derruba a W6.2.** A tela já existe (`subtitle-engine.js:2119`, `renderStats`) e é ponderada por token — `mature`/`review` com peso cheio, `learning` com meio peso. Sem `known_words` ela perde um degrau, não a métrica.
+- **O centro de comando tem 9 teclas, não 8** — faltou o `R`. Subcontei no mesmo parágrafo em que acusava a falta de documentação.
+- **23.373 linhas, não ~19.500.**
+
+**Bugs novos, todos com linha (auditoria §4d/§4e):**
+- 🔴 Responder card com `1`-`4` **no YouTube salta o vídeo para 10/20/30/40%** — falta `preventDefault()` (`review-overlay.js:126`). Uma linha. Provavelmente a razão de a feature parecer quebrada.
+- 🔴 `C` e `O` **disparam 2× no YouTube** — dois listeners sem guard entre si (`subtitle-engine.js:579` e `:1445`).
+- 🔴 **Arrastar a legenda nunca funcionou** no YouTube/Max — `_injectSubtitleUI()` roda 2× já no primeiro load e os listeners de drag ficam presos no host destruído.
+- 🔴 **Abrir o painel (`L`) apaga cores da legenda** — `_createSubtitlePanel` reconstrói `savedWords` de `cards.status` e derruba quem não tem card.
+- 🔴 A régua diz **"top-5k" e tem 835 palavras** (medido); 41 das 50 bandas são inalcançáveis.
+- 🔴 **Fonte do XP passivo localizada** (fecha §3.7): `_startImmersionLog()` grava sessão a cada 10s de vídeo **tocando**, sem interação.
+- 🟡 `_loadSettings()` **reescreve o banco do usuário** em toda carga: "Somente Tradução" → bilíngue, antecipação 2.0 → 0.
+- 🟡 `_renderVideoWordPrep()` — 80 linhas chamadas de 5 lugares; `lf-video-words` não existe no repo. Sempre retorna na 1ª linha.
+- 🟡 `_processYtSub` tem ~160 linhas mortas (`decodeHtml`, `detectLang`, `D`, `l`).
+
+**Bloqueio ativo:** `docs/PLANO_FLUENCIA_FABLE5_2026-07-16.md` **SUSPENSO**. Não executar. Só pode ser reescrito com a §0 em 100%. Ondas derrubadas: **W3 morta** (já existe, melhor); **W6.2 morta** (já existe, melhor — e o motivo que eu dei para derrubá-la estava errado); **revisão-no-vídeo morta** (já existe, melhor); **W1** precisa do desenho novo da §4b.4 (save é fila local-first); **W4** cai para 25% do escopo e metade já existe (`repeatSubtitle()`, tecla `S`); **W6.4** liberada (Edge Function tem rate-limit 20/min e valida JWT).
+
+**Bugs da sessão anterior que seguem de pé (§3):** fonética PT-BR destrói ship/sheep (`ɪ→i→í` em cascata); `context_sentence` picotado com `...`; "já salvo" se autodestrói em 2s e o re-save apaga a cena original; `isNew` sempre false.
+
+**Banco de produção (verificado, não citado):** 3 contas, 1 pessoa revisando, 20 words, 20 cards, 55 review_log (7 com evento), 0 known_words, 0 sentences, 0 words com `explanation`.
+
+**Lição de método nova (§0, regra 6):** a §0 não é inventário confiável — foi escrita de memória. Rodar `wc -l` antes de confiar na fila. Um dos 14 arquivos omitidos era o melhor código do projeto.
+
+---
+
 ## Handoff Codex — UI Max/HBO sem alterar o engine (2026-07-15)
 
 ### Ajuste após QA real do dono — versão 3.0.5

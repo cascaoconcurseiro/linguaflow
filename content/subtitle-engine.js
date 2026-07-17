@@ -576,12 +576,17 @@ export class SubtitleEngine {
           e.preventDefault();
           window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
           break;
-        case 'KeyC': // Toggle Legendas
+        case 'KeyC': { // Toggle Legendas
           e.preventDefault();
-          this.toggleSubtitles();
+          // No YouTube o switch injetado é o dono do estado (localStorage,
+          // title e visual). Clicá-lo mantém tecla e botão sincronizados.
+          const ytSwitch = document.getElementById('lf-yt-toggle-wrapper');
+          if (ytSwitch) ytSwitch.click();
+          else this.toggleSubtitles();
           const isVisible = localStorage.getItem('lf_sub_visible') === 'true';
           this._showNotification(isVisible ? '👁️ Legendas Ativadas' : '🙈 Legendas Ocultas');
           break;
+        }
         case 'Space': // Play/Pause
           e.preventDefault();
           if (vid.paused) {
@@ -1440,15 +1445,9 @@ export class SubtitleEngine {
       rightCtrl.insertBefore(btnSettings, btnPanel);
       rightCtrl.insertBefore(switchWrapper, btnSettings);
 
-      // Atalhos de teclado (apenas se ainda não houver)
-      if (!this._kbAttached) {
-        document.addEventListener('keydown', (e) => {
-          if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
-          if (e.key.toLowerCase() === 'c') switchWrapper.click();
-          if (e.key.toLowerCase() === 'o') btnSettings.click();
-        }, { signal: this._lifecycleController.signal });
-        this._kbAttached = true;
-      }
+      // Atalhos C/O ficam SÓ em _setupKeyboardShortcuts. O listener duplicado
+      // que vivia aqui fazia C ligar+desligar a legenda na mesma tecla e O
+      // abrir+fechar as configurações no YouTube (§4d.4 da auditoria).
 
       // Inicia sempre DESLIGADO (OFF by default)
       this.toggleSubtitles(false);

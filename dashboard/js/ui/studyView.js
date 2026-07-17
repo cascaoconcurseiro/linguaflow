@@ -423,7 +423,7 @@ function handleKeydown(e) {
     if (e.code === 'Digit4') document.querySelector('[data-grade="4"]:not(.hidden):not(:disabled)')?.click();
   }
 
-  // Ctrl+Z / tecla Z: desfazer última revisão (Anki-style)
+  // Tecla Z (sem Shift): desfazer última revisão (Anki-style)
   if ((e.code === 'KeyZ') && !e.shiftKey) {
     document.getElementById('btn-undo')?.click();
   }

@@ -120,18 +120,27 @@ export class ReviewOverlay {
       const actionsVisible = document.getElementById('lf-ro-actions').style.display !== 'none';
       if (!actionsVisible && (e.key === ' ' || e.key === 'Enter')) {
         e.preventDefault();
+        e.stopPropagation();
         this._reveal();
         return;
       }
-      if (actionsVisible) {
-        if (e.key === '1') this._answer(1);
-        else if (e.key === '2') this._answer(2);
-        else if (e.key === '3') this._answer(3);
-        else if (e.key === '4') this._answer(4);
+      if (actionsVisible && ['1', '2', '3', '4'].includes(e.key)) {
+        // Sem isto, o player do YouTube consome 1-4 e salta o vídeo para
+        // 10/20/30/40% em vez de registrar a nota (§4e.2 da auditoria).
+        e.preventDefault();
+        e.stopPropagation();
+        this._answer(Number(e.key));
+        return;
       }
-      if (e.key === 'Escape') this.hide();
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        this.hide();
+      }
     };
-    document.addEventListener('keydown', this._keyHandler);
+    // capture:true — o subtitle-engine registra o próprio keydown ANTES deste
+    // overlay; na fase de bubble ele rodaria primeiro e o Espaço daria
+    // play/pause no vídeo junto com o revelar (§4e.3). Captura vence a ordem.
+    document.addEventListener('keydown', this._keyHandler, true);
   }
 
   async _loadCards() {
@@ -283,7 +292,7 @@ export class ReviewOverlay {
   }
 
   destroy() {
-    if (this._keyHandler) document.removeEventListener('keydown', this._keyHandler);
+    if (this._keyHandler) document.removeEventListener('keydown', this._keyHandler, true);
     if (this.host) this.host.remove();
   }
 }

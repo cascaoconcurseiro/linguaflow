@@ -783,6 +783,8 @@ export class SettingsPanel {
                                 <div class="shortcut-item"><span>Revisão Rápida</span><kbd>R</kbd></div>
                                 <div class="shortcut-item"><span>Painel Lateral</span><kbd>L</kbd></div>
                                 <div class="shortcut-item"><span>Configurações</span><kbd>O</kbd></div>
+                                <div class="shortcut-item"><span>Mostrar/Ocultar Legendas</span><kbd>C</kbd></div>
+                                <div class="shortcut-item"><span>Play/Pause</span><kbd>Espaço</kbd></div>
                             </div>
                         </div>
                     </div>

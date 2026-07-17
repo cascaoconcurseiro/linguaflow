@@ -986,7 +986,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
       };
 
       await db.saveWord(newCard);
-      app.showToast('Expressão salva no Cofre! âœ…', 'success');
+      app.showToast('Expressão salva no Cofre! ✅', 'success');
       
       const spans = document.querySelectorAll('.story-word');
       spans.forEach(span => {

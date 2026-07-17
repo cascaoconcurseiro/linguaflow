@@ -24,8 +24,16 @@ assert.doesNotMatch(source, /186px/,
 const exerciseFinish = source.slice(source.indexOf('function exerciseFinish'), source.indexOf('// Montar frase'));
 assert.doesNotMatch(exerciseFinish, /setTimeout|scheduleStudyTask\([^]*handleGrade/,
   'exercício não avança por timer');
-assert.match(exerciseFinish, /correct \? grade === 1 : grade !== 1/,
-  'acerto oferece 2–4 e erro oferece somente 1');
+// 17/07 (A2 do backlog): o binário virou tri-estado — acerto oferece 2-4,
+// "quase" (typo no ditado) oferece 2-3, erro real oferece somente 1.
+assert.match(exerciseFinish, /if \(correct\) hide = grade === 1;/,
+  'acerto oferece 2–4');
+assert.match(exerciseFinish, /else if \(almost\) hide = grade === 1 \|\| grade === 4;/,
+  'quase (typo) oferece somente Difícil/Bom — typo nunca vira lapso');
+assert.match(exerciseFinish, /else hide = grade !== 1;/,
+  'erro real oferece somente Errei');
+assert.match(source, /levenshtein/,
+  'ditado usa distância de edição, não igualdade exata');
 assert.match(source, /id="ex-answer" role="status" aria-live="polite"/,
   'builder anuncia a resposta montada');
 assert.match(source, /<label for="ex-input" class="sr-only">/,

@@ -67,8 +67,8 @@ Apagados: `content/engine/subtitle-fetcher.js`, `content/engine/video-adapter.js
 
 ### Pendências do dono (acumuladas)
 
-1. **Merge para `main`** — bloqueado para a sessão pelo classificador; comando: `git push origin docs/code-audit-2026-07-16:main` (fast-forward limpo).
-2. **Testes manuais** — roteiros nas Fases 2, 3, 4 e histórias do CHECKLIST.
+1. ~~**Merge para `main`**~~ — ✅ **FEITO (17/07, noite): PRs #11 e #12 mergeados pelo dono no GitHub.** `origin/main` contém TODO o trabalho das Fases 1-6; produção na Vercel passa a deployar daqui. A branch de trabalho foi fast-forwardada para o mesmo ponto (464672f). Nota: existe um ref LOCAL antigo de `main` divergente (52c9b33, "ahead 19, behind 75") — lixo histórico; NÃO resetar sem olhar, mas também não usar: o deploy parte do `origin/main`.
+2. **Testes manuais** — roteiros nas Fases 2, 3, 4 e histórias do CHECKLIST. **Agora em PRODUÇÃO, não só preview.**
 3. **1 clique:** abrir `https://linguaflow.vercel.app/` — se não resolver, o botão do e-mail de reengajamento dá 404 (§4q.2).
 
 ### Regras vivas

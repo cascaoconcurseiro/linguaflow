@@ -166,7 +166,7 @@ Derruba a proposta "você conhece 94% deste episódio" (W6.2): antes da tela, é
 
 ## 3. Bugs reais encontrados na leitura
 
-### 3.1 🔴 A fonética brasileira erra justamente a distinção que mais importa
+### 3.1 🔴 A fonética brasileira erra justamente a distinção que mais importa — ✅ CORRIGIDO (17/07, Fase 2: passada única; provado por teste — ship/sheep, sit/seat, full/fool agora distintos)
 
 [word-popup.js:1244](../content/word-popup.js:1244) — `_convertIPAtoPT` aplica o mapa em sequência sobre a mesma string, então **a saída de uma regra vira entrada da próxima**:
 
@@ -179,13 +179,13 @@ Resultado: todo `ɪ` vira **`í`**. `sit` (/sɪt/) sai como **"sít"** — que u
 
 O par ship/sheep é **a** dificuldade clássica do brasileiro em inglês, e o conversor de fonética destrói exatamente essa distinção em toda palavra. Correção: aplicar as substituições numa única passada (regex alternado com callback), nunca encadeadas.
 
-### 3.2 🔴 O contexto salvo pode ser um trecho picotado
+### 3.2 🔴 O contexto salvo pode ser um trecho picotado — ✅ CORRIGIDO (17/07, Fase 2: `_sentenceContaining()` + `saveContext`; a tela trunca, o card recebe a frase completa)
 
 [word-popup.js:562](../content/word-popup.js:562): `this.context = this._truncateContext(this.word, this.context)` — e [1116](../content/word-popup.js:1116) salva esse `this.context` como `context_sentence`.
 
 `_truncateContext` corta em ~80 caracteres, pegando ±5 palavras ao redor do termo e **prefixando/sufixando `...`**. Então o card pode nascer com `"... snippet com reticências ..."`. Isso contamina: a frente do card, o exercício "montar frase" (chips com `...`), o ditado e o TTS.
 
-### 3.3 🔴 O estado "já salvo" se autodestrói em 2 segundos
+### 3.3 🔴 O estado "já salvo" se autodestrói em 2 segundos — ✅ CORRIGIDO (17/07, Fase 2: botão fica desabilitado com title explicativo; reset de 2s removido)
 
 [word-popup.js:1140](../content/word-popup.js:1140): depois de salvar, o botão volta para `+ Salvar nos Flashcards` e reabilita. Na abertura, [704](../content/word-popup.js:704) mostra corretamente `✅ Salvo`. Ou seja: o app sabe, mostra, e 2s depois esquece e convida a salvar de novo — o que dispara o upsert e **sobrescreve `context_sentence`, `video_url` e os bounds da primeira captura**. Perda de dado silenciosa.
 

@@ -460,17 +460,17 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 
 ### Fase 0 — Git (fazer primeiro, é só documentação)
 
-- [ ] Abrir o PR `docs/code-audit-2026-07-16` → `main` (link: github.com/cascaoconcurseiro/linguaflow/pull/new/docs/code-audit-2026-07-16).
-- [ ] Revisar e mergear — zero mudança de código de produto, só docs + script de auditoria.
+- [ ] **BLOQUEADO — ação do dono:** mergear `docs/code-audit-2026-07-16` → `main` (o classificador de permissões negou `git checkout`/`merge` à sessão de 17/07; a branch está 0 commits atrás de main, merge é fast-forward limpo). Link do PR: github.com/cascaoconcurseiro/linguaflow/pull/new/docs/code-audit-2026-07-16.
+- [x] (17/07, Claude) A branch deixou de ser docs-only: as correções da Fase 1 foram commitadas nela (`fix: Fase 1 da auditoria`) porque o merge estava bloqueado. Ajustar a descrição do PR ao abrir.
 
-### Fase 1 — Correções de 1 linha, alta confiança, sem decisão de produto envolvida
+### Fase 1 — Correções de 1 linha, alta confiança, sem decisão de produto envolvida — ✅ CONCLUÍDA (17/07, Claude, commit "fix: Fase 1 da auditoria", test:release verde)
 
-- [ ] `content/review-overlay.js:126` — adicionar `preventDefault()`/`stopPropagation()` nas teclas `1`-`4`, que hoje pulam o vídeo do YouTube para 10/20/30/40% em vez de avaliar o card (§4e.2). **O mais provável culpado de a feature parecer quebrada.**
-- [ ] `dashboard/js/ui/storiesView.js:989` — trocar `âœ…` por `✅` no toast de salvar palavra (mojibake ativo, confirmado em `main`) (§4l.4).
-- [ ] `content/subtitle-engine.js` — separar o listener de teclado `C`/`O` entre `_setupKeyboardShortcuts()` e `_injectYouTubeControls()`; hoje disparam 2× no YouTube (§4d.4).
-- [ ] `dashboard/js/ui/studyView.js:377` — comentário diz "Ctrl+Z / tecla Z", código só testa `KeyZ`; ajustar o comentário (o código está certo) (§4g.9).
-- [ ] `content/settings-panel.js` (lista de atalhos, seção "Atalhos do Teclado") — adicionar `C` e `Espaço`, que faltam na única lista de atalhos que o app mostra ao usuário (§4j.3).
-- [ ] `utils/db.js` — `isNew` sempre `false` em `saveWord`/`getCardByWordId`: a variável `card` sempre existe depois do `if`, então `!card` nunca é `true`. Corrigir a lógica (§3.4).
+- [x] (17/07) `content/review-overlay.js` — `preventDefault()`+`stopPropagation()` nas teclas `1`-`4` (§4e.2) **e** listener movido para fase de captura (`addEventListener(..., true)`): o engine registra o keydown dele primeiro, então sem captura o Espaço continuaria dando play/pause junto com o revelar — isto fecha também o §4e.3, que estava na Fase 2.
+- [x] (17/07) `dashboard/js/ui/storiesView.js:989` — `âœ…` → `✅` (§4l.4).
+- [x] (17/07) `content/subtitle-engine.js` — listener duplicado de `C`/`O` removido de `_injectYouTubeControls()`; o handler global de `C` agora clica o switch injetado quando ele existe (mantém visual+localStorage+title em sincronia) (§4d.4).
+- [x] (17/07) `dashboard/js/ui/studyView.js:426` — comentário do undo corrigido (a linha real era 426, não 377 — o arquivo derivou desde a auditoria) (§4g.9).
+- [x] (17/07) `content/settings-panel.js:786` — `C` e `Espaço` adicionados à grade de atalhos (§4j.3).
+- [x] (17/07) `utils/db.js` (`saveWord`) — `isNew` calculado a partir de `existingCard` capturado ANTES de criar o card (§3.4).
 
 ### Fase 2 — Correções reais, precisam de teste manual antes de subir
 

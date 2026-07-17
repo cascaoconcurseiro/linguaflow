@@ -189,7 +189,7 @@ O par ship/sheep é **a** dificuldade clássica do brasileiro em inglês, e o co
 
 [word-popup.js:1140](../content/word-popup.js:1140): depois de salvar, o botão volta para `+ Salvar nos Flashcards` e reabilita. Na abertura, [704](../content/word-popup.js:704) mostra corretamente `✅ Salvo`. Ou seja: o app sabe, mostra, e 2s depois esquece e convida a salvar de novo — o que dispara o upsert e **sobrescreve `context_sentence`, `video_url` e os bounds da primeira captura**. Perda de dado silenciosa.
 
-### 3.4 🟡 `isNew` está sempre errado
+### 3.4 🟡 `isNew` está sempre errado — ✅ CORRIGIDO (17/07, Fase 1)
 
 [db.js:404](../utils/db.js:404):
 
@@ -368,7 +368,7 @@ this.savedWords = freshSaved;   // ← sobrescreve o mapa global do engine
 
 Abrir a aba Words (tecla `L`) sobrescreve o mapa que colore a legenda. Toda palavra salva **sem card** cai fora do mapa e volta a ser pintada como `lf-new` (branca, "nunca vista") na legenda ao vivo. O usuário abre o painel e o vídeo "esquece" palavras que ele salvou.
 
-### 4d.4 🔴 As teclas `C` e `O` estão registradas duas vezes no YouTube
+### 4d.4 🔴 As teclas `C` e `O` estão registradas duas vezes no YouTube — ✅ CORRIGIDO (17/07, Fase 1: listener duplicado removido; `KeyC` global clica o switch injetado)
 
 Dois listeners independentes de `keydown`, ambos ativos no YouTube:
 
@@ -518,7 +518,7 @@ O que a tecla `R` abre ([review-overlay.js](../content/review-overlay.js)): um c
 
 Compare com a §3.3 (o popup que esquece que salvou em 2s) e a §3.7 (duas contabilidades). **O projeto não tem um problema de capacidade de engenharia. Tem um problema de que a boa engenharia já feita está invisível.**
 
-### 4e.2 🔴 Responder um card no YouTube faz o vídeo pular para 10%/20%/30%/40%
+### 4e.2 🔴 Responder um card no YouTube faz o vídeo pular para 10%/20%/30%/40% — ✅ CORRIGIDO (17/07, Fase 1: preventDefault+stopPropagation em fase de captura)
 
 [review-overlay.js:126-131](../content/review-overlay.js:126):
 
@@ -537,7 +537,7 @@ No YouTube, os dígitos `1`-`9` são atalho nativo: saltar para aquele percentua
 
 Uma linha de correção. Mas explica por que uma feature dessa qualidade pode estar em produção sem ninguém usar: quem tentou uma vez, no YouTube, viu o vídeo saltar e concluiu que estava quebrada.
 
-### 4e.3 🟡 O Espaço tem dois donos durante a revisão
+### 4e.3 🟡 O Espaço tem dois donos durante a revisão — ✅ CORRIGIDO (17/07, junto com §4e.2: o handler do overlay foi para a fase de captura, que roda antes do listener bubble do engine)
 
 `ReviewOverlay._keyHandler` ([121](../content/review-overlay.js:121)) e `SubtitleEngine._setupKeyboardShortcuts` ([585](../content/subtitle-engine.js:585)) escutam `keydown` no **mesmo `document`**, ambos tratam Espaço, ambos chamam `preventDefault()` — e nenhum sabe do outro.
 
@@ -771,7 +771,7 @@ O `exerciseFinish()` ([778-802](../dashboard/js/ui/studyView.js:778)) fecha o de
 
 [489-491](../dashboard/js/ui/studyView.js:489): *"BUG antigo: escrevia em `#app-view`, que não existe → caía no `<body>` e destruía o app inteiro."* Corrigido, mas `renderWaitingScreen` ([528](../dashboard/js/ui/studyView.js:528)) usa `studyContainer || document.body` — **sem o fallback `#app-view` do irmão**. Se `studyContainer` for null, escreve no `<body>` e reproduz exatamente o bug que o comentário diz ter matado. **Hipótese** — depende de `studyContainer` poder ser null aqui; não rastreei todos os caminhos.
 
-### 4g.9 🟡 O comentário diz Ctrl+Z; o código aceita Z sozinho
+### 4g.9 🟡 O comentário diz Ctrl+Z; o código aceita Z sozinho — ✅ CORRIGIDO (17/07, Fase 1; a linha real era 426, não 377)
 
 [377](../dashboard/js/ui/studyView.js:377): comentário *"Ctrl+Z / tecla Z"*, código `if ((e.code === 'KeyZ') && !e.shiftKey)` — **não testa `ctrlKey`**. Apertar `z` sozinho desfaz a última revisão. Combina com o texto do botão ("Desfazer última (Z)"), então provavelmente é o código que está certo e o comentário que envelheceu.
 
@@ -897,7 +897,7 @@ if (this.cfg.colorPalette === 'Pastel') {
 
 **Um modo de cores para daltônicos foi implementado, testado o suficiente para ter comentário explicando a escolha de cor, e depois escondido atrás de `display:none` sem remover a lógica.** Ninguém com daltonismo consegue ativá-lo — a única porta de entrada é um `<select>` que a própria extensão esconde de si mesma. Esta é a descoberta mais grave para a skill `accessibility-champion` até agora: não é ausência de a11y, é a11y construída e depois trancada.
 
-### 4j.3 🟡 O único lugar que documenta os atalhos está incompleto — e corrige a §4e.1
+### 4j.3 🟡 O único lugar que documenta os atalhos está incompleto — e corrige a §4e.1 — ✅ CORRIGIDO (17/07, Fase 1: `C` e `Espaço` adicionados à grade)
 
 `settings-panel.js` tem a única lista de atalhos do projeto voltada ao usuário ([772-788](../content/settings-panel.js:772)):
 
@@ -1026,7 +1026,7 @@ knownLemmas / reviewLemmas / learningLemmas → rw-known / rw-review / rw-learni
 
 **Correção da §4i.2:** eu tinha contado 3 implementações do gradiente LingQ (legenda, Histórias, popup). **São 4** — faltava o Leitor. E é aqui, não em outro lugar, que fica **o único chamador de `markAsKnown()`** que a §4b.1 identificou lá atrás — confirmado de novo, agora lendo o arquivo inteiro: `rdp-known` → `lfDb.markAsKnown(w, 'en')` ([readerView.js:379](../dashboard/js/ui/readerView.js:379)).
 
-### 4l.4 🔴 Bug atual, não histórico: o toast de sucesso do popup das Histórias mostra `âœ…` em vez de `✅`
+### 4l.4 🔴 Bug atual, não histórico: o toast de sucesso do popup das Histórias mostra `âœ…` em vez de `✅` — ✅ CORRIGIDO (17/07, Fase 1)
 
 [storiesView.js:982](../dashboard/js/ui/storiesView.js:982), texto literal no código-fonte:
 

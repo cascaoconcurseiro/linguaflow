@@ -1,5 +1,34 @@
 # Handoff — LinguaFlow
 
+## Handoff Claude — EXECUÇÃO da auditoria: Fase 1 concluída (2026-07-17)
+
+**Ordem aprovada pelo dono:** `0 → 1 → 2 → 3 → 6 → 4 → 5` — a Fase 6 (terminar a leitura) sobe para ANTES das decisões (F4) e das deleções (F5). Racional e protocolo de documentação no topo da seção "Auditoria real" do `CHECKLIST.md`.
+
+### Feito (branch `docs/code-audit-2026-07-16`, commit `fix: Fase 1 da auditoria`, `test:release` verde)
+
+1. **`content/review-overlay.js`** — teclas `1-4`/`Espaço`/`Esc` com `preventDefault`+`stopPropagation` **em fase de captura** (`addEventListener(..., true)`, com o `removeEventListener` pareado). Captura porque o subtitle-engine registra o keydown dele primeiro: em bubble, o Espaço revelaria o card E daria play/pause. Fecha §4e.2 **e também §4e.3** (que estava na Fase 2).
+2. **`content/subtitle-engine.js`** — listener duplicado de `C`/`O` removido de `_injectYouTubeControls()` (`C` ligava+desligava no mesmo aperto; `O` abria+fechava). O case `KeyC` global agora clica `#lf-yt-toggle-wrapper` quando existe — uma fonte de verdade para visual/localStorage/title (§4d.4).
+3. **`content/settings-panel.js`** — grade de atalhos ganhou `C` e `Espaço` (§4j.3).
+4. **`dashboard/js/ui/storiesView.js:989`** — mojibake `âœ…` → `✅` (§4l.4 — o "bug ativo na tela" da 2ª sessão).
+5. **`dashboard/js/ui/studyView.js:426`** — comentário do undo (só `KeyZ`; a linha real era 426, não 377 — deriva desde a auditoria) (§4g.9).
+6. **`utils/db.js` (`saveWord`)** — `isNew` calculado com `existingCard` capturado ANTES de criar o card; era sempre `false` (§3.4).
+
+### Bloqueio pendente — ação do dono
+
+**Merge para `main` foi negado pelo classificador de permissões** (`git checkout`/`git merge` bloqueados para a sessão). A branch está à frente e 0 atrás de `main` — fast-forward limpo. Dono precisa mergear ou liberar a permissão. A branch **deixou de ser docs-only** (contém a Fase 1); ajustar a descrição do PR.
+
+### Próximo passo concreto — Fase 2
+
+Começar por `content/word-popup.js` `_convertIPAtoPT` (§3.1, ship/sheep): trocar o mapa em cascata por substituição de passada única. Depois `_truncateContext` (§3.2) e a guarda de re-save (§3.3). **Cada item: corrigir → teste manual na extensão recarregada → `test:release` → commit individual → `[x]` no CHECKLIST + entrada aqui.** Não pular o teste manual: Fase 2 mexe em como o card nasce.
+
+### Regras vivas
+
+- Nada da Fase 5 (deleção) antes da Fase 6 (leitura completa) terminar.
+- Sessões paralelas ativas: `git status` antes de commitar; commitar só os próprios arquivos.
+- Se um achado `§` se revelar errado durante o conserto, corrigir a auditoria — o canônico não pode mentir.
+
+---
+
 ## Handoff Claude — Auditoria real, 3ª atualização — reconciliação contra `main` (2026-07-17)
 
 **A auditoria mudou de base.** Ela foi feita lendo `codex/extension-current`, uma cópia parada em 15/07. `origin/main` recebeu 20 commits reais no dia seguinte (rollout P0.3) que essa cópia nunca teve. O trabalho foi trazido para `main` via cherry-pick (PR `docs/code-audit-2026-07-16` → `main`) e **reconciliado** contra o código atual — ver §4o do documento.

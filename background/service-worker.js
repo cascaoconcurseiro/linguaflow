@@ -2,6 +2,7 @@
 import { db } from '../utils/db.js';
 import { translator } from '../utils/translator.js';
 import { OFFICIAL_SITE_URL, isLinguaFlowUrl } from '../utils/site-boundary.js';
+import { buildStoryVarietyNote, recentStorySnippets } from '../utils/story-variety.js';
 
 // Garbage Collector para limpar dicionários velhos e liberar espaço (QuotaExceeded)
 function _sweepStaleCache() {
@@ -1268,10 +1269,15 @@ async function generateStoryWithAI(genre) {
       ? `\nIMPORTANTE: incorpore NATURALMENTE ${Math.min(6, Math.max(4, reencounter.length))} destas palavras/expressões que o aluno está estudando (sem forçar, sem destacar, sem listar): ${reencounter.join(', ')}.`
       : '';
 
+    // Bug 17/07 (dono): prompt byte-idêntico gerava sempre a mesma história.
+    const recent = recentStorySnippets(await db.getStories(15).catch(() => []), genre);
+    const varietyNote = buildStoryVarietyNote(recent);
+
     const prompt = `Você é um gerador de histórias curtas para estudantes de inglês.
 Nível do Estudante: CEFR ${cefr}.
 Tema/Gênero da História: ${genre}.
 ${reencounterNote}
+${varietyNote}
 Por favor, escreva uma história curta (cerca de 200 a 300 palavras) em inglês, adequada para o nível ${cefr}.
 A história deve conter vocabulário útil e natural, com frases bem construídas.
 Não traduza a história. Apenas escreva a história em inglês, usando quebras de linha normais para parágrafos.

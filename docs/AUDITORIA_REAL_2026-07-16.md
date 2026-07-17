@@ -1166,6 +1166,38 @@ E a §4i.4 (a dúvida que registrei sobre `recordEvent` ser "legado" ou "real" n
 
 ---
 
+## 4p. Seis arquivos novos (§4o.6, resolvidos) + os dois motores de TTS — integrais, contra `main`
+
+### 4p.1 🟢 As 4 views novas + `statsView.js` + `loginView.js`: zero achados — primeira vez na sessão
+
+`learnView.js`, `progressView.js`, `readingHub.js`, `viewState.js`, `statsView.js`, `loginView.js` — 503 linhas, todas lidas por inteiro. **Nenhum bug, nenhuma reinvenção, nenhuma desconexão.** É o oposto do padrão que motivou a §4f: um refactor de produto real e coerente.
+
+- `learnView.js`/`progressView.js` são hubs finos (menu, não motor) que agrupam rotas existentes — "Aprender" (histórias/leitor/jogo) e "Progresso" (estatísticas como primário, liga como opcional). Corresponde ao commit `feat: separate practice progress and competition`.
+- `readingHub.js` é um cabeçalho compartilhado entre Histórias e Leitor — **verificado como realmente importado pelos dois** (`storiesView.js`, `readerView.js`), não órfão.
+- `viewState.js` — componente de loading/vazio/erro com a11y de verdade (`role`, `aria-live` por tipo, `escapeHtml`) — **importado em 8 arquivos**, praticamente todo o dashboard (`app.js`, `gameView.js`, `homeView.js`, `libraryView.js`, `readerView.js`, `settingsView.js`, `statsView.js`, `storiesView.js`). É o contra-exemplo mais forte da §4f: quando o time decidiu compartilhar um componente, ele *foi* compartilhado, de verdade, quase universalmente.
+- `statsView.js` mantém a mesma disciplina de linguagem das outras telas revistas: *"Tempo e volume mostram atividade — não comprovam domínio do idioma."* — o mesmo texto-espírito que já apareceu em `leaguesView.js` e `storiesView.js` (§4o.4). Não é coincidência — é uma reescrita de linguagem de produto aplicada consistentemente (commit `feat: standardize product language and view states`).
+- `app.js` já tem `learn`/`progress` no mapa de rotas — roteamento novo integrado corretamente, confirmado por leitura direta (fecha uma ponta da §4o.5).
+
+### 4p.2 🔴 Código morto real, agora num método privado: `_playWebSpeech()` em `utils/tts.js`
+
+`utils/tts.js` (o motor de TTS da **extensão** — diferente de `dashboard/js/core/tts.js`, o do site) tem um método de 118 linhas **inteiramente inatingível**:
+
+```js
+async _playWebSpeech(text, lang, rate = 1.0) {
+    return false;
+    if (this.voices.length === 0) { ... // 118 linhas nunca executadas
+```
+
+Confirmado **duplamente morto**: `grep -n "_playWebSpeech" utils/tts.js` só bate na própria definição — nenhum chamador em lugar nenhum, nem dentro da própria classe. O comentário em `.play()` explica a intenção: *"Prioridade 3 removida: Sem fallback para voz robótica (Web Speech API)."* Alguém desligou o fallback com um `return false` no topo em vez de apagar o método — o mesmo padrão dos stubs vazios do `subtitle-engine.js` (§4d.12), agora com um algoritmo de seleção de voz elaborado (lista de vozes preferidas, filtro anti-robótico) apodrecendo sem nunca rodar.
+
+**Isso é mais do que estética: cria uma assimetria de confiabilidade real entre extensão e site.** `dashboard/js/core/tts.js` (site) mantém `_fallbackTTS()` para Web Speech como último recurso — se o Google TTS falhar, ainda sai *algum* áudio, mesmo robótico. `utils/tts.js` (extensão) **não tem mais esse último recurso**: se o Google TTS falhar na extensão, o áudio simplesmente não toca — silêncio, sem fallback nenhum. Mesma funcionalidade ("ouvir a palavra"), dois níveis de robustez diferentes, dependendo de onde o usuário está.
+
+### 4p.3 🟡 Dependência de terceiro não documentada: `api.allorigins.win`
+
+[utils/tts.js:107](../utils/tts.js:107) — quando não é extensão e a URL do Google TTS ainda não está em cache, o código usa um proxy CORS gratuito de terceiro (`api.allorigins.win`) para buscar o áudio. Única ocorrência no projeto inteiro. Não é crítico (é um último recurso atrás de outros caminhos), mas é uma dependência externa e não documentada — se o serviço cair ou limitar taxa, a reprodução de áudio nesse caminho específico degrada sem aviso.
+
+---
+
 ## 4h. Auditoria de fiação — o método que a §4f implica
 
 **A §4f diz que o problema é fiação: partes boas que não se conhecem. Fiação é um grafo. Grafo se calcula.** Em vez de ler 15.000 linhas procurando desconexão, dá para prová-la mecanicamente.

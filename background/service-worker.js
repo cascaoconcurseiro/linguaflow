@@ -2,6 +2,7 @@
 import { db } from '../utils/db.js';
 import { translator } from '../utils/translator.js';
 import { OFFICIAL_SITE_URL, isLinguaFlowUrl } from '../utils/site-boundary.js';
+import { buildStoryVarietyNote, recentStorySnippets } from '../utils/story-variety.js';
 
 // Garbage Collector para limpar dicionários velhos e liberar espaço (QuotaExceeded)
 function _sweepStaleCache() {
@@ -30,14 +31,18 @@ console.debug('LinguaFlow: Service Worker inicializado.');
 
 // ── Alarmes ──────────────────────────────────────────────────────────────────
 chrome.alarms.create('srs-reminder', { periodInMinutes: 60 });
-chrome.alarms.create('auto-backup', { periodInMinutes: 1440 });
 chrome.alarms.create('word-save-sync', { periodInMinutes: 1 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'srs-reminder') updateBadge();
-  if (alarm.name === 'auto-backup') runAutoBackup();
   if (alarm.name === 'word-save-sync') syncPendingWordSaves();
 });
+// Fase 4.3 da auditoria (§4j.7): o alarme 'auto-backup' e o runAutoBackup
+// morreram — gravavam um backup que NENHUM código lia, redundante com o
+// backup real de Configurações → Dados, e consumiam cota do chrome.storage.
+// A limpeza abaixo remove o alarme e o dado órfão de instalações antigas.
+chrome.alarms.clear('auto-backup').catch?.(() => {});
+chrome.storage.local.remove(['lf_auto_backup', 'lf_auto_backup_date']);
 
 chrome.runtime.onStartup?.addListener(() => syncPendingWordSaves());
 
@@ -160,10 +165,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             'setCardSuspended',
             'restoreCardState',
             'logReview',
-            'createDeck',
             'saveSentence',
             'deleteWord',
-            'deleteDeck',
             'markAsKnown',
           ];
           if (writeMethods.includes(method)) {
@@ -1268,10 +1271,15 @@ async function generateStoryWithAI(genre) {
       ? `\nIMPORTANTE: incorpore NATURALMENTE ${Math.min(6, Math.max(4, reencounter.length))} destas palavras/expressões que o aluno está estudando (sem forçar, sem destacar, sem listar): ${reencounter.join(', ')}.`
       : '';
 
+    // Bug 17/07 (dono): prompt byte-idêntico gerava sempre a mesma história.
+    const recent = recentStorySnippets(await db.getStories(15).catch(() => []), genre);
+    const varietyNote = buildStoryVarietyNote(recent);
+
     const prompt = `Você é um gerador de histórias curtas para estudantes de inglês.
 Nível do Estudante: CEFR ${cefr}.
 Tema/Gênero da História: ${genre}.
 ${reencounterNote}
+${varietyNote}
 Por favor, escreva uma história curta (cerca de 200 a 300 palavras) em inglês, adequada para o nível ${cefr}.
 A história deve conter vocabulário útil e natural, com frases bem construídas.
 Não traduza a história. Apenas escreva a história em inglês, usando quebras de linha normais para parágrafos.
@@ -1370,15 +1378,6 @@ function clearBadLingueeCache() {
     );
     if (keys.length) chrome.storage.local.remove(keys);
   });
-}
-
-async function runAutoBackup() {
-  try {
-    const words = await db.getAllWords();
-    if (!words.length) return;
-    const backup = { version: 4, exportedAt: new Date().toISOString(), db: { words } };
-    chrome.storage.local.set({ lf_auto_backup: backup, lf_auto_backup_date: Date.now() });
-  } catch (e) {}
 }
 
 async function generateAIVariation(word, sentence) {

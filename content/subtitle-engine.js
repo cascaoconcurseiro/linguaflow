@@ -476,7 +476,6 @@ export class SubtitleEngine {
 
           // Notifica reconstrução do painel lateral
           this._rebuildSubtitleList();
-          this._renderVideoWordPrep();
         }
       }
 
@@ -508,8 +507,6 @@ export class SubtitleEngine {
 
     await this._injectSubtitleUI();
     this._injectYouTubeControls();
-    // this._injectNavigationControls(); // Removido a pedido do usuário
-    this._injectFloatingButton();
     this._setupResizeObserver();
     this._waitForVideo();
     this.startCapture();
@@ -785,13 +782,11 @@ export class SubtitleEngine {
       const { db } = await import('../utils/db.js');
       await db.initPromise;
 
-      // Carrega antecipação de tradução (Força 0 se for o valor antigo indesejado)
-      let anticipation = await db.getSetting('translationAnticipation');
-      if (anticipation === 2 || anticipation === -2) {
-        console.debug('[LinguaFlow] Resetando offset de 2.0 para 0.0 (Padrão de Fábrica)');
-        anticipation = 0;
-        await db.setSetting('translationAnticipation', 0);
-      }
+      // Fase 4.7 da auditoria (§4d.7): o engine NÃO reescreve mais a escolha
+      // do usuário no banco. A versão antiga "migrava" 2.0→0 a cada carga —
+      // quem escolhia antecipação de 2s no painel tinha a escolha desfeita
+      // em silêncio no próximo carregamento.
+      const anticipation = await db.getSetting('translationAnticipation');
       if (anticipation !== undefined && anticipation !== null) {
         this.translationAnticipation = parseFloat(anticipation);
       }
@@ -817,15 +812,11 @@ export class SubtitleEngine {
         console.debug(`[LinguaFlow] Velocidade carregada: ${speed}`);
       }
 
-      // Carrega modo de exibição (displayMode)
-      let mode = await db.getSetting('subtitleMode');
-      if (mode === 'translated') {
-        console.debug(
-          '[LinguaFlow] Resetando modo "Somente Tradução" para "Bilíngue" para evitar confusão.',
-        );
-        mode = 'bilingual';
-        await db.setSetting('subtitleMode', 'bilingual');
-      }
+      // Fase 4.7 (§4d.7): "Apenas Tradução" é uma opção REAL do painel
+      // (sel-mode oferece 'translated') — o engine revertia para 'bilingual'
+      // em silêncio a cada carga, desfazendo a escolha que a própria UI
+      // vendia. A escolha do usuário agora vale.
+      const mode = await db.getSetting('subtitleMode');
       if (mode) {
         this.displayMode = mode;
         console.debug(`[LinguaFlow] Modo de exibição carregado: ${mode}`);
@@ -1470,23 +1461,8 @@ export class SubtitleEngine {
     }, 1500);
   }
 
-  _injectDeckSelector() {
-    // Deck selector removed from production - not needed in UI
-    document.getElementById('lf-deck-host')?.remove();
-  }
-
-  _injectFloatingButton() {
-    // Floating button logic removed as per user request (only player settings UI allowed)
-  }
-
-  // ── Controles de Navegação (Removidos a pedido do usuário) ──────────
-  _injectNavigationControls() {
-    // Botões ⏮️, 🔁, ⏭️ removidos. A navegação será feita por atalhos ou painel lateral.
-  }
-
-  _createNavButton(icon, title, onclick) {
-    // Não utilizado
-  }
+  // Fase 5 da auditoria (§4b.6/§4h.3): stubs vazios removidos
+  // (_injectDeckSelector/_injectFloatingButton/_injectNavigationControls/_createNavButton)
 
   gotoPreviousCue() {
     if (!this.videoElement || this.cues.length === 0) return;
@@ -2456,89 +2432,8 @@ export class SubtitleEngine {
     }, 500);
   }
 
-  _renderVideoWordPrep() {
-    const box = document.getElementById('lf-video-words');
-    if (!box) return;
-    box.textContent = '';
-
-    const stop = new Set([
-      'the',
-      'a',
-      'an',
-      'and',
-      'or',
-      'but',
-      'to',
-      'of',
-      'in',
-      'on',
-      'at',
-      'for',
-      'with',
-      'is',
-      'are',
-      'was',
-      'were',
-      'be',
-      'been',
-      'it',
-      'this',
-      'that',
-      'you',
-      'i',
-      'we',
-      'they',
-      'he',
-      'she',
-      'do',
-      'does',
-      'did',
-      'not',
-      'so',
-      'as',
-      'if',
-      'my',
-      'your',
-      'our',
-      'their',
-    ]);
-    const counts = new Map();
-    this.cues.forEach((cue) => {
-      (cue.text || '')
-        .toLowerCase()
-        .match(/[a-z][a-z'-]{2,}/g)
-        ?.forEach((word) => {
-          const clean = word.replace(/^'+|'+$/g, '');
-          if (!stop.has(clean) && !this.knownWords.has(clean))
-            counts.set(clean, (counts.get(clean) || 0) + 1);
-        });
-    });
-
-    const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 14);
-    if (top.length === 0) {
-      const empty = document.createElement('span');
-      empty.style.cssText = 'font-size:12px;color:#64748B;';
-      empty.textContent = 'Nenhuma palavra candidata encontrada ainda.';
-      box.appendChild(empty);
-      return;
-    }
-
-    top.forEach(([word, count]) => {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.style.cssText =
-        'background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);color:#86EFAC;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;';
-      chip.textContent = `${word} ×${count}`;
-      chip.addEventListener('click', () => {
-        const firstIndex = this.cues.findIndex((cue) =>
-          new RegExp(`\\b${word}\\b`, 'i').test(cue.text || ''),
-        );
-        if (firstIndex >= 0 && this.videoElement)
-          this.videoElement.currentTime = this.cues[firstIndex].start;
-      });
-      box.appendChild(chip);
-    });
-  }
+  // Fase 5 (§4d.10): _renderVideoWordPrep removida — 80 linhas cujo container
+  // #lf-video-words nunca existiu em lugar nenhum do DOM.
 
   // Removido _formatTime duplicado e assíncrono (usando a versão síncrona no fim do arquivo)
 
@@ -2639,7 +2534,6 @@ export class SubtitleEngine {
             this.cues = cues;
             this.xhrCues = cues;
             this.usingXhr = true;
-            this._renderVideoWordPrep();
             console.debug(
               '[LinguaFlow] Legendas carregadas com sucesso (' + cues.length + ' frases)',
             );
@@ -3096,7 +2990,6 @@ export class SubtitleEngine {
     if (cues.length > 0 && this._isNavigationCurrent(navigation)) {
       this.cues = cues;
       this.xhrCues = cues; // Unifica para garantir que o sync loop e sidebar vejam o mesmo
-      this._renderVideoWordPrep();
       this._rebuildSubtitleList(); // Atualiza painel lateral IMEDIATAMENTE
       // this.toggleSubtitles(); // Removido: Não forçar ativação automática
 
@@ -3131,7 +3024,6 @@ export class SubtitleEngine {
 
     const cue = { start: timeMs, end: timeMs + 8000, text };
     this.cues.push(cue);
-    this._renderVideoWordPrep();
 
     // Mostra original imediatamente
     this.renderDual(text, '');
@@ -4329,9 +4221,6 @@ export class SubtitleEngine {
     this.wordPopup?.destroy?.();
     this.shadowContainer?.host?.remove();
     document.getElementById('lf-yt-btn')?.remove();
-    document.getElementById('lf-float-btn')?.remove();
-    document.getElementById('lf-float-panel-btn')?.remove();
-    document.getElementById('lf-nav-controls')?.remove();
     document.getElementById('lf-subtitle-panel')?.remove();
   }
 }

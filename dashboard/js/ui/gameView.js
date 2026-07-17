@@ -24,10 +24,14 @@ async function getPracticeWords(limit) {
   const dueWordIds = new Set((allCards || [])
     .filter(card => card?.due_date && new Date(card.due_date).getTime() <= now)
     .map(card => String(card.word_id)));
-  return (allWords || [])
-    .filter(word => word?.id && !dueWordIds.has(String(word.id)))
-    .sort(() => 0.5 - Math.random())
-    .slice(0, limit);
+  // Fisher-Yates (mesmo conserto do builder do Estudo): sort(() => 0.5-rnd)
+  // é enviesado e não embaralha de verdade em vários engines.
+  const pool = (allWords || []).filter(word => word?.id && !dueWordIds.has(String(word.id)));
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, limit);
 }
 
 // Onda 2.4: o Jogo virou um menu de mini-jogos — "Ligar Colunas" (existente)

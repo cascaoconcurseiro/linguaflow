@@ -407,7 +407,7 @@ this._setManagedInterval(async () => {
 
 A cada 10s de vídeo **tocando** — sem nenhuma interação, sem legenda ativa, sem clique — grava sessão pelo caminho legado que escreve direto em `user_stats`. Deixar o vídeo rolando sozinho gera progresso. É o contrato pedagógico do Codex violado por um `setInterval`, e a dedupe de 9s prova que alguém já se preocupou com contagem dupla entre abas — mas não com a contagem em si.
 
-### 4d.7 🟡 Duas configurações que a UI oferece e o engine reescreve silenciosamente
+### 4d.7 🟡 Duas configurações que a UI oferece e o engine reescreve silenciosamente — ✅ EXECUTADO (17/07, Fase 4: migrações forçadas removidas; prova: sel-mode OFERECE "Apenas Tradução")
 
 [`_loadSettings()`](../content/subtitle-engine.js:778), **em toda carga de página**:
 
@@ -454,7 +454,7 @@ Pior que o total: a §0 **não lista 14 arquivos que existem**, entre eles um qu
 
 A §0 foi corrigida para 23.373 e os 14 arquivos foram acrescentados.
 
-### 4d.10 🟡 `_renderVideoWordPrep()` é 80 linhas mortas chamadas de 5 lugares
+### 4d.10 🟡 `_renderVideoWordPrep()` é 80 linhas mortas chamadas de 5 lugares — ✅ EXECUTADO (17/07, Fase 5: função e 4 call sites removidos)
 
 [2447-2529](../content/subtitle-engine.js:2447). Primeira linha útil:
 
@@ -616,7 +616,7 @@ Isso reaproveita retry, dedupe e o alarme que já existem. **A W1 deixa de ser i
 
 A tabela `settings` real contém `lf_srs_ease`, `lf_srs_min_interval`, `lf_srs_penalty`, `lf_srs_suspend` — **nenhuma dessas está em `baseKeys` de `getSRSSettings()`**. São da era SM-2: a tela gravava, o motor lia outras chaves. O `db.js` já documenta o bug; as linhas órfãs continuam lá.
 
-### 4b.8 🟡 O nível CEFR sincroniza só num sentido
+### 4b.8 🟡 O nível CEFR sincroniza só num sentido — ✅ JÁ CORRIGIDO em main por sessão paralela (verificado 17/07: settingsView grava as duas chaves em Promise.all)
 
 [settings-panel.js:215-219](../content/settings-panel.js:215): mudar o nível **no painel da extensão** grava `cefrTargetLevel` **e** espelha em `lf_cefr_level`. Mas a tela de Configurações do site grava **só** `lf_cefr_level`.
 
@@ -767,7 +767,7 @@ if (isWeakCard(card) && (canBuild || canDictate)) card._mode = canBuild ? 'build
 
 O `exerciseFinish()` ([778-802](../dashboard/js/ui/studyView.js:778)) fecha o desenho: **erro só oferece "Errei"; acerto oferece Difícil/Bom/Fácil** — a verificação é objetiva, mas a autoavaliação continua do aluno, e *"a sessão nunca avança por timeout"*.
 
-### 4g.8 🟡 Um bug antigo documentado no próprio código
+### 4g.8 🟡 Um bug antigo documentado no próprio código — ✅ EXECUTADO (17/07, Fase 4: fallback morto removido; sem container real, não renderiza)
 
 [489-491](../dashboard/js/ui/studyView.js:489): *"BUG antigo: escrevia em `#app-view`, que não existe → caía no `<body>` e destruía o app inteiro."* Corrigido, mas `renderWaitingScreen` ([528](../dashboard/js/ui/studyView.js:528)) usa `studyContainer || document.body` — **sem o fallback `#app-view` do irmão**. Se `studyContainer` for null, escreve no `<body>` e reproduz exatamente o bug que o comentário diz ter matado. **Hipótese** — depende de `studyContainer` poder ser null aqui; não rastreei todos os caminhos.
 
@@ -870,7 +870,7 @@ Trata **só** `&nbsp;`. Nenhum `&amp;`, `&#39;`, `&quot;`. E `decodeHtml()` — 
 
 **Toda legenda de VTT/HTML com entidade chega intacta** à legenda na tela, ao clique, ao popup e ao `context_sentence` salvo no card. `don&#39;t` vira card com `don&#39;t` escrito literalmente. Constatado, não hipótese.
 
-### 4j.2 🔴🔴 Um recurso de acessibilidade inteiro está escondido com `display:none` — e continua rodando por baixo
+### 4j.2 🔴🔴 Um recurso de acessibilidade inteiro está escondido com `display:none` — e continua rodando por baixo — ✅ EXECUTADO (17/07, Fase 4: display:none removido, seletor visível)
 
 `content/settings-panel.js` lido **por completo** (907 linhas). No HTML do painel, a seção de paleta de cores:
 
@@ -910,7 +910,7 @@ Revisão Rápida R · Painel Lateral L · Configurações O
 
 E a lista, mesmo documentando `R`, **está incompleta**: faltam `C` (toggle legenda) e `Espaço` (play/pause) — dois dos nove atalhos reais do `_setupKeyboardShortcuts`. Nem o inventário interno do próprio app está completo.
 
-### 4j.4 🟡 `blurSubtitles`: configuração sem controle, mas com guard — não quebra, só está presa
+### 4j.4 🟡 `blurSubtitles`: configuração sem controle, mas com guard — não quebra, só está presa — ✅ EXECUTADO (17/07, Fase 4: sel-blur criado; desfoca a legenda ORIGINAL, treino de escuta)
 
 `readAllSettings()` ainda lê `blurSubtitles` do banco, `this.cfg.blurSubtitles` ainda existe, `_applyToEngine()` ainda aplica em `engine.blurSubtitles`. **Mas não há `id="sel-blur"` em lugar nenhum do `_html()`** — confirma o achado da varredura de fiação (§4h.3). Diferente do `#app-view` (§4h.3, que quebra), aqui o código é defensivo: `const selBlur = s.getElementById('sel-blur'); if (selBlur) selBlur.value = ...` — não lança erro, só nunca executa. **A configuração ficou congelada no valor que tinha quando a UI foi removida**, e ninguém pode mudá-la de novo.
 
@@ -930,7 +930,7 @@ O guard é `> 2 palavras`. **A §3.2 mostrou que `_truncateContext` pode salvar 
 
 [service-worker.js:1240-1256](../background/service-worker.js:1240): função **idêntica** a `getReencounterWords()` do `storiesView.js` (§4i.1), com o comentário *"Onda 1.4 — paridade com a web"*. Não é o padrão de reinvenção cega da §4f/§4i — é duplicação **deliberada** porque a extensão e o site não compartilham módulos ES facilmente. Ainda é risco: se a regra de priorização mudar num lado (ex.: pesar `is_leech` diferente), o outro lado diverge sem aviso. Baixa severidade, registrado por precaução.
 
-### 4j.7 🟡 `lf_auto_backup` — escrito, nunca lido
+### 4j.7 🟡 `lf_auto_backup` — escrito, nunca lido — ✅ EXECUTADO (17/07, Fase 4: alarme+função removidos, dados órfãos limpos)
 
 [service-worker.js:1375-1382](../background/service-worker.js:1375) — `runAutoBackup()` salva todas as `words` (não cards, não reviews) em `chrome.storage.local` sob `lf_auto_backup` + `lf_auto_backup_date`. **Busca no repo inteiro: a chave só aparece nesta linha, a que escreve.** Não existe import, não existe tela de restore, não existe leitura em lugar nenhum. Backup fantasma — existe no disco do usuário e não serve para nada hoje.
 
@@ -1036,7 +1036,7 @@ app.showToast('Expressão salva no Cofre! âœ…', 'success');
 
 `âœ…` é o mojibake clássico de UTF-8 mal decodificado — **não é comentário sobre um bug passado, é o bug rodando agora**, toda vez que alguém salva uma palavra clicando numa história. Diferente de todos os outros achados desta seção (que são comentários documentando conserto), este emoji quebrado está ativo na tela do usuário hoje.
 
-### 4l.5 🟢 Confirmado por leitura: `#lf-reveal-context` é código morto real, não falso positivo do script
+### 4l.5 🟢 Confirmado por leitura: `#lf-reveal-context` é código morto real, não falso positivo do script — ✅ EXECUTADO (17/07, Fase 5)
 
 A §4h.3 apontou (por varredura) que `#lf-reveal-context`/`#lf-context-trans` são lidos e nunca criados em `storiesView.js`. Lendo o trecho: [937-946](../dashboard/js/ui/storiesView.js:937) tem um **segundo** handler para "revelar tradução da frase", anexado por `getElementById`, logo depois de um **primeiro** handler funcional que já faz a mesma coisa com um botão criado via `document.createElement` sem id ([920-935](../dashboard/js/ui/storiesView.js:920)). É a versão antiga da feature, substituída por uma nova que não usa mais ids fixos — a chamada velha ficou, protegida pelo `?.` para não quebrar. Confirma a varredura ponto a ponto.
 
@@ -1156,7 +1156,7 @@ E a §4i.4 (a dúvida que registrei sobre `recordEvent` ser "legado" ou "real" n
 - **§4m.2** (backup/restore real) — `btn-backup-json`/`btn-restore-json` intactos.
 - **§4i.2/§4l.3** (gradiente LingQ 4×) — sobrevive, com uma nuance: o título do selo `story-known-badge` ganhou uma ressalva nova — *"Estimativa que combina termos marcados por você e itens com memória estável; não mede compreensão."* — sinal de que alguém já vinha suavizando a mesma preocupação que a auditoria levantaria.
 
-### 4o.5 🟡 Ainda não reconferidos em detalhe (mudaram, mas não abri o diff completo)
+### 4o.5 🟡 Ainda não reconferidos em detalhe (mudaram, mas não abri o diff completo) — ✅ EXECUTADO (17/07: reconferência por DELTA git diff codex/extension-current..HEAD, ver §4r)
 
 `app.js` (126 linhas, §4k.3 — o Proxy de renderização), `gameView.js` (190 linhas, §4k.4), `homeView.js` (176 linhas, §4k), `readerView.js` (83 linhas, §4b.1/§4l.3 além do já confirmado por grep). Nenhum indício de que estejam quebrados — o padrão desta reconciliação é "sobrevive ou foi corrigido para melhor" — mas não têm o mesmo nível de verificação dos demais.
 
@@ -1178,7 +1178,7 @@ E a §4i.4 (a dúvida que registrei sobre `recordEvent` ser "legado" ou "real" n
 - `statsView.js` mantém a mesma disciplina de linguagem das outras telas revistas: *"Tempo e volume mostram atividade — não comprovam domínio do idioma."* — o mesmo texto-espírito que já apareceu em `leaguesView.js` e `storiesView.js` (§4o.4). Não é coincidência — é uma reescrita de linguagem de produto aplicada consistentemente (commit `feat: standardize product language and view states`).
 - `app.js` já tem `learn`/`progress` no mapa de rotas — roteamento novo integrado corretamente, confirmado por leitura direta (fecha uma ponta da §4o.5).
 
-### 4p.2 🔴 Código morto real, agora num método privado: `_playWebSpeech()` em `utils/tts.js`
+### 4p.2 🔴 Código morto real, agora num método privado: `_playWebSpeech()` em `utils/tts.js` — ✅ EXECUTADO (17/07, Fase 4: religado como último recurso, com token do ExclusivePlayback; a função tinha zero chamadores)
 
 `utils/tts.js` (o motor de TTS da **extensão** — diferente de `dashboard/js/core/tts.js`, o do site) tem um método de 118 linhas **inteiramente inatingível**:
 
@@ -1206,7 +1206,7 @@ Confirmado **duplamente morto**: `grep -n "_playWebSpeech" utils/tts.js` só bat
 
 Script: `scratchpad/wiring-audit.js`. Roda em ~8 segundos sobre os 46 arquivos.
 
-### 4h.1 🔴 Quatro módulos órfãos — 453 linhas que não rodam
+### 4h.1 🔴 Quatro módulos órfãos — 453 linhas que não rodam — ✅ EXECUTADO (17/07, Fase 5: apagados com aprovação do dono; órfãos reconfirmados por grep global)
 
 **Cada um verificado individualmente** (busca pelo nome do arquivo em todo o repo, `.js`/`.html`/`.json`), porque o script sozinho não é confiável (§4h.5):
 
@@ -1217,7 +1217,7 @@ Script: `scratchpad/wiring-audit.js`. Roda em ~8 segundos sobre os 46 arquivos.
 | `content/engine/subtitle-fetcher.js` | 111 | **zero** |
 | `content/engine/video-adapter.js` | 62 | **zero** |
 
-### 4h.2 🔴 `content/engine/` inteiro está morto — e o handoff do Codex o trata como sagrado
+### 4h.2 🔴 `content/engine/` inteiro está morto — e o handoff do Codex o trata como sagrado — ✅ EXECUTADO (17/07, Fase 5)
 
 Os dois arquivos de `content/engine/` (173 linhas) não são importados por ninguém. A cadeia real é `manifest` → `boot.js` → `index.js` → `subtitle-engine.js`. **`content/engine/` não participa.**
 
@@ -1227,7 +1227,7 @@ E o `HANDOFF.md` (Codex, 15/07) diz:
 
 O escopo foi preservado com cuidado **num diretório que não roda**. E o `subtitle-fetcher.js` duplica `_cleanSubtitleText` e o processamento de cues do `subtitle-engine.js` — é uma refatoração começada e abandonada, que ficou parecendo o motor. Some-se ao §4d.11 (a "cópia EXATA do V5" trazida sem poda): **o projeto tem pelo menos duas gerações de motor de legenda coabitando, e a morta é a que o handoff protege.**
 
-### 4h.3 🔴 Quinze ids lidos e nunca criados — e um confirma o §4g.8
+### 4h.3 🔴 Quinze ids lidos e nunca criados — e um confirma o §4g.8 — ✅ EXECUTADO (17/07, Fase 5: stubs e IDs mortos removidos)
 
 Dos 15, três são falso positivo (§4h.5). Os reais, por arquivo:
 
@@ -1335,6 +1335,18 @@ Nenhum bug funcional encontrado em ~1.700 linhas. Destaques de qualidade real:
 - ✅ Item "ler pela primeira vez" do CHECKLIST: **completo**.
 - ⏳ Falta: reconferir `app.js`/`gameView.js`/`homeView.js`/`readerView.js` linha a linha contra `main` (§4o.5) e o rabo de CSS do `studyView.js` (~610 linhas, baixo risco).
 - ⏸️ `content/engine/*` órfãos: ler somente se a Fase 5 decidir manter.
+
+## 4r. Fase 6 final — reconferência das 4 views por delta (17/07)
+
+Método: em vez de reler ~2.600 linhas, `git diff codex/extension-current..HEAD` sobre `app.js`/`gameView.js`/`homeView.js`/`readerView.js` — a auditoria já validara a base antiga; só o delta (375+/200-) precisava de olhos.
+
+**Veredito: o delta é bom.** O rollout P0.3 trouxe: guarda central de autenticação no `navigate()` (rota de produto sem sessão → login), menu de perfil substituindo o "more" móvel, rotas dos hubs `learn`/`progress` com nav-groups e `aria-current`, `renderRouteFailure` com retry via viewState em TODA rota, e na Prática: `getPracticeWords` exclui cards vencidos (prática livre não ensaia resposta de revisão pendente — pedagogicamente correto) + estados loading/empty/error completos + copy honesta "não altera agendamento, XP, ofensiva ou liga".
+
+**Único resíduo encontrado e corrigido na hora:** `sort(() => 0.5 - Math.random())` em `getPracticeWords` — o mesmo embaralhamento enviesado já corrigido no builder do Estudo. Trocado por Fisher-Yates.
+
+**Rabo de CSS do `studyView.js` (1310-1920) também lido:** controles de clip de vídeo com degradação graciosa (DRM/sem-embed → link no ponto salvo) e chunks. Sem bugs.
+
+**Com isto, a leitura da Fase 6 está completa.** Não-lidos remanescentes no repo: apenas `content/boot.js` (12), `content/injector.js` (23), `content/hbo-inject.js` (61) — infraestrutura de injeção trivial — e trechos internos já cobertos por sessões paralelas (§4i-§4n).
 
 ## 5. O que fica de pé do diagnóstico anterior
 

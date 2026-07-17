@@ -3,6 +3,7 @@
 // Na web (Vercel): chama a Edge Function segura direto com o token de sessão.
 
 import { db as lfDb } from '../../../utils/db.js';
+import { buildStoryVarietyNote, recentStorySnippets } from '../../../utils/story-variety.js';
 
 const EDGE_URL = 'https://qnutoswrufznztoznlql.supabase.co/functions/v1/deepseek-chat';
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
@@ -198,10 +199,16 @@ export async function generateStoryWeb(genre, onChunk, userWords = []) {
   const reencounterNote = reencounter.length
     ? `\nIMPORTANTE: incorpore NATURALMENTE ${Math.min(6, Math.max(4, reencounter.length))} destas palavras/expressões que o aluno está estudando (sem forçar, sem destacar, sem listar): ${reencounter.join(', ')}.`
     : '';
+  // Bug 17/07 (dono): prompt byte-idêntico gerava sempre a mesma história.
+  // Protagonista/cenário/trama sorteados + "não repita" das histórias
+  // recentes do mesmo gênero (mesmo padrão que o quiz já usava).
+  const recent = recentStorySnippets(await lfDb.getStories(15).catch(() => []), genre);
+  const varietyNote = buildStoryVarietyNote(recent);
   const prompt = `Você é um gerador de histórias curtas para estudantes de inglês.
 Nível do Estudante: CEFR ${cefr}.
 Tema/Gênero da História: ${genre}.
 ${reencounterNote}
+${varietyNote}
 Por favor, escreva uma história curta (cerca de 200 a 300 palavras) em inglês, adequada para o nível ${cefr}.
 A história deve conter vocabulário útil e natural, com frases bem construídas.
 Não traduza a história. Apenas escreva a história em inglês, usando quebras de linha normais para parágrafos.

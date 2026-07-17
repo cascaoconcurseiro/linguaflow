@@ -593,7 +593,10 @@ export class SettingsPanel {
                                     <option value="dark">Modo Escuro</option>
                                 </select>
                             </div>
-                            <div class="group" style="display:none;">
+                            <!-- Fase 4.1 da auditoria (§4j.2): o display:none saiu —
+                                 acessibilidade implementada e escondida era o pior
+                                 dos dois mundos. Fiação (load/save/aplicação) já existia. -->
+                            <div class="group">
                                 <label>Paleta de Cores Semântica</label>
                                 <select id="sel-palette">
                                     <option value="Vibrant">Vibrante (Cores Vivas)</option>
@@ -621,6 +624,18 @@ export class SettingsPanel {
                                     <option value="native">Apenas Original</option>
                                     <option value="translated">Apenas Tradução</option>
                                 </select>
+                            </div>
+
+                            <!-- Fase 4.2 da auditoria (§4j.4): a fiação de blurSubtitles
+                                 sempre existiu (load/save/engine); só o controle faltava.
+                                 Desfoca a legenda ORIGINAL — treino de escuta pura. -->
+                            <div class="group">
+                                <label>Desfocar Legenda Original (Treino de Escuta)</label>
+                                <select id="sel-blur">
+                                    <option value="off">Desligado</option>
+                                    <option value="on">Ligado — ouça primeiro, espie se precisar</option>
+                                </select>
+                                <small>Borra o texto em inglês; passe o mouse para revelar. Força o ouvido a trabalhar antes do olho.</small>
                             </div>
 
                             <div class="group">

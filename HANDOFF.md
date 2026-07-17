@@ -32,9 +32,13 @@
 
 Recarregar a extensão e, num vídeo: (a) salvar palavra de frase longa → Cofre deve mostrar frase completa sem `...`; (b) clicar a mesma palavra → botão verde e desabilitado; (c) fonética de `ship` vs `sheep` distinta no popup; (d) arrastar a legenda antes e depois de trocar de vídeo; (e) abrir painel `L` e conferir que as cores da legenda não somem (devem até melhorar); (f) revisar card com teclas 1-4 no YouTube sem o vídeo pular.
 
-### Próximo passo concreto — Fase 3
+### Fase 3 — CONCLUÍDA na mesma sessão (commit `feat: Fase 3`, `test:release` verde)
 
-Religar o shadowing (§4g.1/§4g.2): importar `pronunciationLab` de `utils/pronunciation.js` em `dashboard/js/ui/studyView.js` e conectar ao overlay "Sua vez... Fale em voz alta!" (que hoje só conta 3s). As outras 3 partes já funcionam. Depois: Fase 6 (ler os 20% restantes) ANTES das Fases 4 e 5.
+Shadowing religado: `pronunciationLab` importado (primeiro consumidor em toda a história do módulo), overlay com botão de mic, score + diff palavra a palavra, gravação só por clique, `stop()` em troca de card/rota, cores com fallback. Provado por teste puro (83% em 5/6; ship vs sheep = 0%). **Teste manual do dono pendente** (mic real + caminho de permissão negada) — roteiro no CHECKLIST.
+
+### Próximo passo concreto — Fase 6 (ANTES das Fases 4 e 5)
+
+Terminar a leitura dos ~20% restantes, na ordem do CHECKLIST Fase 6: reconferir `app.js`/`gameView.js`/`homeView.js`/`readerView.js` contra `main` + ler pela primeira vez as 4 views novas de `main` (`learnView.js`, `progressView.js`, `readingHub.js`, `viewState.js`), `statsView.js`, `loginView.js`, `translator.js`, `ytPlayer.js`, `max-player-ui.js`, `epub.js`, `popup/popup.js`, `youtube-hook.js`, `dashboard/sw.js`, Edge Functions (`url-import`, `tts`, `push-reminder`, `email-reengagement`). Registrar achados na auditoria (§ novas) e atualizar §0. **Só depois**: Fase 4 (decisões com o dono) e Fase 5 (deleções).
 
 ### Regras vivas
 

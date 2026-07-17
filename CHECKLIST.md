@@ -483,9 +483,10 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 - [ ] `content/subtitle-engine.js` (`_loadSettings`) — reescreve `translationAnticipation`/`subtitleMode` no banco do usuário sempre que a página carrega, se detectar valores legados. **Tem decisão de produto embutida** (o painel ainda oferece esses valores?) — movido na prática para a Fase 4; decidir com o dono (§4d.7).
 - [x] (17/07, Claude — commit `fix: Fase 2 (7)`) `_cleanSubtitleText` decodifica entidades numéricas (dec/hex) e nomeadas na fonte da cue — provado: `"I don&#39;t know [Music] &amp; I won&#x27;t go"` → `"I don't know & I won't go"` (§4j.1, §4l.2).
 
-### Fase 3 — O achado principal: religar o shadowing
+### Fase 3 — O achado principal: religar o shadowing — ✅ CÓDIGO PRONTO (17/07, Claude, commit `feat: Fase 3`)
 
-- [ ] `dashboard/js/ui/studyView.js` + `utils/pronunciation.js` — o overlay "Sua vez... Fale em voz alta!" só conta 3 segundos; `pronunciationLab` (com `SpeechRecognition`/`getUserMedia` prontos) tem **zero importadores** em todo o projeto. Importar e conectar: capturar a fala do aluno, comparar com a palavra/frase, dar feedback. É a peça que fecha a W4 (shadowing) inteira — as outras 3 partes já existem e funcionam (§4g.1, §4g.2).
+- [x] (17/07) `pronunciationLab` importado pela primeira vez na história do projeto. O overlay ganhou botão `🎤 Falar agora`: grava por clique (nunca auto-inicia mic), para o TTS antes de gravar, compara com a frase do card e mostra **score + diff palavra a palavra** (verde/riscado, com fallback de cores do dashboard). Clicar o mic "pinna" o overlay (o auto-hide de 3s não engole a gravação); trocar de card ou sair da rota chama `stop()` — o mic nunca fica aberto. Provado por teste puro: 5/6 palavras = 83%; ship vs sheep = 0% (§4g.1, §4g.2).
+- [ ] **TESTE MANUAL DO DONO:** num card com áudio, esperar o overlay → clicar `🎤 Falar agora` → conceder permissão → repetir a frase → conferir score e diff. Testar também: negar a permissão (deve mostrar erro amigável, não travar) e trocar de card no meio da gravação (mic deve fechar).
 
 ### Fase 4 — Decisões de produto (perguntar ao Wesley antes de codificar)
 

@@ -636,7 +636,7 @@ Consequência: mudar seu nível no site **não atualiza** o `cefrTargetLevel` qu
 
 ## 4g. `dashboard/js/ui/studyView.js` 1-560 + `utils/pronunciation.js` — a W4 é o quarto caso
 
-### 4g.1 🔴🔴🔴 O app manda o aluno falar em voz alta. O microfone existe. Ninguém ligou os dois.
+### 4g.1 🔴🔴🔴 O app manda o aluno falar em voz alta. O microfone existe. Ninguém ligou os dois. — ✅ RELIGADO (17/07, Fase 3: primeiro import do pronunciationLab; mic por clique, score+diff no overlay, stop() em troca de card/rota)
 
 **Este é o achado da auditoria.** Três fatos verificados que só significam algo juntos:
 
@@ -670,7 +670,7 @@ export const pronunciationLab = {
 
 **Correção da §4c:** eu escrevi *"Da W4 (shadowing), portanto, só falta a gravação da voz — o replay do trecho já está pronto"*. **Errado de novo.** A gravação da voz **também já está pronta**. O que falta da W4 não é código: é **um `import`**. É a §4f na sua forma mais pura — não falta motor, falta fiação.
 
-### 4g.2 🔴 A W4 tem quatro peças. Todas construídas. Nenhuma conectada.
+### 4g.2 🔴 A W4 tem quatro peças. Todas construídas. Nenhuma conectada. — ✅ TRATADO (17/07, Fase 3: cores do diff com fallback --color-primary/--color-danger)
 
 | Peça da W4 (shadowing) | Estado real | Onde |
 |---|---|---|

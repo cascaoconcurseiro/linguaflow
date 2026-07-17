@@ -943,14 +943,8 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
         }
         modalExplanation.style.display = 'block';
         btnSaveWord.style.display = 'block';
-        document.getElementById('lf-reveal-context')?.addEventListener('click', async (e) => {
-          const btn = e.currentTarget;
-          btn.textContent = 'Traduzindo…';
-          const sentTrans = await translateText(currentSelectedSentence);
-          const box = document.getElementById('lf-context-trans');
-          if (box) { box.textContent = `“${sentTrans || 'Erro ao traduzir.'}”`; box.style.display = 'block'; }
-          btn.style.display = 'none';
-        });
+        // Fase 5 (§4l.5): handler órfão de #lf-reveal-context removido — era a
+        // versão antiga do revelar-tradução, substituída por fluxo sem esse id.
       } else {
         modalExplanation.textContent = "Erro ao traduzir.";
         modalExplanation.style.display = 'block';

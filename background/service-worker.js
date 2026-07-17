@@ -165,10 +165,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             'setCardSuspended',
             'restoreCardState',
             'logReview',
-            'createDeck',
             'saveSentence',
             'deleteWord',
-            'deleteDeck',
             'markAsKnown',
           ];
           if (writeMethods.includes(method)) {

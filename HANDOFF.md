@@ -56,9 +56,14 @@ Restam da Fase 6 (baixo risco, próxima sessão): reconferir `app.js`/`gameView.
 
 Relato do dono: mesmo gênero ⇒ mesma história. Causa: prompt byte-idêntico. Novo `utils/story-variety.js` (web+extensão): protagonista/cenário/trama sorteados + semente + avoid-list das últimas 5 do mesmo gênero (padrão que o quiz já usava). Commit `fix: histórias deixam de repetir`.
 
-### Próximo passo concreto — Fase 5 (deleções) — ⚠️ ÚLTIMA FASE RESTANTE
+### Fase 5 — CONCLUÍDA (17/07, dono aprovou com a pergunta certa: "a engine principal está mantida?" — sim, `content/subtitle-engine.js` intacta; o que morreu foi a pasta `content/engine/` com cópias órfãs de nome parecido)
 
-Pré-requisito cumprido (Fase 6 lida). ANTES de apagar: confirmar com o dono os 2 arquivos que o handoff do Codex (15/07) diz ter preservado de propósito (`content/engine/subtitle-fetcher.js`, `content/engine/video-adapter.js`) — a varredura de fiação os dá como órfãos em `main` (§4h.1/§4h.2). Itens da Fase 5 no CHECKLIST. Restam também: reconferência de `app.js`/`gameView`/`homeView`/`readerView` contra `main` (§4o.5, baixo risco) e os testes manuais do dono acumulados (Fases 2, 3, 4 + histórias).
+Apagados: `content/engine/subtitle-fetcher.js`, `content/engine/video-adapter.js`, `utils/subtitle-parsers.js` (órfãos reconfirmados por grep no momento da deleção). Removidos do engine: 4 stubs + chamada no init, `_renderVideoWordPrep` + 4 call sites, 3 IDs mortos no destroy(). Outros: handler órfão em storiesView, decks fora de writeMethods. **Deixados de propósito** (risco > ganho nesta sessão): guards defensivos `lf-save-btn`/`lf-btn-loop`/`lf-hbo-switch` e as ~160 linhas em `_processYtSub` (§4d.11).
+
+### TODAS AS FASES DE CÓDIGO CONCLUÍDAS (0*, 1, 2, 3, 4, 5, 6†)
+
+\* Fase 0 (merge) bloqueada pelo classificador — pendência do dono.
+† Fase 6: resta só a reconferência de `app.js`/`gameView`/`homeView`/`readerView` contra `main` (§4o.5, baixo risco) e o rabo de CSS do studyView.
 
 ### Pendências do dono (acumuladas)
 

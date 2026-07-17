@@ -504,14 +504,14 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 - [x] (17/07, commit `fix: histórias deixam de repetir`) Relato do dono: mesmo gênero ⇒ sempre a mesma história. Causa: prompt byte-idêntico a cada clique. Novo `utils/story-variety.js` (compartilhado web+extensão) sorteia protagonista/cenário/2 ingredientes de trama + semente + "NÃO repita" com aberturas das últimas 5 histórias do mesmo gênero — o mesmo padrão que o quiz da tela já usava. Testado determinístico (rand injetável).
 - [ ] **TESTE MANUAL DO DONO:** gerar 2 histórias seguidas do MESMO gênero e conferir que personagens/enredo mudam.
 
-### Fase 5 — Limpeza de código morto (segura, baixo risco, sem decisão de produto)
+### Fase 5 — Limpeza de código morto — ✅ EXECUTADA (17/07, aprovada pelo dono; commit `chore: Fase 5`)
 
-- [ ] Apagar `content/engine/subtitle-fetcher.js` e `content/engine/video-adapter.js` — confirmados órfãos pela varredura de fiação, zero importadores em `main`. **Atenção:** o `HANDOFF.md` do Codex (15/07) afirma que esses arquivos foram preservados de propósito — avisar antes de apagar (§4h.1, §4h.2).
-- [ ] Apagar `utils/subtitle-parsers.js` — mesmo caso, órfão confirmado (§4h.1).
-- [ ] `content/subtitle-engine.js` — remover os stubs vazios `_injectDeckSelector()`, `_injectFloatingButton()`, `_injectNavigationControls()`, `_createNavButton()`, e as referências a `#lf-deck-host`, `#lf-btn-loop`, `#lf-save-btn`, `#lf-hbo-switch`, `#lf-float-btn`, `#lf-float-panel-btn`, `#lf-nav-controls` no `destroy()` (§4b.6, §4h.3).
-- [ ] `content/subtitle-engine.js` — remover `_renderVideoWordPrep()` (80 linhas, container `#lf-video-words` nunca existe) e as ~160 linhas mortas dentro de `_processYtSub` (`decodeHtml`, `detectLang`, os objetos `D`/`l`) (§4d.10, §4d.11).
-- [ ] `dashboard/js/ui/storiesView.js` — remover o handler órfão de `#lf-reveal-context`/`#lf-context-trans` (versão antiga de uma feature já substituída) (§4l.5).
-- [ ] `background/service-worker.js:163,166` — `createDeck`/`deleteDeck` listados em `writeMethods`, mas os decks foram removidos do `db`. Limpar a lista (§4b.6).
+- [x] (17/07) Apagados `content/engine/subtitle-fetcher.js` + `video-adapter.js` — dono aprovou após confirmação explícita de que **`content/subtitle-engine.js` (o motor real) fica intacto**; a pasta `content/engine/` era outra coisa, cópias órfãs. Órfãos reconfirmados por grep global no momento da deleção: zero imports, manifest limpo (§4h.1, §4h.2).
+- [x] (17/07) Apagado `utils/subtitle-parsers.js` — mesmo caso (§4h.1).
+- [x] (17/07) Stubs vazios removidos do engine (+ a chamada `_injectFloatingButton()` no init, que o checklist original não listava) e os 3 `remove()` de IDs mortos no `destroy()` (§4b.6, §4h.3).
+- [x] (17/07) `_renderVideoWordPrep()` removida (80 linhas + 4 call sites) (§4d.10). **Deixados de propósito**: os `getElementById` defensivos de `lf-save-btn`/`lf-btn-loop`/`lf-hbo-switch` (no-ops com `?.`, remoção exige ler o entorno) e as ~160 linhas dentro de `_processYtSub` (§4d.11) — cirurgia de maior risco para sessão dedicada.
+- [x] (17/07) Handler órfão `#lf-reveal-context` removido de `storiesView` (§4l.5).
+- [x] (17/07) `createDeck`/`deleteDeck` fora de `writeMethods` (§4b.6).
 
 ### Fase 6 — Terminar a leitura (menor prioridade — o padrão da sessão foi achado forte por arquivo até aqui, mas os que sobram são infraestrutura de borda, não superfície de produto)
 

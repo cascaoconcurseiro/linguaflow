@@ -454,7 +454,7 @@ Pior que o total: a §0 **não lista 14 arquivos que existem**, entre eles um qu
 
 A §0 foi corrigida para 23.373 e os 14 arquivos foram acrescentados.
 
-### 4d.10 🟡 `_renderVideoWordPrep()` é 80 linhas mortas chamadas de 5 lugares
+### 4d.10 🟡 `_renderVideoWordPrep()` é 80 linhas mortas chamadas de 5 lugares — ✅ EXECUTADO (17/07, Fase 5: função e 4 call sites removidos)
 
 [2447-2529](../content/subtitle-engine.js:2447). Primeira linha útil:
 
@@ -1036,7 +1036,7 @@ app.showToast('Expressão salva no Cofre! âœ…', 'success');
 
 `âœ…` é o mojibake clássico de UTF-8 mal decodificado — **não é comentário sobre um bug passado, é o bug rodando agora**, toda vez que alguém salva uma palavra clicando numa história. Diferente de todos os outros achados desta seção (que são comentários documentando conserto), este emoji quebrado está ativo na tela do usuário hoje.
 
-### 4l.5 🟢 Confirmado por leitura: `#lf-reveal-context` é código morto real, não falso positivo do script
+### 4l.5 🟢 Confirmado por leitura: `#lf-reveal-context` é código morto real, não falso positivo do script — ✅ EXECUTADO (17/07, Fase 5)
 
 A §4h.3 apontou (por varredura) que `#lf-reveal-context`/`#lf-context-trans` são lidos e nunca criados em `storiesView.js`. Lendo o trecho: [937-946](../dashboard/js/ui/storiesView.js:937) tem um **segundo** handler para "revelar tradução da frase", anexado por `getElementById`, logo depois de um **primeiro** handler funcional que já faz a mesma coisa com um botão criado via `document.createElement` sem id ([920-935](../dashboard/js/ui/storiesView.js:920)). É a versão antiga da feature, substituída por uma nova que não usa mais ids fixos — a chamada velha ficou, protegida pelo `?.` para não quebrar. Confirma a varredura ponto a ponto.
 
@@ -1206,7 +1206,7 @@ Confirmado **duplamente morto**: `grep -n "_playWebSpeech" utils/tts.js` só bat
 
 Script: `scratchpad/wiring-audit.js`. Roda em ~8 segundos sobre os 46 arquivos.
 
-### 4h.1 🔴 Quatro módulos órfãos — 453 linhas que não rodam
+### 4h.1 🔴 Quatro módulos órfãos — 453 linhas que não rodam — ✅ EXECUTADO (17/07, Fase 5: apagados com aprovação do dono; órfãos reconfirmados por grep global)
 
 **Cada um verificado individualmente** (busca pelo nome do arquivo em todo o repo, `.js`/`.html`/`.json`), porque o script sozinho não é confiável (§4h.5):
 
@@ -1217,7 +1217,7 @@ Script: `scratchpad/wiring-audit.js`. Roda em ~8 segundos sobre os 46 arquivos.
 | `content/engine/subtitle-fetcher.js` | 111 | **zero** |
 | `content/engine/video-adapter.js` | 62 | **zero** |
 
-### 4h.2 🔴 `content/engine/` inteiro está morto — e o handoff do Codex o trata como sagrado
+### 4h.2 🔴 `content/engine/` inteiro está morto — e o handoff do Codex o trata como sagrado — ✅ EXECUTADO (17/07, Fase 5)
 
 Os dois arquivos de `content/engine/` (173 linhas) não são importados por ninguém. A cadeia real é `manifest` → `boot.js` → `index.js` → `subtitle-engine.js`. **`content/engine/` não participa.**
 
@@ -1227,7 +1227,7 @@ E o `HANDOFF.md` (Codex, 15/07) diz:
 
 O escopo foi preservado com cuidado **num diretório que não roda**. E o `subtitle-fetcher.js` duplica `_cleanSubtitleText` e o processamento de cues do `subtitle-engine.js` — é uma refatoração começada e abandonada, que ficou parecendo o motor. Some-se ao §4d.11 (a "cópia EXATA do V5" trazida sem poda): **o projeto tem pelo menos duas gerações de motor de legenda coabitando, e a morta é a que o handoff protege.**
 
-### 4h.3 🔴 Quinze ids lidos e nunca criados — e um confirma o §4g.8
+### 4h.3 🔴 Quinze ids lidos e nunca criados — e um confirma o §4g.8 — ✅ EXECUTADO (17/07, Fase 5: stubs e IDs mortos removidos)
 
 Dos 15, três são falso positivo (§4h.5). Os reais, por arquivo:
 

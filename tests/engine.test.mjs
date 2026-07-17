@@ -178,13 +178,21 @@ test('shuffleItem preserva a resposta correta', () => {
   }
 });
 
-test('bancos de cloze/listening: 5 e 4 itens por banda (Onda 3.2, incl. C2), answers válidos', () => {
+test('bancos de cloze/listening: ≥8 e ≥6 itens por banda com SORTEIO de 5/4 (17/07: retomada não repete), answers válidos', () => {
   assert.deepEqual(P.LEVELS, ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
   for (const band of P.LEVELS) {
-    assert.equal(P.CLOZE_BANK[band].length, 5, `cloze ${band}`);
-    assert.equal(P.LISTENING_BANK[band].length, 4, `listening ${band}`);
+    // Queixa do dono: refazer o teste mostrava sempre as MESMAS perguntas.
+    // O banco cresceu (8/6) e cada aplicação sorteia um subconjunto (5/4).
+    assert.ok(P.CLOZE_BANK[band].length >= 8, `cloze ${band} (${P.CLOZE_BANK[band].length})`);
+    assert.ok(P.LISTENING_BANK[band].length >= 6, `listening ${band} (${P.LISTENING_BANK[band].length})`);
+    assert.equal(P.sampleClozeItems(band).length, 5, `amostra cloze ${band}`);
+    assert.equal(P.sampleListeningItems(band).length, 4, `amostra listening ${band}`);
+    // Amostra determinística com rand injetado (mesmo contrato do shuffleItem)
+    const fixed = () => 0.42;
+    assert.deepEqual(P.sampleClozeItems(band, 5, fixed), P.sampleClozeItems(band, 5, fixed));
     [...P.CLOZE_BANK[band], ...P.LISTENING_BANK[band]].forEach(item => {
       assert.ok(item.answer >= 0 && item.answer < item.options.length);
+      assert.equal(new Set(item.options).size, item.options.length, `opções duplicadas em "${item.sentence}"`);
     });
   }
 });

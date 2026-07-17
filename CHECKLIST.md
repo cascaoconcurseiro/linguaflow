@@ -446,6 +446,21 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 - [x] Corrigir validação numérica do restore em migration append-only `restore_card_state_numeric_types_p0_2b`; `null` e string nos três campos FSRS são rejeitados sem mutação/evento.
 - [ ] Observar 403/5xx e falhas de RPC por 24 h de uso real após o cutover.
 
+
+## 🚀 Rodada de queixas do dono + Rodada 1 do backlog — ✅ EXECUTADA (17/07, noite; commits `feat: rodada de queixas` + contratos de teste; suíte verde; em main)
+
+- [x] Tema/Configurações visíveis: botões diretos 🌓 e ⚙️ na topbar (estavam só dentro do "◉").
+- [x] Histórias: roleta exclui nomes de personagens já usados nas aberturas recentes + proibição explícita no prompt.
+- [x] Histórias: calibragem POR NÍVEL (A1: 90-130 palavras/frase≤8/estruturas básicas … C2: 600-800/livre) com max_tokens escalando (500→2000), web + extensão.
+- [x] Nivelamento: bancos dobrados (cloze 8/banda, listening 6/banda) + sorteio de subconjunto por aplicação — refazer o teste traz perguntas novas.
+- [x] A2 ditado justo: Levenshtein com "quase" (≤2 edições ou ≤10%) — typo libera Difícil/Bom, nunca vira lapso.
+- [x] A3 rotação determinística (reps % 4) + A1/A2 sem ditado longo (>6 palavras).
+- [x] B1 BYOK removido (campo, ramo do SW, storage limpo, copys); IA 100% via Edge Function.
+- [x] B2 Fisher-Yates no builder do Estudo.
+- [x] B7 export Anki + `linguaflow_agendamento.tsv` (estado FSRS completo migra junto).
+- [x] B8 já resolvido em main (marcar como lida = feedback local, sem promessa de XP).
+- [ ] **TESTE MANUAL DO DONO:** (a) topbar mostra 🌓/⚙️ e funcionam; (b) 2 histórias seguidas do mesmo gênero com personagens/enredo diferentes; (c) história em A1 visivelmente mais curta que em C1; (d) refazer o nivelamento → perguntas diferentes; (e) ditado com typo de 1 letra → "🟡 Quase" com Difícil/Bom; (f) Configurações SEM o campo de chave sk-...; (g) export Anki baixa 2 arquivos.
+
 ## 🔍 Auditoria real de código — plano de execução (Claude, 2026-07-17)
 
 > Documento canônico: [`docs/AUDITORIA_REAL_2026-07-16.md`](docs/AUDITORIA_REAL_2026-07-16.md) (80% do código lido, reconciliado contra `origin/main` na §4o). PR aberto: `docs/code-audit-2026-07-16` → `main`. Todo item abaixo tem arquivo:linha na auditoria — buscar pela seção citada entre parênteses antes de mexer.

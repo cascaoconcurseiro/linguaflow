@@ -5,6 +5,9 @@ import { attachVideoContext, renderVideoContext, getVideoContext } from '../core
 import { buildSessionQueue, isWeakCard, prioritizeDueLearning } from '../core/sessionQueue.js';
 import { loadVideo, playClip, replayClip, pausePlayer, setClipLoop, isClipPlaying, hidePlayer } from '../core/ytPlayer.js';
 import { fetchTatoebaSentences } from '../core/tatoeba.js';
+// Fase 3 da auditoria (§4g.1/§4g.2): primeiro consumidor real do
+// pronunciationLab — o overlay de shadowing deixou de ser um timer de teatro.
+import { pronunciationLab } from '../../../utils/pronunciation.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
@@ -36,6 +39,8 @@ const feedbackAudioContexts = new Set();
 const cardPresentationIds = new WeakMap();
 let nextCardPresentationId = 0;
 let audioUiToken = 0;
+let shadowingBusy = false;   // uma gravação por vez
+let shadowingPinned = false; // mic clicado: o auto-hide de 3s não engole a gravação
 
 const TOPIC_LABELS = { word: 'Palavras', phrasal: 'Phrasal Verbs', slang: 'Gírias', idiom: 'Expressões' };
 
@@ -56,6 +61,7 @@ export async function renderStudy(container, app, params = {}) {
     if (viewGeneration !== studyViewGeneration) return;
     studyViewActive = false;
     stopAudio();
+    pronunciationLab.stop(); // sair da rota fecha o microfone
     audioUiToken += 1;
     pauseYouglish();
     hidePlayer();
@@ -245,10 +251,12 @@ export async function renderStudy(container, app, params = {}) {
           </div>
         </div>
 
-        <!-- Shadowing Engine Overlay -->
+        <!-- Shadowing real (§4g.1): o mic avalia a repetição via pronunciationLab.
+             Gravação SÓ por clique — nunca auto-iniciar captura de áudio. -->
         <div id="shadowing-overlay" class="hidden" style="margin-top: 24px; padding: 16px; background: rgba(88, 204, 2, 0.1); border: 2px dashed var(--color-primary); border-radius: var(--radius-md); text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; animation: pulse 2s infinite;">
-          <div style="font-size: 24px; margin-bottom: 8px;">⏳</div>
           <div style="font-size: 18px; font-weight: 800; color: var(--color-primary);">Sua vez... Fale em voz alta!</div>
+          <button id="shadowing-mic" class="btn btn-secondary" style="margin-top:10px; padding:10px 22px; font-size:14px;">🎤 Falar agora</button>
+          <div id="shadowing-result" role="status" aria-live="polite" style="margin-top:10px; font-size:15px; line-height:1.5; max-width:560px;"></div>
           <div style="width: 100%; background: var(--color-border); height: 6px; border-radius: 3px; margin-top: 12px; overflow: hidden;">
             <div id="shadowing-progress" style="width: 0%; height: 100%; background: var(--color-primary); transition: width 3s linear;"></div>
           </div>
@@ -357,6 +365,41 @@ export async function renderStudy(container, app, params = {}) {
 
   document.getElementById('play-audio-btn').addEventListener('click', playCurrentAudio);
   document.getElementById('reveal-btn').addEventListener('click', revealCard);
+  // Shadowing (§4g.1): compara a fala com a frase que o TTS acabou de tocar.
+  // O diff mostra o texto da frase — aceitável na frente do card porque o
+  // áudio JÁ a falou por inteiro; a resposta real (sentido/tradução) não vaza.
+  document.getElementById('shadowing-mic')?.addEventListener('click', () => {
+    const card = currentCard;
+    const micBtn = document.getElementById('shadowing-mic');
+    const resultEl = document.getElementById('shadowing-result');
+    if (!card || shadowingBusy || !micBtn || !resultEl) return;
+    const expected = card._ctx || card.wordData?.context_sentence || card.wordData?.word || '';
+    if (!expected) return;
+    shadowingBusy = true;
+    shadowingPinned = true;
+    stopAudio(); // nunca gravar com TTS falando por cima
+    pronunciationLab.assess(expected, (fb) => {
+      if (currentCard !== card) { pronunciationLab.stop(); return; }
+      if (fb.error) {
+        resultEl.textContent = fb.error;
+        micBtn.disabled = false;
+        micBtn.textContent = '🎤 Tentar de novo';
+        shadowingBusy = false;
+        return;
+      }
+      if (fb.status === 'recording') {
+        micBtn.disabled = true;
+        micBtn.textContent = '🎙️ Ouvindo…';
+        resultEl.textContent = '';
+      } else if (fb.status === 'stopped') {
+        micBtn.disabled = false;
+        if (micBtn.textContent === '🎙️ Ouvindo…') micBtn.textContent = '🎤 Tentar de novo';
+        shadowingBusy = false;
+      } else if (fb.status === 'result') {
+        resultEl.innerHTML = `<strong>${fb.score}%</strong> das palavras reconhecidas<br><span style="font-size:16px;">${fb.htmlFeedback}</span>`;
+      }
+    });
+  });
   document.getElementById('improve-btn').addEventListener('click', () => improveSentence(app));
   document.getElementById('clear-topic-filter-btn')?.addEventListener('click', () => app.navigate('study'));
   // Progressive disclosure é igual em qualquer tamanho de tela: recursos
@@ -677,6 +720,14 @@ async function loadNextCard(app) {
   document.getElementById('shadowing-overlay').classList.add('hidden');
   document.getElementById('shadowing-progress').style.width = '0%';
   document.getElementById('shadowing-progress').style.transition = 'none';
+  // Troca de card não pode deixar o microfone aberto nem estado pendurado
+  pronunciationLab.stop();
+  shadowingBusy = false;
+  shadowingPinned = false;
+  const shadowingMic = document.getElementById('shadowing-mic');
+  if (shadowingMic) { shadowingMic.disabled = false; shadowingMic.textContent = '🎤 Falar agora'; }
+  const shadowingResult = document.getElementById('shadowing-result');
+  if (shadowingResult) shadowingResult.textContent = '';
   document.getElementById('chunks-container').innerHTML = '';
   resetChat();
 
@@ -1009,6 +1060,7 @@ function playCurrentAudio() {
         progressEl.style.width = '100%';
         scheduleStudyTask(() => {
           if (token !== audioUiToken || currentCard !== card) return;
+          if (shadowingPinned) return; // usuário clicou no mic; overlay fica
           shadowingEl.classList.add('hidden');
           progressEl.style.transition = 'none';
           progressEl.style.width = '0%';

@@ -133,9 +133,11 @@ export const pronunciationLab = {
             const eW = expWords[i];
             if (actWords.includes(eW)) {
                 matches++;
-                htmlParts.push(`<span style="color:var(--green)">${eW}</span>`);
+                // Fallbacks: o dashboard usa --color-primary/--color-danger;
+                // --green/--red não existem lá (§4g.2)
+                htmlParts.push(`<span style="color:var(--green, var(--color-primary, #16a34a))">${eW}</span>`);
             } else {
-                htmlParts.push(`<span style="color:var(--red); text-decoration:line-through">${eW}</span>`);
+                htmlParts.push(`<span style="color:var(--red, var(--color-danger, #dc2626)); text-decoration:line-through">${eW}</span>`);
             }
         }
 

@@ -1230,16 +1230,22 @@ export class SubtitleEngine {
     // Auto-pause video on hover (Language Reactor feature) e Arrastar Legenda
     const wrap = this.shadowContainer.getElementById('lf-wrap');
 
-    let isDragging = false;
-    let startY = 0;
-    let startBottom = 0;
+    // §4d.5: o estado do drag vive na INSTÂNCIA, não em closures. Os listeners
+    // de janela abaixo são presos uma única vez (_dragEventsAttached) e, na
+    // versão antiga, fechavam sobre isDragging/startY/host da PRIMEIRA
+    // injeção — a segunda injeção (via _waitForVideo) criava um wrap novo cujo
+    // mousedown setava um closure novo que o mousemove da janela nunca lia.
+    // Resultado: arrastar a legenda nunca funcionava no YouTube/Max.
+    this._drag = { active: false, startY: 0, startBottom: 0, wrap };
 
     wrap.addEventListener('mousedown', (e) => {
       if (e.target.classList.contains('lf-word')) return;
-      isDragging = true;
-      startY = e.clientY;
-      const computedBottom = window.getComputedStyle(host).bottom;
-      startBottom = parseFloat(computedBottom);
+      const liveHost = document.getElementById('linguaflow-subtitle-host');
+      if (!liveHost) return;
+      this._drag.active = true;
+      this._drag.startY = e.clientY;
+      this._drag.startBottom = parseFloat(window.getComputedStyle(liveHost).bottom) || 0;
+      this._drag.wrap = wrap;
       wrap.style.cursor = 'grabbing';
       e.preventDefault();
     });
@@ -1247,24 +1253,26 @@ export class SubtitleEngine {
     // Listeners de janela protegidos contra duplicação
     if (!this._dragEventsAttached) {
       window.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        const deltaY = startY - e.clientY;
-        const newBottom = Math.max(0, startBottom + deltaY);
-        host.style.bottom = `${newBottom}px`;
+        if (!this._drag?.active) return;
+        const liveHost = document.getElementById('linguaflow-subtitle-host');
+        if (!liveHost) return;
+        const deltaY = this._drag.startY - e.clientY;
+        const newBottom = Math.max(0, this._drag.startBottom + deltaY);
+        liveHost.style.bottom = `${newBottom}px`;
         this._currentBottom = newBottom;
       }, { signal: this._lifecycleController.signal });
 
       window.addEventListener('mouseup', () => {
-        if (isDragging) {
-          isDragging = false;
-          wrap.style.cursor = 'default';
+        if (this._drag?.active) {
+          this._drag.active = false;
+          if (this._drag.wrap) this._drag.wrap.style.cursor = 'default';
         }
       }, { signal: this._lifecycleController.signal });
       this._dragEventsAttached = true;
     }
 
     wrap.addEventListener('mouseenter', () => {
-      if (!isDragging) wrap.style.cursor = 'grab';
+      if (!this._drag?.active) wrap.style.cursor = 'grab';
       if (this._pauseCooldown) return; // Ignora se acabou de dar play
       if (this.videoElement && !this.videoElement.paused) {
         this.videoElement.pause();

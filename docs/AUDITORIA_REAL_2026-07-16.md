@@ -1156,7 +1156,7 @@ E a §4i.4 (a dúvida que registrei sobre `recordEvent` ser "legado" ou "real" n
 - **§4m.2** (backup/restore real) — `btn-backup-json`/`btn-restore-json` intactos.
 - **§4i.2/§4l.3** (gradiente LingQ 4×) — sobrevive, com uma nuance: o título do selo `story-known-badge` ganhou uma ressalva nova — *"Estimativa que combina termos marcados por você e itens com memória estável; não mede compreensão."* — sinal de que alguém já vinha suavizando a mesma preocupação que a auditoria levantaria.
 
-### 4o.5 🟡 Ainda não reconferidos em detalhe (mudaram, mas não abri o diff completo)
+### 4o.5 🟡 Ainda não reconferidos em detalhe (mudaram, mas não abri o diff completo) — ✅ EXECUTADO (17/07: reconferência por DELTA git diff codex/extension-current..HEAD, ver §4r)
 
 `app.js` (126 linhas, §4k.3 — o Proxy de renderização), `gameView.js` (190 linhas, §4k.4), `homeView.js` (176 linhas, §4k), `readerView.js` (83 linhas, §4b.1/§4l.3 além do já confirmado por grep). Nenhum indício de que estejam quebrados — o padrão desta reconciliação é "sobrevive ou foi corrigido para melhor" — mas não têm o mesmo nível de verificação dos demais.
 
@@ -1335,6 +1335,18 @@ Nenhum bug funcional encontrado em ~1.700 linhas. Destaques de qualidade real:
 - ✅ Item "ler pela primeira vez" do CHECKLIST: **completo**.
 - ⏳ Falta: reconferir `app.js`/`gameView.js`/`homeView.js`/`readerView.js` linha a linha contra `main` (§4o.5) e o rabo de CSS do `studyView.js` (~610 linhas, baixo risco).
 - ⏸️ `content/engine/*` órfãos: ler somente se a Fase 5 decidir manter.
+
+## 4r. Fase 6 final — reconferência das 4 views por delta (17/07)
+
+Método: em vez de reler ~2.600 linhas, `git diff codex/extension-current..HEAD` sobre `app.js`/`gameView.js`/`homeView.js`/`readerView.js` — a auditoria já validara a base antiga; só o delta (375+/200-) precisava de olhos.
+
+**Veredito: o delta é bom.** O rollout P0.3 trouxe: guarda central de autenticação no `navigate()` (rota de produto sem sessão → login), menu de perfil substituindo o "more" móvel, rotas dos hubs `learn`/`progress` com nav-groups e `aria-current`, `renderRouteFailure` com retry via viewState em TODA rota, e na Prática: `getPracticeWords` exclui cards vencidos (prática livre não ensaia resposta de revisão pendente — pedagogicamente correto) + estados loading/empty/error completos + copy honesta "não altera agendamento, XP, ofensiva ou liga".
+
+**Único resíduo encontrado e corrigido na hora:** `sort(() => 0.5 - Math.random())` em `getPracticeWords` — o mesmo embaralhamento enviesado já corrigido no builder do Estudo. Trocado por Fisher-Yates.
+
+**Rabo de CSS do `studyView.js` (1310-1920) também lido:** controles de clip de vídeo com degradação graciosa (DRM/sem-embed → link no ponto salvo) e chunks. Sem bugs.
+
+**Com isto, a leitura da Fase 6 está completa.** Não-lidos remanescentes no repo: apenas `content/boot.js` (12), `content/injector.js` (23), `content/hbo-inject.js` (61) — infraestrutura de injeção trivial — e trechos internos já cobertos por sessões paralelas (§4i-§4n).
 
 ## 5. O que fica de pé do diagnóstico anterior
 

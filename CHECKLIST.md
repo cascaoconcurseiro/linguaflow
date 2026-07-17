@@ -515,6 +515,6 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 
 ### Fase 6 — Terminar a leitura (menor prioridade — o padrão da sessão foi achado forte por arquivo até aqui, mas os que sobram são infraestrutura de borda, não superfície de produto)
 
-- [ ] Reconferir contra `main` em detalhe: `app.js`, `gameView.js`, `homeView.js`, `readerView.js` (mudaram no rollout P0.3, não foram reabertos linha a linha — §4o.5).
+- [x] (17/07, Claude) Reconferência das 4 views por DELTA (`git diff codex/extension-current..HEAD`, 375+/200-): rollout P0.3 é de qualidade — guarda central de auth, renderRouteFailure com retry, prática exclui cards vencidos. Único resíduo (shuffle enviesado em `getPracticeWords`) corrigido na hora com Fisher-Yates. Rabo de CSS do studyView lido. **Fase 6 completa** (§4r).
 - [x] (17/07, Claude) Ler pela primeira vez: `translator.js`, `ytPlayer.js`, `max-player-ui.js`, `epub.js`, `popup/popup.js`, `youtube-hook.js`, `dashboard/sw.js`, Edge `url-import`/`tts`/`push-reminder`/`email-reengagement` — **~1.700 linhas, ZERO bug funcional** (achados e elogios em §4q). Único alerta: o e-mail de reengajamento aponta para `linguaflow.vercel.app` — **dono verificar em 1 clique se o alias existe no Vercel** (§4q.2).
 - [ ] Ler `content/engine/subtitle-fetcher.js`/`video-adapter.js` e `utils/subtitle-parsers.js` só se a Fase 5 decidir manter em vez de apagar — senão, dispensar.

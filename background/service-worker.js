@@ -2,7 +2,7 @@
 import { db } from '../utils/db.js';
 import { translator } from '../utils/translator.js';
 import { OFFICIAL_SITE_URL, isLinguaFlowUrl } from '../utils/site-boundary.js';
-import { buildStoryVarietyNote, recentStorySnippets } from '../utils/story-variety.js';
+import { buildStoryVarietyNote, buildLevelNote, levelSpecFor, recentStorySnippets } from '../utils/story-variety.js';
 
 // Garbage Collector para limpar dicionários velhos e liberar espaço (QuotaExceeded)
 function _sweepStaleCache() {
@@ -714,25 +714,9 @@ async function fetchWithRetry(url, options, maxRetries = 3) {
 }
 
 async function getApiConfig() {
-  let userKey = '';
-  try {
-    const stored = await chrome.storage.local.get(['aiApiKey']);
-    userKey = stored?.aiApiKey || '';
-  } catch (e) {}
-
-  // BYOK: usuário com chave própria fala direto com o DeepSeek (não gasta a cota compartilhada)
-  if (userKey.trim()) {
-    return {
-      provider: 'deepseek',
-      mode: 'byok',
-      apiKey: userKey.trim(),
-      apiUrl: 'https://api.deepseek.com/chat/completions',
-      model: 'deepseek-chat'
-    };
-  }
-
-  // Sem chave própria: proxy seguro (Edge Function) autenticado com o token de sessão.
-  // A chave DeepSeek compartilhada vive só no servidor (Supabase Secrets).
+  // B1 do backlog (W6.4): BYOK removido. TODA IA passa pelo proxy seguro
+  // (Edge Function deepseek-chat: JWT validado + 20 req/min por usuario).
+  // A chave do projeto vive so em Supabase Secrets — NUNCA no cliente.
   const sessionToken = await db._getToken();
   return {
     provider: 'deepseek',
@@ -782,7 +766,7 @@ async function getPTPhoneticWithAI(word) {
 
     const config = await getApiConfig();
     if (!config.apiKey) {
-      console.warn('[LinguaFlow] Sem sessão nem API key. Não é possível gerar transliteração PT-BR.');
+      console.warn('[LinguaFlow] Sem sessão. Não é possível gerar transliteração PT-BR.');
       return '';
     }
 
@@ -839,7 +823,7 @@ Gere a explicação amigável seguindo a estrutura obrigatória (A ideia aqui, O
 
     const config = await getApiConfig();
     if (!config.apiKey)
-      return 'Faça login no LinguaFlow para usar a IA (ou configure uma chave de API própria nas Configurações).';
+      return 'Faça login no LinguaFlow para usar a IA.';
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
@@ -890,7 +874,7 @@ Gere a explicação amigável seguindo a estrutura obrigatória (A ideia aqui, O
 async function aiChatPassthrough(messages, options = {}) {
   if (!Array.isArray(messages) || messages.length === 0) throw new Error('Mensagens vazias.');
   const config = await getApiConfig();
-  if (!config.apiKey) throw new Error('Faça login no LinguaFlow (ou configure sua API Key própria).');
+  if (!config.apiKey) throw new Error('Faça login no LinguaFlow para usar a IA.');
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 20000);
@@ -923,7 +907,7 @@ async function generateChunksWithAI(word) {
   try {
     if (!word) return [];
     const config = await getApiConfig();
-    if (!config.apiKey) throw new Error('Faça login no LinguaFlow (ou configure sua API Key própria).');
+    if (!config.apiKey) throw new Error('Faça login no LinguaFlow para usar a IA.');
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -1009,7 +993,7 @@ async function analyzeGrammarWithAI(sentence) {
   try {
     if (!sentence) return 'Frase vazia.';
     const config = await getApiConfig();
-    if (!config.apiKey) throw new Error('Faça login no LinguaFlow (ou configure sua API Key própria).');
+    if (!config.apiKey) throw new Error('Faça login no LinguaFlow para usar a IA.');
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -1069,7 +1053,7 @@ async function explainSentenceWithAI(sentence, fullContext = null) {
   try {
     if (!sentence) return 'Frase vazia.';
     const config = await getApiConfig();
-    if (!config.apiKey) throw new Error('Faça login no LinguaFlow (ou configure sua API Key própria).');
+    if (!config.apiKey) throw new Error('Faça login no LinguaFlow para usar a IA.');
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -1263,7 +1247,7 @@ async function generateStoryWithAI(genre) {
     const cefr = await db.getSetting('lf_cefr_level') || 'B1';
     const config = await getApiConfig();
     if (!config.apiKey) {
-      throw new Error('Faça login no LinguaFlow para gerar histórias (ou configure sua chave de API própria).');
+      throw new Error('Faça login no LinguaFlow para gerar histórias.');
     }
 
     const reencounter = await getReencounterWordsSW();
@@ -1274,13 +1258,16 @@ async function generateStoryWithAI(genre) {
     // Bug 17/07 (dono): prompt byte-idêntico gerava sempre a mesma história.
     const recent = recentStorySnippets(await db.getStories(15).catch(() => []), genre);
     const varietyNote = buildStoryVarietyNote(recent);
+    // W5.1: tamanho/estruturas/tokens escalam com o nível do aluno.
+    const levelNote = buildLevelNote(cefr);
+    const spec = levelSpecFor(cefr);
 
     const prompt = `Você é um gerador de histórias curtas para estudantes de inglês.
 Nível do Estudante: CEFR ${cefr}.
 Tema/Gênero da História: ${genre}.
 ${reencounterNote}
 ${varietyNote}
-Por favor, escreva uma história curta (cerca de 200 a 300 palavras) em inglês, adequada para o nível ${cefr}.
+${levelNote}
 A história deve conter vocabulário útil e natural, com frases bem construídas.
 Não traduza a história. Apenas escreva a história em inglês, usando quebras de linha normais para parágrafos.
 NÃO use formatação markdown, NÃO coloque um título, apenas o texto da história.`;
@@ -1298,7 +1285,7 @@ NÃO use formatação markdown, NÃO coloque um título, apenas o texto da hist�
           model: config.model,
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.8,
-          max_tokens: 1000,
+          max_tokens: spec.maxTokens,
         }),
       });
     

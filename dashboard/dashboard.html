@@ -34,8 +34,13 @@
           <span class="icon">🎯</span>
           <span id="due-val">0</span>
         </div>
+        <!-- Queixa do dono (17/07): tema e Configurações ficaram escondidos
+             atrás do glifo "◉". Os dois voltam como botões diretos e visíveis;
+             o menu de perfil segue existindo para Sair. -->
+        <button id="topbar-theme-btn" class="topbar-icon-btn" type="button" aria-label="Alternar tema claro/escuro" title="Tema claro/escuro">🌓</button>
+        <button id="topbar-settings-btn" class="topbar-icon-btn" type="button" aria-label="Abrir configurações" title="Configurações">⚙️</button>
         <div class="profile-menu-wrap">
-          <button id="profile-menu-toggle" class="profile-menu-toggle" type="button" aria-label="Abrir perfil e configurações" aria-haspopup="menu" aria-expanded="false">◉</button>
+          <button id="profile-menu-toggle" class="profile-menu-toggle" type="button" aria-label="Abrir menu do perfil" aria-haspopup="menu" aria-expanded="false" title="Perfil">◉</button>
           <div id="profile-menu" class="profile-menu" role="menu" hidden>
             <button type="button" role="menuitem" data-route="settings">Configurações</button>
             <button type="button" role="menuitem" id="theme-toggle-btn">Alternar tema</button>

@@ -2,6 +2,7 @@
 import { db as lfDb } from '../../../utils/db.js';
 import {
   buildPlacementTest, scorePlacement, shuffleItem, LEVELS,
+  sampleClozeItems, sampleListeningItems,
   CLOZE_BANK, LISTENING_BANK, clozeStartBand, scoreClozeLadder, clozePassThreshold,
   levelIndex, listeningBands, scoreListening, combinePlacement, writingPromptFor,
 } from '../core/placement.js';
@@ -80,7 +81,7 @@ export async function runPlacementTest(app, onDone) {
     const ladder = LEVELS.slice(levelIndex(clozeStartBand(vocabResult.level)));
     const results = []; // [{band, correct, total}]
     let bandIdx = 0, itemIdx = 0, bandCorrect = 0;
-    let items = CLOZE_BANK[ladder[0]].map(i => shuffleItem(i));
+    let items = sampleClozeItems(ladder[0]).map(i => shuffleItem(i));
 
     function showCloze() {
       const band = ladder[bandIdx];
@@ -101,7 +102,7 @@ export async function runPlacementTest(app, onDone) {
           // ADAPTATIVO: passou (60%+) → sobe uma banda; falhou → para
           if (bandCorrect >= clozePassThreshold(items.length) && bandIdx < ladder.length - 1) {
             bandIdx++; itemIdx = 0; bandCorrect = 0;
-            items = CLOZE_BANK[ladder[bandIdx]].map(i => shuffleItem(i));
+            items = sampleClozeItems(ladder[bandIdx]).map(i => shuffleItem(i));
             showCloze();
           } else {
             startListening(vocabResult, scoreClozeLadder(results));
@@ -117,7 +118,7 @@ export async function runPlacementTest(app, onDone) {
   // ── FASE 3: listening ──────────────────────────────────────────────────────
   function startListening(vocabResult, clozeLevel) {
     const bands = listeningBands(clozeLevel);
-    const items = bands.flatMap(b => LISTENING_BANK[b].map(i => shuffleItem({ ...i, band: b })));
+    const items = bands.flatMap(b => sampleListeningItems(b).map(i => shuffleItem({ ...i, band: b })));
     let lIdx = 0, lCorrect = 0;
 
     function showListening() {
@@ -239,12 +240,10 @@ export async function runPlacementTest(app, onDone) {
 }
 
 export async function renderSettings(container, app) {
-  // Carrega API key salva
-  let savedApiKey = '';
-  try {
-    const stored = await chrome.storage.local.get(['aiApiKey']);
-    savedApiKey = stored?.aiApiKey || '';
-  } catch(e) {}
+  // B1 do backlog (W6.4): BYOK removido — a IA passa SEMPRE pela Edge
+  // Function com rate-limit por usuario; a chave do projeto vive so em
+  // Supabase Secrets. Limpa a chave pessoal orfa de instalacoes antigas.
+  try { await chrome.storage.local.remove('aiApiKey'); } catch (e) { /* web */ }
   // TODAS as chaves aqui são as MESMAS que o motor lê em getSRSSettings().
   // (Bug da auditoria: a tela salvava lf_srs_* e o motor lia outras chaves —
   // o usuário mexia, via "Salvo ✅" e nada mudava.)
@@ -458,17 +457,7 @@ export async function renderSettings(container, app) {
         </div>
       </div>
 
-      <!-- AI / DeepSeek API Key -->
-      <div style="background: var(--color-surface); border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px;">
-        <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 8px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">🤖 Inteligência Artificial (DeepSeek)</h2>
-        <p style="color:var(--color-text-light); margin-bottom:16px; font-size:14px;">Insira sua chave de API do DeepSeek para ativar a geração de histórias, explicações e chunking automático. Obtenha em <a href="https://platform.deepseek.com" target="_blank" style="color:var(--color-primary);">platform.deepseek.com</a>.</p>
-        <div style="display:flex; gap:10px; align-items:center;">
-          <input type="password" id="ai-api-key-input" placeholder="sk-..." value="${savedApiKey}" style="flex:1; padding:12px 16px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); font-size:14px; background:var(--color-bg-alt); color:var(--color-text);">
-          <button id="btn-toggle-key" style="padding:12px 14px; border:2px solid var(--color-border); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text); cursor:pointer; font-size:16px;" title="Mostrar/ocultar">👁️</button>
-        </div>
-        <p id="api-key-status" style="font-size:12px; margin-top:8px; color:${savedApiKey ? '#58cc02' : '#afafaf'};">${ savedApiKey ? '✅ Chave configurada' : '⚠️ Nenhuma chave configurada'}</p>
-        <button id="btn-save-api-key" class="btn btn-primary" style="margin-top:16px; width:100%;">Salvar Chave de API</button>
-      </div>
+      <!-- B1: secao BYOK removida — IA e automatica via Edge Function -->
 
       <!-- Lembretes (Web Push REAL — opt-in explícito) -->
       <div id="push-section" style="background: var(--color-surface); border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px; display:none;">
@@ -562,7 +551,7 @@ export async function renderSettings(container, app) {
     group('Memória', 'Retenção e passos de aprendizagem', ['Motor de Memória (FSRS v4)']),
     group('Som e lembretes', 'Áudio, notificações e resumo', ['Opções de Áudio (TTS Google Neural)', '🔔 Lembretes diários', '📧 Resumo por e-mail']),
     group('Dados e conta', 'Exportação, backup e sessão', ['Dados e Portabilidade', 'Conta']),
-    group('Avançado', 'SRS detalhado, perfis e integrações', ['SRS Avançado (Nível Anki)', 'Perfis de SRS por Categoria', '🤖 Inteligência Artificial (DeepSeek)'], { advanced: true }),
+    group('Avançado', 'SRS detalhado, perfis e integrações', ['SRS Avançado (Nível Anki)', 'Perfis de SRS por Categoria'], { advanced: true }),
   ];
   settingsPage.querySelectorAll(':scope > div').forEach(node => {
     if (node !== saveBar && !groups.some(section => section.contains(node))) node.remove();
@@ -648,29 +637,6 @@ export async function renderSettings(container, app) {
       btn.style.fontWeight = '800';
       await lfDb.setSetting('lf_tts_speed', btn.dataset.speed);
     });
-  });
-
-  // API Key: toggle show/hide
-  document.getElementById('btn-toggle-key').addEventListener('click', () => {
-    const input = document.getElementById('ai-api-key-input');
-    input.type = input.type === 'password' ? 'text' : 'password';
-  });
-
-  // API Key: salvar
-  document.getElementById('btn-save-api-key').addEventListener('click', async () => {
-    const btn = document.getElementById('btn-save-api-key');
-    const key = document.getElementById('ai-api-key-input').value.trim();
-    const statusEl = document.getElementById('api-key-status');
-    btn.innerHTML = '<span class="lf-spin"></span> Salvando...';
-    try {
-      await chrome.storage.local.set({ aiApiKey: key });
-      statusEl.textContent = key ? '✅ Chave configurada' : '⚠️ Nenhuma chave configurada';
-      statusEl.style.color = key ? '#58cc02' : '#afafaf';
-      app.showToast('Chave de API salva! A IA está pronta. 🚀', 'success');
-    } catch(e) {
-      app.showToast('Erro ao salvar a chave. Tente recarregar.', 'error');
-    }
-    setTimeout(() => btn.innerHTML = 'Salvar Chave de API', 600);
   });
 
   const retentionSlider = document.getElementById('retention-slider');
@@ -856,7 +822,27 @@ export async function renderSettings(container, app) {
         lines.push(`${front}\t${back}\t${tags}`);
       });
       downloadFile(lines.join('\n'), 'linguaflow_anki.txt', 'text/plain;charset=utf-8');
-      flashExportMsg(`${words.length} notas exportadas pro Anki!`);
+
+      // B7 do backlog (W8.1): o TSV leva as palavras mas deixava a MEMÓRIA
+      // pra trás — sem stability/difficulty/due, anos de agendamento evaporam
+      // na migração. Segundo arquivo com o estado completo do FSRS.
+      try {
+        const cards = await lfDb.getAllCards();
+        const wordById = {};
+        words.forEach(w => { wordById[w.id] = w; });
+        const schedRows = ['word\tstatus\tstability\tdifficulty\tdue_date\tinterval\treps\tlapses\tintroduced_at'];
+        (cards || []).forEach(c => {
+          const w = wordById[c.word_id];
+          if (!w) return;
+          schedRows.push([clean(w.word), c.status || '', c.stability ?? '', c.difficulty ?? '',
+            c.due_date || '', c.interval ?? '', c.reps ?? 0, c.lapses ?? 0, c.introduced_at || ''].join('\t'));
+        });
+        downloadFile(schedRows.join('\n'), 'linguaflow_agendamento.tsv', 'text/tab-separated-values;charset=utf-8');
+      } catch (schedErr) {
+        console.warn('[Export] Agendamento não exportado:', schedErr);
+      }
+
+      flashExportMsg(`${words.length} notas exportadas pro Anki (com arquivo de agendamento FSRS)!`);
     } catch(e) {
       console.error(e);
       app.showToast('Erro ao exportar pro Anki.', 'error');

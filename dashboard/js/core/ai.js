@@ -3,7 +3,7 @@
 // Na web (Vercel): chama a Edge Function segura direto com o token de sessão.
 
 import { db as lfDb } from '../../../utils/db.js';
-import { buildStoryVarietyNote, recentStorySnippets } from '../../../utils/story-variety.js';
+import { buildStoryVarietyNote, buildLevelNote, levelSpecFor, recentStorySnippets } from '../../../utils/story-variety.js';
 
 const EDGE_URL = 'https://qnutoswrufznztoznlql.supabase.co/functions/v1/deepseek-chat';
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
@@ -204,19 +204,23 @@ export async function generateStoryWeb(genre, onChunk, userWords = []) {
   // recentes do mesmo gênero (mesmo padrão que o quiz já usava).
   const recent = recentStorySnippets(await lfDb.getStories(15).catch(() => []), genre);
   const varietyNote = buildStoryVarietyNote(recent);
+  // W5.1 (queixa do dono): tamanho/estruturas/tokens escalam com o nível —
+  // antes era "200 a 300 palavras" idêntico para A1 e C2.
+  const levelNote = buildLevelNote(cefr);
+  const spec = levelSpecFor(cefr);
   const prompt = `Você é um gerador de histórias curtas para estudantes de inglês.
 Nível do Estudante: CEFR ${cefr}.
 Tema/Gênero da História: ${genre}.
 ${reencounterNote}
 ${varietyNote}
-Por favor, escreva uma história curta (cerca de 200 a 300 palavras) em inglês, adequada para o nível ${cefr}.
+${levelNote}
 A história deve conter vocabulário útil e natural, com frases bem construídas.
 Não traduza a história. Apenas escreva a história em inglês, usando quebras de linha normais para parágrafos.
 NÃO use formatação markdown, NÃO coloque um título, apenas o texto da história.`;
 
   const story = await aiChatStream(
     [{ role: 'user', content: prompt }],
-    { temperature: 0.8, max_tokens: 900 },
+    { temperature: 0.8, max_tokens: spec.maxTokens },
     onChunk
   );
   return { story, level: cefr, requestedWords: reencounter };

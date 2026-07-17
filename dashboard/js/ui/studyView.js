@@ -39,6 +39,7 @@ const feedbackAudioContexts = new Set();
 const cardPresentationIds = new WeakMap();
 let nextCardPresentationId = 0;
 let audioUiToken = 0;
+let studentCefr = null;      // nivel CEFR (trava de ditado longo p/ A1-A2)
 let shadowingBusy = false;   // uma gravação por vez
 let shadowingPinned = false; // mic clicado: o auto-hide de 3s não engole a gravação
 
@@ -110,14 +111,16 @@ export async function renderStudy(container, app, params = {}) {
   if (!studyViewActive || viewGeneration !== studyViewGeneration) return;
   gradeBusy = false;
   try {
-    const [reverseRaw, variedRaw, audioFrontRaw, audioBackRaw, srs] = await Promise.all([
+    const [reverseRaw, variedRaw, audioFrontRaw, audioBackRaw, srs, cefrNow] = await Promise.all([
       lfDb.getSetting('lf_reverse_cards').catch(() => null),
       lfDb.getSetting('lf_varied_exercises').catch(() => null),
+      getCefrLevel().catch(() => null),
       lfDb.getSetting('lf_audio_auto_front').catch(() => null),
       lfDb.getSetting('lf_audio_auto_back').catch(() => null),
       lfDb.getSRSSettings(),
     ]);
     reverseEnabled = reverseRaw === true || reverseRaw === 'true';
+    studentCefr = cefrNow || null;
     variedEnabled = variedRaw === null || variedRaw === true || variedRaw === 'true';
     audioAutoFront = audioFrontRaw === null || audioFrontRaw === true || audioFrontRaw === 'true';
     audioAutoBack = audioBackRaw === null || audioBackRaw === true || audioBackRaw === 'true';
@@ -772,22 +775,29 @@ async function loadNextCard(app) {
   const graduated = card.status === 'review' || card.status === 'mature';
   if (graduated) {
     const wordCount = context.split(/\s+/).length;
+    // A3 do backlog: A1/A2 nao recebem ditado de frase longa.
+    const dictationMax = (studentCefr === 'A1' || studentCefr === 'A2') ? 6 : 12;
     const canBuild = variedEnabled && wordCount >= 3 && wordCount <= 12;
-    const canDictate = variedEnabled && wordCount >= 2 && wordCount <= 12;
+    const canDictate = variedEnabled && wordCount >= 2 && wordCount <= dictationMax;
     // Termo fraco → produção guiada, uma recuperação mais ativa que uma
     // escolha simples, sem prometer domínio ou fixação.
     if (isWeakCard(card) && (canBuild || canDictate)) {
       card._mode = canBuild ? 'builder' : 'dictation';
     } else {
-      const roll = Math.random();
-      if (reverseEnabled && roll < 0.3) {
-        card._mode = 'reverse';
-        card._reverse = true;
-      } else if (canBuild && roll < 0.55) {
-        card._mode = 'builder';
-      } else if (canDictate && roll < 0.75) {
-        card._mode = 'dictation';
+      // A3: rotacao deterministica por encontro (reps % 4) — o Math.random
+      // podia dar ditado 3x seguidas e nunca producao; a rotacao cobre as
+      // 4 modalidades em 4 encontros, caindo pra proxima se indisponivel.
+      const cycle = ['classic', 'builder', 'dictation', 'reverse'];
+      const available = (m) => m === 'classic'
+        || (m === 'builder' && canBuild)
+        || (m === 'dictation' && canDictate)
+        || (m === 'reverse' && reverseEnabled);
+      const start = (card.reps || 0) % cycle.length;
+      for (let step = 0; step < cycle.length; step++) {
+        const candidate = cycle[(start + step) % cycle.length];
+        if (available(candidate)) { card._mode = candidate; break; }
       }
+      card._reverse = card._mode === 'reverse';
     }
   }
 
@@ -881,16 +891,39 @@ function normalizeAnswer(s) {
   return String(s || '').toLowerCase().replace(/[^a-z0-9' ]/g, '').replace(/\s+/g, ' ').trim();
 }
 
-function exerciseFinish(correct, context) {
+// Distancia de edicao para o "quase" do ditado (A2): typo de 1-2 letras
+// mede TECLADO, nao audicao — nao pode virar lapso no FSRS.
+function levenshtein(a, b) {
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const curr = [i];
+    for (let j = 1; j <= b.length; j++) {
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = curr;
+  }
+  return prev[b.length];
+}
+
+// result: true (acertou) | 'almost' (typo — libera Dificil/Bom) | false (errou)
+function exerciseFinish(result, context) {
   if (!currentCard || currentCard._exerciseFinished) return;
   currentCard._exerciseFinished = true;
+  const correct = result === true;
+  const almost = result === 'almost';
   const sentenceEl = document.getElementById('pump-sentence');
   const feedback = correct
     ? `<div style="color:var(--color-primary); font-weight:900; font-size:22px; margin-bottom:12px;">✅ Perfeito!</div>`
-    : `<div style="color:var(--color-danger); font-weight:900; font-size:22px; margin-bottom:12px;">A resposta era:</div>`;
+    : almost
+      ? `<div style="color:var(--color-warning, #ff9600); font-weight:900; font-size:22px; margin-bottom:12px;">🟡 Quase! So a grafia:</div>`
+      : `<div style="color:var(--color-danger); font-weight:900; font-size:22px; margin-bottom:12px;">A resposta era:</div>`;
   const nextInstruction = correct
     ? 'Como foi? Escolha Difícil, Bom ou Fácil para continuar.'
-    : 'Confirme Errei para continuar.';
+    : almost
+      ? 'Você entendeu — o erro foi de digitação, não de audição. Escolha Difícil ou Bom.'
+      : 'Confirme Errei para continuar.';
   sentenceEl.innerHTML = `${feedback}<div style="font-size:26px;">${context}</div><div class="exercise-grade-prompt">${nextInstruction}</div>`;
   const status = document.getElementById('study-status');
   if (status) status.textContent = correct
@@ -901,10 +934,14 @@ function exerciseFinish(correct, context) {
   revealCard();
   document.querySelectorAll('.grade-btn').forEach(btn => {
     const grade = Number(btn.dataset.grade);
-    btn.classList.toggle('hidden', correct ? grade === 1 : grade !== 1);
+    let hide;
+    if (correct) hide = grade === 1;                     // acerto: Dificil/Bom/Facil
+    else if (almost) hide = grade === 1 || grade === 4;  // quase: Dificil/Bom
+    else hide = grade !== 1;                             // erro real: so Errei
+    btn.classList.toggle('hidden', hide);
   });
   scheduleStudyTask(() => document.querySelector('.grade-btn:not(.hidden):not(:disabled)')?.focus({ preventScroll: true }));
-  if (correct) playCurrentAudio();
+  if (correct || almost) playCurrentAudio();
 }
 
 // Montar frase (word bank estilo Duolingo): tradução PT + chips EN embaralhados
@@ -915,7 +952,15 @@ function renderBuilder(card, context) {
   const ctxEntry = (card._chunks || []).find(c => c.is_context && c.pt);
   const pt = (ctxEntry && ctxEntry.pt) || '';
   const tokens = context.replace(/[.!?,;:]+$/, '').split(/\s+/);
-  const shuffled = [...tokens].sort(() => 0.5 - Math.random());
+  // B2: Fisher-Yates + rejeita permutacao identica (o sort enviesado as
+  // vezes entregava a frase ja na ordem certa).
+  const shuffled = [...tokens];
+  do {
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+  } while (tokens.length > 2 && shuffled.join(' ') === tokens.join(' '));
 
   sentenceEl.innerHTML = `
     <div style="font-size:14px; font-weight:800; color:var(--color-secondary); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">🧩 Monte a frase em inglês</div>
@@ -985,7 +1030,15 @@ function renderDictation(card, context) {
 
   const input = document.getElementById('ex-input');
   scheduleStudyTask(() => input.focus(), 100);
-  const check = () => exerciseFinish(normalizeAnswer(input.value) === normalizeAnswer(context), context);
+  const check = () => {
+    const got = normalizeAnswer(input.value);
+    const want = normalizeAnswer(context);
+    if (got === want) return exerciseFinish(true, context);
+    const dist = levenshtein(got, want);
+    // quase: <=2 edicoes OU <=10% do comprimento — typo nunca vira lapso (A2)
+    const almost = dist > 0 && (dist <= 2 || dist <= Math.ceil(want.length * 0.1));
+    exerciseFinish(almost ? 'almost' : false, context);
+  };
   document.getElementById('ex-check').addEventListener('click', check);
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') check(); });
 }

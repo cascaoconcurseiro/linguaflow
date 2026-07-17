@@ -54,6 +54,9 @@ export const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 // por gramática/leitura/escuta/produção, não por lista de palavras.
 export const CLOZE_BANK = {
   A1: [
+    { sentence: 'I ___ from Brazil.', options: ['am', 'is', 'are', 'be'], answer: 0 },
+    { sentence: 'She ___ two brothers.', options: ['has', 'have', 'is', 'are'], answer: 0 },
+    { sentence: '___ is your name?', options: ['What', 'Who', 'How', 'Which'], answer: 0 },
     { sentence: 'She ___ a teacher.', options: ['is', 'are', 'am', 'be'], answer: 0 },
     { sentence: 'I have two ___.', options: ['dogs', 'dog', 'doges', "dog's"], answer: 0 },
     { sentence: '___ you like coffee?', options: ['Do', 'Does', 'Are', 'Is'], answer: 0 },
@@ -61,6 +64,9 @@ export const CLOZE_BANK = {
     { sentence: 'There ___ two cats in the garden.', options: ['are', 'is', 'be', 'am'], answer: 0 },
   ],
   A2: [
+    { sentence: "There isn't ___ milk in the fridge.", options: ['much', 'many', 'few', 'lots'], answer: 0 },
+    { sentence: "You ___ smoke here. It's forbidden.", options: ["mustn't", "don't have to", "couldn't", "wouldn't"], answer: 0 },
+    { sentence: 'She ___ breakfast at seven every day.', options: ['eats', 'eat', 'is eat', 'eating'], answer: 0 },
     { sentence: 'Yesterday I ___ to the beach.', options: ['went', 'go', 'gone', 'going'], answer: 0 },
     { sentence: 'She is ___ than her brother.', options: ['taller', 'tall', 'more tall', 'tallest'], answer: 0 },
     { sentence: 'We ___ TV when he arrived.', options: ['were watching', 'watch', 'are watching', 'watched'], answer: 0 },
@@ -68,6 +74,9 @@ export const CLOZE_BANK = {
     { sentence: 'You ___ wear a seatbelt in the car.', options: ['must', 'can', 'would', 'may'], answer: 0 },
   ],
   B1: [
+    { sentence: 'I used ___ in London when I was a child.', options: ['to live', 'living', 'to living', 'live'], answer: 0 },
+    { sentence: 'This is the man ___ car was stolen.', options: ['whose', 'who', 'which', 'that'], answer: 0 },
+    { sentence: 'If I ___ you, I would apologize.', options: ['were', 'would be', 'am being', 'be'], answer: 0 },
     { sentence: 'If it rains, we ___ at home.', options: ['will stay', 'stayed', 'would stayed', 'staying'], answer: 0 },
     { sentence: "I've lived here ___ 2010.", options: ['since', 'for', 'from', 'during'], answer: 0 },
     { sentence: 'The report ___ by the team yesterday.', options: ['was written', 'wrote', 'is writing', 'has written'], answer: 0 },
@@ -75,6 +84,9 @@ export const CLOZE_BANK = {
     { sentence: 'By the time we arrived, the movie ___.', options: ['had already started', 'already started', 'has already started', 'was already starting'], answer: 0 },
   ],
   B2: [
+    { sentence: 'She denied ___ the money.', options: ['taking', 'to take', 'take', 'took'], answer: 0 },
+    { sentence: "I'd rather you ___ smoke in here.", options: ["didn't", "don't", "won't", 'not'], answer: 0 },
+    { sentence: 'He talked as if he ___ everything.', options: ['knew', 'knows', 'know', 'is knowing'], answer: 0 },
     { sentence: 'I wish I ___ more time to travel.', options: ['had', 'have', 'would have', 'has'], answer: 0 },
     { sentence: 'By next year, she ___ her degree.', options: ['will have finished', 'finishes', 'is finishing', 'has finished'], answer: 0 },
     { sentence: '___ the bad weather, the flight left on time.', options: ['Despite', 'Although', 'However', 'Because'], answer: 0 },
@@ -82,6 +94,9 @@ export const CLOZE_BANK = {
     { sentence: 'He suggested ___ the meeting until Friday.', options: ['postponing', 'to postpone', 'postpone', 'postponed'], answer: 0 },
   ],
   C1: [
+    { sentence: 'Only after the meeting ___ the real problem.', options: ['did we understand', 'we understood', 'we did understand', 'understood we'], answer: 0 },
+    { sentence: 'The project was shelved, ___ to lack of funding.', options: ['owing', 'because', 'despite', 'granted'], answer: 0 },
+    { sentence: 'No sooner had he arrived ___ the trouble began.', options: ['than', 'when', 'that', 'as'], answer: 0 },
     { sentence: 'Not until the results came in ___ the scale of the problem.', options: ['did we grasp', 'we grasped', 'we did grasp', 'grasped we'], answer: 0 },
     { sentence: 'The proposal was turned down, ___ came as no surprise.', options: ['which', 'what', 'that', 'it'], answer: 0 },
     { sentence: 'He was on the ___ of resigning when the offer arrived.', options: ['verge', 'border', 'limit', 'margin'], answer: 0 },
@@ -89,6 +104,9 @@ export const CLOZE_BANK = {
     { sentence: 'She has a tendency ___ things out of proportion.', options: ['to blow', 'blowing', 'blow', 'blown'], answer: 0 },
   ],
   C2: [
+    { sentence: 'So absurd ___ that nobody believed it.', options: ['was the claim', 'the claim was', 'was claim the', 'the was claim'], answer: 0 },
+    { sentence: 'He would sooner resign ___ accept those terms.', options: ['than', 'that', 'to', 'but'], answer: 0 },
+    { sentence: 'Scarcely ___ the door when the alarm went off.', options: ['had she opened', 'she had opened', 'she opened', 'did she opened'], answer: 0 },
     { sentence: 'Little ___ that the decision would cost him his career.', options: ['did he know', 'he knew', 'he did know', 'knew he'], answer: 0 },
     { sentence: 'The committee\'s findings, ___ they were, failed to sway public opinion.', options: ['damning as', 'as damning', 'damning that', 'so damning'], answer: 0 },
     { sentence: 'It was ___ that he eventually admitted his mistake.', options: ['not until much later', 'until much later', 'not later much', 'until not later'], answer: 0 },
@@ -100,36 +118,48 @@ export const CLOZE_BANK = {
 // Listening: a frase é FALADA (TTS); o aluno escolhe o sentido em português.
 export const LISTENING_BANK = {
   A1: [
+    { sentence: 'How much is this?', options: ['Quanto custa isso?', 'Que dia é hoje?', 'Onde você mora?', 'O que é isso?'], answer: 0 },
+    { sentence: 'See you tomorrow.', options: ['Até amanhã.', 'Vejo você sempre.', 'Boa noite.', 'Bem-vindo.'], answer: 0 },
     { sentence: 'Where is the bathroom?', options: ['Onde fica o banheiro?', 'Que horas são?', 'Quanto custa isso?', 'Qual é o seu nome?'], answer: 0 },
     { sentence: "I'm hungry.", options: ['Estou com fome.', 'Estou com sono.', 'Estou atrasado.', 'Estou feliz.'], answer: 0 },
     { sentence: 'What time is it?', options: ['Que horas são?', 'Onde você está?', 'Quem é você?', 'Como você está?'], answer: 0 },
     { sentence: 'I like this song.', options: ['Eu gosto dessa música.', 'Eu conheço essa música.', 'Eu escrevi essa música.', 'Eu odeio essa música.'], answer: 0 },
   ],
   A2: [
+    { sentence: 'Can I try this on?', options: ['Posso experimentar isto?', 'Posso comprar isto?', 'Você pode tentar de novo?', 'Posso ligar mais tarde?'], answer: 0 },
+    { sentence: 'The meeting was moved to Friday.', options: ['A reunião foi transferida para sexta.', 'A reunião foi cancelada na sexta.', 'A reunião começou na sexta.', 'A reunião durou até sexta.'], answer: 0 },
     { sentence: 'Could you speak more slowly, please?', options: ['Você poderia falar mais devagar, por favor?', 'Você pode falar mais alto, por favor?', 'Você pode repetir seu nome?', 'Você poderia escrever isso pra mim?'], answer: 0 },
     { sentence: 'I missed the bus this morning.', options: ['Perdi o ônibus hoje de manhã.', 'Peguei o ônibus hoje de manhã.', 'O ônibus atrasou de manhã.', 'Senti falta do ônibus antigo.'], answer: 0 },
     { sentence: 'She works at a hospital nearby.', options: ['Ela trabalha num hospital perto daqui.', 'Ela mora perto de um hospital.', 'Ela vai visitar um hospital.', 'Ela trabalhou num hospital longe daqui.'], answer: 0 },
     { sentence: "Don't forget to bring your umbrella.", options: ['Não esqueça de trazer seu guarda-chuva.', 'Não esqueça de comprar um guarda-chuva.', 'Lembre de deixar o guarda-chuva.', 'Esqueça o guarda-chuva.'], answer: 0 },
   ],
   B1: [
+    { sentence: 'It took me ages to find a parking spot.', options: ['Demorei uma eternidade pra achar uma vaga.', 'Faz tempo que não estaciono aqui.', 'Achei uma vaga na mesma hora.', 'Meu carro ficou preso no estacionamento.'], answer: 0 },
+    { sentence: 'I ended up staying home all weekend.', options: ['Acabei ficando em casa o fim de semana todo.', 'Saí de casa no fim de semana.', 'Terminei o trabalho em casa.', 'Fiquei sem casa no fim de semana.'], answer: 0 },
     { sentence: "I'm looking forward to seeing you next week.", options: ['Mal posso esperar pra te ver semana que vem.', 'Vou te procurar na semana que vem.', 'Estou olhando pra frente na fila.', 'Talvez eu te veja semana que vem.'], answer: 0 },
     { sentence: "You'd better take an umbrella, just in case.", options: ['É melhor você levar um guarda-chuva, por via das dúvidas.', 'Você comprou um guarda-chuva melhor pro caso.', 'Você deveria devolver o guarda-chuva.', 'Leve a capa de chuva dentro da mala.'], answer: 0 },
     { sentence: 'He apologized for being late to the meeting.', options: ['Ele se desculpou por chegar atrasado na reunião.', 'Ele reclamou de estar atrasado na reunião.', 'Ele cancelou a reunião por atraso.', 'Ele avisou que chegaria atrasado.'], answer: 0 },
     { sentence: "I'm not sure if I can make it tonight.", options: ['Não tenho certeza se vou conseguir ir hoje à noite.', 'Tenho certeza que vou hoje à noite.', 'Não sei fazer isso hoje à noite.', 'Não vou fazer isso essa noite.'], answer: 0 },
   ],
   B2: [
+    { sentence: 'She talked me into joining the gym.', options: ['Ela me convenceu a entrar na academia.', 'Ela falou comigo na academia.', 'Ela me proibiu de ir à academia.', 'Ela entrou na academia comigo.'], answer: 0 },
+    { sentence: "I can't make sense of these instructions.", options: ['Não consigo entender estas instruções.', 'Não posso escrever estas instruções.', 'Estas instruções não têm utilidade.', 'Não quero seguir estas instruções.'], answer: 0 },
     { sentence: "I can't put up with this noise any longer.", options: ['Não aguento mais esse barulho.', 'Não consigo aumentar esse som.', 'Não posso subir com esse barulho.', 'Esse barulho não vai durar muito.'], answer: 0 },
     { sentence: 'It turned out that he had been right all along.', options: ['No fim das contas, ele estava certo o tempo todo.', 'Ele virou à direita o caminho todo.', 'Acabou que ele foi embora cedo.', 'Ele acabou aceitando que errou.'], answer: 0 },
     { sentence: 'The company is bound to face some backlash over this.', options: ['A empresa certamente vai enfrentar alguma reação negativa por isso.', 'A empresa está presa a um contrato por causa disso.', 'A empresa vai processar alguém por causa disso.', 'A empresa evitou qualquer problema com isso.'], answer: 0 },
     { sentence: 'She tends to jump to conclusions too quickly.', options: ['Ela costuma tirar conclusões precipitadas rápido demais.', 'Ela costuma pular etapas do trabalho.', 'Ela evita concluir as coisas rápido.', 'Ela sempre conclui tudo com calma.'], answer: 0 },
   ],
   C1: [
+    { sentence: 'The deal fell through at the last minute.', options: ['O acordo fracassou no último minuto.', 'O acordo foi fechado no último minuto.', 'O acordo caiu de preço no fim.', 'O acordo atrasou alguns minutos.'], answer: 0 },
+    { sentence: "He's not exactly thrilled about the changes.", options: ['Ele não está nem um pouco animado com as mudanças.', 'Ele está muito empolgado com as mudanças.', 'Ele não sabe exatamente o que mudou.', 'Ele fez as mudanças com precisão.'], answer: 0 },
     { sentence: 'Had I known about the meeting, I would have attended.', options: ['Se eu soubesse da reunião, eu teria ido.', 'Eu sabia da reunião e fui.', 'Quando souber da reunião, eu vou.', 'Eu deveria ter marcado a reunião.'], answer: 0 },
     { sentence: "She's by no means the only one who feels that way.", options: ['Ela não é, de forma alguma, a única que se sente assim.', 'Ela não tem meios de se sentir assim.', 'Com certeza só ela se sente assim.', 'Ela quase nunca se sente desse jeito.'], answer: 0 },
     { sentence: 'The negotiations broke down amid mounting distrust.', options: ['As negociações fracassaram em meio a uma desconfiança crescente.', 'As negociações começaram apesar da desconfiança.', 'As negociações foram adiadas por falta de confiança.', 'As negociações terminaram bem, superando a desconfiança.'], answer: 0 },
     { sentence: 'He has a knack for putting people at ease.', options: ['Ele tem um talento pra deixar as pessoas à vontade.', 'Ele tem o hábito de deixar as pessoas nervosas.', 'Ele sabe colocar as pessoas em apuros.', 'Ele prefere deixar as pessoas sozinhas.'], answer: 0 },
   ],
   C2: [
+    { sentence: 'Her argument, compelling though it was, failed to convince the board.', options: ['O argumento dela, por mais convincente que fosse, não persuadiu o conselho.', 'O argumento dela convenceu o conselho facilmente.', 'O conselho rejeitou o argumento por ser fraco.', 'Ela se recusou a apresentar o argumento.'], answer: 0 },
+    { sentence: 'Little did they suspect what lay ahead.', options: ['Mal suspeitavam do que estava por vir.', 'Eles suspeitavam de tudo que aconteceria.', 'Eles pouco se importavam com o futuro.', 'Nada aconteceu como planejado.'], answer: 0 },
     { sentence: 'The findings, while not conclusive, are nonetheless suggestive of a broader trend.', options: ['As descobertas, embora não conclusivas, ainda assim sugerem uma tendência mais ampla.', 'As descobertas são conclusivas e não sugerem tendência nenhuma.', 'As descobertas foram descartadas por não serem conclusivas.', 'As descobertas confirmam uma tendência já conhecida.'], answer: 0 },
     { sentence: 'It would be remiss of me not to mention his contribution.', options: ['Seria uma falha minha não mencionar a contribuição dele.', 'Seria injusto mencionar a contribuição dele.', 'Eu prefiro não mencionar a contribuição dele.', 'Não é necessário mencionar a contribuição dele.'], answer: 0 },
     { sentence: 'The policy, for all its good intentions, backfired spectacularly.', options: ['A política, apesar de bem-intencionada, fracassou de forma espetacular.', 'A política teve boas intenções e deu muito certo.', 'A política foi cancelada antes de começar.', 'A política funcionou apesar de mal-intencionada.'], answer: 0 },
@@ -152,6 +182,17 @@ export function writingPromptFor(level) {
   if (i <= 1) return WRITING_PROMPTS.beginner;   // A1/A2
   if (i <= 3) return WRITING_PROMPTS.intermediate; // B1/B2
   return WRITING_PROMPTS.advanced;               // C1/C2
+}
+
+// Queixa do dono (17/07): refazer o teste mostrava SEMPRE as mesmas perguntas
+// — os bancos eram fixos e usados por inteiro. Agora cada banda tem 8 itens de
+// cloze e 6 de listening, e cada aplicação SORTEIA um subconjunto.
+export function sampleClozeItems(band, n = 5, rand = Math.random) {
+  return sample(CLOZE_BANK[band] || [], n, rand);
+}
+
+export function sampleListeningItems(band, n = 4, rand = Math.random) {
+  return sample(LISTENING_BANK[band] || [], n, rand);
 }
 
 // Embaralha as opções de um item preservando qual é a correta

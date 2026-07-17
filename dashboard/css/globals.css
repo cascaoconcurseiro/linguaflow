@@ -180,6 +180,8 @@ a { color:var(--color-link); }
   gap: 16px;
 }
 
+.topbar-icon-btn { width:44px; height:44px; border:1px solid var(--color-border); border-radius:50%; background:var(--color-surface); color:var(--color-text); font-size:18px; line-height:1; cursor:pointer; }
+.topbar-icon-btn:hover, .topbar-icon-btn:focus-visible { background:var(--color-bg-alt); }
 .profile-menu-wrap { position:relative; }
 .profile-menu-toggle { width:44px; height:44px; border:1px solid var(--color-border); border-radius:50%; background:var(--color-surface); color:var(--color-text); font:900 18px var(--font-main); cursor:pointer; }
 .profile-menu { position:absolute; right:0; top:calc(100% + 8px); z-index:140; min-width:210px; padding:8px; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); box-shadow:var(--shadow-md); }

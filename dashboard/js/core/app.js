@@ -135,6 +135,12 @@ class App {
     const savedTheme = localStorage.getItem('lf_theme') || 'light';
     this.setTheme(savedTheme);
 
+    // Botões diretos da topbar (queixa 17/07: tema/config escondidos no "◉")
+    document.getElementById('topbar-theme-btn')?.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+      this.setTheme(current === 'light' ? 'dark' : 'light');
+    });
+    document.getElementById('topbar-settings-btn')?.addEventListener('click', () => this.navigate('settings'));
     if (this.themeToggleBtn) {
       this.themeToggleBtn.addEventListener('click', () => {
         const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';

@@ -1444,7 +1444,7 @@ export class WordPopup {
         `;
       } else {
         el.innerHTML =
-          '<span style="color:#f87171;font-size:12px;">Falha ao gerar exemplo. Limite da IA atingido ou sem chave.</span>';
+          '<span style="color:#f87171;font-size:12px;">Falha ao gerar exemplo. Limite da IA atingido ou sem login.</span>';
       }
     } catch (e) {
       console.error('[WordPopup] Erro ao gerar contexto:', e);

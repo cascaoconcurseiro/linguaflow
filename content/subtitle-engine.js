@@ -2259,12 +2259,17 @@ export class SubtitleEngine {
         const freshSaved = new Map();
         const freshKnown = new Set(this.knownWords); // mantém os marcados em sessão
         words.forEach((w) => {
-          const status = cardStatus[w.id];
-          if (status) freshSaved.set(w.word.toLowerCase(), status);
+          // §4d.3: palavra salva SEM card não pode sumir do mapa — antes, o
+          // `if (status)` descartava e `this.savedWords = freshSaved` apagava
+          // a palavra da legenda ao vivo (voltava a cor de "nunca vista").
+          freshSaved.set(w.word.toLowerCase(), cardStatus[w.id] || 'new');
         });
         // Atualiza o mapa em memória também
         this.savedWords = freshSaved;
         renderStats(freshKnown, freshSaved);
+        // Repinta a legenda com os status reais dos cards (learning/review/
+        // mature), que são mais precisos que o 'new' genérico do boot.
+        this._updateSubtitleColors();
       } catch (e) {
         console.warn('[LinguaFlow] Stats: erro ao recarregar do DB', e.message);
       }

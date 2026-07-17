@@ -3323,7 +3323,18 @@ export class SubtitleEngine {
     return text
       .replace(/\[.*?\]/g, '') // Remove [Music], [Laughter]
       .replace(/\(.*?\)/g, '') // Remove (shouting)
+      // §4j.1/§4l.2: entidades HTML decodificadas AQUI, na fonte da cue —
+      // antes só a legenda na tela era consertada (_makeClickable) e o card
+      // recebia "don&#39;t" cru em context_sentence, contaminando frente,
+      // builder, ditado e TTS. Numéricas (dec/hex) + as nomeadas comuns.
+      .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
       .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
       .replace(/\s+/g, ' ') // Unifica espaços
       .trim();
   }

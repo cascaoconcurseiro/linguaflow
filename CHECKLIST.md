@@ -450,6 +450,14 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 
 > Documento canônico: [`docs/AUDITORIA_REAL_2026-07-16.md`](docs/AUDITORIA_REAL_2026-07-16.md) (80% do código lido, reconciliado contra `origin/main` na §4o). PR aberto: `docs/code-audit-2026-07-16` → `main`. Todo item abaixo tem arquivo:linha na auditoria — buscar pela seção citada entre parênteses antes de mexer.
 
+> **ORDEM DE EXECUÇÃO APROVADA PELO DONO (17/07):** `0 → 1 → 2 → 3 → 6 → 4 → 5`.
+> A Fase 6 (terminar a leitura dos 20%) sobe para ANTES das Fases 4 e 5, porque:
+> - **Fase 5 apaga código.** "Órfão" = "ninguém importa" — só se pode afirmar isso sobre código já lido. Os 20% não lidos (`translator.js`, `ytPlayer.js`, `max-player-ui.js`…) podem importar os "órfãos". Apagar antes de ler os vizinhos é o mesmo erro que gerou a W3 inventada.
+> - **Fase 4 são decisões de produto** — ficam melhores com o app inteiro visível (ex.: a decisão do fallback de voz depende de como `max-player-ui`/`ytPlayer` usam TTS).
+> - Fases 1-3 são autossuficientes: vivem em código 100% lido. Podem rodar já.
+>
+> **PROTOCOLO DE DOCUMENTAÇÃO (obrigatório, para o Codex e qualquer sessão paralela):** ao executar qualquer item: (1) marcar `[x]` aqui com a data; (2) registrar o que foi feito + arquivo:linha no `HANDOFF.md` (seção "Execução da auditoria"); (3) se o achado da auditoria se revelar errado durante o conserto, corrigir a seção `§` correspondente em `AUDITORIA_REAL_2026-07-16.md` — o documento canônico nunca pode ficar mentindo. Nenhum item é "feito" sem os 3 passos.
+
 ### Fase 0 — Git (fazer primeiro, é só documentação)
 
 - [ ] Abrir o PR `docs/code-audit-2026-07-16` → `main` (link: github.com/cascaoconcurseiro/linguaflow/pull/new/docs/code-audit-2026-07-16).

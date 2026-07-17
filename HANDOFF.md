@@ -36,9 +36,15 @@ Recarregar a extensão e, num vídeo: (a) salvar palavra de frase longa → Cofr
 
 Shadowing religado: `pronunciationLab` importado (primeiro consumidor em toda a história do módulo), overlay com botão de mic, score + diff palavra a palavra, gravação só por clique, `stop()` em troca de card/rota, cores com fallback. Provado por teste puro (83% em 5/6; ship vs sheep = 0%). **Teste manual do dono pendente** (mic real + caminho de permissão negada) — roteiro no CHECKLIST.
 
-### Próximo passo concreto — Fase 6 (ANTES das Fases 4 e 5)
+### Fase 6 — item principal CONCLUÍDO na mesma sessão (§4q da auditoria)
 
-Terminar a leitura dos ~20% restantes, na ordem do CHECKLIST Fase 6: reconferir `app.js`/`gameView.js`/`homeView.js`/`readerView.js` contra `main` + ler pela primeira vez as 4 views novas de `main` (`learnView.js`, `progressView.js`, `readingHub.js`, `viewState.js`), `statsView.js`, `loginView.js`, `translator.js`, `ytPlayer.js`, `max-player-ui.js`, `epub.js`, `popup/popup.js`, `youtube-hook.js`, `dashboard/sw.js`, Edge Functions (`url-import`, `tts`, `push-reminder`, `email-reengagement`). Registrar achados na auditoria (§ novas) e atualizar §0. **Só depois**: Fase 4 (decisões com o dono) e Fase 5 (deleções).
+Lidos integralmente: `translator.js`, `ytPlayer.js`, `max-player-ui.js`, `epub.js`, `popup/popup.js`, `youtube-hook.js`, `dashboard/sw.js`, Edge `url-import`/`tts`/`push-reminder`/`email-reengagement` (+ releitura das 6 views novas). **~1.700 linhas, zero bug funcional** — este canto do código é bom de verdade (máquina de estados do ytPlayer, SSRF hardening do url-import, tempo constante no cron). Único alerta: **e-mail de reengajamento aponta para `linguaflow.vercel.app` — dono verificar se o alias existe no Vercel; se não, o botão do e-mail dá 404** (§4q.2).
+
+Restam da Fase 6 (baixo risco, próxima sessão): reconferir `app.js`/`gameView.js`/`homeView.js`/`readerView.js` linha a linha contra `main` (§4o.5) e o rabo de CSS do `studyView.js`.
+
+### Próximo passo concreto — Fase 4 (decisões COM O DONO, não codificar antes)
+
+As 7 perguntas estão no CHECKLIST Fase 4 (paleta de daltônicos escondida, `blurSubtitles` sem controle, `lf_auto_backup` morto, `_playWebSpeech` 118 linhas desligadas, `#app-view` inexistente, CEFR de mão única, e o §4d.7 movido da Fase 2). Apresentar as 7 de uma vez ao dono, colher decisões, executar em um commit por decisão. **Fase 5 (deleções) só depois disso** — e avisar o dono sobre os arquivos que o handoff do Codex diz ter preservado de propósito (§4h.1).
 
 ### Regras vivas
 

@@ -1306,6 +1306,36 @@ A ordem correta passa a ser:
 
 ---
 
+## 4q. Fase 6 — leitura dos arquivos de borda (17/07, sessão de execução)
+
+**Lidos integralmente nesta leva:** `utils/translator.js` (170) · `popup/popup.js` (112) · `content/youtube-hook.js` (111) · `dashboard/sw.js` (123) · `dashboard/js/core/ytPlayer.js` (252) · `dashboard/js/core/epub.js` (104) · `content/max-player-ui.js` (229) · Edge Functions `tts` (107), `push-reminder` (78), `email-reengagement` (86), `url-import` (304). Também relidas (duplicando §4-anteriores da sessão paralela, por segurança): as 6 views novas de `main` + `statsView`/`loginView`.
+
+### 4q.1 🟢 Veredito geral: este canto do código é BOM
+
+Nenhum bug funcional encontrado em ~1.700 linhas. Destaques de qualidade real:
+- `ytPlayer.js`: máquina de estados exemplar (requestId + playbackCycle + boundaryHandled; callbacks velhos não cancelam monitores novos).
+- `url-import`: proteção SSRF séria — resolve A/AAAA por conta própria, expande IPv6 (inclusive IPv4-mapped), valida CADA hop de redirect, e documenta com honestidade o risco residual de DNS rebinding.
+- `push-reminder`/`email-reengagement`: comparação de segredo em tempo constante, throttle por assinatura (20h) e por semana, limpeza de subscriptions mortas (404/410), degradação graciosa sem provedor.
+- `dashboard/sw.js`: network-first para código com o incidente real documentado no comentário (JS velho + HTML novo → INSERT direto 403).
+- `translator.js`: dedupe de requests em voo, cache em 2 níveis + dicionário offline, timeouts com AbortController.
+
+### 4q.2 🟡 O e-mail de reengajamento aponta para um domínio possivelmente inexistente
+
+[email-reengagement/index.ts](../supabase/functions/email-reengagement/index.ts): o botão "Estudar agora" leva a `https://linguaflow.vercel.app/study`. O site oficial é `https://linguaflow-web-tau.vercel.app/` (`utils/site-boundary.js:1`). O alias `linguaflow.vercel.app` está na lista de hosts reconhecidos do site-boundary, mas **não há prova de que o alias exista no projeto Vercel** — se não existir, todo e-mail enviado terá um botão 404. **Verificação de 1 clique do dono:** abrir `https://linguaflow.vercel.app/`. Se não resolver, trocar a URL do e-mail para a oficial.
+
+### 4q.3 🟢 Notas menores (não-bugs, registrar e seguir)
+
+- `epub.js` carrega `fflate` de CDN (jsdelivr) em runtime — única dependência externa de script do dashboard; falha graciosa com mensagem. Aceitável; lembrar se um dia houver CSP estrita no site.
+- `max-player-ui.js`: limpo e acessível (toolbar com aria, reduced-motion). O dock vertical à direita segue existindo — trocá-lo por controles que acompanham os nativos é DECISÃO DE PRODUTO (era a W11 do plano suspenso), não bug.
+- `youtube-hook.js` intercepta fetch+XHR no main world com padrões amplos (`.vtt`, `subtitles`) — funciona; sem vazamento aparente (posta só para a própria janela).
+- Edge `tts`: mesmo padrão de segurança do deepseek-chat (JWT real + 60/min + teto de 300 chars).
+
+### 4q.4 Estado da Fase 6 após esta leva
+
+- ✅ Item "ler pela primeira vez" do CHECKLIST: **completo**.
+- ⏳ Falta: reconferir `app.js`/`gameView.js`/`homeView.js`/`readerView.js` linha a linha contra `main` (§4o.5) e o rabo de CSS do `studyView.js` (~610 linhas, baixo risco).
+- ⏸️ `content/engine/*` órfãos: ler somente se a Fase 5 decidir manter.
+
 ## 5. O que fica de pé do diagnóstico anterior
 
 **A tese central sobrevive e ficou mais precisa.** O `evidence` real contém `quality`, `card_before`, `card_after`, `_reward`, `dedupe_key`, `cap_used_before`.

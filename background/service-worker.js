@@ -34,42 +34,9 @@ chrome.alarms.create('srs-reminder', { periodInMinutes: 60 });
 chrome.alarms.create('word-save-sync', { periodInMinutes: 1 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'srs-reminder') { updateBadge(); maybeNotifyDue(); }
+  if (alarm.name === 'srs-reminder') updateBadge(); // updateBadge dispara a notificacao real
   if (alarm.name === 'word-save-sync') syncPendingWordSaves();
 });
-
-// Pedido do dono (18/07): notificacao REAL do navegador, nao so o badge.
-// No maximo 1 a cada 20h, e so quando ha revisoes vencidas de verdade.
-async function maybeNotifyDue() {
-  try {
-    const { lf_last_due_notification } = await chrome.storage.local.get('lf_last_due_notification');
-    if (lf_last_due_notification && Date.now() - lf_last_due_notification < 20 * 60 * 60 * 1000) return;
-    const due = await db.getCardsDue(200, false);
-    const count = (due || []).length;
-    if (!count) return;
-    await chrome.storage.local.set({ lf_last_due_notification: Date.now() });
-    chrome.notifications.create('lf-due-reminder', {
-      type: 'basic',
-      iconUrl: 'icon128.png',
-      title: 'LinguaFlow — hora de revisar',
-      message: count === 1 ? '1 frase esperando sua memória.' : `${count} frases esperando sua memória.`,
-      priority: 1,
-    });
-  } catch { /* lembrete nunca pode quebrar o worker */ }
-}
-
-chrome.notifications?.onClicked?.addListener((id) => {
-  if (id === 'lf-due-reminder') {
-    chrome.notifications.clear(id);
-    openOrFocusLinguaFlow().catch(() => {});
-  }
-});
-// Fase 4.3 da auditoria (§4j.7): o alarme 'auto-backup' e o runAutoBackup
-// morreram — gravavam um backup que NENHUM código lia, redundante com o
-// backup real de Configurações → Dados, e consumiam cota do chrome.storage.
-// A limpeza abaixo remove o alarme e o dado órfão de instalações antigas.
-chrome.alarms.clear('auto-backup').catch?.(() => {});
-chrome.storage.local.remove(['lf_auto_backup', 'lf_auto_backup_date']);
 
 chrome.runtime.onStartup?.addListener(() => syncPendingWordSaves());
 

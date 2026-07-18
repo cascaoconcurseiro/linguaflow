@@ -129,7 +129,13 @@ Deno.serve(async (req) => {
     if (!response || !response.ok) {
       const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
       if (OPENROUTER_API_KEY) {
-        const fallbackModel = Deno.env.get("OPENROUTER_MODEL") || "deepseek/deepseek-chat-v3-0324:free";
+        // Default verificado no catálogo VIVO em 18/07/2026: os frees famosos
+        // (deepseek/llama/gemini) saíram do tier gratuito. tencent/hy3:free é
+        // o único chat generalista grande restante (295B MoE, 21B ativos =
+        // rápido; 262k de contexto). Para velocidade extrema, trocar via
+        // secret OPENROUTER_MODEL para nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
+        // (3B ativos), ciente do risco de vazar raciocínio nos JSONs.
+        const fallbackModel = Deno.env.get("OPENROUTER_MODEL") || "tencent/hy3:free";
         try {
           const fallback = await callProvider("https://openrouter.ai/api/v1/chat/completions", OPENROUTER_API_KEY, fallbackModel);
           if (fallback.ok) response = fallback;

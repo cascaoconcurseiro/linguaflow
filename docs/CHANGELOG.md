@@ -1,5 +1,12 @@
 # LinguaFlow - Changelog
 
+## 3.0.27 — Explicação contextual reaproveitada no estudo (18/07/2026)
+
+- salva no card a explicação de contexto que já foi gerada no popup;
+- exibe o conteúdo persistido em “Significado nesta frase” após revelar a resposta;
+- não faz nova chamada de IA ao estudar e oculta o bloco em cards sem explicação;
+- converte a resposta em texto seguro antes de armazenar e apresentar.
+
 ## 3.0.26 — Traduções naturais sem mistura de idiomas (18/07/2026)
 
 - detecta traduções persistidas que copiaram expressões inglesas para o texto em português;

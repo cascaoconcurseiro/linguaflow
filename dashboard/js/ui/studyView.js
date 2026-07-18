@@ -377,6 +377,7 @@ export async function renderStudy(container, app, params = {}) {
                     <div id="iso-word"></div>
                     <div id="iso-trans"></div>
                     <div id="iso-phonetics"></div>
+                    <div id="iso-context-explanation" class="hidden"></div>
                     <div id="iso-mnemonic-box">
                       <button id="iso-mnemonic-btn">Criar um truque para lembrar</button>
                       <div id="iso-mnemonic-text" class="hidden"></div>
@@ -1398,6 +1399,10 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
   } else {
     isoPhon.style.display = 'none';
   }
+  const contextExplanation = document.getElementById('iso-context-explanation');
+  const savedExplanation = String(wordData.explanation || '').trim();
+  contextExplanation.textContent = savedExplanation;
+  contextExplanation.classList.toggle('hidden', !savedExplanation);
   isoBox.classList.remove('hidden');
 
   // Onda 3.3: mnemônico por IA — gerado uma vez e salvo no card
@@ -2151,6 +2156,7 @@ function injectStyles() {
     #iso-word { font-size:22px; font-weight:900; color:var(--color-primary); }
     #iso-trans { margin-top:3px; font-size:17px; font-weight:800; color:var(--color-text); }
     #iso-phonetics { margin-top:5px; color:var(--color-secondary); font-style:italic; }
+    #iso-context-explanation { margin-top:12px; padding-top:12px; border-top:1px solid var(--color-border); color:var(--color-text-light); font-size:14px; line-height:1.55; white-space:pre-line; }
     #iso-mnemonic-box { margin-top:10px; }
     #iso-mnemonic-btn { min-height:40px; padding:0; border:0; background:transparent; color:var(--color-secondary); font-weight:900; cursor:pointer; }
     #iso-mnemonic-text { margin-top:8px; padding:10px 12px; border:1px solid var(--color-warning); border-radius:10px; background:rgba(255,200,0,.12); color:var(--color-text); font-size:13px; line-height:1.5; }

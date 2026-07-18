@@ -2,6 +2,18 @@
 
 import { computeMaxPopupLayout } from './max-player-ui.js';
 
+function cleanContextExplanation(value) {
+  return String(value || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\*\*/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/ {2,}/g, ' ')
+    .trim()
+    .slice(0, 4000);
+}
+
 export class WordPopup {
   constructor(engine, platform) {
     this.engine = engine;
@@ -9,6 +21,7 @@ export class WordPopup {
     this.popup = null;
     this.word = '';
     this.context = '';
+    this.contextExplanation = '';
     this.cache = {};
 
     this._gramBuilt = false;
@@ -602,6 +615,7 @@ export class WordPopup {
     this._chunksBuilt = false;
     this._exBuilt = false;
     this._contextExplained = false;
+    this.contextExplanation = '';
 
     // Na Max, legenda e popup vivem no mesmo overlay fixo. Em outros players,
     // mantemos o comportamento local existente.
@@ -1165,6 +1179,9 @@ export class WordPopup {
         phonetic: d.phonetic || '',
         pronunciation_pt: d.pronunciation_pt || this._convertIPAtoPT(d.phonetic || '') || '',
         definition: d.definition || '',
+        // Reutiliza o professor contextual que já rodou no popup. Nenhuma
+        // chamada extra é feita no estudo; o texto segue junto com o card.
+        explanation: this.contextExplanation || '',
         // saveContext = frase completa (sem "..."); this.context é a versão
         // truncada de exibição e fica só como último fallback (§3.2).
         context_sentence: this.saveContext || this.context || '',
@@ -1420,7 +1437,8 @@ export class WordPopup {
       });
 
       if (response?.explanation) {
-        const aiExplanation = response.explanation.replace(/\n/g, '<br>');
+        this.contextExplanation = cleanContextExplanation(response.explanation);
+        const aiExplanation = this._escapeAttr(this.contextExplanation).replace(/\n/g, '<br>');
         el.innerHTML = nativeHtml + aiExplanation;
       } else {
         // Fallback caso a IA falhe

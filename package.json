@@ -33,6 +33,7 @@
     "test:p1-d": "node tests/practice-progress-p1-d.test.mjs",
     "test:auth-ux": "node tests/auth-ux-resilience-p0-p1.test.mjs",
     "test:translation-quality": "node tests/translation-quality.test.mjs",
+    "test:context-explanation": "node tests/context-explanation-persistence.test.mjs",
     "test:production-pedagogy": "node tests/pedagogy-production-cut.test.mjs",
     "test:p0-3": "node tests/user-stats-security-p0-3.test.mjs",
     "test:design-system": "node tests/design-system-stage5.test.mjs",

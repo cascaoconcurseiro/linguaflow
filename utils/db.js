@@ -400,6 +400,7 @@ class Database {
     if (wordData.antonyms !== undefined) payload.antonyms = wordData.antonyms;
     if (wordData.definition !== undefined) payload.definition = wordData.definition;
     if (wordData.pronunciation_pt !== undefined) payload.pronunciation_pt = wordData.pronunciation_pt;
+    if (wordData.explanation !== undefined) payload.explanation = wordData.explanation;
     if (wordData.platform !== undefined) payload.platform = wordData.platform;
     if (wordData.level !== undefined) payload.level = wordData.level;
     if (wordData.snapshot !== undefined) payload.snapshot = wordData.snapshot;

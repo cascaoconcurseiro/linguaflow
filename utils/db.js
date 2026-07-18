@@ -739,8 +739,9 @@ class Database {
     });
 
     const today = localDateKey();
-    const todaySession = sessions.find((s) => s.date === today);
-    const todaySecs = todaySession ? todaySession.seconds : 0;
+    const todaySecs = sessions
+      .filter((session) => session.date === today)
+      .reduce((sum, session) => sum + Number(session.seconds || 0), 0);
     const totalSecs = sessions.reduce((acc, s) => acc + (s.seconds || 0), 0);
 
     const byCEFR = { A1: 0, A2: 0, B1: 0, B2: 0, C1: 0, C2: 0 };
@@ -1278,32 +1279,59 @@ class Database {
   async logSession(seconds, platform) {
     if (this.isProxyMode) return this._proxy('logSession', [seconds, platform]);
     const date = localDateKey();
-    const sessions = await this._fetch(`sessions?date=eq.${date}&limit=1`);
-
-    let after = seconds;
-    if (sessions && sessions.length > 0) {
-      const session = sessions[0];
-      after = (session.seconds || 0) + seconds;
-      await this._fetch(`sessions?id=eq.${session.id}`, {
-        method: 'PATCH',
-        body: { seconds: after }
-      });
-    } else {
-      await this._fetch('sessions', {
-        method: 'POST',
-        body: { date, seconds }
-      });
-    }
+    const source = this._sessionSource(platform);
+    await this._fetch('rpc/log_study_time', {
+      method: 'POST',
+      body: { p_seconds: Math.max(1, Math.min(300, Math.round(seconds))), p_date: date, p_source: source },
+    });
 
     // Tempo assistido continua sendo métrica de atividade. Ele não concede XP:
     // duração enviada pelo cliente não é evidência competitiva verificável.
     return true;
   }
 
+  _sessionSource(platform) {
+    const value = String(platform || '').toLowerCase();
+    if (value === 'reader') return 'reader';
+    if (value === 'review' || value === 'study') return 'review';
+    if (value === 'pwa' || value === 'web') return 'pwa';
+    if (this.isChromeContext && /youtube|netflix|disney|prime|video/.test(value)) return 'video';
+    return this.isChromeContext ? 'extension' : 'pwa';
+  }
+
   async getSessions(days = 30) {
     if (this.isProxyMode) return this._proxy('getSessions', [days]);
     const minDate = localDateKey(addLocalDays(-(Math.max(1, days) - 1)));
     return (await this._fetch(`sessions?date=gte.${minDate}`)) || [];
+  }
+
+  async getReaderTexts() {
+    if (this.isProxyMode) return this._proxy('getReaderTexts', []);
+    return this._fetch('reader_texts?select=id,title,content,source,created_at,updated_at&order=updated_at.desc');
+  }
+
+  async saveReaderText(text) {
+    if (this.isProxyMode) return this._proxy('saveReaderText', [text]);
+    const row = {
+      id: String(text.id),
+      title: String(text.title || 'Texto').slice(0, 300),
+      content: String(text.content || ''),
+      source: text.source || 'pasted',
+      created_at: new Date(text.addedAt || Date.now()).toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const saved = await this._fetch('reader_texts?on_conflict=user_id,id', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+      body: row,
+    });
+    return saved?.[0] || row;
+  }
+
+  async deleteReaderText(id) {
+    if (this.isProxyMode) return this._proxy('deleteReaderText', [id]);
+    await this._fetch(`reader_texts?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
+    return true;
   }
 
   async exportDatabase() {

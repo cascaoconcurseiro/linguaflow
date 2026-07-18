@@ -64,6 +64,44 @@ function saveTexts(texts) {
   localStorage.setItem(TEXTS_KEY, JSON.stringify(texts));
 }
 
+function normalizeText(row) {
+  return {
+    id: String(row.id),
+    title: row.title || 'Texto',
+    content: row.content || '',
+    source: row.source || 'pasted',
+    addedAt: row.created_at ? new Date(row.created_at).getTime() : Number(row.addedAt || Date.now()),
+  };
+}
+
+async function loadSyncedTexts() {
+  const local = loadTexts();
+  const cloud = await lfDb.getReaderTexts();
+  if (!Array.isArray(cloud)) return local;
+
+  // Migração idempotente: só troca o cache depois de todos os textos locais
+  // terem sido confirmados pelo Supabase sob o usuário autenticado.
+  if (local.length) {
+    await Promise.all(local.map((text) => lfDb.saveReaderText({ ...text, source: text.source || 'migration' })));
+    const migrated = await lfDb.getReaderTexts();
+    if (Array.isArray(migrated)) {
+      const texts = migrated.map(normalizeText);
+      saveTexts(texts);
+      return texts;
+    }
+  }
+
+  const texts = cloud.map(normalizeText);
+  saveTexts(texts);
+  return texts;
+}
+
+function escapeText(value) {
+  return String(value).replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[char]);
+}
+
 async function loadStatusSets() {
   knownLemmas = new Set();
   learningLemmas = new Set();
@@ -154,7 +192,13 @@ export async function renderReader(container, app) {
   const statusLoaded = await loadStatusSets();
   container.setAttribute('aria-busy', 'false');
 
-  const texts = loadTexts();
+  let texts;
+  try {
+    texts = await loadSyncedTexts();
+  } catch (error) {
+    console.warn('[Reader] Sincronização indisponível; usando cópia local.', error);
+    texts = loadTexts();
+  }
   container.innerHTML = `
     <div style="padding:clamp(16px, 5vw, 40px); max-width:900px; margin:0 auto; padding-bottom:100px;">
       ${renderReadingHeader('reader')}
@@ -193,7 +237,7 @@ export async function renderReader(container, app) {
           ${texts.length === 0 ? renderViewState({ kind: 'empty', title: 'Você ainda não adicionou textos', message: 'Cole, importe ou experimente o texto de exemplo acima.', compact: true }) : texts.map(t => `
             <div class="rd-item" data-id="${t.id}" style="display:flex; justify-content:space-between; align-items:center; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:14px 18px; margin-bottom:10px; cursor:pointer;">
               <div>
-                <div style="font-weight:800; color:var(--color-text);">${t.title}</div>
+                <div style="font-weight:800; color:var(--color-text);">${escapeText(t.title)}</div>
                 <div style="font-size:12px; color:var(--color-text-light);">${(t.content.match(/[a-zA-Z][a-zA-Z'-]*/g) || []).length} palavras · ${new Date(t.addedAt).toLocaleDateString('pt-BR')}</div>
               </div>
               <button class="rd-del" data-id="${t.id}" style="background:none; border:none; cursor:pointer; font-size:16px;" title="Excluir texto">🗑️</button>
@@ -231,6 +275,7 @@ export async function renderReader(container, app) {
   const view = document.getElementById('reader-view');
   const popup = document.getElementById('rd-popup');
   let popupWord = null;
+  let pendingImportSource = 'pasted';
 
   function hidePopup() {
     popup.classList.add('hidden');
@@ -286,15 +331,21 @@ export async function renderReader(container, app) {
     });
   });
 
-  document.getElementById('rd-add').addEventListener('click', () => {
+  document.getElementById('rd-add').addEventListener('click', async () => {
     const title = document.getElementById('rd-title').value.trim();
     const content = document.getElementById('rd-content').value.trim();
     if (!content) { app.showToast('Cole um texto primeiro.', 'info'); return; }
-    const texts = loadTexts();
-    const t = { id: Date.now().toString(36), title: title || `Texto ${texts.length + 1}`, content, addedAt: Date.now() };
-    texts.unshift(t);
-    saveTexts(texts);
-    openText(t);
+    const t = { id: crypto.randomUUID(), title: title || `Texto ${texts.length + 1}`, content, source: pendingImportSource, addedAt: Date.now() };
+    try {
+      await lfDb.saveReaderText(t);
+      texts.unshift(t);
+      saveTexts(texts);
+      pendingImportSource = 'pasted';
+      openText(t);
+    } catch (error) {
+      console.error('[Reader] Falha ao salvar texto:', error);
+      app.showToast('Não foi possível sincronizar o texto. Tente novamente.', 'error');
+    }
   });
 
   // Onda 3.1: importar por URL — preenche título/texto pro usuário revisar
@@ -311,6 +362,7 @@ export async function renderReader(container, app) {
       const { title, text } = await importFromUrl(url);
       document.getElementById('rd-title').value = title || '';
       document.getElementById('rd-content').value = text || '';
+      pendingImportSource = 'url';
       importStatus.textContent = `✅ Texto importado (${(text.match(/[a-zA-Z][a-zA-Z'-]*/g) || []).length} palavras). Revise abaixo e clique em "Salvar texto".`;
       urlInput.value = '';
     } catch (err) {
@@ -332,6 +384,7 @@ export async function renderReader(container, app) {
       const { title, content } = await parseEpub(buffer);
       document.getElementById('rd-title').value = title || file.name.replace(/\.epub$/i, '');
       document.getElementById('rd-content').value = content || '';
+      pendingImportSource = 'epub';
       importStatus.textContent = `✅ EPUB importado (${(content.match(/[a-zA-Z][a-zA-Z'-]*/g) || []).length} palavras). Revise abaixo e clique em "Salvar texto".`;
     } catch (err) {
       importStatus.textContent = '';
@@ -341,18 +394,24 @@ export async function renderReader(container, app) {
     }
   });
 
-  document.getElementById('rd-list').addEventListener('click', (e) => {
+  document.getElementById('rd-list').addEventListener('click', async (e) => {
     const del = e.target.closest('.rd-del');
     if (del) {
       e.stopPropagation();
-      const texts = loadTexts().filter(t => t.id !== del.dataset.id);
-      saveTexts(texts);
-      renderReader(container, app);
+      try {
+        await lfDb.deleteReaderText(del.dataset.id);
+        texts = texts.filter(t => t.id !== del.dataset.id);
+        saveTexts(texts);
+        renderReader(container, app);
+      } catch (error) {
+        console.error('[Reader] Falha ao excluir texto:', error);
+        app.showToast('Não foi possível excluir o texto sincronizado.', 'error');
+      }
       return;
     }
     const item = e.target.closest('.rd-item');
     if (item) {
-      const t = loadTexts().find(x => x.id === item.dataset.id);
+      const t = texts.find(x => x.id === item.dataset.id);
       if (t) openText(t);
     }
   });

@@ -21,7 +21,7 @@ O LinguaFlow é gratuito para o usuário, mas recursos de tradução, áudio e g
 
 ## Fonte dos dados
 
-O Supabase é a fonte de verdade para vocabulário, cards, revisões, progresso competitivo, histórias, sessões e preferências pedagógicas. Armazenamento local é usado para sessão, cache, preferências específicas do dispositivo e contingência offline.
+O Supabase é a fonte de verdade para vocabulário, cards, revisões, progresso competitivo, histórias, textos do Reader, sessões e preferências pedagógicas. Armazenamento local é usado para sessão, cache, preferências específicas do dispositivo e contingência offline.
 
 A situação completa e as exceções conhecidas estão em [Arquitetura de dados](docs/ARQUITETURA_DADOS.md).
 
@@ -64,7 +64,7 @@ A suíte cobre motor FSRS, concorrência de áudio e vídeo, autenticação, fro
 
 ## Estado do projeto
 
-O produto está em desenvolvimento ativo. Os fluxos principais funcionam, mas ainda há trabalho de consolidação — especialmente sincronizar textos do Web Reader, reduzir documentação histórica e validar continuamente integrações de voz e vídeo nos navegadores suportados.
+O produto está em desenvolvimento ativo. Os fluxos principais funcionam, mas ainda há trabalho contínuo de consolidação — especialmente validar integrações gratuitas de voz e vídeo nos navegadores suportados e remover documentação histórica apenas quando sua substituição estiver comprovada.
 
 Veja [Comece aqui](docs/COMECE_AQUI.md), [Backlog atual](docs/BACKLOG_PRODUTO_2026-07-17.md) e [Changelog](docs/CHANGELOG.md).
 

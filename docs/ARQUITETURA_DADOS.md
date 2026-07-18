@@ -15,13 +15,20 @@ Para dados de conta e progresso, o Supabase deve ser a fonte de verdade. Cópias
 | Estatísticas | `review_log`, `sessions`, `cards` e `user_stats` | nenhum número decorativo; cache é invalidado ao abrir |
 | Histórias salvas | tabela `stories` | espelho limitado para fallback offline |
 | Configurações pedagógicas | tabela `settings` | estado de formulário durante a tela atual |
-| Textos do Web Reader | **localStorage** | única cópia atual — não sincroniza entre dispositivos |
+| Textos do Web Reader | tabela `reader_texts` com RLS | cache local e migração idempotente de textos antigos |
 | Tema, voz e legenda visível | dispositivo/navegador | preferências locais intencionais por enquanto |
 | Traduções e dicionário | serviços externos + cache | cache descartável com validade |
 
-## Exceção prioritária
+## Sincronização do Reader
 
-Os textos adicionados diretamente ao Web Reader ainda existem somente no navegador. Isso significa que podem desaparecer ao limpar dados e não aparecem em outro dispositivo. Para cumprir fonte única em todo conteúdo do usuário, é necessário criar uma tabela autenticada para documentos do Reader, migrar os textos locais uma vez e manter fallback somente leitura quando estiver offline.
+Ao abrir o Reader autenticado, textos antigos de `lf_reader_texts` são enviados
+uma vez para `reader_texts`. A estante passa a ser reconstruída a partir do
+Supabase e a cópia local é apenas contingência de leitura. Inclusões e exclusões
+só são confirmadas na interface depois da gravação no servidor.
+
+O tempo de estudo é somado pela RPC atômica `log_study_time`, separado por
+origem (`extension`, `pwa`, `video`, `review` ou `reader`). As estatísticas somam
+todas as origens, sempre sob o usuário autenticado.
 
 ## O que não deve ir ao banco como verdade
 

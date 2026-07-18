@@ -1371,69 +1371,6 @@ class Database {
     } catch { return { ran: false }; }
   }
 
-  // ── DIAGNÓSTICO DO LINGUISTA (Marco 1 do motor pedagógico) ────────────────
-  // Agrega o review_log dos últimos 30 dias POR palavra/categoria/nível.
-  // É o insumo REAL da análise do "professor" — nada de achismo da IA:
-  // ela recebe números e nomes verdadeiros do aluno.
-  async getDiagnosisData(days = 30) {
-    if (this.isProxyMode) return this._proxy('getDiagnosisData', [days]);
-    const [log, cards, words] = await Promise.all([
-      this.getReviewLog(days),
-      this.getAllCards(),
-      this.getAllWords(),
-    ]);
-
-    const wordByCardId = {};
-    const wordById = {};
-    words.forEach(w => { wordById[w.id] = w; });
-    cards.forEach(c => { wordByCardId[c.id] = wordById[c.word_id] || null; });
-
-    const bucket = () => ({ total: 0, hits: 0 });
-    const byCategory = {};
-    const byLevel = {};
-    const byWord = {};
-
-    (log || []).forEach(r => {
-      const w = wordByCardId[r.card_id];
-      const hit = r.quality >= 2 ? 1 : 0;
-      const cat = (w && w.category) || 'word';
-      const lvl = (w && w.level) || '—';
-      (byCategory[cat] = byCategory[cat] || bucket()).total++;
-      byCategory[cat].hits += hit;
-      (byLevel[lvl] = byLevel[lvl] || bucket()).total++;
-      byLevel[lvl].hits += hit;
-      if (w) {
-        const key = w.word;
-        (byWord[key] = byWord[key] || { ...bucket(), hard: 0 });
-        byWord[key].total++;
-        byWord[key].hits += hit;
-        if (r.quality <= 2) byWord[key].hard++; // Errei ou Difícil
-      }
-    });
-
-    const pct = (b) => b.total ? Math.round((b.hits / b.total) * 100) : null;
-    const strugglingWords = Object.entries(byWord)
-      .filter(([, s]) => s.total >= 2 && (s.hard / s.total) >= 0.5)
-      .sort((a, b) => b[1].hard - a[1].hard)
-      .slice(0, 6)
-      .map(([word, s]) => ({ word, reviews: s.total, hardOrWrong: s.hard }));
-    const solidWords = Object.entries(byWord)
-      .filter(([, s]) => s.total >= 2 && s.hits === s.total && s.hard === 0)
-      .slice(0, 5)
-      .map(([word]) => word);
-
-    return {
-      totalReviews: (log || []).length,
-      retentionByCategory: Object.fromEntries(Object.entries(byCategory).map(([k, v]) => [k, { retention: pct(v), reviews: v.total }])),
-      retentionByLevel: Object.fromEntries(Object.entries(byLevel).map(([k, v]) => [k, { retention: pct(v), reviews: v.total }])),
-      strugglingWords,
-      solidWords,
-      leeches: cards.filter(c => c.is_leech || (c.lapses || 0) >= 4).length,
-      matureCount: cards.filter(c => c.status === 'mature').length,
-      totalWords: words.length,
-    };
-  }
-
   // ── WEB PUSH (opt-in explícito nas Configurações) ─────────────────────────
   async getPushPublicKey() {
     if (this.isProxyMode) return this._proxy('getPushPublicKey', []);

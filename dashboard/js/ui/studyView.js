@@ -208,10 +208,9 @@ export async function renderStudy(container, app, params = {}) {
         .filter(c => !c.suspended && isWeakCard(c) && c.wordData);
       loadedQueue = buildSessionQueue(weakPool, {});
     } else {
-      const [counts, cards, diag] = await Promise.all([
+      const [counts, cards] = await Promise.all([
         lfDb.getTodayCounts(),
         lfDb.getCardsDue(200, true),
-        lfDb.getDiagnosisData(30).catch(() => null),
       ]);
       // LIMITES DIÁRIOS REAIS (paridade Anki): "novas cartas/dia" corta os cards
       // novos além da cota; "revisões máx/dia" limita o tamanho da sessão.
@@ -237,16 +236,9 @@ export async function renderStudy(container, app, params = {}) {
         reviewSeen++;
         return reviewSeen <= revAllowed;
       });
-      // INTERLEAVING (Marco 2 + Onda 1.3): learning primeiro; fracas espaçadas;
-      // novas espalhadas; e a categoria mais fraca do diagnóstico vem à frente.
-      let priorityCategory = null;
-      if (diag && diag.retentionByCategory) {
-        const worst = Object.entries(diag.retentionByCategory)
-          .filter(([, v]) => v.reviews >= 5 && v.retention !== null && v.retention < 80)
-          .sort((a, b) => a[1].retention - b[1].retention)[0];
-        if (worst) priorityCategory = worst[0];
-      }
-      loadedQueue = buildSessionQueue(limited, { priorityCategory });
+      // INTERLEAVING objetivo: learning primeiro, fracas espaçadas e novas
+      // distribuídas, sem diagnóstico textual ou inferência semanal.
+      loadedQueue = buildSessionQueue(limited, {});
     }
   } catch (e) {
     console.error('DB Error:', e);

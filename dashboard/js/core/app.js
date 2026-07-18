@@ -13,7 +13,7 @@ import { renderProgress } from '../ui/progressView.js';
 import { bindViewStateAction, renderViewState } from '../ui/viewState.js';
 import { db } from '../../../utils/db.js';
 
-const CLIENT_BUILD = '3.0.18';
+const CLIENT_BUILD = '3.0.19';
 
 // Uma versão antiga do PWA podia misturar HTML/app novo com db.js antigo.
 // Antes de inicializar qualquer tela, elimina esse estado e recarrega uma vez.

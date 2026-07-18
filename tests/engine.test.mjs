@@ -308,42 +308,6 @@ test('isWeakCard: 3+ lapsos ou leech', () => {
   assert.equal(Q.isWeakCard({ is_leech: true }), true);
 });
 
-await (async () => {
-  // getDiagnosisData: agrega POR palavra/categoria/nível com stubs de rede
-  const origLog = db.getReviewLog, origCards = db.getAllCards, origWords = db.getAllWords;
-  db.getReviewLog = async () => [
-    { card_id: 'c1', quality: 1 }, { card_id: 'c1', quality: 2 },
-    { card_id: 'c2', quality: 3 }, { card_id: 'c2', quality: 4 },
-    { card_id: 'c3', quality: 3 },
-  ];
-  db.getAllCards = async () => [
-    { id: 'c1', word_id: 'w1', lapses: 4, status: 'learning' },
-    { id: 'c2', word_id: 'w2', lapses: 0, status: 'mature' },
-    { id: 'c3', word_id: 'w3', lapses: 0, status: 'review' },
-  ];
-  db.getAllWords = async () => [
-    { id: 'w1', word: 'stick around', category: 'phrasal_verb', level: 'B1' },
-    { id: 'w2', word: 'statement', category: 'word', level: 'B1' },
-    { id: 'w3', word: 'knowing', category: 'word', level: 'A2' },
-  ];
-  try {
-    const d = await db.getDiagnosisData(30);
-    test('getDiagnosisData: retenção por categoria com dados reais', () => {
-      assert.equal(d.retentionByCategory.phrasal_verb.retention, 50);
-      assert.equal(d.retentionByCategory.word.retention, 100);
-      assert.equal(d.totalReviews, 5);
-    });
-    test('getDiagnosisData: aponta a palavra que está sofrendo', () => {
-      assert.equal(d.strugglingWords.length, 1);
-      assert.equal(d.strugglingWords[0].word, 'stick around');
-      assert.ok(d.solidWords.includes('statement'));
-      assert.equal(d.leeches, 1);
-    });
-  } finally {
-    db.getReviewLog = origLog; db.getAllCards = origCards; db.getAllWords = origWords;
-  }
-})();
-
 console.log('── Estatísticas (statsEngine) ──');
 
 test('retentionByDay: agrega por dia local, dias sem revisão ficam null', () => {

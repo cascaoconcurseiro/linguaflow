@@ -1,7 +1,6 @@
 import { lemma } from '../../../utils/lemma.js';
 import { addLocalDays, daysBetweenLocalKeys, localDateKey } from '../../../utils/local-day.js';
 import { runPlacementTest } from './settingsView.js';
-import { generateWeeklyDiagnosis, getCefrLevel } from '../core/ai.js';
 import { computeAchievements, newlyUnlocked } from '../core/achievements.js';
 import { bindViewStateAction, renderViewState } from './viewState.js';
 import { estimateLevelFromHistory } from '../core/levelEstimator.js';
@@ -39,7 +38,6 @@ function organizeHomeSections(container) {
     more.open = true;
     more.innerHTML = '<summary>Metas, memória e conquistas</summary><div class="home-more-body"></div>';
     const moreBody = more.querySelector('.home-more-body');
-    append(moreBody, '#home-today-plan');
     append(moreBody, '.quests-card');
     append(moreBody, '.stats-grid');
     append(moreBody, '#home-memory-insight');
@@ -48,16 +46,6 @@ function organizeHomeSections(container) {
 
     main.replaceChildren(today, next, more);
     sidebar.remove();
-}
-
-// Onda 9 (auditoria de bugs): weakWords[].word vem direto de words.word (o
-// próprio texto salvo pelo usuário, sem sanitização — pode ter vindo de
-// legenda/página capturada) e era interpolado sem escape num innerHTML.
-// Palavra contendo `<`/`>`/`&` quebrava o layout do card "Plano de hoje".
-function escapeHtml(value = '') {
-  return String(value).replace(/[&<>'"]/g, char => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
-  }[char]));
 }
 
 // Onda 9 (auditoria de bugs): renderHome() é async com várias esperas de
@@ -302,7 +290,6 @@ export async function renderHome(container, app) {
     let forecast = [];        // cards vencendo por dia, próximos 7 dias
     let avgReviews7 = 0;      // média de revisões/dia (7 dias) — calibra as missões
     let avgWords7 = 0;
-    let weakWords = [];       // palavras com 3+ lapsos/leech — o "professor" de olho
     let weakCategory = null;   // categoria mais fraca da semana (missão de foco)
     let weakCatReviewsToday = 0;
     let storiesCount = 0;
@@ -377,14 +364,8 @@ export async function renderHome(container, app) {
         dueTomorrow = forecast[0];
         dueWeek = forecast.reduce((a, b) => a + b, 0);
 
-        // Palavras fracas: o insumo do "plano do professor" (leeches em formação)
         const wordById = {};
         (allWords || []).forEach(w => { wordById[w.id] = w; });
-        weakWords = (allCards || [])
-            .filter(c => !c.suspended && ((c.lapses || 0) >= 3 || c.is_leech))
-            .sort((a, b) => (b.lapses || 0) - (a.lapses || 0))
-            .slice(0, 3)
-            .map(c => ({ word: wordById[c.word_id]?.word || '?', lapses: c.lapses || 0 }));
 
         // FRAQUEZA DA SEMANA (Onda 1.2): categoria com pior retenção nos 30d.
         // O diagnóstico do linguista, transformado em missão acionável.
@@ -426,21 +407,7 @@ export async function renderHome(container, app) {
     // salva em words.category é 'phrasal' (mesma unificação de service-worker.js).
     const CAT_LABEL = { phrasal: 'phrasal verbs', idiom: 'expressões (idioms)', slang: 'gírias', word: 'vocabulário' };
 
-    // ── PLANO DO PROFESSOR (dados 100% do banco, zero enfeite) ──────────────
     const dueLearningNow = safeStats.dueLearning || 0;
-    const dueReviewNow = Math.max(0, (safeStats.dueCards || 0) - dueLearningNow);
-    let professorTip;
-    if (retention30 !== null && retention30 < 70) {
-        professorTip = `Sua retenção está em ${retention30}% — hoje o foco é REVISAR o que já existe, não adicionar palavras novas. Qualidade antes de volume.`;
-    } else if (dueReviewNow >= 15) {
-        professorTip = 'A fila cresceu: divida em 2 sessões curtas (agora e à noite). Sessões curtas fixam melhor que uma maratona.';
-    } else if (weakWords.length > 0) {
-        professorTip = `Atenção especial a "${escapeHtml(weakWords[0].word)}" (${weakWords[0].lapses} erros): antes de responder, leia a frase EM VOZ ALTA — produção fixa mais que reconhecimento.`;
-    } else if ((safeStats.dueCards || 0) === 0 && dueTomorrow === 0) {
-        professorTip = 'Tudo em dia! Gere uma história no seu nível, leia com áudio e salve 3 palavras que não conhecia.';
-    } else {
-        professorTip = 'Ritmo saudável. Faça a sessão de hoje e feche com uma história curta — rever a palavra EM CONTEXTO é o que gradua a memória.';
-    }
 
     // ── Missões ADAPTATIVAS ──────────────────────────────────────────────────
     // Alvo = ritmo real do aluno (média 7d) + ~20% de desafio, com piso e teto.
@@ -562,23 +529,6 @@ export async function renderHome(container, app) {
                     </div>
                     <button class="btn btn-primary" id="btn-save-streak" style="padding:10px 18px; font-size:13px;">Salvar ofensiva</button>
                 </div>` : ''}
-                <div id="home-today-plan" style="display:flex; gap:10px; margin-bottom:16px; background:linear-gradient(135deg, rgba(88,204,2,0.08), rgba(28,176,246,0.08)); border:2px solid var(--color-primary); border-radius:var(--radius-md); padding:16px 18px; align-items:flex-start;">
-                    <span style="font-size:26px;">🧑‍🏫</span>
-                    <div style="flex:1;">
-                        <div style="font-weight:900; color:var(--color-text); font-size:14px; margin-bottom:4px;">Plano de hoje
-                            <span style="font-weight:700; color:var(--color-text-light); font-size:12px;">— ${dueReviewNow} ${dueReviewNow === 1 ? 'revisão' : 'revisões'}${dueLearningNow ? ` · ${dueLearningNow} começando` : ''}${weakWords.length ? ` · ${weakWords.length} ${weakWords.length === 1 ? 'termo para reforçar' : 'termos para reforçar'}` : ''}</span>
-                        </div>
-                        <div style="font-size:13px; color:var(--color-text); line-height:1.5;">${professorTip}</div>
-                        ${weakWords.length ? `<div style="font-size:12px; color:var(--color-text-light); margin-top:6px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                            <span>🔎 No radar: ${weakWords.map(w => `<strong>${escapeHtml(w.word)}</strong> (${w.lapses}x)`).join(' · ')}</span>
-                            <button id="btn-study-weak" class="btn btn-secondary" style="padding:4px 12px; font-size:11px;" title="Praticar apenas os termos que precisam de atenção">Reforçar estes termos</button>
-                        </div>` : ''}
-                        <details id="diagnosis-details" style="margin-top:10px;">
-                            <summary style="cursor:pointer; font-size:13px; font-weight:800; color:var(--color-secondary); list-style:none;">🔬 Diagnóstico semanal do linguista <span style="font-weight:600; color:var(--color-text-light);">(clique pra abrir)</span></summary>
-                            <div id="diagnosis-body" style="margin-top:10px; font-size:13px; color:var(--color-text); line-height:1.55;">Carregando…</div>
-                        </details>
-                    </div>
-                </div>
                 <div id="home-memory-insight" style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:24px; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:14px 18px; align-items:center;">
                     <div style="font-weight:800; color:var(--color-text); font-size:14px;">📈 Memória:</div>
                     <div style="font-size:14px; color:var(--color-text-light);">Itens familiares: <strong style="color:var(--color-primary);">${knownFamilies}</strong></div>
@@ -667,59 +617,6 @@ export async function renderHome(container, app) {
     `;
 
     organizeHomeSections(container);
-
-    // ── Diagnóstico do linguista: cache semanal + geração sob demanda ───────
-    // (1x/semana no automático; botão regenera. Gate de 10 revisões: sem dados
-    // suficientes um diagnóstico seria invenção — e aqui nada é decorativo.)
-    const diagDetails = document.getElementById('diagnosis-details');
-    if (diagDetails) {
-        let diagLoaded = false;
-        const renderDiagnosis = (d, generatedAt) => `
-            <div style="background:var(--color-surface); border:2px solid var(--color-border); border-radius:12px; padding:14px;">
-                <div style="font-weight:800; margin-bottom:8px;">${d.resumo}</div>
-                ${(d.forcas || []).length ? `<div style="margin-bottom:6px;"><strong style="color:var(--color-primary);">✔ Forças:</strong> ${(d.forcas || []).join(' · ')}</div>` : ''}
-                ${(d.fraquezas || []).length ? `<div style="margin-bottom:6px;"><strong style="color:#ff9600;">⚠ A trabalhar:</strong> ${(d.fraquezas || []).join(' · ')}</div>` : ''}
-                <div style="margin-bottom:6px;"><strong>📋 Plano da semana:</strong><ol style="margin:4px 0 0 18px; padding:0;">${(d.plano_semana || []).map(p => `<li style="margin-bottom:2px;">${p}</li>`).join('')}</ol></div>
-                ${d.dica_tecnica ? `<div><strong>🧪 Técnica:</strong> ${d.dica_tecnica}</div>` : ''}
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
-                    <span style="font-size:11px; color:var(--color-text-light);">Gerado em ${new Date(generatedAt).toLocaleDateString()}</span>
-                    <button id="btn-rediagnose" style="background:none; border:none; color:var(--color-secondary); font-weight:700; font-size:12px; cursor:pointer;">↻ Atualizar agora</button>
-                </div>
-            </div>`;
-
-        const loadDiagnosis = async (force = false) => {
-            const body = document.getElementById('diagnosis-body');
-            if (!body) return;
-            body.textContent = 'Analisando seus dados…';
-            try {
-                const cachedRaw = force ? null : await db.getSetting('lf_weekly_diagnosis').catch(() => null);
-                let cached = null;
-                try { cached = cachedRaw ? JSON.parse(cachedRaw) : null; } catch { cached = null; }
-                const isFresh = cached?.generatedAt && (Date.now() - new Date(cached.generatedAt).getTime()) < 6.5 * 86400000;
-                if (cached?.diagnosis && isFresh) {
-                    body.innerHTML = renderDiagnosis(cached.diagnosis, cached.generatedAt);
-                } else {
-                    const data = await db.getDiagnosisData(30);
-                    if ((data?.totalReviews || 0) < 10) {
-                        body.innerHTML = `<em style="color:var(--color-text-light);">Ainda faltam dados: você tem ${data?.totalReviews || 0} revisões nos últimos 30 dias — a partir de 10, o linguista consegue apontar padrões reais (não invenção).</em>`;
-                        return;
-                    }
-                    const cefr = await getCefrLevel().catch(() => null);
-                    const diagnosis = await generateWeeklyDiagnosis(data, cefr);
-                    const generatedAt = new Date().toISOString();
-                    db.setSetting('lf_weekly_diagnosis', JSON.stringify({ diagnosis, generatedAt })).catch(() => {});
-                    body.innerHTML = renderDiagnosis(diagnosis, generatedAt);
-                }
-                document.getElementById('btn-rediagnose')?.addEventListener('click', () => loadDiagnosis(true));
-            } catch (e) {
-                console.warn('[Diagnóstico] Falhou:', e);
-                body.innerHTML = '<em style="color:var(--color-danger);">Não consegui gerar o diagnóstico agora (IA indisponível?). Tente de novo em instantes.</em>';
-            }
-        };
-        diagDetails.addEventListener('toggle', () => {
-            if (diagDetails.open && !diagLoaded) { diagLoaded = true; loadDiagnosis(false); }
-        });
-    }
 
     // Events
     document.getElementById('btn-save-streak')?.addEventListener('click', () => {

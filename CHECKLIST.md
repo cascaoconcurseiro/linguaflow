@@ -450,6 +450,15 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 
 
 
+
+## 🧠 A6 + A7 — nível medido do aluno + teto do cofre — ✅ EXECUTADOS (17/07, madrugada; em main)
+
+- [x] A6: `levelEstimator.js` — após 50 tentativas reais, o nível CEFR passa a ser MEDIDO pelo review_log (banda mais alta com ≥10 tentativas e ≥70% retenção, sem pular buraco) e recalibrado 1x/dia na Home (`lf_cefr_source='measured'`). Histórias, exercícios e cores da legenda seguem o nível real. Provado por 3 testes puros.
+- [x] A7: teto do cofre (`lf_vault_cap`, default 300, 0=off) — cofre cheio: palavra nova entra suspensa com `lf:espera` (salvar nunca bloqueia); banner na Home com "Abrir vaga" (aposenta a mais estável com `lf:aposentada` + ativa a mais antiga da fila); campo nas Configurações. Zero migration.
+- [ ] **TESTE MANUAL DO DONO (A7):** colocar teto baixo (ex. 5) nas Configurações → salvar uma 6ª palavra num vídeo → banner "Cofre cheio" na Home → "Abrir vaga" → conferir a troca (uma aposentada, a da fila ativada). Voltar o teto pra 300 (ou 0 pra desligar).
+
+### Fila restante: A8 evidência pedagógica (única com migration) · A9 otimizador FSRS (aguarda volume) · B3-B6 miúdas · C1-C4 decisões visuais do dono.
+
 ## 📖 A4 + arquivar/excluir histórias — ✅ EXECUTADO (17/07, madrugada; em main)
 
 - [x] A4: selo honesto — `readability.js` mede o nível REAL da história pela cefr-wordlist; divergência mostra "pedido B1 · medido B2" (geração e histórico). Provado por teste puro.

@@ -453,6 +453,16 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 
 
 
+
+## 📱 Caça aos bugs do celular (18/07) — ✅ EXECUTADA (em main; suíte verde)
+
+- [x] **Bug raiz do microfone**: o stream de permissão nunca soltava as tracks — mic ligado PARA SEMPRE (nas duas funções). Corrigido na fonte.
+- [x] Mic segurando após a fala: `recognition.stop()` imediato no resultado.
+- [x] Delay morto no clique: '⏳ Preparando…' síncrono; '🎙️ FALE AGORA' só quando o mic liga de verdade.
+- [x] Rótulo enganoso do overlay ('Fale em voz alta' com mic desligado) → 'Treino de fala (opcional)'.
+- [x] Menu ⋯ preso no celular: fecha ao tocar fora, no Esc e ao escolher ação.
+- [ ] **TESTE MANUAL (celular e desktop):** (a) abrir menu ⋯ → tocar fora → fecha; (b) 🎤 → '⏳ Preparando…' aparece NA HORA → 'FALE AGORA' → falar → resultado rápido e indicador de mic da aba APAGA; (c) repetir com internet ruim → modo eco em até 12s.
+
 ## 🧹 Pacote 18/07 — reset de estudo + Tatoeba fora + notificação real + Home expandida + mic sem loop — ✅ EXECUTADO (em main)
 
 - [x] RESET no banco de produção (pedido do dono): 20 cards → 'new' com due hoje, palavras com added_at=hoje, review_log limpo, streak/XP zerados. Confirmado por query.

@@ -449,6 +449,15 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 
 
 
+
+## 📖 A4 + arquivar/excluir histórias — ✅ EXECUTADO (17/07, madrugada; em main)
+
+- [x] A4: selo honesto — `readability.js` mede o nível REAL da história pela cefr-wordlist; divergência mostra "pedido B1 · medido B2" (geração e histórico). Provado por teste puro.
+- [x] Histórias: 🗑 excluir (confirm + banco + cópia local) e 📦 arquivar (settings k/v `lf_archived_stories`, zero migration; toggle "Mostrar arquivadas"; 📤 restaurar).
+- [ ] **TESTE MANUAL DO DONO:** gerar história → selo pode mostrar "pedido X · medido Y"; na aba Ler: arquivar uma (some da lista; aparece o toggle), restaurar, excluir outra (some para sempre).
+
+### Fila restante: A6 nível medido do ALUNO · A7 teto do cofre · A8 evidência (migration) · B3-B6 · C1-C4 (decisões visuais).
+
 ## 🎬 Loop do trecho no Estudo — pré-rolo + ajuste fino persistente — ✅ EXECUTADO (17/07, madrugada; em main)
 
 - [x] Queixa "não pega o momento exato": pré-rolo 0,3s + cauda 0,25s no playback (trecho exato não corta mais a 1ª sílaba) + botões `início −0,5s / início +0,5s / fim +0,5s` que corrigem AO VIVO e GRAVAM no card (`words.video_start/end_ms`) — card antigo "aproximado" vira exato no primeiro acerto. Loop contínuo já era permanente.

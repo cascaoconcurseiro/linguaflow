@@ -101,14 +101,48 @@ Deno.serve(async (req) => {
       });
     }
 
-    const response = await fetch("https://api.deepseek.com/chat/completions", {
+    const callProvider = (url: string, key: string, model: string) => fetch(url, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${DEEPSEEK_API_KEY}`,
+        "Authorization": `Bearer ${key}`,
         "Content-Type": "application/json",
+        ...(url.includes("openrouter")
+          ? { "HTTP-Referer": "https://linguaflow-web-tau.vercel.app", "X-Title": "LinguaFlow" }
+          : {}),
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, model }),
     });
+
+    let response: Response | null = null;
+    let primaryError = "";
+    try {
+      response = await callProvider("https://api.deepseek.com/chat/completions", DEEPSEEK_API_KEY, "deepseek-chat");
+    } catch (e) {
+      primaryError = (e as Error).message;
+    }
+
+    // FALLBACK (pedido do dono, 18/07): DeepSeek fora do ar / sem créditos /
+    // 5xx => OpenRouter com modelo gratuito compatível (OpenAI-style). A
+    // chave vive APENAS em Edge Function Secrets (OPENROUTER_API_KEY) —
+    // nunca no cliente, nunca no repositório. OPENROUTER_MODEL permite
+    // trocar o modelo sem redeploy.
+    if (!response || !response.ok) {
+      const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+      if (OPENROUTER_API_KEY) {
+        const fallbackModel = Deno.env.get("OPENROUTER_MODEL") || "deepseek/deepseek-chat-v3-0324:free";
+        try {
+          const fallback = await callProvider("https://openrouter.ai/api/v1/chat/completions", OPENROUTER_API_KEY, fallbackModel);
+          if (fallback.ok) response = fallback;
+          else if (!response) response = fallback; // devolve o erro do fallback a falta de melhor
+        } catch { /* mantém o resultado primário */ }
+      }
+    }
+
+    if (!response) {
+      return new Response(JSON.stringify({ error: `IA indisponível no momento (${primaryError || "falha de rede"}). Tente de novo em instantes.` }), {
+        status: 502, headers: cors,
+      });
+    }
 
     // STREAMING: repassa o SSE do DeepSeek direto pro cliente sem buffering —
     // a resposta aparece na tela enquanto é gerada (espera percebida ~1s).

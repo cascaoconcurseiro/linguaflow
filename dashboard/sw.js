@@ -1,7 +1,7 @@
 // Service Worker do Web App (Vercel) — estudo offline
 // Estratégias: app shell pré-cacheado; network-first para código;
 // navegação network-first com fallback pro shell; Supabase NUNCA é cacheado.
-const CACHE_NAME = 'linguaflow-v3.0.11';
+const CACHE_NAME = 'linguaflow-v3.0.12';
 
 // URLs como o Vercel serve de verdade (via rewrites de vercel.json)
 const APP_SHELL = [
@@ -12,6 +12,12 @@ const APP_SHELL = [
   '/icons/icon512.png',
   '/icons/icon128.png'
 ];
+
+// Pedido do dono (18/07): o banner "Atualizar" manda esta mensagem; o
+// worker novo assume na hora e o controllerchange do app recarrega a página.
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') self.skipWaiting();
+});
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

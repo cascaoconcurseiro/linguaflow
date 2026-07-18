@@ -13,7 +13,7 @@ import { renderProgress } from '../ui/progressView.js';
 import { bindViewStateAction, renderViewState } from '../ui/viewState.js';
 import { db } from '../../../utils/db.js';
 
-const CLIENT_BUILD = '3.0.11';
+const CLIENT_BUILD = '3.0.12';
 
 // Uma versão antiga do PWA podia misturar HTML/app novo com db.js antigo.
 // Antes de inicializar qualquer tela, elimina esse estado e recarrega uma vez.
@@ -32,11 +32,42 @@ if ('serviceWorker' in navigator && (!window.chrome || !window.chrome.runtime ||
     refreshingForWorker = true;
     window.location.reload();
   });
+  // Pedido do dono (18/07): todos na MESMA versão. Quando um service worker
+  // novo termina de instalar, um banner oferece "Atualizar" — o clique manda
+  // SKIP_WAITING pro worker e o controllerchange acima recarrega a página.
+  const promptUpdate = (worker) => {
+    if (!worker || document.getElementById('lf-update-banner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'lf-update-banner';
+    banner.setAttribute('role', 'status');
+    banner.style.cssText = 'position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:100000;display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:14px;background:var(--color-surface,#fff);border:2px solid var(--color-primary,#58cc02);box-shadow:0 8px 30px rgba(0,0,0,.25);font:700 14px var(--font-main,sans-serif);color:var(--color-text,#333);max-width:92vw;';
+    banner.innerHTML = `
+      <span>✨ Nova versão do LinguaFlow disponível</span>
+      <button type="button" id="lf-update-now" style="min-height:44px;padding:8px 18px;border:0;border-radius:10px;background:var(--color-primary,#58cc02);color:#fff;font:800 14px inherit;cursor:pointer;">Atualizar</button>
+      <button type="button" id="lf-update-later" aria-label="Depois" style="min-width:44px;min-height:44px;border:0;background:none;color:var(--color-text-light,#777);font-size:18px;cursor:pointer;">✕</button>`;
+    document.body.appendChild(banner);
+    document.getElementById('lf-update-now').addEventListener('click', () => {
+      document.getElementById('lf-update-now').textContent = 'Atualizando…';
+      worker.postMessage('SKIP_WAITING');
+    });
+    document.getElementById('lf-update-later').addEventListener('click', () => banner.remove());
+  };
+
   window.addEventListener('load', () => {
     navigator.serviceWorker.register(`sw.js?v=${CLIENT_BUILD}`, { updateViaCache: 'none' })
       .then(reg => {
         reg.update().catch(() => {});
         console.log('[SW] Registrado com sucesso:', reg.scope);
+        // Worker novo já esperando (aba ficou aberta durante um deploy)
+        if (reg.waiting && navigator.serviceWorker.controller) promptUpdate(reg.waiting);
+        reg.addEventListener('updatefound', () => {
+          const incoming = reg.installing;
+          incoming?.addEventListener('statechange', () => {
+            if (incoming.state === 'installed' && navigator.serviceWorker.controller) promptUpdate(incoming);
+          });
+        });
+        // Checagem periódica: pega o deploy mesmo com a aba aberta há horas
+        setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000);
       })
       .catch(err => console.error('[SW] Falha no registro:', err));
   });

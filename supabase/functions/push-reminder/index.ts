@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
   }
 
   // Subject padrão do dono; o secret LF_VAPID_SUBJECT (se existir) sobrescreve
-  const subject = Deno.env.get("LF_VAPID_SUBJECT") || "mailto:wesley.lima@caxias.ifrs.edu.br";
+  const subject = Deno.env.get("LF_VAPID_SUBJECT") || "https://linguaflow-web-tau.vercel.app";
   if (!subject.startsWith("mailto:") && !subject.startsWith("https://")) {
     return json({ error: "vapid_subject_not_configured" }, 503);
   }

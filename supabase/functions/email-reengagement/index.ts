@@ -34,7 +34,7 @@ function emailBody(candidate: { username?: string; streak: number; at_risk: bool
     <h2 style="color:#1a1a1a;">Olá, ${name}!</h2>
     <p style="font-size:16px;color:#333;">${headline}</p>
     <p style="font-size:14px;color:#555;">${body}</p>
-    <a href="https://linguaflow.vercel.app/study" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#58cc02;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;">Estudar agora</a>
+    <a href="https://linguaflow-web-tau.vercel.app/study" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#58cc02;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;">Estudar agora</a>
     <p style="font-size:11px;color:#999;margin-top:24px;">Você recebeu isso porque ativou lembretes por e-mail nas Configurações do LinguaFlow. Pode desativar quando quiser.</p>
   </div>`;
   return { subject: headline, html };

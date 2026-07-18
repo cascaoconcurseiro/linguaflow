@@ -1,5 +1,18 @@
 # LinguaFlow - Changelog
 
+## 3.0.24 — Portão de produção (18/07/2026)
+
+- Privilégio mínimo: acesso anônimo removido de todas as tabelas pessoais.
+- Grants autenticados estreitados para uso da API, telemetria e metadados de liga.
+- `ensure_user_stats` endurecida com `search_path` vazio.
+- Cabeçalhos defensivos adicionados à hospedagem Vercel.
+- CI passa a bloquear dependências com vulnerabilidade alta e jobs sem limite de tempo.
+- Links de reengajamento apontam para o domínio de produção atual.
+- Identidade VAPID deixa de conter endereço pessoal no código.
+- Novo contrato automatizado de prontidão para produção incluído no release.
+
+As entradas abaixo são registros históricos preservados; podem descrever versões anteriores da arquitetura.
+
 ## Versão 1.0 - Estado Estável HBO (29/04/2026)
 
 ### Resumo

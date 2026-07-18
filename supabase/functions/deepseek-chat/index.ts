@@ -5,6 +5,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const RATE_LIMIT_PER_MIN = 20;
 const MAX_TOKENS_CAP = 2048;
+const MAX_AUDIO_BASE64 = 2_000_000;
+const AUDIO_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
 const ENDPOINT = "deepseek-chat";
 
 function corsHeadersFor(origin: string | null) {
@@ -75,6 +77,63 @@ Deno.serve(async (req) => {
     // 3. Sanitiza o body: modelo fixo e teto de tokens — cliente não dita custo
     const body = await req.json();
     const wantStream = body.stream === true;
+
+    // Áudio é uma rota explícita e consentida. Não passa pelo DeepSeek porque
+    // deepseek-chat aceita apenas texto. A gravação permanece somente na
+    // memória desta requisição e é encaminhada ao Nemotron multimodal.
+    if (body.action === "assess_pronunciation") {
+      const expected = typeof body.expected_text === "string" ? body.expected_text.trim().slice(0, 500) : "";
+      const audio = typeof body.audio_base64 === "string" ? body.audio_base64 : "";
+      const allowedFormats = new Set(["webm", "ogg", "wav", "mp3", "m4a"]);
+      const format = allowedFormats.has(body.audio_format) ? body.audio_format : "webm";
+      if (body.consent !== true || !expected || !audio || audio.length > MAX_AUDIO_BASE64 || !/^[A-Za-z0-9+/=]+$/.test(audio)) {
+        return new Response(JSON.stringify({ error: "Gravação, frase ou consentimento inválido." }), { status: 400, headers: cors });
+      }
+      const openRouterKey = Deno.env.get("OPENROUTER_API_KEY");
+      if (!openRouterKey) {
+        return new Response(JSON.stringify({ error: "Avaliação de voz não configurada no servidor." }), { status: 503, headers: cors });
+      }
+      const prompt = `Compare a pronúncia do aluno com a frase esperada: "${expected}". Avalie inteligibilidade, palavras omitidas/trocadas e ritmo. Não penalize sotaque brasileiro se estiver inteligível. Responda SOMENTE JSON válido: {"score":0-100,"transcript":"o que ouviu","feedback":"uma frase curta em português","missed_words":["palavras problemáticas"]}`;
+      const audioResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${openRouterKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://linguaflow-web-tau.vercel.app",
+          "X-Title": "LinguaFlow",
+        },
+        body: JSON.stringify({
+          model: AUDIO_MODEL,
+          messages: [{ role: "user", content: [
+            { type: "text", text: prompt },
+            { type: "input_audio", input_audio: { data: audio, format } },
+          ] }],
+          temperature: 0.1,
+          max_tokens: 350,
+          stream: false,
+          reasoning: { effort: "minimal", exclude: true },
+        }),
+      });
+      const providerData = await audioResponse.json().catch(() => null);
+      if (!audioResponse.ok) {
+        return new Response(JSON.stringify({ error: "O provedor não conseguiu analisar a gravação." }), { status: 502, headers: cors });
+      }
+      const content = providerData?.choices?.[0]?.message?.content || "";
+      const jsonMatch = String(content).replace(/```json|```/g, "").match(/\{[\s\S]*\}/);
+      try {
+        const assessment = JSON.parse(jsonMatch?.[0] || "");
+        const score = Math.min(100, Math.max(0, Number(assessment.score)));
+        if (!Number.isFinite(score)) throw new Error("score inválido");
+        return new Response(JSON.stringify({
+          score: Math.round(score),
+          transcript: String(assessment.transcript || "").slice(0, 500),
+          feedback: String(assessment.feedback || "").slice(0, 500),
+          missed_words: Array.isArray(assessment.missed_words) ? assessment.missed_words.map(String).slice(0, 12) : [],
+        }), { status: 200, headers: cors });
+      } catch {
+        return new Response(JSON.stringify({ error: "A avaliação retornou um formato inválido. Tente novamente." }), { status: 502, headers: cors });
+      }
+    }
     const payload = {
       model: "deepseek-chat",
       messages: body.messages,
@@ -95,8 +154,9 @@ Deno.serve(async (req) => {
       const { data: vaultKey } = await admin.rpc("get_deepseek_key");
       DEEPSEEK_API_KEY = vaultKey || undefined;
     }
-    if (!DEEPSEEK_API_KEY) {
-      return new Response(JSON.stringify({ error: "Chave DeepSeek não configurada no servidor (Secrets/Vault)." }), {
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    if (!DEEPSEEK_API_KEY && !OPENROUTER_API_KEY) {
+      return new Response(JSON.stringify({ error: "Nenhum provedor de IA está configurado no servidor." }), {
         status: 500, headers: cors,
       });
     }
@@ -110,15 +170,38 @@ Deno.serve(async (req) => {
           ? { "HTTP-Referer": "https://linguaflow-web-tau.vercel.app", "X-Title": "LinguaFlow" }
           : {}),
       },
-      body: JSON.stringify({ ...payload, model }),
+      body: JSON.stringify({
+        ...payload,
+        model,
+        ...(url.includes("openrouter") ? { reasoning: { effort: "minimal", exclude: true } } : {}),
+      }),
     });
 
     let response: Response | null = null;
     let primaryError = "";
-    try {
-      response = await callProvider("https://api.deepseek.com/chat/completions", DEEPSEEK_API_KEY, "deepseek-chat");
-    } catch (e) {
-      primaryError = (e as Error).message;
+    const fallbackModel = Deno.env.get("OPENROUTER_MODEL") || "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
+    const inputSize = JSON.stringify(payload.messages).length;
+    // Pedidos extensos gastam primeiro o tier gratuito; pedidos normais
+    // preservam DeepSeek como principal por qualidade. Em ambos os caminhos,
+    // o outro provedor assume se o primeiro falhar.
+    const preferEconomy = payload.max_tokens >= 1200 || inputSize >= 12_000;
+
+    if (preferEconomy && OPENROUTER_API_KEY) {
+      try {
+        response = await callProvider("https://openrouter.ai/api/v1/chat/completions", OPENROUTER_API_KEY, fallbackModel);
+      } catch (e) {
+        primaryError = (e as Error).message;
+      }
+      if ((!response || !response.ok) && DEEPSEEK_API_KEY) {
+        try { response = await callProvider("https://api.deepseek.com/chat/completions", DEEPSEEK_API_KEY, "deepseek-chat"); }
+        catch (e) { primaryError = (e as Error).message; }
+      }
+    } else if (DEEPSEEK_API_KEY) {
+      try {
+        response = await callProvider("https://api.deepseek.com/chat/completions", DEEPSEEK_API_KEY, "deepseek-chat");
+      } catch (e) {
+        primaryError = (e as Error).message;
+      }
     }
 
     // FALLBACK (pedido do dono, 18/07): DeepSeek fora do ar / sem créditos /
@@ -127,7 +210,6 @@ Deno.serve(async (req) => {
     // nunca no cliente, nunca no repositório. OPENROUTER_MODEL permite
     // trocar o modelo sem redeploy.
     if (!response || !response.ok) {
-      const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
       if (OPENROUTER_API_KEY) {
         // Default verificado no catálogo VIVO em 18/07/2026: os frees famosos
         // (deepseek/llama/gemini) saíram do tier gratuito. tencent/hy3:free é
@@ -135,7 +217,6 @@ Deno.serve(async (req) => {
         // rápido; 262k de contexto). Para velocidade extrema, trocar via
         // secret OPENROUTER_MODEL para nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
         // (3B ativos), ciente do risco de vazar raciocínio nos JSONs.
-        const fallbackModel = Deno.env.get("OPENROUTER_MODEL") || "tencent/hy3:free";
         try {
           const fallback = await callProvider("https://openrouter.ai/api/v1/chat/completions", OPENROUTER_API_KEY, fallbackModel);
           if (fallback.ok) response = fallback;

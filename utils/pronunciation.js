@@ -87,6 +87,11 @@ export const pronunciationLab = {
             }
         }
 
+        // assess() antes herdava sempre o en-US de init(), ignorando o idioma
+        // escolhido no app. Isso fazia uma fala correta parecer errada em
+        // qualquer outro idioma.
+        this.recognition.lang = localStorage.getItem('lf_tts_lang') || 'en-US';
+
         return new Promise((resolve) => {
             this.recognition.onstart = () => {
                 this.isRecording = true;

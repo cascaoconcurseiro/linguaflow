@@ -1,6 +1,6 @@
 import { db as lfDb, createOperationId } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio, downloadAudio } from '../core/tts.js';
-import { aiChat, aiChatStream, getCefrLevel, grammarTutorPersona, grammarInitialQuestion, enrichCard, generateChunksWeb, generateMnemonic } from '../core/ai.js';
+import { aiChat, aiChatStream, assessPronunciationAudio, getCefrLevel, grammarTutorPersona, grammarInitialQuestion, enrichCard, generateChunksWeb, generateMnemonic } from '../core/ai.js';
 import { attachVideoContext, renderVideoContext, getVideoContext } from '../core/videoContext.js';
 import { buildSessionQueue, isWeakCard, prioritizeDueLearning } from '../core/sessionQueue.js';
 import { loadVideo, playClip, replayClip, pausePlayer, setClipLoop, isClipPlaying, hidePlayer } from '../core/ytPlayer.js';
@@ -68,28 +68,28 @@ async function startEchoMode(micBtn, resultEl, expected, card) {
   echoChunks = [];
   echoRec = new MediaRecorder(echoStream);
   echoRec.ondataavailable = (e) => { if (e.data && e.data.size) echoChunks.push(e.data); };
-  echoRec.onstop = () => {
+  echoRec.onstop = async () => {
     echoStream?.getTracks().forEach((t) => t.stop());
     echoStream = null;
     delete micBtn.dataset.echo;
     if (currentCard !== card || echoChunks.length === 0) { shadowingBusy = false; micBtn.disabled = false; micBtn.textContent = '🎤 Falar agora'; return; }
     const blob = new Blob(echoChunks, { type: echoRec?.mimeType || 'audio/webm' });
     echoChunks = [];
-    const url = URL.createObjectURL(blob);
-    const mine = new Audio(url);
-    resultEl.textContent = '1º você…';
-    mine.onended = () => {
-      URL.revokeObjectURL(url);
-      if (currentCard !== card) { shadowingBusy = false; return; }
-      resultEl.textContent = '2º a frase — compare o ritmo e os sons de ouvido.';
-      playNaturalAudio(expected, { lang: localStorage.getItem('lf_tts_lang') || 'en-US' }, () => {
-        shadowingBusy = false;
-        if (currentCard === card) { micBtn.disabled = false; micBtn.textContent = '🎤 Gravar de novo'; }
-      });
-    };
-    mine.onerror = () => { URL.revokeObjectURL(url); shadowingBusy = false; micBtn.disabled = false; };
-    stopAudio();
-    mine.play().catch(() => { shadowingBusy = false; micBtn.disabled = false; });
+    resultEl.textContent = 'Avaliando sua fala com IA…';
+    micBtn.disabled = true;
+    try {
+      const assessment = await assessPronunciationAudio(blob, expected);
+      if (currentCard !== card) return;
+      const missed = Array.isArray(assessment.missed_words) && assessment.missed_words.length
+        ? `<br><span>Revise: ${assessment.missed_words.map(escapeHtml).join(', ')}</span>`
+        : '';
+      resultEl.innerHTML = `<strong>${assessment.score}%</strong> · ${escapeHtml(assessment.feedback || 'Avaliação concluída.')}${missed}`;
+    } catch (error) {
+      if (currentCard === card) resultEl.textContent = `${error.message} Você ainda pode ouvir a frase e comparar de ouvido.`;
+    } finally {
+      shadowingBusy = false;
+      if (currentCard === card) { micBtn.disabled = false; micBtn.textContent = '🎤 Gravar de novo'; }
+    }
   };
   echoRec.start();
   const recAtStart = echoRec;
@@ -318,6 +318,9 @@ export async function renderStudy(container, app, params = {}) {
         <div id="shadowing-overlay" class="hidden" style="margin-top: 24px; padding: 16px; background: rgba(88, 204, 2, 0.1); border: 2px dashed var(--color-primary); border-radius: var(--radius-md); text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; animation: pulse 2s infinite;">
           <div style="font-size: 18px; font-weight: 800; color: var(--color-primary);">Treino de fala (opcional)</div>
           <button id="shadowing-mic" class="btn btn-secondary" style="margin-top:10px; padding:10px 22px; font-size:14px;">🎤 Falar agora</button>
+          <label style="margin-top:10px; max-width:620px; font-size:12px; color:var(--color-text-light); line-height:1.4;">
+            <input id="voice-ai-consent" type="checkbox"> Concordo em enviar esta gravação ao provedor NVIDIA/OpenRouter para avaliação. O LinguaFlow não armazena o áudio; o provedor pode processá-lo conforme seus termos.
+          </label>
           <div id="shadowing-result" role="status" aria-live="polite" style="margin-top:10px; font-size:15px; line-height:1.5; max-width:560px;"></div>
           <div style="width: 100%; background: var(--color-border); height: 6px; border-radius: 3px; margin-top: 12px; overflow: hidden;">
             <div id="shadowing-progress" style="width: 0%; height: 100%; background: var(--color-primary); transition: width 3s linear;"></div>
@@ -450,6 +453,12 @@ export async function renderStudy(container, app, params = {}) {
     if (shadowingBusy) return;
     const expected = card._ctx || card.wordData?.context_sentence || card.wordData?.word || '';
     if (!expected) return;
+    const consent = document.getElementById('voice-ai-consent');
+    if (!consent?.checked) {
+      resultEl.textContent = 'Marque o consentimento para enviar e avaliar sua gravação.';
+      consent?.focus();
+      return;
+    }
     shadowingBusy = true;
     shadowingPinned = true;
     // Queixa 18/07: clique parecia morto (delay ate permissao/nuvem).
@@ -949,8 +958,8 @@ function renderFront(card, word, context) {
   if (card._mode === 'builder') { renderBuilder(card, context); return; }
   if (card._mode === 'dictation') { renderDictation(card, context); return; }
 
-  // Frente do card: frase com a palavra oculta. NADA de fonética ou tradução
-  // aqui — qualquer pista revelaria a resposta (bug antigo).
+  // Card clássico em três telas, conforme a intenção pedagógica do dono:
+  // 1) palavra isolada; 2) palavra dentro da frase; 3) resposta/tradução.
   let clozeHtml;
   try {
     const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -963,23 +972,13 @@ function renderFront(card, word, context) {
   } catch {
     clozeHtml = `<span class="cloze-blur">${word}</span>`;
   }
-  // Escada do dono (17/07): 1) palavra solta -> 2) palavra na frase ->
-  // 3) traducao so no Revelar. O texto da frase NAO aparece de cara: entra
-  // junto com o passo 2 (audio da frase). Sem autoplay, o botao de audio
-  // dispara a escada; o cloze aparece de qualquer forma como rede de
-  // seguranca se o TTS falhar.
   card._clozeHtml = clozeHtml;
-  card._clozeShown = false;
-  const hasLadder = audioAutoFront;
-  if (hasLadder) {
-    sentenceEl.innerHTML = '<div style="color:var(--color-text-light); font-size:16px; font-weight:700;">\ud83c\udfa7 Primeiro o ouvido: a palavra, depois a frase\u2026</div>';
-  } else {
-    sentenceEl.innerHTML = clozeHtml;
-    card._clozeShown = true;
-  }
+  card._classicStage = 'word';
+  sentenceEl.innerHTML = `<div class="study-word-only">${escapeHtml(word)}</div>`;
 
   const revealBtn = document.getElementById('reveal-btn');
   revealBtn.disabled = false;
+  revealBtn.textContent = 'Ver na frase (Espaço)';
 
 }
 
@@ -1196,70 +1195,22 @@ function playCurrentAudio() {
   const card = currentCard;
   const token = ++audioUiToken;
   const wordData = card.wordData || {};
-  const textToPlay = card._ctx || wordData.context_sentence || wordData.word || card.word;
+  const sentenceText = card._ctx || wordData.context_sentence || wordData.word || card.word;
   const wordAlone = String(wordData.word || card.word || '').trim();
+  const textToPlay = card._mode === 'classic' && card._classicStage === 'word'
+    ? wordAlone
+    : sentenceText;
   const lang = localStorage.getItem('lf_tts_lang') || 'en-US';
-  // Escada do dono: no card classico (frente), toca a PALAVRA SOLTA antes da
-  // frase — perceber a forma isolada, depois encontra-la no fluxo real.
-  const revealVisible = !document.getElementById('reveal-btn')?.classList.contains('hidden');
-  const useLadder = card._mode === 'classic' && !card._reverse && revealVisible
-    && wordAlone && textToPlay.toLowerCase() !== wordAlone.toLowerCase();
-
   const wave = document.getElementById('audio-wave');
   wave?.classList.add('is-playing');
   const button = document.getElementById('play-audio-btn');
   button?.setAttribute('aria-busy', 'true');
   const audioStatus = document.getElementById('audio-status');
 
-  const showClozeNow = () => {
-    if (currentCard !== card || card._clozeShown || !card._clozeHtml) return;
-    const el = document.getElementById('pump-sentence');
-    if (el && !document.getElementById('reveal-btn')?.classList.contains('hidden')) {
-      el.innerHTML = card._clozeHtml;
-      card._clozeShown = true;
-    }
-  };
-
-  if (useLadder && audioStatus) audioStatus.textContent = 'Passo 1: a palavra sozinha.';
-  else if (audioStatus) audioStatus.textContent = 'Reproduzindo a frase.';
-
-  const startSentence = () => {
-    if (token !== audioUiToken || currentCard !== card) return null;
-    if (audioStatus) audioStatus.textContent = 'Passo 2: agora na frase.';
-    showClozeNow();
-    return playNaturalAudio(textToPlay, { lang }, sentenceDone);
-  };
-
-  let playback;
-  if (useLadder) {
-    playback = new Promise((resolve) => {
-      const wordPlayback = playNaturalAudio(wordAlone, { lang }, () => {
-        const next = startSentence();
-        if (next === null) { resolve(false); return; }
-        Promise.resolve(next).then(resolve).catch(() => resolve(false));
-      });
-      // Celular (18/07): autoplay pode ser BLOQUEADO sem gesto — a promise
-      // resolve false SEM chamar o callback, e o card ficava preso no
-      // "Primeiro o ouvido…". Trata o resolve(false) explicitamente e
-      // encurta a rede de seguranca para 2,5s.
-      Promise.resolve(wordPlayback).then((completed) => {
-        if (completed === false) {
-          showClozeNow();
-          const next = startSentence();
-          if (next === null) { resolve(false); return; }
-          Promise.resolve(next).then(resolve).catch(() => resolve(false));
-        }
-      }).catch(() => {
-        const next = startSentence();
-        if (next === null) { resolve(false); return; }
-        Promise.resolve(next).then(resolve).catch(() => resolve(false));
-      });
-      scheduleStudyTask(() => showClozeNow(), 2500);
-    });
-  } else {
-    showClozeNow();
-    playback = playNaturalAudio(textToPlay, { lang }, sentenceDone);
-  }
+  if (audioStatus) audioStatus.textContent = card._classicStage === 'word'
+    ? 'Reproduzindo a palavra.'
+    : 'Reproduzindo a frase.';
+  const playback = playNaturalAudio(textToPlay, { lang }, sentenceDone);
 
   function sentenceDone() {
     if (token !== audioUiToken || currentCard !== card) return;
@@ -1302,6 +1253,20 @@ async function revealCard() {
   const word = wordData.word || card.word || 'Erro';
   const context = card._ctx || word;
   let chunks = card._chunks || [];
+
+  // A primeira ação não revela a resposta: troca da palavra isolada para o
+  // contexto. A segunda ação revela tradução, fonética e avaliação FSRS.
+  if (card._mode === 'classic' && !card._reverse && card._classicStage === 'word') {
+    card._classicStage = 'context';
+    const sentenceEl = document.getElementById('pump-sentence');
+    sentenceEl.innerHTML = card._clozeHtml || escapeHtml(context);
+    const revealBtn = document.getElementById('reveal-btn');
+    revealBtn.textContent = 'Revelar resposta (Espaço)';
+    const status = document.getElementById('study-status');
+    if (status) status.textContent = 'Palavra mostrada no contexto. Revele quando lembrar o significado.';
+    if (audioAutoFront) playCurrentAudio();
+    return;
+  }
 
   // 1. Revela a palavra na frase
   if (card._reverse) {
@@ -1477,7 +1442,7 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
         <span class="video-context-label">🎬 Salvo de ${platform}</span>
         <span class="video-context-title" title="${title}">${title}</span>
         <div class="video-context-actions">
-          <button type="button" class="video-context-embed clip-control" id="play-saved-clip" aria-pressed="false">▶ Ouvir em loop (${clipDuration} s)</button>
+          <button type="button" class="video-context-embed clip-control" id="play-saved-clip" aria-pressed="false">▶ Ouvir trecho (${clipDuration} s)</button>
           <button type="button" class="video-context-embed clip-control hidden" id="replay-saved-clip">↻ Do início</button>
           <span id="clip-tune" class="hidden" style="display:inline-flex; gap:6px; align-items:center; flex-wrap:wrap;">
             <button type="button" class="video-context-embed clip-control" id="clip-earlier" title="Trecho começa cedo demais ou tarde demais? Puxa o início 0,5s para trás">início −0,5s</button>
@@ -1486,7 +1451,7 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
           </span>
           <a href="${escapeHtml(vctx.externalUrl)}" target="_blank" rel="noopener noreferrer">Abrir no YouTube ↗</a>
         </div>
-        <div class="clip-status" id="saved-clip-status" role="status">${hasExactBounds ? 'Trecho exato salvo pela extensão · repetição contínua' : 'Card antigo: trecho reconstruído aproximadamente · repetição contínua'}</div>
+        <div class="clip-status" id="saved-clip-status" role="status">${hasExactBounds ? 'Trecho exato salvo pela extensão' : 'Card antigo: trecho reconstruído aproximadamente'}</div>
       </section>`;
     ytMount.classList.add('hidden');
     let clipLoaded = false;
@@ -1504,7 +1469,7 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
           playClip();
           button.textContent = '⏸ Pausar';
           button.setAttribute('aria-pressed', 'true');
-          if (status) status.textContent = 'Repetindo somente esta frase';
+          if (status) status.textContent = 'Reproduzindo somente esta frase';
         }
         return;
       }
@@ -1512,7 +1477,7 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
       button.setAttribute('aria-busy', 'true');
       button.textContent = 'Carregando trecho…';
       if (status) status.textContent = 'Preparando o trecho no ponto salvo…';
-      setClipLoop(true);
+      setClipLoop(false);
       const ok = await loadVideo(ytMount, vctx.videoId, loopBounds());
       if (!ok || !isCurrentPresentation()) {
         if (isCurrentPresentation()) ytMount.classList.add('hidden');
@@ -1533,8 +1498,8 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
       replayButton?.classList.remove('hidden');
       document.getElementById('clip-tune')?.classList.remove('hidden');
       if (status) status.textContent = hasExactBounds
-        ? 'Repetindo somente esta frase'
-        : 'Repetindo trecho aproximado deste card antigo — use os ajustes de −/+0,5s para acertar e salvar';
+        ? 'Reproduzindo somente esta frase'
+        : 'Reproduzindo trecho aproximado deste card antigo — use os ajustes de −/+0,5s para acertar e salvar';
     });
 
     // Ajuste fino persistente (17/07): cada toque corrige a janela AO VIVO e

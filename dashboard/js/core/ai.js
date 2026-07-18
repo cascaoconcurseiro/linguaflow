@@ -66,6 +66,42 @@ export async function aiChat(messages, options = {}) {
   return content;
 }
 
+export async function assessPronunciationAudio(audioBlob, expectedText) {
+  if (!(audioBlob instanceof Blob) || audioBlob.size === 0) throw new Error('Gravação vazia.');
+  if (audioBlob.size > 1_500_000) throw new Error('Gravação grande demais. Tente uma frase mais curta.');
+  const token = await lfDb._getToken();
+  if (!token) throw new Error('Faça login para avaliar sua fala.');
+
+  const audioBase64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Não foi possível preparar a gravação.'));
+    reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
+    reader.readAsDataURL(audioBlob);
+  });
+  const mime = String(audioBlob.type || '').toLowerCase();
+  const format = mime.includes('ogg') ? 'ogg'
+    : mime.includes('mp4') ? 'm4a'
+      : mime.includes('mpeg') ? 'mp3'
+        : mime.includes('wav') ? 'wav'
+          : 'webm';
+
+  const response = await fetch(EDGE_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'assess_pronunciation',
+      consent: true,
+      expected_text: String(expectedText || '').slice(0, 500),
+      audio_base64: audioBase64,
+      audio_format: format,
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'Não foi possível avaliar a gravação.');
+  if (!Number.isFinite(data.score)) throw new Error('A avaliação retornou um formato inválido.');
+  return data;
+}
+
 // Streaming: o texto aparece ENQUANTO a IA gera (espera percebida ~1s).
 // onChunk(delta, fullSoFar) é chamado a cada pedaço. Na extensão (sem stream
 // via sendMessage) cai no aiChat normal e entrega tudo de uma vez no final.

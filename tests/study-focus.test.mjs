@@ -44,5 +44,17 @@ assert.match(source, /@media \(prefers-reduced-motion: reduce\)/,
   'movimento reduzido é respeitado');
 assert.match(source, /button\?\.setAttribute\('aria-busy', 'true'\)/,
   'estado do áudio é comunicado sem simular botão toggle');
+assert.match(source, /card\._classicStage = 'word'/,
+  'card clássico começa numa tela só com a palavra');
+assert.match(source, /revealBtn\.textContent = 'Ver na frase \(Espaço\)'/,
+  'primeira ação avança para o contexto, sem revelar a tradução');
+assert.match(source, /card\._classicStage = 'context'/,
+  'segunda tela mostra a palavra dentro da frase');
+assert.match(source, /setClipLoop\(false\)/,
+  'trecho original toca uma vez e não fica preso em loop');
+assert.match(source, /id="voice-ai-consent" type="checkbox"/,
+  'envio da voz exige consentimento explícito');
+assert.match(source, /assessPronunciationAudio\(blob, expected\)/,
+  'fallback de gravação recebe avaliação multimodal em vez de apenas eco');
 
-console.log('14 contratos do modo foco passaram — tudo verde ✅');
+console.log('20 contratos do modo foco passaram — tudo verde ✅');

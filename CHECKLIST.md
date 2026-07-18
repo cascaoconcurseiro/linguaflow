@@ -448,6 +448,12 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 
 
 
+
+## 🎬 Loop do trecho no Estudo — pré-rolo + ajuste fino persistente — ✅ EXECUTADO (17/07, madrugada; em main)
+
+- [x] Queixa "não pega o momento exato": pré-rolo 0,3s + cauda 0,25s no playback (trecho exato não corta mais a 1ª sílaba) + botões `início −0,5s / início +0,5s / fim +0,5s` que corrigem AO VIVO e GRAVAM no card (`words.video_start/end_ms`) — card antigo "aproximado" vira exato no primeiro acerto. Loop contínuo já era permanente.
+- [ ] **TESTE MANUAL DO DONO:** no Estudo, card com vídeo → "▶ Ouvir em loop" → se o corte estiver deslocado, usar os botões de ajuste → conferir status "salvo no card" → sair e voltar ao card → o trecho deve abrir já corrigido.
+
 ## 🎤 Rodada 2 — mic visível + 'já sei' (A5) + primeira recuperação (A1) — ✅ EXECUTADA (17/07, madrugada; suíte verde; em main)
 
 - [x] Mic do shadowing FICA VISÍVEL: o overlay não some mais após 3s (queixa "não achei o microfone" — ele se escondia). Aparece no Estudo, card clássico, logo após o áudio da frase tocar, abaixo dos botões de nota.

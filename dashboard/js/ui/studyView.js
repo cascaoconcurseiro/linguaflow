@@ -93,7 +93,7 @@ async function startEchoMode(micBtn, resultEl, expected, card) {
   };
   echoRec.start();
   const recAtStart = echoRec;
-  setTimeout(() => { try { if (recAtStart.state === 'recording') recAtStart.stop(); } catch { /* ok */ } }, 10000);
+  setTimeout(() => { try { if (recAtStart.state === 'recording') recAtStart.stop(); } catch { /* ok */ } }, 8000);
   micBtn.disabled = false;
   micBtn.dataset.echo = '1';
   micBtn.textContent = '⏹ Parar gravação';
@@ -316,7 +316,7 @@ export async function renderStudy(container, app, params = {}) {
         <!-- Shadowing real (§4g.1): o mic avalia a repetição via pronunciationLab.
              Gravação SÓ por clique — nunca auto-iniciar captura de áudio. -->
         <div id="shadowing-overlay" class="hidden" style="margin-top: 24px; padding: 16px; background: rgba(88, 204, 2, 0.1); border: 2px dashed var(--color-primary); border-radius: var(--radius-md); text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; animation: pulse 2s infinite;">
-          <div style="font-size: 18px; font-weight: 800; color: var(--color-primary);">Sua vez... Fale em voz alta!</div>
+          <div style="font-size: 18px; font-weight: 800; color: var(--color-primary);">Treino de fala (opcional)</div>
           <button id="shadowing-mic" class="btn btn-secondary" style="margin-top:10px; padding:10px 22px; font-size:14px;">🎤 Falar agora</button>
           <div id="shadowing-result" role="status" aria-live="polite" style="margin-top:10px; font-size:15px; line-height:1.5; max-width:560px;"></div>
           <div style="width: 100%; background: var(--color-border); height: 6px; border-radius: 3px; margin-top: 12px; overflow: hidden;">
@@ -424,6 +424,22 @@ export async function renderStudy(container, app, params = {}) {
   // Shadowing (§4g.1): compara a fala com a frase que o TTS acabou de tocar.
   // O diff mostra o texto da frase — aceitável na frente do card porque o
   // áudio JÁ a falou por inteiro; a resposta real (sentido/tradução) não vaza.
+  // Queixa 18/07 (celular): o menu ⋯ do card ficava aberto sem saida.
+  // <details> nao fecha sozinho — fecha ao tocar FORA, no Esc e ao escolher
+  // qualquer acao de dentro.
+  const cardMenuEl = document.getElementById('study-card-menu');
+  if (cardMenuEl) {
+    document.addEventListener('click', (event) => {
+      if (cardMenuEl.open && !event.target.closest('#study-card-menu')) cardMenuEl.open = false;
+    }, { capture: true });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && cardMenuEl.open) cardMenuEl.open = false;
+    });
+    cardMenuEl.querySelector('.study-card-menu-content')?.addEventListener('click', (event) => {
+      if (event.target.closest('button, a')) cardMenuEl.open = false;
+    });
+  }
+
   document.getElementById('shadowing-mic')?.addEventListener('click', () => {
     const card = currentCard;
     const micBtn = document.getElementById('shadowing-mic');
@@ -436,6 +452,11 @@ export async function renderStudy(container, app, params = {}) {
     if (!expected) return;
     shadowingBusy = true;
     shadowingPinned = true;
+    // Queixa 18/07: clique parecia morto (delay ate permissao/nuvem).
+    // Feedback SINCRONO antes de qualquer await.
+    micBtn.disabled = true;
+    micBtn.textContent = '⏳ Preparando…';
+    resultEl.textContent = '';
     stopAudio(); // nunca gravar com TTS falando por cima
     let gotAnyResult = false;
     scheduleStudyTask(() => {
@@ -464,12 +485,12 @@ export async function renderStudy(container, app, params = {}) {
       }
       if (fb.status === 'recording') {
         micBtn.disabled = true;
-        micBtn.textContent = '🎙️ Ouvindo…';
-        resultEl.textContent = '';
+        micBtn.textContent = '🎙️ FALE AGORA';
+        resultEl.textContent = 'Microfone ligado — repita a frase.';
       } else if (fb.status === 'stopped') {
         if (micBtn.dataset.echo === '1') return; // modo eco assumiu; nao clobber
         micBtn.disabled = false;
-        if (micBtn.textContent === '🎙️ Ouvindo…') micBtn.textContent = '🎤 Tentar de novo';
+        if (micBtn.textContent === '🎙️ FALE AGORA' || micBtn.textContent === '⏳ Preparando…') micBtn.textContent = '🎤 Tentar de novo';
         shadowingBusy = false;
       } else if (fb.status === 'result') {
         resultEl.innerHTML = `<strong>${fb.score}%</strong> das palavras reconhecidas<br><span style="font-size:16px;">${fb.htmlFeedback}</span>`;

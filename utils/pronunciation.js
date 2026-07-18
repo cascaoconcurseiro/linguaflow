@@ -22,7 +22,11 @@ export const pronunciationLab = {
         try {
             // Força a requisição de permissão do microfone. 
             // Em extensões, o SpeechRecognition pode dar 'network error' se não pedir permissão explícita antes.
-            await navigator.mediaDevices.getUserMedia({ audio: true });
+            // BUG 18/07: o stream de permissao era descartado SEM parar as
+            // tracks — o microfone ficava ligado para sempre (indicador
+            // vermelho na aba). A captura real e do SpeechRecognition.
+            const permStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            permStream.getTracks().forEach((t) => t.stop());
         } catch (err) {
             onFeedback({ error: "Permissão de microfone negada ou dispositivo não encontrado." });
             return;
@@ -66,7 +70,11 @@ export const pronunciationLab = {
 
     async assess(expectedText, onFeedback) {
         try {
-            await navigator.mediaDevices.getUserMedia({ audio: true });
+            // BUG 18/07: o stream de permissao era descartado SEM parar as
+            // tracks — o microfone ficava ligado para sempre (indicador
+            // vermelho na aba). A captura real e do SpeechRecognition.
+            const permStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            permStream.getTracks().forEach((t) => t.stop());
         } catch (err) {
             onFeedback({ error: "Permissão de microfone negada." });
             return;
@@ -98,6 +106,10 @@ export const pronunciationLab = {
 
             this.recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
+                // Resultado chegou: encerra JA — sem isso o reconhecimento
+                // segurava o mic ate o endpointing decidir sozinho
+                // ("ja falei e ele continua ouvindo").
+                try { this.recognition.stop(); } catch { /* ja parado */ }
                 const result = this.calculateDiff(expectedText, transcript);
                 onFeedback({ status: 'result', transcript, ...result });
                 resolve(result);

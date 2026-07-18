@@ -1,6 +1,7 @@
 ﻿import { db } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio } from '../core/tts.js';
 import { generateStoryWeb, aiChat } from '../core/ai.js';
+import { measureStoryLevel } from '../core/readability.js';
 import { translator } from '../../../utils/translator.js';
 import { lemma } from '../../../utils/lemma.js';
 import { bindViewStateAction, renderViewState } from './viewState.js';
@@ -200,6 +201,10 @@ export function renderStories(container, app) {
       .quiz-opt.wrong { border-color: #f44336; background: rgba(244,67,54,0.1); }
       .history-item { padding: 16px; border: 2px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); cursor: pointer; display:flex; justify-content:space-between; align-items:center; }
       .history-item:hover { border-color: var(--color-primary); }
+      .story-act { background:none; border:1px solid var(--color-border); border-radius:8px; padding:6px 9px; cursor:pointer; font-size:15px; line-height:1; }
+      .story-act:hover, .story-act:focus-visible { border-color: var(--color-secondary); }
+      .story-archive-toggle { display:block; width:100%; margin:4px 0 10px; padding:8px; border:1px dashed var(--color-border); border-radius:10px; background:transparent; color:var(--color-text-light); font:700 13px var(--font-main); cursor:pointer; }
+      .history-item.archived { opacity:.55; }
       .history-item .level-tag { font-size:11px; font-weight:bold; padding:2px 6px; border-radius:8px; background:var(--color-primary); color:white; margin-left:8px; vertical-align:middle; }
       .story-mode-tabs { display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:5px; margin-bottom:24px; border:1px solid var(--color-border); border-radius:14px; background:var(--color-bg-alt); }
       .story-mode-tabs .lf-tab { min-height:46px; border:0; border-radius:10px; background:transparent; color:var(--color-text-light); font:800 15px var(--font-main); cursor:pointer; }
@@ -606,6 +611,63 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     });
   }
 
+  // Arquivar sem migration: ids num k/v de settings (mesmo padrao de
+  // lf_achievements_seen). Excluir usa db.deleteStory, que ja existia sem UI.
+  let showArchivedStories = false;
+  const storyKey = (story) => String(story.id || `${story.title}|${story.date}`);
+
+  async function readArchivedSet() {
+    try {
+      const raw = await db.getSetting('lf_archived_stories');
+      return new Set(JSON.parse(raw || '[]'));
+    } catch { return new Set(); }
+  }
+
+  async function toggleArchiveStory(story) {
+    const key = storyKey(story);
+    const current = await readArchivedSet();
+    if (current.has(key)) current.delete(key); else current.add(key);
+    await db.setSetting('lf_archived_stories', JSON.stringify([...current])).catch(() => {});
+    loadHistory();
+  }
+
+  async function removeStory(story) {
+    if (!confirm(`Excluir "${story.title}" para sempre? Isso nao pode ser desfeito.`)) return;
+    try {
+      if (story.id) await db.deleteStory(story.id);
+    } catch (e) {
+      app.showToast('Nao foi possivel excluir agora. Tente de novo.', 'error');
+      return;
+    }
+    // remove tambem da copia local (fallback offline)
+    readStories((list) => writeStories((list || []).filter(
+      (item) => !(item.title === story.title && item.date === story.date))));
+    app.showToast('Historia excluida.', 'success');
+    loadHistory();
+  }
+
+  // A4 do backlog: o selo mostrava o nivel PEDIDO, nunca verificado. Mede o
+  // nivel real com a cefr-wordlist e, se divergir, mostra os dois.
+  let cefrMapCache = null;
+  async function measureAndShowLevel(text, requested) {
+    try {
+      if (!cefrMapCache) {
+        const isExt = typeof chrome !== 'undefined' && !!chrome.runtime?.id;
+        const base = isExt ? chrome.runtime.getURL('utils/') : '/utils/';
+        cefrMapCache = await fetch(`${base}cefr-wordlist.json`).then((r) => r.json());
+      }
+      const measured = measureStoryLevel(text, cefrMapCache);
+      if (!measured.level) return;
+      if (measured.level !== requested) {
+        storyLevelBadge.textContent = `pedido ${requested} · medido ${measured.level}`;
+        storyLevelBadge.title = `${Math.round(measured.coverage * 100)}% do vocabulario reconhecido esta coberto ate ${measured.level}`;
+      } else {
+        storyLevelBadge.textContent = requested;
+        storyLevelBadge.title = 'Nivel confirmado pela medicao de vocabulario';
+      }
+    } catch { /* sem medicao, o selo fica com o pedido */ }
+  }
+
   async function loadHistory() {
     // Fonte da verdade: banco (sincroniza entre dispositivos); local = fallback
     historyList.setAttribute('aria-busy', 'true');
@@ -622,11 +684,12 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     if (stories.length === 0) {
       stories = await new Promise((resolve) => readStories(resolve));
     }
-    renderHistoryItems(stories, { remoteFailed });
+    const archivedSet = await readArchivedSet();
+    renderHistoryItems(stories, { remoteFailed, archivedSet });
     historyList.setAttribute('aria-busy', 'false');
   }
 
-  function renderHistoryItems(stories, { remoteFailed = false } = {}) {
+  function renderHistoryItems(stories, { remoteFailed = false, archivedSet = new Set() } = {}) {
     {
       historyList.innerHTML = '';
       if (remoteFailed && stories.length === 0) {
@@ -648,7 +711,26 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
         historyList.appendChild(notice);
       }
 
-      stories.forEach(story => {
+      const archivedStories = stories.filter((st) => archivedSet.has(storyKey(st)));
+      const visibleStories = showArchivedStories
+        ? stories
+        : stories.filter((st) => !archivedSet.has(storyKey(st)));
+
+      if (archivedStories.length > 0) {
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'story-archive-toggle';
+        toggle.textContent = showArchivedStories
+          ? `Ocultar arquivadas (${archivedStories.length})`
+          : `Mostrar arquivadas (${archivedStories.length})`;
+        toggle.addEventListener('click', () => {
+          showArchivedStories = !showArchivedStories;
+          renderHistoryItems(stories, { remoteFailed, archivedSet });
+        });
+        historyList.appendChild(toggle);
+      }
+
+      visibleStories.forEach(story => {
         const d = new Date(story.date);
         const div = document.createElement('div');
         div.className = 'history-item';
@@ -661,12 +743,25 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
             </div>
             <div style="font-size:14px; color:var(--color-text-light);">${d.toLocaleDateString()} ${d.toLocaleTimeString()}</div>
           </div>
-          <div style="font-size:24px;">📖</div>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <button type="button" class="story-act" data-act="arch" title="${archivedSet.has(storyKey(story)) ? 'Restaurar do arquivo' : 'Arquivar (sai da lista, nada e apagado)'}">${archivedSet.has(storyKey(story)) ? '📤' : '📦'}</button>
+            <button type="button" class="story-act" data-act="del" title="Excluir para sempre">🗑</button>
+          </div>
         `;
+        if (archivedSet.has(storyKey(story))) div.classList.add('archived');
+        div.querySelector('[data-act="arch"]').addEventListener('click', (event) => {
+          event.stopPropagation();
+          toggleArchiveStory(story);
+        });
+        div.querySelector('[data-act="del"]').addEventListener('click', (event) => {
+          event.stopPropagation();
+          removeStory(story);
+        });
         div.addEventListener('click', () => {
           stopFullStoryTTS();
           storyTitleDisplay.textContent = story.title;
           storyLevelBadge.textContent = story.level;
+          measureAndShowLevel(story.text, story.level); // A4
           storyHeader.style.display = 'block';
           storyContainer.style.display = 'block';
           storyLoading.style.display = 'none';
@@ -728,6 +823,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
 
       storyTitleDisplay.textContent = title;
       storyLevelBadge.textContent = storyLevel;
+      measureAndShowLevel(contentToRender, storyLevel); // A4: selo honesto
       storyHeader.style.display = 'block';
 
       saveStoryLocal(title, contentToRender, storyLevel, genre);

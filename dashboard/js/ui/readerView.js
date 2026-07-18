@@ -14,6 +14,7 @@ import { bindReadingHeader, renderReadingHeader } from './readingHub.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 const TEXTS_KEY = 'lf_reader_texts';
+const READER_MIGRATION_KEY = 'lf_reader_texts_migrated';
 const URL_IMPORT_EDGE_URL = 'https://qnutoswrufznztoznlql.supabase.co/functions/v1/url-import';
 
 // Onda 3.1: importar por URL passa pela Edge Function (o browser não
@@ -79,17 +80,23 @@ async function loadSyncedTexts() {
   const cloud = await lfDb.getReaderTexts();
   if (!Array.isArray(cloud)) return local;
 
-  // Migração idempotente: só troca o cache depois de todos os textos locais
-  // terem sido confirmados pelo Supabase sob o usuário autenticado.
-  if (local.length) {
-    await Promise.all(local.map((text) => lfDb.saveReaderText({ ...text, source: text.source || 'migration' })));
+  // O cache anterior à sincronização é importado uma única vez por usuário.
+  // A inserção ignora conflitos para nunca sobrescrever uma edição mais nova.
+  const userId = await lfDb.getCurrentUserId();
+  const migrationMarker = userId ? `${READER_MIGRATION_KEY}:${userId}` : null;
+  const needsMigration = migrationMarker && localStorage.getItem(migrationMarker) !== '1';
+  if (needsMigration && local.length) {
+    await Promise.all(local.map((text) => lfDb.migrateReaderText({ ...text, source: text.source || 'migration' })));
     const migrated = await lfDb.getReaderTexts();
     if (Array.isArray(migrated)) {
       const texts = migrated.map(normalizeText);
       saveTexts(texts);
+      localStorage.setItem(migrationMarker, '1');
       return texts;
     }
   }
+
+  if (needsMigration) localStorage.setItem(migrationMarker, '1');
 
   const texts = cloud.map(normalizeText);
   saveTexts(texts);

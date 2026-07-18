@@ -4,6 +4,7 @@ import { addLocalDays, localDateKey, localDayBounds } from './local-day.js';
 
 const SUPABASE_URL = 'https://qnutoswrufznztoznlql.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudXRvc3dydWZ6bnp0b3pubHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNzIyODEsImV4cCI6MjA5ODc0ODI4MX0.MdtBZwBnqNDpZ5nTytZDzNFKxHxd1rLmi6wT2MfV-0s';
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 // snapshot era um JPEG base64 nunca renderizado. Em produção, só 6 palavras
 // somavam 5,4 MB nesse campo e cada select=* o baixava outra vez.
 const WORD_SELECT = 'id,user_id,word,lang,translation,context_sentence,phonetic,pronunciation_pt,explanation,level,tags,ai_chunks,video_url,video_title,platform,added_at,synonyms,antonyms,definition,category,mnemonic,video_start_ms,video_end_ms';
@@ -324,6 +325,11 @@ class Database {
     return !!token;
   }
 
+  async getCurrentUserId() {
+    const session = await this._readSession();
+    return session?.user?.id || null;
+  }
+
   // ── CONFIGURAÇÕES ─────────────────────────────────────────────────────────
   _normalizeSettingValue(value) {
     if (value === 'true') return true;
@@ -626,17 +632,20 @@ class Database {
         genre: story.genre || null,
       }
     });
-    return { ok: !!res, id: res?.[0]?.id };
+    return { ok: !!res?.[0], id: res?.[0]?.id, createdAt: res?.[0]?.created_at };
   }
 
   async getStories(limit = 50) {
     if (this.isProxyMode) return this._proxy('getStories', [limit]);
-    return (await this._fetch(`stories?select=*&order=created_at.desc&limit=${limit}`)) || [];
+    const rows = await this._fetch(`stories?select=*&order=created_at.desc&limit=${limit}`);
+    if (!rows) throw new Error('Não foi possível carregar as histórias do Supabase.');
+    return rows;
   }
 
   async deleteStory(id) {
+    if (!UUID_PATTERN.test(String(id))) return false;
     if (this.isProxyMode) return this._proxy('deleteStory', [id]);
-    await this._fetch(`stories?id=eq.${id}`, { method: 'DELETE' });
+    await this._fetch(`stories?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
     return true;
   }
 
@@ -1328,18 +1337,29 @@ class Database {
     return saved?.[0] || row;
   }
 
+  async migrateReaderText(text) {
+    if (this.isProxyMode) return this._proxy('migrateReaderText', [text]);
+    const migratedAt = new Date(text.addedAt || Date.now()).toISOString();
+    const row = {
+      id: String(text.id),
+      title: String(text.title || 'Texto').slice(0, 300),
+      content: String(text.content || ''),
+      source: text.source || 'migration',
+      created_at: migratedAt,
+      updated_at: migratedAt,
+    };
+    const saved = await this._fetch('reader_texts?on_conflict=user_id,id', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=ignore-duplicates,return=representation' },
+      body: row,
+    });
+    return saved?.[0] || null;
+  }
+
   async deleteReaderText(id) {
     if (this.isProxyMode) return this._proxy('deleteReaderText', [id]);
     await this._fetch(`reader_texts?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
     return true;
-  }
-
-  async exportDatabase() {
-    return JSON.stringify({}); 
-  }
-
-  async importDatabase(jsonData) {
-    return true; 
   }
 
   // ── GAMIFICAÇÃO E ESTATÍSTICAS DO USUÁRIO ────────────────────────────────

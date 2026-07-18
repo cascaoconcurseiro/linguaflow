@@ -12,6 +12,8 @@ build/
 # Next.js
 .next/
 .vercel/
+supabase/.temp/
+.claude/
 
 # IDE / Editor
 .vscode/

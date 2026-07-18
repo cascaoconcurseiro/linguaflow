@@ -15,7 +15,8 @@ assert.match(db, /rpc\/log_study_time/);
 assert.doesNotMatch(db, /sessions\?date=eq\.\$\{date\}/);
 assert.match(db, /filter\(\(session\) => session\.date === today\)[\s\S]*reduce\(\(sum, session\)/);
 assert.match(reader, /await loadSyncedTexts\(\)/);
-assert.match(reader, /Promise\.all\(local\.map[\s\S]*saveReaderText/);
+assert.match(reader, /Promise\.all\(local\.map[\s\S]*migrateReaderText/);
+assert.match(reader, /READER_MIGRATION_KEY/);
 assert.match(reader, /escapeText\(t\.title\)/);
 
 console.log('12 contratos de sincronização e fonte de verdade passaram ✅');

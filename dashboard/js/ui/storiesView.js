@@ -4,6 +4,7 @@ import { generateStoryWeb, aiChat } from '../core/ai.js';
 import { measureStoryLevel } from '../core/readability.js';
 import { translator } from '../../../utils/translator.js';
 import { lemma } from '../../../utils/lemma.js';
+import { escapeHTML } from '../../../utils/html.js';
 import { bindViewStateAction, renderViewState } from './viewState.js';
 import { bindReadingHeader, renderReadingHeader } from './readingHub.js';
 
@@ -596,21 +597,20 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
   async function saveStoryLocal(title, text, level, genre) {
     // BANCO primeiro (história = tokens gastos, nunca pode se perder;
     // sincroniza entre dispositivos). Local fica como espelho offline.
-    db.saveStory({ title, content: text, level, genre })
-      .then((r) => { if (!r?.ok) console.warn('[Stories] Falha ao salvar no banco'); })
-      .catch((e) => console.warn('[Stories] Erro ao salvar no banco:', e.message));
+    const saved = await db.saveStory({ title, content: text, level, genre });
+    if (!saved?.ok || !saved.id) throw new Error('O Supabase não confirmou o salvamento da história.');
 
-    readStories((stories) => {
-      stories.unshift({
-        id: Date.now().toString(),
+    await new Promise((resolve) => readStories((stories) => {
+      const updatedStories = [{
+        id: saved.id,
         title: title,
         text: text,
         level: level || 'N/A',
-        date: new Date().toISOString()
-      });
-      if (stories.length > 50) stories = stories.slice(0, 50);
-      writeStories(stories);
-    });
+        date: saved.createdAt || new Date().toISOString()
+      }, ...stories.filter((story) => story.id !== saved.id)].slice(0, 50);
+      writeStories(updatedStories);
+      resolve();
+    }));
   }
 
   // Arquivar sem migration: ids num k/v de settings (mesmo padrao de
@@ -741,7 +741,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
         div.innerHTML = `
           <div>
             <div style="font-weight:bold; font-size:18px; color:var(--color-text);">
-              ${story.title} <span class="level-tag">${story.level}</span>
+              ${escapeHTML(story.title)} <span class="level-tag">${escapeHTML(story.level)}</span>
             </div>
             <div style="font-size:14px; color:var(--color-text-light);">${d.toLocaleDateString()} ${d.toLocaleTimeString()}</div>
           </div>
@@ -828,7 +828,12 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
       measureAndShowLevel(contentToRender, storyLevel); // A4: selo honesto
       storyHeader.style.display = 'block';
 
-      saveStoryLocal(title, contentToRender, storyLevel, genre);
+      try {
+        await saveStoryLocal(title, contentToRender, storyLevel, genre);
+      } catch (saveError) {
+        console.warn('[Stories] História gerada, mas não sincronizada:', saveError);
+        app.showToast('História criada, mas ainda não foi salva. Verifique a conexão e tente gerar novamente.', 'error');
+      }
       setCurrentStory(contentToRender);
       renderStoryText(contentToRender, true);
 

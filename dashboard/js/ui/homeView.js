@@ -4,6 +4,7 @@ import { runPlacementTest } from './settingsView.js';
 import { generateWeeklyDiagnosis, getCefrLevel } from '../core/ai.js';
 import { computeAchievements, newlyUnlocked } from '../core/achievements.js';
 import { bindViewStateAction, renderViewState } from './viewState.js';
+import { estimateLevelFromHistory } from '../core/levelEstimator.js';
 
 function organizeHomeSections(container) {
     const main = container.querySelector('.dashboard-main');
@@ -76,6 +77,35 @@ const GOAL_TO_NEW_PER_DAY = { 10: 5, 20: 10, 40: 20 };
 
 const ONBOARDING_KEY = 'onboarding_v1';
 const ONBOARDING_LEVELS = new Set(['beginner', 'intermediate', 'advanced']);
+
+// A6 do backlog: depois de 50 tentativas reais, o review_log sabe mais que
+// o teste de 4 minutos. Recalibra o nivel 1x/dia, em segundo plano, e grava
+// lf_cefr_source='measured' — historias, exercicios e legendas passam a
+// seguir o nivel REAL do aluno, nao a etiqueta declarada.
+async function maybeRecalibrateLevel(db, reviewLog, cards, words, todayISO) {
+  try {
+    if (!db || (reviewLog || []).length < 50) return;
+    const lastRun = await db.getSetting('lf_cefr_measured_at').catch(() => null);
+    if (lastRun === todayISO) return;
+    const isExt = typeof chrome !== 'undefined' && !!chrome.runtime?.id;
+    const base = isExt ? chrome.runtime.getURL('utils/') : '/utils/';
+    const cefrMap = await fetch(`${base}cefr-wordlist.json`).then((r) => r.json());
+    const result = estimateLevelFromHistory(reviewLog, cards, words, cefrMap);
+    await db.setSetting('lf_cefr_measured_at', todayISO).catch(() => {});
+    if (!result.level) return;
+    const current = await db.getSetting('lf_cefr_level').catch(() => null);
+    if (result.level === current) {
+      db.setSetting('lf_cefr_source', 'measured').catch(() => {});
+      return;
+    }
+    await Promise.all([
+      db.setSetting('lf_cefr_level', result.level),
+      db.setSetting('cefrTargetLevel', result.level),
+      db.setSetting('lf_cefr_source', 'measured'),
+    ]);
+    console.debug(`[LevelEstimator] Nivel recalibrado: ${current || '?'} -> ${result.level} (${result.total} tentativas)`);
+  } catch { /* medicao nunca quebra a Home */ }
+}
 
 export function chooseTodayAction(state = {}) {
     const totalWords = Math.max(0, Number(state.totalWords) || 0);
@@ -295,6 +325,9 @@ export async function renderHome(container, app) {
         reviewsToday = logToday.length;
         wordsToday = (allWords || []).filter(w => w.added_at && localDateKey(w.added_at) === todayISO).length;
         storiesCount = (stories || []).length;
+
+        // A6: nivel medido pelo estudo real — fire-and-forget, 1x/dia
+        maybeRecalibrateLevel(db, log30, allCards, allWords, todayISO);
 
         // Conhecidas = marcadas no Leitor + cards maduros, agrupadas por família
         const matureByWordId = {};

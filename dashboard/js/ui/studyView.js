@@ -4,7 +4,6 @@ import { aiChat, aiChatStream, getCefrLevel, grammarTutorPersona, grammarInitial
 import { attachVideoContext, renderVideoContext, getVideoContext } from '../core/videoContext.js';
 import { buildSessionQueue, isWeakCard, prioritizeDueLearning } from '../core/sessionQueue.js';
 import { loadVideo, playClip, replayClip, pausePlayer, setClipLoop, isClipPlaying, hidePlayer } from '../core/ytPlayer.js';
-import { fetchTatoebaSentences } from '../core/tatoeba.js';
 // Fase 3 da auditoria (§4g.1/§4g.2): primeiro consumidor real do
 // pronunciationLab — o overlay de shadowing deixou de ser um timer de teatro.
 import { pronunciationLab } from '../../../utils/pronunciation.js';
@@ -93,6 +92,8 @@ async function startEchoMode(micBtn, resultEl, expected, card) {
     mine.play().catch(() => { shadowingBusy = false; micBtn.disabled = false; });
   };
   echoRec.start();
+  const recAtStart = echoRec;
+  setTimeout(() => { try { if (recAtStart.state === 'recording') recAtStart.stop(); } catch { /* ok */ } }, 10000);
   micBtn.disabled = false;
   micBtn.dataset.echo = '1';
   micBtn.textContent = '⏹ Parar gravação';
@@ -391,13 +392,7 @@ export async function renderStudy(container, app, params = {}) {
                         <a id="youglish-fallback" href="#" target="_blank" rel="noopener" class="hidden">Abrir no YouGlish</a>
                       </div>
                     </section>
-                    <section aria-labelledby="real-sentences-title">
-                      <h3 id="real-sentences-title">Outros exemplos</h3>
-                      <div id="tatoeba-box">
-                        <button id="tatoeba-load-btn" class="btn btn-secondary">Ver exemplos adicionais</button>
-                        <div id="tatoeba-list" class="hidden"></div>
-                      </div>
-                    </section>
+                    <!-- Tatoeba removido a pedido do dono (18/07) -->
                   </div>
                 </details>
               </div>
@@ -442,8 +437,18 @@ export async function renderStudy(container, app, params = {}) {
     shadowingBusy = true;
     shadowingPinned = true;
     stopAudio(); // nunca gravar com TTS falando por cima
+    let gotAnyResult = false;
+    scheduleStudyTask(() => {
+      // Watchdog (queixa 18/07: gravacao em loop infinito): a nuvem do
+      // Chrome as vezes nem erro devolve. 12s sem resultado => derruba o
+      // reconhecimento e cai no modo eco local.
+      if (currentCard !== card || gotAnyResult || micBtn.dataset.echo === '1') return;
+      pronunciationLab.stop();
+      startEchoMode(micBtn, resultEl, expected, card);
+    }, 12000);
     pronunciationLab.assess(expected, (fb) => {
       if (currentCard !== card) { pronunciationLab.stop(); return; }
+      if (fb.error || fb.status === 'result') gotAnyResult = true;
       if (fb.error) {
         // 'network' = servico de nuvem do Chrome indisponivel (nao e o mic!)
         // -> troca automaticamente para o modo eco local.
@@ -462,6 +467,7 @@ export async function renderStudy(container, app, params = {}) {
         micBtn.textContent = '🎙️ Ouvindo…';
         resultEl.textContent = '';
       } else if (fb.status === 'stopped') {
+        if (micBtn.dataset.echo === '1') return; // modo eco assumiu; nao clobber
         micBtn.disabled = false;
         if (micBtn.textContent === '🎙️ Ouvindo…') micBtn.textContent = '🎤 Tentar de novo';
         shadowingBusy = false;
@@ -783,11 +789,6 @@ async function loadNextCard(app) {
   document.getElementById('study-yt-mount').classList.add('hidden');
   hidePlayer(); // troca de card: o vídeo do card anterior não deve tocar ao fundo
   document.getElementById('youglish-box').classList.add('hidden');
-  document.getElementById('tatoeba-list').classList.add('hidden');
-  document.getElementById('tatoeba-list').innerHTML = '';
-  document.getElementById('tatoeba-load-btn').classList.remove('hidden');
-  document.getElementById('tatoeba-load-btn').disabled = false;
-  document.getElementById('tatoeba-load-btn').textContent = '🔎 Ver exemplos de falantes reais';
   document.getElementById('improve-btn').classList.add('hidden');
   document.getElementById('shadowing-overlay').classList.add('hidden');
   document.getElementById('shadowing-progress').style.width = '0%';
@@ -1309,7 +1310,6 @@ async function revealCard() {
   renderReveal(word, context, ctxEntry, wordEntry, wordData, card);
   renderChunksList(chunks, context);
   updateYouglish(word);
-  updateTatoeba(word);
   startGrammarChat(card, word, context);
 
   // 3. Se faltar fonética/tradução da frase ou da palavra, gera UMA vez e persiste
@@ -1730,46 +1730,6 @@ async function sendGrammarQuestion(text) {
   }
 }
 
-// ── Tatoeba: frases reais de falantes, sob demanda (Onda 3.5) ───────────────
-function updateTatoeba(word) {
-  const loadBtn = document.getElementById('tatoeba-load-btn');
-  const list = document.getElementById('tatoeba-list');
-  if (!loadBtn || !list) return;
-  loadBtn.classList.remove('hidden');
-  loadBtn.disabled = false;
-  loadBtn.textContent = '🔎 Ver exemplos de falantes reais';
-  list.classList.add('hidden');
-  list.innerHTML = '';
-
-  loadBtn.onclick = async () => {
-    loadBtn.disabled = true;
-    loadBtn.textContent = 'Buscando…';
-    try {
-      const sentences = await fetchTatoebaSentences(word);
-      if (sentences.length === 0) {
-        list.innerHTML = '<p style="font-size:12px; color:var(--color-text-light);">Nenhum exemplo encontrado pra essa palavra.</p>';
-      } else {
-        list.innerHTML = sentences.map(s => `
-          <div style="padding:10px 12px; background:var(--color-bg-alt); border-radius:8px; margin-bottom:8px; font-size:13px;">
-            <div style="color:var(--color-text); font-weight:600;">${escapeHtml(s.text)}</div>
-            ${s.translation ? `<div style="color:var(--color-text-light); margin-top:4px;">${escapeHtml(s.translation)}</div>` : ''}
-          </div>`).join('');
-      }
-      list.classList.remove('hidden');
-      loadBtn.classList.add('hidden');
-    } catch (e) {
-      console.warn('[Study] Tatoeba falhou:', e);
-      list.innerHTML = '<p style="font-size:12px; color:var(--color-text-light);">Não consegui buscar exemplos agora.</p>';
-      list.classList.remove('hidden');
-      loadBtn.classList.add('hidden');
-    }
-  };
-}
-
-// ── YouGlish embutido ────────────────────────────────────────────────────────
-// Lazy por design: o widget do YouGlish dá autoplay e é pesado — só carrega
-// quando o usuário CLICA. Ao trocar de card, o vídeo é pausado (bug antigo:
-// continuava tocando no card seguinte).
 function updateYouglish(word) {
   const box = document.getElementById('youglish-box');
   const fallback = document.getElementById('youglish-fallback');
@@ -2208,8 +2168,8 @@ function injectStyles() {
     #grammar-send { background: var(--color-primary); color: #fff; border: none; width: 44px; cursor: pointer; font-size: 16px; }
     #grammar-send:disabled { opacity: 0.5; cursor: default; }
 
-    #youglish-box, #tatoeba-box { padding:10px; border-radius:12px; background:var(--color-bg-alt); }
-    #youglish-box .btn, #tatoeba-box .btn { width:100%; min-height:44px; padding:9px; font-size:13px; }
+    #youglish-box { padding:10px; border-radius:12px; background:var(--color-bg-alt); }
+    #youglish-box .btn { width:100%; min-height:44px; padding:9px; font-size:13px; }
     #youglish-fallback { margin-top:8px; display:inline-flex; color:var(--color-secondary); font-weight:900; }
     #yg-widget-embed { width: 100%; min-height: 0; }
     #yg-widget-embed iframe { max-width: 100%; border-radius: var(--radius-md); }

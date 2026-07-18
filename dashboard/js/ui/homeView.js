@@ -35,7 +35,9 @@ function organizeHomeSections(container) {
     const more = document.createElement('details');
     more.id = 'home-more';
     more.className = 'home-more';
-    more.innerHTML = '<summary>Ver metas, memória e conquistas</summary><div class="home-more-body"></div>';
+    // Pedido do dono (18/07): metas/memoria/conquistas EXPANDIDAS por padrao
+    more.open = true;
+    more.innerHTML = '<summary>Metas, memória e conquistas</summary><div class="home-more-body"></div>';
     const moreBody = more.querySelector('.home-more-body');
     append(moreBody, '#home-today-plan');
     append(moreBody, '.quests-card');

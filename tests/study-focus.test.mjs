@@ -54,7 +54,11 @@ assert.match(source, /setClipLoop\(false\)/,
   'trecho original toca uma vez e não fica preso em loop');
 assert.match(source, /id="voice-ai-consent" type="checkbox"/,
   'envio da voz exige consentimento explícito');
+assert.match(source, /localStorage\.setItem\(VOICE_AI_CONSENT_KEY, '1'\)/,
+  'consentimento de voz confirmado persiste para os próximos cards');
+assert.match(source, /localStorage\.removeItem\(VOICE_AI_CONSENT_KEY\)/,
+  'aluno ainda pode revogar o consentimento desmarcando a opção');
 assert.match(source, /assessPronunciationAudio\(blob, expected\)/,
   'fallback de gravação recebe avaliação multimodal em vez de apenas eco');
 
-console.log('20 contratos do modo foco passaram — tudo verde ✅');
+console.log('22 contratos do modo foco passaram — tudo verde ✅');

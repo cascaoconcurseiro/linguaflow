@@ -4,12 +4,22 @@
 // escutado sem emissor. Foi assim que pronunciationLab, lf-video-words e
 // LF_WORD_KNOWN cairam — aqui isso vira varredura, não sorte.
 const fs = require('fs');
-const { execSync } = require('child_process');
+const path = require('path');
 
-const files = execSync(
-  'find . -type f \\( -name "*.js" -o -name "*.ts" -o -name "*.html" \\) -not -path "*/node_modules/*" -not -path "./tests/*" -not -path "./.git/*"',
-  { encoding: 'utf8' }
-).trim().split('\n').map(f => f.replace(/^\.\//, ''));
+// A auditoria faz parte do fluxo oficial e precisa rodar também no Windows.
+// O antigo shell `find` era resolvido como FIND.EXE e abortava antes de ler
+// qualquer arquivo. A travessia em Node é determinística e multiplataforma.
+const ignoredDirs = new Set(['node_modules', 'tests', '.git']);
+const files = [];
+function walk(dir) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory() && ignoredDirs.has(entry.name)) continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) walk(full);
+    else if (/\.(js|ts|html)$/.test(entry.name)) files.push(full.replace(/^[.]?[\\/]/, '').replaceAll('\\', '/'));
+  }
+}
+walk('.');
 
 const src = {};
 files.forEach(f => { src[f] = fs.readFileSync(f, 'utf8'); });

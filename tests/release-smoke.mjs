@@ -95,10 +95,13 @@ const pwaWorkerSource = read('dashboard/sw.js');
 // real e CONSISTENCIA: o CACHE_NAME do worker acompanha o CLIENT_BUILD do app.
 {
   const appSource = read('dashboard/js/core/app.js');
+  const dashboardHtml = read('dashboard/dashboard.html');
   const buildMatch = appSource.match(/CLIENT_BUILD = '([\d.]+)'/);
   assert(buildMatch, 'CLIENT_BUILD presente no app.js');
   assert(pwaWorkerSource.includes(`CACHE_NAME = 'linguaflow-v${buildMatch[1]}'`),
     `CACHE_NAME do sw.js acompanha o CLIENT_BUILD (${buildMatch[1]})`);
+  assert(dashboardHtml.includes(`app.js?v=${buildMatch[1]}`),
+    `dashboard.html carrega o mesmo build do app.js (${buildMatch[1]})`);
   assert(pwaWorkerSource.includes("SKIP_WAITING"), 'sw.js aceita SKIP_WAITING (banner Atualizar)');
 }
 assert(pwaWorkerSource.includes("req.destination === 'script'") && pwaWorkerSource.includes("fetch(req)"), 'JavaScript do PWA usa rede primeiro com fallback offline');

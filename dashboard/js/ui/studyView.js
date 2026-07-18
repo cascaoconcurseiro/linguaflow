@@ -9,6 +9,7 @@ import { loadVideo, playClip, replayClip, pausePlayer, setClipLoop, isClipPlayin
 import { pronunciationLab } from '../../../utils/pronunciation.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
+const VOICE_AI_CONSENT_KEY = 'lf_voice_ai_consent_v1';
 
 let dueQueue = [];
 let pendingLearning = []; // cards em learning steps que voltam DENTRO da sessão
@@ -52,10 +53,9 @@ function stopEchoMode() {
 }
 
 // O SpeechRecognition do Chrome depende de um servico de nuvem do Google e
-// em varios ambientes falha com 'network' MESMO com o mic autorizado (queixa
-// do dono, 17/07). Plano B 100% local: grava a voz e toca VOCE -> FRASE em
-// sequencia — comparar de ouvido e o treino que todo poliglota faz; nenhuma
-// nuvem envolvida, funciona sempre. O audio vive so em memoria.
+// em varios ambientes falha com 'network' MESMO com o mic autorizado. O plano
+// B grava por no maximo 8s e, com consentimento persistido, envia o blob em
+// memoria para avaliacao multimodal. LinguaFlow nao salva o arquivo.
 async function startEchoMode(micBtn, resultEl, expected, card) {
   try {
     echoStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -424,6 +424,14 @@ export async function renderStudy(container, app, params = {}) {
 
   document.getElementById('play-audio-btn').addEventListener('click', playCurrentAudio);
   document.getElementById('reveal-btn').addEventListener('click', revealCard);
+  const voiceConsent = document.getElementById('voice-ai-consent');
+  try { voiceConsent.checked = localStorage.getItem(VOICE_AI_CONSENT_KEY) === '1'; } catch { /* storage bloqueado */ }
+  voiceConsent?.addEventListener('change', () => {
+    try {
+      if (voiceConsent.checked) localStorage.setItem(VOICE_AI_CONSENT_KEY, '1');
+      else localStorage.removeItem(VOICE_AI_CONSENT_KEY);
+    } catch { /* consentimento vale apenas nesta sessão se storage falhar */ }
+  });
   // Shadowing (§4g.1): compara a fala com a frase que o TTS acabou de tocar.
   // O diff mostra o texto da frase — aceitável na frente do card porque o
   // áudio JÁ a falou por inteiro; a resposta real (sentido/tradução) não vaza.
@@ -454,7 +462,9 @@ export async function renderStudy(container, app, params = {}) {
     const expected = card._ctx || card.wordData?.context_sentence || card.wordData?.word || '';
     if (!expected) return;
     const consent = document.getElementById('voice-ai-consent');
-    if (!consent?.checked) {
+    let previouslyConsented = false;
+    try { previouslyConsented = localStorage.getItem(VOICE_AI_CONSENT_KEY) === '1'; } catch { /* storage bloqueado */ }
+    if (!consent?.checked && !previouslyConsented) {
       resultEl.textContent = 'Marque o consentimento para enviar e avaliar sua gravação.';
       consent?.focus();
       return;

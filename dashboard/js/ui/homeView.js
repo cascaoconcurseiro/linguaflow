@@ -660,13 +660,6 @@ export async function renderHome(container, app) {
     });
     document.getElementById('btn-open-learning')?.addEventListener('click', () => app?.navigate?.('learn'));
 
-    // Onda 9: modo de estudo customizado (paridade Anki) — revisar só as
-    // palavras fracas/leech, ignorando a cota diária normal.
-    document.getElementById('btn-study-weak')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (app && app.navigate) app.navigate('study', { weakOnly: true });
-    });
-
     document.getElementById('btn-play-match')?.addEventListener('click', () => {
         if (app && app.navigate) app.navigate('game');
     });

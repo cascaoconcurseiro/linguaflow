@@ -1,7 +1,7 @@
 {
   "name": "LinguaFlow",
   "short_name": "LinguaFlow",
-  "description": "Seu ambiente completo de estudo de idiomas, inspirado no Anki e Duolingo.",
+  "description": "Estude inglês com vídeos, leitura, histórias e revisão espaçada sincronizada.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

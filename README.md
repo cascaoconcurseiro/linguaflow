@@ -1,267 +1,80 @@
-# ⚡ LinguaFlow - Aprenda Idiomas Assistindo Vídeos
+# LinguaFlow
 
-> **100% Gratuito • 100% Offline • 100% Privado**
+Extensão Chrome e PWA para aprender inglês com vídeos, leitura, histórias e revisão espaçada. O progresso autenticado é sincronizado pelo Supabase entre computador e celular.
 
-Extensão Chrome para aprendizado de idiomas através de vídeos com legendas duplas, dicionário integrado e sistema de repetição espaçada (SRS).
+[Abrir o aplicativo](https://linguaflow-web-tau.vercel.app) · [Reportar problema](https://github.com/cascaoconcurseiro/linguaflow/issues)
 
----
+## O que existe hoje
 
-## 🎯 Funcionalidades
+- Legendas interativas em YouTube, Netflix, Max, Disney+ e Prime Video.
+- Tradução, contexto, pronúncia, classificação CEFR e salvamento de palavras e expressões.
+- Cofre de vocabulário com busca, filtros e estados de aprendizagem.
+- Revisão espaçada baseada em FSRS, com etapas de aprendizagem e desfazer seguro.
+- Treino de escuta, reconhecimento, reconstrução de frases e fala.
+- Histórias geradas no nível do aluno e Web Reader para textos próprios.
+- PWA instalável no celular e dashboard responsivo no computador.
+- Estatísticas baseadas em revisões e sessões gravadas para o usuário autenticado.
+- XP e ofensiva registrados no servidor com eventos deduplicados.
+- Tema claro/escuro, áudio natural com fallback e funcionamento parcial offline.
 
-### 🎬 Legendas Duplas Inteligentes
-- ✅ Legenda original (inglês) + Tradução (português)
-- ✅ Tradução **instantânea** (< 100ms)
-- ✅ Posicionamento otimizado por plataforma
-- ✅ Arrastar legendas com mouse
-- ✅ Modo blur (tradução borrada até hover)
+O LinguaFlow é gratuito para o usuário, mas recursos de tradução, áudio e geração dependem de serviços externos gratuitos ou configurados no servidor. Portanto, o produto não é “100% offline”.
 
-### 📚 Dicionário Integrado
-- ✅ Clique em qualquer palavra para ver definição
-- ✅ Pronúncia (IPA) + Áudio nativo
-- ✅ Exemplos de uso reais
-- ✅ Nível CEFR estimado
-- ✅ Frequência da palavra
+## Fonte dos dados
 
-### 🎴 Sistema SRS (Flashcards)
-- ✅ Algoritmo SuperMemo-2
-- ✅ Revisão espaçada inteligente
-- ✅ 4 níveis de dificuldade
-- ✅ Estatísticas detalhadas
-- ✅ Dashboard completo
+O Supabase é a fonte de verdade para vocabulário, cards, revisões, progresso competitivo, histórias, sessões e preferências pedagógicas. Armazenamento local é usado para sessão, cache, preferências específicas do dispositivo e contingência offline.
 
-### 🎮 Controles por Teclado
-- **A** - Legenda anterior
-- **S** - Repetir legenda
-- **D** - Próxima legenda
-- **Q** - Toggle auto-pausa
-- **R** - Salvar frase inteira
-- **O** - Abrir configurações
-- **Espaço** - Play/Pause
+A situação completa e as exceções conhecidas estão em [Arquitetura de dados](docs/ARQUITETURA_DADOS.md).
 
-### 🌐 Plataformas Suportadas
-- ✅ YouTube
-- ✅ Netflix
-- ✅ Prime Video
-- ✅ Disney+
-- ✅ Max (HBO Max)
-- ✅ Sites genéricos
+## Arquitetura
 
----
+| Camada | Responsabilidade |
+| --- | --- |
+| Extensão MV3 | Integração com players, legendas, Web Reader e captura de contexto |
+| PWA Vanilla JS | Dashboard, revisão, biblioteca, histórias, treino e estatísticas |
+| Supabase | Auth, Postgres com RLS, Edge Functions, eventos e sincronização |
+| Vercel | Hospedagem do PWA e rotas estáticas |
 
-## 🚀 Instalação
+Não há etapa de build para carregar a extensão. O projeto usa módulos JavaScript nativos.
 
-### Opção 1: Chrome Web Store (Em Breve)
-```
-Aguardando aprovação na Chrome Web Store
-```
+## Instalação para desenvolvimento
 
-### Opção 2: Instalação Manual
-
-1. **Clone o repositório:**
 ```bash
-git clone https://github.com/seu-usuario/linguaflow.git
+git clone https://github.com/cascaoconcurseiro/linguaflow.git
 cd linguaflow
-```
-
-2. **Build (se necessário):**
-```bash
 npm install
-npm run build
+npm run test:release
 ```
 
-3. **Carregar no Chrome:**
-   - Abrir `chrome://extensions/`
-   - Ativar "Modo do desenvolvedor"
-   - Clicar em "Carregar sem compactação"
-   - Selecionar a pasta do projeto
+Para testar a extensão:
 
----
+1. Abra `chrome://extensions`.
+2. Ative o modo do desenvolvedor.
+3. Escolha **Carregar sem compactação**.
+4. Selecione a raiz deste repositório.
 
-## 📖 Documentação
+O PWA publicado está em [linguaflow-web-tau.vercel.app](https://linguaflow-web-tau.vercel.app).
 
-### Para Usuários
-- 📘 [**Guia de Testes**](GUIA_DE_TESTES.md) - Como testar todas as funcionalidades
-- 📗 [**Instruções de Build**](INSTRUCOES_BUILD.md) - Como compilar e publicar
+## Testes
 
-### Para Desenvolvedores
-- 📕 [**Correções da Auditoria**](CORRECOES_AUDITORIA.md) - Problemas identificados e corrigidos
-- 📙 [**Resumo Executivo**](RESUMO_EXECUTIVO.md) - Visão geral completa do projeto
+```bash
+npm run test:release
+```
 
----
+A suíte cobre motor FSRS, concorrência de áudio e vídeo, autenticação, fronteiras de dados, estatísticas, UX, segurança das escritas e contratos das migrations.
 
-## 🎨 Screenshots
+## Estado do projeto
 
-### Legendas Duplas
-![Legendas Duplas](screenshots/legendas-duplas.png)
-*Legenda original em branco + tradução em azul*
+O produto está em desenvolvimento ativo. Os fluxos principais funcionam, mas ainda há trabalho de consolidação — especialmente sincronizar textos do Web Reader, reduzir documentação histórica e validar continuamente integrações de voz e vídeo nos navegadores suportados.
 
-### Dicionário Popup
-![Dicionário](screenshots/dicionario.png)
-*Clique em qualquer palavra para ver definição completa*
+Veja [Comece aqui](docs/COMECE_AQUI.md), [Backlog atual](docs/BACKLOG_PRODUTO_2026-07-17.md) e [Changelog](docs/CHANGELOG.md).
 
-### Dashboard
-![Dashboard](screenshots/dashboard.png)
-*Gerencie seu vocabulário e faça revisões*
+## Privacidade e segurança
 
-### Flashcards
-![Flashcards](screenshots/flashcards.png)
-*Sistema SRS com algoritmo SuperMemo-2*
+- Dados por usuário protegidos por RLS no Supabase.
+- Chaves privadas ficam no servidor; a extensão contém apenas credenciais públicas apropriadas ao cliente.
+- O conteúdo estudado não é colocado no ledger competitivo de XP.
+- Relatórios de erro armazenam metadados limitados, sem mensagem ou conteúdo sensível.
 
----
+## Licença
 
-## 🆚 Comparação com Language Reactor
-
-| Funcionalidade | Language Reactor | LinguaFlow |
-|----------------|------------------|------------|
-| Legendas Duplas | ✅ | ✅ |
-| Tradução Instantânea | ✅ | ✅ |
-| Dicionário Integrado | ✅ | ✅ |
-| Sistema SRS | ✅ | ✅ |
-| Múltiplas Plataformas | ✅ | ✅ |
-| Controles por Teclado | ✅ | ✅ |
-| **Preço** | **$5/mês** | **GRÁTIS** |
-| **Offline** | ❌ | ✅ |
-| **Privacidade** | ❌ | ✅ |
-| **Open Source** | ❌ | ✅ |
-
----
-
-## 🔧 Tecnologias
-
-- **Frontend:** Vanilla JavaScript (ES6+)
-- **Storage:** IndexedDB
-- **APIs:** Google Translate (GTX), Free Dictionary API, Tatoeba
-- **Manifest:** V3 (Chrome Extension)
-- **Build:** Webpack (opcional)
-
----
-
-## 📊 Status do Projeto
-
-### ✅ Funcionalidades Implementadas (100%)
-- ✅ Legendas duplas em todas as plataformas
-- ✅ Tradução instantânea (< 100ms)
-- ✅ Dicionário completo com IPA e áudio
-- ✅ Sistema SRS com SuperMemo-2
-- ✅ Dashboard com estatísticas e Heatmap
-- ✅ Exportação para Anki (CSV) ⭐ **NOVO**
-- ✅ Modo Shadowing (Treino de Pronúncia) ⭐ **NOVO**
-- ✅ Gamificação de Decks (Níveis Bronze/Prata/Ouro) ⭐ **NOVO**
-- ✅ Sincronização em tempo real
-- ✅ Controles por teclado unificados
-- ✅ Painel de configurações profissional
-
-### 🐛 Bugs Conhecidos
-Nenhum bug crítico conhecido! 🎉 (Sincronização CC YouTube corrigida).
-
-### 🚀 Próximas Funcionalidades
-- [ ] Suporte para mais idiomas (Chinês, Japonês, Coreano)
-- [ ] Modo escuro (Dark Mode)
-- [ ] Estatísticas avançadas de progresso
-- [ ] Integração com Forvo (pronúncia humana)
-
----
-
-## 🤝 Contribuindo
-
-Contribuições são bem-vindas! Para contribuir:
-
-1. Fork o projeto
-2. Crie uma branch (`git checkout -b feature/nova-funcionalidade`)
-3. Commit suas mudanças (`git commit -m 'Adiciona nova funcionalidade'`)
-4. Push para a branch (`git push origin feature/nova-funcionalidade`)
-5. Abra um Pull Request
-
-### Diretrizes
-- Código modular (ESM)
-- Seguir padrão ES6+
-- Testar em YouTube e HBO Max (Max)
-- Atualizar documentação
-
----
-
-## 📝 Changelog
-
-### v1.1.0 (02/05/2026)
-- ✅ **Exportação para Anki:** Botão dedicado no dashboard para exportar vocabulário.
-- ✅ **Gamificação:** Sistema de níveis para decks baseado em palavras maduras.
-- ✅ **Shadowing Mode:** Prática de repetição ativa no popup de dicionário.
-- ✅ **Consolidação Técnica:** Remoção de módulos redundantes e unificação de atalhos.
-- ✅ **Sync CC:** Sincronização automática entre botão LinguaFlow e CC nativo do YouTube.
-
-### v1.0.0 (25/04/2026)
-- ✅ Lançamento inicial
-- ✅ Suporte para YouTube, Netflix, Prime, Disney+, Max
-- ✅ Legendas duplas com tradução instantânea
-- ✅ Dicionário integrado
-- ✅ Sistema SRS completo
-- ✅ Dashboard e estatísticas
-
----
-
-## 📄 Licença
-
-MIT License - Veja [LICENSE](LICENSE) para detalhes.
-
----
-
-## 🙏 Agradecimentos
-
-- **Free Dictionary API** - Dicionário gratuito
-- **Google Translate** - API de tradução
-- **Tatoeba** - Exemplos de frases
-- **MyMemory** - Tradução de backup
-- **SuperMemo** - Algoritmo SRS
-
----
-
-## 📞 Suporte
-
-### Problemas?
-1. Verificar [Guia de Testes](GUIA_DE_TESTES.md)
-2. Abrir uma [Issue](https://github.com/seu-usuario/linguaflow/issues)
-3. Email: extensao.linguaflow@gmail.com
-
-### Redes Sociais
-- Twitter: [@linguaflow](https://twitter.com/linguaflow)
-- Discord: [LinguaFlow Community](https://discord.gg/linguaflow)
-
----
-
-## ⭐ Star History
-
-Se você gostou do projeto, dê uma ⭐!
-
-[![Star History Chart](https://api.star-history.com/svg?repos=seu-usuario/linguaflow&type=Date)](https://star-history.com/#seu-usuario/linguaflow&Date)
-
----
-
-## 🎯 Roadmap
-
-### Q2 2026
-- [ ] Publicar na Chrome Web Store
-- [ ] Suporte para Firefox
-- [ ] Modo escuro
-- [ ] Mais idiomas
-
-### Q3 2026
-- [ ] App mobile (React Native)
-- [ ] Integração com Anki
-- [ ] API pública
-- [ ] Comunidade de usuários
-
-### Q4 2026
-- [ ] IA para recomendações personalizadas
-- [ ] Gamificação
-- [ ] Certificados de conclusão
-- [ ] Marketplace de conteúdo
-
----
-
-<div align="center">
-
-**Feito com ❤️ por desenvolvedores que amam idiomas**
-
-[⬆ Voltar ao topo](#-linguaflow---aprenda-idiomas-assistindo-vídeos)
-
-</div>
+[MIT](LICENSE)

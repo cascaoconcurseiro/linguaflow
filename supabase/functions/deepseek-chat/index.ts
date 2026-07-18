@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
       if (body.consent !== true || !expected || !audio || audio.length > MAX_AUDIO_BASE64 || !/^[A-Za-z0-9+/=]+$/.test(audio)) {
         return new Response(JSON.stringify({ error: "Gravação, frase ou consentimento inválido." }), { status: 400, headers: cors });
       }
-      const openRouterKey = Deno.env.get("OPENROUTER_API_KEY");
+      const openRouterKey = Deno.env.get("OPENROUTER_API_KEY") || Deno.env.get("OPENROUTER LINGUA");
       if (!openRouterKey) {
         return new Response(JSON.stringify({ error: "Avaliação de voz não configurada no servidor." }), { status: 503, headers: cors });
       }
@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
       const { data: vaultKey } = await admin.rpc("get_deepseek_key");
       DEEPSEEK_API_KEY = vaultKey || undefined;
     }
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") || Deno.env.get("OPENROUTER LINGUA");
     if (!DEEPSEEK_API_KEY && !OPENROUTER_API_KEY) {
       return new Response(JSON.stringify({ error: "Nenhum provedor de IA está configurado no servidor." }), {
         status: 500, headers: cors,

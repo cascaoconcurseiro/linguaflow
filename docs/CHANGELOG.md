@@ -1,5 +1,12 @@
 # LinguaFlow - Changelog
 
+## 3.0.26 — Traduções naturais sem mistura de idiomas (18/07/2026)
+
+- detecta traduções persistidas que copiaram expressões inglesas para o texto em português;
+- regenera e persiste automaticamente o chunk corrigido quando o card reaparece;
+- reforça o prompt para traduzir expressões pelo sentido, sem deixar empréstimos ingleses no resultado;
+- adiciona contratos contra regressão para o exemplo “fist bump”.
+
 ## 3.0.25 — Voz móvel e acessibilidade do login (18/07/2026)
 
 - desativa temporariamente o treino de fala em computadores, mantendo-o em dispositivos móveis;

@@ -7,6 +7,7 @@ import { loadVideo, playClip, replayClip, pausePlayer, setClipLoop, isClipPlayin
 // Fase 3 da auditoria (§4g.1/§4g.2): primeiro consumidor real do
 // pronunciationLab — o overlay de shadowing deixou de ser um timer de teatro.
 import { pronunciationLab } from '../../../utils/pronunciation.js';
+import { hasSourcePhraseLeak } from '../../../utils/translation-quality.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 let dueQueue = [];
@@ -1329,8 +1330,11 @@ async function revealCard() {
   updateYouglish(word);
   startGrammarChat(card, word, context);
 
-  // 3. Se faltar fonética/tradução da frase ou da palavra, gera UMA vez e persiste
-  if (!ctxEntry || !wordEntry) {
+  // 3. Conteúdo antigo pode existir e ainda estar quebrado. Uma expressão
+  // inglesa copiada para o PT ("fist bump", por exemplo) também exige reparo.
+  const needsContextRepair = !ctxEntry || !ctxEntry.pt || hasSourcePhraseLeak(context, ctxEntry.pt);
+  const needsWordRepair = !wordEntry || !wordEntry.pt;
+  if (needsContextRepair || needsWordRepair) {
     const phonEl = document.getElementById('pump-phonetics');
     phonEl.textContent = '🗣️ Gerando pronúncia...';
     phonEl.classList.remove('hidden');
@@ -1339,11 +1343,11 @@ async function revealCard() {
       const data = await enrichCard(word, context);
       if (currentCard !== card || !data) return;
 
-      if (!ctxEntry && data.sentence_phon) {
+      if (needsContextRepair && data.sentence_phon && data.sentence_pt && !hasSourcePhraseLeak(context, data.sentence_pt)) {
         ctxEntry = { eng: context, pt: data.sentence_pt || '', phon: data.sentence_phon, is_context: true, is_word: false };
         chunks = [ctxEntry, ...chunks.filter(c => !c.is_context)];
       }
-      if (!wordEntry && data.word_phon) {
+      if (needsWordRepair && data.word_phon && data.word_pt) {
         wordEntry = { eng: word, pt: data.word_pt || '', phon: data.word_phon, is_context: false, is_word: true };
         chunks = [...chunks, wordEntry];
       }

@@ -237,7 +237,11 @@ export async function enrichCard(word, sentence) {
 REGRAS para os campos "*_phon" (Fonética Brasileira = inglês escrito como um brasileiro leria):
 - NUNCA traduza palavras dentro da fonética (ex: "should" -> "xud", nunca "deve").
 - NUNCA use símbolos IPA (ə, ʃ, θ...). Só letras comuns do português.
-- Marque a sílaba tônica com acento (ex: "I think you should call her" -> "Ai fínk iú xud cól rrâr").`;
+- Marque a sílaba tônica com acento (ex: "I think you should call her" -> "Ai fínk iú xud cól rrâr").
+REGRAS para os campos "*_pt":
+- Traduza a frase INTEIRA para português brasileiro natural, pelo sentido e contexto.
+- NÃO deixe palavras ou expressões em inglês dentro da tradução, nem empréstimos como "fist bump". Traduza a intenção (ex.: "I'll fist-bump you" -> "Vou bater aqui com você").
+- Preserve nomes próprios, mas nunca produza uma mistura de português e inglês.`;
   const user = `Palavra-foco: "${word}"
 Frase: "${sentence}"
 Retorne exatamente este JSON:
@@ -250,7 +254,7 @@ Retorne exatamente este JSON:
 
   const content = await aiChat(
     [{ role: 'system', content: system }, { role: 'user', content: user }],
-    { temperature: 0.3, max_tokens: 500 }
+    { temperature: 0.1, max_tokens: 500 }
   );
   const clean = content.replace(/```json/g, '').replace(/```/g, '').trim();
   try {

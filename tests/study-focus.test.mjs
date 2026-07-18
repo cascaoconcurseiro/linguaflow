@@ -75,6 +75,10 @@ assert.match(source, /card\._classicStage === 'word'[\s\S]{0,100}\? wordAlone[\s
   'primeiro estágio cobra somente a palavra; frase só nos estágios seguintes');
 assert.match(source, /playback\.src = echoPlaybackUrl/,
   'falha externa mantém reprodução local da gravação no PC');
+assert.match(source, /hasSourcePhraseLeak\(context, ctxEntry\.pt\)/,
+  'tradução de frase híbrida é considerada incompleta e regenerada');
+assert.match(source, /needsContextRepair/,
+  'chunks persistidos ruins não ficam congelados para sempre');
 assert.match(aiSource, /preparedBlob = new Blob\(\[wav\], \{ type: 'audio\/wav' \}\)/,
   'PC e celular normalizam a gravação para WAV antes do envio');
 const { pronunciationLab } = await import('../utils/pronunciation.js');

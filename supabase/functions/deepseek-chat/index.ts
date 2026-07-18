@@ -6,7 +6,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const RATE_LIMIT_PER_MIN = 20;
 const MAX_TOKENS_CAP = 2048;
 const MAX_AUDIO_BASE64 = 2_000_000;
-const AUDIO_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
+const DEFAULT_AUDIO_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
 const MAX_AUDIO_ATTEMPTS = 2;
 const ENDPOINT = "deepseek-chat";
 
@@ -95,43 +95,57 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: "Avaliação de voz não configurada no servidor." }), { status: 503, headers: cors });
       }
       const prompt = `Compare a pronúncia do aluno com a frase esperada: "${expected}". Avalie inteligibilidade, palavras omitidas/trocadas e ritmo. Não penalize sotaque brasileiro se estiver inteligível. Responda SOMENTE JSON válido: {"score":0-100,"transcript":"o que ouviu","feedback":"uma frase curta em português","missed_words":["palavras problemáticas"]}`;
+      // Permite adicionar modelos de áudio gratuitos por secret, sem deploy.
+      // O catálogo atual possui apenas o Nemotron, mas a lista evita ficar
+      // preso a um único provedor quando novos modelos aparecerem.
+      const audioModels = (Deno.env.get("OPENROUTER_AUDIO_MODELS") || DEFAULT_AUDIO_MODEL)
+        .split(",")
+        .map((model) => model.trim())
+        .filter(Boolean)
+        .slice(0, 3);
       let audioResponse: Response | null = null;
       let providerData: any = null;
-      const providerErrors: Array<{ attempt: number; status: number; message: string }> = [];
+      const providerErrors: Array<{ model: string; attempt: number; status: number; message: string }> = [];
       for (let attempt = 1; attempt <= MAX_AUDIO_ATTEMPTS; attempt += 1) {
-        if (attempt > 1) await new Promise((resolve) => setTimeout(resolve, 350));
-        audioResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${openRouterKey}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://linguaflow-web-tau.vercel.app",
-            "X-Title": "LinguaFlow",
-          },
-          body: JSON.stringify({
-            model: AUDIO_MODEL,
-            messages: [{ role: "user", content: [
-              { type: "text", text: prompt },
-              { type: "input_audio", input_audio: { data: audio, format } },
-            ] }],
-            temperature: 0.1,
-            max_tokens: 350,
-            stream: false,
-          }),
-        });
-        providerData = await audioResponse.json().catch(() => null);
-        if (audioResponse.ok) break;
-        providerErrors.push({
-          attempt,
-          status: audioResponse.status,
-          message: String(providerData?.error?.message || "resposta sem detalhe").slice(0, 300),
-        });
+        for (const model of audioModels) {
+          if (attempt > 1) await new Promise((resolve) => setTimeout(resolve, 350));
+          audioResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${openRouterKey}`,
+              "Content-Type": "application/json",
+              "HTTP-Referer": "https://linguaflow-web-tau.vercel.app",
+              "X-Title": "LinguaFlow",
+            },
+            body: JSON.stringify({
+              model,
+              messages: [{ role: "user", content: [
+                { type: "text", text: prompt },
+                { type: "input_audio", input_audio: { data: audio, format } },
+              ] }],
+              temperature: 0.1,
+              max_tokens: 350,
+              stream: false,
+            }),
+          });
+          providerData = await audioResponse.json().catch(() => null);
+          if (audioResponse.ok) break;
+          providerErrors.push({
+            model,
+            attempt,
+            status: audioResponse.status,
+            message: String(providerData?.error?.message || "resposta sem detalhe").slice(0, 300),
+          });
+        }
+        if (audioResponse?.ok) break;
       }
       if (!audioResponse?.ok) {
         console.error("[voice-assessment] OpenRouter failures", providerErrors);
         return new Response(JSON.stringify({
-          error: "O modelo gratuito de voz está temporariamente indisponível. Tente novamente em instantes.",
-        }), { status: 502, headers: cors });
+          available: false,
+          fallback: "playback",
+          feedback: "A avaliação automática está temporariamente indisponível. Ouça sua gravação e compare com o modelo.",
+        }), { status: 200, headers: cors });
       }
       const content = providerData?.choices?.[0]?.message?.content || "";
       const jsonMatch = String(content).replace(/```json|```/g, "").match(/\{[\s\S]*\}/);

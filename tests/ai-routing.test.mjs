@@ -22,5 +22,9 @@ assert.match(source, /const MAX_AUDIO_ATTEMPTS = 2/,
   'áudio gratuito possui uma repetição curta para falhas transitórias');
 assert.match(source, /attempt <= MAX_AUDIO_ATTEMPTS/,
   'falha transitória do modelo gratuito aciona nova tentativa limitada');
+assert.match(source, /OPENROUTER_AUDIO_MODELS/,
+  'modelos de áudio podem ser ampliados por secret sem novo deploy');
+assert.match(source, /available: false,[\s\S]*fallback: "playback"[\s\S]*status: 200/,
+  'indisponibilidade do provedor não vira erro HTTP no treino de fala');
 
-console.log('8 contratos de roteamento de IA passaram — tudo verde ✅');
+console.log('10 contratos de roteamento de IA passaram — tudo verde ✅');

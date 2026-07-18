@@ -85,6 +85,17 @@ async function startEchoMode(micBtn, resultEl, expected, card) {
     try {
       const assessment = await assessPronunciationAudio(blob, expected);
       if (currentCard !== card) return;
+      if (assessment.available === false) {
+        resultEl.replaceChildren();
+        const message = document.createElement('span');
+        message.textContent = `${assessment.feedback || 'Avaliação automática indisponível.'} `;
+        const playback = document.createElement('audio');
+        playback.controls = true;
+        playback.src = echoPlaybackUrl;
+        playback.setAttribute('aria-label', 'Sua gravação');
+        resultEl.append(message, playback);
+        return;
+      }
       const missed = Array.isArray(assessment.missed_words) && assessment.missed_words.length
         ? `<br><span>Revise: ${assessment.missed_words.map(escapeHtml).join(', ')}</span>`
         : '';

@@ -134,6 +134,7 @@ export async function assessPronunciationAudio(audioBlob, expectedText) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || 'Não foi possível avaliar a gravação.');
+  if (data.available === false) return data;
   if (!Number.isFinite(data.score)) throw new Error('A avaliação retornou um formato inválido.');
   return data;
 }

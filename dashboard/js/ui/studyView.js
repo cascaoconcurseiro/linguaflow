@@ -42,12 +42,17 @@ let shadowingBusy = false;   // uma gravação por vez
 let echoRec = null;          // modo eco: MediaRecorder quando a nuvem falha
 let echoStream = null;
 let echoChunks = [];
+let echoPlaybackUrl = null;
 
 function stopEchoMode() {
   try { if (echoRec && echoRec.state === 'recording') echoRec.stop(); } catch { /* ja parado */ }
   echoStream?.getTracks().forEach((t) => t.stop());
   echoStream = null;
   echoRec = null;
+  if (echoPlaybackUrl) {
+    URL.revokeObjectURL(echoPlaybackUrl);
+    echoPlaybackUrl = null;
+  }
 }
 
 // O SpeechRecognition do Chrome depende de um servico de nuvem do Google e
@@ -73,6 +78,8 @@ async function startEchoMode(micBtn, resultEl, expected, card) {
     if (currentCard !== card || echoChunks.length === 0) { shadowingBusy = false; micBtn.disabled = false; micBtn.textContent = '🎤 Falar agora'; return; }
     const blob = new Blob(echoChunks, { type: echoRec?.mimeType || 'audio/webm' });
     echoChunks = [];
+    if (echoPlaybackUrl) URL.revokeObjectURL(echoPlaybackUrl);
+    echoPlaybackUrl = URL.createObjectURL(blob);
     resultEl.textContent = 'Avaliando sua fala com IA…';
     micBtn.disabled = true;
     try {
@@ -82,8 +89,19 @@ async function startEchoMode(micBtn, resultEl, expected, card) {
         ? `<br><span>Revise: ${assessment.missed_words.map(escapeHtml).join(', ')}</span>`
         : '';
       resultEl.innerHTML = `<strong>${assessment.score}%</strong> · ${escapeHtml(assessment.feedback || 'Avaliação concluída.')}${missed}`;
+      URL.revokeObjectURL(echoPlaybackUrl);
+      echoPlaybackUrl = null;
     } catch (error) {
-      if (currentCard === card) resultEl.textContent = `${error.message} Você ainda pode ouvir a frase e comparar de ouvido.`;
+      if (currentCard === card && echoPlaybackUrl) {
+        resultEl.replaceChildren();
+        const message = document.createElement('span');
+        message.textContent = 'Ouça sua gravação e compare com o modelo: ';
+        const playback = document.createElement('audio');
+        playback.controls = true;
+        playback.src = echoPlaybackUrl;
+        playback.setAttribute('aria-label', 'Sua gravação');
+        resultEl.append(message, playback);
+      }
     } finally {
       shadowingBusy = false;
       if (currentCard === card) { micBtn.disabled = false; micBtn.textContent = '🎤 Gravar de novo'; }
@@ -316,7 +334,6 @@ export async function renderStudy(container, app, params = {}) {
         <div id="shadowing-overlay" class="hidden" style="margin-top: 24px; padding: 16px; background: rgba(88, 204, 2, 0.1); border: 2px dashed var(--color-primary); border-radius: var(--radius-md); text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; animation: pulse 2s infinite;">
           <div style="font-size: 18px; font-weight: 800; color: var(--color-primary);">Treino de fala (opcional)</div>
           <button id="shadowing-mic" class="btn btn-secondary" style="margin-top:10px; padding:10px 22px; font-size:14px;">🎤 Falar agora</button>
-          <p style="margin:10px 0 0; max-width:620px; font-size:12px; color:var(--color-text-light); line-height:1.4;">Ao usar o treino de fala, a gravação é enviada à NVIDIA/OpenRouter para avaliação e não é armazenada pelo LinguaFlow.</p>
           <div id="shadowing-result" role="status" aria-live="polite" style="margin-top:10px; font-size:15px; line-height:1.5; max-width:560px;"></div>
           <div style="width: 100%; background: var(--color-border); height: 6px; border-radius: 3px; margin-top: 12px; overflow: hidden;">
             <div id="shadowing-progress" style="width: 0%; height: 100%; background: var(--color-primary); transition: width 3s linear;"></div>
@@ -447,7 +464,11 @@ export async function renderStudy(container, app, params = {}) {
     // Modo eco ativo: o mesmo botao encerra a gravacao
     if (micBtn.dataset.echo === '1') { stopEchoMode(); return; }
     if (shadowingBusy) return;
-    const expected = card._ctx || card.wordData?.context_sentence || card.wordData?.word || '';
+    const wordAlone = String(card.wordData?.word || card.word || '').trim();
+    const sentence = card._ctx || card.wordData?.context_sentence || wordAlone;
+    const expected = card._mode === 'classic' && card._classicStage === 'word'
+      ? wordAlone
+      : sentence;
     if (!expected) return;
     shadowingBusy = true;
     shadowingPinned = true;

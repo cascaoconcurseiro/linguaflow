@@ -140,11 +140,7 @@ export async function renderStats(container, app) {
 
   let cards = [], reviewLog = [], sessions = [];
   try {
-    [cards, reviewLog, sessions] = await Promise.all([
-      lfDb.getAllCards(),
-      lfDb.getReviewLog(60),
-      lfDb.getSessions(60),
-    ]);
+    ({ cards, reviewLog, sessions } = await lfDb.getStatsSnapshot(60));
   } catch (err) {
     container.setAttribute('aria-busy', 'false');
     container.innerHTML = renderViewState({ kind: 'error', title: 'Não foi possível calcular seu progresso', message: 'Seus registros continuam seguros. Verifique a conexão e tente novamente.', actionLabel: 'Tentar novamente', actionId: 'btn-stats-retry' });

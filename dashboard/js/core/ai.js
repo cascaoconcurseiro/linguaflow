@@ -72,13 +72,49 @@ export async function assessPronunciationAudio(audioBlob, expectedText) {
   const token = await lfDb._getToken();
   if (!token) throw new Error('Faça login para avaliar sua fala.');
 
+  // MediaRecorder varia por plataforma (desktop costuma gerar WebM/Opus;
+  // celulares podem gerar MP4/AAC). O provedor multimodal é mais previsível
+  // com WAV PCM mono, então normalizamos localmente antes do envio.
+  let preparedBlob = audioBlob;
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (AudioContextClass) {
+      const context = new AudioContextClass();
+      try {
+        const decoded = await context.decodeAudioData(await audioBlob.arrayBuffer());
+        const samples = new Float32Array(decoded.length);
+        for (let channel = 0; channel < decoded.numberOfChannels; channel += 1) {
+          const source = decoded.getChannelData(channel);
+          for (let i = 0; i < source.length; i += 1) samples[i] += source[i] / decoded.numberOfChannels;
+        }
+        const wav = new ArrayBuffer(44 + samples.length * 2);
+        const view = new DataView(wav);
+        const write = (offset, text) => [...text].forEach((char, index) => view.setUint8(offset + index, char.charCodeAt(0)));
+        write(0, 'RIFF'); view.setUint32(4, 36 + samples.length * 2, true); write(8, 'WAVE');
+        write(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+        view.setUint16(22, 1, true); view.setUint32(24, decoded.sampleRate, true);
+        view.setUint32(28, decoded.sampleRate * 2, true); view.setUint16(32, 2, true);
+        view.setUint16(34, 16, true); write(36, 'data'); view.setUint32(40, samples.length * 2, true);
+        samples.forEach((sample, index) => {
+          const clamped = Math.max(-1, Math.min(1, sample));
+          view.setInt16(44 + index * 2, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);
+        });
+        preparedBlob = new Blob([wav], { type: 'audio/wav' });
+      } finally {
+        await context.close().catch(() => {});
+      }
+    }
+  } catch (error) {
+    console.warn('[Voice] Não foi possível normalizar para WAV; mantendo formato original.', error?.name || 'Error');
+  }
+
   const audioBase64 = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('Não foi possível preparar a gravação.'));
     reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
-    reader.readAsDataURL(audioBlob);
+    reader.readAsDataURL(preparedBlob);
   });
-  const mime = String(audioBlob.type || '').toLowerCase();
+  const mime = String(preparedBlob.type || '').toLowerCase();
   const format = mime.includes('ogg') ? 'ogg'
     : mime.includes('mp4') ? 'm4a'
       : mime.includes('mpeg') ? 'mp3'

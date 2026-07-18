@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const source = readFileSync(join(root, 'dashboard/js/ui/studyView.js'), 'utf8');
+const aiSource = readFileSync(join(root, 'dashboard/js/core/ai.js'), 'utf8');
 
 assert.doesNotMatch(source, /class="study-sidebar"/,
   'recursos não ocupam uma sidebar permanente');
@@ -54,14 +55,20 @@ assert.match(source, /setClipLoop\(false\)/,
   'trecho original toca uma vez e não fica preso em loop');
 assert.doesNotMatch(source, /voice-ai-consent|VOICE_AI_CONSENT_KEY/,
   'treino de voz não interrompe cada uso com checkbox redundante');
-assert.match(source, /Ao usar o treino de fala, a gravação é enviada à NVIDIA\/OpenRouter/,
-  'interface mantém aviso informativo sobre o processamento externo');
+assert.doesNotMatch(source, /NVIDIA\/OpenRouter|aviso de IA|provedor de IA/,
+  'treino de fala não exibe aviso técnico de IA ou fornecedor');
 assert.match(source, /assessPronunciationAudio\(blob, expected\)/,
   'fallback de gravação recebe avaliação multimodal em vez de apenas eco');
 assert.doesNotMatch(source, /Modo eco \(sem nuvem\)/,
   'interface não promete processamento local quando enviará a gravação à nuvem');
 assert.match(source, /gravação será enviada para avaliação/,
   'interface informa o envio da gravação antes da avaliação');
+assert.match(source, /card\._classicStage === 'word'[\s\S]{0,100}\? wordAlone[\s\S]{0,40}: sentence/,
+  'primeiro estágio cobra somente a palavra; frase só nos estágios seguintes');
+assert.match(source, /playback\.src = echoPlaybackUrl/,
+  'falha externa mantém reprodução local da gravação no PC');
+assert.match(aiSource, /preparedBlob = new Blob\(\[wav\], \{ type: 'audio\/wav' \}\)/,
+  'PC e celular normalizam a gravação para WAV antes do envio');
 const { pronunciationLab } = await import('../utils/pronunciation.js');
 const maliciousFeedback = pronunciationLab.calculateDiff('<img src=x onerror=alert(1)>', 'outra coisa').htmlFeedback;
 assert.doesNotMatch(maliciousFeedback, /<img/,
@@ -69,4 +76,4 @@ assert.doesNotMatch(maliciousFeedback, /<img/,
 assert.match(maliciousFeedback, /&lt;img/,
   'feedback preserva a palavra perigosa somente como texto');
 
-console.log('26 contratos do modo foco passaram — tudo verde ✅');
+console.log('29 contratos do modo foco passaram — tudo verde ✅');

@@ -268,6 +268,9 @@ class Database {
         expires_at: Date.now() + ((data.expires_in || 3600) * 1000),
         user: data.user,
       });
+      // O singleton sobrevive à troca de conta no PWA e no service worker.
+      // Nunca permita que o novo usuário herde listas SWR do usuário anterior.
+      this._invalidateReadCache();
 
       return { ok: true, user: data.user };
     } catch (e) {
@@ -293,6 +296,7 @@ class Database {
           expires_at: Date.now() + ((data.session.expires_in || 3600) * 1000),
           user: data.user,
         });
+        this._invalidateReadCache();
       }
       return { ok: true, user: data.user, session: data.session };
     } catch (e) {
@@ -309,6 +313,8 @@ class Database {
     if (typeof window !== 'undefined' && window.localStorage) {
       localStorage.removeItem('lf_supabase_session');
     }
+    this._invalidateReadCache();
+    this._srsCache = null;
     return { ok: true };
   }
 
@@ -777,6 +783,19 @@ class Database {
       reviewLog: log,
       userStats,
     };
+  }
+
+  async getStatsSnapshot(days = 60) {
+    if (this.isProxyMode) return this._proxy('getStatsSnapshot', [days]);
+    // Estatísticas são uma tela de conferência, não um feed otimista: sempre
+    // descarte SWR e leia o banco sob o JWT da sessão atual.
+    this._invalidateReadCache();
+    const [cards, reviewLog, sessions] = await Promise.all([
+      this.getAllCards(),
+      this.getReviewLog(days),
+      this.getSessions(days),
+    ]);
+    return { cards, reviewLog, sessions };
   }
 
   _calculateStreak(logs, sessions) {

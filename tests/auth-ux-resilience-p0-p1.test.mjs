@@ -9,6 +9,8 @@ const stories = read('dashboard/js/ui/storiesView.js');
 const home = read('dashboard/js/ui/homeView.js');
 const settings = read('dashboard/js/ui/settingsView.js');
 const css = read('dashboard/css/globals.css');
+const db = read('utils/db.js');
+const stats = read('dashboard/js/ui/statsView.js');
 
 // Fronteira autenticada e shell público.
 assert.match(app, /this\.authResolved = false/);
@@ -19,6 +21,12 @@ assert.match(app, /classList\.toggle\('lf-auth-route', route === 'login'\)/);
 assert.match(css, /body\.lf-auth-pending \.mobile-nav/);
 assert.match(css, /body\.lf-auth-route \.mobile-nav/);
 assert.doesNotMatch(login, /topbar\.style\.display/);
+assert.match(db, /async logout\(\)[\s\S]*?this\._invalidateReadCache\(\)/,
+  'logout elimina caches do usuário anterior');
+assert.match(db, /await this\._saveSession\([\s\S]*?this\._invalidateReadCache\(\)/,
+  'login elimina caches antes de servir o novo usuário');
+assert.match(stats, /lfDb\.getStatsSnapshot\(60\)/,
+  'estatísticas exigem snapshot fresco do banco sob a sessão atual');
 
 // Cadastro com confirmação permanece na autenticação até existir sessão.
 assert.match(login, /res\.session\?\.access_token \|\| await db\.checkSession/);

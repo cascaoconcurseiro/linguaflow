@@ -411,7 +411,36 @@ class Database {
       });
     }
 
-    return { ok: true, id: savedWord.id, isNew: !existingCard };
+    // A7 do backlog: TETO DO COFRE. Limite de novos/dia controla a
+    // velocidade da dívida; o teto controla o TAMANHO. Cofre cheio: salvar
+    // continua funcionando, mas a palavra nova entra SUSPENSA (tag
+    // lf:espera) e não gera revisão até o aluno abrir vaga aposentando uma
+    // dominada — salvar vira escolha, não reflexo. lf_vault_cap=0 desliga.
+    let waitingForSlot = false;
+    if (!existingCard) {
+      try {
+        const capRaw = await this.getSetting('lf_vault_cap');
+        const cap = capRaw === null || capRaw === undefined || capRaw === ''
+          ? 300 : Math.max(0, Number(capRaw) || 0);
+        if (cap > 0) {
+          const cards = await this.getAllCards();
+          const active = (cards || []).filter(c => !c.suspended).length;
+          if (active > cap) { // o card recém-criado já conta no total
+            const created = await this.getCardByWordId(savedWord.id);
+            if (created && !created.suspended) {
+              await this.setCardSuspended(created.id, true);
+              const tags = Array.isArray(savedWord.tags) ? savedWord.tags : [];
+              if (!tags.includes('lf:espera')) {
+                await this.addTagsToWord(savedWord.id, [...tags, 'lf:espera']).catch(() => {});
+              }
+              waitingForSlot = true;
+            }
+          }
+        }
+      } catch { /* o teto nunca pode bloquear o save */ }
+    }
+
+    return { ok: true, id: savedWord.id, isNew: !existingCard, waitingForSlot };
   }
 
   async getWord(word, lang = 'en') {

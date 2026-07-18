@@ -303,7 +303,8 @@ export async function renderHome(container, app) {
     let weakWords = [];       // palavras com 3+ lapsos/leech — o "professor" de olho
     let weakCategory = null;   // categoria mais fraca da semana (missão de foco)
     let weakCatReviewsToday = 0;
-    let storiesCount = 0;      // Onda 8: usado nas conquistas ("1ª história" etc.)
+    let storiesCount = 0;
+    let vaultCap = 0, vaultActive = 0, vaultWaiting = [], vaultRetireCandidate = null, vaultWordById = {};      // Onda 8: usado nas conquistas ("1ª história" etc.)
     let supplementaryDataAvailable = true;
     try {
         // Onda 7 (perf): getStats() (wave 1, acima) já buscou 30 dias de
@@ -325,6 +326,21 @@ export async function renderHome(container, app) {
         reviewsToday = logToday.length;
         wordsToday = (allWords || []).filter(w => w.added_at && localDateKey(w.added_at) === todayISO).length;
         storiesCount = (stories || []).length;
+
+        // A7: estado do teto do cofre para o banner
+        try {
+          const capRaw = await db.getSetting('lf_vault_cap').catch(() => null);
+          vaultCap = capRaw === null || capRaw === undefined || capRaw === '' ? 300 : Math.max(0, Number(capRaw) || 0);
+          const tagsByWordId = {};
+          (allWords || []).forEach(w => { tagsByWordId[w.id] = Array.isArray(w.tags) ? w.tags : []; });
+          vaultActive = (allCards || []).filter(c => !c.suspended).length;
+          vaultWaiting = (allCards || []).filter(c => c.suspended && (tagsByWordId[c.word_id] || []).includes('lf:espera'));
+          vaultRetireCandidate = (allCards || [])
+            .filter(c => !c.suspended && (c.status === 'mature' || c.status === 'review') && (c.stability || 0) > 0)
+            .sort((a, b) => (b.stability || 0) - (a.stability || 0))[0] || null;
+          vaultWordById = {};
+          (allWords || []).forEach(w => { vaultWordById[w.id] = w; });
+        } catch { /* banner do cofre e opcional */ }
 
         // A6: nivel medido pelo estudo real — fire-and-forget, 1x/dia
         maybeRecalibrateLevel(db, log30, allCards, allWords, todayISO);
@@ -517,6 +533,15 @@ export async function renderHome(container, app) {
                     </div>
                 </div>
 
+                ${vaultCap > 0 && (vaultWaiting.length > 0 || vaultActive >= vaultCap) ? `
+                <div id="home-vault-banner" style="display:flex; gap:12px; align-items:center; margin-bottom:16px; background:rgba(88,204,2,0.08); border:2px solid var(--color-primary); border-radius:var(--radius-md); padding:14px 18px;">
+                    <span style="font-size:28px;">🗄️</span>
+                    <div style="flex:1;">
+                        <div style="font-weight:900; color:var(--color-text);">Cofre ${vaultActive >= vaultCap ? 'cheio' : 'quase cheio'} (${vaultActive}/${vaultCap})${vaultWaiting.length ? ` · ${vaultWaiting.length} ${vaultWaiting.length === 1 ? 'frase esperando vaga' : 'frases esperando vaga'}` : ''}</div>
+                        <div style="font-size:13px; color:var(--color-text-light);">Aposentar uma expressão dominada abre espaço — ela sai da fila e continua no seu histórico.</div>
+                    </div>
+                    ${vaultRetireCandidate ? `<button class="btn btn-primary" id="btn-open-slot" style="padding:10px 18px; font-size:13px;">Abrir vaga</button>` : ''}
+                </div>` : ''}
                 ${isReturning ? `
                 <div id="home-return-banner" style="display:flex; gap:12px; align-items:center; margin-bottom:16px; background:rgba(28,176,246,0.1); border:2px solid var(--color-secondary); border-radius:var(--radius-md); padding:14px 18px;">
                     <span style="font-size:28px;">👋</span>
@@ -698,7 +723,34 @@ export async function renderHome(container, app) {
     document.getElementById('btn-save-streak')?.addEventListener('click', () => {
         if (app && app.navigate) app.navigate('study');
     });
-    document.getElementById('btn-comeback')?.addEventListener('click', () => {
+    // A7: aposentar a mais dominada e ativar a mais antiga da fila de espera
+    document.getElementById('btn-open-slot')?.addEventListener('click', async () => {
+        const retire = vaultRetireCandidate;
+        if (!retire) return;
+        const retireWord = vaultWordById[retire.word_id];
+        const label = retireWord?.word || 'a expressão mais estável';
+        if (!confirm(`Aposentar "${label}"? Você a domina — ela sai da fila de revisão e continua no seu histórico (dá pra reativar no Cofre).`)) return;
+        try {
+            await db.setCardSuspended(retire.id, true);
+            if (retireWord) {
+                const tags = Array.isArray(retireWord.tags) ? retireWord.tags : [];
+                if (!tags.includes('lf:aposentada')) await db.addTagsToWord(retireWord.id, [...tags, 'lf:aposentada']).catch(() => {});
+            }
+            const next = [...vaultWaiting].sort((a, b) => new Date(a.due_date || 0) - new Date(b.due_date || 0))[0];
+            if (next) {
+                await db.setCardSuspended(next.id, false);
+                const nw = vaultWordById[next.word_id];
+                if (nw) await db.addTagsToWord(nw.id, (Array.isArray(nw.tags) ? nw.tags : []).filter(t => t !== 'lf:espera')).catch(() => {});
+                app.showToast(`"${label}" aposentada · "${nw?.word || 'próxima da fila'}" entrou na revisão.`, 'success');
+            } else {
+                app.showToast(`"${label}" aposentada. Uma vaga aberta no cofre.`, 'success');
+            }
+            app.navigate('home');
+        } catch (e) {
+            app.showToast('Não foi possível abrir a vaga agora.', 'error');
+        }
+    });
+        document.getElementById('btn-comeback')?.addEventListener('click', () => {
         if (app && app.navigate) app.navigate('study');
     });
     document.getElementById('btn-study-now')?.addEventListener('click', () => {

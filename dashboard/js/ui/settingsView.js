@@ -250,7 +250,7 @@ export async function renderSettings(container, app) {
   const settingKeys = ['lf_cefr_level', 'lf_tts_lang', 'lf_tts_speed',
     'graduating_interval', 'max_interval', 'interval_modifier', 'leech_threshold',
     'leech_action', 'lf_srs_retention', 'learning_steps', 'new_per_day',
-    'max_reviews_per_day', 'lf_reverse_cards', 'lf_varied_exercises',
+    'max_reviews_per_day', 'lf_vault_cap', 'lf_reverse_cards', 'lf_varied_exercises',
     'lf_audio_auto_front', 'lf_audio_auto_back'];
   container.setAttribute('aria-busy', 'true');
   container.innerHTML = renderViewState({ kind: 'loading', title: 'Carregando suas configurações…', message: 'Lendo suas preferências sem alterar nenhum valor.' });
@@ -281,6 +281,7 @@ export async function renderSettings(container, app) {
   const learningSteps = srsSteps || '1 10';
   const newPerDay = String(Math.min(20, Math.max(0, Number(srsNewPerDay ?? 5) || 5)));
   const maxRevPerDay = srsMaxRev || '200';
+  const vaultCap = settings.lf_vault_cap === undefined || settings.lf_vault_cap === null || settings.lf_vault_cap === '' ? 300 : settings.lf_vault_cap;
   const srsReverse = srsReverseRaw === true || srsReverseRaw === 'true';
   const srsVaried = srsVariedRaw === null || srsVariedRaw === true || srsVariedRaw === 'true';
   const audioFront = audioFrontRaw === null || audioFrontRaw === true || audioFrontRaw === 'true';
@@ -318,6 +319,10 @@ export async function renderSettings(container, app) {
           <div style="flex:1;">
             <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Revisões máximas/dia</label>
             <input type="number" id="srs-max-rev" value="${maxRevPerDay}" min="10" max="1000" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; background:var(--color-bg-alt); color:var(--color-text);">
+          </div>
+          <div style="flex:1;">
+            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;" title="Teto do acervo: cofre cheio, palavra nova espera vaga. 0 desliga.">Teto do cofre (expressões ativas)</label>
+            <input type="number" id="srs-vault-cap" value="${vaultCap}" min="0" max="2000" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; background:var(--color-bg-alt); color:var(--color-text);">
           </div>
         </div>
         <p style="font-size:12px; color:var(--color-text-light);">Cada expressão nova gera revisões futuras. Comece com 5; por segurança, o sistema introduz no máximo 20 por dia.</p>
@@ -742,6 +747,7 @@ export async function renderSettings(container, app) {
 
     if (val('srs-new-per-day') !== undefined) writes.push(lfDb.setSetting('new_per_day', val('srs-new-per-day')));
     if (val('srs-max-rev')) writes.push(lfDb.setSetting('max_reviews_per_day', val('srs-max-rev')));
+    if (val('srs-vault-cap') !== null && val('srs-vault-cap') !== '') writes.push(lfDb.setSetting('lf_vault_cap', val('srs-vault-cap')));
 
     const reverseChk = document.getElementById('srs-reverse-cards');
     if (reverseChk) writes.push(lfDb.setSetting('lf_reverse_cards', reverseChk.checked ? 'true' : ''));

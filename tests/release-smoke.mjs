@@ -91,7 +91,16 @@ assert(workerSource.includes("chrome.storage.sync.get(['nativeLang', 'targetLang
 
 console.log('\nPWA estático e rotas Vercel');
 const pwaWorkerSource = read('dashboard/sw.js');
-assert(pwaWorkerSource.includes("CACHE_NAME = 'linguaflow-v3.0.11'"), 'cache PWA foi invalidado para o build 3.0.11');
+// 18/07: numero magico fixo virava falso-negativo a cada release. O contrato
+// real e CONSISTENCIA: o CACHE_NAME do worker acompanha o CLIENT_BUILD do app.
+{
+  const appSource = fs.readFileSync('dashboard/js/core/app.js', 'utf8');
+  const buildMatch = appSource.match(/CLIENT_BUILD = '([\d.]+)'/);
+  assert(buildMatch, 'CLIENT_BUILD presente no app.js');
+  assert(pwaWorkerSource.includes(`CACHE_NAME = 'linguaflow-v${buildMatch[1]}'`),
+    `CACHE_NAME do sw.js acompanha o CLIENT_BUILD (${buildMatch[1]})`);
+  assert(pwaWorkerSource.includes("SKIP_WAITING"), 'sw.js aceita SKIP_WAITING (banner Atualizar)');
+}
 assert(pwaWorkerSource.includes("req.destination === 'script'") && pwaWorkerSource.includes("fetch(req)"), 'JavaScript do PWA usa rede primeiro com fallback offline');
 const pwaFiles = [
   'dashboard/dashboard.html', 'dashboard/manifest.webmanifest', 'dashboard/sw.js',

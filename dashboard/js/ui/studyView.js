@@ -1302,8 +1302,15 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
     // Cards antigos salvaram o momento do clique (geralmente perto do fim da
     // legenda), não os bounds da cue. Para eles reconstruímos uma janela curta
     // para trás e a marcamos como aproximada. Cards novos usam start/end exatos.
-    const clipStart = hasExactBounds ? vctx.start : Math.max(0, vctx.start - estimatedDuration);
-    const clipEnd = hasExactBounds ? vctx.end : Math.max(clipStart + 2.5, vctx.start + 0.35);
+    let clipStart = hasExactBounds ? vctx.start : Math.max(0, vctx.start - estimatedDuration);
+    let clipEnd = hasExactBounds ? vctx.end : Math.max(clipStart + 2.5, vctx.start + 0.35);
+    // Queixa do dono (17/07): trecho "uns segundos antes ou depois". Duas
+    // causas: legendas automaticas do YouTube derivam alguns decimos, e o
+    // corte exato na cue come a primeira silaba. Pre-rolo/cauda pequenos no
+    // PLAYBACK (nunca persistidos) + ajuste fino persistente logo abaixo.
+    const PRE_ROLL = hasExactBounds ? 0.3 : 0;
+    const TAIL = hasExactBounds ? 0.25 : 0;
+    const loopBounds = () => ({ start: Math.max(0, clipStart - PRE_ROLL), end: clipEnd + TAIL });
     const clipDuration = Math.max(1, Math.ceil(clipEnd - clipStart));
     const title = escapeHtml(wordData.video_title || 'vídeo de origem');
     const platform = escapeHtml(wordData.platform || 'YouTube');
@@ -1314,6 +1321,11 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
         <div class="video-context-actions">
           <button type="button" class="video-context-embed clip-control" id="play-saved-clip" aria-pressed="false">▶ Ouvir em loop (${clipDuration} s)</button>
           <button type="button" class="video-context-embed clip-control hidden" id="replay-saved-clip">↻ Do início</button>
+          <span id="clip-tune" class="hidden" style="display:inline-flex; gap:6px; align-items:center;">
+            <button type="button" class="video-context-embed clip-control" id="clip-earlier" title="Trecho começa cedo demais ou tarde demais? Puxa o início 0,5s para trás">início −0,5s</button>
+            <button type="button" class="video-context-embed clip-control" id="clip-later" title="Empurra o início 0,5s para a frente">início +0,5s</button>
+            <button type="button" class="video-context-embed clip-control" id="clip-longer" title="A frase é cortada no fim? Alonga 0,5s">fim +0,5s</button>
+          </span>
           <a href="${escapeHtml(vctx.externalUrl)}" target="_blank" rel="noopener noreferrer">Abrir no YouTube ↗</a>
         </div>
         <div class="clip-status" id="saved-clip-status" role="status">${hasExactBounds ? 'Trecho exato salvo pela extensão · repetição contínua' : 'Card antigo: trecho reconstruído aproximadamente · repetição contínua'}</div>
@@ -1343,7 +1355,7 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
       button.textContent = 'Carregando trecho…';
       if (status) status.textContent = 'Preparando o trecho no ponto salvo…';
       setClipLoop(true);
-      const ok = await loadVideo(ytMount, vctx.videoId, { start: clipStart, end: clipEnd });
+      const ok = await loadVideo(ytMount, vctx.videoId, loopBounds());
       if (!ok || !isCurrentPresentation()) {
         if (isCurrentPresentation()) ytMount.classList.add('hidden');
         if (isCurrentPresentation() && status) status.textContent = 'Não foi possível carregar este vídeo. Use “Abrir no YouTube”.';
@@ -1361,10 +1373,33 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
       button.setAttribute('aria-pressed', 'true');
       button.textContent = '⏸ Pausar';
       replayButton?.classList.remove('hidden');
+      document.getElementById('clip-tune')?.classList.remove('hidden');
       if (status) status.textContent = hasExactBounds
         ? 'Repetindo somente esta frase'
-        : 'Repetindo trecho aproximado deste card antigo';
+        : 'Repetindo trecho aproximado deste card antigo — use os ajustes de −/+0,5s para acertar e salvar';
     });
+
+    // Ajuste fino persistente (17/07): cada toque corrige a janela AO VIVO e
+    // grava no card (words.video_start/end_ms) — o card antigo "aproximado"
+    // vira exato para sempre depois do primeiro acerto do aluno.
+    const nudgeClip = async (deltaStart, deltaEnd) => {
+      if (!clipLoaded) return;
+      clipStart = Math.max(0, clipStart + deltaStart);
+      clipEnd = Math.max(clipStart + 0.8, clipEnd + deltaEnd);
+      const ok = await loadVideo(ytMount, vctx.videoId, loopBounds());
+      if (!ok || !isCurrentPresentation()) return;
+      replayClip();
+      const playButton = document.getElementById('play-saved-clip');
+      if (playButton) { playButton.textContent = '⏸ Pausar'; playButton.setAttribute('aria-pressed', 'true'); }
+      if (status) status.textContent = `Ajustado: ${clipStart.toFixed(1)}s → ${clipEnd.toFixed(1)}s · salvo no card`;
+      lfDb.updateWord(wordData.id, {
+        video_start_ms: Math.round(clipStart * 1000),
+        video_end_ms: Math.round(clipEnd * 1000),
+      }).catch(() => { if (status) status.textContent = 'Ajuste aplicado, mas não foi salvo (offline?)'; });
+    };
+    document.getElementById('clip-earlier')?.addEventListener('click', () => nudgeClip(-0.5, 0));
+    document.getElementById('clip-later')?.addEventListener('click', () => nudgeClip(0.5, 0));
+    document.getElementById('clip-longer')?.addEventListener('click', () => nudgeClip(0, 0.5));
     replayButton?.addEventListener('click', () => {
       if (!clipLoaded) return;
       replayClip();

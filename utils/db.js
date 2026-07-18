@@ -451,7 +451,9 @@ class Database {
   async updateWord(id, patch) {
     this._invalidateReadCache();
     if (this.isProxyMode) return this._proxy('updateWord', [id, patch]);
-    const allowed = ['translation', 'context_sentence', 'category', 'level', 'phonetic', 'mnemonic'];
+    // video_start/end_ms: ajuste fino do trecho no Estudo (17/07) — o aluno
+    // corrige a janela do loop e a correção persiste no card para sempre.
+    const allowed = ['translation', 'context_sentence', 'category', 'level', 'phonetic', 'mnemonic', 'video_start_ms', 'video_end_ms'];
     const body = {};
     allowed.forEach(k => { if (patch && patch[k] !== undefined) body[k] = patch[k]; });
     if (Object.keys(body).length === 0) return { ok: true };

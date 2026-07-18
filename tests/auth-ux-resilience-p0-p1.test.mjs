@@ -11,6 +11,7 @@ const settings = read('dashboard/js/ui/settingsView.js');
 const css = read('dashboard/css/globals.css');
 const db = read('utils/db.js');
 const stats = read('dashboard/js/ui/statsView.js');
+const dashboard = read('dashboard/dashboard.html');
 
 // Fronteira autenticada e shell público.
 assert.match(app, /this\.authResolved = false/);
@@ -20,6 +21,13 @@ assert.match(app, /setAuthenticated\(false\)[\s\S]{0,120}navigate\('login'\)/);
 assert.match(app, /classList\.toggle\('lf-auth-route', route === 'login'\)/);
 assert.match(css, /body\.lf-auth-pending \.mobile-nav/);
 assert.match(css, /body\.lf-auth-route \.mobile-nav/);
+assert.match(dashboard, /<body class="lf-auth-pending">/,
+  'shell deve nascer oculto antes mesmo do JavaScript carregar');
+assert.match(app, /this\.navigate\('login'\)[\s\S]*?requestAnimationFrame\([\s\S]*?classList\.remove\('lf-auth-pending'\)/,
+  'primeira rota deve ser instalada antes de revelar o shell');
+assert.match(dashboard, /maximum-scale=1, user-scalable=no, viewport-fit=cover/);
+assert.match(css, /html \{[\s\S]*?overscroll-behavior: none;[\s\S]*?touch-action: manipulation;/);
+assert.match(css, /#app-root \{[\s\S]*?overscroll-behavior: contain;[\s\S]*?touch-action: pan-y;/);
 assert.doesNotMatch(login, /topbar\.style\.display/);
 assert.match(db, /async logout\(\)[\s\S]*?this\._invalidateReadCache\(\)/,
   'logout elimina caches do usuário anterior');

@@ -80,15 +80,32 @@
   padding: 0;
 }
 
+html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   font-family: var(--font-main);
   background-color: var(--color-bg);
   color: var(--color-text);
-  overflow-x: hidden;
+  width: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   -webkit-font-smoothing: antialiased;
+}
+
+:where(button, a, input, select, textarea, summary, [role="button"]) {
+  touch-action: manipulation;
 }
 
 /* Typography */
@@ -480,6 +497,18 @@ body.lf-auth-route .mobile-nav { display: none !important; }
 
 body.lf-auth-pending #app-root,
 body.lf-auth-route #app-root { padding-bottom: 0 !important; }
+
+/* A classe já vem no HTML: nenhum fragmento do dashboard pode aparecer antes
+   da sessão e da primeira rota terem sido resolvidas. */
+body.lf-auth-pending #app-root { visibility: hidden; }
+
+#app-root {
+  min-width: 0;
+  max-width: 100%;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
 
 /* Base Buttons */
 .btn {

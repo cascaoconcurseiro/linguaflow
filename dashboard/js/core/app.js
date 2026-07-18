@@ -13,7 +13,7 @@ import { renderProgress } from '../ui/progressView.js';
 import { bindViewStateAction, renderViewState } from '../ui/viewState.js';
 import { db } from '../../../utils/db.js';
 
-const CLIENT_BUILD = '3.0.16';
+const CLIENT_BUILD = '3.0.17';
 
 // Uma versão antiga do PWA podia misturar HTML/app novo com db.js antigo.
 // Antes de inicializar qualquer tela, elimina esse estado e recarrega uma vez.
@@ -189,7 +189,6 @@ class App {
     }
     this.authResolved = true;
     this.isAuthenticated = isAuthenticated;
-    document.body.classList.remove('lf-auth-pending');
 
     // Auto-logout no caso do token expirar (401)
     window.addEventListener('lf_auth_expired', () => {
@@ -223,6 +222,13 @@ class App {
         });
       }
     }
+
+    // Só revele o shell depois que navigate() instalou a primeira tela.
+    // A classe também nasce no HTML, evitando o flash anterior ao carregamento
+    // deste módulo em conexões ou computadores mais lentos.
+    requestAnimationFrame(() => {
+      document.body.classList.remove('lf-auth-pending');
+    });
   }
 
   async updateGlobalStats() {

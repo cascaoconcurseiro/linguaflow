@@ -1238,14 +1238,23 @@ function playCurrentAudio() {
         if (next === null) { resolve(false); return; }
         Promise.resolve(next).then(resolve).catch(() => resolve(false));
       });
-      // Se o audio da palavra falhar sem chamar o callback, o cloze ainda
-      // precisa aparecer — rede de seguranca em 4s.
-      Promise.resolve(wordPlayback).catch(() => {
+      // Celular (18/07): autoplay pode ser BLOQUEADO sem gesto — a promise
+      // resolve false SEM chamar o callback, e o card ficava preso no
+      // "Primeiro o ouvido…". Trata o resolve(false) explicitamente e
+      // encurta a rede de seguranca para 2,5s.
+      Promise.resolve(wordPlayback).then((completed) => {
+        if (completed === false) {
+          showClozeNow();
+          const next = startSentence();
+          if (next === null) { resolve(false); return; }
+          Promise.resolve(next).then(resolve).catch(() => resolve(false));
+        }
+      }).catch(() => {
         const next = startSentence();
         if (next === null) { resolve(false); return; }
         Promise.resolve(next).then(resolve).catch(() => resolve(false));
       });
-      scheduleStudyTask(() => showClozeNow(), 4000);
+      scheduleStudyTask(() => showClozeNow(), 2500);
     });
   } else {
     showClozeNow();
@@ -1470,7 +1479,7 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
         <div class="video-context-actions">
           <button type="button" class="video-context-embed clip-control" id="play-saved-clip" aria-pressed="false">▶ Ouvir em loop (${clipDuration} s)</button>
           <button type="button" class="video-context-embed clip-control hidden" id="replay-saved-clip">↻ Do início</button>
-          <span id="clip-tune" class="hidden" style="display:inline-flex; gap:6px; align-items:center;">
+          <span id="clip-tune" class="hidden" style="display:inline-flex; gap:6px; align-items:center; flex-wrap:wrap;">
             <button type="button" class="video-context-embed clip-control" id="clip-earlier" title="Trecho começa cedo demais ou tarde demais? Puxa o início 0,5s para trás">início −0,5s</button>
             <button type="button" class="video-context-embed clip-control" id="clip-later" title="Empurra o início 0,5s para a frente">início +0,5s</button>
             <button type="button" class="video-context-embed clip-control" id="clip-longer" title="A frase é cortada no fim? Alonga 0,5s">fim +0,5s</button>

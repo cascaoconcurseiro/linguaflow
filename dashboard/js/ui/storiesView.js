@@ -202,6 +202,8 @@ export function renderStories(container, app) {
       .history-item { padding: 16px; border: 2px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); cursor: pointer; display:flex; justify-content:space-between; align-items:center; }
       .history-item:hover { border-color: var(--color-primary); }
       .story-act { background:none; border:1px solid var(--color-border); border-radius:8px; padding:6px 9px; cursor:pointer; font-size:15px; line-height:1; }
+      /* Celular (18/07): alvo de toque minimo de 44px — 30px era mira de agulha */
+      @media (pointer: coarse) { .story-act { min-width:44px; min-height:44px; font-size:18px; } }
       .story-act:hover, .story-act:focus-visible { border-color: var(--color-secondary); }
       .story-archive-toggle { display:block; width:100%; margin:4px 0 10px; padding:8px; border:1px dashed var(--color-border); border-radius:10px; background:transparent; color:var(--color-text-light); font:700 13px var(--font-main); cursor:pointer; }
       .history-item.archived { opacity:.55; }

@@ -52,17 +52,15 @@ assert.match(source, /card\._classicStage = 'context'/,
   'segunda tela mostra a palavra dentro da frase');
 assert.match(source, /setClipLoop\(false\)/,
   'trecho original toca uma vez e não fica preso em loop');
-assert.match(source, /id="voice-ai-consent" type="checkbox"/,
-  'envio da voz exige consentimento explícito');
-assert.match(source, /localStorage\.setItem\(VOICE_AI_CONSENT_KEY, '1'\)/,
-  'consentimento de voz confirmado persiste para os próximos cards');
-assert.match(source, /localStorage\.removeItem\(VOICE_AI_CONSENT_KEY\)/,
-  'aluno ainda pode revogar o consentimento desmarcando a opção');
+assert.doesNotMatch(source, /voice-ai-consent|VOICE_AI_CONSENT_KEY/,
+  'treino de voz não interrompe cada uso com checkbox redundante');
+assert.match(source, /Ao usar o treino de fala, a gravação é enviada à NVIDIA\/OpenRouter/,
+  'interface mantém aviso informativo sobre o processamento externo');
 assert.match(source, /assessPronunciationAudio\(blob, expected\)/,
   'fallback de gravação recebe avaliação multimodal em vez de apenas eco');
 assert.doesNotMatch(source, /Modo eco \(sem nuvem\)/,
   'interface não promete processamento local quando enviará a gravação à nuvem');
-assert.match(source, /gravação será enviada para avaliação conforme seu consentimento/,
+assert.match(source, /gravação será enviada para avaliação/,
   'interface informa o envio da gravação antes da avaliação');
 const { pronunciationLab } = await import('../utils/pronunciation.js');
 const maliciousFeedback = pronunciationLab.calculateDiff('<img src=x onerror=alert(1)>', 'outra coisa').htmlFeedback;

@@ -9,8 +9,6 @@ import { loadVideo, playClip, replayClip, pausePlayer, setClipLoop, isClipPlayin
 import { pronunciationLab } from '../../../utils/pronunciation.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
-const VOICE_AI_CONSENT_KEY = 'lf_voice_ai_consent_v1';
-
 let dueQueue = [];
 let pendingLearning = []; // cards em learning steps que voltam DENTRO da sessão
 let currentCard = null;
@@ -54,7 +52,7 @@ function stopEchoMode() {
 
 // O SpeechRecognition do Chrome depende de um servico de nuvem do Google e
 // em varios ambientes falha com 'network' MESMO com o mic autorizado. O plano
-// B grava por no maximo 8s e, com consentimento persistido, envia o blob em
+// B grava por no maximo 8s e envia o blob em
 // memoria para avaliacao multimodal. LinguaFlow nao salva o arquivo.
 async function startEchoMode(micBtn, resultEl, expected, card) {
   try {
@@ -97,7 +95,7 @@ async function startEchoMode(micBtn, resultEl, expected, card) {
   micBtn.disabled = false;
   micBtn.dataset.echo = '1';
   micBtn.textContent = '⏹ Parar gravação';
-  resultEl.textContent = 'Gravando: fale a frase e toque em Parar. Ao concluir, a gravação será enviada para avaliação conforme seu consentimento.';
+  resultEl.textContent = 'Gravando: fale a frase e toque em Parar. Ao concluir, a gravação será enviada para avaliação.';
 }
 let shadowingPinned = false; // mic clicado: o auto-hide de 3s não engole a gravação
 
@@ -318,9 +316,7 @@ export async function renderStudy(container, app, params = {}) {
         <div id="shadowing-overlay" class="hidden" style="margin-top: 24px; padding: 16px; background: rgba(88, 204, 2, 0.1); border: 2px dashed var(--color-primary); border-radius: var(--radius-md); text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; animation: pulse 2s infinite;">
           <div style="font-size: 18px; font-weight: 800; color: var(--color-primary);">Treino de fala (opcional)</div>
           <button id="shadowing-mic" class="btn btn-secondary" style="margin-top:10px; padding:10px 22px; font-size:14px;">🎤 Falar agora</button>
-          <label style="margin-top:10px; max-width:620px; font-size:12px; color:var(--color-text-light); line-height:1.4;">
-            <input id="voice-ai-consent" type="checkbox"> Concordo em enviar esta gravação ao provedor NVIDIA/OpenRouter para avaliação. O LinguaFlow não armazena o áudio; o provedor pode processá-lo conforme seus termos.
-          </label>
+          <p style="margin:10px 0 0; max-width:620px; font-size:12px; color:var(--color-text-light); line-height:1.4;">Ao usar o treino de fala, a gravação é enviada à NVIDIA/OpenRouter para avaliação e não é armazenada pelo LinguaFlow.</p>
           <div id="shadowing-result" role="status" aria-live="polite" style="margin-top:10px; font-size:15px; line-height:1.5; max-width:560px;"></div>
           <div style="width: 100%; background: var(--color-border); height: 6px; border-radius: 3px; margin-top: 12px; overflow: hidden;">
             <div id="shadowing-progress" style="width: 0%; height: 100%; background: var(--color-primary); transition: width 3s linear;"></div>
@@ -424,14 +420,6 @@ export async function renderStudy(container, app, params = {}) {
 
   document.getElementById('play-audio-btn').addEventListener('click', playCurrentAudio);
   document.getElementById('reveal-btn').addEventListener('click', revealCard);
-  const voiceConsent = document.getElementById('voice-ai-consent');
-  try { voiceConsent.checked = localStorage.getItem(VOICE_AI_CONSENT_KEY) === '1'; } catch { /* storage bloqueado */ }
-  voiceConsent?.addEventListener('change', () => {
-    try {
-      if (voiceConsent.checked) localStorage.setItem(VOICE_AI_CONSENT_KEY, '1');
-      else localStorage.removeItem(VOICE_AI_CONSENT_KEY);
-    } catch { /* consentimento vale apenas nesta sessão se storage falhar */ }
-  });
   // Shadowing (§4g.1): compara a fala com a frase que o TTS acabou de tocar.
   // O diff mostra o texto da frase — aceitável na frente do card porque o
   // áudio JÁ a falou por inteiro; a resposta real (sentido/tradução) não vaza.
@@ -461,14 +449,6 @@ export async function renderStudy(container, app, params = {}) {
     if (shadowingBusy) return;
     const expected = card._ctx || card.wordData?.context_sentence || card.wordData?.word || '';
     if (!expected) return;
-    const consent = document.getElementById('voice-ai-consent');
-    let previouslyConsented = false;
-    try { previouslyConsented = localStorage.getItem(VOICE_AI_CONSENT_KEY) === '1'; } catch { /* storage bloqueado */ }
-    if (!consent?.checked && !previouslyConsented) {
-      resultEl.textContent = 'Marque o consentimento para enviar e avaliar sua gravação.';
-      consent?.focus();
-      return;
-    }
     shadowingBusy = true;
     shadowingPinned = true;
     // Queixa 18/07: clique parecia morto (delay ate permissao/nuvem).

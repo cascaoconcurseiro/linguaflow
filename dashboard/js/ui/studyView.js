@@ -41,6 +41,63 @@ let nextCardPresentationId = 0;
 let audioUiToken = 0;
 let studentCefr = null;      // nivel CEFR (trava de ditado longo p/ A1-A2)
 let shadowingBusy = false;   // uma gravação por vez
+let echoRec = null;          // modo eco: MediaRecorder quando a nuvem falha
+let echoStream = null;
+let echoChunks = [];
+
+function stopEchoMode() {
+  try { if (echoRec && echoRec.state === 'recording') echoRec.stop(); } catch { /* ja parado */ }
+  echoStream?.getTracks().forEach((t) => t.stop());
+  echoStream = null;
+  echoRec = null;
+}
+
+// O SpeechRecognition do Chrome depende de um servico de nuvem do Google e
+// em varios ambientes falha com 'network' MESMO com o mic autorizado (queixa
+// do dono, 17/07). Plano B 100% local: grava a voz e toca VOCE -> FRASE em
+// sequencia — comparar de ouvido e o treino que todo poliglota faz; nenhuma
+// nuvem envolvida, funciona sempre. O audio vive so em memoria.
+async function startEchoMode(micBtn, resultEl, expected, card) {
+  try {
+    echoStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    resultEl.textContent = 'Permissão de microfone negada ou indisponível.';
+    shadowingBusy = false;
+    micBtn.disabled = false;
+    return;
+  }
+  echoChunks = [];
+  echoRec = new MediaRecorder(echoStream);
+  echoRec.ondataavailable = (e) => { if (e.data && e.data.size) echoChunks.push(e.data); };
+  echoRec.onstop = () => {
+    echoStream?.getTracks().forEach((t) => t.stop());
+    echoStream = null;
+    delete micBtn.dataset.echo;
+    if (currentCard !== card || echoChunks.length === 0) { shadowingBusy = false; micBtn.disabled = false; micBtn.textContent = '🎤 Falar agora'; return; }
+    const blob = new Blob(echoChunks, { type: echoRec?.mimeType || 'audio/webm' });
+    echoChunks = [];
+    const url = URL.createObjectURL(blob);
+    const mine = new Audio(url);
+    resultEl.textContent = '1º você…';
+    mine.onended = () => {
+      URL.revokeObjectURL(url);
+      if (currentCard !== card) { shadowingBusy = false; return; }
+      resultEl.textContent = '2º a frase — compare o ritmo e os sons de ouvido.';
+      playNaturalAudio(expected, { lang: localStorage.getItem('lf_tts_lang') || 'en-US' }, () => {
+        shadowingBusy = false;
+        if (currentCard === card) { micBtn.disabled = false; micBtn.textContent = '🎤 Gravar de novo'; }
+      });
+    };
+    mine.onerror = () => { URL.revokeObjectURL(url); shadowingBusy = false; micBtn.disabled = false; };
+    stopAudio();
+    mine.play().catch(() => { shadowingBusy = false; micBtn.disabled = false; });
+  };
+  echoRec.start();
+  micBtn.disabled = false;
+  micBtn.dataset.echo = '1';
+  micBtn.textContent = '⏹ Parar gravação';
+  resultEl.textContent = 'Modo eco (sem nuvem): fale a frase e toque em Parar.';
+}
 let shadowingPinned = false; // mic clicado: o auto-hide de 3s não engole a gravação
 
 const TOPIC_LABELS = { word: 'Palavras', phrasal: 'Phrasal Verbs', slang: 'Gírias', idiom: 'Expressões' };
@@ -63,6 +120,7 @@ export async function renderStudy(container, app, params = {}) {
     studyViewActive = false;
     stopAudio();
     pronunciationLab.stop(); // sair da rota fecha o microfone
+    stopEchoMode();
     audioUiToken += 1;
     pauseYouglish();
     hidePlayer();
@@ -375,7 +433,10 @@ export async function renderStudy(container, app, params = {}) {
     const card = currentCard;
     const micBtn = document.getElementById('shadowing-mic');
     const resultEl = document.getElementById('shadowing-result');
-    if (!card || shadowingBusy || !micBtn || !resultEl) return;
+    if (!card || !micBtn || !resultEl) return;
+    // Modo eco ativo: o mesmo botao encerra a gravacao
+    if (micBtn.dataset.echo === '1') { stopEchoMode(); return; }
+    if (shadowingBusy) return;
     const expected = card._ctx || card.wordData?.context_sentence || card.wordData?.word || '';
     if (!expected) return;
     shadowingBusy = true;
@@ -384,6 +445,12 @@ export async function renderStudy(container, app, params = {}) {
     pronunciationLab.assess(expected, (fb) => {
       if (currentCard !== card) { pronunciationLab.stop(); return; }
       if (fb.error) {
+        // 'network' = servico de nuvem do Chrome indisponivel (nao e o mic!)
+        // -> troca automaticamente para o modo eco local.
+        if (/network/i.test(fb.error)) {
+          startEchoMode(micBtn, resultEl, expected, card);
+          return;
+        }
         resultEl.textContent = fb.error;
         micBtn.disabled = false;
         micBtn.textContent = '🎤 Tentar de novo';
@@ -727,6 +794,7 @@ async function loadNextCard(app) {
   document.getElementById('shadowing-progress').style.transition = 'none';
   // Troca de card não pode deixar o microfone aberto nem estado pendurado
   pronunciationLab.stop();
+  stopEchoMode();
   shadowingBusy = false;
   shadowingPinned = false;
   const shadowingMic = document.getElementById('shadowing-mic');
@@ -873,7 +941,20 @@ function renderFront(card, word, context) {
   } catch {
     clozeHtml = `<span class="cloze-blur">${word}</span>`;
   }
-  sentenceEl.innerHTML = clozeHtml;
+  // Escada do dono (17/07): 1) palavra solta -> 2) palavra na frase ->
+  // 3) traducao so no Revelar. O texto da frase NAO aparece de cara: entra
+  // junto com o passo 2 (audio da frase). Sem autoplay, o botao de audio
+  // dispara a escada; o cloze aparece de qualquer forma como rede de
+  // seguranca se o TTS falhar.
+  card._clozeHtml = clozeHtml;
+  card._clozeShown = false;
+  const hasLadder = audioAutoFront;
+  if (hasLadder) {
+    sentenceEl.innerHTML = '<div style="color:var(--color-text-light); font-size:16px; font-weight:700;">\ud83c\udfa7 Primeiro o ouvido: a palavra, depois a frase\u2026</div>';
+  } else {
+    sentenceEl.innerHTML = clozeHtml;
+    card._clozeShown = true;
+  }
 
   const revealBtn = document.getElementById('reveal-btn');
   revealBtn.disabled = false;
@@ -1094,15 +1175,62 @@ function playCurrentAudio() {
   const token = ++audioUiToken;
   const wordData = card.wordData || {};
   const textToPlay = card._ctx || wordData.context_sentence || wordData.word || card.word;
+  const wordAlone = String(wordData.word || card.word || '').trim();
+  const lang = localStorage.getItem('lf_tts_lang') || 'en-US';
+  // Escada do dono: no card classico (frente), toca a PALAVRA SOLTA antes da
+  // frase — perceber a forma isolada, depois encontra-la no fluxo real.
+  const revealVisible = !document.getElementById('reveal-btn')?.classList.contains('hidden');
+  const useLadder = card._mode === 'classic' && !card._reverse && revealVisible
+    && wordAlone && textToPlay.toLowerCase() !== wordAlone.toLowerCase();
 
   const wave = document.getElementById('audio-wave');
   wave?.classList.add('is-playing');
   const button = document.getElementById('play-audio-btn');
   button?.setAttribute('aria-busy', 'true');
   const audioStatus = document.getElementById('audio-status');
-  if (audioStatus) audioStatus.textContent = 'Reproduzindo a frase.';
 
-  const playback = playNaturalAudio(textToPlay, { lang: localStorage.getItem('lf_tts_lang') || 'en-US' }, () => {
+  const showClozeNow = () => {
+    if (currentCard !== card || card._clozeShown || !card._clozeHtml) return;
+    const el = document.getElementById('pump-sentence');
+    if (el && !document.getElementById('reveal-btn')?.classList.contains('hidden')) {
+      el.innerHTML = card._clozeHtml;
+      card._clozeShown = true;
+    }
+  };
+
+  if (useLadder && audioStatus) audioStatus.textContent = 'Passo 1: a palavra sozinha.';
+  else if (audioStatus) audioStatus.textContent = 'Reproduzindo a frase.';
+
+  const startSentence = () => {
+    if (token !== audioUiToken || currentCard !== card) return null;
+    if (audioStatus) audioStatus.textContent = 'Passo 2: agora na frase.';
+    showClozeNow();
+    return playNaturalAudio(textToPlay, { lang }, sentenceDone);
+  };
+
+  let playback;
+  if (useLadder) {
+    playback = new Promise((resolve) => {
+      const wordPlayback = playNaturalAudio(wordAlone, { lang }, () => {
+        const next = startSentence();
+        if (next === null) { resolve(false); return; }
+        Promise.resolve(next).then(resolve).catch(() => resolve(false));
+      });
+      // Se o audio da palavra falhar sem chamar o callback, o cloze ainda
+      // precisa aparecer — rede de seguranca em 4s.
+      Promise.resolve(wordPlayback).catch(() => {
+        const next = startSentence();
+        if (next === null) { resolve(false); return; }
+        Promise.resolve(next).then(resolve).catch(() => resolve(false));
+      });
+      scheduleStudyTask(() => showClozeNow(), 4000);
+    });
+  } else {
+    showClozeNow();
+    playback = playNaturalAudio(textToPlay, { lang }, sentenceDone);
+  }
+
+  function sentenceDone() {
     if (token !== audioUiToken || currentCard !== card) return;
     const revealBtn = document.getElementById('reveal-btn');
     if (revealBtn && !revealBtn.classList.contains('hidden')) {
@@ -1118,7 +1246,7 @@ function playCurrentAudio() {
         progressEl.style.width = '100%';
       }
     }
-  });
+  }
   Promise.resolve(playback)
     .then(completed => {
       if (token === audioUiToken && currentCard === card && audioStatus) {

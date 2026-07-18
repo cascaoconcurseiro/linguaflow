@@ -94,7 +94,7 @@ const pwaWorkerSource = read('dashboard/sw.js');
 // 18/07: numero magico fixo virava falso-negativo a cada release. O contrato
 // real e CONSISTENCIA: o CACHE_NAME do worker acompanha o CLIENT_BUILD do app.
 {
-  const appSource = fs.readFileSync('dashboard/js/core/app.js', 'utf8');
+  const appSource = read('dashboard/js/core/app.js');
   const buildMatch = appSource.match(/CLIENT_BUILD = '([\d.]+)'/);
   assert(buildMatch, 'CLIENT_BUILD presente no app.js');
   assert(pwaWorkerSource.includes(`CACHE_NAME = 'linguaflow-v${buildMatch[1]}'`),

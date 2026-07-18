@@ -61,6 +61,9 @@ let extensionManifest;
 try {
   extensionManifest = JSON.parse(read('manifest.json'));
   assert(extensionManifest.manifest_version === 3, 'manifest Chrome é MV3');
+  const appBuildMatch = read('dashboard/js/core/app.js').match(/CLIENT_BUILD = '([\d.]+)'/);
+  assert(appBuildMatch && extensionManifest.version === appBuildMatch[1],
+    `versão da extensão acompanha o aplicativo web (${appBuildMatch?.[1] || 'desconhecida'})`);
   const referenced = [
     extensionManifest.background?.service_worker,
     extensionManifest.action?.default_popup,

@@ -60,5 +60,15 @@ assert.match(source, /localStorage\.removeItem\(VOICE_AI_CONSENT_KEY\)/,
   'aluno ainda pode revogar o consentimento desmarcando a opção');
 assert.match(source, /assessPronunciationAudio\(blob, expected\)/,
   'fallback de gravação recebe avaliação multimodal em vez de apenas eco');
+assert.doesNotMatch(source, /Modo eco \(sem nuvem\)/,
+  'interface não promete processamento local quando enviará a gravação à nuvem');
+assert.match(source, /gravação será enviada para avaliação conforme seu consentimento/,
+  'interface informa o envio da gravação antes da avaliação');
+const { pronunciationLab } = await import('../utils/pronunciation.js');
+const maliciousFeedback = pronunciationLab.calculateDiff('<img src=x onerror=alert(1)>', 'outra coisa').htmlFeedback;
+assert.doesNotMatch(maliciousFeedback, /<img/,
+  'feedback de pronúncia escapa HTML vindo de frases importadas');
+assert.match(maliciousFeedback, /&lt;img/,
+  'feedback preserva a palavra perigosa somente como texto');
 
-console.log('22 contratos do modo foco passaram — tudo verde ✅');
+console.log('26 contratos do modo foco passaram — tudo verde ✅');

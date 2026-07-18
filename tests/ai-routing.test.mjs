@@ -18,5 +18,9 @@ assert.match(source, /body\.consent !== true/,
   'servidor também exige consentimento para áudio');
 assert.match(source, /audio\.length > MAX_AUDIO_BASE64/,
   'servidor limita o tamanho da gravação');
+assert.match(source, /const MAX_AUDIO_ATTEMPTS = 2/,
+  'áudio gratuito possui uma repetição curta para falhas transitórias');
+assert.match(source, /attempt <= MAX_AUDIO_ATTEMPTS/,
+  'falha transitória do modelo gratuito aciona nova tentativa limitada');
 
-console.log('6 contratos de roteamento de IA passaram — tudo verde ✅');
+console.log('8 contratos de roteamento de IA passaram — tudo verde ✅');

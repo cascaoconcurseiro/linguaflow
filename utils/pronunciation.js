@@ -143,6 +143,12 @@ export const pronunciationLab = {
         const expWords = cleanExpected.split(/\s+/);
         const actWords = cleanActual.split(/\s+/);
 
+        const escapeHtml = (value) => String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
         const htmlParts = [];
         let matches = 0;
 
@@ -152,9 +158,9 @@ export const pronunciationLab = {
                 matches++;
                 // Fallbacks: o dashboard usa --color-primary/--color-danger;
                 // --green/--red não existem lá (§4g.2)
-                htmlParts.push(`<span style="color:var(--green, var(--color-primary, #16a34a))">${eW}</span>`);
+                htmlParts.push(`<span style="color:var(--green, var(--color-primary, #16a34a))">${escapeHtml(eW)}</span>`);
             } else {
-                htmlParts.push(`<span style="color:var(--red, var(--color-danger, #dc2626)); text-decoration:line-through">${eW}</span>`);
+                htmlParts.push(`<span style="color:var(--red, var(--color-danger, #dc2626)); text-decoration:line-through">${escapeHtml(eW)}</span>`);
             }
         }
 

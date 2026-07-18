@@ -97,7 +97,7 @@ async function startEchoMode(micBtn, resultEl, expected, card) {
   micBtn.disabled = false;
   micBtn.dataset.echo = '1';
   micBtn.textContent = '⏹ Parar gravação';
-  resultEl.textContent = 'Modo eco (sem nuvem): fale a frase e toque em Parar.';
+  resultEl.textContent = 'Gravando: fale a frase e toque em Parar. Ao concluir, a gravação será enviada para avaliação conforme seu consentimento.';
 }
 let shadowingPinned = false; // mic clicado: o auto-hide de 3s não engole a gravação
 

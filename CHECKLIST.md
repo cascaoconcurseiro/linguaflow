@@ -451,6 +451,13 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 
 
 
+
+## 🎧 Escada de áudio do dono + modo eco do mic — ✅ EXECUTADO (17/07; em main)
+
+- [x] Card clássico virou escada de escuta: palavra solta → frase (texto só aparece aqui, com a palavra borrada) → tradução só no Revelar. Ditado/builder/reverso preservados (cada um tem sua tarefa própria).
+- [x] Mic com "erro network": era a NUVEM do Chrome (SpeechRecognition), não o mic. Fallback automático "modo eco" 100% local: grava sua voz → toca VOCÊ → FRASE em sequência, comparação de ouvido (o shadowing clássico). Botão vira ⏹ Parar; limpeza em troca de card/rota.
+- [ ] **TESTE MANUAL DO DONO:** (a) card clássico → ouvir a palavra sozinha, depois a frase COM o texto aparecendo junto, tradução só no Revelar; (b) 🎤 → se der o aviso de modo eco, falar → Parar → ouvir você e depois a frase.
+
 ## 🧠 A6 + A7 — nível medido do aluno + teto do cofre — ✅ EXECUTADOS (17/07, madrugada; em main)
 
 - [x] A6: `levelEstimator.js` — após 50 tentativas reais, o nível CEFR passa a ser MEDIDO pelo review_log (banda mais alta com ≥10 tentativas e ≥70% retenção, sem pular buraco) e recalibrado 1x/dia na Home (`lf_cefr_source='measured'`). Histórias, exercícios e cores da legenda seguem o nível real. Provado por 3 testes puros.

@@ -34,9 +34,11 @@ assert.match(study, /\.study-layout:has\(\.study-resources\[open\]\) \.study-mai
 assert.match(study, /id="close-study-resources"/);
 
 // IDs dos recursos e contratos do player continuam intactos.
-for (const id of ['saved-video-context','study-yt-mount','isolated-word-box','grammar-chat','youglish-box','tatoeba-box','chunks-container']) {
+// (tatoeba-box saiu do contrato em 18/07: recurso removido a pedido do dono)
+for (const id of ['saved-video-context','study-yt-mount','isolated-word-box','grammar-chat','youglish-box','chunks-container']) {
   assert.match(study, new RegExp(`id="${id}"`));
 }
+assert.doesNotMatch(study, /tatoeba-box/, 'Tatoeba foi removido e não deve voltar');
 assert.match(study, /renderVideoContext\(wordData, 'study-video-context'\)/);
 assert.match(study, /hidePlayer\(\)/);
 

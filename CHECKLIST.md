@@ -447,6 +447,18 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 - [ ] Observar 403/5xx e falhas de RPC por 24 h de uso real após o cutover.
 
 
+
+## 🎤 Rodada 2 — mic visível + 'já sei' (A5) + primeira recuperação (A1) — ✅ EXECUTADA (17/07, madrugada; suíte verde; em main)
+
+- [x] Mic do shadowing FICA VISÍVEL: o overlay não some mais após 3s (queixa "não achei o microfone" — ele se escondia). Aparece no Estudo, card clássico, logo após o áudio da frase tocar, abaixo dos botões de nota.
+- [x] A5: botão "✓ Já sei esta palavra" no popup do vídeo → grava em known_words + dispara LF_WORD_KNOWN → palavra fica verde na legenda ao vivo e conta no score do episódio.
+- [x] A1: primeira recuperação de 15s pós-save — popup vira pergunta (frase com termo oculto + 3 sentidos do próprio cofre), resultado em fila local drenada pelo SW; card virgem recebe a 1ª review real (acerto=Bom / erro=Errei, sem lapso); card já estudado descarta a entrada.
+- [ ] **TESTE MANUAL DO DONO:** (a) no Estudo, tocar o áudio de um card clássico → bloco verde com 🎤 aparece e NÃO some; (b) num vídeo, salvar palavra → aparece a pergunta de sentido com 3 opções + Pular; responder e conferir no Cofre que o card já nasce 'learning'; (c) clicar "✓ Já sei" noutra palavra → ela fica verde na legenda.
+
+### Restante da Rodada 2/3 (próxima sessão)
+- [ ] A4: verificação PÓS-geração das histórias (medir com cefr-wordlist + selo "pedido X · medido Y") — a calibragem via prompt já está no ar.
+- [ ] A6 nível medido · A7 teto do cofre · A8 evidência pedagógica (migration) · B3-B6 dívidas miúdas · C1-C4 decisões de produto.
+
 ## 🚀 Rodada de queixas do dono + Rodada 1 do backlog — ✅ EXECUTADA (17/07, noite; commits `feat: rodada de queixas` + contratos de teste; suíte verde; em main)
 
 - [x] Tema/Configurações visíveis: botões diretos 🌓 e ⚙️ na topbar (estavam só dentro do "◉").

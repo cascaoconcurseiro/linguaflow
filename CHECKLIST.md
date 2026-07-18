@@ -452,6 +452,16 @@ Decisões ratificadas: dashboard SÓ no site; extensão = captura + revisão rá
 
 
 
+
+## 🧹 Pacote 18/07 — reset de estudo + Tatoeba fora + notificação real + Home expandida + mic sem loop — ✅ EXECUTADO (em main)
+
+- [x] RESET no banco de produção (pedido do dono): 20 cards → 'new' com due hoje, palavras com added_at=hoje, review_log limpo, streak/XP zerados. Confirmado por query.
+- [x] Tatoeba removido por completo (seção, função, import, CSS, módulo) + teste de contrato impede retorno.
+- [x] Notificação REAL do navegador quando há revisões (máx 1/20h; clique abre o app). Duas sessões implementaram em paralelo — deduplicado, ficou a versão integrada ao updateBadge.
+- [x] Home: "Metas, memória e conquistas" expandido por padrão.
+- [x] Mic: watchdog 12s (nuvem muda → modo eco), auto-stop 10s na gravação, 'stopped' tardio não clobber o eco.
+- [ ] **TESTE MANUAL:** recarregar extensão + site → Hoje deve mostrar 20 para revisar e streak 0 → estudar 1 card (escada palavra→frase) → 🎤 (eco se a nuvem falhar, sem travar).
+
 ## 🎧 Escada de áudio do dono + modo eco do mic — ✅ EXECUTADO (17/07; em main)
 
 - [x] Card clássico virou escada de escuta: palavra solta → frase (texto só aparece aqui, com a palavra borrada) → tradução só no Revelar. Ditado/builder/reverso preservados (cada um tem sua tarefa própria).

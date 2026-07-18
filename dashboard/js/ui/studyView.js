@@ -1109,17 +1109,13 @@ function playCurrentAudio() {
       const shadowingEl = document.getElementById('shadowing-overlay');
       const progressEl = document.getElementById('shadowing-progress');
       if (shadowingEl) {
+        // Queixa do dono (17/07): "não achei o microfone" — o overlay sumia
+        // depois de 3s. Agora fica visível até o próximo card (resetCardUI
+        // esconde); a barra vira só um realce de entrada, sem esconder nada.
         shadowingEl.classList.remove('hidden');
         void progressEl.offsetWidth;
         progressEl.style.transition = 'width 3s linear';
         progressEl.style.width = '100%';
-        scheduleStudyTask(() => {
-          if (token !== audioUiToken || currentCard !== card) return;
-          if (shadowingPinned) return; // usuário clicou no mic; overlay fica
-          shadowingEl.classList.add('hidden');
-          progressEl.style.transition = 'none';
-          progressEl.style.width = '0%';
-        }, 3000);
       }
     }
   });

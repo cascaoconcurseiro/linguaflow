@@ -127,6 +127,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  // A1 (W1): resultado da primeira recuperacao entra numa fila local e so
+  // vira review quando o card existir no banco (mesmo local-first do save).
+  if (request.type === 'QUEUE_FIRST_RECALL') {
+    enqueueFirstRecall(request.payload)
+      .then(() => { sendResponse({ ok: true }); drainFirstRecalls(); })
+      .catch((error) => sendResponse({ ok: false, error: error?.message || String(error) }));
+    return true;
+  }
+
   // Proxy para chamadas de banco de dados (Sincronização global entre sites)
   if (request.type === 'DB_CALL') {
     const { method, args } = request;
@@ -603,6 +612,52 @@ async function refineSavedWord(id, word, currentCategory, currentTranslation) {
   await Promise.allSettled(tasks);
 }
 
+const PENDING_FIRST_RECALL_KEY = 'lf_pending_first_recall_v1';
+
+async function enqueueFirstRecall(payload) {
+  const word = String(payload?.word || '').trim();
+  const quality = Number(payload?.quality);
+  if (!word || ![1, 3].includes(quality)) throw new Error('recall invalido');
+  const lang = payload.lang || 'en';
+  const id = `${lang}:${word.toLocaleLowerCase()}`;
+  const queue = await readLocal(PENDING_FIRST_RECALL_KEY) || {};
+  // Uma unica primeira recuperacao por palavra — cliques repetidos nao empilham
+  if (!queue[id]) queue[id] = { id, word, lang, quality, queuedAt: Date.now(), attempts: 0 };
+  await writeLocal({ [PENDING_FIRST_RECALL_KEY]: queue });
+  return queue[id];
+}
+
+// Drena a fila: quando a palavra ja sincronizou e o card ainda e VIRGEM
+// (status new, zero reps), a recuperacao vira a primeira review real —
+// acerto introduz com Bom, erro introduz com Errei (nao e lapso: cards novos
+// nao incrementam lapses). Card ja estudado => entrada obsoleta, descarta.
+async function drainFirstRecalls() {
+  const queue = await readLocal(PENDING_FIRST_RECALL_KEY) || {};
+  for (const [id, entry] of Object.entries(queue)) {
+    try {
+      const wordRow = await db.getWord(entry.word, entry.lang);
+      if (!wordRow) {
+        entry.attempts = (entry.attempts || 0) + 1;
+        if (entry.attempts > 10) delete queue[id]; // save nunca sincronizou
+        continue;
+      }
+      const card = await db.getCardByWordId(wordRow.id);
+      if (!card) { entry.attempts = (entry.attempts || 0) + 1; continue; }
+      if (card.status === 'new' && !(card.reps > 0)) {
+        await db.logReview(card.id, entry.quality, wordRow.category || null);
+        notifyDashboards(entry.word);
+        updateBadge();
+      }
+      delete queue[id];
+    } catch (error) {
+      entry.attempts = (entry.attempts || 0) + 1;
+      if (entry.attempts > 10) delete queue[id];
+      console.warn('[FirstRecall] adiado:', entry.word, error?.message);
+    }
+  }
+  await writeLocal({ [PENDING_FIRST_RECALL_KEY]: queue });
+}
+
 async function syncPendingWordSaves() {
   if (wordSaveSyncPromise) return wordSaveSyncPromise;
   wordSaveSyncPromise = (async () => {
@@ -631,7 +686,8 @@ async function syncPendingWordSaves() {
         }
       }
     }
-  })().finally(() => { wordSaveSyncPromise = null; });
+  })().finally(() => { wordSaveSyncPromise = null; })
+    .then(() => drainFirstRecalls().catch(() => {}));
   return wordSaveSyncPromise;
 }
 

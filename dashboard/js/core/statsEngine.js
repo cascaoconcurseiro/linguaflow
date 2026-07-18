@@ -76,10 +76,15 @@ export function forecastByDay(cards, days = 30) {
 // Resumo agregado (cards totais, tempo total, sequência de estudo, etc.)
 export function summarize(cards, sessions, reviewLog) {
   const totalSeconds = (sessions || []).reduce((a, s) => a + (s.seconds || 0), 0);
+  const today = localDateKey();
+  const todaySeconds = (sessions || [])
+    .filter((s) => s.date === today)
+    .reduce((a, s) => a + (s.seconds || 0), 0);
   const totalReviews = (reviewLog || []).length;
   const hits = (reviewLog || []).filter((r) => r.quality >= 2).length;
   return {
     totalCards: (cards || []).length,
+    todayMinutes: Math.round(todaySeconds / 60),
     totalMinutes: Math.round(totalSeconds / 60),
     totalReviews,
     overallRetention: totalReviews ? Math.round((hits / totalReviews) * 100) : null,

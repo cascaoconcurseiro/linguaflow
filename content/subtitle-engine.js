@@ -199,7 +199,18 @@ export class SubtitleEngine {
 
   _startImmersionLog() {
     this._setManagedInterval(async () => {
-      if (this.videoElement && !this.videoElement.paused) {
+      // Só é atividade LinguaFlow quando o aluno realmente está com a extensão
+      // ativa, a página em primeiro plano e uma legenda sendo acompanhada.
+      // Antes, qualquer vídeo tocando em uma aba compatível inflava o progresso.
+      const hasActiveSubtitle = this.currentCueIndex >= 0 || Boolean(this.lastText?.trim());
+      if (
+        this.isActivated
+        && document.visibilityState === 'visible'
+        && hasActiveSubtitle
+        && this.videoElement
+        && !this.videoElement.paused
+        && !this.videoElement.ended
+      ) {
         try {
           // Prevenção de contagem dupla (Múltiplas abas abertas)
           const { last_lf_immersion } = await chrome.storage.local.get('last_lf_immersion');

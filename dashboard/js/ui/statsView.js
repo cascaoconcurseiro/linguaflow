@@ -173,7 +173,7 @@ export async function renderStats(container, app) {
         ${summaryCard('🎯', summary.overallRetention === null ? '—' : summary.overallRetention + '%', 'Lembradas nas revisões · pelas suas notas', true)}
         ${summaryCard('📚', summary.totalCards, 'Expressões na revisão')}
         ${summaryCard('🔁', summary.totalReviews, 'Revisões (60d)')}
-        ${summaryCard('⏱️', summary.totalMinutes, 'Minutos de atividade (60d)')}
+        ${summaryCard('⏱️', summary.todayMinutes, 'Minutos de estudo hoje')}
       </div>
       <p class="stats-evidence-note">O percentual de lembrança é uma estimativa baseada nas suas notas em ${summary.totalReviews} revisões. Estado da memória e agenda ajudam a orientar a próxima sessão. Tempo e volume mostram atividade — não comprovam domínio do idioma.</p>
 
@@ -193,7 +193,7 @@ export async function renderStats(container, app) {
       </div>
 
       <details class="stats-activity-details">
-        <summary>Ver métricas de atividade</summary>
+        <summary>Ver histórico de atividade (${summary.totalMinutes} min em 60 dias)</summary>
         <p>Úteis para observar constância, mas secundárias à retenção e à carga de revisão.</p>
         <div class="stats-panel">
           <h3>Tempo de atividade por dia (últimos 30 dias)</h3>

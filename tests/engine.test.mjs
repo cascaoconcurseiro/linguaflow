@@ -394,6 +394,7 @@ test('summarize: retenção geral e totais', () => {
     [{ quality: 3 }, { quality: 1 }],
   );
   assert.equal(sum.totalCards, 2);
+  assert.equal(sum.todayMinutes, 0);
   assert.equal(sum.totalMinutes, 2);
   assert.equal(sum.totalReviews, 2);
   assert.equal(sum.overallRetention, 50);

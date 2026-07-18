@@ -1,8 +1,9 @@
 import { db as lfDb, createOperationId } from '../../../utils/db.js';
-import { playNaturalAudio, stopAudio, downloadAudio } from '../core/tts.js';
+import { playNaturalAudio, stopAudio, downloadAudio, preloadNaturalAudio } from '../core/tts.js';
 import { aiChat, aiChatStream, assessPronunciationAudio, getCefrLevel, grammarTutorPersona, grammarInitialQuestion, enrichCard, generateChunksWeb, generateMnemonic } from '../core/ai.js';
 import { attachVideoContext, renderVideoContext, getVideoContext } from '../core/videoContext.js';
 import { buildSessionQueue, isWeakCard, prioritizeDueLearning } from '../core/sessionQueue.js';
+import { deriveAdaptivePlan } from '../core/adaptiveLearning.js';
 import { loadVideo, playClip, replayClip, pausePlayer, setClipLoop, isClipPlaying, hidePlayer } from '../core/ytPlayer.js';
 // Fase 3 da auditoria (§4g.1/§4g.2): primeiro consumidor real do
 // pronunciationLab — o overlay de shadowing deixou de ser um timer de teatro.
@@ -13,6 +14,8 @@ const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrom
 let dueQueue = [];
 let pendingLearning = []; // cards em learning steps que voltam DENTRO da sessão
 let currentCard = null;
+let adaptiveProfiles = {};
+let presentationEvidence = null;
 let consecutiveCorrect = 0;
 let sessionCards = 0;
 let sessionXp = 0;
@@ -151,6 +154,15 @@ export async function renderStudy(container, app, params = {}) {
   studyViewActive = true;
   app.onLeaveView?.(() => {
     if (viewGeneration !== studyViewGeneration) return;
+    const abandonedCard = currentCard;
+    const abandonedEvidence = presentationEvidence;
+    if (abandonedCard && abandonedEvidence?.engaged && Date.now() - abandonedEvidence.startedAt >= 5000) {
+      lfDb.recordAdaptiveSignal(abandonedCard.id, {
+        correct: false, abandoned: true, responseMs: Date.now() - abandonedEvidence.startedAt,
+        audioPlays: abandonedEvidence.audioPlays, helpCount: abandonedEvidence.helpCount,
+        mode: abandonedCard._mode || 'classic',
+      }).catch(() => {});
+    }
     studyViewActive = false;
     stopAudio();
     pronunciationLab.stop(); // sair da rota fecha o microfone
@@ -205,7 +217,7 @@ export async function renderStudy(container, app, params = {}) {
   if (!studyViewActive || viewGeneration !== studyViewGeneration) return;
   gradeBusy = false;
   try {
-    const [reverseRaw, variedRaw, audioFrontRaw, audioBackRaw, srs, cefrNow] = await Promise.all([
+    const [reverseRaw, variedRaw, cefrNow, audioFrontRaw, audioBackRaw, srs] = await Promise.all([
       lfDb.getSetting('lf_reverse_cards').catch(() => null),
       lfDb.getSetting('lf_varied_exercises').catch(() => null),
       getCefrLevel().catch(() => null),
@@ -280,6 +292,7 @@ export async function renderStudy(container, app, params = {}) {
   // Uma view antiga nunca deve redesenhar ou reativar recursos ao terminar.
   if (!studyViewActive || viewGeneration !== studyViewGeneration) return;
   dueQueue = loadedQueue;
+  adaptiveProfiles = await lfDb.getAdaptiveProfiles(dueQueue.map(card => card.id)).catch(() => ({}));
   sessionCardIds = new Set(dueQueue.map(card => card.id));
   publishFocusProgress(app);
 
@@ -536,6 +549,12 @@ export async function renderStudy(container, app, params = {}) {
   // auxiliares começam invisíveis e recolhidos até a resposta ser revelada.
   document.getElementById('study-resources').open = false;
   document.getElementById('study-card-menu').open = false;
+  document.getElementById('study-resources')?.addEventListener('toggle', (event) => {
+    if (event.isTrusted && event.currentTarget.open && presentationEvidence) presentationEvidence.helpCount += 1;
+  });
+  document.getElementById('tutor-details')?.addEventListener('toggle', (event) => {
+    if (event.isTrusted && event.currentTarget.open && presentationEvidence) presentationEvidence.helpCount += 1;
+  });
   document.getElementById('close-study-resources')?.addEventListener('click', () => {
     document.getElementById('study-resources').open = false;
   });
@@ -551,6 +570,7 @@ export async function renderStudy(container, app, params = {}) {
   document.querySelectorAll('[data-tutor-prompt]').forEach(button => {
     button.addEventListener('click', () => {
       if (button.disabled || chatBusy) return;
+      if (presentationEvidence) presentationEvidence.helpCount += 1;
       sendGrammarQuestion(button.dataset.tutorPrompt || 'Explique esta frase.');
     });
   });
@@ -805,6 +825,7 @@ async function loadNextCard(app) {
 
   currentCard = dueQueue[0];
   const card = currentCard;
+  presentationEvidence = { startedAt: Date.now(), audioPlays: 0, helpCount: 0 };
   delete card._exerciseFinished;
   cardPresentationIds.set(card, ++nextCardPresentationId);
   chatHistory = [];
@@ -890,6 +911,7 @@ async function loadNextCard(app) {
   if (!context) context = word;
   card._ctx = context;
   card._chunks = chunks;
+  card._adaptivePlan = deriveAdaptivePlan(card, adaptiveProfiles[card.id]);
 
   // Sorteio do tipo de exercício — só pra cards já graduados (card novo
   // aprende primeiro no modo clássico, produção vem depois, como no Anki/Duolingo)
@@ -904,7 +926,11 @@ async function loadNextCard(app) {
     const canDictate = variedEnabled && wordCount >= 2 && wordCount <= dictationMax;
     // Termo fraco → produção guiada, uma recuperação mais ativa que uma
     // escolha simples, sem prometer domínio ou fixação.
-    if (isWeakCard(card) && (canBuild || canDictate)) {
+    if (card._adaptivePlan.stage === 1) {
+      card._mode = 'classic';
+    } else if (card._adaptivePlan.stage >= 2 && (canBuild || canDictate)) {
+      card._mode = canBuild ? 'builder' : 'dictation';
+    } else if (isWeakCard(card) && (canBuild || canDictate)) {
       card._mode = canBuild ? 'builder' : 'dictation';
     } else {
       // A3: rotacao deterministica por encontro (reps % 4) — o Math.random
@@ -925,6 +951,9 @@ async function loadNextCard(app) {
   }
 
   renderFront(card, word, context);
+  const preloadLang = localStorage.getItem('lf_tts_lang') || 'en-US';
+  preloadNaturalAudio(word, { lang: preloadLang });
+  if (context && context !== word) preloadNaturalAudio(context, { lang: preloadLang });
   const liveStatus = document.getElementById('study-status');
   if (liveStatus) {
     liveStatus.textContent = 'Novo card. Revele a resposta quando estiver pronto.';
@@ -1217,6 +1246,7 @@ async function improveSentence(app) {
 function playCurrentAudio() {
   if (!currentCard) return;
   const card = currentCard;
+  if (presentationEvidence) presentationEvidence.audioPlays += 1;
   const token = ++audioUiToken;
   const wordData = card.wordData || {};
   const sentenceText = card._ctx || wordData.context_sentence || wordData.word || card.word;
@@ -1273,6 +1303,7 @@ function playCurrentAudio() {
 async function revealCard() {
   const card = currentCard;
   if (!card) return;
+  if (presentationEvidence) presentationEvidence.engaged = true;
   const wordData = card.wordData || {};
   const word = wordData.word || card.word || 'Erro';
   const context = card._ctx || word;
@@ -1930,6 +1961,15 @@ async function handleGrade(grade, app) {
       return;
     }
     pendingReviewOperations.delete(gradedCard.id);
+    const evidence = presentationEvidence || { startedAt: Date.now(), audioPlays: 0, helpCount: 0 };
+    lfDb.recordAdaptiveSignal(gradedCard.id, {
+      correct: isCorrect,
+      abandoned: false,
+      responseMs: Date.now() - evidence.startedAt,
+      audioPlays: evidence.audioPlays,
+      helpCount: evidence.helpCount,
+      mode: gradedCard._mode || 'classic',
+    }).then(profile => { if (profile) adaptiveProfiles[gradedCard.id] = profile; }).catch(() => {});
     if (liveStatus) liveStatus.textContent = res.idempotent
       ? 'A avaliação já estava salva. Próximo card.'
       : 'Avaliação salva. Próximo card.';

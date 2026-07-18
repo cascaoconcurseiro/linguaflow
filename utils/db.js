@@ -1485,6 +1485,22 @@ class Database {
     return (await this._fetch(`review_log?card_id=eq.${cardId}&order=ts.desc&limit=30`)) || [];
   }
 
+  async getAdaptiveProfiles(cardIds = []) {
+    if (this.isProxyMode) return this._proxy('getAdaptiveProfiles', [cardIds]);
+    const ids = [...new Set(cardIds)].filter(id => UUID_PATTERN.test(id)).slice(0, 250);
+    if (!ids.length) return {};
+    const rows = await this._fetch(`card_adaptive_profiles?card_id=in.(${ids.join(',')})&select=card_id,recovery_stage,dominant_issue,unaided_success_streak,signal_count`);
+    return Object.fromEntries((rows || []).map(row => [row.card_id, row]));
+  }
+
+  async recordAdaptiveSignal(cardId, signal, clientEventId = createOperationId()) {
+    if (this.isProxyMode) return this._proxy('recordAdaptiveSignal', [cardId, signal, clientEventId]);
+    if (!UUID_PATTERN.test(cardId) || !UUID_PATTERN.test(clientEventId)) throw new Error('Identificador adaptativo inválido.');
+    return await this._fetch('rpc/record_card_learning_signal', {
+      method: 'POST', body: { p_card_id: cardId, p_client_event_id: clientEventId, p_signal: signal },
+    });
+  }
+
   async suspendCard(wordId, suspend = true) {
     this._invalidateReadCache();
     if (this.isProxyMode) return this._proxy('suspendCard', [wordId, suspend]);

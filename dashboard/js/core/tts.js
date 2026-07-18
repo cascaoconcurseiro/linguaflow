@@ -12,6 +12,7 @@ const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrom
 let currentAudioObj = null;
 const playback = new ExclusivePlayback(() => window.speechSynthesis);
 const memCache = new Map(); // `${lang}|${text}` -> object URL
+const pendingAudio = new Map(); // evita duas buscas iguais enquanto o prefetch está em voo
 
 function idbOpen() {
   return new Promise((resolve, reject) => {
@@ -172,13 +173,24 @@ export async function getAudioBlob(text, lang) {
 }
 
 async function getAudioUrl(text, lang) {
-  const key = `${lang}|${text}`;
+  const key = `${kokoroEnabled() ? 'kk' : 'g'}|${lang}|${text}`;
   if (memCache.has(key)) return memCache.get(key);
-  const blob = await getAudioBlob(text, lang);
-  if (!blob) return null;
-  const url = URL.createObjectURL(blob);
-  memCache.set(key, url);
-  return url;
+  if (pendingAudio.has(key)) return pendingAudio.get(key);
+  const promise = (async () => {
+    const blob = await getAudioBlob(text, lang);
+    if (!blob) return null;
+    const url = URL.createObjectURL(blob);
+    memCache.set(key, url);
+    return url;
+  })().finally(() => pendingAudio.delete(key));
+  pendingAudio.set(key, promise);
+  return promise;
+}
+
+export function preloadNaturalAudio(text, options = {}) {
+  const clean = String(text || '').trim();
+  if (!clean) return Promise.resolve(false);
+  return getAudioUrl(clean, options.lang || _getTTSLang()).then(Boolean).catch(() => false);
 }
 
 /**

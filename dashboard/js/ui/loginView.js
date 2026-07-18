@@ -15,13 +15,13 @@ export function renderLogin(container, app) {
         
         <form id="auth-form" style="display: flex; flex-direction: column; gap: 16px;">
           <div>
-            <label style="display: block; font-weight: 700; margin-bottom: 8px; font-size: 14px; color: var(--color-text);">E-mail</label>
-            <input type="email" id="auth-email" required placeholder="seu@email.com" style="width: 100%; padding: 12px; border: 2px solid var(--color-border); border-radius: var(--radius-sm); font-size: 16px; font-family: var(--font-main); outline: none;" />
+            <label for="auth-email" style="display: block; font-weight: 700; margin-bottom: 8px; font-size: 14px; color: var(--color-text);">E-mail</label>
+            <input type="email" id="auth-email" required autocomplete="email" inputmode="email" placeholder="seu@email.com" aria-describedby="auth-status" style="width: 100%; padding: 12px; border: 2px solid var(--color-border); border-radius: var(--radius-sm); font-size: 16px; font-family: var(--font-main);" />
           </div>
           
           <div>
-            <label style="display: block; font-weight: 700; margin-bottom: 8px; font-size: 14px; color: var(--color-text);">Senha</label>
-            <input type="password" id="auth-password" required placeholder="******" style="width: 100%; padding: 12px; border: 2px solid var(--color-border); border-radius: var(--radius-sm); font-size: 16px; font-family: var(--font-main); outline: none;" />
+            <label for="auth-password" style="display: block; font-weight: 700; margin-bottom: 8px; font-size: 14px; color: var(--color-text);">Senha</label>
+            <input type="password" id="auth-password" required autocomplete="current-password" placeholder="******" aria-describedby="auth-status" style="width: 100%; padding: 12px; border: 2px solid var(--color-border); border-radius: var(--radius-sm); font-size: 16px; font-family: var(--font-main);" />
           </div>
           
           <button type="submit" id="auth-submit-btn" class="btn btn-primary" style="margin-top: 8px; width: 100%;">Entrar</button>
@@ -29,7 +29,7 @@ export function renderLogin(container, app) {
 
         <div style="margin-top: 24px; text-align: center; font-size: 14px; font-weight: 700; color: var(--color-text-light);">
           <span id="auth-toggle-text">Ainda não tem conta?</span>
-          <button id="auth-toggle-btn" style="background: none; border: none; color: var(--color-secondary); font-weight: 800; cursor: pointer; font-size: 14px; margin-left: 4px; font-family: var(--font-main);">Criar uma</button>
+          <button id="auth-toggle-btn" type="button" style="background: none; border: none; color: var(--color-secondary); font-weight: 800; cursor: pointer; font-size: 14px; margin-left: 4px; font-family: var(--font-main);">Criar uma</button>
         </div>
         <p id="auth-status" role="status" aria-live="polite" hidden style="margin:16px 0 0; padding:12px; border-radius:10px; background:rgba(28,176,246,.12); color:var(--color-text); font-size:14px; line-height:1.5;"></p>
       </div>
@@ -47,22 +47,40 @@ export function renderLogin(container, app) {
   const authStatus = document.getElementById('auth-status');
 
   let isLogin = true;
+  toggleBtn.type = 'button';
+
+  function clearStatus() {
+    authStatus.hidden = true;
+    authStatus.textContent = '';
+    emailInput.removeAttribute('aria-invalid');
+    passInput.removeAttribute('aria-invalid');
+  }
+
+  function showFormError(message, field = null) {
+    authStatus.hidden = false;
+    authStatus.textContent = message;
+    if (field) {
+      field.setAttribute('aria-invalid', 'true');
+      field.focus();
+    }
+  }
 
   toggleBtn.addEventListener('click', (e) => {
     e.preventDefault();
     isLogin = !isLogin;
-    authStatus.hidden = true;
-    authStatus.textContent = '';
+    clearStatus();
     if (isLogin) {
       title.textContent = 'Entrar';
       submitBtn.textContent = 'Entrar';
       toggleText.textContent = 'Ainda não tem conta?';
       toggleBtn.textContent = 'Criar uma';
+      passInput.autocomplete = 'current-password';
     } else {
       title.textContent = 'Criar Conta';
       submitBtn.textContent = 'Cadastrar';
       toggleText.textContent = 'Já tem uma conta?';
       toggleBtn.textContent = 'Entrar';
+      passInput.autocomplete = 'new-password';
     }
   });
 
@@ -70,10 +88,15 @@ export function renderLogin(container, app) {
     e.preventDefault();
     
     const email = emailInput.value.trim();
-    const password = passInput.value.trim();
+    const password = passInput.value;
     
-    if (!email || !password) {
-      app.showToast('Preencha todos os campos', 'error');
+    clearStatus();
+    if (!email) {
+      showFormError('Informe seu e-mail.', emailInput);
+      return;
+    }
+    if (!password) {
+      showFormError('Informe sua senha.', passInput);
       return;
     }
 
@@ -89,6 +112,7 @@ export function renderLogin(container, app) {
           app.showToast('Login realizado com sucesso!', 'success');
           app.navigate('home');
         } else {
+          showFormError(res.error || 'Não foi possível entrar. Confira os dados e tente novamente.', passInput);
           app.showToast(res.error || 'Erro ao fazer login', 'error');
           submitBtn.disabled = false;
           submitBtn.style.opacity = '1';
@@ -119,6 +143,7 @@ export function renderLogin(container, app) {
           submitBtn.style.opacity = '1';
           submitBtn.textContent = 'Entrar';
         } else {
+          showFormError(res.error || 'Não foi possível criar a conta. Confira os dados e tente novamente.', passInput);
           app.showToast(res.error || 'Erro ao criar conta', 'error');
           submitBtn.disabled = false;
           submitBtn.style.opacity = '1';
@@ -127,6 +152,7 @@ export function renderLogin(container, app) {
       }
     } catch (err) {
       console.error(err);
+      showFormError('Erro inesperado de conexão. Tente novamente.', null);
       app.showToast('Erro inesperado de conexão', 'error');
       submitBtn.disabled = false;
       submitBtn.style.opacity = '1';

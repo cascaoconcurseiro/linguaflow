@@ -44,6 +44,11 @@ let echoStream = null;
 let echoChunks = [];
 let echoPlaybackUrl = null;
 
+function isMobileVoiceDevice() {
+  if (navigator.userAgentData?.mobile === true) return true;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+}
+
 function stopEchoMode() {
   try { if (echoRec && echoRec.state === 'recording') echoRec.stop(); } catch { /* ja parado */ }
   echoStream?.getTracks().forEach((t) => t.stop());
@@ -149,6 +154,8 @@ export async function renderStudy(container, app, params = {}) {
     stopAudio();
     pronunciationLab.stop(); // sair da rota fecha o microfone
     stopEchoMode();
+    shadowingBusy = false;
+    shadowingPinned = false;
     audioUiToken += 1;
     pauseYouglish();
     hidePlayer();
@@ -460,6 +467,7 @@ export async function renderStudy(container, app, params = {}) {
   }
 
   document.getElementById('shadowing-mic')?.addEventListener('click', () => {
+    if (!isMobileVoiceDevice()) return;
     const card = currentCard;
     const micBtn = document.getElementById('shadowing-mic');
     const resultEl = document.getElementById('shadowing-result');
@@ -1232,7 +1240,7 @@ function playCurrentAudio() {
     if (revealBtn && !revealBtn.classList.contains('hidden')) {
       const shadowingEl = document.getElementById('shadowing-overlay');
       const progressEl = document.getElementById('shadowing-progress');
-      if (shadowingEl) {
+      if (isMobileVoiceDevice() && shadowingEl) {
         // Queixa do dono (17/07): "não achei o microfone" — o overlay sumia
         // depois de 3s. Agora fica visível até o próximo card (resetCardUI
         // esconde); a barra vira só um realce de entrada, sem esconder nada.

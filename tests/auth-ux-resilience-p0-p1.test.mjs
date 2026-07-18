@@ -25,7 +25,9 @@ assert.match(dashboard, /<body class="lf-auth-pending">/,
   'shell deve nascer oculto antes mesmo do JavaScript carregar');
 assert.match(app, /this\.navigate\('login'\)[\s\S]*?requestAnimationFrame\([\s\S]*?classList\.remove\('lf-auth-pending'\)/,
   'primeira rota deve ser instalada antes de revelar o shell');
-assert.match(dashboard, /maximum-scale=1, user-scalable=no, viewport-fit=cover/);
+assert.doesNotMatch(dashboard, /maximum-scale|user-scalable/,
+  'viewport não pode bloquear o zoom de acessibilidade');
+assert.match(dashboard, /viewport-fit=cover/);
 assert.match(css, /html \{[\s\S]*?overscroll-behavior: none;[\s\S]*?touch-action: manipulation;/);
 assert.match(css, /#app-root \{[\s\S]*?overscroll-behavior: contain;[\s\S]*?touch-action: pan-y;/);
 assert.doesNotMatch(login, /topbar\.style\.display/);
@@ -41,6 +43,19 @@ assert.match(login, /res\.session\?\.access_token \|\| await db\.checkSession/);
 assert.match(login, /Confirme seu e-mail/);
 assert.match(login, /Enviamos um link de confirmação/);
 assert.match(login, /app\.setAuthenticated\?\.\(false\)/);
+assert.match(login, /<label for="auth-email"/,
+  'campo de e-mail possui rótulo associado');
+assert.match(login, /<label for="auth-password"/,
+  'campo de senha possui rótulo associado');
+assert.match(login, /autocomplete="email"/);
+assert.match(login, /autocomplete="current-password"/);
+assert.match(login, /passInput\.value;/,
+  'senha é enviada literalmente, sem remover espaços válidos');
+assert.doesNotMatch(login, /passInput\.value\.trim\(\)/);
+assert.doesNotMatch(login, /outline:\s*none/,
+  'campos preservam o foco visível global');
+assert.match(login, /toggleBtn\.type = 'button'/,
+  'alternância entre login e cadastro nunca submete o formulário');
 
 // Uma view que rejeita não pode manter o spinner indefinidamente.
 assert.match(app, /renderRouteFailure\(context\)/);

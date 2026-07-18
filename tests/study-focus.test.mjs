@@ -59,6 +59,14 @@ assert.doesNotMatch(source, /NVIDIA\/OpenRouter|aviso de IA|provedor de IA/,
   'treino de fala não exibe aviso técnico de IA ou fornecedor');
 assert.match(source, /assessPronunciationAudio\(blob, expected\)/,
   'fallback de gravação recebe avaliação multimodal em vez de apenas eco');
+assert.match(source, /function isMobileVoiceDevice\(\)/,
+  'treino de voz define uma fronteira explícita de dispositivo móvel');
+assert.match(source, /if \(!isMobileVoiceDevice\(\)\) return;/,
+  'desktop não inicializa nem exibe o treino de voz temporariamente');
+assert.match(source, /if \(isMobileVoiceDevice\(\) && shadowingEl\)/,
+  'overlay do microfone só aparece em dispositivo móvel');
+assert.match(source, /stopEchoMode\(\);[\s\S]{0,120}shadowingBusy = false;/,
+  'saída/troca encerra gravação e libera o estado ocupado');
 assert.doesNotMatch(source, /Modo eco \(sem nuvem\)/,
   'interface não promete processamento local quando enviará a gravação à nuvem');
 assert.match(source, /gravação será enviada para avaliação/,

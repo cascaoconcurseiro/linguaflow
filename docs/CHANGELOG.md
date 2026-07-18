@@ -1,5 +1,13 @@
 # LinguaFlow - Changelog
 
+## 3.0.25 — Voz móvel e acessibilidade do login (18/07/2026)
+
+- desativa temporariamente o treino de fala em computadores, mantendo-o em dispositivos móveis;
+- encerra e libera explicitamente a captura de áudio ao sair da sessão de estudo;
+- corrige senha alterada por remoção indevida de espaços e melhora rótulos, foco, autocomplete e erros do login;
+- restaura zoom de acessibilidade sem perder o comportamento PWA controlado por CSS;
+- atualiza o cache do aplicativo para impedir que clientes mantenham a interface anterior.
+
 ## 3.0.24 — Portão de produção (18/07/2026)
 
 - Privilégio mínimo: acesso anônimo removido de todas as tabelas pessoais.

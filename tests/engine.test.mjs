@@ -38,6 +38,7 @@ const SETTINGS = {
   gradInt: 1, easyInt: 4, initEase: 2.5, maxInt: 36500,
   leechThresh: 8, easyBonus: 1.3, intMod: 1, lapseMod: 0,
   leechAction: 'tag', retention: 0.9, learningSteps: [1, 10],
+  relearningSteps: [10],
   newPerDay: 20, maxRevPerDay: 200,
 };
 const newCard = () => ({ id: 'c1', status: 'new', interval: 0, ease_factor: 2.5, step_index: 0, reps: 0, lapses: 0, stability: null, difficulty: null, due_date: new Date().toISOString(), last_review: null });
@@ -97,6 +98,47 @@ test('review + Errei → lapso: volta pra learning e lapses incrementa', () => {
   const next = db._calculateNextState(card, 1, SETTINGS);
   assert.equal(next.status, 'learning');
   assert.equal(next.lapses, 3);
+  assert.equal(next.pre_lapse_interval, 10);
+  assert.ok(Math.abs(next.interval - 10 / 1440) < 1e-9);
+});
+
+test('relearning usa passos próprios e volta ao FSRS depois do último passo', () => {
+  const lapsed = db._calculateNextState({
+    ...newCard(), status: 'review', stability: 30, difficulty: 5,
+    interval: 45, last_review: new Date(Date.now() - 45 * 86400000).toISOString(),
+  }, 1, { ...SETTINGS, learningSteps: [1, 10], relearningSteps: [10] });
+  assert.equal(lapsed.status, 'learning');
+  assert.equal(lapsed.pre_lapse_interval, 45);
+  assert.ok(Math.abs(lapsed.interval - 10 / 1440) < 1e-9);
+
+  const graduated = db._calculateNextState(lapsed, 3, {
+    ...SETTINGS, learningSteps: [1, 10], relearningSteps: [10], gradInt: 1,
+  });
+  assert.equal(graduated.status, 'review');
+  assert.ok(graduated.interval >= 1);
+  assert.equal(graduated.pre_lapse_interval, 45);
+});
+
+test('Errei durante relearning repete 10m sem usar o passo inicial de 1m', () => {
+  const card = {
+    ...newCard(), status: 'learning', interval: 10 / 1440,
+    pre_lapse_interval: 20, stability: 2, difficulty: 7,
+  };
+  const next = db._calculateNextState(card, 1, SETTINGS);
+  assert.equal(next.status, 'learning');
+  assert.equal(next.step_index, 0);
+  assert.ok(Math.abs(next.interval - 10 / 1440) < 1e-9);
+});
+
+test('Fácil no relearning gradua sem reinicializar a memória FSRS', () => {
+  const card = {
+    ...newCard(), status: 'learning', interval: 10 / 1440,
+    pre_lapse_interval: 30, stability: 2.25, difficulty: 7,
+  };
+  const next = db._calculateNextState(card, 4, SETTINGS);
+  assert.equal(next.status, 'review');
+  assert.equal(next.stability, 2.25);
+  assert.equal(next.difficulty, 7);
 });
 
 test('intervalo >= 21 dias → mature', () => {

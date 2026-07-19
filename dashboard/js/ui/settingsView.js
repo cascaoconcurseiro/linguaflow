@@ -249,7 +249,7 @@ export async function renderSettings(container, app) {
   // o usuário mexia, via "Salvo ✅" e nada mudava.)
   const settingKeys = ['lf_cefr_level', 'lf_tts_lang', 'lf_tts_speed',
     'graduating_interval', 'max_interval', 'interval_modifier', 'leech_threshold',
-    'leech_action', 'lf_srs_retention', 'learning_steps', 'new_per_day',
+    'leech_action', 'lf_srs_retention', 'learning_steps', 'relearning_steps', 'new_per_day',
     'max_reviews_per_day', 'lf_vault_cap', 'lf_reverse_cards', 'lf_varied_exercises',
     'lf_audio_auto_front', 'lf_audio_auto_back'];
   container.setAttribute('aria-busy', 'true');
@@ -266,7 +266,7 @@ export async function renderSettings(container, app) {
   }
   container.setAttribute('aria-busy', 'false');
   const [savedCefr, savedTtsLang, savedTtsSpeed, srsGradInt, srsMaxInt, srsIntMod,
-    srsLeech, srsLeechAction, srsRetentionRaw, srsSteps, srsNewPerDay, srsMaxRev,
+    srsLeech, srsLeechAction, srsRetentionRaw, srsSteps, srsRelearningSteps, srsNewPerDay, srsMaxRev,
     srsReverseRaw, srsVariedRaw, audioFrontRaw, audioBackRaw] = settingKeys.map(key => settings[key] ?? null);
 
   const cefr = savedCefr || '';
@@ -279,6 +279,7 @@ export async function renderSettings(container, app) {
   const leechAction = srsLeechAction || 'tag';
   const srsRetention = Math.round((Number(srsRetentionRaw) || 0.9) * 100);
   const learningSteps = srsSteps || '1 10';
+  const relearningSteps = srsRelearningSteps || '10';
   const newPerDay = String(Math.min(20, Math.max(0, Number(srsNewPerDay ?? 5) || 5)));
   const maxRevPerDay = srsMaxRev || '200';
   const vaultCap = settings.lf_vault_cap === undefined || settings.lf_vault_cap === null || settings.lf_vault_cap === '' ? 300 : settings.lf_vault_cap;
@@ -342,6 +343,10 @@ export async function renderSettings(container, app) {
         <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Repetições iniciais (minutos)</label>
         <input type="text" id="srs-learning-steps" value="${learningSteps}" placeholder="1 10" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; margin-bottom:16px; background:var(--color-bg-alt); color:var(--color-text);">
         <p style="font-size:12px; color:var(--color-text-light);">Exemplo: "1 10" faz uma expressão nova voltar em 1 e 10 minutos antes do agendamento normal.</p>
+
+        <label style="font-weight:bold; color:var(--color-text); display:block; margin:16px 0 8px;">Repetição após esquecer (minutos)</label>
+        <input type="text" id="srs-relearning-steps" value="${relearningSteps}" placeholder="10" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; margin-bottom:8px; background:var(--color-bg-alt); color:var(--color-text);">
+        <p style="font-size:12px; color:var(--color-text-light);">Recomendado: "10". Um card antigo esquecido volta após 10 minutos e depois retorna ao agendamento FSRS.</p>
       </div>
 
       <!-- Advanced SRS -->
@@ -743,6 +748,11 @@ export async function renderSettings(container, app) {
     if (stepsRaw) {
       const steps = stepsRaw.replace(/m/gi, '').split(/[\s,]+/).map(Number).filter(n => n > 0);
       if (steps.length > 0) writes.push(lfDb.setSetting('learning_steps', steps.join(' ')));
+    }
+    const relearningRaw = val('srs-relearning-steps');
+    if (relearningRaw) {
+      const steps = relearningRaw.replace(/m/gi, '').split(/[\s,]+/).map(Number).filter(n => n > 0);
+      if (steps.length > 0) writes.push(lfDb.setSetting('relearning_steps', steps.join(' ')));
     }
 
     if (val('srs-new-per-day') !== undefined) writes.push(lfDb.setSetting('new_per_day', val('srs-new-per-day')));

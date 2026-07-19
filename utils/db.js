@@ -852,7 +852,7 @@ class Database {
 
     const baseKeys = ['graduating_interval', 'easy_interval', 'initial_ease', 'max_interval',
       'leech_threshold', 'easy_bonus', 'interval_modifier', 'lapse_modifier',
-      'leech_action', 'lf_srs_retention', 'learning_steps',
+      'leech_action', 'lf_srs_retention', 'learning_steps', 'relearning_steps',
       'new_per_day', 'max_reviews_per_day'];
     const catKeys = category ? Database.SRS_OVERRIDABLE_KEYS.map(k => `${k}:${category}`) : [];
     // Onda 9 (auditoria de bugs): `category` chega da coluna words.category,
@@ -894,11 +894,17 @@ class Database {
         .split(/[\s,]+/)
         .map(Number)
         .filter((n) => n > 0),
+      relearningSteps: String(map.relearning_steps || '10')
+        .replace(/m/gi, '')
+        .split(/[\s,]+/)
+        .map(Number)
+        .filter((n) => n > 0),
       // Limites diários (paridade Anki): controlam a fila de estudo
       newPerDay: Math.max(0, Number(map.new_per_day ?? 20)),
       maxRevPerDay: Math.max(1, Number(map.max_reviews_per_day ?? 200)),
     };
     if (value.learningSteps.length === 0) value.learningSteps = [1, 10];
+    if (value.relearningSteps.length === 0) value.relearningSteps = [10];
     this._srsCache = { key: cacheKey, value, ts: Date.now() };
     return value;
   }
@@ -977,6 +983,7 @@ class Database {
   _calculateNextState(card, quality, settings, now = Date.now()) {
     const prevStatus = card.status || 'new';
     const learningSteps = settings.learningSteps;
+    const relearningSteps = settings.relearningSteps?.length ? settings.relearningSteps : [10];
     const retention = settings.retention;
     const maxInt = settings.maxInt;
 
@@ -984,6 +991,7 @@ class Database {
     let nextInterval;
     let nextStepIndex = card.step_index || 0;
     let nextLapses = card.lapses || 0;
+    let preLapseInterval = Number(card.pre_lapse_interval || 0);
     const nextReps = (card.reps || 0) + 1;
 
     // Estado FSRS: semeia a partir do histórico se o card veio do SM-2 antigo
@@ -993,8 +1001,10 @@ class Database {
     const elapsedDays = card.last_review
       ? Math.max(0, (now - new Date(card.last_review).getTime()) / 86400000)
       : 0;
+    const isRelearning = prevStatus === 'learning' && preLapseInterval > 0;
 
     if (prevStatus === 'new' || prevStatus === 'learning') {
+      const activeSteps = isRelearning ? relearningSteps : learningSteps;
       // Learning steps (minutos), como no Anki com FSRS habilitado
       if (difficulty === null) difficulty = this._fsrsInitDifficulty(quality);
       if (stability === null) stability = this._fsrsInitStability(quality);
@@ -1002,7 +1012,7 @@ class Database {
       if (quality === 1) {
         nextStatus = 'learning';
         nextStepIndex = 0;
-        nextInterval = learningSteps[0] / 1440;
+        nextInterval = activeSteps[0] / 1440;
       } else if (quality === 2) {
         // Difícil é um acerto com esforço: nunca pode prender o aluno no
         // mesmo passo para sempre. Ele repete o primeiro passo uma vez e,
@@ -1014,23 +1024,25 @@ class Database {
         nextStatus = 'learning';
         if (prevStatus === 'new') {
           nextStepIndex = 0;
-          nextInterval = (learningSteps[0] * 1.5) / 1440;
+          nextInterval = (activeSteps[0] * 1.5) / 1440;
         } else {
           nextStepIndex += 1;
-          if (nextStepIndex >= learningSteps.length) {
+          if (nextStepIndex >= activeSteps.length) {
             nextStatus = 'review';
             nextStepIndex = 0;
             nextInterval = Math.max(settings.gradInt || 1,
               this._fsrsInterval(stability, retention) * settings.intMod * 0.8);
           } else {
-            nextInterval = (learningSteps[nextStepIndex] * 1.5) / 1440;
+            nextInterval = (activeSteps[nextStepIndex] * 1.5) / 1440;
           }
         }
       } else if (quality === 4) {
         // Fácil: gradua direto com bônus do FSRS.
         // easy_interval (config) é o piso; interval_modifier escala tudo.
-        stability = this._fsrsInitStability(4);
-        difficulty = this._fsrsInitDifficulty(4);
+        if (!isRelearning) {
+          stability = this._fsrsInitStability(4);
+          difficulty = this._fsrsInitDifficulty(4);
+        }
         nextStatus = 'review';
         nextStepIndex = 0;
         nextInterval = Math.max(settings.easyInt || 4,
@@ -1039,14 +1051,14 @@ class Database {
         // Bom: avança um step; gradua no fim dos steps.
         // graduating_interval (config) é o piso da graduação.
         nextStepIndex = prevStatus === 'new' ? 1 : nextStepIndex + 1;
-        if (nextStepIndex >= learningSteps.length) {
+        if (nextStepIndex >= activeSteps.length) {
           nextStatus = 'review';
           nextStepIndex = 0;
           nextInterval = Math.max(settings.gradInt || 1,
             this._fsrsInterval(stability, retention) * settings.intMod);
         } else {
           nextStatus = 'learning';
-          nextInterval = learningSteps[nextStepIndex] / 1440;
+          nextInterval = activeSteps[nextStepIndex] / 1440;
         }
       }
     } else {
@@ -1059,10 +1071,11 @@ class Database {
       stability = this._fsrsNextStability(difficulty, stability, r, quality);
 
       if (quality === 1) {
+        preLapseInterval = Math.max(0, Number(card.interval || 0));
         nextLapses++;
         nextStatus = 'learning';
         nextStepIndex = 0;
-        nextInterval = learningSteps[0] / 1440;
+        nextInterval = relearningSteps[0] / 1440;
       } else {
         // interval_modifier (config) escala o intervalo do FSRS (100% = neutro)
         nextInterval = Math.max(1, this._fsrsInterval(stability, retention) * settings.intMod);
@@ -1094,7 +1107,7 @@ class Database {
       ease_factor: card.ease_factor || 2.5, // mantido por compat; FSRS não usa
       stability,
       difficulty,
-      pre_lapse_interval: card.pre_lapse_interval || 0,
+      pre_lapse_interval: preLapseInterval,
       reps: nextReps,
       lapses: nextLapses,
       due_date: nextDueDate,

@@ -30,6 +30,7 @@ let audioAutoFront = true;  // lf_audio_auto_front — agora respeitado de verda
 let audioAutoBack = true;   // lf_audio_auto_back
 let ygWidget = null;
 let ygQueuedWord = null;
+let youglishLoadTimer = null;
 let waitTimer = null;       // countdown da tela "aguardando learning steps"
 let gradeBusy = false;      // impede duas avaliações concorrentes do mesmo card
 const pendingReviewOperations = new Map(); // retry conserva id, nota e estado calculado
@@ -54,7 +55,9 @@ function isMobileVoiceDevice() {
 }
 
 function stopEchoMode() {
-  try { if (echoRec && echoRec.state === 'recording') echoRec.stop(); } catch { /* ja parado */ }
+  const recorder = echoRec;
+  if (recorder) recorder.onstop = null; // descarte: não avalia ao trocar de tela
+  try { if (recorder && recorder.state === 'recording') recorder.stop(); } catch { /* ja parado */ }
   echoStream?.getTracks().forEach((t) => t.stop());
   echoStream = null;
   echoRec = null;
@@ -62,6 +65,18 @@ function stopEchoMode() {
     URL.revokeObjectURL(echoPlaybackUrl);
     echoPlaybackUrl = null;
   }
+}
+
+function finishEchoRecording(micBtn, resultEl) {
+  const recorder = echoRec;
+  if (!recorder || recorder.state !== 'recording') return false;
+  delete micBtn.dataset.echo;
+  micBtn.disabled = true;
+  micBtn.textContent = '⏳ Finalizando gravação…';
+  resultEl.textContent = 'Gravação encerrada. Preparando a avaliação…';
+  try { recorder.requestData(); } catch { /* Safari pode não implementar */ }
+  try { recorder.stop(); } catch { return false; }
+  return true;
 }
 
 // O SpeechRecognition do Chrome depende de um servico de nuvem do Google e
@@ -79,13 +94,15 @@ async function startEchoMode(micBtn, resultEl, expected, card) {
   }
   echoChunks = [];
   echoRec = new MediaRecorder(echoStream);
+  const recorder = echoRec;
   echoRec.ondataavailable = (e) => { if (e.data && e.data.size) echoChunks.push(e.data); };
   echoRec.onstop = async () => {
     echoStream?.getTracks().forEach((t) => t.stop());
     echoStream = null;
+    if (echoRec === recorder) echoRec = null;
     delete micBtn.dataset.echo;
     if (currentCard !== card || echoChunks.length === 0) { shadowingBusy = false; micBtn.disabled = false; micBtn.textContent = '🎤 Falar agora'; return; }
-    const blob = new Blob(echoChunks, { type: echoRec?.mimeType || 'audio/webm' });
+    const blob = new Blob(echoChunks, { type: recorder.mimeType || 'audio/webm' });
     echoChunks = [];
     if (echoPlaybackUrl) URL.revokeObjectURL(echoPlaybackUrl);
     echoPlaybackUrl = URL.createObjectURL(blob);
@@ -129,7 +146,9 @@ async function startEchoMode(micBtn, resultEl, expected, card) {
   };
   echoRec.start();
   const recAtStart = echoRec;
-  setTimeout(() => { try { if (recAtStart.state === 'recording') recAtStart.stop(); } catch { /* ok */ } }, 8000);
+  setTimeout(() => {
+    if (recAtStart.state === 'recording' && currentCard === card) finishEchoRecording(micBtn, resultEl);
+  }, 8000);
   micBtn.disabled = false;
   micBtn.dataset.echo = '1';
   micBtn.textContent = '⏹ Parar gravação';
@@ -488,7 +507,7 @@ export async function renderStudy(container, app, params = {}) {
     const resultEl = document.getElementById('shadowing-result');
     if (!card || !micBtn || !resultEl) return;
     // Modo eco ativo: o mesmo botao encerra a gravacao
-    if (micBtn.dataset.echo === '1') { stopEchoMode(); return; }
+    if (micBtn.dataset.echo === '1') { finishEchoRecording(micBtn, resultEl); return; }
     if (shadowingBusy) return;
     const wordAlone = String(card.wordData?.word || card.word || '').trim();
     const sentence = card._ctx || card.wordData?.context_sentence || wordAlone;
@@ -1794,7 +1813,10 @@ function updateYouglish(word) {
   if (!box) return;
   box.classList.remove('hidden');
   fallback.href = `https://youglish.com/pronounce/${encodeURIComponent(word)}/english`;
-  fallback.textContent = `📺 Ver "${word}" no YouGlish`;
+  fallback.textContent = `📺 Abrir no YouGlish: “${word}”`;
+  // Em iOS/Android o widget de terceiros pode ser bloqueado sem disparar erro.
+  // O link oficial permanece sempre disponível; o embed continua sendo tentado.
+  if (isMobileVoiceDevice()) fallback.classList.remove('hidden');
 
   // Extensão (MV3): scripts remotos são proibidos pelo CSP → só o link.
   if (isExtension) {
@@ -1838,6 +1860,7 @@ function loadYouglishAnd(word) {
 
 // Pausa o vídeo do YouGlish (chamado ao trocar de card / sair da sessão)
 function pauseYouglish() {
+  if (youglishLoadTimer) { clearTimeout(youglishLoadTimer); youglishLoadTimer = null; }
   try { ygWidget?.pause?.(); } catch { /* widget pode não estar pronto */ }
 }
 
@@ -1849,11 +1872,24 @@ function ygFetch(word) {
         width: Math.min(box?.clientWidth || 316, 360),
         components: 88, // legenda + controle de velocidade + navegação
         events: {
-          onError: () => document.getElementById('youglish-fallback')?.classList.remove('hidden'),
+          onFetchDone: () => {
+            if (youglishLoadTimer) clearTimeout(youglishLoadTimer);
+            youglishLoadTimer = null;
+          },
+          onError: () => {
+            if (youglishLoadTimer) clearTimeout(youglishLoadTimer);
+            youglishLoadTimer = null;
+            document.getElementById('youglish-fallback')?.classList.remove('hidden');
+          },
         },
       });
     }
     ygWidget.fetch(word, 'english');
+    if (youglishLoadTimer) clearTimeout(youglishLoadTimer);
+    youglishLoadTimer = setTimeout(() => {
+      document.getElementById('youglish-fallback')?.classList.remove('hidden');
+      youglishLoadTimer = null;
+    }, 7000);
   } catch (e) {
     console.warn('[Study] YouGlish widget falhou:', e);
     document.getElementById('youglish-fallback')?.classList.remove('hidden');

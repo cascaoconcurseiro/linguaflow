@@ -26,6 +26,7 @@ const P = await import(pathToFileURL(join(tmp, 'placement.mjs')).href);
 const Q = await import(pathToFileURL(join(tmp, 'sessionQueue.mjs')).href);
 const S = await import(pathToFileURL(join(tmp, 'statsEngine.mjs')).href);
 const A = await import(pathToFileURL(join(tmp, 'achievements.mjs')).href);
+const L = await import(pathToFileURL(join(tmp, 'local-day.js')).href);
 
 let passed = 0;
 function test(name, fn) {
@@ -328,7 +329,7 @@ test('retentionByDay: agrega por dia local, dias sem revisão ficam null', () =>
 });
 
 test('studyTimeByDay: soma segundos por dia e converte pra minutos', () => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = L.localDateKey();
   const rows = S.studyTimeByDay([{ date: today, seconds: 90 }, { date: today, seconds: 30 }], 2);
   assert.equal(rows[rows.length - 1].minutes, 2);
 });

@@ -1,0 +1,44 @@
+name: Production RLS Monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 10 * * *'
+  push:
+    branches:
+      - main
+    paths:
+      - 'supabase/migrations/**'
+      - 'tests/production/rls-two-user-isolation.test.mjs'
+      - '.github/workflows/production-rls.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-rls-monitor
+  cancel-in-progress: false
+
+jobs:
+  isolation:
+    name: Production RLS isolation (two users)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Verify authenticated row isolation
+        run: node tests/production/rls-two-user-isolation.test.mjs
+        env:
+          SUPABASE_URL: https://qnutoswrufznztoznlql.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          E2E_USER_A_EMAIL: ${{ secrets.E2E_USER_A_EMAIL }}
+          E2E_USER_A_PASSWORD: ${{ secrets.E2E_USER_A_PASSWORD }}
+          E2E_USER_B_EMAIL: ${{ secrets.E2E_USER_B_EMAIL }}
+          E2E_USER_B_PASSWORD: ${{ secrets.E2E_USER_B_PASSWORD }}

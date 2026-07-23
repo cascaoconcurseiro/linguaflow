@@ -110,8 +110,14 @@ try {
   const foreignDelete = await rest(config, userB, `words?id=eq.${createdId}&select=id`, {
     method: 'DELETE',
   });
-  assert.equal(foreignDelete.response.ok, true);
-  assert.deepEqual(foreignDelete.body, [], 'RLS permitiu que B apagasse dado de A');
+  if (foreignDelete.response.ok) {
+    assert.deepEqual(foreignDelete.body, [], 'RLS permitiu que B apagasse dado de A');
+  } else {
+    assert.ok(
+      foreignDelete.response.status >= 400 && foreignDelete.response.status < 500,
+      `Falha inesperada ao testar DELETE isolado (${foreignDelete.response.status})`,
+    );
+  }
 
   const stillOwned = await rest(config, userA, `words?id=eq.${createdId}&select=id,translation`);
   assert.equal(stillOwned.body?.length, 1, 'Dado de A desapareceu após tentativa de B');

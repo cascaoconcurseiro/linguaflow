@@ -80,6 +80,7 @@ assert.notEqual(userA.userId, userB.userId, 'As credenciais E2E apontam para o m
 
 const marker = `lf-rls-${Date.now()}-${crypto.randomUUID()}`;
 let createdId = null;
+let testFailure = null;
 
 try {
   const created = await rest(config, userA, 'words?select=id,user_id,word', {
@@ -131,12 +132,18 @@ try {
   );
 
   console.log('PASS: isolamento RLS autenticado entre dois usuários');
+} catch (error) {
+  testFailure = error;
 } finally {
   if (createdId) {
-    const cleanup = await rest(config, userA, `words?id=eq.${createdId}&select=id`, {
-      method: 'DELETE',
+    const cleanup = await rest(config, userA, 'rpc/delete_word_safely', {
+      method: 'POST',
+      body: JSON.stringify({ p_word_id: createdId }),
     });
-    assert.equal(cleanup.response.ok, true, 'Falha ao limpar dado temporário do teste');
-    assert.equal(cleanup.body?.length, 1, 'Dado temporário do teste não foi removido');
+    if (!cleanup.response.ok && !testFailure) {
+      testFailure = new Error(`Falha ao limpar dado temporário do teste (${cleanup.response.status})`);
+    }
   }
 }
+
+if (testFailure) throw testFailure;

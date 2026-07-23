@@ -26,6 +26,7 @@ DB=linguaflow_test
 run_pg() { # roda como usuário postgres (o postgres não roda como root)
   if [ "$(id -u)" = "0" ]; then runuser -u postgres -- "$@"; else "$@"; fi
 }
+DB_USER="$(if [ "$(id -u)" = "0" ]; then printf '%s' postgres; else id -un; fi)"
 
 cleanup() { run_pg "$PGBIN/pg_ctl" -D "$PGDATA" stop -m immediate >/dev/null 2>&1 || true; }
 trap cleanup EXIT
@@ -103,7 +104,7 @@ echo "── contrato transacional de revisão P0.2A"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/db/card-review-p0-2a.sql"
 
 echo "── concorrência real de revisão P0.2A"
-node "$ROOT/tests/db/card-review-p0-2a-concurrency.mjs" "$PGBIN/psql" "$PORT" "$DB" "$SOCK"
+node "$ROOT/tests/db/card-review-p0-2a-concurrency.mjs" "$PGBIN/psql" "$PORT" "$DB" "$SOCK" "$DB_USER"
 
 echo "── isolamento e permissões de cards P0.2B"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/db/card-permissions-p0-2b.sql"

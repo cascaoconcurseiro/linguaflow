@@ -27,9 +27,11 @@ assert.doesNotMatch(
   'gates P0.2 não podem ser opcionais nem converter falha em sucesso',
 );
 
-assert.match(concurrency, /const \[psql, port, database, host\]/,
-  'o teste concorrente deve aceitar o socket do Postgres efêmero');
+assert.match(concurrency, /const \[psql, port, database, host, user\]/,
+  'o teste concorrente deve aceitar socket e superusuário do Postgres efêmero');
 assert.match(concurrency, /'-h',\s*host/,
   'o teste concorrente deve usar o host/socket recebido pelo replay');
+assert.match(concurrency, /'-U',\s*user/,
+  'o teste concorrente não pode presumir que o superusuário se chama postgres');
 
 console.log('Replay efêmero executa todos os gates SQL P0.2 em modo fail-closed.');

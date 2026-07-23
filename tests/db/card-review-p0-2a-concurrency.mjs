@@ -2,12 +2,12 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 
-const [psql, port, database, host] = process.argv.slice(2);
-if (!psql || !port || !database || !host) {
-  throw new Error('uso: node card-review-p0-2a-concurrency.mjs <psql> <porta> <banco> <host-ou-socket>');
+const [psql, port, database, host, user] = process.argv.slice(2);
+if (!psql || !port || !database || !host || !user) {
+  throw new Error('uso: node card-review-p0-2a-concurrency.mjs <psql> <porta> <banco> <host-ou-socket> <usuario>');
 }
 
-const base = ['-X', '-v', 'ON_ERROR_STOP=1', '-h', host, '-p', port, '-U', 'postgres', '-w', '-d', database];
+const base = ['-X', '-v', 'ON_ERROR_STOP=1', '-h', host, '-p', port, '-U', user, '-w', '-d', database];
 const run = (sql) => {
   const result = spawnSync(psql, [...base, '-Atqc', sql], { encoding: 'utf8' });
   if (result.status !== 0) throw new Error(result.stderr || `psql exit ${result.status}`);

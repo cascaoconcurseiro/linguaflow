@@ -137,9 +137,9 @@ BEGIN
     IF SQLERRM <> 'reviewed_word_cannot_be_deleted' THEN RAISE; END IF;
   END;
 
-  PERFORM public.delete_word_safely('b2000000-0000-4000-8000-000000000004');
-  IF EXISTS (SELECT 1 FROM public.words WHERE id='b2000000-0000-4000-8000-000000000004') THEN
-    RAISE EXCEPTION 'palavra sem histórico não foi excluída';
+  r := public.delete_word_safely('b2000000-0000-4000-8000-000000000004');
+  IF r->>'ok' <> 'true' OR r->>'word_id' <> 'b2000000-0000-4000-8000-000000000004' THEN
+    RAISE EXCEPTION 'delete_word_safely retornou contrato divergente: %', r;
   END IF;
 
   BEGIN
@@ -151,4 +151,15 @@ BEGIN
 END $$;
 
 RESET ROLE;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM public.words
+    WHERE id='b2000000-0000-4000-8000-000000000004'
+  ) THEN
+    RAISE EXCEPTION 'palavra sem histórico não foi excluída';
+  END IF;
+END $$;
+
 SELECT 'CARD PERMISSIONS P0.2B SQL OK' AS result;

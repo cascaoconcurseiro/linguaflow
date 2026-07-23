@@ -40,5 +40,7 @@ assert.match(constraintSql, /unique \(user_id, word_id\)/i,
   'a cadeia precisa restaurar a unicidade exigida por create_card_for_word');
 assert.match(permissions, /record_card_review\([^,]+,\s*2::smallint/i,
   'o gate SQL deve chamar a assinatura real smallint de record_card_review');
+assert.match(permissions, /reset role;[\s\S]*select 1 from public\.words/i,
+  'a prova física da exclusão deve ocorrer fora do papel autenticado sem SELECT');
 
 console.log('Replay efêmero executa todos os gates SQL P0.2 em modo fail-closed.');

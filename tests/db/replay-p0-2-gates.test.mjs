@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const constraintMigration = '20260722224000_restore_cards_user_word_constraint.sql';
-const [replay, concurrency, constraintSql] = await Promise.all([
+const [replay, concurrency, constraintSql, permissions] = await Promise.all([
   readFile(new URL('./validate-migrations.sh', import.meta.url), 'utf8'),
   readFile(new URL('./card-review-p0-2a-concurrency.mjs', import.meta.url), 'utf8'),
   readFile(new URL(`../../supabase/migrations/${constraintMigration}`, import.meta.url), 'utf8'),
+  readFile(new URL('./card-permissions-p0-2b.sql', import.meta.url), 'utf8'),
 ]);
 
 const reviewSql = 'tests/db/card-review-p0-2a.sql';
@@ -37,5 +38,7 @@ assert.match(concurrency, /'-U',\s*user/,
   'o teste concorrente não pode presumir que o superusuário se chama postgres');
 assert.match(constraintSql, /unique \(user_id, word_id\)/i,
   'a cadeia precisa restaurar a unicidade exigida por create_card_for_word');
+assert.match(permissions, /record_card_review\([^,]+,\s*2::smallint/i,
+  'o gate SQL deve chamar a assinatura real smallint de record_card_review');
 
 console.log('Replay efêmero executa todos os gates SQL P0.2 em modo fail-closed.');

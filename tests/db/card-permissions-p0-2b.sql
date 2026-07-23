@@ -124,7 +124,7 @@ BEGIN
     IF SQLERRM <> 'backup_restore_requires_pristine_card' THEN RAISE; END IF;
   END;
 
-  r := public.record_card_review('c2000000-0000-4000-8000-000000000002',2,jsonb_build_object(
+  r := public.record_card_review('c2000000-0000-4000-8000-000000000002',2::smallint,jsonb_build_object(
     'id','c2000000-0000-4000-8000-000000000002','status','review','interval',1,
     'ease_factor',2.5,'step_index',0,'reps',1,'lapses',0,'difficulty',5,
     'stability',1,'pre_lapse_interval',0,'due_date',now()+interval '1 day','is_leech',false),

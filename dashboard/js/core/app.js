@@ -13,7 +13,7 @@ import { renderProgress } from '../ui/progressView.js';
 import { bindViewStateAction, renderViewState } from '../ui/viewState.js';
 import { db } from '../../../utils/db.js';
 
-const CLIENT_BUILD = '3.0.30';
+const CLIENT_BUILD = '3.0.31';
 
 // Uma versão antiga do PWA podia misturar HTML/app novo com db.js antigo.
 // Antes de inicializar qualquer tela, elimina esse estado e recarrega uma vez.
@@ -107,7 +107,7 @@ class App {
     const key = `${source}:${name}:${this.currentRoute}`;
     if (this._reportedErrors.has(key)) return;
     this._reportedErrors.add(key);
-    this.db.reportClientError(source, name, this.currentRoute);
+    this.db.reportClientError(source, name, this.currentRoute, CLIENT_BUILD);
   }
 
   async init() {

@@ -10,6 +10,8 @@ const ENDPOINT = "url-import";
 const MAX_HTML_BYTES = 3 * 1024 * 1024; // 3MB de HTML bruto no máximo
 const MAX_TEXT_CHARS = 60000;
 const MAX_REDIRECTS = 5;
+const MAX_BODY_BYTES = 4_096;
+const UPSTREAM_BUDGET_MS = 15_000;
 
 function corsHeadersFor(origin: string | null) {
   const allowed = !!origin && (
@@ -24,6 +26,46 @@ function corsHeadersFor(origin: string | null) {
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Content-Type": "application/json",
   };
+}
+
+async function readJsonBody(req: Request, maxBytes: number): Promise<Record<string, unknown>> {
+  const declared = Number(req.headers.get("content-length") || 0);
+  if (Number.isFinite(declared) && declared > maxBytes) throw new Error("payload_too_large");
+  const reader = req.body?.getReader();
+  if (!reader) return {};
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    received += value.byteLength;
+    if (received > maxBytes) { await reader.cancel(); throw new Error("payload_too_large"); }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  try {
+    const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes));
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid_json");
+    return parsed as Record<string, unknown>;
+  }
+  catch { throw new Error("invalid_json"); }
+}
+
+async function consumeQuota(admin: any, userId: string, cors: Record<string, string>): Promise<Response | null> {
+  const { data: quotaAllowed, error: quotaError } = await admin.rpc("consume_api_quota", {
+    p_user_id: userId, p_endpoint: ENDPOINT, p_limit: RATE_LIMIT_PER_MIN, p_window_seconds: 60,
+  });
+  if (quotaError) {
+    console.error("[url-import] quota_unavailable", { code: quotaError.code || "db_error" });
+    return new Response(JSON.stringify({ error: "Serviço temporariamente indisponível." }), { status: 503, headers: cors });
+  }
+  if (quotaAllowed !== true) {
+    return new Response(JSON.stringify({ error: "Muitas importações por minuto. Aguarde um pouco." }), { status: 429, headers: cors });
+  }
+  return null;
 }
 
 // Proteção contra SSRF — auditoria 2026-07-12 encontrou que a versão
@@ -136,11 +178,12 @@ async function safeParseUrl(raw: string): Promise<URL | null> {
   return url;
 }
 
-async function fetchWithGuardedRedirects(rawUrl: string): Promise<Response> {
+async function fetchWithGuardedRedirects(rawUrl: string, signal: AbortSignal): Promise<Response> {
   let current = await safeParseUrl(rawUrl);
   if (!current) throw new Error("URL inválida ou aponta pra rede interna.");
   for (let i = 0; i <= MAX_REDIRECTS; i++) {
     const res = await fetch(current.toString(), {
+      signal,
       redirect: "manual",
       headers: { "User-Agent": "Mozilla/5.0 (compatible; LinguaFlowBot/1.0)" },
     });
@@ -206,6 +249,9 @@ function concatUint8(chunks: Uint8Array[]): Uint8Array {
 Deno.serve(async (req) => {
   const cors = corsHeadersFor(req.headers.get("Origin"));
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "method_not_allowed" }), { status: 405, headers: cors });
+  }
 
   try {
     const authHeader = req.headers.get("Authorization") || "";
@@ -229,37 +275,33 @@ Deno.serve(async (req) => {
     }
     const userId = userData.user.id;
 
-    const windowStart = new Date(Date.now() - 60_000).toISOString();
-    const { count, error: countErr } = await admin
-      .from("api_usage_log")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .eq("endpoint", ENDPOINT)
-      .gte("created_at", windowStart);
-
-    if (!countErr && (count ?? 0) >= RATE_LIMIT_PER_MIN) {
-      return new Response(JSON.stringify({ error: "Muitas importações por minuto. Aguarde um pouco." }), {
-        status: 429, headers: cors,
+    let body: Record<string, unknown>;
+    try {
+      body = await readJsonBody(req, MAX_BODY_BYTES);
+    } catch (error) {
+      const tooLarge = (error as Error).message === "payload_too_large";
+      return new Response(JSON.stringify({ error: tooLarge ? "Pedido grande demais." : "Pedido inválido." }), {
+        status: tooLarge ? 413 : 400, headers: cors,
       });
     }
-    await admin.from("api_usage_log").insert({ user_id: userId, endpoint: ENDPOINT });
-
-    const body = await req.json().catch(() => ({}));
     const rawUrl = typeof body.url === "string" ? body.url.trim() : "";
     if (!rawUrl || rawUrl.length > 2048) {
       return new Response(JSON.stringify({ error: "URL inválida." }), { status: 400, headers: cors });
     }
+    const quotaResponse = await consumeQuota(admin, userId, cors);
+    if (quotaResponse) return quotaResponse;
 
     let res: Response;
     try {
-      res = await fetchWithGuardedRedirects(rawUrl);
+      const upstreamSignal = AbortSignal.any([req.signal, AbortSignal.timeout(UPSTREAM_BUDGET_MS)]);
+      res = await fetchWithGuardedRedirects(rawUrl, upstreamSignal);
     } catch (e) {
       return new Response(JSON.stringify({ error: (e as Error).message || "Não foi possível acessar essa URL." }), {
         status: 400, headers: cors,
       });
     }
     if (!res.ok) {
-      return new Response(JSON.stringify({ error: `O site respondeu com erro ${res.status}.` }), {
+      return new Response(JSON.stringify({ error: "Não foi possível importar esta página." }), {
         status: 400, headers: cors,
       });
     }
@@ -296,7 +338,8 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ title, text }), { status: 200, headers: cors });
   } catch (error) {
-    return new Response(JSON.stringify({ error: (error as Error).message || "Erro ao importar a URL." }), {
+    console.error("[url-import] unexpected_error", { name: (error as Error)?.name || "Error" });
+    return new Response(JSON.stringify({ error: "Não foi possível importar esta página." }), {
       status: 500, headers: cors,
     });
   }

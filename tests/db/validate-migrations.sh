@@ -99,4 +99,13 @@ run_pg "${PSQL[@]}" -f "$ROOT/tests/db/evidence-commit-p0-1.sql"
 echo "── concorrência real do portão privado P0.1"
 bash "$ROOT/tests/db/evidence-commit-concurrency.sh" "$PGBIN/psql" "$PORT" "$SOCK" "$DB"
 
-echo "✅ Migrations reproduzíveis do zero + smoke test do Learning Engine passaram."
+echo "── contrato transacional de revisão P0.2A"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/db/card-review-p0-2a.sql"
+
+echo "── concorrência real de revisão P0.2A"
+node "$ROOT/tests/db/card-review-p0-2a-concurrency.mjs" "$PGBIN/psql" "$PORT" "$DB" "$SOCK"
+
+echo "── isolamento e permissões de cards P0.2B"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/db/card-permissions-p0-2b.sql"
+
+echo "✅ Migrations reproduzíveis + gates comportamentais P0.1/P0.2 passaram."

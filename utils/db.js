@@ -1385,8 +1385,8 @@ class Database {
 
   // Telemetria mínima: nunca envia texto do card, pergunta, token, e-mail ou
   // stack trace. É só o suficiente para detectar uma tela/fluxo quebrado.
-  async reportClientError(source, errorName, route = '') {
-    if (this.isProxyMode) return this._proxy('reportClientError', [source, errorName, route]);
+  async reportClientError(source, errorName, route = '', appVersion = '') {
+    if (this.isProxyMode) return this._proxy('reportClientError', [source, errorName, route, appVersion]);
     const safe = value => String(value || 'Error').replace(/[^a-zA-Z0-9_.:/ -]/g, '').slice(0, 120);
     try {
       await this._fetch('client_errors', {
@@ -1395,7 +1395,7 @@ class Database {
           source: safe(source).slice(0, 80),
           error_name: safe(errorName),
           route: safe(route).slice(0, 80) || null,
-          app_version: 'dashboard-2026-07-10',
+          app_version: safe(appVersion).slice(0, 40) || null,
         },
       });
     } catch { /* telemetria nunca interrompe o produto */ }

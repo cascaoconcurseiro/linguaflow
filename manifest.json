@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LinguaFlow",
-  "version": "3.0.30",
+  "version": "3.0.31",
   "description": "Aprenda inglês com vídeos, leitura, histórias e revisão espaçada sincronizada entre dispositivos.",
   "icons": {
     "16": "icon16.png",

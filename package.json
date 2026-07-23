@@ -1,6 +1,7 @@
 {
   "name": "linguaflow",
   "private": true,
+  "type": "module",
   "description": "LinguaFlow - Chrome Extension + Web App",
   "scripts": {
     "test:engine": "node tests/engine.test.mjs",
@@ -36,7 +37,10 @@
     "test:context-explanation": "node tests/context-explanation-persistence.test.mjs",
     "test:adaptive": "node tests/adaptive-learning.test.mjs && node tests/adaptive-learning-contract.test.mjs",
     "test:mobile-pronunciation": "node tests/mobile-pronunciation-ux.test.mjs",
-    "pretest:release": "npm run test:adaptive && npm run test:mobile-pronunciation",
+    "test:frontend-lifecycle": "node tests/frontend-lifecycle-regression.test.mjs",
+    "test:production-security": "node tests/production-security-contract.test.mjs",
+    "test:db-gates": "node tests/db/replay-p0-2-gates.test.mjs",
+    "pretest:release": "npm run test:adaptive && npm run test:mobile-pronunciation && npm run test:frontend-lifecycle && npm run test:production-security && npm run test:db-gates",
     "test:production-pedagogy": "node tests/pedagogy-production-cut.test.mjs",
     "test:p0-3": "node tests/user-stats-security-p0-3.test.mjs",
     "test:design-system": "node tests/design-system-stage5.test.mjs",

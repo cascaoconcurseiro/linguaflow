@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const migration = readFileSync('supabase/migrations/20260718194534_sync_reader_and_atomic_sessions.sql', 'utf8');
+const heartbeatMigration = readFileSync('supabase/migrations/20260722222500_deduplicate_study_time_heartbeats.sql', 'utf8');
 const db = readFileSync('utils/db.js', 'utf8');
 const reader = readFileSync('dashboard/js/ui/readerView.js', 'utf8');
 
@@ -18,5 +19,13 @@ assert.match(reader, /await loadSyncedTexts\(\)/);
 assert.match(reader, /Promise\.all\(local\.map[\s\S]*migrateReaderText/);
 assert.match(reader, /READER_MIGRATION_KEY/);
 assert.match(reader, /escapeText\(t\.title\)/);
+
+// Duas abas e duas origens não podem somar o mesmo intervalo físico. A
+// autoridade é uma única linha global por usuário, bloqueada pelo banco.
+assert.match(heartbeatMigration, /create table public\.study_time_heartbeats/i);
+assert.match(heartbeatMigration, /user_id uuid primary key/i);
+assert.match(heartbeatMigration, /for update/i);
+assert.match(heartbeatMigration, /extract\(epoch from \(v_now - v_last_heartbeat\)\)/i);
+assert.match(heartbeatMigration, /least\(p_seconds, 10\)/i);
 
 console.log('12 contratos de sincronização e fonte de verdade passaram ✅');

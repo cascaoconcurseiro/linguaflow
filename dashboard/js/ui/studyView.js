@@ -48,6 +48,7 @@ let echoRec = null;          // modo eco: MediaRecorder quando a nuvem falha
 let echoStream = null;
 let echoChunks = [];
 let echoPlaybackUrl = null;
+let voiceRequestGeneration = 0;
 
 function isMobileVoiceDevice() {
   if (navigator.userAgentData?.mobile === true) return true;
@@ -55,6 +56,7 @@ function isMobileVoiceDevice() {
 }
 
 function stopEchoMode() {
+  voiceRequestGeneration += 1;
   const recorder = echoRec;
   if (recorder) recorder.onstop = null; // descarte: não avalia ao trocar de tela
   try { if (recorder && recorder.state === 'recording') recorder.stop(); } catch { /* ja parado */ }
@@ -84,17 +86,27 @@ function finishEchoRecording(micBtn, resultEl) {
 // B grava por no maximo 8s e envia o blob em
 // memoria para avaliacao multimodal. LinguaFlow nao salva o arquivo.
 async function startEchoMode(micBtn, resultEl, expected, card) {
+  const requestGeneration = ++voiceRequestGeneration;
+  let stream;
   try {
-    echoStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch {
+    if (!studyViewActive || requestGeneration !== voiceRequestGeneration || currentCard !== card) return;
     resultEl.textContent = 'Permissão de microfone negada ou indisponível.';
     shadowingBusy = false;
     micBtn.disabled = false;
     return;
   }
+  if (!studyViewActive || requestGeneration !== voiceRequestGeneration || currentCard !== card) {
+    stream.getTracks().forEach((track) => track.stop());
+    return;
+  }
+  echoStream = stream;
   echoChunks = [];
-  echoRec = new MediaRecorder(echoStream);
-  const recorder = echoRec;
+  let recorder = null;
+  try {
+  echoRec = new MediaRecorder(stream);
+  recorder = echoRec;
   echoRec.ondataavailable = (e) => { if (e.data && e.data.size) echoChunks.push(e.data); };
   echoRec.onstop = async () => {
     echoStream?.getTracks().forEach((t) => t.stop());
@@ -145,6 +157,25 @@ async function startEchoMode(micBtn, resultEl, expected, card) {
     }
   };
   echoRec.start();
+  } catch {
+    if (recorder) {
+      recorder.onstop = null;
+      try { if (recorder.state === 'recording') recorder.stop(); } catch { /* inicialização parcial */ }
+    }
+    stream.getTracks().forEach((track) => track.stop());
+    if (echoStream === stream) echoStream = null;
+    if (echoRec === recorder) echoRec = null;
+    echoChunks = [];
+    shadowingBusy = false;
+    shadowingPinned = false;
+    if (studyViewActive && requestGeneration === voiceRequestGeneration && currentCard === card) {
+      delete micBtn.dataset.echo;
+      micBtn.disabled = false;
+      micBtn.textContent = '🎤 Tentar de novo';
+      resultEl.textContent = 'Não foi possível iniciar a gravação neste aparelho.';
+    }
+    return;
+  }
   const recAtStart = echoRec;
   setTimeout(() => {
     if (recAtStart.state === 'recording' && currentCard === card) finishEchoRecording(micBtn, resultEl);
@@ -312,6 +343,7 @@ export async function renderStudy(container, app, params = {}) {
   if (!studyViewActive || viewGeneration !== studyViewGeneration) return;
   dueQueue = loadedQueue;
   adaptiveProfiles = await lfDb.getAdaptiveProfiles(dueQueue.map(card => card.id)).catch(() => ({}));
+  if (!studyViewActive || viewGeneration !== studyViewGeneration) return;
   sessionCardIds = new Set(dueQueue.map(card => card.id));
   publishFocusProgress(app);
 
@@ -491,10 +523,10 @@ export async function renderStudy(container, app, params = {}) {
   if (cardMenuEl) {
     document.addEventListener('click', (event) => {
       if (cardMenuEl.open && !event.target.closest('#study-card-menu')) cardMenuEl.open = false;
-    }, { capture: true });
+    }, { capture: true, signal: app.renderSignal });
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape' && cardMenuEl.open) cardMenuEl.open = false;
-    });
+    }, { signal: app.renderSignal });
     cardMenuEl.querySelector('.study-card-menu-content')?.addEventListener('click', (event) => {
       if (event.target.closest('button, a')) cardMenuEl.open = false;
     });

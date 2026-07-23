@@ -6,9 +6,13 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const RATE_LIMIT_PER_MIN = 20;
 const MAX_TOKENS_CAP = 2048;
 const MAX_AUDIO_BASE64 = 2_000_000;
+const MAX_BODY_BYTES = 2_700_000;
+const MAX_MESSAGES = 24;
+const MAX_TEXT_INPUT_CHARS = 40_000;
 const DEFAULT_AUDIO_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
 const MAX_AUDIO_ATTEMPTS = 2;
 const ENDPOINT = "deepseek-chat";
+const UPSTREAM_BUDGET_MS = 45_000;
 
 function corsHeadersFor(origin: string | null) {
   // Extensão (fetches de extensão com host_permissions ignoram CORS, mas
@@ -27,11 +31,78 @@ function corsHeadersFor(origin: string | null) {
   };
 }
 
+async function readJsonBody(req: Request, maxBytes: number): Promise<Record<string, unknown>> {
+  const declared = Number(req.headers.get("content-length") || 0);
+  if (Number.isFinite(declared) && declared > maxBytes) throw new Error("payload_too_large");
+  const reader = req.body?.getReader();
+  if (!reader) return {};
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    received += value.byteLength;
+    if (received > maxBytes) {
+      await reader.cancel();
+      throw new Error("payload_too_large");
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  try {
+    const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes));
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid_json");
+    return parsed as Record<string, unknown>;
+  }
+  catch { throw new Error("invalid_json"); }
+}
+
+async function consumeQuota(admin: any, userId: string, cors: Record<string, string>): Promise<Response | null> {
+  const { data: quotaAllowed, error: quotaError } = await admin.rpc("consume_api_quota", {
+    p_user_id: userId,
+    p_endpoint: ENDPOINT,
+    p_limit: RATE_LIMIT_PER_MIN,
+    p_window_seconds: 60,
+  });
+  if (quotaError) {
+    console.error("[deepseek-chat] quota_unavailable", { code: quotaError.code || "db_error" });
+    return new Response(JSON.stringify({ error: "Serviço temporariamente indisponível." }), {
+      status: 503, headers: cors,
+    });
+  }
+  if (quotaAllowed !== true) {
+    return new Response(JSON.stringify({ error: "Muitas requisições. Aguarde um minuto e tente de novo." }), {
+      status: 429, headers: cors,
+    });
+  }
+  return null;
+}
+
+function validTextMessages(value: unknown): value is Array<{ role: string; content: string }> {
+  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_MESSAGES) return false;
+  let total = 0;
+  for (const message of value) {
+    if (!message || typeof message !== "object") return false;
+    const role = (message as { role?: unknown }).role;
+    const content = (message as { content?: unknown }).content;
+    if (!new Set(["system", "user", "assistant"]).has(String(role)) || typeof content !== "string") return false;
+    total += content.length;
+    if (total > MAX_TEXT_INPUT_CHARS) return false;
+  }
+  return true;
+}
+
 Deno.serve(async (req) => {
   const cors = corsHeadersFor(req.headers.get("Origin"));
 
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: cors });
+  }
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "method_not_allowed" }), { status: 405, headers: cors });
   }
 
   try {
@@ -58,25 +129,16 @@ Deno.serve(async (req) => {
     }
     const userId = userData.user.id;
 
-    // 2. Rate-limit por usuário (protege a chave compartilhada)
-    const windowStart = new Date(Date.now() - 60_000).toISOString();
-    const { count, error: countErr } = await admin
-      .from("api_usage_log")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .eq("endpoint", ENDPOINT)
-      .gte("created_at", windowStart);
-
-    if (!countErr && (count ?? 0) >= RATE_LIMIT_PER_MIN) {
-      return new Response(JSON.stringify({ error: "Muitas requisições. Aguarde um minuto e tente de novo." }), {
-        status: 429, headers: cors,
+    // 2. Sanitiza o body antes de consumir a quota.
+    let body: Record<string, any>;
+    try {
+      body = await readJsonBody(req, MAX_BODY_BYTES);
+    } catch (error) {
+      const tooLarge = (error as Error).message === "payload_too_large";
+      return new Response(JSON.stringify({ error: tooLarge ? "Pedido grande demais." : "Pedido inválido." }), {
+        status: tooLarge ? 413 : 400, headers: cors,
       });
     }
-
-    await admin.from("api_usage_log").insert({ user_id: userId, endpoint: ENDPOINT });
-
-    // 3. Sanitiza o body: modelo fixo e teto de tokens — cliente não dita custo
-    const body = await req.json();
     const wantStream = body.stream === true;
 
     // Áudio é uma rota explícita e consentida. Não passa pelo DeepSeek porque
@@ -90,6 +152,8 @@ Deno.serve(async (req) => {
       if (body.consent !== true || !expected || !audio || audio.length > MAX_AUDIO_BASE64 || !/^[A-Za-z0-9+/=]+$/.test(audio)) {
         return new Response(JSON.stringify({ error: "Gravação, frase ou consentimento inválido." }), { status: 400, headers: cors });
       }
+      const quotaResponse = await consumeQuota(admin, userId, cors);
+      if (quotaResponse) return quotaResponse;
       const openRouterKey = Deno.env.get("OPENROUTER_API_KEY") || Deno.env.get("OPENROUTER LINGUA");
       if (!openRouterKey) {
         return new Response(JSON.stringify({ error: "Avaliação de voz não configurada no servidor." }), { status: 503, headers: cors });
@@ -106,29 +170,43 @@ Deno.serve(async (req) => {
       let audioResponse: Response | null = null;
       let providerData: any = null;
       const providerErrors: Array<{ model: string; attempt: number; status: number; message: string }> = [];
+      const audioDeadline = Date.now() + UPSTREAM_BUDGET_MS;
       for (let attempt = 1; attempt <= MAX_AUDIO_ATTEMPTS; attempt += 1) {
         for (const model of audioModels) {
+          const remainingMs = audioDeadline - Date.now();
+          if (remainingMs <= 0) break;
           if (attempt > 1) await new Promise((resolve) => setTimeout(resolve, 350));
-          audioResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${openRouterKey}`,
-              "Content-Type": "application/json",
-              "HTTP-Referer": "https://linguaflow-web-tau.vercel.app",
-              "X-Title": "LinguaFlow",
-            },
-            body: JSON.stringify({
+          try {
+            audioResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+              signal: AbortSignal.any([req.signal, AbortSignal.timeout(Math.min(20_000, remainingMs))]),
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${openRouterKey}`,
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://linguaflow-web-tau.vercel.app",
+                "X-Title": "LinguaFlow",
+              },
+              body: JSON.stringify({
+                model,
+                messages: [{ role: "user", content: [
+                  { type: "text", text: prompt },
+                  { type: "input_audio", input_audio: { data: audio, format } },
+                ] }],
+                temperature: 0.1,
+                max_tokens: 350,
+                stream: false,
+              }),
+            });
+            providerData = await audioResponse.json().catch(() => null);
+          } catch (error) {
+            providerErrors.push({
               model,
-              messages: [{ role: "user", content: [
-                { type: "text", text: prompt },
-                { type: "input_audio", input_audio: { data: audio, format } },
-              ] }],
-              temperature: 0.1,
-              max_tokens: 350,
-              stream: false,
-            }),
-          });
-          providerData = await audioResponse.json().catch(() => null);
+              attempt,
+              status: 0,
+              message: (error as Error)?.name || "network_error",
+            });
+            continue;
+          }
           if (audioResponse.ok) break;
           providerErrors.push({
             model,
@@ -163,6 +241,13 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: "A avaliação retornou um formato inválido. Tente novamente." }), { status: 502, headers: cors });
       }
     }
+    if (!validTextMessages(body.messages)) {
+      return new Response(JSON.stringify({ error: "Pedido de IA inválido.", code: "messages_invalid" }), {
+        status: 400, headers: cors,
+      });
+    }
+    const quotaResponse = await consumeQuota(admin, userId, cors);
+    if (quotaResponse) return quotaResponse;
     const payload = {
       model: "deepseek-chat",
       messages: body.messages,
@@ -170,12 +255,6 @@ Deno.serve(async (req) => {
       max_tokens: Math.min(Number(body.max_tokens) || 800, MAX_TOKENS_CAP),
       stream: wantStream,
     };
-    if (!Array.isArray(payload.messages) || payload.messages.length === 0) {
-      return new Response(JSON.stringify({ error: "Body inválido: messages obrigatório." }), {
-        status: 400, headers: cors,
-      });
-    }
-
     // 4. Encaminha ao DeepSeek com a chave do servidor.
     //    Ordem: env (Edge Function Secrets) -> Vault via RPC restrita à service role.
     let DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
@@ -190,21 +269,27 @@ Deno.serve(async (req) => {
       });
     }
 
-    const callProvider = (url: string, key: string, model: string) => fetch(url, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${key}`,
-        "Content-Type": "application/json",
-        ...(url.includes("openrouter")
-          ? { "HTTP-Referer": "https://linguaflow-web-tau.vercel.app", "X-Title": "LinguaFlow" }
-          : {}),
-      },
-      body: JSON.stringify({
-        ...payload,
-        model,
-        ...(url.includes("openrouter") ? { reasoning: { effort: "minimal", exclude: true } } : {}),
-      }),
-    });
+    const providerDeadline = Date.now() + UPSTREAM_BUDGET_MS;
+    const callProvider = (url: string, key: string, model: string) => {
+      const remainingMs = providerDeadline - Date.now();
+      if (remainingMs <= 0) throw new DOMException("upstream budget exhausted", "TimeoutError");
+      return fetch(url, {
+        signal: AbortSignal.any([req.signal, AbortSignal.timeout(remainingMs)]),
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${key}`,
+          "Content-Type": "application/json",
+          ...(url.includes("openrouter")
+            ? { "HTTP-Referer": "https://linguaflow-web-tau.vercel.app", "X-Title": "LinguaFlow" }
+            : {}),
+        },
+        body: JSON.stringify({
+          ...payload,
+          model,
+          ...(url.includes("openrouter") ? { reasoning: { effort: "minimal", exclude: true } } : {}),
+        }),
+      });
+    };
 
     let response: Response | null = null;
     let primaryError = "";
@@ -262,7 +347,14 @@ Deno.serve(async (req) => {
 
     // STREAMING: repassa o SSE do DeepSeek direto pro cliente sem buffering —
     // a resposta aparece na tela enquanto é gerada (espera percebida ~1s).
-    if (wantStream && response.ok && response.body) {
+    if (!response.ok) {
+      console.error("[deepseek-chat] provider_unavailable", { status: response.status });
+      return new Response(JSON.stringify({ error: "IA temporariamente indisponível. Tente novamente em instantes." }), {
+        status: 502, headers: cors,
+      });
+    }
+
+    if (wantStream && response.body) {
       return new Response(response.body, {
         status: 200,
         headers: {
@@ -274,9 +366,10 @@ Deno.serve(async (req) => {
     }
 
     const data = await response.json();
-    return new Response(JSON.stringify(data), { status: response.status, headers: cors });
+    return new Response(JSON.stringify(data), { status: 200, headers: cors });
   } catch (error) {
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
+    console.error("[deepseek-chat] unexpected_error", { name: (error as Error)?.name || "Error" });
+    return new Response(JSON.stringify({ error: "Não foi possível concluir o pedido agora." }), {
       status: 500, headers: cors,
     });
   }

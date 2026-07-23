@@ -1015,7 +1015,7 @@ export async function renderSettings(container, app) {
         progressText.textContent = `Baixando modelo… ${progress || 0}%`;
       }
     };
-    window.addEventListener('lf_kokoro_progress', onKokoroProgress);
+    window.addEventListener('lf_kokoro_progress', onKokoroProgress, { signal: app.renderSignal });
 
     kokoroChk.addEventListener('change', () => {
       try {

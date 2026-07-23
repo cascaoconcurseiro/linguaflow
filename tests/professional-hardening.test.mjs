@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 const reader = readFileSync('dashboard/js/ui/readerView.js', 'utf8');
 const stories = readFileSync('dashboard/js/ui/storiesView.js', 'utf8');
 const db = readFileSync('utils/db.js', 'utf8');
+const app = readFileSync('dashboard/js/core/app.js', 'utf8');
 const manifest = JSON.parse(readFileSync('manifest.json', 'utf8'));
 const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
 
@@ -42,5 +43,12 @@ assert.equal(existsSync('assets/cefr.json'), false);
 // Os contratos de sincronização fazem parte obrigatória da liberação.
 assert.match(packageJson.scripts['test:release'], /sync-source-of-truth\.test\.mjs/);
 assert.match(packageJson.scripts['test:release'], /professional-hardening\.test\.mjs/);
+
+// Telemetria precisa identificar a release real que produziu o erro. Uma
+// data fixa tornava impossível correlacionar regressões com o deploy.
+assert.match(app, /reportClientError\(source, name, this\.currentRoute, CLIENT_BUILD\)/);
+assert.match(db, /async reportClientError\(source, errorName, route = '', appVersion = ''\)/);
+assert.doesNotMatch(db, /app_version:\s*'dashboard-2026-07-10'/);
+assert.match(db, /app_version:\s*safe\(appVersion\)/);
 
 console.log('21 contratos de endurecimento profissional passaram ✅');

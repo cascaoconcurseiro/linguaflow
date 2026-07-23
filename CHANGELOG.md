@@ -1,5 +1,12 @@
 # Changelog
 
+## Operação de produção — 23/07/2026
+
+- Adicionado monitor diário autenticado de RLS com dois usuários reais.
+- O teste prova isolamento de leitura, alteração, exclusão e criação por proprietário.
+- Credenciais ficam somente nos Secrets do GitHub e o dado de prova é removido ao final.
+- O cliente web passou da chave `anon` legada para a chave publicável atual do Supabase.
+
 As mudanças relevantes do LinguaFlow são registradas aqui. O projeto segue
 [Versionamento Semântico](https://semver.org/lang/pt-BR/) para os pacotes
 publicados.

@@ -3,7 +3,7 @@
 import { addLocalDays, localDateKey, localDayBounds } from './local-day.js';
 
 const SUPABASE_URL = 'https://qnutoswrufznztoznlql.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudXRvc3dydWZ6bnp0b3pubHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNzIyODEsImV4cCI6MjA5ODc0ODI4MX0.MdtBZwBnqNDpZ5nTytZDzNFKxHxd1rLmi6wT2MfV-0s';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_sjE7swuyYQz-80x9lttf4Q_awnZ_YlY';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 // snapshot era um JPEG base64 nunca renderizado. Em produção, só 6 palavras
 // somavam 5,4 MB nesse campo e cada select=* o baixava outra vez.
@@ -109,7 +109,7 @@ class Database {
       try {
         const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
           method: 'POST',
-          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          headers: { 'apikey': SUPABASE_PUBLISHABLE_KEY, 'Content-Type': 'application/json' },
           body: JSON.stringify({ refresh_token: session.refresh_token }),
         });
         const data = await res.json().catch(() => ({}));
@@ -167,7 +167,7 @@ class Database {
 
     const url = `${SUPABASE_URL}/rest/v1/${endpoint}`;
     const headers = {
-      'apikey': SUPABASE_ANON_KEY,
+      'apikey': SUPABASE_PUBLISHABLE_KEY,
       'Authorization': `Bearer ${token}`,
       ...(options.headers || {})
     };
@@ -257,7 +257,7 @@ class Database {
   async login(email, password) {
     if (this.isProxyMode) return this._proxy('login', [email, password]);
     const url = `${SUPABASE_URL}/auth/v1/token?grant_type=password`;
-    const headers = { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
+    const headers = { 'apikey': SUPABASE_PUBLISHABLE_KEY, 'Content-Type': 'application/json' };
     try {
       const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify({ email, password }) });
       const data = await res.json();
@@ -283,7 +283,7 @@ class Database {
   async signUp(email, password) {
     if (this.isProxyMode) return this._proxy('signUp', [email, password]);
     const url = `${SUPABASE_URL}/auth/v1/signup`;
-    const headers = { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
+    const headers = { 'apikey': SUPABASE_PUBLISHABLE_KEY, 'Content-Type': 'application/json' };
     try {
       const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify({ email, password }) });
       const data = await res.json();

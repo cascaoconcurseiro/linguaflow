@@ -39,6 +39,7 @@
     "test:mobile-pronunciation": "node tests/mobile-pronunciation-ux.test.mjs",
     "test:frontend-lifecycle": "node tests/frontend-lifecycle-regression.test.mjs",
     "test:production-security": "node tests/production-security-contract.test.mjs",
+    "test:rls-live": "node tests/production/rls-two-user-isolation.test.mjs",
     "test:db-gates": "node tests/db/replay-p0-2-gates.test.mjs",
     "pretest:release": "npm run test:adaptive && npm run test:mobile-pronunciation && npm run test:frontend-lifecycle && npm run test:production-security && npm run test:db-gates",
     "test:production-pedagogy": "node tests/pedagogy-production-cut.test.mjs",

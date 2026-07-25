@@ -1,5 +1,15 @@
 # Handoff — LinguaFlow
 
+## Handoff Codex — reconciliação do Supabase (2026-07-25)
+
+Projeto confirmado: `qnutoswrufznztoznlql` (`linguaflow`, ACTIVE_HEALTHY, PostgreSQL 17.6).
+
+Auditoria somente leitura concluída: 21 tabelas públicas com RLS; campos FSRS/learning steps presentes; índices centrais já existem; `decks` foi removida intencionalmente; `cards` e `review_log` usam leitura direta e escrita por RPCs atômicas estreitas. Não foi aplicada nenhuma migration: adicionar `deleted_at`/`updated_at` genericamente, como no roadmap antigo, exigiria primeiro adaptar todas as leituras e RPCs, senão introduziria registros “apagados” visíveis e conflitos com o ledger append-only.
+
+Advisors: `study_time_heartbeats` sem policy é deliberado (tabela interna sem grant de cliente); avisos de RPCs `SECURITY DEFINER` foram reconciliados com `auth.uid()` e grants estreitos; `pg_net` não é relocável. Pendência externa: ativar Leaked Password Protection pelo Dashboard Supabase, se disponível no plano.
+
+Próximo passo concreto: antes de qualquer soft-delete, escrever mini-spec por tabela com consumidores, semântica de tombstone, filtro padrão, estratégia de purge e rollback; só então criar migration expand-only e testes de sync. Estado Git de partida: branch `codex/production-finalized`, alinhada a `origin/main` em `8d2d2d5`.
+
 ## Handoff Claude — EXECUÇÃO da auditoria: Fase 1 concluída (2026-07-17)
 
 **Ordem aprovada pelo dono:** `0 → 1 → 2 → 3 → 6 → 4 → 5` — a Fase 6 (terminar a leitura) sobe para ANTES das decisões (F4) e das deleções (F5). Racional e protocolo de documentação no topo da seção "Auditoria real" do `CHECKLIST.md`.

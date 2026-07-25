@@ -1,5 +1,15 @@
 # Checklist — LinguaFlow
 
+## Supabase — reconciliação do roadmap (Codex, 2026-07-25)
+
+- [x] Confirmar o projeto de produção `qnutoswrufznztoznlql` (`linguaflow`, ACTIVE_HEALTHY, PostgreSQL 17.6).
+- [x] Auditar em modo somente leitura as 21 tabelas públicas, migrations, RLS, policies, triggers, índices, grants e advisors.
+- [x] Confirmar `cards.step_index`, `cards.pre_lapse_interval`, `cards.difficulty` e `cards.stability`.
+- [x] Confirmar índices `cards(user_id, due_date)` e equivalentes de `words`/`review_log`; não duplicar índices existentes.
+- [x] Preservar escrita estreita por RPC em `cards`/`review_log` e a remoção intencional de `decks`.
+- [x] Rejeitar migration genérica de soft-delete/`updated_at` sem mini-spec de cutover das leituras e rollback.
+- [ ] Ativar Leaked Password Protection no Dashboard Supabase, se o plano contratado disponibilizar o recurso.
+
 ## 🟠 MAX/HBO — safe-area, controles e popup (Codex, 2026-07-15)
 
 - [x] Versionar a extensão como `3.0.4` para tornar a atualização verificável.

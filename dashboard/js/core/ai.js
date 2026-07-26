@@ -267,22 +267,30 @@ Retorne exatamente este JSON:
 // Geração de história na web (na extensão o service worker tem 'ai_generate_story').
 // Mesmo prompt e mesma resposta { story, level } do service worker.
 // onChunk opcional: o texto vai aparecendo enquanto a IA escreve (streaming).
-export async function generateStoryWeb(genre, onChunk, userWords = []) {
+export async function generateStoryWeb(genre, onChunk, userWords = [], options = {}) {
   const cefr = (await getCefrLevel()) || 'B1';
-  // REENCONTRO ESPAÇADO EM CONTEXTO (Marco 3 do motor pedagógico): a história
-  // é gerada COM as palavras que o aluno está aprendendo/errando — rever a
-  // palavra num contexto NOVO é o que consolida (nenhum concorrente faz bem).
   const reencounter = (userWords || []).slice(0, 8);
+
+  // OTIMIZAÇÃO DE CUSTOS E TOKENS: se o aluno não tem termos específicos de reencontro
+  // e não forçou a criação de uma história do zero (forceNew !== true), verifica se
+  // já existe uma história salva com o mesmo gênero e nível no acervo local/banco.
+  if (!options?.forceNew && reencounter.length === 0) {
+    try {
+      const savedStories = await lfDb.getStories(30).catch(() => []);
+      const reusable = savedStories.find(s => s.genre === genre && (s.level === cefr || !s.level));
+      if (reusable && (reusable.content || reusable.story)) {
+        const text = reusable.content || reusable.story;
+        if (onChunk) onChunk(text, text);
+        return { story: text, level: cefr, requestedWords: [], reused: true };
+      }
+    } catch { /* se falhar o reuso, segue pro streaming normal */ }
+  }
+
   const reencounterNote = reencounter.length
     ? `\nIMPORTANTE: incorpore NATURALMENTE ${Math.min(6, Math.max(4, reencounter.length))} destas palavras/expressões que o aluno está estudando (sem forçar, sem destacar, sem listar): ${reencounter.join(', ')}.`
     : '';
-  // Bug 17/07 (dono): prompt byte-idêntico gerava sempre a mesma história.
-  // Protagonista/cenário/trama sorteados + "não repita" das histórias
-  // recentes do mesmo gênero (mesmo padrão que o quiz já usava).
   const recent = recentStorySnippets(await lfDb.getStories(15).catch(() => []), genre);
   const varietyNote = buildStoryVarietyNote(recent);
-  // W5.1 (queixa do dono): tamanho/estruturas/tokens escalam com o nível —
-  // antes era "200 a 300 palavras" idêntico para A1 e C2.
   const levelNote = buildLevelNote(cefr);
   const spec = levelSpecFor(cefr);
   const prompt = `Você é um gerador de histórias curtas para estudantes de inglês.

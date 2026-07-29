@@ -6,7 +6,7 @@ Corrigido localmente o contrato de tradução para que o significado no contexto
 
 O contrato `ai_quick_context` passou a retornar `{ translation, explanation }`; a fila de sync também consome versões contextuais enfileiradas durante o mesmo ciclo. Foi adicionado `tests/contextual-translation-contract.test.mjs` e integrado ao `test:release`. A suíte completa `npm run test:release -- --allow-dirty` passou, incluindo smoke de 57 arquivos JavaScript, contratos do popup, dashboard, Reader, Histórias e Estudo.
 
-QA visual local não foi executado: o navegador integrado bloqueou `file://` por política e não há extensão Chrome carregada nessa superfície. Próximo passo concreto: recarregar a extensão local no Chrome e testar uma palavra ambígua em uma frase real, confirmando popup, primeiro teste, Cofre/dashboard e card de estudo. Não usar a versão publicada como prova antes de commit/push/deploy. Nenhum commit, push, deploy ou alteração remota foi feito porque o worktree contém mudanças paralelas misturadas nos mesmos arquivos.
+QA visual local não foi executado: o navegador integrado bloqueou `file://` por política e não há extensão Chrome carregada nessa superfície. Próximo passo concreto: recarregar a extensão local no Chrome e testar uma palavra ambígua em uma frase real, confirmando popup, primeiro teste, Cofre/dashboard e card de estudo. O código foi versionado na `main` no commit `c8d60d5`; o push foi autorizado pelo dono. Nenhuma migration foi aplicada ao Supabase e a versão publicada ainda não deve ser tratada como QA visual da extensão.
 
 ## Handoff Codex — fundação de fluência real (2026-07-28)
 

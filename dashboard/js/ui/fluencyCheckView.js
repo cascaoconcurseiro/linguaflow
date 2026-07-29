@@ -1,4 +1,5 @@
 import { escapeHtml, renderViewState } from './viewState.js';
+import { playNaturalAudio, stopAudio } from '../core/tts.js';
 
 const FLUENCY_STEPS = Object.freeze([
   {
@@ -385,7 +386,7 @@ export async function renderFluencyCheck(container, app) {
     if (recorder?.state === 'recording') recorder.stop();
     if (stream) stream.getTracks().forEach((track) => track.stop());
     stream = null;
-    globalThis.speechSynthesis?.cancel();
+    stopAudio();
   };
 
   app.onLeaveView?.(() => {
@@ -425,32 +426,33 @@ export async function renderFluencyCheck(container, app) {
     }
   };
 
-  const startListening = (button) => {
-    if (!globalThis.speechSynthesis || typeof SpeechSynthesisUtterance !== 'function') {
-      button.disabled = true;
-      button.textContent = 'Áudio indisponível neste navegador';
+  const startListening = async (button) => {
+    if (answers.listening.replayCount >= 2 || button.disabled) return;
+    answers.listening.replayCount += 1;
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    button.textContent = 'Reproduzindo…';
+
+    let completed = false;
+    try {
+      completed = await playNaturalAudio(LISTENING_STIMULUS, { lang: 'en-US', rate: 0.9 });
+    } catch {
+      completed = false;
+    }
+    if (!active) return;
+
+    button.removeAttribute('aria-busy');
+    if (!completed) {
+      answers.listening.replayCount -= 1;
+      saveDraft();
+      button.disabled = false;
+      button.textContent = 'Tentar ouvir novamente';
       return;
     }
-    if (answers.listening.replayCount >= 2) return;
-    answers.listening.replayCount += 1;
-    const utterance = new SpeechSynthesisUtterance(LISTENING_STIMULUS);
-    utterance.lang = 'en-US';
-    utterance.rate = 0.9;
-    button.setAttribute('aria-busy', 'true');
-    utterance.addEventListener('end', () => {
-      if (!active) return;
-      button.removeAttribute('aria-busy');
-      button.textContent = answers.listening.replayCount >= 2 ? 'Limite de reproduções atingido' : 'Ouvir mais uma vez';
-      button.disabled = answers.listening.replayCount >= 2;
-      saveDraft();
-    }, { once: true });
-    utterance.addEventListener('error', () => {
-      if (!active) return;
-      button.removeAttribute('aria-busy');
-      button.textContent = 'Tentar ouvir novamente';
-    }, { once: true });
-    globalThis.speechSynthesis.cancel();
-    globalThis.speechSynthesis.speak(utterance);
+
+    button.textContent = answers.listening.replayCount >= 2 ? 'Limite de reproduções atingido' : 'Ouvir mais uma vez';
+    button.disabled = answers.listening.replayCount >= 2;
+    saveDraft();
   };
 
   const startRecording = async () => {

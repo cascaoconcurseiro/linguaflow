@@ -58,6 +58,22 @@ assert.match(view, /class="fluency-validation" role="alert" tabindex="-1"/);
 assert.match(view, /\.focus\(\)/);
 assert.match(view, /navigator\.mediaDevices\.getUserMedia/);
 assert.match(view, /stream\.getTracks\(\)\.forEach\(\(track\) => track\.stop\(\)\)/);
+assert.match(
+  view,
+  /import\s*\{\s*playNaturalAudio,\s*stopAudio\s*\}\s*from\s*'\.\.\/core\/tts\.js'/,
+  'check reutiliza o mesmo motor de voz natural do restante do dashboard',
+);
+assert.match(
+  view,
+  /await playNaturalAudio\(LISTENING_STIMULUS,\s*\{\s*lang:\s*'en-US',\s*rate:\s*0\.9\s*\}\)/,
+  'estímulo de escuta usa Google TTS natural com idioma e velocidade explícitos',
+);
+assert.match(view, /completed = await playNaturalAudio/);
+assert.match(view, /if \(!completed\)\s*\{[\s\S]*replayCount -= 1;[\s\S]*saveDraft\(\);/);
+assert.match(view, /button\.disabled = true/);
+assert.match(view, /stopAudio\(\)/);
+assert.doesNotMatch(view, /new SpeechSynthesisUtterance/);
+assert.doesNotMatch(view, /speechSynthesis\.speak/);
 assert.match(view, /app\.onLeaveView/);
 assert.match(view, /if \(submitting\) return/);
 assert.match(view, /if \(recordingRequestPending\) return/);

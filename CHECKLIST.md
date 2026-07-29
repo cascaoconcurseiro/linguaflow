@@ -27,6 +27,7 @@
 - [x] Implementar catálogo versionado e entrega server-side de estímulos inéditos.
 - [x] Publicar a Edge Function `fluency-assessment` com validação JWT.
 - [x] Corrigir as FKs sem índice e validar grants, RLS, catálogo e cache do PostgREST em produção.
+- [x] Fazer a escuta do Check de comunicação reutilizar o TTS natural do Google, com cancelamento seguro e fallback controlado.
 - [ ] Calibrar a avaliação autoritativa versionada com respostas-âncora e revisão humana.
 - [ ] Recarregar o dashboard autenticado e confirmar que Início/Progresso não registram `PGRST205`.
 - [ ] Executar QA visual e acessível autenticado em mobile, tablet e desktop.

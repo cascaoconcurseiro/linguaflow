@@ -1,5 +1,13 @@
 # Handoff — LinguaFlow
 
+## Handoff Codex — voz natural no Check de comunicação (2026-07-29)
+
+Corrigida a divergência de áudio em `dashboard/js/ui/fluencyCheckView.js`: a etapa “Escuta inédita” chamava `SpeechSynthesisUtterance` diretamente e, por isso, sempre usava a voz local robótica. Agora ela reutiliza `playNaturalAudio()`/`stopAudio()` de `dashboard/js/core/tts.js`, a mesma cadeia do Estudo, Histórias, Leitor e Jogos: cache local → Edge Function `tts`/Google natural → URL direta do Google → Web Speech apenas como último fallback.
+
+O botão fica indisponível enquanto toca, anuncia “Reproduzindo…”, cancela o áudio ao sair/trocar de etapa e só contabiliza uma das duas reproduções quando o motor confirma que o áudio terminou. Falha total devolve a tentativa ao usuário. O contrato `tests/fluency-check-ux.test.mjs` impede o retorno de `SpeechSynthesisUtterance` direto nessa tela. O build PWA/extensão avançou de `3.0.31` para `3.0.32` para invalidar o cache do service worker.
+
+Próximo passo concreto: após o deploy da `main`, fazer `Ctrl+F5`, iniciar Progresso → Check de comunicação → Escuta inédita e confirmar auditivamente que a voz é a mesma voz natural do restante do dashboard. Web Speech continua existindo apenas para indisponibilidade real de todos os caminhos naturais.
+
 ## Handoff Codex — fluência sincronizada em produção (2026-07-29)
 
 Corrigido o `PGRST205/404` visto no dashboard: as migrations de fluência foram aplicadas em ordem no Supabase canônico `qnutoswrufznztoznlql`. O schema remoto agora contém `learning_task_attempts`, catálogo/entregas/respostas privadas, submissões públicas e `fluency_skill_profiles`; o catálogo autoritativo foi semeado com 32 tarefas. A Edge Function `fluency-assessment` foi publicada como versão 1, `ACTIVE`, com validação JWT habilitada.

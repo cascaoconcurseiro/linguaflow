@@ -109,4 +109,10 @@ node "$ROOT/tests/db/card-review-p0-2a-concurrency.mjs" "$PGBIN/psql" "$PORT" "$
 echo "── isolamento e permissões de cards P0.2B"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/db/card-permissions-p0-2b.sql"
 
+echo "── contrato de tentativas comunicativas"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/db/learning-task-attempts.sql"
+
+echo "── catálogo privado e autoridade da avaliação de fluência"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/db/fluency-assessment-authority.sql"
+
 echo "✅ Migrations reproduzíveis + gates comportamentais P0.1/P0.2 passaram."

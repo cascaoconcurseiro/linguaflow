@@ -289,8 +289,11 @@ Sentido: [Uma única frase super curta explicando o sentido neste contexto]
   if (request.action === 'ai_quick_context') {
     const { word, sentence } = request;
     explainQuickContext(word, sentence)
-      .then((explanation) => sendResponse({ explanation }))
-      .catch((err) => sendResponse({ explanation: null, error: err.message }));
+      .then((result) => sendResponse({
+        explanation: result?.explanation || null,
+        translation: result?.translation || null,
+      }))
+      .catch((err) => sendResponse({ explanation: null, translation: null, error: err.message }));
     return true;
   }
 
@@ -579,7 +582,9 @@ async function enqueueWordSave(payload) {
   const queue = await readLocal(PENDING_WORD_SAVES_KEY) || {};
   queue[id] = {
     id,
-    queuedAt: Date.now(),
+    // A sincronização compara versões por este marcador. Date.now() sozinho
+    // pode repetir no mesmo milissegundo e fazer a versão antiga apagar a nova.
+    queuedAt: Math.max(Date.now(), Number(queue[id]?.queuedAt || 0) + 1),
     attempts: 0,
     payload: {
       ...payload,
@@ -655,28 +660,37 @@ async function drainFirstRecalls() {
 async function syncPendingWordSaves() {
   if (wordSaveSyncPromise) return wordSaveSyncPromise;
   wordSaveSyncPromise = (async () => {
-    const queue = await readLocal(PENDING_WORD_SAVES_KEY) || {};
-    for (const [id, item] of Object.entries(queue)) {
-      try {
-        const result = await db.saveWord(item.payload);
-        if (!result?.ok) throw new Error('save_not_confirmed');
+    const processedVersions = new Set();
+    while (true) {
+      const queue = await readLocal(PENDING_WORD_SAVES_KEY) || {};
+      const pending = Object.entries(queue).filter(([id, item]) => (
+        !processedVersions.has(`${id}:${item.queuedAt}`)
+      ));
+      if (pending.length === 0) break;
 
-        const latest = await readLocal(PENDING_WORD_SAVES_KEY) || {};
-        // Não apaga uma versão mais nova enfileirada enquanto esta sincronizava.
-        if (latest[id]?.queuedAt === item.queuedAt) {
-          delete latest[id];
-          await writeLocal({ [PENDING_WORD_SAVES_KEY]: latest });
-        }
-        notifyDashboards(item.payload.word);
-        updateBadge();
-        refineSavedWord(result.id, item.payload.word, item.payload.category, item.payload.translation).catch(() => {});
-        setTimeout(backfillMissingSentences, 2000);
-      } catch (error) {
-        const latest = await readLocal(PENDING_WORD_SAVES_KEY) || {};
-        if (latest[id]?.queuedAt === item.queuedAt) {
-          latest[id].attempts = (latest[id].attempts || 0) + 1;
-          latest[id].lastError = String(error?.message || error).slice(0, 160);
-          await writeLocal({ [PENDING_WORD_SAVES_KEY]: latest });
+      for (const [id, item] of pending) {
+        processedVersions.add(`${id}:${item.queuedAt}`);
+        try {
+          const result = await db.saveWord(item.payload);
+          if (!result?.ok) throw new Error('save_not_confirmed');
+
+          const latest = await readLocal(PENDING_WORD_SAVES_KEY) || {};
+          // Não apaga uma versão mais nova enfileirada enquanto esta sincronizava.
+          if (latest[id]?.queuedAt === item.queuedAt) {
+            delete latest[id];
+            await writeLocal({ [PENDING_WORD_SAVES_KEY]: latest });
+          }
+          notifyDashboards(item.payload.word);
+          updateBadge();
+          refineSavedWord(result.id, item.payload.word, item.payload.category, item.payload.translation).catch(() => {});
+          setTimeout(backfillMissingSentences, 2000);
+        } catch (error) {
+          const latest = await readLocal(PENDING_WORD_SAVES_KEY) || {};
+          if (latest[id]?.queuedAt === item.queuedAt) {
+            latest[id].attempts = (latest[id].attempts || 0) + 1;
+            latest[id].lastError = String(error?.message || error).slice(0, 160);
+            await writeLocal({ [PENDING_WORD_SAVES_KEY]: latest });
+          }
         }
       }
     }
@@ -1162,12 +1176,20 @@ async function explainQuickContext(word, sentence) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000); // contexto rápido
 
-    const systemPrompt =
-      'Você é um professor particular de inglês focado em contexto. Responda em português brasileiro, curto e natural.';
+    const systemPrompt = `Você é um professor particular de inglês focado em contexto.
+Responda APENAS com JSON válido, sem Markdown e sem texto adicional.`;
     const userPrompt = `Termo selecionado: "${word}"
 Frase/contexto: "${sentence}"
 
-Responda em 1 frase curta. Diga o sentido nesta frase. Se o termo isolado costuma significar outra coisa, acrescente uma comparação breve. Se for phrasal verb/chunk/gíria/idiom, explique o bloco inteiro, sem lista.`;
+Retorne exatamente:
+{
+  "translation": "tradução curta da palavra/expressão NESTA frase",
+  "explanation": "uma frase curta explicando o sentido contextual e, se útil, contrastando com o sentido isolado"
+}
+
+Em "translation", escreva somente o equivalente curto que serve como resposta de flashcard.
+Exemplo: termo "gross", frase "This is gross" -> "nojento; repugnante", nunca "bruto".
+Se for phrasal verb, chunk, gíria ou expressão, traduza o bloco inteiro pelo sentido da frase.`;
 
     let response;
     
@@ -1192,7 +1214,21 @@ Responda em 1 frase curta. Diga o sentido nesta frase. Se o termo isolado costum
     const data = await response.json();
 
     
-    return data.choices?.[0]?.message?.content || null;
+    const content = data.choices?.[0]?.message?.content
+      ?.replace(/```json/gi, '')
+      .replace(/```/g, '')
+      .trim();
+    if (!content) return null;
+    try {
+      const parsed = JSON.parse(content);
+      const translation = String(parsed?.translation || '').trim();
+      const explanation = String(parsed?.explanation || '').trim();
+      if (!translation && !explanation) return null;
+      return { translation: translation || null, explanation: explanation || null };
+    } catch {
+      console.warn('[LinguaFlow IA] Contexto rápido retornou JSON inválido.');
+      return null;
+    }
   } catch (err) {
     console.error('Erro na IA (Contexto Rápido):', err);
     return null;

@@ -5,6 +5,7 @@ import { addLocalDays, localDateKey, localDayBounds } from './local-day.js';
 const SUPABASE_URL = 'https://qnutoswrufznztoznlql.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_sjE7swuyYQz-80x9lttf4Q_awnZ_YlY';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const FLUENCY_DRAFT_KEY = 'lf_fluency_check_draft_v1';
 // snapshot era um JPEG base64 nunca renderizado. Em produção, só 6 palavras
 // somavam 5,4 MB nesse campo e cada select=* o baixava outra vez.
 const WORD_SELECT = 'id,user_id,word,lang,translation,context_sentence,phonetic,pronunciation_pt,explanation,level,tags,ai_chunks,video_url,video_title,platform,added_at,synonyms,antonyms,definition,category,mnemonic,video_start_ms,video_end_ms';
@@ -220,10 +221,11 @@ class Database {
   async _proxy(method, args) {
     if (!this.isProxyMode) return null;
     return new Promise((resolve, reject) => {
+      const proxyTimeoutMs = method === 'assessFluencySubmission' ? 65000 : 10000;
       const timeoutId = setTimeout(() => {
         console.error(`[LinguaFlow DB] Timeout na chamada ${method}.`);
         reject(classifyRequestError(new Error(`DB proxy timeout: ${method}`)));
-      }, 10000); // 10s: o refresh automático de token pode adicionar uma ida à rede
+      }, proxyTimeoutMs);
 
       chrome.runtime.sendMessage(
         {
@@ -1512,6 +1514,212 @@ class Database {
     return await this._fetch('rpc/record_card_learning_signal', {
       method: 'POST', body: { p_card_id: cardId, p_client_event_id: clientEventId, p_signal: signal },
     });
+  }
+
+  async recordLearningTaskAttempt(attempt, clientAttemptId = createOperationId()) {
+    if (this.isProxyMode) return this._proxy('recordLearningTaskAttempt', [attempt, clientAttemptId]);
+    if (!UUID_PATTERN.test(clientAttemptId)) throw new Error('Identificador da tentativa inválido.');
+    if (!attempt || typeof attempt !== 'object' || Array.isArray(attempt)) {
+      throw new Error('Dados da tentativa inválidos.');
+    }
+    return await this._fetch('rpc/record_learning_task_attempt', {
+      method: 'POST',
+      body: {
+        p_client_attempt_id: clientAttemptId,
+        p_attempt: attempt,
+      },
+    });
+  }
+
+  async getLatestLearningTaskAttempt() {
+    if (this.isProxyMode) return this._proxy('getLatestLearningTaskAttempt', []);
+    const select = [
+      'id',
+      'client_attempt_id',
+      'task_key',
+      'task_type',
+      'skill',
+      'target_level',
+      'evaluation_authority',
+      'authoritative',
+      'overall_score',
+      'occurred_at',
+    ].join(',');
+    const rows = await this._fetch(
+      `learning_task_attempts?select=${select}&order=occurred_at.desc,id.desc&limit=1`,
+    );
+    return rows?.[0] || null;
+  }
+
+  async issueFluencyTask(skill, targetLevel, clientIssueId = createOperationId()) {
+    if (this.isProxyMode) return this._proxy('issueFluencyTask', [skill, targetLevel, clientIssueId]);
+    if (!UUID_PATTERN.test(clientIssueId)) throw new Error('Identificador de emissão inválido.');
+    return await this._fetch('rpc/issue_fluency_task', {
+      method: 'POST',
+      body: {
+        p_client_issue_id: clientIssueId,
+        p_skill: skill,
+        p_target_level: targetLevel,
+      },
+    });
+  }
+
+  async submitFluencyTask(
+    issueId,
+    response,
+    assistanceUsed = {},
+    responseTimeMs = null,
+    clientSubmissionId = createOperationId(),
+  ) {
+    if (this.isProxyMode) {
+      return this._proxy('submitFluencyTask', [
+        issueId, response, assistanceUsed, responseTimeMs, clientSubmissionId,
+      ]);
+    }
+    if (!UUID_PATTERN.test(issueId) || !UUID_PATTERN.test(clientSubmissionId)) {
+      throw new Error('Identificador de submissão inválido.');
+    }
+    if (!response || typeof response !== 'object' || Array.isArray(response)) {
+      throw new Error('Resposta de fluência inválida.');
+    }
+    return await this._fetch('rpc/submit_fluency_task', {
+      method: 'POST',
+      body: {
+        p_issue_id: issueId,
+        p_client_submission_id: clientSubmissionId,
+        p_response: response,
+        p_assistance_used: assistanceUsed || {},
+        p_response_time_ms: responseTimeMs,
+      },
+    });
+  }
+
+  async assessFluencySubmission(submissionId, transientEvidence = null) {
+    if (this.isProxyMode) {
+      return this._proxy('assessFluencySubmission', [submissionId, transientEvidence]);
+    }
+    if (!UUID_PATTERN.test(submissionId)) throw new Error('Identificador de avaliação inválido.');
+    const token = await this._getToken();
+    if (!token) throw classifyRequestError(new Error('Sessão expirada. Entre novamente para continuar.'), 401);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/fluency-assessment`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          submission_id: submissionId,
+          ...(transientEvidence ? { transient_evidence: transientEvidence } : {}),
+        }),
+        signal: controller.signal,
+      });
+      const text = await response.text();
+      const body = text ? JSON.parse(text) : {};
+      if (!response.ok) {
+        throw classifyRequestError(
+          new Error(body?.error || `Falha ao avaliar fluência (${response.status}).`),
+          response.status,
+          body,
+        );
+      }
+      return body;
+    } catch (error) {
+      if (!error.kind) classifyRequestError(error);
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  async getFluencyProfiles() {
+    if (this.isProxyMode) return this._proxy('getFluencyProfiles', []);
+    const select = [
+      'skill',
+      'observed_level',
+      'confidence_status',
+      'evidence_count',
+      'last_assessed_at',
+      'updated_at',
+    ].join(',');
+    return (await this._fetch(`fluency_skill_profiles?select=${select}&order=skill.asc`)) || [];
+  }
+
+  async getFluencyCheckDraft() {
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+      return await new Promise((resolve) => {
+        chrome.storage.local.get(FLUENCY_DRAFT_KEY, result => resolve(result[FLUENCY_DRAFT_KEY] || null));
+      });
+    }
+    try {
+      const raw = globalThis.localStorage?.getItem(FLUENCY_DRAFT_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async saveFluencyCheckDraft(draft) {
+    const value = { ...draft, savedAt: new Date().toISOString() };
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+      await new Promise(resolve => chrome.storage.local.set({ [FLUENCY_DRAFT_KEY]: value }, resolve));
+    } else {
+      globalThis.localStorage?.setItem(FLUENCY_DRAFT_KEY, JSON.stringify(value));
+    }
+    return value;
+  }
+
+  async clearFluencyCheckDraft() {
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+      await new Promise(resolve => chrome.storage.local.remove(FLUENCY_DRAFT_KEY, resolve));
+    } else {
+      globalThis.localStorage?.removeItem(FLUENCY_DRAFT_KEY);
+    }
+  }
+
+  async getFluencyCheckStatus() {
+    const [latestAttempt, profiles, draft] = await Promise.all([
+      this.getLatestLearningTaskAttempt(),
+      this.getFluencyProfiles(),
+      this.getFluencyCheckDraft(),
+    ]);
+    const lastAt = latestAttempt?.occurred_at ? new Date(latestAttempt.occurred_at) : null;
+    const due = !lastAt || !Number.isFinite(lastAt.getTime())
+      || Date.now() - lastAt.getTime() >= 7 * 24 * 60 * 60 * 1000;
+    return {
+      fluencyDue: due,
+      fluencyResumeAvailable: !!draft && draft.completed !== true,
+      latestAttempt,
+      profiles,
+      draft,
+    };
+  }
+
+  async submitFluencyCheck(records) {
+    if (!Array.isArray(records) || records.length === 0) {
+      throw new Error('Nenhuma resposta de fluência para enviar.');
+    }
+    const results = [];
+    for (const record of records) {
+      const submission = await this.submitFluencyTask(
+        record.issueId,
+        record.response,
+        record.assistanceUsed,
+        record.responseTimeMs,
+        record.clientSubmissionId,
+      );
+      const assessment = await this.assessFluencySubmission(
+        submission.id,
+        record.transientEvidence || null,
+      );
+      results.push({ submission, assessment });
+    }
+    await this.clearFluencyCheckDraft();
+    return results;
   }
 
   async suspendCard(wordId, suspend = true) {

@@ -11,6 +11,7 @@ import { lemma } from '../../../utils/lemma.js';
 import { parseEpub } from '../core/epub.js';
 import { renderViewState } from './viewState.js';
 import { bindReadingHeader, renderReadingHeader } from './readingHub.js';
+import { enrichCard } from '../core/ai.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 const TEXTS_KEY = 'lf_reader_texts';
@@ -436,8 +437,14 @@ export async function renderReader(container, app) {
     popup.classList.remove('hidden');
     positionPopup(el.getBoundingClientRect());
 
-    const trans = await translateText(popupWord.toLowerCase());
-    if (popupWord === el.dataset.w) {
+    const wordAtRequest = popupWord.toLowerCase();
+    const contextAtRequest = currentText ? sentenceAround(currentText.content, popupWord) : '';
+    const [baseTranslation, contextual] = await Promise.all([
+      translateText(wordAtRequest),
+      contextAtRequest ? enrichCard(wordAtRequest, contextAtRequest).catch(() => null) : null,
+    ]);
+    const trans = contextual?.word_pt || baseTranslation;
+    if (popupWord.toLowerCase() === wordAtRequest) {
       document.getElementById('rdp-trans').textContent = trans || 'Sem tradução.';
     }
   });

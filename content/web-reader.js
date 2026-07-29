@@ -53,7 +53,8 @@
     offlineDict,
     popupEl = null,
     currentWord = '',
-    currentContext = '';
+    currentContext = '',
+    currentTranslation = '';
 
   try {
     const [ttsMod, dictMod] = await Promise.all([
@@ -102,6 +103,20 @@
     }
 
     return null;
+  }
+
+  async function contextualTranslate(word, sentence) {
+    if (!sentence || !sentence.trim()) return null;
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({
+        action: 'ai_quick_context',
+        word,
+        sentence,
+      }, (response) => {
+        if (chrome.runtime.lastError) resolve(null);
+        else resolve(response?.translation || null);
+      });
+    });
   }
 
   // ── Popup UI ──────────────────────────────────────────────────────────────
@@ -179,6 +194,7 @@
     buildPopup();
     if (!popupEl) return;
     currentWord = word;
+    currentTranslation = translation || '';
     popupEl.querySelector('#lf-r-word').textContent = word;
     const transEl = popupEl.querySelector('#lf-r-translation');
     const saveBtn = popupEl.querySelector('#lf-r-save');
@@ -225,7 +241,7 @@
     try {
       // O clique confirma assim que a intenção fica durável no storage local
       // do service worker. Rede, banco e enriquecimento rodam depois com retry.
-      const translation = translateCache.get(wordAtStart.toLowerCase()) || '';
+      const translation = currentTranslation || translateCache.get(wordAtStart.toLowerCase()) || '';
       const response = await chrome.runtime.sendMessage({
         type: 'QUEUE_WORD_SAVE',
         payload: {
@@ -292,8 +308,14 @@
     showPopup(e.clientX, e.clientY, word, null);
 
     // Tradução assíncrona
-    const translation = await quickTranslate(word);
+    const contextAtStart = currentContext;
+    const [baseTranslation, contextTranslation] = await Promise.all([
+      quickTranslate(word),
+      contextualTranslate(word, contextAtStart),
+    ]);
     if (!isActive() || interactionEpoch !== lifecycle.interactionEpoch || currentWord !== word) return;
+    const translation = contextTranslation || baseTranslation;
+    currentTranslation = translation || '';
     const transEl = popupEl?.querySelector('#lf-r-translation');
     const saveBtn = popupEl?.querySelector('#lf-r-save');
     if (transEl && popupEl?.isConnected && popupEl.style.display !== 'none') {

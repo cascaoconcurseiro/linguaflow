@@ -23,6 +23,9 @@ export class WordPopup {
     this.context = '';
     this.contextExplanation = '';
     this.cache = {};
+    this._contextRequestId = 0;
+    this._contextSession = null;
+    this._activeSourceKey = '';
 
     this._gramBuilt = false;
     this._exBuilt = false;
@@ -594,6 +597,7 @@ export class WordPopup {
   }
 
   async showForWord(word, context, rect, cue) {
+    const wasHiding = this._isHiding;
     if (this._hideTimeout) {
       clearTimeout(this._hideTimeout);
       this._hideTimeout = null;
@@ -601,9 +605,23 @@ export class WordPopup {
 
     if (!word) return;
     this._isHiding = false;
+    const contextRequestId = ++this._contextRequestId;
     const cleanedWord = word.replace(/[.,!?()"]+/g, '').trim();
     const rawContext = context || '';
-    this.word = await this._expandTermInContext(cleanedWord, rawContext);
+    const sourceKey = `${cleanedWord}\u0000${rawContext}`;
+    if (
+      this._activeSourceKey === sourceKey
+      && !wasHiding
+      && this.popup.style.display !== 'none'
+    ) {
+      this._anchorRect = rect || null;
+      this.currentCue = cue;
+      return;
+    }
+    const expandedWord = await this._expandTermInContext(cleanedWord, rawContext);
+    if (contextRequestId !== this._contextRequestId) return;
+    this._activeSourceKey = sourceKey;
+    this.word = expandedWord;
     // A TELA pode truncar; o CARD não (§3.2 da auditoria): antes, o snippet
     // "±5 palavras com ..." era salvo como context_sentence e contaminava a
     // frente do card, o builder, o ditado e o TTS. saveContext guarda a frase
@@ -616,6 +634,17 @@ export class WordPopup {
     this._exBuilt = false;
     this._contextExplained = false;
     this.contextExplanation = '';
+    this._contextSession = {
+      id: contextRequestId,
+      word: this.word,
+      context: this.context,
+      saveContext: this.saveContext,
+      translation: '',
+      explanation: '',
+      contextResolved: false,
+      recallStarted: false,
+      save: null,
+    };
 
     // Na Max, legenda e popup vivem no mesmo overlay fixo. Em outros players,
     // mantemos o comportamento local existente.
@@ -1157,7 +1186,8 @@ export class WordPopup {
 
       // Upsert no servidor resolve duplicidade. Tradução/classificação faltante
       // é enriquecida depois e não bloqueia a intenção de salvar.
-      const translation = d.translation || '';
+      const contextSession = this._contextSession;
+      const translation = contextSession?.translation || d.translation || '';
 
       // SALVA JÁ — nada de esperar a IA gerar chunks (era a "demora ao salvar").
       // O backfill do service worker roda em background depois do saveWord e
@@ -1197,11 +1227,22 @@ export class WordPopup {
         chunks: this.generatedChunks || null,
       };
 
-      const result = await chrome.runtime.sendMessage({ type: 'QUEUE_WORD_SAVE', payload });
+      const savePromise = chrome.runtime.sendMessage({ type: 'QUEUE_WORD_SAVE', payload });
+      if (contextSession?.word === this.word) {
+        contextSession.save = {
+          payload,
+          promise: savePromise,
+          syncPromise: null,
+        };
+      }
+      const result = await savePromise;
 
       if (!result?.ok || !result?.queued) {
         throw new Error(result?.error || 'Não foi possível guardar o salvamento localmente.');
       }
+      this._syncLateSaveEnrichment(contextSession).catch((error) => {
+        console.warn('[WordPopup] Enriquecimento do save aguardará nova sincronização:', error);
+      });
       console.debug('[WordPopup] ✅ Palavra guardada; sincronização em segundo plano:', result.queueId);
 
       // §3.3: o botão NÃO volta a "+ Salvar" depois de 2s — esse reset
@@ -1218,7 +1259,7 @@ export class WordPopup {
 
       // A1 do backlog (W1): salvar NAO encerra o fluxo — 15s de primeira
       // recuperacao criam a primeira evidencia e evitam o cemiterio de cards.
-      this._showFirstRecall(translation);
+      this._maybeShowFirstRecall(contextSession, translation);
 
       // O player atualiza instantaneamente. Dashboard/cofre só recebem o
       // broadcast quando o servidor confirmar a sincronização.
@@ -1237,6 +1278,44 @@ export class WordPopup {
         btn.disabled = false;
       }, 2000);
     }
+  }
+
+  async _syncLateSaveEnrichment(contextSession) {
+    if (!contextSession?.save) return;
+    const queuedSave = contextSession.save;
+    const previousSync = queuedSave.syncPromise
+      ? queuedSave.syncPromise.catch(() => {})
+      : Promise.resolve();
+
+    queuedSave.syncPromise = previousSync.then(async () => {
+      const initialResult = await contextSession.save.promise;
+      if (!initialResult?.ok || !initialResult?.queued) return;
+
+      const currentPayload = contextSession.save.payload;
+      const nextPayload = {
+        ...currentPayload,
+        translation: contextSession.translation || currentPayload.translation || '',
+        context_sentence: contextSession.saveContext || contextSession.context || '',
+        explanation: contextSession.explanation || '',
+      };
+      if (
+        nextPayload.translation === currentPayload.translation
+        &&
+        nextPayload.context_sentence === currentPayload.context_sentence
+        && nextPayload.explanation === currentPayload.explanation
+      ) return;
+
+      const result = await chrome.runtime.sendMessage({
+        type: 'QUEUE_WORD_SAVE',
+        payload: nextPayload,
+      });
+      if (!result?.ok || !result?.queued) {
+        throw new Error(result?.error || 'Não foi possível atualizar o contexto salvo.');
+      }
+      contextSession.save.payload = nextPayload;
+    });
+
+    return queuedSave.syncPromise;
   }
 
   _showSaveToast() {
@@ -1367,6 +1446,7 @@ export class WordPopup {
     const q = (s) => this._q(s);
     const el = q('#fctxt');
     const container = q('#fctx');
+    const contextSession = this._contextSession;
 
     this._contextExplained = true;
     container.style.display = '';
@@ -1436,11 +1516,32 @@ export class WordPopup {
         );
       });
 
-      if (response?.explanation) {
-        this.contextExplanation = cleanContextExplanation(response.explanation);
-        const aiExplanation = this._escapeAttr(this.contextExplanation).replace(/\n/g, '<br>');
+      if (response?.translation || response?.explanation) {
+        const explanation = cleanContextExplanation(response.explanation);
+        const contextualTranslation = String(response.translation || '').trim();
+        if (contextSession) {
+          contextSession.translation = contextualTranslation;
+          contextSession.explanation = explanation;
+          contextSession.contextResolved = true;
+          this._syncLateSaveEnrichment(contextSession).catch((error) => {
+            console.warn('[WordPopup] Contexto tardio aguardará nova sincronização:', error);
+          });
+          this._maybeShowFirstRecall(contextSession, this.cache[word]?.translation || '');
+        }
+        if (this._contextSession !== contextSession) return;
+        if (contextualTranslation && this.cache[word]) {
+          this.cache[word].translation = contextualTranslation;
+          this._render(this.cache[word]);
+        }
+        this.contextExplanation = explanation;
+        const aiExplanation = this._escapeAttr(explanation).replace(/\n/g, '<br>');
         el.innerHTML = nativeHtml + aiExplanation;
       } else {
+        if (contextSession) {
+          contextSession.contextResolved = true;
+          this._maybeShowFirstRecall(contextSession, this.cache[word]?.translation || '');
+        }
+        if (this._contextSession !== contextSession) return;
         // Fallback caso a IA falhe
         el.innerHTML =
           nativeHtml +
@@ -1450,6 +1551,11 @@ export class WordPopup {
             `;
       }
     } catch (e) {
+      if (contextSession) {
+        contextSession.contextResolved = true;
+        this._maybeShowFirstRecall(contextSession, this.cache[word]?.translation || '');
+      }
+      if (this._contextSession !== contextSession) return;
       console.error('[WordPopup] Erro geral no contexto:', e);
       el.innerHTML = `<span style="color:#f87171;font-size:12px;">Erro interno ao carregar contexto.</span>`;
     }
@@ -1459,6 +1565,7 @@ export class WordPopup {
     const q = (s) => this._q(s);
     const el = q('#fctxt');
     const container = q('#fctx');
+    const contextSession = this._contextSession;
 
     this._contextExplained = true;
     container.style.display = '';
@@ -1481,6 +1588,16 @@ export class WordPopup {
       });
 
       if (response?.sentence) {
+        if (contextSession) {
+          contextSession.context = response.sentence;
+          contextSession.saveContext = response.sentence;
+          contextSession.contextResolved = true;
+          this._syncLateSaveEnrichment(contextSession).catch((error) => {
+            console.warn('[WordPopup] Frase tardia aguardará nova sincronização:', error);
+          });
+          this._maybeShowFirstRecall(contextSession, this.cache[word]?.translation || '');
+        }
+        if (this._contextSession !== contextSession) return;
         // Save back so the user can save it in flashcards
         this.context = response.sentence;
         this.saveContext = response.sentence; // frase da IA é completa por construção
@@ -1494,10 +1611,16 @@ export class WordPopup {
           <span style="color:#94a3b8; font-size:13px; display:block; margin-top:4px;">${response.translation || ''}</span>
         `;
       } else {
+        if (this._contextSession !== contextSession) return;
         el.innerHTML =
           '<span style="color:#f87171;font-size:12px;">Falha ao gerar exemplo. Limite da IA atingido ou sem login.</span>';
       }
     } catch (e) {
+      if (contextSession) {
+        contextSession.contextResolved = true;
+        this._maybeShowFirstRecall(contextSession, this.cache[word]?.translation || '');
+      }
+      if (this._contextSession !== contextSession) return;
       console.error('[WordPopup] Erro ao gerar contexto:', e);
       el.innerHTML = `<span style="color:#f87171;font-size:12px;">Erro interno ao gerar contexto.</span>`;
     }
@@ -1786,6 +1909,13 @@ export class WordPopup {
   // Pular sempre visivel, video nunca e retomado no meio. O resultado vai
   // para uma fila local (QUEUE_FIRST_RECALL) que o service worker drena
   // quando o card existir no banco — mesmo padrao local-first do save.
+  _maybeShowFirstRecall(contextSession, fallbackTranslation) {
+    if (!contextSession?.save || contextSession.recallStarted) return;
+    if (contextSession.context && !contextSession.contextResolved) return;
+    contextSession.recallStarted = true;
+    this._showFirstRecall(contextSession.translation || fallbackTranslation);
+  }
+
   async _showFirstRecall(translation) {
     try {
       const correct = String(translation || '').trim();

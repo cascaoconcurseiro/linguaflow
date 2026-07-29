@@ -1,0 +1,4 @@
+project_id = "linguaflow"
+
+[functions.fluency-assessment]
+verify_jwt = true

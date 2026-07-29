@@ -10,6 +10,7 @@ import { renderLogin } from '../ui/loginView.js';
 import { renderStats } from '../ui/statsView.js';
 import { renderLearn } from '../ui/learnView.js';
 import { renderProgress } from '../ui/progressView.js';
+import { renderFluencyCheck } from '../ui/fluencyCheckView.js';
 import { bindViewStateAction, renderViewState } from '../ui/viewState.js';
 import { db } from '../../../utils/db.js';
 
@@ -367,7 +368,7 @@ class App {
 
     // Update active state on buttons
     const learnRoutes = new Set(['learn', 'stories', 'reader', 'game']);
-    const progressRoutes = new Set(['progress', 'stats', 'leagues']);
+    const progressRoutes = new Set(['progress', 'fluency-check', 'stats', 'leagues']);
     this.navBtns.forEach(btn => {
       const active = btn.dataset.route === route
         || (btn.dataset.navGroup === 'learn' && learnRoutes.has(route))
@@ -441,6 +442,7 @@ class App {
       stats: renderStats,
       learn: renderLearn,
       progress: renderProgress,
+      'fluency-check': renderFluencyCheck,
     };
     const renderer = renderers[route] || renderHome;
     this.activeRender?.controller.abort('render-superseded');

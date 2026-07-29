@@ -1,6 +1,6 @@
 ﻿import { db } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio } from '../core/tts.js';
-import { generateStoryWeb, aiChat } from '../core/ai.js';
+import { generateStoryWeb, aiChat, enrichCard } from '../core/ai.js';
 import { measureStoryLevel } from '../core/readability.js';
 import { translator } from '../../../utils/translator.js';
 import { lemma } from '../../../utils/lemma.js';
@@ -1014,9 +1014,14 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     btnSaveWord.style.display = 'none';
 
     const requestId = ++modalRequestId;
-    translateText(cleanWord).then((wordTrans) => {
+    Promise.all([
+      translateText(cleanWord),
+      currentSelectedSentence
+        ? enrichCard(cleanWord, currentSelectedSentence).catch(() => null)
+        : null,
+    ]).then(([baseTranslation, contextual]) => {
       if (requestId !== modalRequestId || modal.style.display === 'none') return;
-      showModalContent(wordTrans);
+      showModalContent(contextual?.word_pt || baseTranslation);
     });
 
     function showModalContent(wordTrans) {

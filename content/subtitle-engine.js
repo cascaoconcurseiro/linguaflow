@@ -689,10 +689,16 @@ export class SubtitleEngine {
 
     this.cues = [];
     this.xhrCues = [];
+    this._currentCue = null;
     this.currentCueIndex = -1;
     this.lastText = '';
     this.usingXhr = false;
     this._lastOrig = '';
+    this.isLooping = false;
+    if (this._loopInterval) {
+      clearInterval(this._loopInterval);
+      this._loopInterval = null;
+    }
     // Limpa intervalos de espera de vídeo anteriores
     if (this._videoWaitInterval) {
       clearInterval(this._videoWaitInterval);
@@ -1530,46 +1536,57 @@ export class SubtitleEngine {
   }
 
   toggleLoop() {
-    if (!this.videoElement || this.currentCueIndex < 0) return;
+    if (!this.videoElement) return false;
 
-    this.isLooping = !this.isLooping;
     const btnLoop = document.getElementById('lf-btn-loop');
-
     if (this.isLooping) {
-      const currentCue = this.cues[this.currentCueIndex];
-      this.loopStartTime = currentCue.start;
-      this.loopEndTime = currentCue.end;
-
-      if (btnLoop) {
-        btnLoop.style.background = 'rgba(56, 189, 248, 0.3)';
-        btnLoop.style.color = '#38BDF8';
-      }
-
-      // Listener para loop
-      this._loopInterval = setInterval(() => {
-        if (this.isLooping && this.videoElement.currentTime >= this.loopEndTime) {
-          this.videoElement.currentTime = this.loopStartTime;
-        }
-      }, 100);
-
-      console.debug(
-        `[LinguaFlow] Loop ATIVADO: ${this.loopStartTime.toFixed(2)}s - ${this.loopEndTime.toFixed(2)}s`,
-      );
-      this._showNotification('🔁 Repetindo Frase');
-    } else {
+      this.isLooping = false;
       if (btnLoop) {
         btnLoop.style.background = 'rgba(255,255,255,0.1)';
         btnLoop.style.color = '';
       }
-
       if (this._loopInterval) {
         clearInterval(this._loopInterval);
         this._loopInterval = null;
       }
-
       console.debug('[LinguaFlow] Loop DESATIVADO');
       this._showNotification('▶️ Loop Desativado');
+      return false;
     }
+
+    const activeCues = this.xhrCues?.length ? this.xhrCues : this.cues;
+    const currentCue = this._currentCue || activeCues?.[this.currentCueIndex];
+    const start = Number(currentCue?.start);
+    const end = Number(currentCue?.end);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+      this._showNotification('Aguarde uma frase para ativar o loop');
+      return false;
+    }
+
+    this.isLooping = true;
+    this.loopStartTime = start;
+    this.loopEndTime = end;
+
+    if (btnLoop) {
+      btnLoop.style.background = 'rgba(56, 189, 248, 0.3)';
+      btnLoop.style.color = '#38BDF8';
+    }
+
+    if (this._loopInterval) clearInterval(this._loopInterval);
+    this.videoElement.currentTime = this.loopStartTime;
+    this.videoElement.play().catch(() => {});
+    this._loopInterval = setInterval(() => {
+      if (this.isLooping && this.videoElement?.currentTime >= this.loopEndTime) {
+        this.videoElement.currentTime = this.loopStartTime;
+        if (this.videoElement.paused) this.videoElement.play().catch(() => {});
+      }
+    }, 100);
+
+    console.debug(
+      `[LinguaFlow] Loop ATIVADO: ${this.loopStartTime.toFixed(2)}s - ${this.loopEndTime.toFixed(2)}s`,
+    );
+    this._showNotification('🔁 Loop da frase ativado');
+    return true;
   }
 
   _showNotification(message) {
@@ -3657,12 +3674,21 @@ export class SubtitleEngine {
     span.className = baseClass + cefrClass + ' ' + this._wordClass(text);
 
     let hoverTimeout = null;
+    const clearHoverIntent = () => {
+      if (hoverTimeout) {
+        clearTimeout(hoverTimeout);
+        hoverTimeout = null;
+      }
+    };
 
     span.addEventListener('pointerenter', (e) => {
       // Se for touch, o touchstart ou o click resolvem, não pausa por pointerenter de touch pra não conflitar
       if (e.pointerType === 'touch') return;
       // Debounce de Elite: Só pausa se o usuário realmente quiser interagir (150ms)
-      this._hoverPauseTimer = setTimeout(() => {
+      clearHoverIntent();
+      hoverTimeout = setTimeout(() => {
+        hoverTimeout = null;
+        if (!span.isConnected) return;
         if (!disableHoverPause && this.videoElement && !this.videoElement.paused) {
           this.videoElement.pause();
           this._wasPausedByHover = true;
@@ -3678,10 +3704,7 @@ export class SubtitleEngine {
 
     span.addEventListener('pointerleave', (e) => {
       if (e.pointerType === 'touch') return;
-      if (this._hoverPauseTimer) {
-        clearTimeout(this._hoverPauseTimer);
-        this._hoverPauseTimer = null;
-      }
+      clearHoverIntent();
 
       // NÃO retoma o vídeo aqui. O vídeo só retoma se o usuário clicar fora do popup ou no X.
       // Isso evita que o vídeo volte a tocar enquanto o usuário move o mouse para o popup.
@@ -3695,10 +3718,7 @@ export class SubtitleEngine {
     const onClickOrTouch = (e) => {
       e.stopPropagation();
       if (e.cancelable) e.preventDefault(); // Evita eventos duplicados no mobile
-      if (hoverTimeout) {
-        clearTimeout(hoverTimeout);
-        hoverTimeout = null;
-      }
+      clearHoverIntent();
       if (!disableHoverPause && this.videoElement && !this.videoElement.paused) {
         this.videoElement.pause();
         this._wasPausedByHover = true;

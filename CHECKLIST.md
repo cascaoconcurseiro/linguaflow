@@ -22,7 +22,8 @@
 - [x] Adicionar a rota interna `fluency-check` em Progresso sem criar um quinto item de navegação.
 - [x] Integrar os testes de fluência ao `pretest:release`.
 - [x] Documentar contrato, portões de lançamento e sequência de entrega.
-- [ ] Validar a migration em PostgreSQL 17 efêmero e depois, com autorização, aplicar no projeto Supabase canônico.
+- [x] Validar as migrations e gates de fluência em PostgreSQL efêmero pelo GitHub Actions.
+- [ ] Com autorização explícita, aplicar as migrations no projeto Supabase canônico.
 - [ ] Implementar catálogo versionado e entrega server-side de estímulos inéditos.
 - [ ] Implementar avaliação autoritativa versionada e calibração humana com respostas-âncora.
 - [ ] Executar QA visual e acessível autenticado em mobile, tablet e desktop.

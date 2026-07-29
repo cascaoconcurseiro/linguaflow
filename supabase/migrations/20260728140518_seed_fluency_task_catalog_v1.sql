@@ -1,41 +1,5 @@
-create schema if not exists private;
-revoke all on schema private from public, anon, authenticated;
-
-create table private.fluency_task_catalog (
-  task_key text primary key check (char_length(task_key) between 1 and 120),
-  catalog_version text not null check (char_length(catalog_version) between 1 and 32),
-  level text not null check (level in ('A1', 'A2', 'B1', 'B2')),
-  ceiling_level text not null check (ceiling_level in ('A1', 'A2', 'B1', 'B2')),
-  skill text not null check (skill in (
-    'listening', 'speaking_spontaneous', 'writing', 'interaction'
-  )),
-  family text not null check (char_length(family) between 1 and 80),
-  public_material jsonb not null
-    check (jsonb_typeof(public_material) = 'object')
-    check (pg_column_size(public_material) <= 8192),
-  answer_key jsonb not null
-    check (jsonb_typeof(answer_key) = 'object')
-    check (pg_column_size(answer_key) <= 8192),
-  rubric jsonb not null
-    check (jsonb_typeof(rubric) = 'object')
-    check (pg_column_size(rubric) <= 8192),
-  active boolean not null default true,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint fluency_task_catalog_ceiling_check check (ceiling_level = level),
-  constraint fluency_task_catalog_family_version_key
-    unique (catalog_version, level, skill, family)
-);
-
-comment on table private.fluency_task_catalog is
-  'Catálogo privado e versionado de tarefas inéditas. Gabaritos nunca são expostos diretamente ao cliente.';
-comment on column private.fluency_task_catalog.public_material is
-  'Material que pode ser entregue ao aluno; não contém transcrição, resposta correta ou resposta-modelo.';
-comment on column private.fluency_task_catalog.answer_key is
-  'Material privado de correção e movimentos comunicativos exigidos.';
-
 revoke all on table private.fluency_task_catalog from public, anon, authenticated;
-grant select, insert, update on table private.fluency_task_catalog to service_role;
+revoke all on table private.fluency_task_catalog from service_role;
 
 with seed as (
   select *
@@ -253,10 +217,12 @@ with seed as (
 insert into private.fluency_task_catalog (
   task_key,
   catalog_version,
-  level,
-  ceiling_level,
+  task_type,
   skill,
-  family,
+  target_level,
+  target_descriptor,
+  task_family,
+  prompt_version,
   public_material,
   answer_key,
   rubric,
@@ -265,24 +231,31 @@ insert into private.fluency_task_catalog (
 select
   task_key,
   catalog_version,
-  level,
-  ceiling_level,
+  case skill
+    when 'listening' then 'unseen_listening'
+    when 'speaking_spontaneous' then 'spontaneous_speaking'
+    when 'writing' then 'writing'
+    when 'interaction' then 'interaction'
+  end,
   skill,
+  level,
+  public_material ->> 'objective',
   family,
+  concat('seed-', catalog_version),
   public_material,
   answer_key,
   rubric,
   true
 from seed
-on conflict (task_key) do update
+on conflict (task_key, catalog_version) do update
 set
-  catalog_version = excluded.catalog_version,
-  level = excluded.level,
-  ceiling_level = excluded.ceiling_level,
+  task_type = excluded.task_type,
   skill = excluded.skill,
-  family = excluded.family,
+  target_level = excluded.target_level,
+  target_descriptor = excluded.target_descriptor,
+  task_family = excluded.task_family,
+  prompt_version = excluded.prompt_version,
   public_material = excluded.public_material,
   answer_key = excluded.answer_key,
   rubric = excluded.rubric,
-  active = excluded.active,
-  updated_at = now();
+  active = excluded.active;

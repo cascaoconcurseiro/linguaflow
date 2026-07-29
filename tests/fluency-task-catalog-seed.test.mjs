@@ -61,16 +61,24 @@ for (const row of rows) {
   }
 }
 
-assert.match(sql, /create table private\.fluency_task_catalog/i);
-assert.match(sql, /public_material jsonb not null/i);
-assert.match(sql, /answer_key jsonb not null/i);
-assert.match(sql, /rubric jsonb not null/i);
+assert.doesNotMatch(
+  sql,
+  /create table private\.fluency_task_catalog/i,
+  'seed não pode redefinir a tabela criada pela migration autoritativa',
+);
+assert.match(
+  sql,
+  /insert into private\.fluency_task_catalog\s*\(\s*task_key,\s*catalog_version,\s*task_type,\s*skill,\s*target_level,\s*target_descriptor,\s*task_family,\s*prompt_version,\s*public_material,\s*answer_key,\s*rubric,\s*active\s*\)/i,
+);
+assert.match(sql, /when 'listening' then 'unseen_listening'/i);
+assert.match(sql, /when 'speaking_spontaneous' then 'spontaneous_speaking'/i);
+assert.match(sql, /target_descriptor[\s\S]*public_material\s*->>\s*'objective'/i);
 assert.match(sql, /revoke all on table private\.fluency_task_catalog from public, anon, authenticated/i);
 assert.doesNotMatch(
   sql,
-  /grant\s+(?:select|insert|update|delete)[^;]*private\.fluency_task_catalog[^;]*to\s+(?:public|anon|authenticated)/i,
+  /grant\s+(?:select|insert|update|delete)[^;]*private\.fluency_task_catalog[^;]*to\s+(?:public|anon|authenticated|service_role)/i,
 );
-assert.match(sql, /on conflict \(task_key\) do update/i);
+assert.match(sql, /on conflict \(task_key,\s*catalog_version\) do update/i);
 assert.doesNotMatch(sql, /create table public\.fluency_task_catalog/i);
 
 console.log('Seed privada do catálogo de fluência passou.');

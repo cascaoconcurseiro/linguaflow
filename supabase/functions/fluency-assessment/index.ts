@@ -493,8 +493,8 @@ Deno.serve(async (req) => {
     let audio: TransientAudio | null;
     try {
       audio = transientAudioFrom(body.transient_evidence, payload.skill);
-    } catch (error) {
-      return jsonResponse(cors, 400, { error: (error as Error).message });
+    } catch {
+      return jsonResponse(cors, 400, { error: "invalid_transient_evidence" });
     }
     const quota = await consumeQuota(admin, user.id);
     if (quota === "limited") {

@@ -1641,8 +1641,8 @@ class Database {
     const select = [
       'skill',
       'observed_level',
-      'confidence_status',
-      'evidence_count',
+      'evidence_status',
+      'authoritative_attempt_count',
       'last_assessed_at',
       'updated_at',
     ].join(',');

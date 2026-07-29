@@ -1,5 +1,13 @@
 # Handoff — LinguaFlow
 
+## Handoff Codex — contrato do perfil de fluência corrigido (2026-07-29)
+
+Corrigido o `PGRST400/42703` de `fluency_skill_profiles`: o banco de produção já possuía o schema canônico, mas `utils/db.js:getFluencyProfiles()` ainda consultava os nomes inexistentes `confidence_status` e `evidence_count`. O cliente agora lê `evidence_status` e `authoritative_attempt_count`, exatamente como a migration autoritativa, a Edge Function e as RPCs escrevem. Não foi criada migration nem coluna duplicada; grants e RLS owner-only permaneceram inalterados.
+
+O contrato automatizado agora rejeita os nomes antigos e exige os campos canônicos. O build avançou de `3.0.32` para `3.0.33` no manifesto, app, HTML e cache do service worker para impedir que a PWA continue executando o request antigo. Na janela recente de logs do Data API, os demais requests do dashboard estavam em `200`; o `400` recorrente era especificamente essa seleção incompatível.
+
+Próximo passo concreto: após o deploy da `main`, fechar e reabrir a PWA ou usar `Ctrl+F5`. Confirmar no console que carrega `app.js?v=3.0.33` e que o request autenticado de `fluency_skill_profiles` retorna `200` (atualmente a tabela pode responder com lista vazia), sem `42703`. Se o console ainda mostrar `v=3.0.31`, a aba instalada continua servindo um cliente antigo e ainda não está testando esta correção.
+
 ## Handoff Codex — voz natural no Check de comunicação (2026-07-29)
 
 Corrigida a divergência de áudio em `dashboard/js/ui/fluencyCheckView.js`: a etapa “Escuta inédita” chamava `SpeechSynthesisUtterance` diretamente e, por isso, sempre usava a voz local robótica. Agora ela reutiliza `playNaturalAudio()`/`stopAudio()` de `dashboard/js/core/tts.js`, a mesma cadeia do Estudo, Histórias, Leitor e Jogos: cache local → Edge Function `tts`/Google natural → URL direta do Google → Web Speech apenas como último fallback.

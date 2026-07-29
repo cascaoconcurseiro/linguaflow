@@ -9,6 +9,10 @@ const migrationName = readdirSync(migrationsDir)
 
 assert.ok(migrationName, 'migration de autoridade da avaliação de fluência existe');
 const sql = readFileSync(join(migrationsDir, migrationName), 'utf8');
+const migrationChain = readdirSync(migrationsDir)
+  .filter((name) => name.endsWith('.sql'))
+  .map((name) => readFileSync(join(migrationsDir, name), 'utf8'))
+  .join('\n');
 
 for (const table of [
   'private.fluency_task_catalog',
@@ -63,6 +67,14 @@ assert.match(sql, /insert into public\.learning_task_attempts/i);
 assert.match(sql, /insert into public\.fluency_skill_profiles/i);
 assert.doesNotMatch(sql, /insert into public\.(?:review_log|learning_events|xp_ledger|user_stats|cards)/i);
 assert.doesNotMatch(sql, /update public\.(?:review_log|learning_events|xp_ledger|user_stats|cards)/i);
+assert.match(
+  migrationChain,
+  /create index(?: if not exists)? fluency_task_responses_issue_id_idx\s+on private\.fluency_task_responses\s*\(issue_id\)/i,
+);
+assert.match(
+  migrationChain,
+  /create index(?: if not exists)? fluency_task_submissions_attempt_id_idx\s+on public\.fluency_task_submissions\s*\(attempt_id\)/i,
+);
 
 const gate = readFileSync(join(root, 'tests', 'db', 'fluency-assessment-authority.sql'), 'utf8');
 assert.match(gate, /gabarito privado vazou/i);

@@ -23,9 +23,12 @@
 - [x] Integrar os testes de fluência ao `pretest:release`.
 - [x] Documentar contrato, portões de lançamento e sequência de entrega.
 - [x] Validar as migrations e gates de fluência em PostgreSQL efêmero pelo GitHub Actions.
-- [ ] Com autorização explícita, aplicar as migrations no projeto Supabase canônico.
-- [ ] Implementar catálogo versionado e entrega server-side de estímulos inéditos.
-- [ ] Implementar avaliação autoritativa versionada e calibração humana com respostas-âncora.
+- [x] Com autorização explícita, aplicar as migrations no projeto Supabase canônico.
+- [x] Implementar catálogo versionado e entrega server-side de estímulos inéditos.
+- [x] Publicar a Edge Function `fluency-assessment` com validação JWT.
+- [x] Corrigir as FKs sem índice e validar grants, RLS, catálogo e cache do PostgREST em produção.
+- [ ] Calibrar a avaliação autoritativa versionada com respostas-âncora e revisão humana.
+- [ ] Recarregar o dashboard autenticado e confirmar que Início/Progresso não registram `PGRST205`.
 - [ ] Executar QA visual e acessível autenticado em mobile, tablet e desktop.
 - [ ] Conectar lacunas verificadas ao plano adaptativo sem alterar o FSRS.
 

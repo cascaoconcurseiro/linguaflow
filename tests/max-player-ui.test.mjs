@@ -1,14 +1,32 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
+  computeMaxDockPlacement,
   computeMaxOverlayLayout,
   computeMaxPopupLayout,
+  nextPlaybackRate,
   isMaxHost,
 } from '../content/max-player-ui.js';
+import { SubtitleEngine } from '../content/subtitle-engine.js';
 
 assert.equal(isMaxHost('play.max.com'), true);
 assert.equal(isMaxHost('www.hbomax.com'), true);
 assert.equal(isMaxHost('example.com'), false);
+
+assert.equal(nextPlaybackRate(1), 1.25);
+assert.equal(nextPlaybackRate(1.5), 0.75);
+assert.equal(nextPlaybackRate(Number.NaN), 1);
+
+assert.deepEqual(
+  computeMaxDockPlacement({ viewportWidth: 1280, panelWidth: 420 }),
+  { left: 'auto', right: 440, hidden: false },
+  'dock fica fora do painel lateral quando há espaço',
+);
+assert.deepEqual(
+  computeMaxDockPlacement({ viewportWidth: 420, panelWidth: 420 }),
+  { left: 'auto', right: 20, hidden: true },
+  'dock não cobre o painel quando ele ocupa a viewport',
+);
 
 const desktop = computeMaxOverlayLayout({
   viewportHeight: 720,
@@ -57,13 +75,42 @@ assert.equal(tallPopup.maxHeight, 252, 'popup alto usa scroll no espaço acima d
 assert.ok(tallPopup.top + tallPopup.maxHeight <= 264);
 
 const uiSource = await readFile(new URL('../content/max-player-ui.js', import.meta.url), 'utf8');
-for (const action of ['toggle', 'previous', 'repeat', 'next', 'panel', 'settings']) {
+for (const action of ['toggle', 'previous', 'loop', 'next', 'speed', 'panel', 'settings']) {
   assert.match(uiSource, new RegExp(`data-action=["']${action}["']`));
 }
+assert.doesNotMatch(uiSource, /data-action=["']repeat["']/);
 assert.match(uiSource, /MutationObserver/);
 assert.match(uiSource, /fullscreenchange/);
 assert.match(uiSource, /toggleSubtitles\(this\.visible\)/);
 assert.match(uiSource, /toggleSubtitlePanel\(\)/);
+assert.match(uiSource, /toggleLoop\(\)/);
+assert.match(uiSource, /playbackRate/);
+
+const loopEngine = Object.create(SubtitleEngine.prototype);
+let playCalls = 0;
+Object.assign(loopEngine, {
+  videoElement: {
+    currentTime: 11,
+    play: () => {
+      playCalls += 1;
+      return Promise.resolve();
+    },
+  },
+  cues: [],
+  xhrCues: [{ start: 10, end: 12, text: 'Context from Max' }],
+  currentCueIndex: -1,
+  _currentCue: { start: 10, end: 12, text: 'Context from Max' },
+  isLooping: false,
+  _managedIntervals: new Set(),
+  _showNotification: () => {},
+});
+globalThis.document = { getElementById: () => null };
+assert.equal(loopEngine.toggleLoop(), true, 'loop aceita a cue ativa capturada pela HBO/Max');
+assert.equal(loopEngine.loopStartTime, 10);
+assert.equal(loopEngine.loopEndTime, 12);
+assert.equal(loopEngine.videoElement.currentTime, 10);
+assert.equal(playCalls, 1);
+assert.equal(loopEngine.toggleLoop(), false);
 
 const popupSource = await readFile(new URL('../content/word-popup.js', import.meta.url), 'utf8');
 assert.match(popupSource, /this\._anchorRect = rect \|\| null/);

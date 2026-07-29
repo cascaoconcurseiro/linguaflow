@@ -4,6 +4,7 @@ import { runPlacementTest } from './settingsView.js';
 import { computeAchievements, newlyUnlocked } from '../core/achievements.js';
 import { bindViewStateAction, renderViewState } from './viewState.js';
 import { estimateLevelFromHistory } from '../core/levelEstimator.js';
+import { isFluencyCheckDue } from '../core/fluencyCheck.js';
 
 function organizeHomeSections(container) {
     const main = container.querySelector('.dashboard-main');
@@ -68,6 +69,30 @@ const GOAL_TO_NEW_PER_DAY = { 10: 5, 20: 10, 40: 20 };
 const ONBOARDING_KEY = 'onboarding_v1';
 const ONBOARDING_LEVELS = new Set(['beginner', 'intermediate', 'advanced']);
 
+export async function loadFluencyHomeState(db) {
+    if (!db) return { fluencyDue: false, fluencyResumeAvailable: false };
+    if (typeof db.getFluencyCheckStatus === 'function') {
+        const status = await db.getFluencyCheckStatus();
+        return {
+            fluencyDue: status?.fluencyDue === true,
+            fluencyResumeAvailable: status?.fluencyResumeAvailable === true,
+        };
+    }
+
+    const [latest, draft] = await Promise.all([
+        typeof db.getLatestLearningTaskAttempt === 'function'
+            ? db.getLatestLearningTaskAttempt()
+            : null,
+        typeof db.getFluencyCheckDraft === 'function'
+            ? db.getFluencyCheckDraft().catch(() => null)
+            : null,
+    ]);
+    return {
+        fluencyDue: isFluencyCheckDue(latest?.occurred_at || null),
+        fluencyResumeAvailable: !!draft && draft.completed !== true,
+    };
+}
+
 // A6 do backlog: depois de 50 tentativas reais, o review_log sabe mais que
 // o teste de 4 minutos. Recalibra o nivel 1x/dia, em segundo plano, e grava
 // lf_cefr_source='measured' — historias, exercicios e legendas passam a
@@ -111,6 +136,8 @@ export function chooseTodayAction(state = {}) {
     if (dueCards > 0 && daysAway >= 2) return { kind:'return-review', route:'study', label:'Retomar revisões', title:'Vamos retomar de onde você parou', reason:'Sua memória precisa de atenção, sem pressa e sem tentar recuperar dias perdidos.', meta:`${dueReview} ${dueReview === 1 ? 'revisão' : 'revisões'}${dueLearning ? ` · ${dueLearning} em aprendizado` : ''}` };
     if (dueLearning > 0 && dueReview === 0) return { kind:'learning', route:'study', label:'Continuar aprendizado', title:'Continue o que começou', reason:'Estas frases voltaram agora para reforçar a primeira memória.', meta:`${dueLearning} ${dueLearning === 1 ? 'frase em aprendizado' : 'frases em aprendizado'}` };
     if (dueReview > 0) return { kind:'review', route:'study', label:'Revisar agora', title:'Proteja o que você já aprendeu', reason:retention30 !== null && Number.isFinite(retention30) && retention30 < 70 ? 'Hoje vale consolidar o que já existe antes de adicionar frases novas.' : dueReview >= 15 ? 'A fila está maior; faça uma sessão confortável e retome depois.' : 'Estas frases chegaram ao momento certo de serem lembradas.', meta:`${dueReview} ${dueReview === 1 ? 'revisão' : 'revisões'}${dueLearning ? ` · ${dueLearning} em aprendizado` : ''}` };
+    if (state.fluencyResumeAvailable === true) return { kind:'fluency-resume', route:'fluency-check', label:'Continuar check', title:'Seu check está esperando por você', reason:'As etapas já concluídas foram preservadas. Continue de onde parou sem repetir o que já fez.', meta:'Evidência comunicativa · não altera revisão, XP ou liga' };
+    if (state.fluencyDue === true) return { kind:'fluency-check', route:'fluency-check', label:'Fazer check de comunicação', title:'Teste o inglês fora dos seus cartões', reason:'Uma tarefa curta e inédita observa o que você consegue compreender e produzir sem ensaio.', meta:'Cerca de 8 minutos · não altera revisão, XP ou liga' };
     if (reviewsToday > 0) return { kind:'completed', route:'learn', label:'Continuar em imersão', title:'Plano de memória concluído', reason:`Você fez ${reviewsToday} ${reviewsToday === 1 ? 'revisão' : 'revisões'} hoje. As próximas frases voltarão no momento certo.`, meta:dueTomorrow ? `Amanhã: ${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}` : 'Nada mais é obrigatório hoje.' };
     if (daysAway >= 2) return { kind:'return-clear', route:'learn', label:'Continuar em imersão', title:'Você voltou na hora certa', reason:'Não há revisões vencidas. Escolha um conteúdo e descubra uma nova frase.', meta:dueTomorrow ? `Amanhã: ${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}` : 'Sua memória está em dia.' };
     return { kind:'clear', route:'learn', label:'Continuar em imersão', title:'Sua memória está em dia', reason:'Você pode continuar aprendendo com conteúdo real ou encerrar por hoje.', meta:dueTomorrow ? `Amanhã: ${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}` : 'Nada mais é obrigatório hoje.' };
@@ -249,8 +276,8 @@ export async function renderHome(container, app) {
         if (myGen === _homeRenderGen) renderHomeLoadError(container, app);
         return;
     }
-    const [statsResult, onboardingResult] = await Promise.allSettled([
-        db.getStats(), db.getSetting(ONBOARDING_KEY),
+    const [statsResult, onboardingResult, fluencyStateResult] = await Promise.allSettled([
+        db.getStats(), db.getSetting(ONBOARDING_KEY), loadFluencyHomeState(db),
     ]);
     if (myGen !== _homeRenderGen) return; // uma chamada mais nova já assumiu a tela
     container.removeAttribute('aria-busy');
@@ -274,6 +301,9 @@ export async function renderHome(container, app) {
     }
 
     const safeStats = stats || { totalWords: 0, dueCards: 0, byStatus: {}, sessions: [] };
+    const fluencyState = fluencyStateResult.status === 'fulfilled'
+        ? fluencyStateResult.value
+        : { fluencyDue: false, fluencyResumeAvailable: false };
     // FONTE ÚNICA: user_stats (Postgres). O localStorage paralelo foi removido —
     // eram duas verdades de XP/streak que divergiam (achado da auditoria).
     const xpToday = userStats?.xp_today ?? 0;
@@ -452,6 +482,7 @@ export async function renderHome(container, app) {
         daysAway,
         dueTomorrow,
         retention30,
+        ...fluencyState,
     });
 
     if (myGen !== _homeRenderGen) return; // uma chamada mais nova já assumiu a tela (Onda 9)

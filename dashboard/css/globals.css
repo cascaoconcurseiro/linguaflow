@@ -297,6 +297,11 @@ a { color:var(--color-link); }
 .product-destination-card .btn { width:100%; min-height:46px; margin-top:auto; }
 .product-destination-card-primary { border-color:var(--color-primary); box-shadow:var(--shadow-md, var(--shadow-sm)); }
 .product-destination-card-optional { background:var(--color-bg-alt); box-shadow:none; }
+.fluency-check-stack { display:grid; gap:20px; }
+.fluency-format-card { min-height:0; }
+.fluency-format-card ol { margin:0 0 20px; padding-left:22px; color:var(--color-text-light); line-height:1.6; }
+.fluency-format-card li + li { margin-top:8px; }
+.fluency-format-card > p:last-child { margin-bottom:0; }
 .settings-group > summary strong, .settings-group > summary small { display:block; }
 .settings-group > summary strong { color:var(--color-text); font-size:17px; }
 .settings-group > summary small { margin-top:3px; color:var(--color-text-light); font-size:12px; font-weight:600; }
@@ -349,6 +354,47 @@ a { color:var(--color-link); }
 .view-state-title { color:var(--color-text); font-size:18px; }
 .view-state-message { max-width:520px; font-size:14px; font-weight:600; line-height:1.5; }
 .view-state-actions { margin-top:6px; }
+.fluency-check-page { width:min(780px, 100%); margin:0 auto; padding:clamp(24px, 5vw, 48px); }
+.fluency-check-header { max-width:700px; margin-bottom:24px; }
+.fluency-check-header h1, .fluency-task-card h1 { margin:6px 0 10px; font-size:clamp(28px, 5vw, 40px); line-height:1.12; }
+.fluency-check-header > p:last-child, .fluency-task-card header > p:last-child { color:var(--color-text-light); font-size:16px; line-height:1.55; }
+.fluency-intro-card, .fluency-task-card { padding:clamp(20px, 4vw, 32px); border:2px solid var(--color-border); border-radius:20px; background:var(--color-surface); box-shadow:var(--shadow-sm); }
+.fluency-intro-card h2 { margin-bottom:12px; }
+.fluency-intro-card ul { display:grid; gap:10px; margin:0 0 26px; padding-left:22px; color:var(--color-text-light); line-height:1.5; }
+.fluency-progress { margin-bottom:20px; }
+.fluency-progress-copy { display:flex; justify-content:space-between; gap:12px; margin-bottom:8px; color:var(--color-text-light); font-size:13px; }
+.fluency-progress-copy strong { color:var(--color-text); }
+.fluency-progress-track { height:8px; overflow:hidden; border-radius:999px; background:var(--color-border); }
+.fluency-progress-track > span { display:block; height:100%; border-radius:inherit; background:var(--color-primary); transition:width var(--motion-fast) ease; }
+.fluency-step-list { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px; margin:14px 0 0; padding:0; list-style:none; }
+.fluency-step-list li { display:flex; align-items:center; gap:7px; min-width:0; color:var(--color-text-light); font-size:11px; font-weight:800; }
+.fluency-step-list li > span:first-child { flex:0 0 auto; width:24px; height:24px; display:grid; place-items:center; border:1px solid var(--color-border); border-radius:50%; }
+.fluency-step-list li[aria-current="step"] { color:var(--color-text); }
+.fluency-step-list li[aria-current="step"] > span:first-child { border-color:var(--color-primary); background:var(--color-primary); color:#fff; }
+.fluency-fieldset { min-width:0; margin:26px 0 0; padding:0; border:0; }
+.fluency-fieldset legend { width:100%; margin-bottom:18px; color:var(--color-text); font-size:20px; font-weight:900; line-height:1.35; }
+.fluency-fieldset > label { display:block; margin:18px 0 7px; color:var(--color-text); font-weight:800; }
+.fluency-fieldset textarea { width:100%; min-height:112px; resize:vertical; padding:14px; border:2px solid var(--color-border); border-radius:12px; background:var(--color-bg-alt); color:var(--color-text); font:600 16px/1.5 var(--font-main); }
+.fluency-options { display:grid; gap:10px; margin-top:18px; }
+.fluency-options label { min-height:52px; display:flex; align-items:center; gap:12px; padding:12px 14px; border:2px solid var(--color-border); border-radius:12px; background:var(--color-bg-alt); cursor:pointer; }
+.fluency-options label:has(input:checked) { border-color:var(--color-primary); background:color-mix(in srgb, var(--color-primary) 8%, var(--color-surface)); }
+.fluency-options input { width:20px; height:20px; flex:0 0 auto; }
+.fluency-help { margin:9px 0 0; color:var(--color-text-light); font-size:13px; line-height:1.45; }
+.fluency-recording-controls { display:flex; flex-wrap:wrap; gap:10px; margin:18px 0 10px; }
+.fluency-recording-status { min-height:24px; color:var(--color-text-light); font-weight:700; }
+.fluency-text-action { min-height:44px; margin-top:8px; padding:0; border:0; background:transparent; color:var(--color-link); font:800 14px var(--font-main); text-decoration:underline; cursor:pointer; }
+.fluency-dialogue-prompt { margin:16px 0 8px; padding:14px; border-left:4px solid var(--color-secondary); border-radius:0 10px 10px 0; background:var(--color-bg-alt); color:var(--color-text); line-height:1.5; }
+.fluency-validation { margin:18px 0 0; padding:12px 14px; border:1px solid var(--color-danger); border-radius:10px; background:color-mix(in srgb, var(--color-danger) 8%, var(--color-surface)); color:var(--color-danger); font-weight:800; }
+.fluency-task-actions { display:flex; justify-content:flex-end; gap:12px; margin-top:28px; }
+.fluency-review-list { display:grid; gap:10px; margin:0; padding:0; list-style:none; }
+.fluency-review-list li { display:flex; justify-content:space-between; gap:16px; padding:16px; border:1px solid var(--color-border); border-radius:12px; background:var(--color-surface); }
+.fluency-review-list li span { color:var(--color-text-light); text-align:right; }
+.fluency-submit-status { min-height:24px; margin-top:16px; color:var(--color-text-light); font-weight:700; }
+.fluency-result-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; }
+.fluency-skill-result { padding:18px; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); }
+.fluency-skill-result h2 { margin:0 0 7px; font-size:18px; }
+.fluency-skill-result p, .fluency-evidence-note { color:var(--color-text-light); line-height:1.5; }
+.fluency-evidence-note { margin-top:18px; padding:14px; border-radius:12px; background:var(--color-bg-alt); font-size:14px; }
 .home-loading { min-block-size:240px; display:grid; place-items:center; }
 .story-empty[aria-live], #story-loading { min-block-size:160px; }
 .mobile-nav-btn, .settings-group > summary, .story-mode-tabs .lf-tab { transition:color var(--motion-fast), background-color var(--motion-fast), border-color var(--motion-fast), transform var(--motion-fast); }
@@ -599,6 +645,13 @@ body.lf-auth-pending #app-root { visibility: hidden; }
   .product-hub { padding:24px 16px; }
   .product-hub-grid, .product-hub-grid-two { grid-template-columns:1fr; }
   .product-destination-card { min-height:0; }
+  .fluency-check-page { padding:22px 14px; }
+  .fluency-step-list li > span:last-child { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  .fluency-task-actions { align-items:stretch; flex-direction:column-reverse; }
+  .fluency-task-actions .btn { width:100%; min-height:48px; }
+  .fluency-result-grid { grid-template-columns:1fr; }
+  .fluency-review-list li { align-items:flex-start; flex-direction:column; gap:4px; }
+  .fluency-review-list li span { text-align:left; }
   .source-callout { align-items:flex-start; flex-direction:column; }
   .lib-header { align-items:flex-start; gap:12px; }
   .lib-title-block h2 { font-size:25px; }

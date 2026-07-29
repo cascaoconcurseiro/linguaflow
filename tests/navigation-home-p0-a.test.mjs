@@ -28,13 +28,14 @@ assert.match(html, /id="study-focus-header"[^>]*hidden/);
 for (const route of ['home','learn','library','progress','study','stories','reader','game','stats','leagues','settings','login']) {
   assert.match(app, new RegExp(`${route}: render`));
 }
+assert.match(app, /'fluency-check': renderFluencyCheck/);
 assert.match(app, /const learnRoutes = new Set\(\['learn', 'stories', 'reader', 'game'\]\)/);
-assert.match(app, /const progressRoutes = new Set\(\['progress', 'stats', 'leagues'\]\)/);
+assert.match(app, /const progressRoutes = new Set\(\['progress', 'fluency-check', 'stats', 'leagues'\]\)/);
 assert.match(app, /setProfileMenuOpen\(false, true\)/);
 assert.match(css, /\.profile-menu\[hidden\] \{ display:none; \}/);
 assert.match(css, /\.profile-menu button \{[^}]*min-height:44px/);
 for (const route of ['stories', 'reader', 'game']) assert.match(learn, new RegExp(`route: '${route}'`));
-for (const route of ['stats', 'leagues']) assert.match(progress, new RegExp(`route: '${route}'`));
+for (const route of ['fluency-check', 'stats', 'leagues']) assert.match(progress, new RegExp(`route: '${route}'`));
 assert.match(learn, /data-learn-route="\$\{item\.route\}"/);
 assert.match(progress, /data-progress-route="\$\{item\.route\}"/);
 
@@ -43,6 +44,9 @@ const cases = [
   [{ totalWords:5, dueCards:7, dueLearning:2, daysAway:3 }, 'return-review', 'study'],
   [{ totalWords:5, dueCards:2, dueLearning:2 }, 'learning', 'study'],
   [{ totalWords:5, dueCards:4, dueLearning:1 }, 'review', 'study'],
+  [{ totalWords:5, dueCards:4, fluencyDue:true }, 'review', 'study'],
+  [{ totalWords:5, dueCards:0, fluencyResumeAvailable:true }, 'fluency-resume', 'fluency-check'],
+  [{ totalWords:5, dueCards:0, fluencyDue:true }, 'fluency-check', 'fluency-check'],
   [{ totalWords:5, dueCards:0, reviewsToday:8 }, 'completed', 'learn'],
   [{ totalWords:5, dueCards:0, daysAway:3 }, 'return-clear', 'learn'],
   [{ totalWords:5, dueCards:0 }, 'clear', 'learn'],

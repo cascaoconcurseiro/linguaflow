@@ -1,5 +1,33 @@
 # Checklist — LinguaFlow
 
+## Tradução contextual ponta a ponta (Codex, 2026-07-29)
+
+- [x] Tornar a tradução contextual, e não a tradução isolada, o valor canônico salvo para palavras em frases.
+- [x] Fazer o primeiro teste do popup aguardar a tradução contextual.
+- [x] Atualizar o significado salvo quando o enriquecimento contextual terminar depois do salvamento inicial.
+- [x] Resolver contexto no Web Reader, popup do Reader e seleção de palavras em Histórias.
+- [x] Promover e persistir o significado contextual no Estudo, inclusive reparando cards antigos ao serem enriquecidos.
+- [x] Generalizar o comportamento para palavras polissêmicas sem exceção hardcoded para `gross`.
+- [x] Adicionar o contrato automatizado ao `test:release` e executar a suíte completa com sucesso.
+- [ ] Recarregar a extensão no Chrome e validar manualmente popup, primeiro teste, dashboard/Cofre e card de estudo com uma frase ambígua.
+
+## Fluência real — fundação A1–B2 (Codex, 2026-07-28)
+
+- [x] Auditar o método atual e separar retenção, atividade e evidência de uso comunicativo.
+- [x] Definir descritores operacionais A1–B2 para escuta inédita, fala espontânea, escrita funcional e interação.
+- [x] Implementar rubrica 0–3, dimensões críticas, limite de ajuda e estados de força da evidência.
+- [x] Criar migration expand-only `learning_task_attempts`, RLS owner-only e RPC idempotente não autoritativa.
+- [x] Impedir integração silenciosa com cards, review log, FSRS, XP, ofensiva e liga.
+- [x] Limitar metadados persistidos e proibir resposta livre, transcrição ou áudio na tabela de tentativas.
+- [x] Adicionar a rota interna `fluency-check` em Progresso sem criar um quinto item de navegação.
+- [x] Integrar os testes de fluência ao `pretest:release`.
+- [x] Documentar contrato, portões de lançamento e sequência de entrega.
+- [ ] Validar a migration em PostgreSQL 17 efêmero e depois, com autorização, aplicar no projeto Supabase canônico.
+- [ ] Implementar catálogo versionado e entrega server-side de estímulos inéditos.
+- [ ] Implementar avaliação autoritativa versionada e calibração humana com respostas-âncora.
+- [ ] Executar QA visual e acessível autenticado em mobile, tablet e desktop.
+- [ ] Conectar lacunas verificadas ao plano adaptativo sem alterar o FSRS.
+
 ## Supabase — reconciliação do roadmap (Codex, 2026-07-25)
 
 - [x] Confirmar o projeto de produção `qnutoswrufznztoznlql` (`linguaflow`, ACTIVE_HEALTHY, PostgreSQL 17.6).

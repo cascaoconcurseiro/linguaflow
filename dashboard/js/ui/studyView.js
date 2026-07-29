@@ -441,7 +441,13 @@ export async function renderStudy(container, app, params = {}) {
                     <div id="iso-word"></div>
                     <div id="iso-trans"></div>
                     <div id="iso-phonetics"></div>
-                    <div id="iso-context-explanation" class="hidden"></div>
+                    <details id="iso-context-details" class="context-explanation-card hidden">
+                      <summary>
+                        <span>Por que significa isso aqui?</span>
+                        <span aria-hidden="true">⌄</span>
+                      </summary>
+                      <div id="iso-context-explanation"></div>
+                    </details>
                     <div id="iso-mnemonic-box">
                       <button id="iso-mnemonic-btn">Criar um truque para lembrar</button>
                       <div id="iso-mnemonic-text" class="hidden"></div>
@@ -1408,6 +1414,14 @@ async function revealCard() {
   let wordEntry = chunks.find(c => c.is_word)
     || chunks.find(c => c.eng.toLowerCase() === word.toLowerCase());
 
+  if (wordEntry?.pt && wordData.id && wordData.translation !== wordEntry.pt) {
+    wordData.translation = wordEntry.pt;
+    card.translation = wordEntry.pt;
+    lfDb.updateWord(wordData.id, { translation: wordEntry.pt }).catch((error) => {
+      console.warn('[Study] Não foi possível promover a tradução contextual existente:', error);
+    });
+  }
+
   renderReveal(word, context, ctxEntry, wordEntry, wordData, card);
   renderChunksList(chunks, context);
   updateYouglish(word);
@@ -1430,8 +1444,10 @@ async function revealCard() {
         ctxEntry = { eng: context, pt: data.sentence_pt || '', phon: data.sentence_phon, is_context: true, is_word: false };
         chunks = [ctxEntry, ...chunks.filter(c => !c.is_context)];
       }
-      if (needsWordRepair && data.word_phon && data.word_pt) {
-        wordEntry = { eng: word, pt: data.word_pt || '', phon: data.word_phon, is_context: false, is_word: true };
+      if (needsWordRepair && data.word_pt) {
+        wordEntry = { eng: word, pt: data.word_pt || '', phon: data.word_phon || '', is_context: false, is_word: true };
+        wordData.translation = data.word_pt;
+        card.translation = data.word_pt;
         chunks = [...chunks, wordEntry];
       }
       card._chunks = chunks;
@@ -1481,10 +1497,12 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
   } else {
     isoPhon.style.display = 'none';
   }
+  const contextDetails = document.getElementById('iso-context-details');
   const contextExplanation = document.getElementById('iso-context-explanation');
   const savedExplanation = String(wordData.explanation || '').trim();
   contextExplanation.textContent = savedExplanation;
-  contextExplanation.classList.toggle('hidden', !savedExplanation);
+  contextDetails.open = false;
+  contextDetails.classList.toggle('hidden', !savedExplanation);
   isoBox.classList.remove('hidden');
 
   // Onda 3.3: mnemônico por IA — gerado uma vez e salvo no card
@@ -2264,7 +2282,12 @@ function injectStyles() {
     #iso-word { font-size:22px; font-weight:900; color:var(--color-primary); }
     #iso-trans { margin-top:3px; font-size:17px; font-weight:800; color:var(--color-text); }
     #iso-phonetics { margin-top:5px; color:var(--color-secondary); font-style:italic; }
-    #iso-context-explanation { margin-top:12px; padding-top:12px; border-top:1px solid var(--color-border); color:var(--color-text-light); font-size:14px; line-height:1.55; white-space:pre-line; }
+    .context-explanation-card { margin-top:12px; border-top:1px solid var(--color-border); }
+    .context-explanation-card > summary { min-height:44px; display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; list-style:none; color:var(--color-secondary); font-size:14px; font-weight:900; }
+    .context-explanation-card > summary::-webkit-details-marker { display:none; }
+    .context-explanation-card > summary > span:last-child { color:var(--color-text-light); transition:transform .15s ease; }
+    .context-explanation-card[open] > summary > span:last-child { transform:rotate(180deg); }
+    #iso-context-explanation { padding:0 0 12px; color:var(--color-text-light); font-size:14px; line-height:1.55; white-space:pre-line; }
     #iso-mnemonic-box { margin-top:10px; }
     #iso-mnemonic-btn { min-height:40px; padding:0; border:0; background:transparent; color:var(--color-secondary); font-weight:900; cursor:pointer; }
     #iso-mnemonic-text { margin-top:8px; padding:10px 12px; border:1px solid var(--color-warning); border-radius:10px; background:rgba(255,200,0,.12); color:var(--color-text); font-size:13px; line-height:1.5; }

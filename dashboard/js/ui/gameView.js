@@ -1,6 +1,6 @@
 import { db as lfDb } from '../../../utils/db.js';
 import { playNaturalAudio } from '../core/tts.js';
-import { bindViewStateAction, renderViewState } from './viewState.js';
+import { bindViewStateAction, escapeHtml, renderViewState } from './viewState.js';
 
 async function openPractice(container, app, renderMode, retryId) {
   try {
@@ -450,10 +450,10 @@ async function renderBuilderGame(container, app) {
       <div class="game-container">
         <h2>🧩 Monte a Frase</h2>
         <div class="listen-progress">Frase ${step + 1} de ${words.length} · Acertos: ${correctCount}</div>
-        <div style="font-size:13px; color:var(--color-text-light); margin-bottom:10px;">Use "<strong>${word.word}</strong>" na ordem certa</div>
+        <div style="font-size:13px; color:var(--color-text-light); margin-bottom:10px;">Use "<strong>${escapeHtml(word.word)}</strong>" na ordem certa</div>
         <div id="ex-answer" class="builder-answer"></div>
         <div id="ex-bank" class="builder-bank">
-          ${shuffled.map((t, i) => `<button class="ex-chip" data-i="${i}" data-t="${t.replace(/"/g, '&quot;')}">${t}</button>`).join('')}
+          ${shuffled.map((t, i) => `<button class="ex-chip" data-i="${i}" data-t="${escapeHtml(t)}">${escapeHtml(t)}</button>`).join('')}
         </div>
         <button id="ex-check" class="btn btn-primary" style="padding:12px 32px; font-size:15px; margin-top:12px;" disabled>Verificar</button>
       </div>
@@ -465,7 +465,7 @@ async function renderBuilderGame(container, app) {
     const bankEl = document.getElementById('ex-bank');
 
     function redraw() {
-      answerEl.innerHTML = answer.map((a, idx) => `<button class="ex-chip ex-chip-used" data-idx="${idx}">${a.t}</button>`).join('');
+      answerEl.innerHTML = answer.map((a, idx) => `<button class="ex-chip ex-chip-used" data-idx="${idx}">${escapeHtml(a.t)}</button>`).join('');
       checkBtn.disabled = answer.length !== tokens.length;
     }
 

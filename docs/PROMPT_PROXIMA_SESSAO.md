@@ -16,7 +16,7 @@ estado atual no código, nos testes e, quando aplicável, na produção.
 
 Objetivo imediato:
 
-1. abrir a PWA autenticada e confirmar `app.js?v=3.0.33`;
+1. abrir a PWA autenticada e confirmar `app.js?v=3.0.34`;
 2. confirmar que `fluency_skill_profiles` retorna HTTP 200 sem `42703`;
 3. validar entrada direta com conta nova e executar o Check sem captura de voz;
 4. confirmar auditivamente voz natural na escuta;

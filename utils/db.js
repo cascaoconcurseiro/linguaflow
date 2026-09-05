@@ -1217,10 +1217,20 @@ class Database {
   async saveSentence(data) {
     this._invalidateReadCache();
     if (this.isProxyMode) return this._proxy('saveSentence', [data]);
+    const original = String(data?.original || '').trim();
+    if (!original) throw new Error('Frase original é obrigatória');
+    const payload = {
+      original,
+      translation: data?.translation || null,
+      analysis: data?.analysis || null,
+      platform: data?.platform || null,
+      video_url: data?.video_url || null,
+      video_title: data?.video_title || null,
+    };
     const res = await this._fetch('sentences', {
       method: 'POST',
       headers: { 'Prefer': 'return=representation' },
-      body: data
+      body: payload
     });
     return { ok: !!res, id: res?.[0]?.id };
   }

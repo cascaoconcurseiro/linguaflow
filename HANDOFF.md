@@ -2,58 +2,44 @@
 
 ## Última sessão — 2026-09-05
 
-Build local: `3.0.33`. Branch de integração e publicação: `main`.
+Build local: `3.0.34`. Branch de integração e publicação: `main`.
 
-## Entregue
+## Entregue hoje
 
-- Home abre diretamente no primeiro acesso, sem onboarding obrigatório.
-  Preferências antigas são preservadas; ausência, JSON inválido ou falha de
-  leitura usam meta local de 20 revisões, sem gravar nível ou conclusão fictícios.
-- Home interrompe atualizações após cancelamento da rota. Regressão cobre cinco
-  estados de preferências e cancelamento em duas fases do carregamento.
-- Popup corrige import de db, loading do dicionário, IPA e apresentação CEFR.
-- Professor retorna tradução, explicação contextual e pronúncia BR na mesma
-  chamada; pronúncia salva permanece prioritária. Trabalho auxiliar em paralelo
-  e limite de 320 tokens reduzem esperas, sem promessa de latência de rede.
-- Login da extensão abre/reutiliza guia própria e retoma apenas o contexto aberto.
-  PWA e extensão mantêm sessões independentes; tokens não são enviados em URLs.
-- IA exclusivamente DeepSeek por funções autenticadas; captura de voz removida.
-- Documentação ativa reconciliada, com histórico consolidado e pendências reais.
-- Usuário solicitou explicitamente commit/push e atualização documental.
-  Remoto confirmado: https://github.com/cascaoconcurseiro/linguaflow.
-  Integrado o histórico remoto `dbab29b`, preservando o contrato atual de IA.
+- Conteúdo capturado, persistido e retornado pela IA deixou de entrar como HTML
+  executável nos fluxos de estudo e jogos. O tutor renderiza o stream como texto.
+- A PWA ganhou CSP com scripts inline bloqueados e allowlist compatível com
+  YouTube, YouGlish, EPUB, Supabase, fontes e TTS existentes.
+- O boot da legenda correlaciona `words` e `cards` para exibir imediatamente os
+  estados `new`, `learning`, `review` e `mature` corretos.
+- `saveSentence` valida uma allowlist de campos; código e seletores mortos da
+  interface antiga de legendas foram removidos.
+- Auditor de fiação reconhece imports concatenados, factories de DOM, DOM do host
+  e eventos por `postMessage`, com regressão para os falsos positivos encontrados.
+- Verificador PowerShell usa Manifest V3, ícones atuais e o gate oficial de release.
+- Qualidade de tradução e regressões de conteúdo não confiável agora fazem parte
+  de `test:release`.
 
 ## Evidência
 
-- Release local completo passou em 05/09 após corrigir contrato estático que
-  ainda rejeitava o campo pronunciation_pt. Testes de tradução passaram.
-- Auditoria de dependências retornou zero vulnerabilidades conhecidas.
-- O gate SQL local verifica contratos do replay; execução real de Postgres e
-  isolamento com duas contas são validações separadas.
-- Registro anterior: funções deepseek-chat e fluency-assessment publicadas em
-  04/09; PWA autenticada respondeu e chamada sem Authorization retornou 401.
-  Esses resultados não equivalem à validação do frontend desta atualização.
+- Testes novos foram vistos falhando antes das correções e passaram depois.
+- Testes focados de segurança, fiação, legenda, estudo, design e Stage 2 passaram.
+- O release completo com `--allow-dirty` passou no build `3.0.34`.
+- Testes locais não equivalem a QA autenticado, validação visual da CSP publicada
+  ou isolamento real entre duas contas.
 
 ## Próximo passo concreto
 
-1. Conferir o resultado final do [PR #24](https://github.com/cascaoconcurseiro/linguaflow/pull/24)
-   e a publicação correspondente. A main exige PR, histórico linear e release verde.
-2. Verificar resultado do workflow e publicação da PWA para o commit enviado.
-3. Em `dashboard/js/ui/homeView.js::renderHome`, validar conta nova entrando
-   diretamente, sem guia, e navegação durante carregamento.
-4. Recarregar extensão e vídeo; em `content/word-popup.js::_explainContext`,
-   verificar login, retomada, tradução contextual, pronúncia BR e tempo real.
-5. Executar Check completo sem captura de voz, ouvir TTS natural e confirmar
-   `fluency_skill_profiles` HTTP 200 sem 42703.
+1. Em produção, confirmar `app.js?v=3.0.34` e verificar no console se CSP não
+   bloqueia YouGlish, importação EPUB, YouTube ou o TTS selecionado.
+2. Recarregar a extensão e confirmar as cores FSRS no primeiro vídeo, antes de
+   abrir o painel lateral.
+3. Executar o Check autenticado e confirmar `fluency_skill_profiles` HTTP 200 sem
+   `42703`.
+4. Validar RLS ao vivo com duas contas independentes.
 
-## Pendências e limites
+## Bloqueios e limites
 
-- QA de navegador exige conta autenticada; extensão exige recarregamento local.
-- Validar isolamento real com duas contas e resultados recentes do monitor RLS.
-- Calibração humana, respostas-âncora e acompanhamento D7/D30/D90 continuam abertos.
-- Leaked Password Protection estava desativado na consulta de 29/07; revalidar.
-- Push da branch `codex/direct-entry-docs` confirmado; PR #24 aberto para
-  integração por squash. A tentativa direta foi recusada pela proteção da main.
-- Release da branch aprovado no GitHub e preview Vercel publicado. O check do
-  PR é executado novamente em cada atualização; consultar resultado final no PR.
-- Push não comprova deploy concluído e não recarrega extensões instaladas.
+- QA autenticado requer sessão real no navegador e recarregamento da extensão.
+- Leaked Password Protection deve ser revalidado no painel do Supabase.
+- Calibração humana e acompanhamento D7/D30/D90 continuam pendentes.

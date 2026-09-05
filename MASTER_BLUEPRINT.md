@@ -77,10 +77,11 @@ Estado vigente: [`docs/ESTADO_ATUAL_2026-07-29.md`](docs/ESTADO_ATUAL_2026-07-29
 10. Compilação/teste estático não equivale a QA visual, áudio, Chrome ou live.
 11. Migrations são append-only; verificar schema e consumidores antes de mudar.
 12. Branch `main` é a origem do deploy; publicação exige gates e smoke.
+13. Texto capturado, persistido ou gerado por IA nunca é HTML confiável; qualquer formatação permitida precisa de sanitização por allowlist.
 
 ## Gates atuais
 
-- build `3.0.33` autenticado no navegador;
+- build `3.0.34` autenticado no navegador;
 - `fluency_skill_profiles` HTTP 200 sem `42703`;
 - Check de comunicação sem captura de voz;
 - voz natural real na escuta;

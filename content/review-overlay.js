@@ -147,9 +147,36 @@ export class ReviewOverlay {
     if (!this._db) return;
     this._loadError = false;
     try {
-      const due = await this._db.getCardsDue(10, true);
+      const [due, todayCounts, settings] = await Promise.all([
+        this._db.getCardsDue(200, true),
+        this._db.getTodayCounts(),
+        this._db.getSRSSettings(),
+      ]);
       if (!Array.isArray(due)) throw new Error('Fila de revisão indisponível');
-      this.cards = due.filter((c) => c.wordData);
+      const newLimit = settings?.newCardsPerDay ?? 20;
+      const revLimit = settings?.reviewsPerDay ?? 50;
+      const newAllowed = Math.max(0, newLimit - (todayCounts?.newCount || 0));
+      const revAllowed = Math.max(0, revLimit - (todayCounts?.reviewCount || 0));
+
+      let newSeen = 0;
+      let revSeen = 0;
+      const valid = [];
+      for (const card of due) {
+        if (!card.wordData) continue;
+        const isNew = !card.lastReviewed && (card.repetition || 0) === 0;
+        if (isNew) {
+          if (newSeen < newAllowed) {
+            valid.push(card);
+            newSeen++;
+          }
+        } else {
+          if (revSeen < revAllowed) {
+            valid.push(card);
+            revSeen++;
+          }
+        }
+      }
+      this.cards = valid.slice(0, 10);
     } catch (e) {
       this.cards = [];
       this._loadError = true;

@@ -60,6 +60,15 @@ test('card novo + Errei → learning, volta em ~1 min (step 1)', () => {
   assert.ok(Math.abs(next.interval - 1 / 1440) < 1e-9);
 });
 
+test('vencimento diário usa o mesmo relógio injetado no cálculo', () => {
+  const now = new Date(2024, 0, 31, 23, 58, 0).getTime();
+  const next = db._calculateNextState(newCard(), 4, SETTINGS, now);
+  const expected = new Date(now);
+  expected.setDate(expected.getDate() + Math.round(next.interval));
+  expected.setHours(0, 0, 0, 0);
+  assert.equal(next.due_date, expected.toISOString());
+});
+
 test('learning no último step + Bom → GRADUA (review) respeitando graduating_interval', () => {
   const card = { ...newCard(), status: 'learning', step_index: 1, stability: 3.7, difficulty: 5 };
   const s = { ...SETTINGS, gradInt: 3 };

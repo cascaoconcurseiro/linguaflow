@@ -267,7 +267,7 @@ export async function renderSettings(container, app) {
   container.setAttribute('aria-busy', 'false');
   const [savedCefr, savedTtsLang, savedTtsSpeed, srsGradInt, srsMaxInt, srsIntMod,
     srsLeech, srsLeechAction, srsRetentionRaw, srsSteps, srsRelearningSteps, srsNewPerDay, srsMaxRev,
-    srsReverseRaw, srsVariedRaw, audioFrontRaw, audioBackRaw] = settingKeys.map(key => settings[key] ?? null);
+    srsVaultCap, srsReverseRaw, srsVariedRaw, audioFrontRaw, audioBackRaw] = settingKeys.map(key => settings[key] ?? null);
 
   const cefr = savedCefr || '';
   const ttsLang = savedTtsLang || 'en-US';
@@ -280,9 +280,10 @@ export async function renderSettings(container, app) {
   const srsRetention = Math.round((Number(srsRetentionRaw) || 0.9) * 100);
   const learningSteps = srsSteps || '1 10';
   const relearningSteps = srsRelearningSteps || '10';
-  const newPerDay = String(Math.min(20, Math.max(0, Number(srsNewPerDay ?? 5) || 5)));
+  const parsedNewPerDay = Number(srsNewPerDay ?? 5);
+  const newPerDay = String(Math.min(20, Math.max(0, Number.isFinite(parsedNewPerDay) ? parsedNewPerDay : 5)));
   const maxRevPerDay = srsMaxRev || '200';
-  const vaultCap = settings.lf_vault_cap === undefined || settings.lf_vault_cap === null || settings.lf_vault_cap === '' ? 300 : settings.lf_vault_cap;
+  const vaultCap = srsVaultCap === null || srsVaultCap === '' ? 300 : srsVaultCap;
   const srsReverse = srsReverseRaw === true || srsReverseRaw === 'true';
   const srsVaried = srsVariedRaw === null || srsVariedRaw === true || srsVariedRaw === 'true';
   const audioFront = audioFrontRaw === null || audioFrontRaw === true || audioFrontRaw === 'true';

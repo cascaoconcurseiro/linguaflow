@@ -239,6 +239,13 @@ export async function renderStudy(container, app, params = {}) {
           <div class="sentence-text" id="pump-sentence">Carregando...</div>
           <div id="pump-phonetics" style="font-size: 18px; color: var(--color-secondary); font-style: italic; margin-top: 12px;" class="hidden"></div>
           <div id="pump-translation" style="font-size: 20px; font-weight: 700; color: var(--color-text); margin-top: 12px; padding-top: 12px; border-top: 2px dashed var(--color-border);" class="hidden"></div>
+          <details id="iso-context-details" class="context-explanation-card hidden">
+            <summary id="iso-context-summary">
+              <span><span aria-hidden="true">?</span> Por que significa isso nesta frase?</span>
+              <span aria-hidden="true">⌄</span>
+            </summary>
+            <div id="iso-context-explanation" role="region" aria-labelledby="iso-context-summary"></div>
+          </details>
 
           <button id="reveal-btn" class="btn btn-primary reveal-btn">Revelar (Espaço)</button>
         </div>
@@ -279,13 +286,6 @@ export async function renderStudy(container, app, params = {}) {
                     <div id="iso-word"></div>
                     <div id="iso-trans"></div>
                     <div id="iso-phonetics"></div>
-                    <details id="iso-context-details" class="context-explanation-card hidden">
-                      <summary>
-                        <span>Por que significa isso aqui?</span>
-                        <span aria-hidden="true">⌄</span>
-                      </summary>
-                      <div id="iso-context-explanation"></div>
-                    </details>
                     <div id="iso-mnemonic-box">
                       <button id="iso-mnemonic-btn">Criar um truque para lembrar</button>
                       <div id="iso-mnemonic-text" class="hidden"></div>
@@ -431,7 +431,7 @@ function handleKeydown(e) {
   const revealBtn = document.getElementById('reveal-btn');
   const gradingArea = document.getElementById('grading-area');
 
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.target.closest('button, a, summary, input, textarea, select, [contenteditable="true"]')) return;
 
   if (e.code === 'Space') {
     e.preventDefault();
@@ -691,6 +691,11 @@ async function loadNextCard(app) {
   if (audioStatus) audioStatus.textContent = '';
   document.getElementById('pump-phonetics').classList.add('hidden');
   document.getElementById('pump-translation').classList.add('hidden');
+  const contextDetails = document.getElementById('iso-context-details');
+  const contextExplanation = document.getElementById('iso-context-explanation');
+  contextDetails.classList.add('hidden');
+  contextDetails.open = false;
+  contextExplanation.textContent = '';
   document.getElementById('isolated-word-box').classList.add('hidden');
   document.getElementById('saved-video-context').replaceChildren();
   document.getElementById('video-resource-section')?.classList.add('hidden');
@@ -2033,12 +2038,12 @@ function injectStyles() {
     #iso-word { font-size:22px; font-weight:900; color:var(--color-primary); }
     #iso-trans { margin-top:3px; font-size:17px; font-weight:800; color:var(--color-text); }
     #iso-phonetics { margin-top:5px; color:var(--color-secondary); font-style:italic; }
-    .context-explanation-card { margin-top:12px; border-top:1px solid var(--color-border); }
-    .context-explanation-card > summary { min-height:44px; display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; list-style:none; color:var(--color-secondary); font-size:14px; font-weight:900; }
+    .context-explanation-card { width:min(100%, 680px); box-sizing:border-box; margin:12px auto 0; border:1px solid var(--color-border); border-radius:12px; background:var(--color-bg-alt); text-align:left; }
+    .context-explanation-card > summary { min-height:44px; padding:0 12px; display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; list-style:none; color:var(--color-secondary); font-size:14px; font-weight:900; }
     .context-explanation-card > summary::-webkit-details-marker { display:none; }
     .context-explanation-card > summary > span:last-child { color:var(--color-text-light); transition:transform .15s ease; }
     .context-explanation-card[open] > summary > span:last-child { transform:rotate(180deg); }
-    #iso-context-explanation { padding:0 0 12px; color:var(--color-text-light); font-size:14px; line-height:1.55; white-space:pre-line; }
+    #iso-context-explanation { padding:0 12px 12px; color:var(--color-text-light); font-size:14px; line-height:1.55; white-space:pre-line; }
     #iso-mnemonic-box { margin-top:10px; }
     #iso-mnemonic-btn { min-height:40px; padding:0; border:0; background:transparent; color:var(--color-secondary); font-weight:900; cursor:pointer; }
     #iso-mnemonic-text { margin-top:8px; padding:10px 12px; border:1px solid var(--color-warning); border-radius:10px; background:rgba(255,200,0,.12); color:var(--color-text); font-size:13px; line-height:1.5; }

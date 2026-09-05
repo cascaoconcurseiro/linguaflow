@@ -88,7 +88,9 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
 
 - [x] Popup prioriza `pronunciation_pt` do Supabase; teste de corrida e release completo verdes.
 - [x] Commit `71b6dfe` na main com IA, BR e remoção de gravação.
-- [ ] Enviar correções e documentação à main; push solicitado pelo usuário em 05/09.
+- [x] Enviar correções e documentação à branch remota e abrir PR #24 para main.
+- [x] Release da branch aprovado no GitHub e preview Vercel publicado.
+- Integração final e checks: [PR #24](https://github.com/cascaoconcurseiro/linguaflow/pull/24).
 
 - [x] Publicar `deepseek-chat` e `fluency-assessment` exclusivamente DeepSeek no Supabase em 04/09.
 - [x] Confirmar `DEEPSEEK_API_KEY` nos Secrets e ausência do secret OpenRouter.
@@ -99,7 +101,7 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
 - [x] Preservar erros de autenticação do contexto rápido até o popup; testar sessão ausente, 401, 502 e sucesso.
 - [x] Suíte release completa verde em 04/09 antes do ajuste final de propagação; testes focados verdes após ajuste.
 - [ ] Recarregar extensão local e validar professor no YouTube com login próprio da extensão.
-- [ ] Publicar alterações locais do frontend; deploy Supabase não publica PWA ou recarrega extensão.
+- [ ] Confirmar publicação de produção do PR #24; deploy Supabase não publica PWA nem recarrega extensão.
 - [ ] Validar isolamento ao vivo com duas contas; contratos de propriedade/JWT passaram, mas o teste real usou uma conta.
 
 - [x] Registro de 29/07: `main` alinhada com `origin/main` em `267433d`.

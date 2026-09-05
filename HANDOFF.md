@@ -36,8 +36,8 @@ Build local: `3.0.33`. Branch de integração e publicação: `main`.
 
 ## Próximo passo concreto
 
-1. Concluir PR da branch `codex/direct-entry-docs`: a main exige PR, histórico
-   linear e o check Verify learning engine and release smoke aprovado.
+1. Conferir o resultado final do [PR #24](https://github.com/cascaoconcurseiro/linguaflow/pull/24)
+   e a publicação correspondente. A main exige PR, histórico linear e release verde.
 2. Verificar resultado do workflow e publicação da PWA para o commit enviado.
 3. Em `dashboard/js/ui/homeView.js::renderHome`, validar conta nova entrando
    diretamente, sem guia, e navegação durante carregamento.
@@ -52,6 +52,8 @@ Build local: `3.0.33`. Branch de integração e publicação: `main`.
 - Validar isolamento real com duas contas e resultados recentes do monitor RLS.
 - Calibração humana, respostas-âncora e acompanhamento D7/D30/D90 continuam abertos.
 - Leaked Password Protection estava desativado na consulta de 29/07; revalidar.
-- Acesso GitHub autenticado e fetch confirmados. Push direto foi recusado por
-  proteção da main (GH006); seguir PR com squash, sem contornar os checks.
+- Push da branch `codex/direct-entry-docs` confirmado; PR #24 aberto para
+  integração por squash. A tentativa direta foi recusada pela proteção da main.
+- Release da branch aprovado no GitHub e preview Vercel publicado. O check do
+  PR é executado novamente em cada atualização; consultar resultado final no PR.
 - Push não comprova deploy concluído e não recarrega extensões instaladas.

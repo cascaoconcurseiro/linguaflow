@@ -1,7 +1,7 @@
 // Auditoria de FIAÇÃO do LinguaFlow — prova mecânica de desconexão.
 // Não conclui sobre comportamento (regra 1). Só prova ausência de ligação:
 // um símbolo exportado sem importador, um id lido sem criador, um evento
-// escutado sem emissor. Foi assim que pronunciationLab, lf-video-words e
+// escutado sem emissor. Foi assim que lf-video-words e
 // LF_WORD_KNOWN cairam — aqui isso vira varredura, não sorte.
 const fs = require('fs');
 const path = require('path');
@@ -130,7 +130,7 @@ const out = (t, arr) => {
   console.log('\n' + '='.repeat(72) + '\n' + t + '  [' + arr.length + ']\n' + '='.repeat(72));
   arr.length ? arr.forEach(x => console.log('  ' + x)) : console.log('  (nenhum)');
 };
-out('🔴 MÓDULOS ÓRFÃOS — exportam e ninguém importa (classe pronunciationLab)', orphanFiles);
+out('🔴 MÓDULOS ÓRFÃOS — exportam e ninguém importa', orphanFiles);
 out('🟡 SÍMBOLOS ÓRFÃOS — exportados de arquivo vivo, nunca importados', orphanSymbols);
 out('🔴 DOM MORTO — id lido e nunca criado (classe lf-video-words)', deadIds);
 out('🔴 EVENTOS ESCUTADOS E NUNCA EMITIDOS (classe LF_WORD_KNOWN)', neverFired);

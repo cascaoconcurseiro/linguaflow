@@ -12,15 +12,6 @@ const FLUENCY_STEPS = Object.freeze([
     descriptor: 'Compreender a ideia principal de uma mensagem curta e inédita.',
   },
   {
-    id: 'speaking',
-    skill: 'speaking_spontaneous',
-    title: 'Fala espontânea',
-    instruction: 'Responda sem roteiro. Pausas e sotaque fazem parte da sua fala.',
-    taskType: 'spontaneous_speaking',
-    taskFamily: 'personal-description',
-    descriptor: 'Responder espontaneamente a uma situação familiar.',
-  },
-  {
     id: 'writing',
     skill: 'writing',
     title: 'Escrita funcional',
@@ -49,7 +40,6 @@ const LISTENING_OPTIONS = Object.freeze([
 
 const SKILL_LABELS = Object.freeze({
   listening: 'Escuta inédita',
-  speaking_spontaneous: 'Fala espontânea',
   writing: 'Escrita funcional',
   interaction: 'Interação',
 });
@@ -65,7 +55,6 @@ function createClientAttemptId() {
 function emptyAnswers() {
   return {
     listening: { choice: '', replayCount: 0 },
-    speaking: { recorded: false, unavailable: false, durationMs: 0, blobSize: 0 },
     writing: '',
     interaction: { first: '', clarification: '' },
   };
@@ -75,7 +64,6 @@ function normalizeAnswers(value) {
   const empty = emptyAnswers();
   return {
     listening: { ...empty.listening, ...(value?.listening || {}) },
-    speaking: { ...empty.speaking, ...(value?.speaking || {}) },
     writing: typeof value?.writing === 'string' ? value.writing : '',
     interaction: { ...empty.interaction, ...(value?.interaction || {}) },
   };
@@ -121,7 +109,6 @@ export function createFluencyDataAdapter(db) {
 
 function isStepComplete(stepId, answers) {
   if (stepId === 'listening') return !!answers.listening.choice;
-  if (stepId === 'speaking') return answers.speaking.recorded || answers.speaking.unavailable;
   if (stepId === 'writing') return answers.writing.trim().length >= 20;
   if (stepId === 'interaction') {
     return answers.interaction.first.trim().length >= 10
@@ -158,13 +145,13 @@ function renderIntroduction(hasDraft) {
       <header class="fluency-check-header">
         <p class="product-kicker">EVIDÊNCIA DE USO REAL</p>
         <h1 id="fluency-check-title" tabindex="-1">Check de comunicação</h1>
-        <p>Quatro tarefas curtas observam o que você compreende e produz fora da revisão de cartões.</p>
+        <p>Três tarefas curtas observam o que você compreende e produz fora da revisão de cartões.</p>
       </header>
       <section class="fluency-intro-card" aria-labelledby="fluency-intro-title">
         <h2 id="fluency-intro-title">${hasDraft ? 'Continue de onde parou' : 'Antes de começar'}</h2>
         <ul>
           <li>Cerca de 8 minutos, com uma tarefa por tela.</li>
-          <li>O microfone só será solicitado quando você iniciar a etapa de fala.</li>
+          <li>O check não usa microfone nem gravações.</li>
           <li>Esta amostra não altera FSRS, XP, ofensiva ou liga.</li>
           <li>Uma tentativa isolada não atribui um nível global de fluência.</li>
         </ul>
@@ -191,25 +178,6 @@ function renderListening(answers) {
             <span>${escapeHtml(label)}</span>
           </label>`).join('')}
       </div>
-    </fieldset>`;
-}
-
-function renderSpeaking(answers) {
-  const stateText = answers.speaking.recorded
-    ? 'Resposta gravada. Você pode seguir ou gravar novamente.'
-    : answers.speaking.unavailable
-      ? 'Fala espontânea: ainda sem evidência. As demais etapas continuam disponíveis.'
-      : 'O microfone está desligado.';
-  return `
-    <fieldset class="fluency-fieldset">
-      <legend>Conte sobre um plano que você tem para o próximo fim de semana e explique por quê.</legend>
-      <p>Fale por até 60 segundos. Não há texto esperado para repetir.</p>
-      <div class="fluency-recording-controls">
-        <button class="btn btn-secondary" type="button" data-fluency-record>${answers.speaking.recorded ? 'Gravar novamente' : 'Começar gravação'}</button>
-        <button class="btn btn-outline" type="button" data-fluency-stop hidden>Parar gravação</button>
-      </div>
-      <p class="fluency-recording-status" role="status" aria-live="polite">${stateText}</p>
-      ${answers.speaking.unavailable ? '' : '<button class="fluency-text-action" type="button" data-fluency-skip-mic>Continuar sem evidência de fala</button>'}
     </fieldset>`;
 }
 
@@ -240,9 +208,8 @@ function renderInteraction(answers) {
 function renderTask(stepIndex, answers, errorMessage = '') {
   const step = FLUENCY_STEPS[stepIndex];
   const body = step.id === 'listening' ? renderListening(answers)
-    : step.id === 'speaking' ? renderSpeaking(answers)
-      : step.id === 'writing' ? renderWriting(answers)
-        : renderInteraction(answers);
+    : step.id === 'writing' ? renderWriting(answers)
+      : renderInteraction(answers);
   return `
     <main class="fluency-check-page" data-fluency-screen="task" aria-labelledby="fluency-task-title">
       ${renderProgress(stepIndex)}
@@ -295,8 +262,7 @@ function renderResult(answers) {
       </header>
       <section class="fluency-result-grid" aria-label="Evidência por habilidade">
         ${FLUENCY_STEPS.map((step) => {
-          const available = isStepComplete(step.id, answers)
-            && !(step.id === 'speaking' && answers.speaking.unavailable);
+          const available = isStepComplete(step.id, answers);
           return `
             <article class="fluency-skill-result">
               <h2>${escapeHtml(step.title)}</h2>
@@ -313,7 +279,6 @@ function renderResult(answers) {
 
 function responseLength(stepId, answers) {
   if (stepId === 'listening') return answers.listening.choice ? 1 : 0;
-  if (stepId === 'speaking') return answers.speaking.recorded ? answers.speaking.blobSize : 0;
   if (stepId === 'writing') return answers.writing.trim().length;
   return answers.interaction.first.trim().length + answers.interaction.clarification.trim().length;
 }
@@ -321,8 +286,7 @@ function responseLength(stepId, answers) {
 function buildAttemptRecords(answers, attemptIds, startedAt) {
   const occurredAt = new Date().toISOString();
   return FLUENCY_STEPS.map((step) => {
-    const completed = isStepComplete(step.id, answers)
-      && !(step.id === 'speaking' && answers.speaking.unavailable);
+    const completed = isStepComplete(step.id, answers);
     const evidence = {
       task_family: step.taskFamily,
       valid: false,
@@ -375,17 +339,9 @@ export async function renderFluencyCheck(container, app) {
   let answers = emptyAnswers();
   let attemptIds = Object.fromEntries(FLUENCY_STEPS.map((step) => [step.id, createClientAttemptId()]));
   let startedAt = Date.now();
-  let stream = null;
-  let recorder = null;
-  let recordingStartedAt = 0;
-  let recordedChunks = [];
-  let recordingRequestPending = false;
   let submitting = false;
 
   const stopMedia = () => {
-    if (recorder?.state === 'recording') recorder.stop();
-    if (stream) stream.getTracks().forEach((track) => track.stop());
-    stream = null;
     stopAudio();
   };
 
@@ -455,54 +411,6 @@ export async function renderFluencyCheck(container, app) {
     saveDraft();
   };
 
-  const startRecording = async () => {
-    if (recordingRequestPending) return;
-    recordingRequestPending = true;
-    const status = container.querySelector('.fluency-recording-status');
-    const startButton = container.querySelector('[data-fluency-record]');
-    startButton.disabled = true;
-    startButton.setAttribute('aria-busy', 'true');
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (!active) {
-        stream.getTracks().forEach((track) => track.stop());
-        return;
-      }
-      recordedChunks = [];
-      recorder = new MediaRecorder(stream);
-      recorder.addEventListener('dataavailable', (event) => {
-        if (event.data?.size) recordedChunks.push(event.data);
-      });
-      recorder.addEventListener('stop', () => {
-        const blob = new Blob(recordedChunks, { type: recorder?.mimeType || 'audio/webm' });
-        answers.speaking = {
-          recorded: blob.size > 0,
-          unavailable: false,
-          durationMs: Math.max(0, Date.now() - recordingStartedAt),
-          blobSize: blob.size,
-        };
-        if (stream) stream.getTracks().forEach((track) => track.stop());
-        stream = null;
-        if (active) {
-          saveDraft();
-          drawTask();
-        }
-      }, { once: true });
-      recordingStartedAt = Date.now();
-      recorder.start();
-      startButton.hidden = true;
-      container.querySelector('[data-fluency-stop]').hidden = false;
-      status.textContent = 'Gravação em andamento. Ative “Parar gravação” quando terminar.';
-    } catch {
-      startButton.disabled = false;
-      startButton.removeAttribute('aria-busy');
-      status.textContent = 'Não foi possível acessar o microfone. Você pode tentar novamente ou continuar sem evidência de fala.';
-      container.querySelector('[data-fluency-skip-mic]')?.focus();
-    } finally {
-      recordingRequestPending = false;
-    }
-  };
-
   const drawTask = (errorMessage = '') => {
     if (!active) return;
     stopMedia();
@@ -510,15 +418,6 @@ export async function renderFluencyCheck(container, app) {
     focusScreen(container);
 
     container.querySelector('[data-fluency-listen]')?.addEventListener('click', (event) => startListening(event.currentTarget));
-    container.querySelector('[data-fluency-record]')?.addEventListener('click', startRecording);
-    container.querySelector('[data-fluency-stop]')?.addEventListener('click', () => {
-      if (recorder?.state === 'recording') recorder.stop();
-    });
-    container.querySelector('[data-fluency-skip-mic]')?.addEventListener('click', () => {
-      answers.speaking.unavailable = true;
-      saveDraft();
-      drawTask();
-    });
     container.querySelector('[data-fluency-back]')?.addEventListener('click', () => {
       updateAnswersFromDom();
       saveDraft();

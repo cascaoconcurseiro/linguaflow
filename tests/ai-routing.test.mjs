@@ -5,37 +5,47 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const source = readFileSync(join(root, 'supabase/functions/deepseek-chat/index.ts'), 'utf8');
+const dashboardAi = readFileSync(join(root, 'dashboard/js/core/ai.js'), 'utf8');
+const popup = readFileSync(join(root, 'content/word-popup.js'), 'utf8');
+const worker = readFileSync(join(root, 'background/service-worker.js'), 'utf8');
+const popupContext = popup.slice(
+  popup.indexOf('  async _explainContext('),
+  popup.indexOf('  async _generateContext('),
+);
 
-// Professor textual: DeepSeek must be the only provider.
-assert.match(source, /const PRIMARY_MODEL = "deepseek-v4-flash"/,
-  'Professor usa DeepSeek V4 Flash como modelo explícito');
-assert.match(source, /fetch\("https:\/\/api\.deepseek\.com\/chat\/completions"/,
-  'Professor envia a rota textual diretamente para a DeepSeek');
-assert.match(source, /const DEEPSEEK_API_KEY = Deno\.env\.get\("DEEPSEEK_API_KEY"\)/,
-  'Professor usa somente a chave DeepSeek do servidor');
-assert.doesNotMatch(source, /preferEconomy/,
-  'Professor não possui roteamento econômico para outro provedor');
-assert.doesNotMatch(source, /if \(preferEconomy && OPENROUTER_API_KEY\)/,
-  'Professor não prioriza OpenRouter');
-assert.doesNotMatch(source, /fallbackModel/,
-  'Professor não possui modelo textual de fallback');
-assert.doesNotMatch(source, /callProvider\(/,
-  'Professor não usa um dispatcher genérico entre provedores');
+assert.match(source, /https:\/\/api\.deepseek\.com\/chat\/completions/,
+  'texto usa o endpoint oficial do DeepSeek');
+assert.match(source, /model:\s*"deepseek-chat"/,
+  'texto usa exclusivamente o modelo deepseek-chat');
+assert.doesNotMatch(source, /openrouter|nemotron|OPENROUTER/i,
+  'nenhum fallback, secret ou modelo alternativo permanece no proxy');
+assert.doesNotMatch(source, /assess_pronunciation|audio_base64|MAX_AUDIO_BASE64|consent/i,
+  'proxy de IA não possui rota nem payload de gravação');
+assert.doesNotMatch(dashboardAi, /assessPronunciationAudio|audio_base64|MediaRecorder|getUserMedia/,
+  'cliente de IA não captura, prepara ou envia gravações');
+assert.match(source, /"Cache-Control":\s*"private, no-store"/,
+  'respostas pessoais de IA não podem entrar em cache compartilhado');
+assert.match(source, /admin\.auth\.getUser\(token\)[\s\S]*consumeQuota\(admin, userId/,
+  'cada chamada resolve o usuário autenticado antes de consumir sua cota');
+assert.match(popup, /Sessão expirada na extensão\. Abra o Dashboard do LinguaFlow e entre novamente\./,
+  'popup distingue sessão expirada de indisponibilidade da IA');
+assert.match(worker, /pronunciation_pt:\s*result\?\.pronunciation_pt \|\| null/,
+  'worker entrega a pronúncia brasileira retornada pelo contexto rápido');
+assert.match(popup, /response\.pronunciation_pt[\s\S]*cache\[word\]\.pronunciation_pt/,
+  'popup aplica a pronúncia brasileira ao estado visível da palavra');
+assert.match(popup, /response\?\.translation \|\| response\?\.pronunciation_pt \|\| response\?\.explanation/,
+  'popup aceita pronúncia mesmo quando os outros campos da IA vierem vazios');
+assert.match(popupContext, /await db\._readSession\(\)/,
+  'popup verifica presença da sessão no armazenamento local sem uma ida extra ao worker');
+assert.doesNotMatch(popupContext, /db\.checkSession\(\)/,
+  'popup não duplica resolução e possível refresh da sessão antes da chamada de IA');
+assert.match(popupContext, /const sentenceTranslationPromise = this\._translate\(sentence\)[\s\S]*const responsePromise = new Promise/,
+  'tradução auxiliar e IA começam em paralelo');
+assert.match(popupContext, /Promise\.all\(\[phrasalPromise, responsePromise\]\)/,
+  'IA espera somente o recurso local necessário para montar a resposta');
+assert.match(popupContext, /const sentenceTranslation = await sentenceTranslationPromise[\s\S]*Falha ao obter professor IA/,
+  'tradução auxiliar só bloqueia o fallback quando a IA falha');
+assert.doesNotMatch(source, /\.(?:from|insert|upsert)\(/,
+  'proxy não persiste prompts ou respostas em armazenamento compartilhado');
 
-// OpenRouter is allowed only on the explicitly separated pronunciation route.
-assert.match(source, /body\.action === "assess_pronunciation"/,
-  'avaliação de voz usa uma rota explícita');
-assert.match(source, /body\.consent !== true/,
-  'servidor também exige consentimento para áudio');
-assert.match(source, /audio\.length > MAX_AUDIO_BASE64/,
-  'servidor limita o tamanho da gravação');
-assert.match(source, /const MAX_AUDIO_ATTEMPTS = 2/,
-  'áudio possui uma repetição curta para falhas transitórias');
-assert.match(source, /attempt <= MAX_AUDIO_ATTEMPTS/,
-  'falha transitória do modelo de áudio aciona nova tentativa limitada');
-assert.match(source, /OPENROUTER_AUDIO_MODELS/,
-  'modelos de áudio podem ser ampliados por secret sem novo deploy');
-assert.match(source, /available: false,[\s\S]*fallback: "playback"[\s\S]*status: 200/,
-  'indisponibilidade do provedor de áudio não vira erro HTTP no treino de fala');
-
-console.log('13 contratos de roteamento de IA passaram — tudo verde ✅');
+console.log('10 contratos de roteamento DeepSeek-only passaram — tudo verde ✅');

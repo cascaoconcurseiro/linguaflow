@@ -1,13 +1,10 @@
 import { db as lfDb, createOperationId } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio, downloadAudio, preloadNaturalAudio } from '../core/tts.js';
-import { aiChat, aiChatStream, assessPronunciationAudio, getCefrLevel, grammarTutorPersona, grammarInitialQuestion, enrichCard, generateChunksWeb, generateMnemonic } from '../core/ai.js';
+import { aiChat, aiChatStream, getCefrLevel, grammarTutorPersona, grammarInitialQuestion, enrichCard, generateChunksWeb, generateMnemonic } from '../core/ai.js';
 import { attachVideoContext, renderVideoContext, getVideoContext } from '../core/videoContext.js';
 import { buildSessionQueue, isWeakCard, prioritizeDueLearning } from '../core/sessionQueue.js';
 import { deriveAdaptivePlan } from '../core/adaptiveLearning.js';
 import { loadVideo, playClip, replayClip, pausePlayer, setClipLoop, isClipPlaying, hidePlayer } from '../core/ytPlayer.js';
-// Fase 3 da auditoria (§4g.1/§4g.2): primeiro consumidor real do
-// pronunciationLab — o overlay de shadowing deixou de ser um timer de teatro.
-import { pronunciationLab } from '../../../utils/pronunciation.js';
 import { hasSourcePhraseLeak } from '../../../utils/translation-quality.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
@@ -43,150 +40,6 @@ const cardPresentationIds = new WeakMap();
 let nextCardPresentationId = 0;
 let audioUiToken = 0;
 let studentCefr = null;      // nivel CEFR (trava de ditado longo p/ A1-A2)
-let shadowingBusy = false;   // uma gravação por vez
-let echoRec = null;          // modo eco: MediaRecorder quando a nuvem falha
-let echoStream = null;
-let echoChunks = [];
-let echoPlaybackUrl = null;
-let voiceRequestGeneration = 0;
-
-function isMobileVoiceDevice() {
-  if (navigator.userAgentData?.mobile === true) return true;
-  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
-}
-
-function stopEchoMode() {
-  voiceRequestGeneration += 1;
-  const recorder = echoRec;
-  if (recorder) recorder.onstop = null; // descarte: não avalia ao trocar de tela
-  try { if (recorder && recorder.state === 'recording') recorder.stop(); } catch { /* ja parado */ }
-  echoStream?.getTracks().forEach((t) => t.stop());
-  echoStream = null;
-  echoRec = null;
-  if (echoPlaybackUrl) {
-    URL.revokeObjectURL(echoPlaybackUrl);
-    echoPlaybackUrl = null;
-  }
-}
-
-function finishEchoRecording(micBtn, resultEl) {
-  const recorder = echoRec;
-  if (!recorder || recorder.state !== 'recording') return false;
-  delete micBtn.dataset.echo;
-  micBtn.disabled = true;
-  micBtn.textContent = '⏳ Finalizando gravação…';
-  resultEl.textContent = 'Gravação encerrada. Preparando a avaliação…';
-  try { recorder.requestData(); } catch { /* Safari pode não implementar */ }
-  try { recorder.stop(); } catch { return false; }
-  return true;
-}
-
-// O SpeechRecognition do Chrome depende de um servico de nuvem do Google e
-// em varios ambientes falha com 'network' MESMO com o mic autorizado. O plano
-// B grava por no maximo 8s e envia o blob em
-// memoria para avaliacao multimodal. LinguaFlow nao salva o arquivo.
-async function startEchoMode(micBtn, resultEl, expected, card) {
-  const requestGeneration = ++voiceRequestGeneration;
-  let stream;
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch {
-    if (!studyViewActive || requestGeneration !== voiceRequestGeneration || currentCard !== card) return;
-    resultEl.textContent = 'Permissão de microfone negada ou indisponível.';
-    shadowingBusy = false;
-    micBtn.disabled = false;
-    return;
-  }
-  if (!studyViewActive || requestGeneration !== voiceRequestGeneration || currentCard !== card) {
-    stream.getTracks().forEach((track) => track.stop());
-    return;
-  }
-  echoStream = stream;
-  echoChunks = [];
-  let recorder = null;
-  try {
-  echoRec = new MediaRecorder(stream);
-  recorder = echoRec;
-  echoRec.ondataavailable = (e) => { if (e.data && e.data.size) echoChunks.push(e.data); };
-  echoRec.onstop = async () => {
-    echoStream?.getTracks().forEach((t) => t.stop());
-    echoStream = null;
-    if (echoRec === recorder) echoRec = null;
-    delete micBtn.dataset.echo;
-    if (currentCard !== card || echoChunks.length === 0) { shadowingBusy = false; micBtn.disabled = false; micBtn.textContent = '🎤 Falar agora'; return; }
-    const blob = new Blob(echoChunks, { type: recorder.mimeType || 'audio/webm' });
-    echoChunks = [];
-    if (echoPlaybackUrl) URL.revokeObjectURL(echoPlaybackUrl);
-    echoPlaybackUrl = URL.createObjectURL(blob);
-    resultEl.textContent = 'Avaliando sua fala com IA…';
-    micBtn.disabled = true;
-    try {
-      const assessment = await assessPronunciationAudio(blob, expected);
-      if (currentCard !== card) return;
-      if (assessment.available === false) {
-        resultEl.replaceChildren();
-        const message = document.createElement('span');
-        message.textContent = `${assessment.feedback || 'Avaliação automática indisponível.'} `;
-        const playback = document.createElement('audio');
-        playback.controls = true;
-        playback.src = echoPlaybackUrl;
-        playback.setAttribute('aria-label', 'Sua gravação');
-        resultEl.append(message, playback);
-        return;
-      }
-      const missed = Array.isArray(assessment.missed_words) && assessment.missed_words.length
-        ? `<br><span>Revise: ${assessment.missed_words.map(escapeHtml).join(', ')}</span>`
-        : '';
-      resultEl.innerHTML = `<strong>${assessment.score}%</strong> · ${escapeHtml(assessment.feedback || 'Avaliação concluída.')}${missed}`;
-      URL.revokeObjectURL(echoPlaybackUrl);
-      echoPlaybackUrl = null;
-    } catch (error) {
-      if (currentCard === card && echoPlaybackUrl) {
-        resultEl.replaceChildren();
-        const message = document.createElement('span');
-        message.textContent = 'Ouça sua gravação e compare com o modelo: ';
-        const playback = document.createElement('audio');
-        playback.controls = true;
-        playback.src = echoPlaybackUrl;
-        playback.setAttribute('aria-label', 'Sua gravação');
-        resultEl.append(message, playback);
-      }
-    } finally {
-      shadowingBusy = false;
-      if (currentCard === card) { micBtn.disabled = false; micBtn.textContent = '🎤 Gravar de novo'; }
-    }
-  };
-  echoRec.start();
-  } catch {
-    if (recorder) {
-      recorder.onstop = null;
-      try { if (recorder.state === 'recording') recorder.stop(); } catch { /* inicialização parcial */ }
-    }
-    stream.getTracks().forEach((track) => track.stop());
-    if (echoStream === stream) echoStream = null;
-    if (echoRec === recorder) echoRec = null;
-    echoChunks = [];
-    shadowingBusy = false;
-    shadowingPinned = false;
-    if (studyViewActive && requestGeneration === voiceRequestGeneration && currentCard === card) {
-      delete micBtn.dataset.echo;
-      micBtn.disabled = false;
-      micBtn.textContent = '🎤 Tentar de novo';
-      resultEl.textContent = 'Não foi possível iniciar a gravação neste aparelho.';
-    }
-    return;
-  }
-  const recAtStart = echoRec;
-  setTimeout(() => {
-    if (recAtStart.state === 'recording' && currentCard === card) finishEchoRecording(micBtn, resultEl);
-  }, 8000);
-  micBtn.disabled = false;
-  micBtn.dataset.echo = '1';
-  micBtn.textContent = '⏹ Parar gravação';
-  resultEl.textContent = 'Gravando: fale a frase e toque em Parar. Ao concluir, a gravação será enviada para avaliação.';
-}
-let shadowingPinned = false; // mic clicado: o auto-hide de 3s não engole a gravação
-
 const TOPIC_LABELS = { word: 'Palavras', phrasal: 'Phrasal Verbs', slang: 'Gírias', idiom: 'Expressões' };
 
 function scheduleStudyTask(callback, delay = 0) {
@@ -215,10 +68,6 @@ export async function renderStudy(container, app, params = {}) {
     }
     studyViewActive = false;
     stopAudio();
-    pronunciationLab.stop(); // sair da rota fecha o microfone
-    stopEchoMode();
-    shadowingBusy = false;
-    shadowingPinned = false;
     audioUiToken += 1;
     pauseYouglish();
     hidePlayer();
@@ -404,17 +253,6 @@ export async function renderStudy(container, app, params = {}) {
           </div>
         </div>
 
-        <!-- Shadowing real (§4g.1): o mic avalia a repetição via pronunciationLab.
-             Gravação SÓ por clique — nunca auto-iniciar captura de áudio. -->
-        <div id="shadowing-overlay" class="hidden" style="margin-top: 24px; padding: 16px; background: rgba(88, 204, 2, 0.1); border: 2px dashed var(--color-primary); border-radius: var(--radius-md); text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; animation: pulse 2s infinite;">
-          <div style="font-size: 18px; font-weight: 800; color: var(--color-primary);">Treino de fala (opcional)</div>
-          <button id="shadowing-mic" class="btn btn-secondary" style="margin-top:10px; padding:10px 22px; font-size:14px;">🎤 Falar agora</button>
-          <div id="shadowing-result" role="status" aria-live="polite" style="margin-top:10px; font-size:15px; line-height:1.5; max-width:560px;"></div>
-          <div style="width: 100%; background: var(--color-border); height: 6px; border-radius: 3px; margin-top: 12px; overflow: hidden;">
-            <div id="shadowing-progress" style="width: 0%; height: 100%; background: var(--color-primary); transition: width 3s linear;"></div>
-          </div>
-        </div>
-
         <!-- Tudo que ajuda a aprofundar continua disponível, mas não compete
              com recordar e avaliar. A gaveta só aparece após a resposta. -->
         <aside class="study-explore" aria-label="Aprofundamento opcional do card">
@@ -538,68 +376,6 @@ export async function renderStudy(container, app, params = {}) {
     });
   }
 
-  document.getElementById('shadowing-mic')?.addEventListener('click', () => {
-    if (!isMobileVoiceDevice()) return;
-    const card = currentCard;
-    const micBtn = document.getElementById('shadowing-mic');
-    const resultEl = document.getElementById('shadowing-result');
-    if (!card || !micBtn || !resultEl) return;
-    // Modo eco ativo: o mesmo botao encerra a gravacao
-    if (micBtn.dataset.echo === '1') { finishEchoRecording(micBtn, resultEl); return; }
-    if (shadowingBusy) return;
-    const wordAlone = String(card.wordData?.word || card.word || '').trim();
-    const sentence = card._ctx || card.wordData?.context_sentence || wordAlone;
-    const expected = card._mode === 'classic' && card._classicStage === 'word'
-      ? wordAlone
-      : sentence;
-    if (!expected) return;
-    shadowingBusy = true;
-    shadowingPinned = true;
-    // Queixa 18/07: clique parecia morto (delay ate permissao/nuvem).
-    // Feedback SINCRONO antes de qualquer await.
-    micBtn.disabled = true;
-    micBtn.textContent = '⏳ Preparando…';
-    resultEl.textContent = '';
-    stopAudio(); // nunca gravar com TTS falando por cima
-    let gotAnyResult = false;
-    scheduleStudyTask(() => {
-      // Watchdog (queixa 18/07: gravacao em loop infinito): a nuvem do
-      // Chrome as vezes nem erro devolve. 12s sem resultado => derruba o
-      // reconhecimento e cai no modo eco local.
-      if (currentCard !== card || gotAnyResult || micBtn.dataset.echo === '1') return;
-      pronunciationLab.stop();
-      startEchoMode(micBtn, resultEl, expected, card);
-    }, 12000);
-    pronunciationLab.assess(expected, (fb) => {
-      if (currentCard !== card) { pronunciationLab.stop(); return; }
-      if (fb.error || fb.status === 'result') gotAnyResult = true;
-      if (fb.error) {
-        // 'network' = servico de nuvem do Chrome indisponivel (nao e o mic!)
-        // -> troca automaticamente para o modo eco local.
-        if (/network/i.test(fb.error)) {
-          startEchoMode(micBtn, resultEl, expected, card);
-          return;
-        }
-        resultEl.textContent = fb.error;
-        micBtn.disabled = false;
-        micBtn.textContent = '🎤 Tentar de novo';
-        shadowingBusy = false;
-        return;
-      }
-      if (fb.status === 'recording') {
-        micBtn.disabled = true;
-        micBtn.textContent = '🎙️ FALE AGORA';
-        resultEl.textContent = 'Microfone ligado — repita a frase.';
-      } else if (fb.status === 'stopped') {
-        if (micBtn.dataset.echo === '1') return; // modo eco assumiu; nao clobber
-        micBtn.disabled = false;
-        if (micBtn.textContent === '🎙️ FALE AGORA' || micBtn.textContent === '⏳ Preparando…') micBtn.textContent = '🎤 Tentar de novo';
-        shadowingBusy = false;
-      } else if (fb.status === 'result') {
-        resultEl.innerHTML = `<strong>${fb.score}%</strong> das palavras reconhecidas<br><span style="font-size:16px;">${fb.htmlFeedback}</span>`;
-      }
-    });
-  });
   document.getElementById('improve-btn').addEventListener('click', () => improveSentence(app));
   document.getElementById('clear-topic-filter-btn')?.addEventListener('click', () => app.navigate('study'));
   // Progressive disclosure é igual em qualquer tamanho de tela: recursos
@@ -922,18 +698,6 @@ async function loadNextCard(app) {
   hidePlayer(); // troca de card: o vídeo do card anterior não deve tocar ao fundo
   document.getElementById('youglish-box').classList.add('hidden');
   document.getElementById('improve-btn').classList.add('hidden');
-  document.getElementById('shadowing-overlay').classList.add('hidden');
-  document.getElementById('shadowing-progress').style.width = '0%';
-  document.getElementById('shadowing-progress').style.transition = 'none';
-  // Troca de card não pode deixar o microfone aberto nem estado pendurado
-  pronunciationLab.stop();
-  stopEchoMode();
-  shadowingBusy = false;
-  shadowingPinned = false;
-  const shadowingMic = document.getElementById('shadowing-mic');
-  if (shadowingMic) { shadowingMic.disabled = false; shadowingMic.textContent = '🎤 Falar agora'; }
-  const shadowingResult = document.getElementById('shadowing-result');
-  if (shadowingResult) shadowingResult.textContent = '';
   document.getElementById('chunks-container').innerHTML = '';
   resetChat();
 
@@ -1321,25 +1085,7 @@ function playCurrentAudio() {
   if (audioStatus) audioStatus.textContent = card._classicStage === 'word'
     ? 'Reproduzindo a palavra.'
     : 'Reproduzindo a frase.';
-  const playback = playNaturalAudio(textToPlay, { lang }, sentenceDone);
-
-  function sentenceDone() {
-    if (token !== audioUiToken || currentCard !== card) return;
-    const revealBtn = document.getElementById('reveal-btn');
-    if (revealBtn && !revealBtn.classList.contains('hidden')) {
-      const shadowingEl = document.getElementById('shadowing-overlay');
-      const progressEl = document.getElementById('shadowing-progress');
-      if (isMobileVoiceDevice() && shadowingEl) {
-        // Queixa do dono (17/07): "não achei o microfone" — o overlay sumia
-        // depois de 3s. Agora fica visível até o próximo card (resetCardUI
-        // esconde); a barra vira só um realce de entrada, sem esconder nada.
-        shadowingEl.classList.remove('hidden');
-        void progressEl.offsetWidth;
-        progressEl.style.transition = 'width 3s linear';
-        progressEl.style.width = '100%';
-      }
-    }
-  }
+  const playback = playNaturalAudio(textToPlay, { lang });
   Promise.resolve(playback)
     .then(completed => {
       if (token === audioUiToken && currentCard === card && audioStatus) {
@@ -2353,7 +2099,7 @@ function injectStyles() {
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .wave-bar, #shadowing-overlay { animation:none !important; }
+      .wave-bar { animation:none !important; }
       * { scroll-behavior:auto !important; }
     }
 

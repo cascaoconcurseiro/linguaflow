@@ -1,20 +1,28 @@
 # Índice da documentação
 
+Revisado em 05/09/2026: entrada direta e contratos sem captura de voz.
+
 ## Autoritativa
 
 - [Comece aqui](COMECE_AQUI.md)
+- [Estado atual](ESTADO_ATUAL_2026-07-29.md)
+- [Master Blueprint](../MASTER_BLUEPRINT.md)
+- [Checklist](../CHECKLIST.md)
+- [Handoff](../HANDOFF.md)
 - [Arquitetura de dados](ARQUITETURA_DADOS.md)
 - [Backlog do produto](BACKLOG_PRODUTO_2026-07-17.md)
 - [Contrato pedagógico e de economia](CONTRATO_PEDAGOGICO_ECONOMIA_P0_2_2026-07-14.md)
-- [Fundação de evidência](FUNDACAO_EVIDENCIA_P0_2026-07-14.md)
-- [Changelog](CHANGELOG.md)
+- [Contrato de fluência A1–B2](CONTRATO_FLUENCIA_A1_B2_2026-07-28.md)
+- [Changelog atual](../CHANGELOG.md)
 
-## Projeto e UX
+## Referência especializada
 
-- [Visão do produto](VISAO_PRODUTO_2026-07-12.md)
-- [Arquitetura de UX](UX_ARQUITETURA_ETAPA_4_2026-07-15.md)
-- [Design system](DESIGN_SYSTEM_ETAPA_5_2026-07-15.md)
+- [Fonte de verdade Supabase](SUPABASE_FONTE_DE_VERDADE_2026-07-18.md)
+- [Recuperação adaptativa](product/ADAPTIVE_RECOVERY_CAPABILITY.md)
 
-## Auditorias históricas
+## Histórico
 
-Arquivos com `AUDITORIA` e documentos de ondas/etapas registram decisões em datas específicas. Eles são evidência histórica e podem conter itens já corrigidos; não devem substituir o código, os testes ou o backlog atual.
+Auditorias, planos, briefings, ondas e etapas superados foram retirados do
+diretório de trabalho depois da consolidação. Consulte
+[HISTORY.md](HISTORY.md) e o histórico Git quando uma investigação exigir a
+evidência original.

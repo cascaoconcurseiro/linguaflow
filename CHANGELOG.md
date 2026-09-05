@@ -1,5 +1,55 @@
 # Changelog
 
+## Atualização de código — 2026-09-05 (build 3.0.33)
+
+- Primeiro acesso abre o dashboard sem onboarding obrigatório; preferências
+  ausentes, inválidas ou indisponíveis não bloqueiam a Home.
+- Meta anterior preservada; novas contas usam 20 revisões como padrão local,
+  sem gravar nível ou conclusão de onboarding fictícios.
+- Home interrompe atualizações após cancelamento da rota.
+- Popup corrige import de banco, carregamento do dicionário e classificação CEFR.
+- Professor explica blocos no contexto e retorna pronúncia brasileira no mesmo
+  JSON; pronúncia salva permanece prioritária.
+- Consulta de sessão local e tarefas paralelas reduzem esperas antes da resposta.
+- Convite de login da extensão reutiliza uma guia e retoma o contexto aberto.
+- IA exclusivamente DeepSeek autenticada; removida captura de voz do aluno.
+- Novas regressões de entrada direta, dicionário, pronúncia e autenticação;
+  contrato de tradução atualizado. Release completo e auditoria de dependências
+  passaram localmente; QA autenticado e confirmação do deploy continuam separados.
+- Documentação ativa reconciliada; planos antigos permanecem no histórico Git.
+
+## [3.0.33] - 2026-07-29
+
+### Corrigido
+
+- Alinha `getFluencyProfiles()` ao schema canônico
+  (`evidence_status` e `authoritative_attempt_count`), eliminando `42703`.
+- Sincroniza manifest, PWA, HTML e cache do Service Worker no build `3.0.33`.
+
+### Documentação
+
+- Cria uma página canônica de estado atual.
+- Reescreve Blueprint, Checklist, Handoff, índices e backlog com base em
+  `main`, testes e estado de produção registrado.
+- Marca planos/auditorias anteriores como históricos ou superados.
+- Diferencia alinhamento CEFR de exame ou certificação oficial.
+
+## [3.0.32] - 2026-07-29
+
+### Corrigido
+
+- O Check de comunicação usa o pipeline de TTS natural compartilhado.
+- Reprodução é cancelada ao trocar de etapa/rota e só conta após terminar.
+- Web Speech permanece apenas como fallback de indisponibilidade.
+
+## Corte de fluência e tradução contextual - 2026-07-28/29
+
+- Catálogo privado de 32 tarefas A1–B2, autoridade SQL e Edge Function
+  `fluency-assessment`.
+- Migrations aplicadas no Supabase canônico e índices de FKs adicionados.
+- Tradução contextual promovida da captura ao card sem hardcode por palavra.
+- QA autenticado de navegador e calibração humana permanecem gates.
+
 ## Operação de produção — 23/07/2026
 
 - Adicionado monitor diário autenticado de RLS com dois usuários reais.

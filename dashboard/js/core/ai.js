@@ -1,5 +1,5 @@
 // dashboard/js/core/ai.js — cliente de IA do dashboard.
-// Na extensão: passa pelo service worker (action 'ai_chat'), que respeita BYOK.
+// Na extensão: passa pelo service worker (action 'ai_chat').
 // Na web (Vercel): chama a Edge Function segura direto com o token de sessão.
 
 import { db as lfDb } from '../../../utils/db.js';
@@ -64,79 +64,6 @@ export async function aiChat(messages, options = {}) {
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error('A IA não retornou resposta.');
   return content;
-}
-
-export async function assessPronunciationAudio(audioBlob, expectedText) {
-  if (!(audioBlob instanceof Blob) || audioBlob.size === 0) throw new Error('Gravação vazia.');
-  if (audioBlob.size > 1_500_000) throw new Error('Gravação grande demais. Tente uma frase mais curta.');
-  const token = await lfDb._getToken();
-  if (!token) throw new Error('Faça login para avaliar sua fala.');
-
-  // MediaRecorder varia por plataforma (desktop costuma gerar WebM/Opus;
-  // celulares podem gerar MP4/AAC). O provedor multimodal é mais previsível
-  // com WAV PCM mono, então normalizamos localmente antes do envio.
-  let preparedBlob = audioBlob;
-  try {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (AudioContextClass) {
-      const context = new AudioContextClass();
-      try {
-        const decoded = await context.decodeAudioData(await audioBlob.arrayBuffer());
-        const samples = new Float32Array(decoded.length);
-        for (let channel = 0; channel < decoded.numberOfChannels; channel += 1) {
-          const source = decoded.getChannelData(channel);
-          for (let i = 0; i < source.length; i += 1) samples[i] += source[i] / decoded.numberOfChannels;
-        }
-        const wav = new ArrayBuffer(44 + samples.length * 2);
-        const view = new DataView(wav);
-        const write = (offset, text) => [...text].forEach((char, index) => view.setUint8(offset + index, char.charCodeAt(0)));
-        write(0, 'RIFF'); view.setUint32(4, 36 + samples.length * 2, true); write(8, 'WAVE');
-        write(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
-        view.setUint16(22, 1, true); view.setUint32(24, decoded.sampleRate, true);
-        view.setUint32(28, decoded.sampleRate * 2, true); view.setUint16(32, 2, true);
-        view.setUint16(34, 16, true); write(36, 'data'); view.setUint32(40, samples.length * 2, true);
-        samples.forEach((sample, index) => {
-          const clamped = Math.max(-1, Math.min(1, sample));
-          view.setInt16(44 + index * 2, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);
-        });
-        preparedBlob = new Blob([wav], { type: 'audio/wav' });
-      } finally {
-        await context.close().catch(() => {});
-      }
-    }
-  } catch (error) {
-    console.warn('[Voice] Não foi possível normalizar para WAV; mantendo formato original.', error?.name || 'Error');
-  }
-
-  const audioBase64 = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Não foi possível preparar a gravação.'));
-    reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
-    reader.readAsDataURL(preparedBlob);
-  });
-  const mime = String(preparedBlob.type || '').toLowerCase();
-  const format = mime.includes('ogg') ? 'ogg'
-    : mime.includes('mp4') ? 'm4a'
-      : mime.includes('mpeg') ? 'mp3'
-        : mime.includes('wav') ? 'wav'
-          : 'webm';
-
-  const response = await fetch(EDGE_URL, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      action: 'assess_pronunciation',
-      consent: true,
-      expected_text: String(expectedText || '').slice(0, 500),
-      audio_base64: audioBase64,
-      audio_format: format,
-    }),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || 'Não foi possível avaliar a gravação.');
-  if (data.available === false) return data;
-  if (!Number.isFinite(data.score)) throw new Error('A avaliação retornou um formato inválido.');
-  return data;
 }
 
 // Streaming: o texto aparece ENQUANTO a IA gera (espera percebida ~1s).

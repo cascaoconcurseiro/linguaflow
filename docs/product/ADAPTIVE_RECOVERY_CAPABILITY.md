@@ -32,7 +32,10 @@ Cada duas respostas corretas, rápidas e sem ajuda recuam uma etapa. Erro ou aba
 
 ## Verificação de aceite
 
-- Isolamento entre usuários provado por RLS e teste de contrato.
+- Isolamento entre usuários coberto por RLS e contrato; o monitor live de dois
+  usuários roda em workflow separado e não deve ser confundido com o release
+  local.
 - Idempotência garantida por `(user_id, client_event_id)`.
 - Motor puro coberto em transições 0–3 e recuperação sem ajuda.
-- Fluxo completo coberto pelo conjunto `test:release` e verificação no deploy.
+- Fluxo contratual coberto por `test:release`.
+- Interação real, áudio e dados de produção exigem smoke próprio.

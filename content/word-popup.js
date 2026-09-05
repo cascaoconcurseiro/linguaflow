@@ -1,6 +1,7 @@
 // LinguaFlow Pro — Word Popup v5 (unified storage, bilingual examples, full grammar)
 
 import { computeMaxPopupLayout } from './max-player-ui.js';
+import { db } from '../utils/db.js';
 
 function cleanContextExplanation(value) {
   return String(value || '')
@@ -196,8 +197,19 @@ export class WordPopup {
   }
 
   _lookupCEFR(word) {
-    if (!this.cefrList) return null;
-    return this.cefrList[word.toLowerCase()] || null;
+    const cleanWord = word.toLowerCase();
+    return this.engine?.cefrList?.[cleanWord] || this.cefrList?.[cleanWord] || null;
+  }
+  _cefrLabel(level) {
+    const names = {
+      A1: 'Iniciante',
+      A2: 'Básico',
+      B1: 'Intermediário',
+      B2: 'Intermediário alto',
+      C1: 'Avançado',
+      C2: 'Proficiência',
+    };
+    return names[level] ? `CEFR ${level} · ${names[level]}` : '';
   }
   _escapeAttr(value) {
     return String(value ?? '').replace(
@@ -297,6 +309,7 @@ export class WordPopup {
     return best || word;
   }
   destroy() {
+    this._clearLoginWait();
     this._posObserver?.disconnect();
     this._maxPositionObserver?.disconnect();
     this._maxPositionMutationObserver?.disconnect();
@@ -406,8 +419,8 @@ export class WordPopup {
     </div>
   </div>
   <div style="display:flex;gap:6px;flex-shrink:0;margin-top:2px;">
-    <button id="ftts" title="🔊 Ouvir" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#7dd3fc;cursor:pointer;padding:6px 9px;font-size:16px;line-height:1;transition:all .15s;">🔊</button>
-    <button id="fx" style="background:none;border:none;color:#475569;font-size:18px;cursor:pointer;padding:4px 7px;border-radius:6px;line-height:1;">✕</button>
+    <button id="ftts" type="button" title="Ouvir pronúncia" aria-label="Ouvir pronúncia da palavra" style="min-width:44px;min-height:44px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#7dd3fc;cursor:pointer;padding:6px 9px;font-size:16px;line-height:1;transition:all .15s;">🔊</button>
+    <button id="fx" type="button" aria-label="Fechar popup" style="min-width:44px;min-height:44px;background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px 7px;border-radius:6px;line-height:1;">✕</button>
   </div>
 </div>
 <div style="display:flex;border-bottom:1px solid rgba(255,255,255,.07);margin-top:12px;padding:0 4px;">
@@ -669,6 +682,7 @@ export class WordPopup {
     q('#fpos').style.display = 'none';
     q('#ffreq').style.display = 'none';
     q('#fcefr').style.display = 'none';
+    q('#fcefr-prog').style.display = 'none';
     q('#fexprtype').style.display = 'none';
     q('#fff-card').style.display = 'none';
 
@@ -676,7 +690,7 @@ export class WordPopup {
     const cefr = this._lookupCEFR(this.word);
     if (cefr) {
       const el = q('#fcefr');
-      el.textContent = cefr;
+      el.textContent = this._cefrLabel(cefr);
       el.className = `lfp-badge lfp-${cefr.toLowerCase()}`;
       el.style.display = 'inline-block';
       this.activeLevel = cefr;
@@ -684,16 +698,17 @@ export class WordPopup {
       // Progresso CEFR
       (async () => {
         const progEl = q('#fcefr-prog');
-        if (progEl && this.engine?.cefrList) {
-          const allLevel = Object.values(this.engine.cefrList).filter((v) => v === cefr).length;
+        const cefrList = this.engine?.cefrList || this.cefrList;
+        if (progEl && cefrList) {
+          const allLevel = Object.values(cefrList).filter((v) => v === cefr).length;
           const knownAtLevel =
             [...(this.engine.savedWords?.keys() || [])].filter(
-              (w) => this.engine.cefrList[w] === cefr,
+              (w) => cefrList[w] === cefr,
             ).length +
-            [...(this.engine.knownWords || [])].filter((w) => this.engine.cefrList[w] === cefr)
+            [...(this.engine.knownWords || [])].filter((w) => cefrList[w] === cefr)
               .length;
           if (allLevel > 0) {
-            progEl.textContent = `${knownAtLevel}/${allLevel} ${cefr}`;
+            progEl.textContent = `${knownAtLevel} de ${allLevel} aprendidas`;
             progEl.style.display = 'inline';
           }
         }
@@ -823,20 +838,27 @@ export class WordPopup {
   }
 
   async _loadData(word) {
-    if (this.cache[word]) {
-      if (this.word === word) this._render(this.cache[word]);
-      return;
-    }
-
     // Inicia um estado de carregamento base na cache (ou objeto vazio)
     this.cache[word] = {
       translation: '...',
       phonetic: '',
-      pronunciation_pt: '...',
+      pronunciation_pt: '',
+      pronunciation_source: null,
       partOfSpeech: '',
       definition: 'Carregando dicionário...',
     };
     if (this.word === word) this._render(this.cache[word]);
+
+    const entry = this.cache[word];
+    let savedPronunciation = '';
+    db.getWord(word, this.engine?.sourceLang || 'en').then((saved) => {
+      if (this.cache[word] !== entry) return;
+      savedPronunciation = String(saved?.pronunciation_pt || '').trim();
+      if (!savedPronunciation || savedPronunciation === '...') return;
+      entry.pronunciation_pt = savedPronunciation;
+      entry.pronunciation_source = 'saved';
+      if (this.word === word) this._render(entry);
+    }).catch(() => {});
 
     // Busca tradução e dicionário em paralelo, mas atualiza a tela assim que cada um chegar
     this._translate(word).then((tr) => {
@@ -845,10 +867,15 @@ export class WordPopup {
     });
 
     this._dict(word).then((dict) => {
-      if (this.cache[word]) {
-        this.cache[word] = { ...this.cache[word], ...dict };
+      if (this.cache[word] === entry) {
+        Object.assign(entry, dict);
         this.cache[word].phonetic = dict.phonetic || '';
-        this.cache[word].pronunciation_pt = this._convertIPAtoPT(dict.phonetic);
+        const convertedPronunciation = this._convertIPAtoPT(dict.phonetic);
+        this.cache[word].pronunciation_pt = savedPronunciation && savedPronunciation !== '...'
+          ? savedPronunciation : convertedPronunciation;
+        this.cache[word].pronunciation_source = savedPronunciation && savedPronunciation !== '...'
+          ? 'saved' : (convertedPronunciation ? 'ipa' : null);
+        if (!dict.definition) entry.definition = 'Definição indisponível no momento.';
       }
       if (this.word === word) this._render(this.cache[word]);
     });
@@ -1424,6 +1451,7 @@ export class WordPopup {
       θ: 'f',
       ð: 'd',
       ŋ: 'ng',
+      ɡ: 'g',
       j: 'i',
       w: 'u',
       ɹ: 'r',
@@ -1442,7 +1470,49 @@ export class WordPopup {
     return s;
   }
 
+  _clearLoginWait() {
+    if (this._loginListener) chrome.storage.onChanged.removeListener(this._loginListener);
+    this._loginListener = null;
+  }
+
+  _showContextLogin(word, sentence, expired = false) {
+    this._clearLoginWait();
+    const contextSession = this._contextSession;
+    const el = this._q('#fctxt');
+    el.setAttribute('aria-live', 'polite');
+    el.innerHTML = `<strong>${expired ? 'Sua sessão expirou' : 'Seu professor de inglês'}</strong>
+      <p>${expired ? 'Entre novamente para continuar usando o professor.' : 'Entre na sua conta para receber uma explicação desta palavra na frase.'}</p>
+      <button type="button" style="min-height:44px;padding:8px 16px;border:1px solid #7dd3fc;border-radius:8px;background:#1e3a8a;color:#fff;font:inherit;cursor:pointer;">${expired ? 'Entrar novamente' : 'Entrar para usar a IA'}</button>
+      <p role="status"></p>`;
+    const status = el.querySelector('[role="status"]');
+    const button = el.querySelector('button');
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      status.textContent = 'Abrindo o login da extensão…';
+      try {
+        const result = await chrome.runtime.sendMessage({ type: 'OPEN_EXTENSION_LOGIN' });
+        if (!result?.ok) throw new Error('open_failed');
+        status.textContent = 'Depois de entrar, volte ao vídeo. A explicação continuará se esta palavra ainda estiver aberta.';
+      } catch {
+        status.textContent = 'Não foi possível abrir o login. Tente novamente.';
+      } finally {
+        button.disabled = false;
+      }
+    });
+    this._loginListener = async (changes, area) => {
+      if (area !== 'local' || !changes.lf_supabase_session?.newValue) return;
+      if (this._contextSession !== contextSession || this._isHiding || this.popup?.style.display === 'none') {
+        this._clearLoginWait();
+        return;
+      }
+      this._clearLoginWait();
+      await this._explainContext(word, sentence);
+    };
+    chrome.storage.onChanged.addListener(this._loginListener);
+  }
+
   async _explainContext(word, sentence) {
+    this._clearLoginWait();
     const q = (s) => this._q(s);
     const el = q('#fctxt');
     const container = q('#fctx');
@@ -1455,9 +1525,30 @@ export class WordPopup {
       '<span style="color:#94a3b8;font-size:12px;">Analisando estrutura e acionando Professor (IA)...</span>';
 
     try {
-      const sentenceTranslation = await this._translate(sentence);
+      const connected = Boolean(await db._readSession());
+      if (this._contextSession !== contextSession) return;
+      if (!connected) {
+        this._showContextLogin(word, sentence);
+        return;
+      }
       const BASE = chrome.runtime.getURL('utils/');
-      const { phrasalVerbsDB } = await import(BASE + 'phrasal-verbs.js');
+      const sentenceTranslationPromise = this._translate(sentence);
+      const phrasalPromise = import(BASE + 'phrasal-verbs.js')
+        .catch(() => ({ phrasalVerbsDB: null }));
+      const responsePromise = new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          {
+            action: 'ai_quick_context',
+            word,
+            sentence,
+          },
+          (result) => {
+            if (chrome.runtime.lastError) resolve(null);
+            else resolve(result);
+          },
+        );
+      });
+      const [{ phrasalVerbsDB }, response] = await Promise.all([phrasalPromise, responsePromise]);
       const exprInfo = this._detectExprType(word, phrasalVerbsDB);
 
       const typeDescriptions = {
@@ -1501,24 +1592,10 @@ export class WordPopup {
             `;
       }
 
-      // Puxa a IA direto (sem botão)
-      const response = await new Promise((resolve) => {
-        chrome.runtime.sendMessage(
-          {
-            action: 'ai_quick_context',
-            word: word,
-            sentence: sentence,
-          },
-          (r) => {
-            if (chrome.runtime.lastError) resolve(null);
-            else resolve(r);
-          },
-        );
-      });
-
-      if (response?.translation || response?.explanation) {
+      if (response?.translation || response?.pronunciation_pt || response?.explanation) {
         const explanation = cleanContextExplanation(response.explanation);
         const contextualTranslation = String(response.translation || '').trim();
+        const contextualPronunciation = String(response.pronunciation_pt || '').trim();
         if (contextSession) {
           contextSession.translation = contextualTranslation;
           contextSession.explanation = explanation;
@@ -1531,23 +1608,43 @@ export class WordPopup {
         if (this._contextSession !== contextSession) return;
         if (contextualTranslation && this.cache[word]) {
           this.cache[word].translation = contextualTranslation;
+        }
+        if (
+          contextualPronunciation
+          && this.cache[word]
+          && this.cache[word].pronunciation_source !== 'saved'
+        ) {
+          this.cache[word].pronunciation_pt = contextualPronunciation;
+          this.cache[word].pronunciation_source = 'ai';
+        }
+        if (this.cache[word] && (contextualTranslation || contextualPronunciation)) {
           this._render(this.cache[word]);
         }
         this.contextExplanation = explanation;
         const aiExplanation = this._escapeAttr(explanation).replace(/\n/g, '<br>');
         el.innerHTML = nativeHtml + aiExplanation;
       } else {
+        const sentenceTranslation = await sentenceTranslationPromise;
         if (contextSession) {
           contextSession.contextResolved = true;
           this._maybeShowFirstRecall(contextSession, this.cache[word]?.translation || '');
         }
         if (this._contextSession !== contextSession) return;
+        const authExpired = /(?:sess[aã]o expirada|fa[cç]a login|unauthorized|\b401\b)/i
+          .test(String(response?.error || ''));
+        if (authExpired) {
+          this._showContextLogin(word, sentence, true);
+          return;
+        }
+        const failureMessage = authExpired
+          ? 'Sessão expirada na extensão. Abra o Dashboard do LinguaFlow e entre novamente.'
+          : 'Falha ao obter professor IA. Tente novamente em instantes.';
         // Fallback caso a IA falhe
         el.innerHTML =
           nativeHtml +
           `
               <b style="color:#7dd3fc">Frase traduzida:</b> <span style="color:#94a3b8">${sentenceTranslation || 'tradução indisponível'}</span><br>
-              <span style="color:#f87171;font-size:12px;display:block;margin-top:8px;">Falha ao obter professor IA. Limite atingido ou offline.</span>
+              <span style="color:#f87171;font-size:12px;display:block;margin-top:8px;">${failureMessage}</span>
             `;
       }
     } catch (e) {
@@ -1995,6 +2092,7 @@ export class WordPopup {
   }
 
   hide(resumeVideo = false) {
+    this._clearLoginWait();
     if (!this.popup || this.popup.style.display === 'none') return;
 
     this._isHiding = true;

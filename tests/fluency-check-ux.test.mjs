@@ -40,7 +40,7 @@ assert.equal(fallbackStatus.fluencyDue, true);
 assert.equal(fallbackStatus.fluencyResumeAvailable, false);
 
 assert.match(view, /const FLUENCY_STEPS = Object\.freeze\(\[/);
-for (const skill of ['listening', 'speaking_spontaneous', 'writing', 'interaction']) {
+for (const skill of ['listening', 'writing', 'interaction']) {
   assert.match(view, new RegExp(`skill: '${skill}'`));
 }
 assert.match(view, /data-fluency-screen="introduction"/);
@@ -56,8 +56,7 @@ assert.match(view, /aria-current="step"/);
 assert.match(view, /tabindex="-1"/);
 assert.match(view, /class="fluency-validation" role="alert" tabindex="-1"/);
 assert.match(view, /\.focus\(\)/);
-assert.match(view, /navigator\.mediaDevices\.getUserMedia/);
-assert.match(view, /stream\.getTracks\(\)\.forEach\(\(track\) => track\.stop\(\)\)/);
+assert.doesNotMatch(view, /navigator\.mediaDevices|getUserMedia|MediaRecorder|data-fluency-record|data-fluency-stop/);
 assert.match(
   view,
   /import\s*\{\s*playNaturalAudio,\s*stopAudio\s*\}\s*from\s*'\.\.\/core\/tts\.js'/,
@@ -76,14 +75,14 @@ assert.doesNotMatch(view, /new SpeechSynthesisUtterance/);
 assert.doesNotMatch(view, /speechSynthesis\.speak/);
 assert.match(view, /app\.onLeaveView/);
 assert.match(view, /if \(submitting\) return/);
-assert.match(view, /if \(recordingRequestPending\) return/);
 assert.match(view, /function normalizeAnswers\(/);
 assert.match(view, /recordLearningTaskAttempt/);
 assert.match(view, /evaluation_authority:\s*'client'/);
 assert.match(view, /authoritative:\s*false/);
 assert.doesNotMatch(view, /autoplay/i);
 assert.doesNotMatch(view, /Você é [AB][12]/i);
-assert.match(view, /Fala espontânea: ainda sem evidência/);
+assert.doesNotMatch(view, /microfone será solicitado|Começar gravação|Fala espontânea/);
+assert.match(view, /O check não usa microfone nem gravações/);
 
 assert.match(css, /\.fluency-check-page/);
 assert.match(css, /\.fluency-task-actions/);

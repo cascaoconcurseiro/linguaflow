@@ -526,7 +526,7 @@ export class SubtitleEngine {
     try {
       const { WordPopup } = await import('./word-popup.js');
       this.wordPopup = new WordPopup(this, this.platform);
-      this.wordPopup.init();
+      await this.wordPopup.init();
     } catch (e) {
       console.error('[LinguaFlow] Erro ao inicializar WordPopup:', e);
     }

@@ -1,7 +1,7 @@
 # Checklist — LinguaFlow
 
 **Atualizado em:** 2026-09-05
-**Referência:** correções de setembro na `main`, build `3.0.33`
+**Referência:** endurecimento de conteúdo não confiável, build `3.0.34`
 
 Este arquivo contém apenas trabalho vigente. Auditorias e planos superados
 foram consolidados e permanecem recuperáveis pelo histórico Git.
@@ -63,7 +63,7 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
 - [x] Migrations e Edge Function registradas como aplicadas em produção.
 - [x] Contratos de catálogo, SQL, Edge, cliente e UX verdes.
 - [x] Registro de 29/07: PWA pública entrega `app.js?v=3.0.33` sem erro de console.
-- [ ] QA autenticado no build `3.0.33`.
+- [ ] QA autenticado no build `3.0.34`.
 - [ ] QA autenticado: `fluency_skill_profiles` HTTP 200 sem `42703`.
 - [ ] Jornada completa do Check sem captura de voz.
 - [x] Remover microfone, gravação, upload e avaliação de voz do aluno.
@@ -81,6 +81,15 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
 - [ ] Proibir linguagem de certificação oficial sem validação institucional.
 
 ## Produção e segurança
+
+- [x] Neutralizar HTML persistido em contexto, chunks, jogos e tutor da IA; CSP
+  sem scripts inline e allowlist dos recursos externos necessários (2026-09-05).
+- [x] Carregar status FSRS autoritativo dos cards no boot das legendas (2026-09-05).
+- [x] Validar payload de frases, remover UI morta e corrigir falsos positivos do
+  auditor de fiação (2026-09-05).
+- [x] Integrar qualidade de tradução, conteúdo não confiável e fiação ao gate de
+  release; substituir o verificador PowerShell legado (2026-09-05).
+- [x] Release completo do build `3.0.34` passou com as novas regressões (2026-09-05).
 
 - [x] Convite de login no contexto IA com guia própria da extensão e retomada do contexto aberto.
 - [x] Testar convite, sessão expirada, retomada única, cancelamento e reutilização da guia.
@@ -153,6 +162,6 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
 
 ## Próximo passo concreto
 
-Abrir a PWA autenticada, confirmar o build `3.0.33` e inspecionar a chamada de
+Abrir a PWA autenticada, confirmar o build `3.0.34` e inspecionar a chamada de
 `fluency_skill_profiles`. Se estiver em 200, executar o Check sem captura de
 voz; registrar resultado aqui e no `HANDOFF.md`.

@@ -2,7 +2,7 @@
 
 **Atualizado em:** 2026-09-05  
 **Código de referência:** correções de setembro na `main`; SHA em `git log -1`  
-**Build web/extensão:** `3.0.33`
+**Build web/extensão:** `3.0.34`
 
 Este é o ponto de entrada canônico para saber o que existe, o que foi
 verificado e o que ainda falta. Planos e auditorias superados foram removidos
@@ -64,7 +64,7 @@ O corte técnico está integrado:
 
 Isso prova integração técnica, não validade científica. Ainda faltam:
 
-- smoke autenticado no navegador do build `3.0.33`;
+- smoke autenticado no navegador do build `3.0.34`;
 - jornada completa sem captura de voz;
 - calibração com respostas-âncora avaliadas por humanos;
 - concordância entre avaliadores, análise de falsos positivos e viés;
@@ -89,7 +89,7 @@ sessão autenticada, áudio ouvido, dados live ou estudo com usuários.
 
 ## Próximos gates, em ordem
 
-1. Confirmar no navegador autenticado `app.js?v=3.0.33` e leitura
+1. Confirmar no navegador autenticado `app.js?v=3.0.34` e leitura
    `fluency_skill_profiles` com HTTP 200, sem `42703`.
 2. Confirmar entrada direta com conta nova e executar o Check sem captura de voz.
 3. Ouvir a etapa de escuta e confirmar a mesma voz natural das demais

@@ -900,7 +900,7 @@ function exerciseFinish(result, context) {
     : almost
       ? 'Você entendeu — o erro foi de digitação, não de audição. Escolha Difícil ou Bom.'
       : 'Confirme Errei para continuar.';
-  sentenceEl.innerHTML = `${feedback}<div style="font-size:26px;">${context}</div><div class="exercise-grade-prompt">${nextInstruction}</div>`;
+  sentenceEl.innerHTML = `${feedback}<div style="font-size:26px;">${escapeHtml(context)}</div><div class="exercise-grade-prompt">${nextInstruction}</div>`;
   const status = document.getElementById('study-status');
   if (status) status.textContent = correct
     ? 'Resposta correta. Escolha Difícil, Bom ou Fácil para continuar.'
@@ -940,10 +940,10 @@ function renderBuilder(card, context) {
 
   sentenceEl.innerHTML = `
     <div style="font-size:14px; font-weight:800; color:var(--color-secondary); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">🧩 Monte a frase em inglês</div>
-    ${pt ? `<div style="font-size:18px; color:var(--color-text-light); margin-bottom:16px;">"${pt}"</div>` : ''}
+    ${pt ? `<div style="font-size:18px; color:var(--color-text-light); margin-bottom:16px;">"${escapeHtml(pt)}"</div>` : ''}
     <div id="ex-answer" role="status" aria-live="polite" aria-label="Sua resposta" style="min-height:52px; border-bottom:2px solid var(--color-border); margin-bottom:16px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding:8px;"></div>
     <div id="ex-bank" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:16px;">
-      ${shuffled.map((t, i) => `<button class="ex-chip" data-i="${i}" data-t="${t}">${t}</button>`).join('')}
+      ${shuffled.map((t, i) => `<button class="ex-chip" data-i="${i}" data-t="${escapeHtml(t)}">${escapeHtml(t)}</button>`).join('')}
     </div>
     <button id="ex-check" class="btn btn-primary" style="padding:12px 32px; font-size:15px;" disabled>Verificar</button>
   `;
@@ -954,7 +954,7 @@ function renderBuilder(card, context) {
   let wasComplete = false;
 
   function redraw() {
-    answerEl.innerHTML = answer.map((a, idx) => `<button class="ex-chip ex-chip-used" data-idx="${idx}">${a.t}</button>`).join('');
+    answerEl.innerHTML = answer.map((a, idx) => `<button class="ex-chip ex-chip-used" data-idx="${idx}">${escapeHtml(a.t)}</button>`).join('');
     checkBtn.disabled = answer.length !== tokens.length;
     const complete = answer.length === tokens.length;
     if (complete && !wasComplete) checkBtn.focus({ preventScroll: true });
@@ -1049,10 +1049,7 @@ async function improveSentence(app) {
 
   btn.classList.add('hidden');
   const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  document.getElementById('pump-sentence').innerHTML = context.replace(
-    new RegExp(`(${escapedWord})`, 'gi'),
-    '<span class="cloze-revealed">$1</span>',
-  );
+  document.getElementById('pump-sentence').innerHTML = renderHighlightedText(context, escapedWord);
   const ctxEntry = chunks.find(c => c.is_context) || generated[0];
   const wordEntry = chunks.find(c => c.is_word || c.eng?.toLowerCase() === word.toLowerCase());
   renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { renderVideo: false });
@@ -1132,12 +1129,11 @@ async function revealCard() {
     const sentenceEl = document.getElementById('pump-sentence');
     try {
       const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`(${escaped})`, 'gi');
       sentenceEl.innerHTML = context.toLowerCase() !== word.toLowerCase()
-        ? context.replace(regex, '<span class="cloze-revealed">$1</span>')
-        : `<span class="cloze-revealed">${word}</span>`;
+        ? renderHighlightedText(context, escaped)
+        : `<span class="cloze-revealed">${escapeHtml(word)}</span>`;
     } catch {
-      sentenceEl.innerHTML = `<span class="cloze-revealed">${word}</span>`;
+      sentenceEl.innerHTML = `<span class="cloze-revealed">${escapeHtml(word)}</span>`;
     }
     if (audioAutoBack) playCurrentAudio(); // lf_audio_auto_back: config real
   }
@@ -1433,7 +1429,7 @@ function renderChunksList(chunks, context) {
   visible.sort((a, b) => (b.is_context ? 1 : 0) - (a.is_context ? 1 : 0));
 
   if (visible.length === 0) {
-    container.innerHTML = `<div class="chunk-card" style="opacity:1;"><div class="chunk-en">${context}</div></div>`;
+    container.innerHTML = `<div class="chunk-card" style="opacity:1;"><div class="chunk-en">${escapeHtml(context)}</div></div>`;
     return;
   }
 
@@ -1449,16 +1445,16 @@ function renderChunksList(chunks, context) {
 }
 
 function renderChunkCard(c, i) {
-  const safeEng = c.eng.replace(/"/g, '&quot;');
+  const safeEng = escapeHtml(c.eng || '');
   const label = c.is_context ? '<div style="font-size:11px; font-weight:800; color:var(--color-primary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">📌 A frase do card</div>' : '';
   return `
     <div class="chunk-card" style="animation: slideIn 0.3s ease forwards; animation-delay: ${i * 0.1}s; opacity:0;">
       ${label}
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
         <div style="flex:1;">
-          <div class="chunk-en">${c.eng}</div>
-          <div class="chunk-br">${c.phon || ''}</div>
-          <div class="chunk-pt">${c.pt || ''}</div>
+          <div class="chunk-en">${safeEng}</div>
+          <div class="chunk-br">${escapeHtml(c.phon || '')}</div>
+          <div class="chunk-pt">${escapeHtml(c.pt || '')}</div>
         </div>
         <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0; margin-left:8px;">
           <button class="chunk-action-btn chunk-audio-btn" data-text="${safeEng}" aria-label="Ouvir: ${safeEng}" title="Ouvir">🔊</button>
@@ -1510,8 +1506,22 @@ function resetChat() {
   document.querySelectorAll('[data-tutor-prompt]').forEach(button => { button.disabled = true; });
 }
 
-function escapeHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function escapeHtml(str = '') {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function renderHighlightedText(text, escapedWordPattern) {
+  const regex = new RegExp(`(${escapedWordPattern})`, 'gi');
+  return String(text || '').split(regex).map((part, index) =>
+    index % 2 === 1
+      ? `<span class="cloze-revealed">${escapeHtml(part)}</span>`
+      : escapeHtml(part)
+  ).join('');
 }
 
 function appendChatBubble(role, htmlOrText) {
@@ -1520,12 +1530,7 @@ function appendChatBubble(role, htmlOrText) {
   messagesEl.querySelector('.chat-placeholder')?.remove();
   const div = document.createElement('div');
   div.className = role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai';
-  if (role === 'user') {
-    div.textContent = htmlOrText;
-  } else {
-    // Resposta da nossa IA (persona restringe a HTML simples)
-    div.innerHTML = htmlOrText;
-  }
+  div.textContent = htmlOrText;
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   return div;
@@ -1580,7 +1585,7 @@ async function sendGrammarQuestion(text) {
       if (currentCard !== card) return;
       if (!liveBubble) { typing?.remove(); liveBubble = appendChatBubble('ai', ''); }
       if (liveBubble) {
-        liveBubble.innerHTML = full;
+        liveBubble.textContent = full;
         liveBubble.parentElement.scrollTop = liveBubble.parentElement.scrollHeight;
       }
     });
@@ -1592,7 +1597,7 @@ async function sendGrammarQuestion(text) {
     if (currentCard !== card) return;
     chatHistory.pop(); // não deixa a pergunta órfã no histórico
     typing?.remove();
-    appendChatBubble('ai', `<span style="color:var(--color-danger); font-weight:700;">${escapeHtml(e.message || 'Falha ao falar com o tutor.')}</span>`);
+    appendChatBubble('ai', e.message || 'Falha ao falar com o tutor.');
   } finally {
     if (currentCard === card) {
       chatBusy = false;

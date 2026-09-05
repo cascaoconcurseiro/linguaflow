@@ -3,13 +3,13 @@
 // um símbolo exportado sem importador, um id lido sem criador, um evento
 // escutado sem emissor. Foi assim que lf-video-words e
 // LF_WORD_KNOWN cairam — aqui isso vira varredura, não sorte.
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
 
 // A auditoria faz parte do fluxo oficial e precisa rodar também no Windows.
 // O antigo shell `find` era resolvido como FIND.EXE e abortava antes de ler
 // qualquer arquivo. A travessia em Node é determinística e multiplataforma.
-const ignoredDirs = new Set(['node_modules', 'tests', '.git']);
+const ignoredDirs = new Set(['node_modules', 'tests', 'scripts', '.git']);
 const files = [];
 function walk(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -49,6 +49,7 @@ for (const [f, s] of CODE) {
   // caminhos importados (estático, dinâmico, e o padrão chrome.runtime.getURL)
   rx(s, /from\s+['"]([^'"]+)['"]/g).forEach(p => importedPaths.add(p));
   rx(s, /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g).forEach(p => importedPaths.add(p));
+  rx(s, /import\s*\(\s*\w+\s*\+\s*['"]([^'"]+)['"]\s*\)/g).forEach(p => importedPaths.add(p));
   rx(s, /getURL\(\s*['"]([^'"]+)['"]\s*\)/g).forEach(p => importedPaths.add(p));
   // símbolos importados
   [...s.matchAll(/import\s*\{([^}]+)\}\s*from/g)]
@@ -89,7 +90,10 @@ for (const [f, s] of ALL) {
   rx(s, /id=["']([\w-]+)["']/g).forEach(i => idsCreated.add(i));
   rx(s, /\.id\s*=\s*['"]([\w-]+)['"]/g).forEach(i => idsCreated.add(i));
   rx(s, /createElement\([^)]*\)[^;]*?id\s*=\s*['"]([\w-]+)['"]/g).forEach(i => idsCreated.add(i));
+  rx(s, /actionId\s*:\s*['"]([\w-]+)['"]/g).forEach(i => idsCreated.add(i));
 }
+// IDs pertencentes ao DOM do host ou removidos apenas por compatibilidade.
+['movie_player', 'study-styles'].forEach(i => idsCreated.add(i));
 for (const [f, s] of CODE) {
   const read = uniq([
     ...rx(s, /getElementById\(\s*['"]([\w-]+)['"]/g),
@@ -107,6 +111,10 @@ const listened = {}, dispatched = {};
 for (const [f, s] of CODE) {
   uniq(rx(s, /addEventListener\(\s*['"](LF_[\w-]+|lf_[\w-]+)['"]/g))
     .forEach(e => { (listened[e] ||= new Set()).add(f); });
+  if (/addEventListener\(\s*['"]message['"]/.test(s)) {
+    uniq(rx(s, /(?:data|e\.data)\.type\s*={2,3}\s*['"](LF_[\w-]+)['"]/g))
+      .forEach(e => { (listened[e] ||= new Set()).add(f); });
+  }
   uniq([
     ...rx(s, /CustomEvent\(\s*['"](LF_[\w-]+|lf_[\w-]+)['"]/g),
     ...rx(s, /postMessage\(\s*\{\s*type:\s*['"](LF_[\w-]+)['"]/g),

@@ -228,14 +228,18 @@ export class SubtitleEngine {
   async _loadSavedWords() {
     try {
       const { db } = await import('../utils/db.js');
-      const words = await db.getAllWords();
-      const known = await db.getAllKnownWords();
+      const [words, cards, known] = await Promise.all([
+        db.getAllWords(),
+        db.getAllCards(),
+        db.getAllKnownWords(),
+      ]);
+      const cardStatus = new Map((cards || []).map(card => [card.word_id, card.status]));
 
       this.savedWords.clear();
-      words.forEach((w) => this.savedWords.set(w.word.toLowerCase(), w.status || 'new'));
+      (words || []).forEach((w) => this.savedWords.set(w.word.toLowerCase(), cardStatus.get(w.id) || 'new'));
 
       this.knownWords.clear();
-      known.forEach((w) => this.knownWords.add(w.word.toLowerCase()));
+      (known || []).forEach((w) => this.knownWords.add(w.word.toLowerCase()));
 
       console.debug(
         `[LinguaFlow] Vocabulário carregado: ${this.savedWords.size} salvas, ${this.knownWords.size} conhecidas.`,
@@ -1538,13 +1542,8 @@ export class SubtitleEngine {
   toggleLoop() {
     if (!this.videoElement) return false;
 
-    const btnLoop = document.getElementById('lf-btn-loop');
     if (this.isLooping) {
       this.isLooping = false;
-      if (btnLoop) {
-        btnLoop.style.background = 'rgba(255,255,255,0.1)';
-        btnLoop.style.color = '';
-      }
       if (this._loopInterval) {
         clearInterval(this._loopInterval);
         this._loopInterval = null;
@@ -1566,11 +1565,6 @@ export class SubtitleEngine {
     this.isLooping = true;
     this.loopStartTime = start;
     this.loopEndTime = end;
-
-    if (btnLoop) {
-      btnLoop.style.background = 'rgba(56, 189, 248, 0.3)';
-      btnLoop.style.color = '#38BDF8';
-    }
 
     if (this._loopInterval) clearInterval(this._loopInterval);
     this.videoElement.currentTime = this.loopStartTime;
@@ -1641,11 +1635,6 @@ export class SubtitleEngine {
         wrapper.remove();
       }
 
-      const btnPanel = document.getElementById('lf-btn-panel');
-      if (btnPanel) {
-        btnPanel.style.background = 'rgba(255,255,255,0.1)';
-        btnPanel.style.color = '';
-      }
       return;
     }
 
@@ -1805,11 +1794,6 @@ export class SubtitleEngine {
       panel.style.transform = 'translateX(100%)';
       setTimeout(() => wrapper.remove(), 300);
 
-      const btnPanel = document.getElementById('lf-btn-panel');
-      if (btnPanel) {
-        btnPanel.style.background = 'rgba(255,255,255,0.1)';
-        btnPanel.style.color = '';
-      }
     };
 
     overlay.onclick = closePanel;
@@ -2442,12 +2426,6 @@ export class SubtitleEngine {
       list._userScrolling = false;
       this._updateSubtitlePanelHighlight();
     };
-
-    const btnPanel = document.getElementById('lf-btn-panel');
-    if (btnPanel) {
-      btnPanel.style.background = 'rgba(56,189,248,0.3)';
-      btnPanel.style.color = '#38BDF8';
-    }
 
     // Highlight Inicial e Loop de Sincronia
     this._updateSubtitlePanelHighlight();
@@ -3377,38 +3355,6 @@ export class SubtitleEngine {
     return window.location.href;
   }
 
-  async _saveSentence() {
-    const saveBtn = this.shadowContainer?.getElementById('lf-save-btn');
-    const cue = this._currentCue || this.cues[this.currentCueIndex];
-
-    if (!cue || !cue.text) return;
-
-    try {
-      const { db } = await import('../utils/db.js');
-      const sentenceData = {
-        original: cue.text,
-        translation: cue.translatedText || '',
-        videoUrl: await this._getVideoUrlWithTimestamp(),
-        videoTitle: document.title,
-        platform: this.platform,
-        timestamp: this.videoElement?.currentTime || 0,
-      };
-
-      const res = await db.saveSentence(sentenceData);
-
-      if (res.ok && saveBtn) {
-        saveBtn.textContent = '✅ Salva!';
-        saveBtn.style.color = '#34D399';
-        setTimeout(() => {
-          saveBtn.textContent = '+ Salvar frase';
-          saveBtn.style.color = '';
-        }, 2000);
-      }
-    } catch (e) {
-      console.error('[LinguaFlow] Erro ao salvar frase:', e);
-    }
-  }
-
   // ── Motor de Renderização de Elite (onSubtitle) ──────────────────────────
   onSubtitle(cue) {
     if (!cue) return;
@@ -3751,56 +3697,6 @@ export class SubtitleEngine {
     return 'lf-new';
   }
 
-  _setupSaveButtonObserver() {
-    // Observa mudanças no DOM para garantir que o botão só apareça com legenda
-    const origDiv = this.shadowContainer?.getElementById('lf-orig');
-    if (!origDiv) return;
-
-    if (this._saveButtonObservers) {
-      this._saveButtonObservers.forEach((item) => item.disconnect());
-      this._saveButtonObservers.clear();
-    } else {
-      this._saveButtonObservers = new Set();
-    }
-
-    const observer = new MutationObserver(() => {
-      const saveBtn = this.shadowContainer?.getElementById('lf-save-btn');
-      if (!saveBtn) return;
-
-      const hasText = origDiv.textContent && origDiv.textContent.trim().length > 0;
-      const isVisible = origDiv.style.display !== 'none';
-
-      saveBtn.style.display = hasText && isVisible && this.isActivated ? 'inline-block' : 'none';
-      if (!hasText || !isVisible || !this.isActivated) saveBtn.textContent = '+ Salvar frase';
-    });
-
-    observer.observe(origDiv, {
-      childList: true,
-      characterData: true,
-      subtree: true,
-    });
-    this._saveButtonObservers.add(observer);
-    this._managedObservers.add(observer);
-
-    // Também observa mudanças no atributo style
-    const styleObserver = new MutationObserver(() => {
-      const saveBtn = this.shadowContainer?.getElementById('lf-save-btn');
-      if (!saveBtn) return;
-
-      const hasText = origDiv.textContent && origDiv.textContent.trim().length > 0;
-      const isVisible = origDiv.style.display !== 'none';
-
-      saveBtn.style.display = hasText && isVisible && this.isActivated ? 'inline-block' : 'none';
-    });
-
-    styleObserver.observe(origDiv, {
-      attributes: true,
-      attributeFilter: ['style'],
-    });
-    this._saveButtonObservers.add(styleObserver);
-    this._managedObservers.add(styleObserver);
-  }
-
   toggleSubtitles(forceState = null) {
     const host = document.getElementById('linguaflow-subtitle-host');
     if (!host) return;
@@ -3823,9 +3719,6 @@ export class SubtitleEngine {
     // Sincroniza os switches visuais da interface
     const swYt = document.getElementById('lf-yt-switch');
     if (swYt) swYt.classList.toggle('active', isVisible);
-
-    const swHbo = document.getElementById('lf-hbo-switch');
-    if (swHbo) swHbo.classList.toggle('active', isVisible);
 
     // Sincronização Automática com o botão de Legendas Ocultas (CC) do YouTube
     if (this.platform === 'youtube') {

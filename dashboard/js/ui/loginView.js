@@ -5,7 +5,7 @@ export function renderLogin(container, app) {
     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100dvh; padding: 24px; max-width: 400px; margin: 0 auto; width: 100%;">
       
       <div style="text-align: center; margin-bottom: 32px;">
-        <img src="../../icon_full.png" alt="LinguaFlow Logo" style="width: 80px; height: 80px; margin: 0 auto 16px auto; display: block; object-fit: contain;" onerror="this.src='../icon_full.png'" />
+        <img src="/icon_full.png" alt="LinguaFlow Logo" style="width: 80px; height: 80px; margin: 0 auto 16px auto; display: block; object-fit: contain;" />
         <h1 style="color: var(--color-primary); font-size: 28px; margin-bottom: 8px;">LinguaFlow</h1>
         <p style="color: var(--color-text-light); font-size: 16px;">Aprenda idiomas no seu ritmo</p>
       </div>

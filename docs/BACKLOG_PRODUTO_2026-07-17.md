@@ -1,7 +1,7 @@
 # Backlog atual do produto
 
 **Reconciliado em:** 2026-09-05
-**Base:** correções de setembro, build `3.0.33` e suíte de release local verde.
+**Base:** endurecimento de conteúdo não confiável, build `3.0.34` e suíte de release local verde.
 
 O nome datado foi preservado para não quebrar links, mas o conteúdo abaixo é o
 backlog vigente. Itens dos planos antigos só entram aqui depois de nova
@@ -9,7 +9,7 @@ verificação no código e no produto.
 
 ## P0 — provar o corte já entregue
 
-- [ ] Confirmar no navegador autenticado que `app.js?v=3.0.33` está ativo.
+- [ ] Confirmar no navegador autenticado que `app.js?v=3.0.34` está ativo.
 - [ ] Confirmar `fluency_skill_profiles` com HTTP 200, sem `42703`.
 - [ ] Validar entrada direta com conta nova, sem guia obrigatório.
 - [ ] Executar Check completo sem captura de voz.

@@ -18,7 +18,7 @@ assert.match(worker, /const processedVersions = new Set\(\)[\s\S]*?while \(true\
 
 assert.match(popup, /contextSession\.translation = contextualTranslation/,
   'o popup mantém a tradução contextual vinculada à sessão correta');
-assert.match(popup, /if \(response\?\.(?:translation|explanation) \|\| response\?\.(?:translation|explanation)\)/,
+assert.match(popup, /if \(response\?\.translation \|\| response\?\.pronunciation_pt \|\| response\?\.explanation\)/,
   'uma tradução contextual válida não depende de a IA também preencher a explicação');
 assert.match(popup, /translation = contextSession\?\.translation \|\| d\.translation \|\| ''/,
   'o primeiro payload prioriza o sentido contextual');

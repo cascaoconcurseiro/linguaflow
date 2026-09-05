@@ -30,6 +30,11 @@ async function renderLoggedIn() {
 
   // Cards devidos
   const statsText = document.getElementById('stats-text');
+  if (new URLSearchParams(window.location.search).get('login') === '1') {
+    statsText.textContent = 'Você entrou na extensão. Volte ao vídeo para continuar com o professor IA.';
+    statsText.setAttribute('role', 'status');
+    return;
+  }
   try {
     const due = await lfDb.getCardsDue(1000, false);
     if (due && due.length > 0) {
@@ -44,6 +49,11 @@ async function renderLoggedIn() {
 }
 
 async function init() {
+  if (new URLSearchParams(window.location.search).get('login') === '1') {
+    show(areaLogin);
+    document.getElementById('login-email').focus();
+    return;
+  }
   try {
     // O popup deve pintar no primeiro frame. A sessão local decide a tela;
     // refresh/validação remota acontece depois sem segurar a interface.

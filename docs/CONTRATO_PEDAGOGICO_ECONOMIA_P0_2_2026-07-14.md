@@ -1,7 +1,8 @@
 # Contrato Pedagógico e Economia P0.2
 
 **Responsável pela especificação:** Codex — frente sênior de ciência da aprendizagem, SRS e economia anti-farm.
-**Estado:** contrato canônico do primeiro corte; implementação e cutover remoto dependem dos testes listados neste documento.
+**Estado:** contrato canônico implementado e promovido. Os gates permanecem
+obrigatórios e devem impedir regressão; detalhes de rollout são históricos.
 **Escopo:** elegibilidade server-side de card review, XP qualificado, prática livre, feedback e CTAs. Não redefine o FSRS completo, mastery, ligas por coorte ou novos jogos.
 
 ## Regra de produto
@@ -27,7 +28,9 @@ O P0.2 não porta todas as fórmulas FSRS para SQL. Para compatibilidade, o pró
 5. allowlist de campos e faixas numéricas finitas;
 6. estado futuro, suspenso, limite de novos ou versão obsoleta não sofre mutação.
 
-Portar o FSRS ao servidor permanece dívida P1. Essa dívida afeta integridade do agendamento, mas não pode continuar afetando XP depois do P0.2.
+O cálculo completo do próximo estado FSRS continua no cliente sob validação e
+lock server-side. Isso é uma fronteira consciente: não autoriza o cliente a
+declarar XP, elegibilidade ou propriedade.
 
 ## Matriz de review
 
@@ -212,3 +215,10 @@ XP como aproximação temporária.
 - novos jogos.
 
 Esses itens só entram depois que o review v2 reconciliar evento, ledger, projeção e UX sem dupla escrita.
+
+## Estado confirmado em 29/07
+
+- ledger, revisão atômica, grants estreitos e undo estão no corte de produção;
+- os contratos pedagógicos e de economia fazem parte de `test:release`;
+- prática, História, vídeo e Check de comunicação não podem fabricar XP;
+- este contrato governa memória/economia e não serve como prova de fluência.

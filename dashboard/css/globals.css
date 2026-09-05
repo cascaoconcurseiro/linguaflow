@@ -380,8 +380,6 @@ a { color:var(--color-link); }
 .fluency-options label:has(input:checked) { border-color:var(--color-primary); background:color-mix(in srgb, var(--color-primary) 8%, var(--color-surface)); }
 .fluency-options input { width:20px; height:20px; flex:0 0 auto; }
 .fluency-help { margin:9px 0 0; color:var(--color-text-light); font-size:13px; line-height:1.45; }
-.fluency-recording-controls { display:flex; flex-wrap:wrap; gap:10px; margin:18px 0 10px; }
-.fluency-recording-status { min-height:24px; color:var(--color-text-light); font-weight:700; }
 .fluency-text-action { min-height:44px; margin-top:8px; padding:0; border:0; background:transparent; color:var(--color-link); font:800 14px var(--font-main); text-decoration:underline; cursor:pointer; }
 .fluency-dialogue-prompt { margin:16px 0 8px; padding:14px; border-left:4px solid var(--color-secondary); border-radius:0 10px 10px 0; background:var(--color-bg-alt); color:var(--color-text); line-height:1.5; }
 .fluency-validation { margin:18px 0 0; padding:12px 14px; border:1px solid var(--color-danger); border-radius:10px; background:color-mix(in srgb, var(--color-danger) 8%, var(--color-surface)); color:var(--color-danger); font-weight:800; }

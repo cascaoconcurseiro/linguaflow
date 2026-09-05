@@ -16,10 +16,21 @@ Para dados de conta e progresso, o Supabase deve ser a fonte de verdade. Cópias
 | Histórias salvas | tabela `stories` | espelho limitado para fallback offline |
 | Configurações pedagógicas | tabela `settings` | estado de formulário durante a tela atual |
 | Textos do Web Reader | tabela `reader_texts` com RLS | cache local e migração idempotente de textos antigos |
+| Evidência de fluência | tarefas privadas, submissões e `fluency_skill_profiles` | rascunho local; sem captura ou envio de voz do aluno |
+| Perfil adaptativo | eventos e perfis owner-only por RPC | último modo útil durante falha de leitura |
 | Tema, voz e legenda visível | dispositivo/navegador | preferências locais intencionais por enquanto |
 | Traduções e dicionário | serviços externos + cache | cache descartável com validade |
 
 ## Sincronização do Reader
+
+Na Home, `onboarding_v1` é uma preferência legada opcional. Uma meta válida é
+preservada; ausência, registro inválido ou falha de leitura usa 20 revisões
+somente na apresentação. Entrar não grava conclusão nem estima nível.
+
+O Professor retorna tradução, explicação e `pronunciation_pt` numa chamada
+autenticada. O popup prioriza a pronúncia já salva e mantém resultados ligados
+ao contexto aberto. Sessões da extensão (`chrome.storage.local`) e da PWA
+(`localStorage`) são independentes; nenhum token é transportado na URL de login.
 
 Ao abrir o Reader autenticado, textos antigos de `lf_reader_texts` são enviados
 uma vez para `reader_texts`. A estante passa a ser reconstruída a partir do
@@ -38,5 +49,13 @@ todas as origens, sempre sob o usuário autenticado.
 - cache de tradução/dicionário;
 - locks contra contagem duplicada entre abas;
 - áudio temporário e estado de reprodução.
+- respostas livres e gravações transitórias do Check de comunicação.
 
 Esses estados são técnicos ou específicos do dispositivo. Sincronizá-los aumentaria custo e conflitos sem melhorar a continuidade do aprendizado.
+
+## Autoridade de fluência
+
+`learning_task_attempts` não altera cards, FSRS, XP, ofensiva ou liga. O cliente
+pode registrar atividade não autoritativa, mas somente
+`commit_fluency_assessment` pode atualizar o perfil por habilidade. Respostas,
+gabaritos e rubricas privadas não são expostos como tabela pública do cliente.

@@ -1,7 +1,9 @@
 # Contrato de fluência A1–B2 — LinguaFlow
 
-Data: 2026-07-28
-Status: contrato canônico da fundação; geração inédita e avaliação autoritativa ainda não implementadas.
+Data original: 2026-07-28; revisão: 2026-09-05
+Status: contrato canônico. Fundação, catálogo, jornada e avaliação autoritativa
+foram implementados; calibração humana, QA autenticado e validação longitudinal
+continuam pendentes.
 
 ## 1. Promessa verificável
 
@@ -9,7 +11,11 @@ O LinguaFlow deve ajudar a pessoa a compreender e usar o idioma em situações r
 
 O produto só pode apresentar progresso comunicativo quando houver amostras válidas de desempenho em tarefas com objetivo, destinatário, nível-alvo, limite de ajuda e rubrica conhecidos. Uma tentativa nunca certifica um nível.
 
-## 2. O que o check observa
+## 2. Evidências previstas e limite do corte atual
+
+O corte atual não captura nem envia voz do aluno. Fala espontânea abaixo é
+requisito de evidência para avaliação completa, não capacidade comprovada pela
+jornada atual. Resposta textual não comprova pronúncia ou fluidez oral.
 
 | Habilidade | Evidência mínima | Contaminação a evitar |
 |---|---|---|
@@ -82,14 +88,15 @@ FSRS decide quando revisar uma memória. O check de comunicação decide se exis
 ## 7. Autoridade, segurança e privacidade
 
 - Registros enviados pelo cliente são sempre `evaluation_authority = 'client'` e `authoritative = false`.
-- Uma avaliação autoritativa exigirá função server-side ou revisão humana em uma etapa posterior.
+- Uma avaliação autoritativa exige a Edge Function versionada ou revisão humana
+  por papel autorizado; ambos convergem em `commit_fluency_assessment`.
 - `learning_task_attempts` é append-only para o cliente e separada de cards, reviews, XP, ofensiva, missões e liga.
 - Repetir o mesmo `client_attempt_id` com conteúdo diferente gera `idempotency_conflict`.
 - O cliente autenticado lê somente as próprias tentativas e escreve apenas pela RPC estreita.
 - O banco aceita somente metadados de evidência em lista permitida; não guarda áudio, transcrição, resposta livre, segredo ou texto bruto.
 - Horários declarados pelo cliente fora da janela operacional são rejeitados.
 
-## 8. Sequência de entrega
+## 8. Sequência de entrega e estado
 
 ### Corte 1 — fundação local
 
@@ -98,12 +105,17 @@ FSRS decide quando revisar uma memória. O check de comunicação decide se exis
 - rota interna acessível em Progresso;
 - linguagem explícita de que ainda não existe atribuição de nível.
 
+**Estado:** entregue.
+
 ### Corte 2 — tarefas válidas
 
 - catálogo versionado de tarefas por nível e habilidade;
 - estímulos inéditos entregues pelo servidor;
 - cronômetro, limites de replay e registro de ajuda;
 - uma tarefa por tela, com teclado, leitor de tela e estados de erro completos.
+
+**Estado:** entregue no catálogo privado e na jornada; QA real de navegador
+continua pendente.
 
 ### Corte 3 — avaliação
 
@@ -112,6 +124,9 @@ FSRS decide quando revisar uma memória. O check de comunicação decide se exis
 - explicação por dimensão, sem nota única opaca;
 - auditoria de viés, estabilidade e falsos positivos.
 
+**Estado:** avaliador e autoridade entregues; calibração humana, âncoras e
+auditoria de viés permanecem pendentes.
+
 ### Corte 4 — plano adaptativo
 
 - usar lacunas verificadas para escolher produção, interação e conteúdo;
@@ -119,9 +134,13 @@ FSRS decide quando revisar uma memória. O check de comunicação decide se exis
 - mostrar evolução por habilidade e força da evidência;
 - medir transferência para tarefas inéditas em D7, D30 e D90.
 
+**Estado:** não iniciado; depende da validação do Corte 3.
+
 ## 9. Portões de lançamento
 
-O check não pode atribuir nível enquanto qualquer item abaixo estiver ausente:
+O check pode registrar nível observado em uma tarefa e força da evidência por
+habilidade, mas não pode apresentar certificado, nível global definitivo ou
+eficácia comprovada enquanto qualquer item abaixo estiver ausente:
 
 - estímulo inédito controlado no servidor;
 - identidade e versão da tarefa;
@@ -132,3 +151,18 @@ O check não pode atribuir nível enquanto qualquer item abaixo estiver ausente:
 - teste de isolamento entre usuários;
 - política de retenção e exclusão dos dados;
 - validação de acessibilidade em mobile, tablet e desktop.
+
+## 10. Evidência técnica em 29/07
+
+- seed privada preenchida com 32 tarefas A1–B2;
+- migrations e Edge Function registradas como aplicadas no projeto canônico;
+- contratos de catálogo, SQL, Edge, cliente e UX verdes;
+- build `3.0.33` corrige os nomes do perfil e invalida cache antigo;
+- registro histórico: smoke autenticado e calibração humana estavam pendentes.
+
+## 11. Atualização em 05/09
+
+- Captura, upload e avaliação de voz removidos; não exigir microfone.
+- IA exclusivamente DeepSeek autenticada, sem cache compartilhado.
+- Contratos de fluência e release local passaram. QA autenticado e calibração
+  humana permanecem pendentes.

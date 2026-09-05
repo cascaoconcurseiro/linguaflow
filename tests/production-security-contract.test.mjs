@@ -89,10 +89,8 @@ assert.ok(
   deepseek.lastIndexOf('await consumeQuota(admin, userId') > deepseek.indexOf('messages_invalid'),
   'chat de texto só consome quota depois de validar messages',
 );
-assert.ok(
-  deepseek.indexOf('await consumeQuota(admin, userId') > deepseek.indexOf('Gravação, frase ou consentimento inválido.'),
-  'rota de voz só consome quota depois de validar seu body',
-);
+assert.doesNotMatch(deepseek, /audio_base64|assess_pronunciation|MAX_AUDIO_BASE64/,
+  'proxy DeepSeek não aceita gravações');
 
 const tts = readFileSync(join(root, 'supabase/functions/tts/index.ts'), 'utf8');
 assert.ok(

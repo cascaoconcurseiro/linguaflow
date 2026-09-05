@@ -36,7 +36,7 @@ const headers = Object.fromEntries(
 assert.equal(headers['x-content-type-options'], 'nosniff');
 assert.equal(headers['x-frame-options'], 'DENY');
 assert.equal(headers['referrer-policy'], 'strict-origin-when-cross-origin');
-assert.match(headers['permissions-policy'] || '', /microphone=\(self\)/);
+assert.match(headers['permissions-policy'] || '', /microphone=\(\)/);
 
 assert.match(releaseWorkflow, /timeout-minutes:/);
 assert.match(releaseWorkflow, /npm audit --omit=dev --audit-level=high/);

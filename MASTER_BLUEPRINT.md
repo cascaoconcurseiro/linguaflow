@@ -1,61 +1,89 @@
 # Master Blueprint — LinguaFlow
 
 ## Visão geral
-Extensão de navegador (Manifest V3) para aprendizado de idiomas via legenda de vídeo (estilo Anki + Duolingo + LingQ), com um Web App companheiro deployado na Vercel a partir da mesma pasta `dashboard/` (via rewrites em `vercel.json`), compartilhando dados e sessão com a extensão.
+
+Extensão Chrome MV3 e PWA para transformar conteúdo real em compreensão,
+memória de longo prazo e uso comunicativo verificável. O produto preserva o
+contexto da captura, agenda recuperação com FSRS e mantém avaliação
+comunicativa separada de atividade, competição e memória.
+
+Estado vigente: [`docs/ESTADO_ATUAL_2026-07-29.md`](docs/ESTADO_ATUAL_2026-07-29.md).
 
 ## Stack
-- Extensão: JavaScript vanilla, Manifest V3 (Service Worker + content scripts)
-- Dashboard: JavaScript vanilla (módulos ES), HTML/CSS, deploy Vercel
-- Banco/Auth: Supabase (Postgres via REST API + Supabase Auth), acesso direto do cliente com `anon key`
-- IA: DeepSeek (`deepseek-chat`), proxied (ou deveria ser) via Supabase Edge Function `supabase/functions/deepseek-chat`
-- Tradução: Google Translate GTX + fallback MyMemory + dicionário offline local (100% client-side, sem chave)
-- Dicionário: `api.dictionaryapi.dev` (público, sem chave)
 
-## Estrutura de diretórios (relevante)
-```
+- Extensão: JavaScript vanilla, Manifest V3, Service Worker e content scripts.
+- PWA: módulos ES nativos, HTML/CSS, Service Worker, Vercel.
+- Dados/Auth: Supabase Auth, Postgres 17, RLS, REST e RPCs estreitas.
+- Backend: Supabase Edge Functions para IA, TTS, fluência, Push, e-mail e URL.
+- Testes: Node, contratos de código/SQL e replay PostgreSQL efêmero.
+
+## Estrutura
+
+```text
 /
-├── background/service-worker.js     — hub central: auth, proxy de DB, chamadas de IA
-├── content/
-│   ├── index.js                     — bootstrap do content script
-│   ├── subtitle-engine.js           — legenda + tradução inline
-│   ├── word-popup.js                — popup de palavra clicada (dicionário + IA contextual)
-│   └── settings-panel.js            — painel de configurações in-page
-├── dashboard/                       — Web App (também servido via Vercel)
-│   ├── js/core/app.js                — router/bootstrap
-│   ├── js/core/ai.js                 — chama Edge Function deepseek-chat (hoje sem callers — código morto)
-│   ├── js/core/tts.js
-│   └── js/ui/{homeView,studyView,settingsView,loginView,storiesView}.js
-├── utils/
-│   ├── db.js                        — módulo único de acesso a dados (Supabase REST), usado por extensão E dashboard
-│   ├── translator.js                — tradução client-side
-│   └── tts.js
-├── supabase/functions/deepseek-chat/index.ts  — Edge Function proxy de IA (existe, mas subutilizada — ver Decisões)
-└── manifest.json
+├── background/                 # hub da extensão e proxy de dados
+├── content/                    # legendas, popup, Reader e overlays
+├── dashboard/                  # PWA, rotas e experiências de aprendizagem
+├── popup/                      # login/status e entrada da extensão
+├── utils/                      # dados, TTS, tradução e contratos compartilhados
+├── supabase/
+│   ├── functions/              # seis Edge Functions
+│   └── migrations/             # histórico append-only
+├── tests/                      # regressões, contratos e gates SQL
+└── docs/                       # estado, contratos e histórico
 ```
+
+## Domínios e autoridade
+
+| Domínio | Autoridade | Não pode significar |
+|---|---|---|
+| Memória | cards + RPCs de revisão + FSRS | fluência ou domínio global |
+| Atividade | sessões/eventos | retenção ou competência |
+| Competição | ledger e projeções server-side | qualidade linguística |
+| Prática livre | resultado local/telemetria não competitiva | XP, streak ou mudança de FSRS |
+| Fluência | tarefas inéditas + avaliação server/humana | certificado oficial |
+| Dados pessoais | Supabase owner-only | cache local como segunda verdade |
 
 ## Decisões de arquitetura
 
 | Data | Decisão | Motivo |
-|------|---------|--------|
-| 2026-07-29 | Em qualquer captura com frase disponível, `words.translation` e a tradução do card representam o **sentido contextual** da palavra; tradução isolada é apenas fallback provisório. Popup, teste imediato, Web Reader, Histórias, Reader e Estudo devem consumir e promover o mesmo valor contextual. | Palavras polissêmicas não têm uma tradução correta fora da frase. Um fallback como “bruto” para `gross` não pode sobrescrever o sentido “nojento/repugnante” em `this is gross`, nem divergir entre extensão, dashboard e revisão. |
-| 2026-07-28 | Evidência de fluência é um domínio próprio: `learning_task_attempts` + RPC estreita, separado de FSRS, reviews, XP, ofensiva, missões e liga. Registros do cliente são sempre não autoritativos; nível comunicativo exige tarefas inéditas, rubrica 0–3 e repetição por habilidade ao longo do tempo. Contrato canônico: `docs/CONTRATO_FLUENCIA_A1_B2_2026-07-28.md`. | Retenção e atividade não demonstram transferência para compreensão, produção espontânea ou interação. A separação impede que uma autoavaliação curta corrompa o agendamento ou seja apresentada como certificação. |
-| 2026-07-08 | `utils/db.js` é a única fonte de acesso a dados, tanto para content scripts quanto para todas as views do dashboard. Não criar caminho paralelo. | Confirmado por leitura de todos os imports — evita divergência entre extensão e site. |
-| 2026-07-08 | Padrão de proxy interno (`isProxyMode` em `utils/db.js`) roteia chamadas de páginas de extensão via `chrome.runtime.sendMessage` pro Service Worker, que é quem detém o token de verdade e faz o fetch real. | Evita problemas de CSP em páginas de extensão e centraliza o token num só lugar. Não reescrever do zero. |
-| 2026-07-25 | Banco de produção canônico: Supabase `qnutoswrufznztoznlql` (`linguaflow`, PostgreSQL 17). Não aplicar mecanicamente o roadmap antigo de `deleted_at`/`updated_at`: `decks` foi removida intencionalmente; cards e reviews são escritos por RPCs atômicas estreitas; deleção de palavra usa `delete_word_safely`. | Auditoria direta do schema, migrations, policies, grants e RPCs confirmou que soft-delete genérico sem cutover de todas as leituras quebraria o contrato atual e que políticas `ALL` em `cards`/`review_log` reduziriam a segurança. |
-| 2026-07-08 | Sessão Supabase (`lf_supabase_session`) fica em `chrome.storage.local` **e** `localStorage` simultaneamente. | Extensão e site-na-Vercel compartilham a mesma sessão de fato, desde que ela não expire (ver bug de refresh abaixo). |
-| 2026-07-08 | Refresh de token (`refresh_token` + `expires_at`) é PRIORIDADE MÁXIMA, fase isolada antes de qualquer outra coisa. `login()`/`signUp()` em `utils/db.js` hoje salvam só `access_token` — sessão expira em 3600s e quebra tudo autenticado silenciosamente. Já existe fallback de logout automático em 401 (`_fetch()`), mas não substitui o refresh proativo. | Causa raiz mais provável dos sintomas de "desincroniza"/"some depois de um tempo" relatados pelo usuário. |
-| 2026-07-08 | Sistema de **decks foi removido intencionalmente** de `utils/db.js` (`getAllDecks`, `createDeck`, `getOrCreateDeck`, `getDeckStats`, `deleteDeck`) — **cards substituem decks**, conforme decisão explícita do usuário. Remoção ficou incompleta: `bulkUpdateDeck()` e `utils/cloud-sync.js` (que chama `db.getAllDecks()`, método inexistente) ainda referenciam o conceito antigo. | Terminar a remoção faz parte da Fase 1 (limpeza). Não recriar decks. |
-| 2026-07-08 | IA contextual (clique na palavra) vai migrar de **BYOK direto pro DeepSeek** (`api.deepseek.com` com chave do usuário em `chrome.storage.local.aiApiKey`) para **Edge Function `deepseek-chat` com chave compartilhada server-side**, mantendo BYOK como override opcional. | Modelo atual não escala: exigir que cada usuário tenha a própria chave DeepSeek inviabiliza crescimento de base. Language Reactor e apps freemium equivalentes usam chave única no servidor + auth real + rate-limit por usuário — infraestrutura (`supabase/functions/deepseek-chat/index.ts`, já lê `DEEPSEEK_API_KEY` de Supabase Secrets) já existe, só não está conectada ao fluxo real. Requer Fase 0 (refresh de token) completa antes, senão sessão expirada quebraria a IA contextual pior do que hoje. |
-| 2026-07-08 | Tradução de legenda e dicionário de palavra clicada são 100% client-side, sem token, sem proxy — nunca devem depender de sessão Supabase. | São as únicas duas features que devem seguir funcionando mesmo com sessão expirada/deslogado. |
-| 2026-07-09 | SRS usa **FSRS-4.5** (algoritmo do Anki moderno) em `_calculateNextState`, com learning steps para cards novos e retenção desejada configurável (`lf_srs_retention`, default 0.9). SM-2 aposentado; `ease_factor` mantido só por compatibilidade de schema. Cards antigos são semeados a partir do intervalo SM-2. | ~20-30% menos revisões pra mesma retenção; colunas stability/difficulty já existiam no schema. Não voltar pro SM-2. |
-| 2026-07-09 | TTS de áudio natural: blob cacheado em IndexedDB (chave `lang\|texto`), com download de MP3. Web usa Edge Function `tts` (proxy autenticado do Google TTS, rate-limit 60/min); extensão segue via service worker FETCH_TTS. Voz robótica (Web Speech) é último fallback apenas. | Navegador não consegue fetch() do translate_tts por CORS; <audio> direto não permite cache/download. Padrão de segurança idêntico ao deepseek-chat. |
-| 2026-07-09 | **Dashboard passa a ser SÓ NO SITE** (`https://linguaflow-web-tau.vercel.app/`, deploy automático da branch `main`). Extensão fica só com captura (legenda + clicar palavra + salvar) e revisão rápida — modelo Language Reactor. Popup ganha login próprio e abre o site. | O dashboard rodava em 2 contextos (página de extensão + site) com CSPs diferentes → dobrava teste e causava bugs de divergência (ex: Histórias usa `chrome.runtime` e quebra no site). Um só dashboard pra manter. |
-| 2026-07-09 | Sessão do site e da extensão são **independentes** (mesma conta Supabase, storages diferentes: `localStorage` do site ≠ `chrome.storage.local` da extensão). Extensão precisa de login próprio no popup; refresh token mantém logado indefinidamente. | Corrige a premissa antiga de "sessão compartilhada" — ela só valia dentro dos contextos da extensão, nunca entre site e extensão. |
-| 2026-07-09 | Régua de produto: fluência real com conteúdo real (YouTube/HBO/Netflix...), rigor de poliglota, avaliação alinhada a padrão oficial (CEFR/Cambridge). Toda feature responde "aproxima da fluência ou é enfeite?". Fonte de verdade única: Postgres/Supabase. | Direciona o roadmap do `PLANO_MESTRE_FABLE5.md` — evita features soltas sem lastro linguístico. |
+|---|---|---|
+| 2026-09-05 | A Home abre diretamente, sem onboarding obrigatório. Preferências anteriores são opcionais para renderizar; ausência ou falha usa meta local de 20 revisões, sem atribuir nível nem gravar conclusão fictícia. Placement permanece nas configurações. | O primeiro acesso deve permitir uso imediato; falhas de personalização não podem bloquear a entrada. |
+| 2026-09-04 | DeepSeek `deepseek-chat`, acessado exclusivamente pelas Edge Functions autenticadas, é o único provedor de IA. Cada chamada resolve o JWT para `user.id`, consome cota individual e não persiste nem permite cache compartilhado de prompts/respostas. Não há fallback para outro modelo, captura de voz do aluno nem payload de gravação. | Mantém um único fornecedor, isola a IA por usuário e elimina do produto o tratamento de voz do aluno. |
+| 2026-07-29 | Tradução contextual é o valor canônico quando há frase; tradução isolada é fallback provisório. | Palavras polissêmicas não têm um sentido correto fora do contexto. |
+| 2026-07-29 | A fundação de fluência está tecnicamente integrada, mas não pode ser chamada de avaliação oficial nem evidência de eficácia até calibração humana e validação longitudinal. | Contratos de software não estabelecem validade psicométrica ou resultado educacional. |
+| 2026-07-28 | Evidência comunicativa vive separada de FSRS, XP, ofensiva, missões e liga. | Retenção e atividade não demonstram transferência. |
+| 2026-07-25 | Supabase canônico: `qnutoswrufznztoznlql`; não aplicar roadmap antigo de soft-delete ou `supabase db push` mecanicamente. | O schema vivo e as RPCs atuais têm semântica específica e histórico divergente. |
+| 2026-07-18 | Supabase é fonte de verdade de conteúdo/progresso; local é cache, preferência do dispositivo ou contingência. | Evita duas verdades entre extensão, PWA e dispositivos. |
+| 2026-07-16 | XP competitivo só vem de evidência qualificada e server-side; prática livre não altera economia. | Impede farming e incentiva resposta honesta. |
+| 2026-07-09 | Dashboard completo vive no site; extensão concentra captura, contexto e revisão rápida. | Reduz divergência de CSP e superfícies duplicadas. |
+| 2026-07-09 | Site e extensão usam a mesma conta, mas sessões independentes por origem. | `localStorage` e `chrome.storage.local` não são compartilhados. |
+| 2026-07-09 | FSRS-4.5 é o agendador atual; `ease_factor` permanece apenas por compatibilidade. | Preserva cards legados e retenção configurável. |
+| 2026-07-09 | TTS: cache → caminho natural server-side/direto → Web Speech como último fallback. | Continuidade sem apresentar voz robótica como caminho principal. |
+| 2026-07-08 | `utils/db.js` é a única fronteira de dados; páginas de extensão usam proxy `DB_CALL`. | Centraliza token, erros e contratos entre PWA e extensão. |
+| 2026-07-08 | Tradução básica e dicionário não dependem da sessão Supabase. | O núcleo de compreensão deve degradar quando o login expirar. |
 
-## Regras do projeto
-- Nenhuma API key/segredo compartilhado pode aparecer em código de cliente (extensão, popup, content script, frontend web). `SUPABASE_ANON_KEY` é exceção por design do Supabase (chave pública). `DEEPSEEK_API_KEY` **nunca** pode ir para o cliente — vive só em Supabase Secrets, usada pela Edge Function.
-- Toda função de backend que recebe requisição autenticada precisa validar o JWT de verdade (`supabase.auth.getUser(token)`), nunca só checar se o header existe.
-- Não inventar assinatura de função ou estrutura de tabela do Supabase sem verificar o código real ou pedir para rodar uma query.
-- Política "tudo gratuito": nenhuma feature essencial deve exigir pagamento do usuário (ver memória `feedback_tudo_gratuito`).
-- Push sempre para `main` ao final de um ciclo de trabalho — nunca deixar código só em branch de feature (ver memória `feedback_git_decisions`).
+## Contratos que não podem regredir
+
+1. Escrita nunca falha silenciosamente.
+2. Segredo compartilhado nunca entra em cliente, log ou documentação.
+3. Toda função privilegiada valida identidade, propriedade, grants e input.
+4. Retry usa UUID estável; colisão com payload diferente é conflito.
+5. Reprodução, vídeo, timers, streams e listeners terminam ao trocar de card/rota.
+6. Uma tela obsoleta não pode commitar UI ou efeitos.
+7. Prática livre não altera FSRS, XP, streak ou liga.
+8. Uma tentativa de fluência nunca certifica nível.
+9. “CEFR/Cambridge” significa alinhamento, não endosso institucional.
+10. Compilação/teste estático não equivale a QA visual, áudio, Chrome ou live.
+11. Migrations são append-only; verificar schema e consumidores antes de mudar.
+12. Branch `main` é a origem do deploy; publicação exige gates e smoke.
+
+## Gates atuais
+
+- build `3.0.33` autenticado no navegador;
+- `fluency_skill_profiles` HTTP 200 sem `42703`;
+- Check de comunicação sem captura de voz;
+- voz natural real na escuta;
+- tradução contextual ponta a ponta;
+- calibração humana com respostas-âncora;
+- observação de usuários e medidas D7/D30/D90.

@@ -56,9 +56,8 @@ key.pem
 coverage/
 .nyc_output/
 
-# Documentation drafts
-docs/archived/*
-!docs/archived/.gitkeep
+# Generated documentation/tool caches
+.openai-docs-cache/
 
 # Personal notes
 NOTES.md

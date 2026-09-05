@@ -1594,9 +1594,9 @@ class Database {
     });
   }
 
-  async assessFluencySubmission(submissionId, transientEvidence = null) {
+  async assessFluencySubmission(submissionId) {
     if (this.isProxyMode) {
-      return this._proxy('assessFluencySubmission', [submissionId, transientEvidence]);
+      return this._proxy('assessFluencySubmission', [submissionId]);
     }
     if (!UUID_PATTERN.test(submissionId)) throw new Error('Identificador de avaliação inválido.');
     const token = await this._getToken();
@@ -1612,10 +1612,7 @@ class Database {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          submission_id: submissionId,
-          ...(transientEvidence ? { transient_evidence: transientEvidence } : {}),
-        }),
+        body: JSON.stringify({ submission_id: submissionId }),
         signal: controller.signal,
       });
       const text = await response.text();
@@ -1712,10 +1709,7 @@ class Database {
         record.responseTimeMs,
         record.clientSubmissionId,
       );
-      const assessment = await this.assessFluencySubmission(
-        submission.id,
-        record.transientEvidence || null,
-      );
+      const assessment = await this.assessFluencySubmission(submission.id);
       results.push({ submission, assessment });
     }
     await this.clearFluencyCheckDraft();

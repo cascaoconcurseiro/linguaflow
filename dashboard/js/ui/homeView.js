@@ -269,7 +269,6 @@ export async function renderHome(container, app) {
     // Stats via db unificado (Supabase) exposto em app.db
     const db = app?.db;
     container.setAttribute('aria-busy', 'true');
-    container.setAttribute('aria-busy', 'true');
     container.innerHTML = renderViewState({ kind: 'loading', title: 'Preparando seu plano de hoje…', message: 'Organizando as revisões que mais ajudam sua memória agora.' });
     if (!db) {
         container.removeAttribute('aria-busy');
@@ -279,7 +278,7 @@ export async function renderHome(container, app) {
     const [statsResult, onboardingResult, fluencyStateResult] = await Promise.allSettled([
         db.getStats(), db.getSetting(ONBOARDING_KEY), loadFluencyHomeState(db),
     ]);
-    if (myGen !== _homeRenderGen) return; // uma chamada mais nova já assumiu a tela
+    if (myGen !== _homeRenderGen || app?.renderSignal?.aborted) return;
     container.removeAttribute('aria-busy');
     if (statsResult.status !== 'fulfilled') {
         renderHomeLoadError(container, app);
@@ -289,16 +288,9 @@ export async function renderHome(container, app) {
     // getStats já consulta user_stats para streak/XP. Reusar evita uma chamada
     // REST duplicada no primeiro carregamento do painel.
     const userStats = stats?.userStats || null;
-    if (onboardingResult.status !== 'fulfilled') {
-        // Sem confirmação do estado persistido, não assumimos que seja uma conta vazia.
-        renderHomeLoadError(container, app);
-        return;
-    }
-    const onboarding = parseOnboarding(onboardingResult.value);
-    if (!onboarding?.completed) {
-        renderOnboarding(container, app, onboarding || {});
-        return;
-    }
+    const onboarding = onboardingResult.status === 'fulfilled'
+        ? parseOnboarding(onboardingResult.value) : null;
+    const dailyGoal = onboarding?.dailyGoal ?? 20;
 
     const safeStats = stats || { totalWords: 0, dueCards: 0, byStatus: {}, sessions: [] };
     const fluencyState = fluencyStateResult.status === 'fulfilled'
@@ -447,9 +439,8 @@ export async function renderHome(container, app) {
     const daysAway = lastStudy ? Math.max(0, daysBetweenLocalKeys(lastStudy, todayISO)) : 0;
     const isReturning = daysAway >= 2; // sumiu 2+ dias
 
-    // A meta escolhida no onboarding é a missão principal. Em retorno após
-    // ausência, reduzimos apenas essa primeira missão para evitar fricção.
-    const revTarget = isReturning ? Math.min(onboarding.dailyGoal, 5) : onboarding.dailyGoal;
+    // Preserva metas anteriores; primeiro acesso usa a meta padrão sem guia.
+    const revTarget = isReturning ? Math.min(dailyGoal, 5) : dailyGoal;
     // Missões medem recuperação real. Capturar conteúdo e ganhar XP não são
     // objetivos pedagógicos: podem acontecer sem que o aluno recupere nada.
     const coreQuests = [
@@ -485,7 +476,7 @@ export async function renderHome(container, app) {
         ...fluencyState,
     });
 
-    if (myGen !== _homeRenderGen) return; // uma chamada mais nova já assumiu a tela (Onda 9)
+    if (myGen !== _homeRenderGen || app?.renderSignal?.aborted) return;
     container.innerHTML = `
         <div class="gamified-home">
             <div class="dashboard-main">
@@ -726,7 +717,7 @@ export async function renderHome(container, app) {
         (async () => {
             try {
                 const seenRaw = await db.getSetting('lf_achievements_seen');
-                if (myGen !== _homeRenderGen) return; // (Onda 9) chamada superada — não duplica o toast
+                if (myGen !== _homeRenderGen || app?.renderSignal?.aborted) return;
                 let seenIds = [];
                 try { seenIds = seenRaw ? JSON.parse(seenRaw) : []; } catch { seenIds = []; }
                 const fresh = newlyUnlocked(achievements, seenIds);

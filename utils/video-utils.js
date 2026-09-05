@@ -83,15 +83,5 @@ export const videoUtils = {
             console.warn('[LinguaFlow] DRM blocks screenshot:', e);
             return null;
         }
-    },
-
-    /**
-     * Captures audio of the last few seconds (using MediaRecorder if stream exists)
-     */
-    async captureAudio() {
-        // Devido à segurança cross-origin e DRM, capturar áudio in-browser 
-        // de <video> usando captureStream() frequentemente falha. 
-        // Retornamos null para o MVP seguro. 
-        return null; 
     }
 };

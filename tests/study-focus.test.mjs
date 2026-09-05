@@ -53,39 +53,13 @@ assert.match(source, /card\._classicStage = 'context'/,
   'segunda tela mostra a palavra dentro da frase');
 assert.match(source, /setClipLoop\(false\)/,
   'trecho original toca uma vez e não fica preso em loop');
-assert.doesNotMatch(source, /voice-ai-consent|VOICE_AI_CONSENT_KEY/,
-  'treino de voz não interrompe cada uso com checkbox redundante');
-assert.doesNotMatch(source, /NVIDIA\/OpenRouter|aviso de IA|provedor de IA/,
-  'treino de fala não exibe aviso técnico de IA ou fornecedor');
-assert.match(source, /assessPronunciationAudio\(blob, expected\)/,
-  'fallback de gravação recebe avaliação multimodal em vez de apenas eco');
-assert.match(source, /function isMobileVoiceDevice\(\)/,
-  'treino de voz define uma fronteira explícita de dispositivo móvel');
-assert.match(source, /if \(!isMobileVoiceDevice\(\)\) return;/,
-  'desktop não inicializa nem exibe o treino de voz temporariamente');
-assert.match(source, /if \(isMobileVoiceDevice\(\) && shadowingEl\)/,
-  'overlay do microfone só aparece em dispositivo móvel');
-assert.match(source, /stopEchoMode\(\);[\s\S]{0,120}shadowingBusy = false;/,
-  'saída/troca encerra gravação e libera o estado ocupado');
-assert.doesNotMatch(source, /Modo eco \(sem nuvem\)/,
-  'interface não promete processamento local quando enviará a gravação à nuvem');
-assert.match(source, /gravação será enviada para avaliação/,
-  'interface informa o envio da gravação antes da avaliação');
-assert.match(source, /card\._classicStage === 'word'[\s\S]{0,100}\? wordAlone[\s\S]{0,40}: sentence/,
-  'primeiro estágio cobra somente a palavra; frase só nos estágios seguintes');
-assert.match(source, /playback\.src = echoPlaybackUrl/,
-  'falha externa mantém reprodução local da gravação no PC');
+assert.doesNotMatch(source, /pronunciationLab|assessPronunciationAudio|MediaRecorder|getUserMedia|shadowing-mic|shadowing-overlay/,
+  'modo Estudo não inclui captura nem avaliação de áudio do aluno');
 assert.match(source, /hasSourcePhraseLeak\(context, ctxEntry\.pt\)/,
   'tradução de frase híbrida é considerada incompleta e regenerada');
 assert.match(source, /needsContextRepair/,
   'chunks persistidos ruins não ficam congelados para sempre');
-assert.match(aiSource, /preparedBlob = new Blob\(\[wav\], \{ type: 'audio\/wav' \}\)/,
-  'PC e celular normalizam a gravação para WAV antes do envio');
-const { pronunciationLab } = await import('../utils/pronunciation.js');
-const maliciousFeedback = pronunciationLab.calculateDiff('<img src=x onerror=alert(1)>', 'outra coisa').htmlFeedback;
-assert.doesNotMatch(maliciousFeedback, /<img/,
-  'feedback de pronúncia escapa HTML vindo de frases importadas');
-assert.match(maliciousFeedback, /&lt;img/,
-  'feedback preserva a palavra perigosa somente como texto');
+assert.doesNotMatch(aiSource, /audio_base64|readAsDataURL|assessPronunciationAudio/,
+  'cliente de IA não prepara nem envia áudio');
 
-console.log('29 contratos do modo foco passaram — tudo verde ✅');
+console.log('20 contratos do modo foco passaram — tudo verde ✅');

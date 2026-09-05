@@ -868,6 +868,7 @@ export class SettingsPanel {
   _applyToEngine() {
     if (!this.engine) return;
 
+    const displayModeChanged = this.engine.displayMode !== this.cfg.subtitleMode;
     this.engine.displayMode = this.cfg.subtitleMode;
     this.engine.targetLang = this.cfg.targetLang;
     this.engine.sourceLang = this.cfg.sourceLang || 'en';
@@ -891,6 +892,10 @@ export class SettingsPanel {
     this.engine.blurSubtitles = this.cfg.blurSubtitles;
     this.engine.ttsPlaybackRate = this.cfg.ttsPlaybackRate;
     this.engine.popupMode = this.cfg.popupMode;
+
+    if (displayModeChanged && this.engine._lastOrig) {
+      this.engine.renderDual(this.engine._lastOrig, this.engine._lastTrans || '');
+    }
 
     const host = document.getElementById('linguaflow-subtitle-host');
     if (host) {

@@ -1848,7 +1848,7 @@ export class SubtitleEngine {
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <div style="display:flex;gap:12px;">
                     <label class="lf-checkbox-label" style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;">
-                        <input type="checkbox" id="lf-show-translation" ${this.displayMode === 'bilingual' ? 'checked' : ''} style="cursor:pointer;accent-color:#38BDF8;">
+                        <input type="checkbox" id="lf-show-translation" checked style="cursor:pointer;accent-color:#38BDF8;">
                         <span>Tradução</span>
                     </label>
                     <label class="lf-checkbox-label" style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;">
@@ -3477,7 +3477,7 @@ export class SubtitleEngine {
     }
 
     // Aplica o modo de exibição e visibilidade real baseada em conteúdo
-    const mode = this.displayMode || 'bilingual';
+    const mode = this.displayMode || 'native';
     if (wrap) wrap.setAttribute('data-subtitle-mode', mode);
 
     const hasTrans = decodedTrans && decodedTrans.trim().length > 0;
@@ -3492,13 +3492,25 @@ export class SubtitleEngine {
     } else {
       // mode === 'native'
       origDiv.style.display = 'block';
-      // No modo nativo, transDiv fica oculto por padrão (até clicar em Traduzir)
-      if (orig !== this._lastOrig && transDiv) {
-         transDiv.style.display = 'none';
+      const isNewOriginal = orig !== this._lastOrig;
+
+      // Um flash manual só pertence à legenda que estava ativa quando foi solicitado.
+      if (isNewOriginal && transDiv.classList.contains('lf-trans-flash')) {
+        transDiv.classList.remove('lf-trans-flash');
+        if (this._flashTimeout) {
+          clearTimeout(this._flashTimeout);
+          this._flashTimeout = null;
+        }
       }
+
+      // Respostas assíncronas de tradução também passam por renderDual. O modo
+      // nativo deve continuar ocultando-as, exceto durante o flash manual ativo.
+      const hasActiveFlash = transDiv.classList.contains('lf-trans-flash');
+      transDiv.style.display = hasActiveFlash && hasTrans ? 'block' : 'none';
     }
 
     this._lastOrig = orig;
+    this._lastTrans = decodedTrans;
 
     // Esconde o container principal se não houver nada para mostrar
     if (wrap) {
@@ -3514,7 +3526,8 @@ export class SubtitleEngine {
     // Mostra botão de tradução rápida apenas quando tradução está oculta e engine ligado
     const translateBtn = this.shadowContainer.getElementById('lf-translate-btn');
     if (translateBtn) {
-      const showBtn = orig && mode === 'native' && this.isActivated;
+      const hasActiveFlash = transDiv.classList.contains('lf-trans-flash');
+      const showBtn = orig && mode === 'native' && this.isActivated && !hasActiveFlash;
       translateBtn.style.display = showBtn ? 'block' : 'none';
     }
 

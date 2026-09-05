@@ -1,7 +1,7 @@
 # Checklist — LinguaFlow
 
 **Atualizado em:** 2026-09-05
-**Referência:** endurecimento de conteúdo não confiável, build `3.0.34`
+**Referência:** correção do modo Apenas Original, build `3.0.35`
 
 Este arquivo contém apenas trabalho vigente. Auditorias e planos superados
 foram consolidados e permanecem recuperáveis pelo histórico Git.
@@ -28,6 +28,12 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
 - [x] Notificações da extensão e Push da PWA.
 
 ## Contexto e áudio
+
+- [x] Modo `Apenas Original` oculta respostas assíncronas de tradução e aplica
+  a troca de modo imediatamente, preservando apenas o flash manual (2026-09-05).
+- [x] Regressão de visibilidade da legenda integrada ao Stage 2 (2026-09-05).
+- [x] Checkbox `Tradução` do painel lateral inicia marcado e reflete a
+  auto-tradução já ativa na lista (2026-09-05).
 
 - [x] Removida latência sequencial do Professor: sessão local, tarefas paralelas
   e tradução auxiliar fora do caminho crítico de sucesso (2026-09-05).
@@ -90,6 +96,8 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
 - [x] Integrar qualidade de tradução, conteúdo não confiável e fiação ao gate de
   release; substituir o verificador PowerShell legado (2026-09-05).
 - [x] Release completo do build `3.0.34` passou com as novas regressões (2026-09-05).
+- [x] Release completo e smoke `--allow-dirty` do build `3.0.35` passaram com a
+  regressão do modo de legenda original (2026-09-05).
 
 - [x] Convite de login no contexto IA com guia própria da extensão e retomada do contexto aberto.
 - [x] Testar convite, sessão expirada, retomada única, cancelamento e reutilização da guia.

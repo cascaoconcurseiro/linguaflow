@@ -28,6 +28,12 @@ assert.match(settings, /btn-settings-retry/);
 assert.match(settings, /Nenhum valor padrão será salvo por cima/);
 assert.match(settings, /id="srs-new-per-day"[^>]+max="20"/);
 assert.match(settings, /srsNewPerDay \?\? 5/);
+assert.match(settings, /srsMaxRev,\s*srsVaultCap,\s*srsReverseRaw,\s*srsVariedRaw,\s*audioFrontRaw,\s*audioBackRaw/,
+  'o teto do Cofre ocupa sua posição sem deslocar os checkboxes seguintes');
+assert.match(settings, /Number\.isFinite\(parsedNewPerDay\) \? parsedNewPerDay : 5/,
+  'zero cards novos por dia deve ser preservado como configuração válida');
+assert.doesNotMatch(settings, /Number\(srsNewPerDay \?\? 5\) \|\| 5/,
+  'a tela não pode converter zero cards novos em cinco');
 assert.match(settings, /Seu nível aproximado/);
 assert.match(settings, /não substitui uma avaliação CEFR completa/);
 assert.match(settings, /Salvar configurações/);

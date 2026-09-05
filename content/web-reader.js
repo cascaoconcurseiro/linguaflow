@@ -54,7 +54,8 @@
     popupEl = null,
     currentWord = '',
     currentContext = '',
-    currentTranslation = '';
+    currentTranslation = '',
+    currentExplanation = '';
 
   try {
     const [ttsMod, dictMod] = await Promise.all([
@@ -114,7 +115,10 @@
         sentence,
       }, (response) => {
         if (chrome.runtime.lastError) resolve(null);
-        else resolve(response?.translation || null);
+        else resolve(response ? {
+          translation: String(response.translation || '').trim(),
+          explanation: String(response.explanation || '').trim(),
+        } : null);
       });
     });
   }
@@ -195,6 +199,7 @@
     if (!popupEl) return;
     currentWord = word;
     currentTranslation = translation || '';
+    currentExplanation = '';
     popupEl.querySelector('#lf-r-word').textContent = word;
     const transEl = popupEl.querySelector('#lf-r-translation');
     const saveBtn = popupEl.querySelector('#lf-r-save');
@@ -249,6 +254,7 @@
           translation: translation || '',
           lang: 'en',
           context_sentence: contextAtStart || '',
+          explanation: currentExplanation || '',
           added_at: Date.now(),
         },
       });
@@ -309,13 +315,14 @@
 
     // Tradução assíncrona
     const contextAtStart = currentContext;
-    const [baseTranslation, contextTranslation] = await Promise.all([
+    const [baseTranslation, contextResult] = await Promise.all([
       quickTranslate(word),
       contextualTranslate(word, contextAtStart),
     ]);
     if (!isActive() || interactionEpoch !== lifecycle.interactionEpoch || currentWord !== word) return;
-    const translation = contextTranslation || baseTranslation;
+    const translation = contextResult?.translation || baseTranslation;
     currentTranslation = translation || '';
+    currentExplanation = contextResult?.explanation || '';
     const transEl = popupEl?.querySelector('#lf-r-translation');
     const saveBtn = popupEl?.querySelector('#lf-r-save');
     if (transEl && popupEl?.isConnected && popupEl.style.display !== 'none') {

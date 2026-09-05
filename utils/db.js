@@ -1093,7 +1093,7 @@ class Database {
 
     let nextDueDate;
     if (nextInterval >= 1) {
-      const d = new Date();
+      const d = new Date(now);
       d.setDate(d.getDate() + Math.round(nextInterval));
       d.setHours(0, 0, 0, 0);
       nextDueDate = d.toISOString();

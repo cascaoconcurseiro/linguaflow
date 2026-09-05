@@ -33,6 +33,11 @@ assert.match(overlay, /\['not_due', 'new_daily_limit', 'suspended'\][\s\S]+this\
 assert.match(overlay, /A avaliação não foi salva; este card continua aqui/);
 assert.match(overlay, /aria-live="polite"/);
 const answerBody = overlay.slice(overlay.indexOf('async _answer'), overlay.indexOf('\n  destroy()', overlay.indexOf('async _answer')));
+const loadCardsBody = overlay.slice(overlay.indexOf('async _loadCards()'), overlay.indexOf('\n  show()', overlay.indexOf('async _loadCards()')));
+assert.match(loadCardsBody, /Promise\.all\(\[\s*this\._db\.getCardsDue\(200, true\),\s*this\._db\.getTodayCounts\(\),\s*this\._db\.getSRSSettings\(\)/,
+  'revisão rápida deve carregar fila e limites configurados juntos');
+assert.match(loadCardsBody, /newAllowed[\s\S]*revAllowed[\s\S]*slice\(0, 10\)/,
+  'revisão rápida deve respeitar limites de novas e revisões antes de cortar a sessão');
 assert.ok(answerBody.indexOf('this.index++') > answerBody.indexOf('await this._db.logReview'));
 assert.ok(answerBody.indexOf('this.index++') < answerBody.indexOf('} catch (e)'));
 

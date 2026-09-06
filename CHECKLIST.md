@@ -1,7 +1,7 @@
 # Checklist — LinguaFlow
 
-**Atualizado em:** 2026-09-05
-**Referência:** correção do modo Apenas Original, build `3.0.35`
+**Atualizado em:** 2026-09-06
+**Referência:** contexto persistido e revisão coerente, build `3.0.36`
 
 Este arquivo contém apenas trabalho vigente. Auditorias e planos superados
 foram consolidados e permanecem recuperáveis pelo histórico Git.
@@ -28,6 +28,23 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
 - [x] Notificações da extensão e Push da PWA.
 
 ## Contexto e áudio
+
+- [x] Persistir a explicação contextual já gerada no card, inclusive no Web
+  Reader, sem nova chamada de IA (2026-09-06).
+- [x] Exibir a explicação no verso principal em disclosure acessível, recolhido
+  por padrão e limpo na troca de card (2026-09-06).
+- [x] Corrigir atalhos globais para preservar teclado em controles interativos
+  do estudo (2026-09-06).
+- [x] Corrigir o mapeamento de configurações de SRS, cartões reversos, exercícios
+  variados e áudio; preservar `0` cartões novos/dia (2026-09-06).
+- [x] Aplicar os limites configurados também à revisão rápida da extensão usando
+  os campos canônicos de cards e contadores diários (2026-09-06).
+- [x] Garantir atomicamente na RPC os limites diários de novos e revisões,
+  preservando learning e recusando respostas excedentes sem mutação (2026-09-06).
+- [x] Alinhar `Difícil` em learning/relearning ao Anki e avisar quando um card se
+  torna leech ou é suspenso por erros recorrentes (2026-09-06).
+- [x] Release completo e smoke do build `3.0.36` passaram após as correções de
+  contexto, configurações e revisão rápida (2026-09-06).
 
 - [x] Modo `Apenas Original` oculta respostas assíncronas de tradução e aplica
   a troca de modo imediatamente, preservando apenas o flash manual (2026-09-05).
@@ -170,6 +187,6 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
 
 ## Próximo passo concreto
 
-Abrir a PWA autenticada, confirmar o build `3.0.34` e inspecionar a chamada de
-`fluency_skill_profiles`. Se estiver em 200, executar o Check sem captura de
-voz; registrar resultado aqui e no `HANDOFF.md`.
+Publicar e confirmar o build `3.0.36`, aplicar a migration
+`20260906120000_authoritative_review_daily_limits.sql` e testar, em sessão
+autenticada, contexto salvo, limites concorrentes e suspensão por leech.

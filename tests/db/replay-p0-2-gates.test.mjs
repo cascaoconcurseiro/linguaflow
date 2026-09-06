@@ -10,16 +10,18 @@ const [replay, concurrency, constraintSql, permissions] = await Promise.all([
 ]);
 
 const reviewSql = 'tests/db/card-review-p0-2a.sql';
+const dailyLimitsSql = 'tests/db/card-review-daily-limits.sql';
 const reviewConcurrency = 'tests/db/card-review-p0-2a-concurrency.mjs';
 const permissionsSql = 'tests/db/card-permissions-p0-2b.sql';
 
-for (const gate of [reviewSql, reviewConcurrency, permissionsSql]) {
+for (const gate of [reviewSql, dailyLimitsSql, reviewConcurrency, permissionsSql]) {
   assert.match(replay, new RegExp(gate.replaceAll('/', '\\/').replaceAll('.', '\\.')),
     `o replay efêmero deve executar ${gate}`);
 }
 
 assert.ok(
-  replay.indexOf(reviewSql) < replay.indexOf(reviewConcurrency)
+  replay.indexOf(reviewSql) < replay.indexOf(dailyLimitsSql)
+    && replay.indexOf(dailyLimitsSql) < replay.indexOf(reviewConcurrency)
     && replay.indexOf(reviewConcurrency) < replay.indexOf(permissionsSql),
   'os gates devem executar revisão, concorrência e permissões nessa ordem',
 );

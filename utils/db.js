@@ -1016,27 +1016,17 @@ class Database {
         nextStepIndex = 0;
         nextInterval = activeSteps[0] / 1440;
       } else if (quality === 2) {
-        // Difícil é um acerto com esforço: nunca pode prender o aluno no
-        // mesmo passo para sempre. Ele repete o primeiro passo uma vez e,
-        // depois, avança mais lentamente que "Bom" (1,5× o intervalo). Assim
-        // há uma exposição extra sem graduação precoce: com [1, 10], três
-        // respostas "Difícil" graduam; com um único passo, duas graduam.
-        // (Resolução do merge: versão do Codex — mais conservadora que a de
-        // Fable; "Difícil" três vezes NÃO deve graduar tão rápido quanto "Bom".)
+        // Semântica do Anki: Difícil repete o passo atual e nunca gradua o card.
+        // No primeiro passo com dois ou mais steps, usa a média entre o passo
+        // atual e o próximo; com um único step, usa 1,5× o intervalo.
         nextStatus = 'learning';
-        if (prevStatus === 'new') {
-          nextStepIndex = 0;
+        nextStepIndex = prevStatus === 'new' ? 0 : Math.min(nextStepIndex, activeSteps.length - 1);
+        if (activeSteps.length === 1) {
           nextInterval = (activeSteps[0] * 1.5) / 1440;
+        } else if (nextStepIndex === 0) {
+          nextInterval = ((activeSteps[0] + activeSteps[1]) / 2) / 1440;
         } else {
-          nextStepIndex += 1;
-          if (nextStepIndex >= activeSteps.length) {
-            nextStatus = 'review';
-            nextStepIndex = 0;
-            nextInterval = Math.max(settings.gradInt || 1,
-              this._fsrsInterval(stability, retention) * settings.intMod * 0.8);
-          } else {
-            nextInterval = (activeSteps[nextStepIndex] * 1.5) / 1440;
-          }
+          nextInterval = activeSteps[nextStepIndex] / 1440;
         }
       } else if (quality === 4) {
         // Fácil: gradua direto com bônus do FSRS.

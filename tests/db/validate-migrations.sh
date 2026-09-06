@@ -103,6 +103,8 @@ bash "$ROOT/tests/db/evidence-commit-concurrency.sh" "$PGBIN/psql" "$PORT" "$SOC
 echo "── contrato transacional de revisão P0.2A"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/db/card-review-p0-2a.sql"
 
+run_pg "${PSQL[@]}" -f "$ROOT/tests/db/card-review-daily-limits.sql"
+
 echo "── concorrência real de revisão P0.2A"
 node "$ROOT/tests/db/card-review-p0-2a-concurrency.mjs" "$PGBIN/psql" "$PORT" "$DB" "$SOCK" "$DB_USER"
 

@@ -207,19 +207,22 @@ test('combinePlacement: 40/40/20 com diagnóstico de lacunas', () => {
   assert.equal(cheated.retestRequired, true);
 });
 
-test('Difícil no learning progride sem graduação precoce ou loop eterno', () => {
+test('Difícil no learning repete o passo atual como no Anki', () => {
   const first = db._calculateNextState(newCard(), 2, SETTINGS);
   assert.equal(first.status, 'learning');
   assert.equal(first.step_index, 0);
+  assert.equal(first.interval, 5.5 / 1440);
   const second = db._calculateNextState(first, 2, SETTINGS);
   assert.equal(second.status, 'learning');
-  assert.equal(second.step_index, 1);
+  assert.equal(second.step_index, 0);
   const third = db._calculateNextState(second, 2, SETTINGS);
-  assert.equal(third.status, 'review');
+  assert.equal(third.status, 'learning');
+  assert.equal(third.step_index, 0);
 
   const oneStep = db._calculateNextState(newCard(), 2, { ...SETTINGS, learningSteps: [5] });
   assert.equal(oneStep.status, 'learning');
-  assert.equal(db._calculateNextState(oneStep, 2, { ...SETTINGS, learningSteps: [5] }).status, 'review');
+  assert.equal(oneStep.interval, 7.5 / 1440);
+  assert.equal(db._calculateNextState(oneStep, 2, { ...SETTINGS, learningSteps: [5] }).status, 'learning');
 });
 
 test('shuffleItem preserva a resposta correta', () => {
@@ -283,17 +286,11 @@ test('scorePlacement: pseudo-palavras derrubam o resultado (anti-chute)', () => 
 
 console.log('── Motor pedagógico (interleaving + diagnóstico) ──');
 
-test('Difícil em learning gradua em 3 (não 16 nem 2) — política conservadora do merge', () => {
-  // Regressão do bug de produção (card "statement", 16 Difícil sem graduar) +
-  // resolução do merge: com [1,10], TRÊS "Difícil" graduam (não dois).
+test('Difícil em learning não gradua sem uma resposta Bom ou Fácil', () => {
   let card = { ...newCard() };
-  card = db._calculateNextState(card, 2, SETTINGS); // novo → repete step0
+  for (let i = 0; i < 16; i++) card = db._calculateNextState(card, 2, SETTINGS);
   assert.equal(card.status, 'learning');
-  card = db._calculateNextState(card, 2, SETTINGS); // step0 → step1
-  assert.equal(card.status, 'learning', 'o 2º Difícil ainda NÃO gradua (não é tão rápido quanto Bom)');
-  card = db._calculateNextState(card, 2, SETTINGS); // step1 → GRADUA
-  assert.equal(card.status, 'review', 'o 3º Difícil gradua');
-  assert.ok(card.interval >= 1);
+  assert.equal(card.step_index, 0);
 });
 
 test('buildSessionQueue: learning primeiro; fracas e novas espaçadas', () => {

@@ -153,22 +153,23 @@ export class ReviewOverlay {
         this._db.getSRSSettings(),
       ]);
       if (!Array.isArray(due)) throw new Error('Fila de revisão indisponível');
-      const newLimit = settings?.newCardsPerDay ?? 20;
-      const revLimit = settings?.reviewsPerDay ?? 50;
-      const newAllowed = Math.max(0, newLimit - (todayCounts?.newCount || 0));
-      const revAllowed = Math.max(0, revLimit - (todayCounts?.reviewCount || 0));
+      const newLimit = settings?.newPerDay ?? 20;
+      const revLimit = settings?.maxRevPerDay ?? 200;
+      const newAllowed = Math.max(0, newLimit - (todayCounts?.newIntroducedToday || 0));
+      const revAllowed = Math.max(0, revLimit - (todayCounts?.reviewsToday || 0));
 
       let newSeen = 0;
       let revSeen = 0;
       const valid = [];
       for (const card of due) {
         if (!card.wordData) continue;
-        const isNew = !card.lastReviewed && (card.repetition || 0) === 0;
-        if (isNew) {
+        if (card.status === 'new') {
           if (newSeen < newAllowed) {
             valid.push(card);
             newSeen++;
           }
+        } else if (card.status === 'learning') {
+          valid.push(card);
         } else {
           if (revSeen < revAllowed) {
             valid.push(card);
@@ -263,6 +264,7 @@ export class ReviewOverlay {
         const reasonMessages = {
           not_due: 'Este card ainda não venceu e continua aqui.',
           new_daily_limit: 'Limite de cards novos de hoje atingido; o card continua aqui.',
+          review_daily_limit: 'Limite de revisões de hoje atingido; cards em aprendizado continuam disponíveis.',
           suspended: 'Este card está suspenso e não foi alterado.',
           stale_card_state: 'O card mudou em outro lugar. Reabra a revisão rápida.',
         };
@@ -272,7 +274,7 @@ export class ReviewOverlay {
           await this._loadCards();
           this.index = 0;
           this._render();
-        } else if (['not_due', 'new_daily_limit', 'suspended'].includes(result.eligibilityReason)) {
+        } else if (['not_due', 'new_daily_limit', 'review_daily_limit', 'suspended'].includes(result.eligibilityReason)) {
           this.cards.splice(this.index, 1);
           this._render();
           if (!this.cards.length) {

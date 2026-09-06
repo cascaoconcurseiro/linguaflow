@@ -18,6 +18,8 @@ Build local: `3.0.36`. Branch de integração e publicação: `main`.
   atômica na RPC, inclusive quando duas sessões tentam responder juntas.
 - `Difícil` durante learning/relearning repete o passo atual, sem graduação
   acidental; a transição para leech agora é anunciada e explica a suspensão.
+- A migration `20260906120000_authoritative_review_daily_limits.sql` foi
+  executada com sucesso no banco `main PRODUCTION` pelo SQL Editor.
 
 - O modo `Apenas Original` agora oculta traduções que chegam de forma
   assíncrona para a mesma legenda, eliminando o vazamento visual da tradução.
@@ -57,9 +59,7 @@ Build local: `3.0.36`. Branch de integração e publicação: `main`.
    explicação contextual e abrir `Por que significa isso nesta frase?` no verso.
 2. Validar `0` cartões novos/dia, cartões reversos e áudio automático tanto no
    Estudo quanto na revisão rápida da extensão.
-3. Confirmar no Supabase que a migration
-   `20260906120000_authoritative_review_daily_limits.sql` foi aplicada e testar
-   os limites com duas abas simultâneas.
+3. Testar os limites autoritativos com duas abas simultâneas em sessão real.
 4. Recarregar a extensão e validar no YouTube: `Apenas Original`, chegada tardia
    da tradução, flash manual e troca entre os quatro modos.
 5. Em produção, confirmar `app.js?v=3.0.36` e verificar no console se CSP não
@@ -75,5 +75,8 @@ Build local: `3.0.36`. Branch de integração e publicação: `main`.
 - QA autenticado requer sessão real no navegador e recarregamento da extensão.
 - O replay PostgreSQL da nova migration está integrado ao gate, mas este host
   não possui uma distribuição WSL para executá-lo localmente.
+- O histórico remoto de migrations contém versões antigas ausentes neste
+  checkout; `supabase db push` permanece bloqueado até essa deriva ser
+  reconciliada. A migration atual foi aplicada isoladamente pelo SQL Editor.
 - Leaked Password Protection deve ser revalidado no painel do Supabase.
 - Calibração humana e acompanhamento D7/D30/D90 continuam pendentes.

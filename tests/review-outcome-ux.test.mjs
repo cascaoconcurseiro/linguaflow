@@ -70,6 +70,11 @@ assert.doesNotMatch(ineligibleBody, /sessionCards\+\+|sessionXp|showXPAnimation|
   'ineligible reconciliation never counts a session answer, XP, or feedback success');
 assert.match(study, /operation\.operationId/);
 assert.match(study, /pendingReviewOperations\.delete\(gradedCard\.id\)/);
+assert.match(study, /catch \(e\) \{[\s\S]*lastReview = \{ prevCard, card, reviewLogId, isCorrect \};[\s\S]*updateUndoButton\(\)/,
+  'falha ao desfazer deve restaurar a ação para nova tentativa');
+const buryBody = study.slice(study.indexOf('async function buryCard(app)'), study.indexOf('\nfunction injectStyles()', study.indexOf('async function buryCard(app)')));
+assert.match(buryBody, /lastReview = null;[\s\S]*updateUndoButton\(\)/,
+  'adiar um card não pode deixar Desfazer apontando para uma revisão anterior');
 assert.match(study, /A avaliação não foi salva; este card continua aqui/);
 assert.match(app, /toast\.setAttribute\('role', type === 'error' \? 'alert' : 'status'\)/);
 assert.match(app, /toast\.setAttribute\('aria-live'/);

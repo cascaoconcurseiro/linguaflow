@@ -1,7 +1,7 @@
 # Checklist — LinguaFlow
 
 **Atualizado em:** 2026-09-06
-**Referência:** contexto persistido e revisão coerente, build `3.0.36`
+**Referência:** auditoria geral e robustez, build `3.0.37`
 
 Este arquivo contém apenas trabalho vigente. Auditorias e planos superados
 foram consolidados e permanecem recuperáveis pelo histórico Git.
@@ -47,6 +47,22 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
   torna leech ou é suspenso por erros recorrentes (2026-09-06).
 - [x] Release completo e smoke do build `3.0.36` passaram após as correções de
   contexto, configurações e revisão rápida (2026-09-06).
+- [x] Adicionar fallback em três níveis e timeouts coerentes ao dicionário do
+  popup, com falha visível de tradução e definição (2026-09-06).
+- [x] Preservar a ação de desfazer quando a RPC falhar e remover referência
+  obsoleta de desfazer após adiar um card (2026-09-06).
+- [x] Associar os campos e grupos das Configurações a nomes acessíveis
+  verificados por contrato (2026-09-06).
+- [x] Substituir o proxy genérico de banco por allowlist explícita, sem expor
+  `_fetch` às páginas da extensão (2026-09-06).
+- [x] Escapar palavras persistidas nos sinks restantes do Cofre e Histórias
+  para impedir injeção de HTML armazenado (2026-09-06).
+- [x] Tornar o snapshot de undo autoritativo e estável em retry idempotente,
+  sem confiar no JSON enviado pelo navegador (2026-09-06).
+- [x] Corrigir a ordem do cálculo de dificuldade/estabilidade FSRS e impedir
+  limites diários `NaN` no cliente (2026-09-06).
+- [x] Gate funcional completo e smoke `--allow-dirty` do build `3.0.37`
+  passaram após a auditoria geral (2026-09-06).
 
 - [x] Modo `Apenas Original` oculta respostas assíncronas de tradução e aplica
   a troca de modo imediatamente, preservando apenas o flash manual (2026-09-05).
@@ -189,6 +205,6 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
 
 ## Próximo passo concreto
 
-Confirmar o build `3.0.36` e testar, em sessão autenticada, contexto salvo,
+Confirmar o build `3.0.37` e testar, em sessão autenticada, contexto salvo,
 limites concorrentes e suspensão por leech. Depois reconciliar as versões
 históricas local/remota do Supabase antes do próximo `db push`.

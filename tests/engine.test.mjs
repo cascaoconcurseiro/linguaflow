@@ -9,6 +9,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const dbSource = readFileSync(join(root, 'utils/db.js'), 'utf8');
+assert.match(dbSource, /const previousDifficulty = difficulty;[\s\S]*_fsrsNextStability\(previousDifficulty, stability, r, quality\)/,
+  'FSRS deve calcular estabilidade com a dificuldade anterior');
+assert.match(dbSource, /Number\.isFinite\(parsedNewPerDay\)[\s\S]*Number\.isFinite\(parsedMaxRevPerDay\)/,
+  'limites SRS inválidos devem cair em defaults finitos');
 const tmp = mkdtempSync(join(tmpdir(), 'lf-test-'));
 copyFileSync(join(root, 'utils/db.js'), join(tmp, 'db.mjs'));
 copyFileSync(join(root, 'utils/local-day.js'), join(tmp, 'local-day.js'));

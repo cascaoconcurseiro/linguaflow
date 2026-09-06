@@ -1904,6 +1904,8 @@ async function handleUndo(app) {
     sessionXp = Math.max(0, sessionXp - (undone?.xpReverted || 0));
   } catch (e) {
     console.error('Falha ao desfazer:', e);
+    lastReview = { prevCard, card, reviewLogId, isCorrect };
+    updateUndoButton();
     app.showToast('Não foi possível desfazer.', 'error');
     return;
   }
@@ -1941,6 +1943,10 @@ async function buryCard(app) {
     cardMutationPromise = mutationPromise;
     await mutationPromise;
     if (!studyViewActive || operationGeneration !== studyViewGeneration || currentCard !== card) return;
+    // O botão de desfazer só representa avaliações. Depois de um bury ele não
+    // pode continuar apontando silenciosamente para a avaliação do card anterior.
+    lastReview = null;
+    updateUndoButton();
     if (dueQueue[0] === card) dueQueue.shift();
     else dueQueue = dueQueue.filter(queued => queued.id !== card.id);
     app.showToast('Card adiado pra amanhã 💤', 'info');

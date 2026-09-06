@@ -1,5 +1,31 @@
 # Changelog
 
+## [3.0.37] - 2026-09-06
+
+### Corrigido
+
+- O popup encerra tradução e dicionário com estado visível mesmo quando uma
+  API externa trava; o dicionário tenta Dictionary API, Datamuse e Wiktionary
+  dentro de um orçamento compatível com a espera da interface.
+- Uma falha no `Desfazer` preserva a tentativa para repetição; após adiar um
+  card, o botão não aponta mais para uma avaliação anterior.
+- Campos das configurações e grupos de voz possuem nomes acessíveis.
+
+### Segurança
+
+- O proxy de dados da extensão passou a aceitar somente métodos públicos
+  enumerados e bloqueia acesso ao helper REST interno `_fetch`.
+- Termos persistidos são escapados também no editor do Cofre, no progresso do
+  backfill e no reencontro de Histórias.
+- Undo ignora snapshots enviados pelo cliente e reutiliza o estado anterior
+  imutável do evento, inclusive após retry idempotente.
+- FSRS calcula estabilidade com a dificuldade anterior; limites SRS inválidos
+  voltam a defaults finitos e limitados.
+
+### Validação
+
+- Gate funcional completo e smoke com árvore intencionalmente alterada passaram.
+
 ## Atualização de código — 2026-09-05 (build 3.0.33)
 
 - Primeiro acesso abre o dashboard sem onboarding obrigatório; preferências

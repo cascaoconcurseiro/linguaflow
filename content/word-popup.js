@@ -861,24 +861,46 @@ export class WordPopup {
     }).catch(() => {});
 
     // Busca tradução e dicionário em paralelo, mas atualiza a tela assim que cada um chegar
-    this._translate(word).then((tr) => {
-      if (this.cache[word]) this.cache[word].translation = tr;
-      if (this.word === word) this._render(this.cache[word]);
-    });
+    this._translate(word)
+      .then((tr) => {
+        if (this.cache[word]) this.cache[word].translation = tr || '—';
+        if (this.word === word) this._render(this.cache[word]);
+      })
+      .catch(() => {
+        if (this.cache[word] && this.cache[word].translation === '...') {
+          this.cache[word].translation = '—';
+        }
+        if (this.word === word) this._render(this.cache[word]);
+      });
 
-    this._dict(word).then((dict) => {
-      if (this.cache[word] === entry) {
-        Object.assign(entry, dict);
-        this.cache[word].phonetic = dict.phonetic || '';
-        const convertedPronunciation = this._convertIPAtoPT(dict.phonetic);
-        this.cache[word].pronunciation_pt = savedPronunciation && savedPronunciation !== '...'
-          ? savedPronunciation : convertedPronunciation;
-        this.cache[word].pronunciation_source = savedPronunciation && savedPronunciation !== '...'
-          ? 'saved' : (convertedPronunciation ? 'ipa' : null);
-        if (!dict.definition) entry.definition = 'Definição indisponível no momento.';
-      }
-      if (this.word === word) this._render(this.cache[word]);
-    });
+    this._dict(word)
+      .then((dict) => {
+        if (this.cache[word] === entry) {
+          Object.assign(entry, dict || {});
+          this.cache[word].phonetic = dict?.phonetic || '';
+          const convertedPronunciation = this._convertIPAtoPT(dict?.phonetic);
+          this.cache[word].pronunciation_pt =
+            savedPronunciation && savedPronunciation !== '...'
+              ? savedPronunciation
+              : convertedPronunciation;
+          this.cache[word].pronunciation_source =
+            savedPronunciation && savedPronunciation !== '...'
+              ? 'saved'
+              : convertedPronunciation
+                ? 'ipa'
+                : null;
+          if (!dict?.definition) entry.definition = 'Definição indisponível no momento.';
+        }
+        if (this.word === word) this._render(this.cache[word]);
+      })
+      .catch(() => {
+        if (this.cache[word] === entry) {
+          if (!entry.definition || entry.definition === 'Carregando dicionário...') {
+            entry.definition = 'Definição indisponível no momento.';
+          }
+        }
+        if (this.word === word) this._render(this.cache[word]);
+      });
   }
 
   _render(d) {
@@ -1393,32 +1415,68 @@ export class WordPopup {
 
   _translate(t) {
     return new Promise((res) => {
-      chrome.runtime.sendMessage(
-        {
-          action: 'translate',
-          text: t,
-          from: this.engine?.sourceLang || 'en',
-          to: this.engine?.targetLang || 'pt',
-        },
-        (r) => {
-          if (chrome.runtime.lastError) {
-            res(null);
-            return;
-          }
-          res(r?.translation || null);
-        },
-      );
+      let settled = false;
+      const tid = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          res(null);
+        }
+      }, 5000);
+      try {
+        chrome.runtime.sendMessage(
+          {
+            action: 'translate',
+            text: t,
+            from: this.engine?.sourceLang || 'en',
+            to: this.engine?.targetLang || 'pt',
+          },
+          (r) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(tid);
+            if (chrome.runtime.lastError) {
+              res(null);
+              return;
+            }
+            res(r?.translation || null);
+          },
+        );
+      } catch {
+        if (!settled) {
+          settled = true;
+          clearTimeout(tid);
+          res(null);
+        }
+      }
     });
   }
   _dict(w) {
     return new Promise((res) => {
-      chrome.runtime.sendMessage({ action: 'dictionary', word: w }, (r) => {
-        if (chrome.runtime.lastError || !r?.ok) {
+      let settled = false;
+      const tid = setTimeout(() => {
+        if (!settled) {
+          settled = true;
           res({});
-          return;
         }
-        res(r.data || {});
-      });
+      }, 7000);
+      try {
+        chrome.runtime.sendMessage({ action: 'dictionary', word: w }, (r) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(tid);
+          if (chrome.runtime.lastError || !r?.ok) {
+            res({});
+            return;
+          }
+          res(r.data || {});
+        });
+      } catch {
+        if (!settled) {
+          settled = true;
+          clearTimeout(tid);
+          res({});
+        }
+      }
     });
   }
   _convertIPAtoPT(ipa) {

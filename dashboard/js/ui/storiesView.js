@@ -844,7 +844,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
         const found = (response.requestedWords || reencounterWords || [])
           .filter(w => new RegExp(`\\b${esc(w)}`, 'i').test(contentToRender));
         if (found.length) {
-      reBox.innerHTML = `🔁 <strong>Reencontro:</strong> esta história usa ${found.length} ${found.length === 1 ? 'termo do seu Cofre' : 'termos do seu Cofre'} — ${found.map(w => `<strong>${w}</strong>`).join(', ')}. Tente lembrar o sentido antes de tocar.`;
+      reBox.innerHTML = `🔁 <strong>Reencontro:</strong> esta história usa ${found.length} ${found.length === 1 ? 'termo do seu Cofre' : 'termos do seu Cofre'} — ${found.map(w => `<strong>${escapeHTML(w)}</strong>`).join(', ')}. Tente lembrar o sentido antes de tocar.`;
           reBox.style.display = 'block';
         } else {
           reBox.style.display = 'none';

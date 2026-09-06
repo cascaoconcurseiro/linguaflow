@@ -29,5 +29,15 @@ assert.match(settings, /lfDb\.restoreCardState\(newCard\.id/);
 assert.match(worker, /'buryCard'[\s\S]*'setCardSuspended'[\s\S]*'restoreCardState'/);
 assert.match(worker, /method === 'updateCard'[\s\S]*LEGACY_CARD_WRITE_BLOCKED/);
 assert.doesNotMatch(worker, /writeMethods\s*=\s*\[[\s\S]*?'updateCard'/);
+assert.match(worker, /const DB_PROXY_METHODS = new Set\(/,
+  'o proxy de banco deve expor uma lista explícita de métodos');
+assert.match(worker, /if \(!DB_PROXY_METHODS\.has\(method\)\)[\s\S]*DB_METHOD_BLOCKED/,
+  'métodos fora da lista devem ser rejeitados');
+assert.match(worker, /sender\?\.id !== chrome\.runtime\.id[\s\S]*DB_SENDER_BLOCKED/,
+  'o proxy deve rejeitar remetentes externos à extensão');
+assert.doesNotMatch(db, /_proxy\('_fetch'/,
+  'consumidores não devem atravessar o proxy com requisições REST arbitrárias');
+assert.match(db, /prevCard: saved\?\.card_before \|\| prevCard/,
+  'undo deve preferir o snapshot autoritativo devolvido pela RPC');
 
 console.log('P0.2 narrow card-write client contracts passed.');

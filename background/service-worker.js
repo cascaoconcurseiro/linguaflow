@@ -4,6 +4,28 @@ import { translator } from '../utils/translator.js';
 import { OFFICIAL_SITE_URL, isLinguaFlowUrl } from '../utils/site-boundary.js';
 import { buildStoryVarietyNote, buildLevelNote, levelSpecFor, recentStorySnippets } from '../utils/story-variety.js';
 
+// Métodos que páginas da extensão podem chamar através do service worker.
+// A fronteira explícita impede acesso a helpers internos como db._fetch.
+const DB_PROXY_METHODS = new Set([
+  'addTagsToWord', 'assessFluencySubmission', 'buryCard', 'checkSession',
+  'deletePushSubscription', 'deleteReaderText', 'deleteSentence', 'deleteStory',
+  'deleteWord', 'ensureUserStats', 'getAdaptiveProfiles', 'getAllCards',
+  'getAllKnownWords', 'getAllSentences', 'getAllTags', 'getAllWords',
+  'getCardByWordId', 'getCardsDue', 'getCardStats', 'getFluencyProfiles',
+  'getHistory', 'getLatestLearningTaskAttempt', 'getLeaderboard', 'getPushPublicKey',
+  'getReaderTexts', 'getReviewLog', 'getSentenceById', 'getSessions', 'getSetting',
+  'getSettings', 'getSRSCategoryOverrides', 'getSRSSettings', 'getStats',
+  'getStatsSnapshot', 'getStories', 'getTodayCounts', 'getTranslationCache',
+  'getUserStats', 'getWord', 'getWordById', 'getWordsByCategory', 'getWordsByLetter',
+  'isKnown', 'issueFluencyTask', 'login', 'logout', 'logReview', 'logSession',
+  'markAsKnown', 'maybeLeagueRollover', 'migrateReaderText', 'predictNextState',
+  'recordAdaptiveSignal', 'recordLearningTaskAttempt', 'reportClientError',
+  'restoreCardState', 'savePushSubscription', 'saveReaderText', 'saveSentence',
+  'saveStory', 'saveWord', 'setCardSuspended', 'setEmailOptIn', 'setSetting',
+  'setSRSCategoryOverride', 'setTranslationCache', 'signUp', 'submitFluencyTask',
+  'suspendCard', 'undoReview', 'updateWord',
+]);
+
 // Garbage Collector para limpar dicionários velhos e liberar espaço (QuotaExceeded)
 function _sweepStaleCache() {
   chrome.storage.local.get(null, (items) => {
@@ -148,6 +170,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   // Proxy para chamadas de banco de dados (Sincronização global entre sites)
   if (request.type === 'DB_CALL') {
+    if (sender?.id !== chrome.runtime.id) {
+      sendResponse({ error: 'Remetente não autorizado.', errorCode: 'DB_SENDER_BLOCKED', errorRetryable: false });
+      return false;
+    }
     const { method, args } = request;
     // P0.2b: card state is never accepted as an arbitrary client PATCH.
     // Keep an explicit tombstone so an outdated caller gets a clear error
@@ -156,6 +182,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({
         error: 'updateCard foi removido; use as operações seguras de revisão do LinguaFlow.',
         errorCode: 'LEGACY_CARD_WRITE_BLOCKED',
+        errorRetryable: false,
+      });
+      return false;
+    }
+    if (!DB_PROXY_METHODS.has(method)) {
+      sendResponse({
+        error: 'Método de banco não permitido pelo proxy da extensão.',
+        errorCode: 'DB_METHOD_BLOCKED',
         errorRetryable: false,
       });
       return false;
@@ -725,6 +759,10 @@ async function translateText(text, from = 'en', to = 'pt') {
 }
 
 async function fetchDictionary(word) {
+  const cleanWord = String(word || '')
+    .toLowerCase()
+    .replace(/[.,!?;:()""'']+/g, '')
+    .trim();
   const emptyResult = {
     word: word,
     phonetic: '',
@@ -735,32 +773,141 @@ async function fetchDictionary(word) {
     synonyms: [],
     antonyms: [],
   };
+  if (!cleanWord) return emptyResult;
+
+  const fetchWithTimeout = async (url, ms = 2000) => {
+    const hasAbort = typeof AbortController !== 'undefined';
+    const hasTimeout = typeof setTimeout !== 'undefined';
+    const c = hasAbort ? new AbortController() : null;
+    const tid = c && hasTimeout ? setTimeout(() => c.abort(), ms) : null;
+    try {
+      const options = c ? { signal: c.signal } : {};
+      return await fetch(url, options);
+    } finally {
+      if (tid && typeof clearTimeout !== 'undefined') clearTimeout(tid);
+    }
+  };
+
+  // Tier 1: Free Dictionary API (api.dictionaryapi.dev)
   try {
-    const res = await fetch(
-      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,
+    const res = await fetchWithTimeout(
+      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(cleanWord)}`,
+      2000,
     );
-    if (!res.ok) return emptyResult;
-    const data = await res.json();
-    if (!Array.isArray(data) || !data.length) return emptyResult;
-
-    const entry = data[0];
-    let audioUrl = entry.phonetics?.find((p) => p.audio)?.audio || '';
-    if (audioUrl && audioUrl.startsWith('//')) audioUrl = 'https:' + audioUrl;
-
-    return {
-      word: entry.word || word,
-      phonetic: entry.phonetic || entry.phonetics?.find((p) => p.text)?.text || '',
-      audioUrl,
-      partOfSpeech: entry.meanings?.[0]?.partOfSpeech || '',
-      definition: entry.meanings?.[0]?.definitions?.[0]?.definition || '',
-      example: entry.meanings?.[0]?.definitions?.[0]?.example || '',
-      synonyms: entry.meanings?.[0]?.synonyms || [],
-      antonyms: entry.meanings?.[0]?.antonyms || [],
-    };
+    if (res && res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length) {
+        const entry = data[0];
+        let audioUrl = entry.phonetics?.find((p) => p.audio)?.audio || '';
+        if (audioUrl && audioUrl.startsWith('//')) audioUrl = 'https:' + audioUrl;
+        const phonetic = entry.phonetic || entry.phonetics?.find((p) => p.text)?.text || '';
+        const def = entry.meanings?.[0]?.definitions?.[0]?.definition || '';
+        if (def || phonetic) {
+          return {
+            word: entry.word || cleanWord,
+            phonetic,
+            audioUrl,
+            partOfSpeech: entry.meanings?.[0]?.partOfSpeech || '',
+            definition: def,
+            example: entry.meanings?.[0]?.definitions?.[0]?.example || '',
+            synonyms: entry.meanings?.[0]?.synonyms || [],
+            antonyms: entry.meanings?.[0]?.antonyms || [],
+          };
+        }
+      }
+    }
   } catch (err) {
-    console.error('[LinguaFlow] Dictionary Fetch Error:', err);
-    return emptyResult;
+    // Timeout ou erro de conexão na api primária
   }
+
+  // Tier 2: Datamuse API (CDN rápido, definições e fonética IPA confiáveis)
+  try {
+    const res = await fetchWithTimeout(
+      `https://api.datamuse.com/words?sp=${encodeURIComponent(cleanWord)}&md=dpr&ipa=1`,
+      2000,
+    );
+    if (res && res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length) {
+        const match = data.find((item) => item.word?.toLowerCase() === cleanWord) || data[0];
+        if (match) {
+          const ipaTag = match.tags?.find((t) => t.startsWith('ipa_pron:'));
+          const rawIpa = ipaTag ? ipaTag.replace('ipa_pron:', '').trim() : '';
+          const phonetic = rawIpa ? `/${rawIpa}/` : '';
+
+          let partOfSpeech = '';
+          let definition = '';
+          if (Array.isArray(match.defs) && match.defs.length) {
+            const rawDef = match.defs[0] || '';
+            const tabIdx = rawDef.indexOf('\t');
+            if (tabIdx !== -1) {
+              const code = rawDef.slice(0, tabIdx).trim().toLowerCase();
+              definition = rawDef.slice(tabIdx + 1).trim();
+              const posMap = {
+                n: 'noun',
+                v: 'verb',
+                adj: 'adjective',
+                adv: 'adverb',
+                prop: 'noun',
+              };
+              partOfSpeech = posMap[code] || code;
+            } else {
+              definition = rawDef.trim();
+            }
+          }
+
+          if (definition || phonetic) {
+            return {
+              word: match.word || cleanWord,
+              phonetic,
+              audioUrl: '',
+              partOfSpeech,
+              definition,
+              example: '',
+              synonyms: [],
+              antonyms: [],
+            };
+          }
+        }
+      }
+    }
+  } catch (err) {
+    // Timeout ou erro de conexão no Datamuse
+  }
+
+  // Tier 3: Wiktionary REST API (alta disponibilidade da Wikimedia)
+  try {
+    const res = await fetchWithTimeout(
+      `https://en.wiktionary.org/api/rest_v1/page/definition/${encodeURIComponent(cleanWord)}`,
+      2000,
+    );
+    if (res && res.ok) {
+      const data = await res.json();
+      const en = data.en || data.english;
+      if (Array.isArray(en) && en.length) {
+        const entry = en[0];
+        const partOfSpeech = entry.partOfSpeech?.toLowerCase() || '';
+        const rawDef = entry.definitions?.[0]?.definition || '';
+        const definition = rawDef.replace(/<[^>]+>/g, '').trim();
+        if (definition) {
+          return {
+            word: cleanWord,
+            phonetic: '',
+            audioUrl: '',
+            partOfSpeech,
+            definition,
+            example: '',
+            synonyms: [],
+            antonyms: [],
+          };
+        }
+      }
+    }
+  } catch (err) {
+    // Timeout ou erro no Wiktionary
+  }
+
+  return emptyResult;
 }
 
 // ── Funções de IA (DeepSeek) ──────────────────────────────────────────────────

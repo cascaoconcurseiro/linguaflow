@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [study, game, db, vercel] = await Promise.all([
+const [study, game, db, vercel, library, stories] = await Promise.all([
   readFile(new URL('../dashboard/js/ui/studyView.js', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/js/ui/gameView.js', import.meta.url), 'utf8'),
   readFile(new URL('../utils/db.js', import.meta.url), 'utf8'),
   readFile(new URL('../vercel.json', import.meta.url), 'utf8'),
+  readFile(new URL('../dashboard/js/ui/libraryView.js', import.meta.url), 'utf8'),
+  readFile(new URL('../dashboard/js/ui/storiesView.js', import.meta.url), 'utf8'),
 ]);
 
 assert.match(study, /function renderHighlightedText\(/,
@@ -18,6 +20,16 @@ assert.doesNotMatch(study, /div\.innerHTML\s*=\s*htmlOrText/,
   'bolha da IA deve renderizar texto, não HTML arbitrário');
 assert.doesNotMatch(game, /\$\{a\.t\}<\/button>/,
   'tokens persistidos do jogo não podem entrar crus em innerHTML');
+assert.match(library, /<strong>\$\{escapeHtml\(w\.word\)\}<\/strong>/,
+  'backfill do Cofre deve escapar a palavra persistida');
+assert.match(library, /✏️ \$\{escapeHtml\(w\.word\)\}/,
+  'editor do Cofre deve escapar a palavra persistida');
+assert.match(library, /value="\$\{escapeHtml\(w\.translation \|\| ''\)\}"/,
+  'editor do Cofre deve escapar tradução em atributo');
+assert.match(library, />\$\{escapeHtml\(w\.context_sentence \|\| ''\)\}<\/textarea>/,
+  'editor do Cofre deve escapar frase dentro do textarea');
+assert.match(stories, /found\.map\(w => `<strong>\$\{escapeHTML\(w\)\}<\/strong>`\)/,
+  'reencontro em histórias deve escapar termos persistidos');
 const saveSentence = db.slice(db.indexOf('async saveSentence(data)'), db.indexOf('async getAllSentences()'));
 assert.match(saveSentence, /const payload = \{/,
   'saveSentence deve construir um payload conhecido');

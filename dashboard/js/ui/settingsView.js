@@ -315,15 +315,15 @@ export async function renderSettings(container, app) {
         <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 16px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">Limites Diários</h2>
         <div style="display:flex; gap: 24px; margin-bottom: 8px;">
           <div style="flex:1;">
-          <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Novas expressões por dia</label>
+          <label for="srs-new-per-day" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Novas expressões por dia</label>
             <input type="number" id="srs-new-per-day" value="${newPerDay}" min="0" max="20" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; background:var(--color-bg-alt); color:var(--color-text);">
           </div>
           <div style="flex:1;">
-            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Revisões máximas/dia</label>
+            <label for="srs-max-rev" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Revisões máximas/dia</label>
             <input type="number" id="srs-max-rev" value="${maxRevPerDay}" min="10" max="1000" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; background:var(--color-bg-alt); color:var(--color-text);">
           </div>
           <div style="flex:1;">
-            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;" title="Teto do acervo: cofre cheio, palavra nova espera vaga. 0 desliga.">Teto do cofre (expressões ativas)</label>
+            <label for="srs-vault-cap" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;" title="Teto do acervo: cofre cheio, palavra nova espera vaga. 0 desliga.">Teto do cofre (expressões ativas)</label>
             <input type="number" id="srs-vault-cap" value="${vaultCap}" min="0" max="2000" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; background:var(--color-bg-alt); color:var(--color-text);">
           </div>
         </div>
@@ -337,15 +337,15 @@ export async function renderSettings(container, app) {
           Otimizador de repetição espaçada. Substitui os multiplicadores fixos do Anki por um modelo de probabilidade de retenção de memória.
         </p>
         
-        <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Retenção Desejada (Recomendado: 90%): <span id="retention-val" style="color:var(--color-primary);">${srsRetention}%</span></label>
+        <label for="retention-slider" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Retenção Desejada (Recomendado: 90%): <span id="retention-val" style="color:var(--color-primary);">${srsRetention}%</span></label>
         <input type="range" id="retention-slider" min="80" max="97" value="${srsRetention}" style="width:100%; margin-bottom: 8px;">
         <p style="font-size:12px; color:var(--color-text-light); margin-bottom:16px;">90% é um bom ponto inicial. Valores maiores geram mais revisões; menores aceitam mais esquecimento.</p>
         
-        <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Repetições iniciais (minutos)</label>
+        <label for="srs-learning-steps" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Repetições iniciais (minutos)</label>
         <input type="text" id="srs-learning-steps" value="${learningSteps}" placeholder="1 10" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; margin-bottom:16px; background:var(--color-bg-alt); color:var(--color-text);">
         <p style="font-size:12px; color:var(--color-text-light);">Exemplo: "1 10" faz uma expressão nova voltar em 1 e 10 minutos antes do agendamento normal.</p>
 
-        <label style="font-weight:bold; color:var(--color-text); display:block; margin:16px 0 8px;">Repetição após esquecer (minutos)</label>
+        <label for="srs-relearning-steps" style="font-weight:bold; color:var(--color-text); display:block; margin:16px 0 8px;">Repetição após esquecer (minutos)</label>
         <input type="text" id="srs-relearning-steps" value="${relearningSteps}" placeholder="10" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; margin-bottom:8px; background:var(--color-bg-alt); color:var(--color-text);">
         <p style="font-size:12px; color:var(--color-text-light);">Recomendado: "10". Um card antigo esquecido volta após 10 minutos e depois retorna ao agendamento FSRS.</p>
       </div>
@@ -355,23 +355,23 @@ export async function renderSettings(container, app) {
         <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 16px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">SRS Avançado (Nível Anki)</h2>
         <div style="display:flex; gap:16px; flex-wrap:wrap;">
           <div style="flex:1; min-width:180px;">
-            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Intervalo mínimo após graduação (dias)</label>
+            <label for="srs-grad-interval" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Intervalo mínimo após graduação (dias)</label>
             <input type="number" id="srs-grad-interval" value="${gradInt}" min="1" max="30" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
           </div>
           <div style="flex:1; min-width:180px;">
-            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Intervalo máximo (dias)</label>
+            <label for="srs-max-interval" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Intervalo máximo (dias)</label>
             <input type="number" id="srs-max-interval" value="${maxInt}" min="30" max="36500" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
           </div>
           <div style="flex:1; min-width:180px;">
-            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Modificador de intervalo (%)</label>
+            <label for="srs-int-mod" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Modificador de intervalo (%)</label>
             <input type="number" id="srs-int-mod" value="${intMod}" min="50" max="200" step="5" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
           </div>
           <div style="flex:1; min-width:180px;">
-            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Sinalizar item após N esquecimentos</label>
+            <label for="srs-leech-thresh" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Sinalizar item após N esquecimentos</label>
             <input type="number" id="srs-leech-thresh" value="${leechThresh}" min="1" max="50" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
           </div>
           <div style="flex:1; min-width:180px;">
-            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Quando um item precisar de atenção</label>
+            <label for="srs-leech-action" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Quando um item precisar de atenção</label>
             <select id="srs-leech-action" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
               <option value="tag" ${leechAction === 'tag' ? 'selected' : ''}>Sinalizar e continuar</option>
               <option value="suspend" ${leechAction === 'suspend' ? 'selected' : ''}>Pausar revisões desse item</option>
@@ -397,7 +397,7 @@ export async function renderSettings(container, app) {
         <p style="font-size:12px; color:var(--color-text-light); margin-bottom:16px;">Idioms e gírias costumam pedir mais repetição que vocabulário básico — sobrescreva a retenção/steps/graduação só pra uma categoria. Vazio = usa o valor global acima.</p>
         <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end;">
           <div style="flex:1; min-width:160px;">
-            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Categoria</label>
+            <label for="srscat-select" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Categoria</label>
             <select id="srscat-select" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
               <option value="word">Vocabulário</option>
               <option value="phrasal">Phrasal verbs</option>
@@ -406,15 +406,15 @@ export async function renderSettings(container, app) {
             </select>
           </div>
           <div style="flex:1; min-width:140px;">
-            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Retenção (%)</label>
+            <label for="srscat-retention" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Retenção (%)</label>
             <input type="number" id="srscat-retention" min="80" max="97" placeholder="global" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
           </div>
           <div style="flex:1; min-width:140px;">
-            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Learning steps</label>
+            <label for="srscat-steps" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Learning steps</label>
             <input type="text" id="srscat-steps" placeholder="global" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
           </div>
           <div style="flex:1; min-width:140px;">
-            <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Graduação (dias)</label>
+            <label for="srscat-grad" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Graduação (dias)</label>
             <input type="number" id="srscat-grad" min="1" max="30" placeholder="global" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
           </div>
         </div>
@@ -450,15 +450,15 @@ export async function renderSettings(container, app) {
           </div>
           <div style="display:flex; gap:16px; flex-wrap:wrap; margin-top:8px;">
             <div style="flex:1; min-width:200px;">
-              <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Sotaque</label>
-              <div id="tts-lang-selector" style="display:flex; gap:8px;">
+              <span id="tts-lang-label" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Sotaque</span>
+              <div id="tts-lang-selector" role="group" aria-labelledby="tts-lang-label" style="display:flex; gap:8px;">
                 <button class="tts-opt-btn" data-lang="en-US" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-primary); background:rgba(88,204,2,0.1); font-family:var(--font-main); font-weight:800; cursor:pointer; color:var(--color-text);">🇺🇸 Americano</button>
                 <button class="tts-opt-btn" data-lang="en-GB" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); font-family:var(--font-main); font-weight:700; cursor:pointer; color:var(--color-text-light);">🇬🇧 Britânico</button>
               </div>
             </div>
             <div style="flex:1; min-width:200px;">
-              <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Velocidade</label>
-              <div id="tts-speed-selector" style="display:flex; gap:8px;">
+              <span id="tts-speed-label" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Velocidade</span>
+              <div id="tts-speed-selector" role="group" aria-labelledby="tts-speed-label" style="display:flex; gap:8px;">
                 <button class="tts-speed-btn" data-speed="slow" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); font-family:var(--font-main); font-weight:700; cursor:pointer; color:var(--color-text-light); font-size:13px;">🐢 Lento</button>
                 <button class="tts-speed-btn" data-speed="normal" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-primary); background:rgba(88,204,2,0.1); font-family:var(--font-main); font-weight:800; cursor:pointer; font-size:13px; color:var(--color-text);">👌 Normal</button>
                 <button class="tts-speed-btn" data-speed="native" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); font-family:var(--font-main); font-weight:700; cursor:pointer; color:var(--color-text-light); font-size:13px;">🚀 Nativo</button>

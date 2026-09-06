@@ -285,7 +285,7 @@ function renderUI(container, app) {
       let count = 0;
       
       for (const w of missing) {
-        bannerText.innerHTML = `Gerando para: <strong>${w.word}</strong> (${count + 1}/${missing.length})... Pode demorar um pouco.`;
+        bannerText.innerHTML = `Gerando para: <strong>${escapeHtml(w.word)}</strong> (${count + 1}/${missing.length})... Pode demorar um pouco.`;
         try {
           const res = isExtension
             ? await new Promise(resolve => {
@@ -331,13 +331,13 @@ function openWordEditor(w, app, container) {
   modal.innerHTML = `
     <div style="background:var(--color-surface); border-radius:var(--radius-md); width:90%; max-width:420px; padding:24px; position:relative; box-shadow:0 8px 24px rgba(0,0,0,0.15); max-height:85vh; overflow-y:auto;">
       <button id="lf-edit-close" style="position:absolute; top:12px; right:12px; background:none; border:none; font-size:20px; color:var(--color-text-light); cursor:pointer; padding:4px;">&times;</button>
-      <h2 style="font-size:20px; font-weight:800; color:var(--color-text); margin:0 0 16px 0;">✏️ ${w.word}</h2>
+      <h2 style="font-size:20px; font-weight:800; color:var(--color-text); margin:0 0 16px 0;">✏️ ${escapeHtml(w.word)}</h2>
 
       <label style="display:block; font-size:12px; font-weight:700; color:var(--color-text-light); margin-bottom:4px;">Tradução</label>
-      <input id="lf-edit-translation" type="text" value="${(w.translation || '').replace(/"/g, '&quot;')}" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:8px; background:var(--color-bg); color:var(--color-text); font-size:14px; margin-bottom:14px;" />
+      <input id="lf-edit-translation" type="text" value="${escapeHtml(w.translation || '')}" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:8px; background:var(--color-bg); color:var(--color-text); font-size:14px; margin-bottom:14px;" />
 
       <label style="display:block; font-size:12px; font-weight:700; color:var(--color-text-light); margin-bottom:4px;">Frase de contexto</label>
-      <textarea id="lf-edit-sentence" rows="3" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:8px; background:var(--color-bg); color:var(--color-text); font-size:14px; margin-bottom:14px; resize:vertical; font-family:inherit;">${(w.context_sentence || '').replace(/</g, '&lt;')}</textarea>
+      <textarea id="lf-edit-sentence" rows="3" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:8px; background:var(--color-bg); color:var(--color-text); font-size:14px; margin-bottom:14px; resize:vertical; font-family:inherit;">${escapeHtml(w.context_sentence || '')}</textarea>
 
       <div style="display:flex; gap:12px; margin-bottom:14px;">
         <div style="flex:1;">

@@ -155,7 +155,7 @@ class Database {
 
   async _fetch(endpoint, options = {}) {
     if (this.isProxyMode) {
-      return this._proxy('_fetch', [endpoint, options]);
+      throw new Error('Acesso REST interno não é permitido fora do service worker.');
     }
 
     const token = await this._getToken();
@@ -844,6 +844,7 @@ class Database {
   static SRS_OVERRIDABLE_KEYS = ['lf_srs_retention', 'learning_steps', 'graduating_interval'];
 
   async getSRSSettings(category) {
+    if (this.isProxyMode) return this._proxy('getSRSSettings', [category]);
     // GARGALO CORRIGIDO: eram 11 chamadas REST sequenciais A CADA avaliação
     // de card (a "demora ao clicar em Difícil"). Agora: 1 request em lote +
     // cache de 60s (por categoria), invalidado quando qualquer setting é gravada.
@@ -864,13 +865,8 @@ class Database {
     // O método irmão (setSRSCategoryOverride) já fazia isso; faltava aqui.
     const keys = [...baseKeys, ...catKeys].map(encodeURIComponent);
     const map = {};
-    if (this.isProxyMode) {
-      const rows = await this._proxy('_fetch', [`settings?key=in.(${keys.join(',')})`, {}]);
-      (rows || []).forEach(r => { map[r.key] = r.value; });
-    } else {
-      const rows = await this._fetch(`settings?key=in.(${keys.join(',')})`);
-      (rows || []).forEach(r => { map[r.key] = r.value; });
-    }
+    const rows = await this._fetch(`settings?key=in.(${keys.join(',')})`);
+    (rows || []).forEach(r => { map[r.key] = r.value; });
     // Override por categoria vence o valor global, só se estiver de fato gravado
     if (category) {
       Database.SRS_OVERRIDABLE_KEYS.forEach(k => {
@@ -879,6 +875,8 @@ class Database {
       });
     }
 
+    const parsedNewPerDay = Number(map.new_per_day ?? 20);
+    const parsedMaxRevPerDay = Number(map.max_reviews_per_day ?? 200);
     const value = {
       gradInt: Number(map.graduating_interval) || 1,
       easyInt: Number(map.easy_interval) || 4,
@@ -902,8 +900,12 @@ class Database {
         .map(Number)
         .filter((n) => n > 0),
       // Limites diários (paridade Anki): controlam a fila de estudo
-      newPerDay: Math.max(0, Number(map.new_per_day ?? 20)),
-      maxRevPerDay: Math.max(1, Number(map.max_reviews_per_day ?? 200)),
+      newPerDay: Number.isFinite(parsedNewPerDay)
+        ? Math.min(20, Math.max(0, parsedNewPerDay))
+        : 20,
+      maxRevPerDay: Number.isFinite(parsedMaxRevPerDay)
+        ? Math.min(1000, Math.max(1, parsedMaxRevPerDay))
+        : 200,
     };
     if (value.learningSteps.length === 0) value.learningSteps = [1, 10];
     if (value.relearningSteps.length === 0) value.relearningSteps = [10];
@@ -926,11 +928,11 @@ class Database {
   }
 
   async setSRSCategoryOverride(category, key, value) {
+    if (this.isProxyMode) return this._proxy('setSRSCategoryOverride', [category, key, value]);
     if (!Database.SRS_OVERRIDABLE_KEYS.includes(key)) throw new Error(`Chave não sobrescrevível por categoria: ${key}`);
     const fullKey = `${key}:${category}`;
     if (value === null || value === '') {
       this._srsCache = null;
-      if (this.isProxyMode) return this._proxy('_fetch', [`settings?key=eq.${encodeURIComponent(fullKey)}`, { method: 'DELETE' }]);
       await this._fetch(`settings?key=eq.${encodeURIComponent(fullKey)}`, { method: 'DELETE' });
       return true;
     }
@@ -1059,8 +1061,9 @@ class Database {
       if (difficulty === null) difficulty = this._fsrsInitDifficulty(3);
 
       const r = this._fsrsRetrievability(Math.max(elapsedDays, 0.01), stability);
-      difficulty = this._fsrsNextDifficulty(difficulty, quality);
-      stability = this._fsrsNextStability(difficulty, stability, r, quality);
+      const previousDifficulty = difficulty;
+      difficulty = this._fsrsNextDifficulty(previousDifficulty, quality);
+      stability = this._fsrsNextStability(previousDifficulty, stability, r, quality);
 
       if (quality === 1) {
         preLapseInterval = Math.max(0, Number(card.interval || 0));
@@ -1175,7 +1178,7 @@ class Database {
       persisted: true,
       idempotent,
       nextDue: new Date(savedCard.due_date).getTime(),
-      prevCard,
+      prevCard: saved?.card_before || prevCard,
       card: savedCard,
       reviewLogId: saved?.review_log_id || null,
       xpAwarded: idempotent ? 0 : Number(saved?.xp_awarded || 0),

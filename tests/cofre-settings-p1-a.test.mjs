@@ -37,5 +37,15 @@ assert.doesNotMatch(settings, /Number\(srsNewPerDay \?\? 5\) \|\| 5/,
 assert.match(settings, /Seu nível aproximado/);
 assert.match(settings, /não substitui uma avaliação CEFR completa/);
 assert.match(settings, /Salvar configurações/);
+for (const id of [
+  'srs-new-per-day', 'srs-max-rev', 'srs-vault-cap', 'retention-slider',
+  'srs-learning-steps', 'srs-relearning-steps', 'srs-grad-interval',
+  'srs-max-interval', 'srs-int-mod', 'srs-leech-thresh', 'srs-leech-action',
+  'srscat-select', 'srscat-retention', 'srscat-steps', 'srscat-grad',
+]) {
+  assert.match(settings, new RegExp(`<label for="${id}"`), `${id} deve ter label acessível`);
+}
+assert.match(settings, /id="tts-lang-selector" role="group" aria-labelledby="tts-lang-label"/);
+assert.match(settings, /id="tts-speed-selector" role="group" aria-labelledby="tts-speed-label"/);
 
 console.log('✓ P1-A: Cofre escaneável e Configurações seguras');

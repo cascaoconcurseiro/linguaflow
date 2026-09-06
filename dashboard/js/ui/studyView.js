@@ -1784,6 +1784,7 @@ async function handleGrade(grade, app) {
       const reasonMessages = {
         not_due: 'Este card ainda não venceu. Ele continua aqui até a fila ser atualizada.',
         new_daily_limit: 'Seu limite de cards novos de hoje foi atingido. As revisões continuam normalmente.',
+        review_daily_limit: 'Seu limite de revisões de hoje foi atingido. Os cards em aprendizado continuam normalmente.',
         suspended: 'Este card está suspenso e não foi alterado.',
         stale_card_state: 'O card mudou em outro lugar. Recarregue a fila antes de avaliar novamente.',
         invalid_card_state: 'O agendamento proposto não era válido. O card não foi alterado.',
@@ -1794,7 +1795,7 @@ async function handleGrade(grade, app) {
       app.showToast(message, 'info');
       if (res.eligibilityReason === 'stale_card_state') {
         app.navigate('study');
-      } else if (['not_due', 'new_daily_limit', 'suspended'].includes(res.eligibilityReason)) {
+      } else if (['not_due', 'new_daily_limit', 'review_daily_limit', 'suspended'].includes(res.eligibilityReason)) {
         if (dueQueue[0] === gradedCard) dueQueue.shift();
         else dueQueue = dueQueue.filter(card => card.id !== gradedCard.id);
         app.showToast('O card saiu desta fila; a prática livre continua disponível sem alterar seu placar.', 'info');
@@ -1843,6 +1844,13 @@ async function handleGrade(grade, app) {
     if (res?.xpAwarded) {
       sessionXp += res.xpAwarded;
       showXPAnimation(`+${res.xpAwarded} XP`);
+    }
+    if (!res?.prevCard?.is_leech && res?.card?.is_leech) {
+      const leechMessage = res.card.suspended
+        ? 'Este card ficou difícil recorrente e foi pausado. Você pode reativá-lo no Cofre.'
+        : 'Este card ficou difícil recorrente e continuará aparecendo nas revisões.';
+      if (liveStatus) liveStatus.textContent = leechMessage;
+      app.showToast(leechMessage, 'info');
     }
     // REENTRADA NA SESSÃO: card em learning volta quando o step vencer.
     if (res?.card && res.card.status === 'learning' && res.nextDue) {

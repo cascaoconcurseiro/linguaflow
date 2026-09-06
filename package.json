@@ -25,7 +25,7 @@
     "test:card-permissions": "node tests/card-permissions-p0-2b.test.mjs",
     "test:evidence-indexes": "node tests/evidence-index-hardening.test.mjs",
     "test:pedagogy": "node tests/pedagogy-economy-contract.test.mjs",
-    "test:review-economy": "node tests/review-economy-p0-2.test.mjs",
+    "test:review-economy": "node tests/review-economy-p0-2.test.mjs && node tests/review-daily-limits-authority.test.mjs",
     "test:product-ux": "node tests/product-ux-stage4.test.mjs",
     "test:p0-a": "node tests/navigation-home-p0-a.test.mjs",
     "test:p0-b": "node tests/understand-panel-p0-b.test.mjs",

@@ -41,6 +41,8 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
   os campos canônicos de cards e contadores diários (2026-09-06).
 - [x] Garantir atomicamente na RPC os limites diários de novos e revisões,
   preservando learning e recusando respostas excedentes sem mutação (2026-09-06).
+- [x] Aplicar a RPC autoritativa no banco Supabase `main PRODUCTION` pelo SQL
+  Editor, sem reparar incorretamente o histórico divergente (2026-09-06).
 - [x] Alinhar `Difícil` em learning/relearning ao Anki e avisar quando um card se
   torna leech ou é suspenso por erros recorrentes (2026-09-06).
 - [x] Release completo e smoke do build `3.0.36` passaram após as correções de
@@ -187,6 +189,6 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
 
 ## Próximo passo concreto
 
-Publicar e confirmar o build `3.0.36`, aplicar a migration
-`20260906120000_authoritative_review_daily_limits.sql` e testar, em sessão
-autenticada, contexto salvo, limites concorrentes e suspensão por leech.
+Confirmar o build `3.0.36` e testar, em sessão autenticada, contexto salvo,
+limites concorrentes e suspensão por leech. Depois reconciliar as versões
+históricas local/remota do Supabase antes do próximo `db push`.

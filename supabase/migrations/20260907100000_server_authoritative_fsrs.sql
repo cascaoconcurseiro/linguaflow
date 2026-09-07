@@ -125,12 +125,16 @@ BEGIN
     );
   END IF;
 
-  SELECT c, w.category INTO v_card, v_category
+  SELECT c.* INTO v_card
     FROM public.cards c JOIN public.words w ON w.id = c.word_id AND w.user_id = c.user_id
    WHERE c.id = p_card_id AND c.user_id = v_user_id FOR UPDATE OF c;
   IF NOT FOUND THEN
     RAISE EXCEPTION USING ERRCODE = 'P0002', MESSAGE = 'card_not_found';
   END IF;
+
+  SELECT category INTO v_category
+    FROM public.words
+   WHERE id = v_card.word_id AND user_id = v_user_id;
   v_before_json := to_jsonb(v_card);
 
   -- Valores globais; entradas inválidas caem nos mesmos defaults do cliente.

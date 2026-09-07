@@ -528,13 +528,13 @@ export class SettingsPanel {
         </style>
 
         <div class="overlay" id="overlay">
-            <div class="panel">
+            <div class="panel" role="dialog" aria-modal="true" aria-labelledby="lf-settings-panel-title">
                 <div class="panel-header">
-                    <h2 class="panel-title">
+                    <h2 class="panel-title" id="lf-settings-panel-title">
                         <img src="${chrome.runtime.getURL('icon128.png')}" alt="LinguaFlow" style="width:22px;height:22px;border-radius:6px;" />
                         LinguaFlow
                     </h2>
-                    <button class="close-btn" id="btn-close">
+                    <button class="close-btn" id="btn-close" type="button" aria-label="Fechar painel de configurações">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </button>
                 </div>
@@ -825,6 +825,12 @@ export class SettingsPanel {
 
   _attachListeners() {
     document.addEventListener('keydown', (e) => {
+      if (this.isOpen && e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        this.close();
+        return;
+      }
       if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
       if (e.key.toLowerCase() === 'o') this.toggle();
     });
@@ -853,13 +859,20 @@ export class SettingsPanel {
   }
   open() {
     if (!this.shadow) return;
+    this._previousFocus = document.activeElement;
     this.isOpen = true;
     this.shadow.getElementById('overlay').style.display = 'flex';
+    const closeBtn = this.shadow.getElementById('btn-close');
+    if (closeBtn && typeof closeBtn.focus === 'function') closeBtn.focus();
   }
   close() {
     if (!this.shadow) return;
     this.isOpen = false;
     this.shadow.getElementById('overlay').style.display = 'none';
+    if (this._previousFocus && typeof this._previousFocus.focus === 'function' && this._previousFocus.isConnected) {
+      this._previousFocus.focus({ preventScroll: true });
+    }
+    this._previousFocus = null;
   }
 
   async _save(key, value) {

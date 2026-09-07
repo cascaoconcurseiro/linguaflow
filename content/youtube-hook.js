@@ -137,6 +137,7 @@
     };
 
     window.addEventListener('message', (e) => {
+        if (e.origin !== window.location.origin || e.source !== window) return;
         if (!e.data || typeof e.data !== 'object') return;
         if (e.data.type === 'LF_SET_SOURCE_LANG' && typeof e.data.sourceLang === 'string') {
             currentSourceLang = e.data.sourceLang;

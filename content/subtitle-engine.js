@@ -903,6 +903,15 @@ export class SubtitleEngine {
         console.debug(`[LinguaFlow] Modo de exibição carregado: ${mode}`);
       }
 
+      const targetLang = await db.getSetting('targetLang');
+      if (targetLang) this.targetLang = targetLang;
+
+      const sourceLang = await db.getSetting('sourceLang');
+      if (sourceLang) {
+        this.sourceLang = sourceLang;
+        window.postMessage({ type: 'LF_SET_SOURCE_LANG', sourceLang: this.sourceLang }, window.location.origin);
+      }
+
       const theme = await db.getSetting('uiTheme');
       if (theme) {
         this.uiTheme = theme;
@@ -2572,8 +2581,23 @@ export class SubtitleEngine {
         }
       });
 
-      // Usa as preferidas ou cai de volta para qualquer URL do vídeo
-      const urlsToTry = preferredUrls.length > 0 ? preferredUrls : matchingUrls;
+      // Sanitiza URLs para nunca solicitar com tlang (tradução automática)
+      const sanitizeUrl = (r) => {
+        try {
+          const u = new URL(r);
+          if (u.searchParams.has('tlang')) {
+            u.searchParams.delete('tlang');
+            return u.toString();
+          }
+          return r;
+        } catch {
+          return r;
+        }
+      };
+
+      // Usa as preferidas ou cai de volta para qualquer URL do vídeo (sempre sanitizada sem tlang)
+      const rawUrlsToTry = preferredUrls.length > 0 ? preferredUrls : matchingUrls;
+      const urlsToTry = Array.from(new Set(rawUrlsToTry.map(sanitizeUrl)));
       console.debug(`[LinguaFlow] Legendas: ${urlsToTry.length} candidatas (lang=${srcLang})`);
 
       for (const url of urlsToTry) {
@@ -3033,7 +3057,7 @@ export class SubtitleEngine {
 
   // A injeção do youtube-hook.js agora é feita pelo injector.js em document_start
 
-  _processYouTubeRawSubtitles(url, raw, navigation = this._navigationSnapshot()) {
+  async _processYouTubeRawSubtitles(url, raw, navigation = this._navigationSnapshot()) {
     if (!this._isNavigationCurrent(navigation)) return;
     try {
       const cueVideoId = new URL(url).searchParams.get('v');
@@ -3041,8 +3065,95 @@ export class SubtitleEngine {
       if (cueVideoId && currentVideoId && cueVideoId !== currentVideoId) return;
     } catch { return; }
     if (!raw || raw.length < 10) return;
-    let cues = [];
 
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      return;
+    }
+
+    const hasTlang = parsedUrl.searchParams.has('tlang');
+    if (hasTlang) {
+      // Se já possuímos legendas no idioma original, NÃO sobrescrevemos e nem precisamos buscar de novo; apenas enriquecemos com a tradução
+      if (this.cues && this.cues.length > 0) {
+        let transCues = [];
+        try {
+          if (raw.startsWith('{')) transCues = this._processYtSub(JSON.parse(raw));
+          else if (raw.includes('WEBVTT') || raw.includes('-->')) transCues = this._parseVTT(raw);
+        } catch {}
+        if (Array.isArray(transCues) && transCues.length > 0) {
+          this.cues.forEach((c, i) => {
+            const match = transCues[i] || transCues.find((tc) => Math.abs(tc.start - c.start) < 0.5);
+            if (match?.text) c.translatedText = match.text;
+          });
+        }
+        return;
+      }
+
+      // Se ainda não temos legendas, busca o original sem o tlang
+      console.debug('[LinguaFlow] 🔄 Legenda interceptada contém tlang (tradução). Buscando original...');
+      try {
+        const origUrl = new URL(url);
+        origUrl.searchParams.delete('tlang');
+        const origResponse = await fetch(origUrl.toString(), { signal: navigation.signal });
+        if (!this._isNavigationCurrent(navigation)) return;
+        if (origResponse.ok) {
+          const origText = await origResponse.text();
+          if (!this._isNavigationCurrent(navigation)) return;
+          if (origText && origText.length > 10) {
+            let origCues = [];
+            if (origText.startsWith('{')) {
+              try { origCues = this._processYtSub(JSON.parse(origText)); } catch {}
+            } else if (origText.includes('WEBVTT') || origText.includes('-->')) {
+              origCues = this._parseVTT(origText);
+            }
+
+            if (Array.isArray(origCues) && origCues.length > 0 && this._isNavigationCurrent(navigation)) {
+              let transCues = [];
+              try {
+                if (raw.startsWith('{')) transCues = this._processYtSub(JSON.parse(raw));
+                else if (raw.includes('WEBVTT') || raw.includes('-->')) transCues = this._parseVTT(raw);
+              } catch {}
+
+              if (Array.isArray(transCues) && transCues.length > 0) {
+                origCues.forEach((c, i) => {
+                  const match = transCues[i] || transCues.find((tc) => Math.abs(tc.start - c.start) < 0.5);
+                  if (match?.text) c.translatedText = match.text;
+                });
+              }
+
+              this.cues = origCues;
+              this.xhrCues = origCues;
+              this.usingXhr = true;
+              this._rebuildSubtitleList();
+
+              chrome.storage.local.get('lastYoutubeSubtitleUrls', (res) => {
+                let urls = res.lastYoutubeSubtitleUrls || [];
+                const cleanUrl = origUrl.toString();
+                if (!urls.includes(cleanUrl)) {
+                  urls.push(cleanUrl);
+                  if (urls.length > 10) urls.shift();
+                  chrome.storage.local.set({ lastYoutubeSubtitleUrls: urls });
+                }
+              });
+
+              const ytWrap = typeof document !== 'undefined'
+                ? document.querySelector('.ytp-caption-window-container')
+                : null;
+              if (ytWrap) ytWrap.style.display = 'none';
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        if (e?.name === 'AbortError' || !this._isNavigationCurrent(navigation)) return;
+        console.warn('[LinguaFlow] Falha ao recuperar legenda original a partir do tlang:', e);
+      }
+      return;
+    }
+
+    let cues = [];
     if (raw.startsWith('{')) {
       try {
         cues = this._processYtSub(JSON.parse(raw));
@@ -3056,21 +3167,28 @@ export class SubtitleEngine {
     if (cues.length > 0 && this._isNavigationCurrent(navigation)) {
       this.cues = cues;
       this.xhrCues = cues; // Unifica para garantir que o sync loop e sidebar vejam o mesmo
+      this.usingXhr = true;
       this._rebuildSubtitleList(); // Atualiza painel lateral IMEDIATAMENTE
       // this.toggleSubtitles(); // Removido: Não forçar ativação automática
 
-      // Persistência para F5
+      // Persistência para F5 — armazena apenas URL limpa (sem tlang)
+      const cleanUrl = parsedUrl.searchParams.has('tlang')
+        ? (() => { const u = new URL(url); u.searchParams.delete('tlang'); return u.toString(); })()
+        : url;
+
       chrome.storage.local.get('lastYoutubeSubtitleUrls', (res) => {
         let urls = res.lastYoutubeSubtitleUrls || [];
-        if (!urls.includes(url)) {
-          urls.push(url);
+        if (!urls.includes(cleanUrl)) {
+          urls.push(cleanUrl);
           if (urls.length > 10) urls.shift();
           chrome.storage.local.set({ lastYoutubeSubtitleUrls: urls });
         }
       });
 
       // Esconde legenda nativa do YouTube
-      const ytWrap = document.querySelector('.ytp-caption-window-container');
+      const ytWrap = typeof document !== 'undefined'
+        ? document.querySelector('.ytp-caption-window-container')
+        : null;
       if (ytWrap) {
         ytWrap.style.display = 'none';
         console.debug('[LinguaFlow] Legenda nativa do YouTube escondida');

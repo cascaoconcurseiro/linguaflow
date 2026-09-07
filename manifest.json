@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LinguaFlow",
-  "version": "3.0.38",
+  "version": "3.0.39",
   "description": "Aprenda inglês com vídeos, leitura, histórias e revisão espaçada sincronizada entre dispositivos.",
   "icons": {
     "16": "icon16.png",
@@ -10,12 +10,16 @@
   },
   "permissions": ["storage", "alarms", "contextMenus", "tabs", "notifications"],
   "host_permissions": [
-    "*://api.mymemory.translated.net/*",
-    "*://translate.googleapis.com/*",
-    "*://api.dictionaryapi.dev/*",
-    "*://www.linguee.com.br/*",
-    "*://context.reverso.net/*",
-    "<all_urls>"
+    "https://api.mymemory.translated.net/*",
+    "https://translate.googleapis.com/*",
+    "https://api.dictionaryapi.dev/*",
+    "https://api.datamuse.com/*",
+    "https://en.wiktionary.org/*",
+    "https://www.linguee.com.br/*",
+    "https://context.reverso.net/*",
+    "https://qnutoswrufznztoznlql.supabase.co/*",
+    "https://translate.google.com/*",
+    "https://api.allorigins.win/*"
   ],
   "background": {
     "service_worker": "background/service-worker.js",
@@ -36,14 +40,14 @@
     },
     {
       "matches": [
-        "*://*.youtube.com/*",
-        "*://*.netflix.com/*",
-        "*://*.hbomax.com/*",
-        "*://*.max.com/*",
-        "*://*.hbo.com/*",
-        "*://*.disneyplus.com/*",
-        "*://*.primevideo.com/*",
-        "*://*.amazon.com/*/video/*"
+        "https://*.youtube.com/*",
+        "https://*.netflix.com/*",
+        "https://*.hbomax.com/*",
+        "https://*.max.com/*",
+        "https://*.hbo.com/*",
+        "https://*.disneyplus.com/*",
+        "https://*.primevideo.com/*",
+        "https://*.amazon.com/*/video/*"
       ],
       "js": ["content/boot.js"],
       "run_at": "document_idle",
@@ -71,19 +75,59 @@
     "default_title": "LinguaFlow"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://qnutoswrufznztoznlql.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com https://translate.googleapis.com https://api.mymemory.translated.net https://api.dictionaryapi.dev https://www.linguee.com.br https://context.reverso.net https://translate.google.com https://api.allorigins.win"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://qnutoswrufznztoznlql.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com https://translate.googleapis.com https://api.mymemory.translated.net https://api.dictionaryapi.dev https://api.datamuse.com https://en.wiktionary.org https://www.linguee.com.br https://context.reverso.net https://translate.google.com https://api.allorigins.win"
   },
   "web_accessible_resources": [
     {
       "resources": [
-        "content/*",
-        "utils/*",
-        "icon16.png",
-        "icon48.png",
-        "icon128.png",
-        "icon_full.png"
+        "utils/site-boundary.js",
+        "utils/tts.js",
+        "utils/exclusive-playback.js",
+        "utils/offline-dict.js"
       ],
       "matches": ["<all_urls>"]
+    },
+    {
+      "resources": [
+        "content/index.js",
+        "content/settings-panel.js",
+        "content/subtitle-engine.js",
+        "content/max-player-ui.js",
+        "content/review-overlay.js",
+        "content/word-popup.js",
+        "utils/cefr-wordlist.json",
+        "utils/frequency-en.json",
+        "utils/db.js",
+        "utils/local-day.js",
+        "utils/expressions-db.js",
+        "utils/video-utils.js",
+        "utils/html.js",
+        "utils/phrasal-verbs.js",
+        "utils/translator.js",
+        "icon128.png"
+      ],
+      "matches": [
+        "*://*.youtube.com/*",
+        "*://*.netflix.com/*",
+        "*://*.hbomax.com/*",
+        "*://*.max.com/*",
+        "*://*.hbo.com/*",
+        "*://*.disneyplus.com/*",
+        "*://*.primevideo.com/*",
+        "*://*.amazon.com/*"
+      ]
+    },
+    {
+      "resources": ["content/youtube-hook.js"],
+      "matches": ["https://*.youtube.com/*"]
+    },
+    {
+      "resources": ["content/hbo-inject.js"],
+      "matches": [
+        "https://*.hbomax.com/*",
+        "https://*.max.com/*",
+        "https://*.hbo.com/*"
+      ]
     }
   ]
 }

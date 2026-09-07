@@ -187,7 +187,10 @@ export class SettingsPanel {
     };
 
     s.getElementById('sel-lang').onchange = (e) => this._save('targetLang', e.target.value);
-    s.getElementById('sel-source-lang').onchange = (e) => this._save('sourceLang', e.target.value);
+    s.getElementById('sel-source-lang').onchange = (e) => {
+      this._save('sourceLang', e.target.value);
+      window.postMessage({ type: 'LF_SET_SOURCE_LANG', sourceLang: e.target.value }, window.location.origin);
+    };
     s.getElementById('sel-theme').onchange = (e) => {
         this._save('uiTheme', e.target.value);
         this.updateTheme(e.target.value);
@@ -872,6 +875,7 @@ export class SettingsPanel {
     this.engine.displayMode = this.cfg.subtitleMode;
     this.engine.targetLang = this.cfg.targetLang;
     this.engine.sourceLang = this.cfg.sourceLang || 'en';
+    window.postMessage({ type: 'LF_SET_SOURCE_LANG', sourceLang: this.engine.sourceLang }, window.location.origin);
     this.engine.translationDelay = this.cfg.translationDelay;
     // No YouTube, antecipação deve ser sempre 0 para sincronização perfeita
     this.engine.translationAnticipation = this.cfg.translationAnticipation;

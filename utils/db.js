@@ -1154,43 +1154,21 @@ class Database {
     this._invalidateReadCache();
     if (this.isProxyMode) return this._proxy('logReview', [cardId, quality, category, plannedState, operationId]);
 
-    const settings = await this.getSRSSettings(category);
-    const res = await this._fetch(`cards?id=eq.${cardId}&limit=1`);
-    if (!res || !res.length) throw new Error('Card não encontrado');
-    const prevCard = { ...res[0] }; // snapshot para o undo (paridade Anki)
-
-    // A interface calculou esta prévia antes do clique. Reusar o estado evita
-    // divergência entre o rótulo apresentado e o intervalo persistido. Caso a
-    // prévia não exista (atalho/cliente antigo), calcula deterministicamente.
-    let card = plannedState && plannedState.id === cardId
-      ? { ...plannedState }
-      : this._calculateNextState(res[0], quality, settings);
-
-    // Marca a introdução do card (1ª revisão de um card novo) — é o que faz
-    // o limite "novas cartas/dia" ser real, não decorativo.
-    if (prevCard.status === 'new' && !prevCard.introduced_at) {
-      card.introduced_at = new Date().toISOString();
-    }
-
-    if (card.lapses >= settings.leechThresh) {
-      card.is_leech = true;
-      if (settings.leechAction === 'suspend') card.suspended = true;
-    }
-
-    // A revisão é uma única operação transacional no Postgres. Antes desta
-    // RPC o PATCH do card e o INSERT em review_log podiam divergir em falha
-    // de rede, deixando o agendamento sem histórico/XP/undo.
+    // A prévia continua sendo calculada no cliente para mostrar os intervalos
+    // antes do clique. A gravação, porém, envia somente intenção: o servidor
+    // relê o card sob lock e calcula toda a transição SRS autoritativamente.
     const clientReviewId = operationId || createOperationId();
     const saved = await this._fetch('rpc/record_card_review', {
       method: 'POST',
       body: {
         p_card_id: cardId,
         p_quality: quality,
-        p_state: card,
+        p_state: null,
         p_client_review_id: clientReviewId,
       },
     });
-    const savedCard = saved?.card || card;
+    if (!saved?.card) throw new Error('Servidor não devolveu o card revisado');
+    const savedCard = saved.card;
 
     // prevCard permite reverter o agendamento (undo); card é o estado NOVO —
     // a fila de sessão usa pra reagendar cards em aprendizado (learning steps)
@@ -1206,7 +1184,7 @@ class Database {
       persisted: true,
       idempotent,
       nextDue: new Date(savedCard.due_date).getTime(),
-      prevCard: saved?.card_before || prevCard,
+      prevCard: saved?.card_before || null,
       card: savedCard,
       reviewLogId: saved?.review_log_id || null,
       xpAwarded: idempotent ? 0 : Number(saved?.xp_awarded || 0),

@@ -129,6 +129,19 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
 
 ## Produção e segurança
 
+- [x] Tornar o servidor a única autoridade da transição FSRS, preservando a
+  assinatura da RPC e ignorando `p_state` do cliente (2026-09-07).
+- [x] Restringir hosts e recursos Web do manifesto aos provedores e módulos
+  efetivamente usados, com HTTPS nas integrações (2026-09-07).
+- [x] Corrigir match pattern inválido com subcaminho em `web_accessible_resources[1]`
+  no Chrome MV3 e adicionar asserção de teste (2026-09-07).
+- [x] Garantir que legendas no YouTube venham no idioma original (`sourceLang`),
+  forçando a trilha no player e eliminando captura acidental de `tlang` (2026-09-07).
+- [x] Completar estados e anúncios acessíveis das configurações de CEFR, voz,
+  velocidade, notificações e posicionamento (2026-09-07).
+- [x] Integrar contratos de autoridade FSRS, permissões e acessibilidade ao
+  release do build `3.0.39` (2026-09-07).
+
 - [x] Neutralizar HTML persistido em contexto, chunks, jogos e tutor da IA; CSP
   sem scripts inline e allowlist dos recursos externos necessários (2026-09-05).
 - [x] Carregar status FSRS autoritativo dos cards no boot das legendas (2026-09-05).

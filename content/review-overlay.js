@@ -147,37 +147,17 @@ export class ReviewOverlay {
     if (!this._db) return;
     this._loadError = false;
     try {
-      const [due, todayCounts, settings] = await Promise.all([
-        this._db.getCardsDue(200, true),
+      const [todayCounts, settings] = await Promise.all([
         this._db.getTodayCounts(),
         this._db.getSRSSettings(),
       ]);
-      if (!Array.isArray(due)) throw new Error('Fila de revisão indisponível');
       const newLimit = settings?.newPerDay ?? 20;
       const revLimit = settings?.maxRevPerDay ?? 200;
       const newAllowed = Math.max(0, newLimit - (todayCounts?.newIntroducedToday || 0));
       const revAllowed = Math.max(0, revLimit - (todayCounts?.reviewsToday || 0));
-
-      let newSeen = 0;
-      let revSeen = 0;
-      const valid = [];
-      for (const card of due) {
-        if (!card.wordData) continue;
-        if (card.status === 'new') {
-          if (newSeen < newAllowed) {
-            valid.push(card);
-            newSeen++;
-          }
-        } else if (card.status === 'learning') {
-          valid.push(card);
-        } else {
-          if (revSeen < revAllowed) {
-            valid.push(card);
-            revSeen++;
-          }
-        }
-      }
-      this.cards = valid.slice(0, 10);
+      const due = await this._db.getStudyCards({ newLimit: newAllowed, reviewLimit: revAllowed });
+      if (!Array.isArray(due)) throw new Error('Fila de revisão indisponível');
+      this.cards = due.filter(card => card.wordData).slice(0, 10);
     } catch (e) {
       this.cards = [];
       this._loadError = true;

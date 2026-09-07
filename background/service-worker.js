@@ -11,7 +11,7 @@ const DB_PROXY_METHODS = new Set([
   'deletePushSubscription', 'deleteReaderText', 'deleteSentence', 'deleteStory',
   'deleteWord', 'ensureUserStats', 'getAdaptiveProfiles', 'getAllCards',
   'getAllKnownWords', 'getAllSentences', 'getAllTags', 'getAllWords',
-  'getCardByWordId', 'getCardsDue', 'getCardStats', 'getFluencyProfiles',
+  'getCardByWordId', 'getCardsDue', 'getStudyCards', 'getCardStats', 'getFluencyProfiles',
   'getHistory', 'getLatestLearningTaskAttempt', 'getLeaderboard', 'getPushPublicKey',
   'getReaderTexts', 'getReviewLog', 'getSentenceById', 'getSessions', 'getSetting',
   'getSettings', 'getSRSCategoryOverrides', 'getSRSSettings', 'getStats',

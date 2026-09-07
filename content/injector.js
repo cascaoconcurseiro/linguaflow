@@ -15,9 +15,32 @@
     else if (isHBO) scriptToInject = 'content/hbo-inject.js';
 
     if (scriptToInject) {
+      const bridgeStateKey = '__linguaFlowSubtitleBridge';
+      const createNonce = () => {
+        const bytes = new Uint8Array(24);
+        crypto.getRandomValues(bytes);
+        return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+      };
+
+      const installBridge = () => {
+        const navigationUrl = window.location.href;
+        const current = window[bridgeStateKey];
+        if (current?.url === navigationUrl) return;
+
+        const previousNonce = current?.nonce || '';
+        const nonce = createNonce();
+        window[bridgeStateKey] = Object.freeze({ nonce, url: navigationUrl });
+
         const script = document.createElement('script');
         script.src = chrome.runtime.getURL(scriptToInject);
+        script.dataset.lfNonce = nonce;
+        script.dataset.lfPreviousNonce = previousNonce;
+        script.dataset.lfNavigationUrl = navigationUrl;
         script.onload = () => script.remove();
         (document.head || document.documentElement).appendChild(script);
+      };
+
+      installBridge();
+      setInterval(installBridge, 500);
     }
 })();

@@ -20,6 +20,15 @@ assert.match(db, /persisted: true/);
 assert.match(db, /xpAwarded: idempotent \? 0/);
 assert.match(db, /response\.errorKind/);
 assert.match(worker, /errorRetryable: Boolean\(error\?\.retryable\)/);
+assert.match(db, /async getStudyCards\(\{[\s\S]*?newLimit[\s\S]*?reviewLimit[\s\S]*?topic/s,
+  'o adaptador deve expor uma fila de estudo com cotas independentes');
+const studyQueueMethod = db.slice(db.indexOf('async getStudyCards'), db.indexOf('\n  // Contadores do dia', db.indexOf('async getStudyCards')));
+assert.match(studyQueueMethod, /query\('eq\.learning', 1000\)[\s\S]*query\('in\.\(review,mature\)', safeReviewLimit\)[\s\S]*query\('eq\.new', safeNewLimit\)/,
+  'learning, review e new devem ser consultados separadamente para um estado não esconder outro');
+assert.match(studyQueueMethod, /Math\.min\(1000,[\s\S]*reviewLimit/,
+  'a consulta deve suportar a configuração máxima de 1000 reviews');
+assert.match(studyQueueMethod, /words!inner[\s\S]*words\.category=eq\./,
+  'o filtro de tópico deve ser aplicado no banco antes dos limites');
 
 assert.match(overlay, /if \(this\._answerBusy \|\| !this\._currentCard\) return/);
 assert.match(overlay, /operation\.operationId/);
@@ -40,16 +49,18 @@ assert.match(study, /ficou difícil recorrente e foi pausado[\s\S]*reativá-lo n
   'leech suspenso deve explicar como recuperar o card');
 const answerBody = overlay.slice(overlay.indexOf('async _answer'), overlay.indexOf('\n  destroy()', overlay.indexOf('async _answer')));
 const loadCardsBody = overlay.slice(overlay.indexOf('async _loadCards()'), overlay.indexOf('\n  show()', overlay.indexOf('async _loadCards()')));
-assert.match(loadCardsBody, /Promise\.all\(\[\s*this\._db\.getCardsDue\(200, true\),\s*this\._db\.getTodayCounts\(\),\s*this\._db\.getSRSSettings\(\)/,
+assert.match(loadCardsBody, /Promise\.all\(\[\s*this\._db\.getTodayCounts\(\),\s*this\._db\.getSRSSettings\(\)/,
   'revisão rápida deve carregar fila e limites configurados juntos');
-assert.match(loadCardsBody, /newAllowed[\s\S]*revAllowed[\s\S]*slice\(0, 10\)/,
+assert.match(loadCardsBody, /this\._db\.getStudyCards\(\{[\s\S]*newLimit: newAllowed[\s\S]*reviewLimit: revAllowed/,
+  'revisão rápida deve buscar cada estado com sua cota restante');
+assert.match(loadCardsBody, /newAllowed[\s\S]*revAllowed[\s\S]*getStudyCards[\s\S]*slice\(0, 10\)/,
   'revisão rápida deve respeitar limites de novas e revisões antes de cortar a sessão');
 assert.match(loadCardsBody, /settings\?\.newPerDay[\s\S]*todayCounts\?\.newIntroducedToday/,
   'revisão rápida deve usar os nomes reais do limite e do contador de cards novos');
 assert.match(loadCardsBody, /settings\?\.maxRevPerDay[\s\S]*todayCounts\?\.reviewsToday/,
   'revisão rápida deve usar os nomes reais do limite e do contador de revisões');
-assert.match(loadCardsBody, /card\.status === 'new'[\s\S]*card\.status === 'learning'/,
-  'a classificação da fila deve usar o estado canônico do card e preservar learning');
+assert.match(loadCardsBody, /getStudyCards\(\{ newLimit: newAllowed, reviewLimit: revAllowed \}\)/,
+  'a classificação por estado deve acontecer no adaptador sem truncamento compartilhado');
 assert.doesNotMatch(loadCardsBody, /newCardsPerDay|reviewsPerDay|newCount|reviewCount|lastReviewed|repetition/,
   'aliases inexistentes não podem liberar ou bloquear cards incorretamente');
 assert.ok(answerBody.indexOf('this.index++') > answerBody.indexOf('await this._db.logReview'));
@@ -76,6 +87,8 @@ const buryBody = study.slice(study.indexOf('async function buryCard(app)'), stud
 assert.match(buryBody, /lastReview = null;[\s\S]*updateUndoButton\(\)/,
   'adiar um card não pode deixar Desfazer apontando para uma revisão anterior');
 assert.match(study, /A avaliação não foi salva; este card continua aqui/);
+assert.match(study, /lfDb\.getStudyCards\(\{[\s\S]*newLimit: newAllowed[\s\S]*reviewLimit: revAllowed[\s\S]*topic: topicFilter/,
+  'a tela principal deve aplicar cotas e tópico na consulta autoritativa');
 assert.match(app, /toast\.setAttribute\('role', type === 'error' \? 'alert' : 'status'\)/);
 assert.match(app, /toast\.setAttribute\('aria-live'/);
 

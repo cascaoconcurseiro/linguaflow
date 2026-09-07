@@ -1,7 +1,7 @@
 # Checklist — LinguaFlow
 
 **Atualizado em:** 2026-09-06
-**Referência:** auditoria geral e robustez, build `3.0.37`
+**Referência:** auditoria geral e robustez, build `3.0.38`
 
 Este arquivo contém apenas trabalho vigente. Auditorias e planos superados
 foram consolidados e permanecem recuperáveis pelo histórico Git.
@@ -63,6 +63,12 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
   limites diários `NaN` no cliente (2026-09-06).
 - [x] Gate funcional completo e smoke `--allow-dirty` do build `3.0.37`
   passaram após a auditoria geral (2026-09-06).
+- [x] Separar a fila vencida por estado, aplicar tópico no banco e suportar até
+  1.000 reviews sem novos esconderem revisões (2026-09-06).
+- [x] Validar e limitar a ponte de legendas com origem, navegação, nonce, URL,
+  protocolo, tipo e tamanho do payload (2026-09-06).
+- [x] Completar teclado, ARIA, foco, contraste e reduced motion do popup de
+  palavras, incluindo recall e chips (2026-09-06).
 
 - [x] Modo `Apenas Original` oculta respostas assíncronas de tradução e aplica
   a troca de modo imediatamente, preservando apenas o flash manual (2026-09-05).
@@ -205,6 +211,6 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
 
 ## Próximo passo concreto
 
-Confirmar o build `3.0.37` e testar, em sessão autenticada, contexto salvo,
+Confirmar o build `3.0.38` e testar, em sessão autenticada, contexto salvo,
 limites concorrentes e suspensão por leech. Depois reconciliar as versões
 históricas local/remota do Supabase antes do próximo `db push`.

@@ -2,8 +2,29 @@
 // Injetado via manifest world:MAIN + document_start
 // Intercepta XHR e Fetch para capturar VTT de legendas do HBO/Max/Netflix
 (function () {
-    if (window.__lf_hbo_injected) return;
+    const injectedScript = document.currentScript;
+    let bridgeNonce = injectedScript?.dataset?.lfNonce || '';
+    const previousNonce = injectedScript?.dataset?.lfPreviousNonce || '';
+    let bridgeUrl = injectedScript?.dataset?.lfNavigationUrl || window.location.href;
+    if (!bridgeNonce) return;
+
+    if (typeof window.__lf_hbo_bridge_update === 'function') {
+        window.__lf_hbo_bridge_update(previousNonce, bridgeNonce, bridgeUrl);
+        return;
+    }
+    window.__lf_hbo_bridge_update = (currentNonce, nonce, navigationUrl) => {
+        if (currentNonce !== bridgeNonce || !nonce) return false;
+        bridgeNonce = nonce;
+        bridgeUrl = navigationUrl;
+        return true;
+    };
     window.__lf_hbo_injected = true;
+
+    const postBridgeMessage = (payload) => window.postMessage({
+        ...payload,
+        nonce: bridgeNonce,
+        pageUrl: bridgeUrl,
+    }, window.location.origin);
 
     console.debug('[LF-inject] HBO/Max intercept instalado (XHR + Fetch)');
 
@@ -51,11 +72,11 @@
 
         if (isVtt || hasVttHeader) {
             console.debug('[LF-inject] Legenda detectada, enviando via postMessage');
-            window.postMessage({
+            postBridgeMessage({
                 type: 'LF_HBO_SUB',
                 url: url,
                 response: content
-            }, '*');
+            });
         }
     }
 })();

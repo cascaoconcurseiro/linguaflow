@@ -27,6 +27,8 @@ export class WordPopup {
     this._contextRequestId = 0;
     this._contextSession = null;
     this._activeSourceKey = '';
+    this._previousFocus = null;
+    this._keydownHandler = null;
 
     this._gramBuilt = false;
     this._exBuilt = false;
@@ -315,6 +317,7 @@ export class WordPopup {
     this._maxPositionMutationObserver?.disconnect();
     this._maxPositionAbort?.abort();
     cancelAnimationFrame(this._positionFrame || 0);
+    if (this._keydownHandler) document.removeEventListener('keydown', this._keydownHandler, true);
     this.popup?.remove();
   }
 
@@ -372,6 +375,8 @@ export class WordPopup {
 .lfp-use-text{font-size:12px;color:#e2e8f0;line-height:1.7}
 .lfp-use-muted{font-size:11px;color:#94a3b8;line-height:1.55}
 .lfp-mini-chip{display:inline-block;margin:2px 4px 2px 0;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:#cbd5e1;font-size:11px;font-weight:700}
+#lfp :focus-visible{outline:3px solid #7dd3fc;outline-offset:2px}
+@media (prefers-reduced-motion:reduce){#lfp,#lfp *,#lfp *::before,#lfp *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 /* Deck modal */
 #lfp-deck-modal{position:absolute;inset:0;background:rgba(8,12,24,.92);backdrop-filter:blur(10px);border-radius:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:10;padding:24px}
 #lfp-deck-modal input{width:100%;padding:10px 14px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:10px;color:#f8fafc;font-size:14px;outline:none;font-family:inherit}
@@ -381,6 +386,10 @@ export class WordPopup {
     }
     this.popup = document.createElement('div');
     this.popup.id = 'lfp';
+    this.popup.setAttribute('role', 'dialog');
+    this.popup.setAttribute('aria-modal', 'true');
+    this.popup.setAttribute('aria-labelledby', 'fw');
+    this.popup.setAttribute('tabindex', '-1');
     Object.assign(this.popup.style, {
       position: 'absolute',
       zIndex: '2147483647',
@@ -409,7 +418,7 @@ export class WordPopup {
       <span id="fcefr-prog" style="display:none;font-size:10px;color:#94a3b8;font-family:monospace;align-self:center;"></span>
     </div>
     <div style="display:flex;align-items:center;gap:5px;margin-top:5px;flex-wrap:wrap;">
-      <span id="fipa" style="font-size:12px;color:#64748b;font-family:monospace;"></span>
+      <span id="fipa" style="font-size:12px;color:#94a3b8;font-family:monospace;"></span>
       <span id="fprpt" style="display:none;font-size:18px;color:#fbbf24;font-weight:700;font-family:monospace;background:rgba(251,191,36,0.15);padding:4px 8px;border-radius:6px;border:1px solid rgba(251,191,36,0.3);"></span>
     </div>
     <div style="display:flex;align-items:center;gap:5px;margin-top:6px;flex-wrap:wrap;">
@@ -423,19 +432,19 @@ export class WordPopup {
     <button id="fx" type="button" aria-label="Fechar popup" style="min-width:44px;min-height:44px;background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px 7px;border-radius:6px;line-height:1;">✕</button>
   </div>
 </div>
-<div style="display:flex;border-bottom:1px solid rgba(255,255,255,.07);margin-top:12px;padding:0 4px;">
-  ${['Tradução', 'Linguee', 'YouGlish'].map((l, i) => `<button class="ftab" data-i="${i}" style="flex:1;padding:9px 2px;font-size:11px;font-weight:700;color:${i === 0 ? '#7dd3fc' : '#475569'};background:none;border:none;border-bottom:2px solid ${i === 0 ? '#7dd3fc' : 'transparent'};cursor:pointer;letter-spacing:.03em;white-space:nowrap;transition:all .15s;">${l}</button>`).join('')}
+<div role="tablist" aria-label="Fontes da palavra" style="display:flex;border-bottom:1px solid rgba(255,255,255,.07);margin-top:12px;padding:0 4px;">
+  ${['Tradução', 'Linguee', 'YouGlish'].map((l, i) => `<button class="ftab" type="button" role="tab" id="lfp-tab-${i}" aria-controls="lfp-panel-${i}" aria-selected="${i === 0}" tabindex="${i === 0 ? '0' : '-1'}" data-i="${i}" style="flex:1;padding:9px 2px;font-size:11px;font-weight:700;color:${i === 0 ? '#7dd3fc' : '#94a3b8'};background:none;border:none;border-bottom:2px solid ${i === 0 ? '#7dd3fc' : 'transparent'};cursor:pointer;letter-spacing:.03em;white-space:nowrap;transition:all .15s;">${l}</button>`).join('')}
 </div>
 <div class="lfp-panels" style="padding:14px 18px 18px;max-height:400px;overflow-y:auto;">
 
-  <div class="fp" data-p="0">
+  <div class="fp" id="lfp-panel-0" role="tabpanel" aria-labelledby="lfp-tab-0" data-p="0">
     <div id="ft" style="font-size:26px;font-weight:800;color:#4ade80;margin-bottom:5px;line-height:1.2;">…</div>
     <div id="fd" style="font-size:13px;color:#94a3b8;line-height:1.6;font-style:italic;margin-bottom:10px;"></div>
     <div id="fff-card" style="display:none;" class="lfp-ff"><div style="font-size:10px;color:#fb923c;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;">⚠️ Falso Cognato — Armadilha!</div><div id="fff-text" style="font-size:12px;color:#fcd34d;line-height:1.6;"></div></div>
     <div id="fctx" style="display:none;background:rgba(139,92,246,.06);border:1px solid rgba(139,92,246,.18);border-radius:10px;padding:10px 13px;margin-bottom:12px;"><div style="font-size:10px;color:#a78bfa;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;display:flex;align-items:center;gap:5px;"><span>💡</span><span>Contexto nesta frase</span></div><div id="fctxt" style="font-size:12px;color:#e2e8f0;line-height:1.7;"></div></div>
     <div id="fc" style="display:none;background:rgba(125,209,252,.04);border-left:3px solid rgba(125,209,252,.3);padding:8px 12px;border-radius:0 8px 8px 0;font-size:12px;color:#cbd5e1;line-height:1.6;margin-bottom:12px;"></div>
-    <div id="fsyn" style="display:none;margin-bottom:10px;"><div style="font-size:10px;color:#475569;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px;">Sinônimos</div><div id="fsyns" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
-    <div id="fant" style="display:none;margin-bottom:12px;"><div style="font-size:10px;color:#475569;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px;">Antônimos</div><div id="fants" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
+    <div id="fsyn" style="display:none;margin-bottom:10px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px;">Sinônimos</div><div id="fsyns" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
+    <div id="fant" style="display:none;margin-bottom:12px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px;">Antônimos</div><div id="fants" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
     <div style="height:1px;background:rgba(255,255,255,.06);margin-bottom:12px;"></div>
 
     <button id="fsave" class="lfp-btn-bounce" style="display:block;width:100%;padding:11px;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;transition:all .15s;margin-bottom:8px;letter-spacing:.01em;">+ Salvar nos Flashcards</button>
@@ -447,8 +456,8 @@ export class WordPopup {
     </div>
   </div>
 
-  <div class="fp" data-p="1" style="display:none;padding-top:8px;">
-    <div style="font-size:13px;color:#64748b;line-height:1.8;margin-bottom:14px;text-align:center;">Traduções em contexto real de textos bilíngues — ideal para ver uso nativo.</div>
+  <div class="fp" id="lfp-panel-1" role="tabpanel" aria-labelledby="lfp-tab-1" data-p="1" style="display:none;padding-top:8px;">
+    <div style="font-size:13px;color:#94a3b8;line-height:1.8;margin-bottom:14px;text-align:center;">Traduções em contexto real de textos bilíngues — ideal para ver uso nativo.</div>
     <div id="frev" style="display:none;margin-bottom:14px;max-height:280px;overflow-y:auto;"></div>
     <button id="frevbtn" class="lfp-btn-bounce" style="display:block;width:100%;padding:11px;background:linear-gradient(135deg,#0c4a6e,#0369a1);color:#7dd3fc;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;">🔄 Reverso Context — Exemplos Reais</button>
     <button id="fl1" style="display:block;width:100%;padding:10px;background:rgba(74,222,128,.08);color:#4ade80;border:1px solid rgba(74,222,128,.25);border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;">🔗 Linguee — EN ↔ PT</button>
@@ -456,8 +465,8 @@ export class WordPopup {
     <button id="fl3" style="display:block;width:100%;padding:9px;background:rgba(74,222,128,.03);color:#4ade80;border:1px solid rgba(74,222,128,.1);border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;">🌐 Google Translate</button>
   </div>
 
-  <div class="fp" data-p="2" style="display:none;text-align:center;padding-top:8px;">
-    <div style="font-size:13px;color:#64748b;line-height:1.8;margin-bottom:14px;">Ouça como nativos pronunciam em vídeos reais do YouTube.</div>
+  <div class="fp" id="lfp-panel-2" role="tabpanel" aria-labelledby="lfp-tab-2" data-p="2" style="display:none;text-align:center;padding-top:8px;">
+    <div style="font-size:13px;color:#94a3b8;line-height:1.8;margin-bottom:14px;">Ouça como nativos pronunciam em vídeos reais do YouTube.</div>
     <button id="fy1" class="lfp-btn-bounce" style="display:block;width:100%;padding:12px;background:linear-gradient(135deg,#7c1010,#b91c1c);color:#f87171;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;">🎬 YouGlish — Qualquer sotaque</button>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
       <button id="fy2" style="padding:10px;background:rgba(248,113,113,.07);color:#f87171;border:1px solid rgba(248,113,113,.2);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🇺🇸 American</button>
@@ -508,19 +517,72 @@ export class WordPopup {
 
       this._mousedownAttached = true;
     }
-    // Tabs
-    this.popup.querySelectorAll('.ftab').forEach((t) => {
-      t.onclick = () => {
-        const i = parseInt(t.dataset.i);
-        this.popup.querySelectorAll('.ftab').forEach((x, j) => {
-          x.style.color = j === i ? '#7dd3fc' : '#475569';
-          x.style.borderBottomColor = j === i ? '#7dd3fc' : 'transparent';
-        });
-        this.popup
-          .querySelectorAll('.fp')
-          .forEach((p, j) => (p.style.display = j === i ? '' : 'none'));
+    const activateTab = (tab, focus = false) => {
+      const i = parseInt(tab.dataset.i, 10);
+      this.popup.querySelectorAll('.ftab').forEach((item, j) => {
+        const selected = j === i;
+        item.style.color = selected ? '#7dd3fc' : '#94a3b8';
+        item.style.borderBottomColor = selected ? '#7dd3fc' : 'transparent';
+        item.setAttribute('aria-selected', String(selected));
+        item.tabIndex = selected ? 0 : -1;
+      });
+      this.popup.querySelectorAll('.fp').forEach((panel, j) => {
+        panel.style.display = j === i ? '' : 'none';
+      });
+      if (focus) tab.focus();
+    };
+
+    // Tabs: setas seguem o padrao WAI-ARIA; Home/End saltam para as pontas.
+    this.popup.querySelectorAll('.ftab').forEach((tab) => {
+      tab.onclick = () => activateTab(tab);
+      tab.onkeydown = (event) => {
+        const tabs = [...this.popup.querySelectorAll('.ftab')];
+        const current = tabs.indexOf(tab);
+        let next = null;
+        if (event.key === 'ArrowRight') next = (current + 1) % tabs.length;
+        if (event.key === 'ArrowLeft') next = (current - 1 + tabs.length) % tabs.length;
+        if (event.key === 'Home') next = 0;
+        if (event.key === 'End') next = tabs.length - 1;
+        if (next === null) return;
+        event.preventDefault();
+        activateTab(tabs[next], true);
       };
     });
+
+    this._keydownHandler = (event) => {
+      if (!this.popup || this.popup.style.display === 'none') return;
+      const recall = this.popup.querySelector('#lfp-recall');
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        if (recall) {
+          recall.remove();
+          q('#fx')?.focus({ preventScroll: true });
+        } else {
+          this.hide(true);
+        }
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const scope = recall || this.popup;
+      const focusable = [...scope.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')]
+        .filter((element) => element.offsetParent !== null);
+      if (!focusable.length) {
+        event.preventDefault();
+        scope.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', this._keydownHandler, true);
     q('#ftts').onclick = async () => {
       const BASE = chrome.runtime.getURL('utils/');
       try {
@@ -617,6 +679,9 @@ export class WordPopup {
     }
 
     if (!word) return;
+    if (this.popup?.style.display === 'none') {
+      this._previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    }
     this._isHiding = false;
     const contextRequestId = ++this._contextRequestId;
     const cleanedWord = word.replace(/[.,!?()"]+/g, '').trim();
@@ -671,8 +736,10 @@ export class WordPopup {
     }
     // Reset tabs
     this.popup.querySelectorAll('.ftab').forEach((t, i) => {
-      t.style.color = i === 0 ? '#7dd3fc' : '#475569';
+      t.style.color = i === 0 ? '#7dd3fc' : '#94a3b8';
       t.style.borderBottomColor = i === 0 ? '#7dd3fc' : 'transparent';
+      t.setAttribute('aria-selected', String(i === 0));
+      t.tabIndex = i === 0 ? 0 : -1;
     });
     this.popup.querySelectorAll('.fp').forEach((p, i) => (p.style.display = i === 0 ? '' : 'none'));
     const q = (s) => this.popup.querySelector(s);
@@ -824,6 +891,7 @@ export class WordPopup {
     requestAnimationFrame(() => {
       this.popup.style.opacity = '1';
       this.popup.style.transform = this.platform === 'max' ? 'none' : 'translateY(0) scale(1)';
+      this.popup.querySelector('.ftab[aria-selected="true"]')?.focus({ preventScroll: true });
     });
 
     this._loadData(this.word);
@@ -950,7 +1018,7 @@ export class WordPopup {
         .slice(0, 6)
         .map(
           (s) =>
-            `<span class="lfp-chip" data-word="${this._escapeAttr(s)}">${this._escapeAttr(s)}</span>`,
+            `<button type="button" class="lfp-chip" data-word="${this._escapeAttr(s)}" aria-label="Consultar sinônimo ${this._escapeAttr(s)}">${this._escapeAttr(s)}</button>`,
         )
         .join('');
       syns.querySelectorAll('.lfp-chip[data-word]').forEach((chip) => {
@@ -966,7 +1034,7 @@ export class WordPopup {
         .slice(0, 4)
         .map(
           (s) =>
-            `<span class="lfp-chip red" data-word="${this._escapeAttr(s)}">${this._escapeAttr(s)}</span>`,
+            `<button type="button" class="lfp-chip red" data-word="${this._escapeAttr(s)}" aria-label="Consultar antônimo ${this._escapeAttr(s)}">${this._escapeAttr(s)}</button>`,
         )
         .join('');
       ants.querySelectorAll('.lfp-chip[data-word]').forEach((chip) => {
@@ -1137,14 +1205,14 @@ export class WordPopup {
     } catch {}
     if (!exs.length) {
       q('#fexb').innerHTML =
-        '<div style="color:#475569;font-size:13px;text-align:center;padding:16px 0;">Nenhum exemplo no dicionário.<br>Use "Explicar melhor" na aba Uso Real para ver o sentido no contexto.</div>';
+        '<div style="color:#94a3b8;font-size:13px;text-align:center;padding:16px 0;">Nenhum exemplo no dicionário.<br>Use "Explicar melhor" na aba Uso Real para ver o sentido no contexto.</div>';
       return;
     }
     // Translate all examples
     const hl = (t, w) =>
       t.replace(new RegExp(`\\b(${w})\\b`, 'gi'), '<b style="color:#7dd3fc">$1</b>');
     q('#fexb').innerHTML =
-      '<div style="color:#475569;font-size:12px;text-align:center;padding:8px;">Traduzindo exemplos…</div>';
+      '<div style="color:#94a3b8;font-size:12px;text-align:center;padding:8px;">Traduzindo exemplos…</div>';
 
     // Tradução sequencial para não sobrecarregar o canal de mensagens
     const translated = [];
@@ -1160,7 +1228,7 @@ export class WordPopup {
         <div style="margin-bottom:5px;">${hl(e.en, this.word)}</div>
         <div style="font-size:12px;color:#7dd3fc;font-style:italic;line-height:1.5;">→ ${translated[i] || '…'}</div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-          <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:.07em;">${e.src}</div>
+          <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.07em;">${e.src}</div>
           <button class="lfp-shadow-btn" data-text="${e.en.replace(/"/g, '&quot;')}" style="background:rgba(56,189,248,0.1); border:none; border-radius:6px; color:#38bdf8; padding:3px 8px; font-size:11px; cursor:pointer; font-weight:700;">🎧 Shadowing</button>
         </div>
       </div>`,
@@ -1821,7 +1889,7 @@ export class WordPopup {
     };
     return (
       m[pos?.toLowerCase()] ||
-      `<span style="color:#64748b">Clique "Analisar com IA" para análise detalhada da classe gramatical desta palavra.</span>`
+      `<span style="color:#94a3b8">Clique "Analisar com IA" para análise detalhada da classe gramatical desta palavra.</span>`
     );
   }
 
@@ -1833,7 +1901,7 @@ export class WordPopup {
     };
     return (
       m[pos?.toLowerCase()] ||
-      `<span style="color:#64748b">Use "Analisar com IA" para ver padrões específicos desta palavra.</span>`
+      `<span style="color:#94a3b8">Use "Analisar com IA" para ver padrões específicos desta palavra.</span>`
     );
   }
 
@@ -2108,16 +2176,21 @@ export class WordPopup {
       this.popup.querySelector('#lfp-recall')?.remove();
       const overlay = document.createElement('div');
       overlay.id = 'lfp-recall';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.setAttribute('aria-labelledby', 'lfp-recall-title');
+      overlay.setAttribute('tabindex', '-1');
       overlay.style.cssText = 'position:absolute;inset:0;z-index:60;background:#0b1220;border-radius:inherit;display:flex;flex-direction:column;gap:10px;padding:18px;overflow:auto;';
       overlay.innerHTML = `
-        <div style="font-size:12px;font-weight:800;letter-spacing:.06em;color:#7dd3fc;">SALVA! E O SENTIDO, FICOU?</div>
+        <div id="lfp-recall-title" style="font-size:12px;font-weight:800;letter-spacing:.06em;color:#7dd3fc;">SALVA! E O SENTIDO, FICOU?</div>
         <div style="font-size:15px;line-height:1.55;color:#e2e8f0;">${cloze || esc(savedWord)}</div>
         <div style="font-size:12px;color:#94a3b8;">O que <b style="color:#7dd3fc;">${esc(savedWord)}</b> significa aqui?</div>
         <div id="lfp-recall-opts" style="display:flex;flex-direction:column;gap:8px;">
           ${options.map((opt) => `<button type="button" data-opt="${esc(opt)}" style="text-align:left;padding:10px 12px;border-radius:10px;border:1px solid rgba(148,163,184,.3);background:rgba(148,163,184,.08);color:#e2e8f0;font-size:13px;font-weight:700;cursor:pointer;">${esc(opt)}</button>`).join('')}
         </div>
-        <button type="button" id="lfp-recall-skip" style="margin-top:auto;align-self:center;background:none;border:none;color:#64748b;font-size:12px;cursor:pointer;text-decoration:underline;">Pular</button>`;
+        <button type="button" id="lfp-recall-skip" style="margin-top:auto;align-self:center;background:none;border:none;color:#94a3b8;font-size:12px;cursor:pointer;text-decoration:underline;">Pular</button>`;
       this.popup.appendChild(overlay);
+      overlay.querySelector('[data-opt]')?.focus({ preventScroll: true });
 
       const finish = (quality) => {
         try {
@@ -2128,7 +2201,10 @@ export class WordPopup {
         } catch { /* fila e melhor-esforco; o save ja esta garantido */ }
       };
 
-      overlay.querySelector('#lfp-recall-skip').onclick = () => overlay.remove();
+      overlay.querySelector('#lfp-recall-skip').onclick = () => {
+        overlay.remove();
+        this.popup.querySelector('#fx')?.focus({ preventScroll: true });
+      };
       overlay.querySelectorAll('[data-opt]').forEach((btn) => {
         btn.onclick = () => {
           const isCorrect = btn.dataset.opt.toLowerCase() === correct.toLowerCase();
@@ -2191,6 +2267,8 @@ export class WordPopup {
       this.popup.style.pointerEvents = 'auto'; // Restaura para o próximo uso
       this._posLoopRunning = false;
       this._hideTimeout = null;
+      if (this._previousFocus?.isConnected) this._previousFocus.focus({ preventScroll: true });
+      this._previousFocus = null;
     }, 200);
   }
   async _aiSentence() {
@@ -2269,7 +2347,7 @@ export class WordPopup {
         if (btn) btn.textContent = '🔄 Regenerar Chunks';
       } else if (container) {
         container.innerHTML =
-          '<div style="text-align:center;color:#475569;font-size:13px;padding:16px;">Clique "Gerar" para criar chunks de treino com IA.</div>';
+          '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:16px;">Clique "Gerar" para criar chunks de treino com IA.</div>';
         if (btn) {
           btn.style.display = 'block';
           btn.disabled = false;
@@ -2278,7 +2356,7 @@ export class WordPopup {
     } catch (e) {
       if (container) {
         container.innerHTML =
-          '<div style="text-align:center;color:#475569;font-size:13px;padding:16px;">Clique "Gerar" para criar chunks de treino com IA.</div>';
+          '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:16px;">Clique "Gerar" para criar chunks de treino com IA.</div>';
       }
     }
   }

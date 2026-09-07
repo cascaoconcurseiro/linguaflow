@@ -2,7 +2,7 @@
 
 ## Última sessão — 2026-09-06
 
-Build local: `3.0.37`. Publicação em preparação por branch e PR para `main`.
+Build local: `3.0.38`. Build `3.0.37` publicado na `main`; segundo lote em validação.
 
 ## Entregue hoje
 
@@ -19,6 +19,12 @@ Build local: `3.0.37`. Publicação em preparação por branch e PR para `main`.
   retry; a aplicação em produção ainda precisa acompanhar a publicação do PR.
 - FSRS usa a dificuldade anterior para calcular estabilidade e limites inválidos
   voltam a valores finitos dentro da faixa aceita.
+- A fila busca learning, review/mature e novos separadamente, com tópico no
+  PostgREST e suporte ao teto configurável de 1.000 revisões.
+- A ponte de legendas rejeita origem, navegação, credencial, URL, protocolo,
+  tipo ou tamanho incompatível e rotaciona sua credencial em navegação SPA.
+- O popup possui diálogo e abas ARIA, foco/Escape/retorno, chips por teclado,
+  contraste AA, movimento reduzido e recall acessível.
 
 - A explicação contextual já gerada acompanha o card sem nova chamada de IA;
   o Web Reader também preserva esse campo ao salvar.
@@ -86,15 +92,10 @@ Build local: `3.0.37`. Publicação em preparação por branch e PR para `main`.
 
 ## Bloqueios e limites
 
-- A migration `20260906130000_review_undo_snapshot_authority.sql` ainda precisa
-  ser aplicada ao banco canônico após o merge.
-- A fila de estudo ainda usa uma janela de 200 cards; acervos com centenas de
-  cards novos vencidos podem esconder revisões posteriores e exigem uma RPC de
-  fila paginada por estado.
+- A migration `20260906130000_review_undo_snapshot_authority.sql` foi aplicada
+  com sucesso no banco canônico `main PRODUCTION`.
 - A transição FSRS ainda chega à RPC como proposta do cliente; a autoridade
   completa exige mover o cálculo para o servidor e versionar o algoritmo.
-- O popup ainda precisa de uma rodada dedicada de teclado/ARIA e contraste; o
-  canal de legendas por `postMessage` precisa nonce e limites de payload.
 - QA autenticado requer sessão real no navegador e recarregamento da extensão.
 - O replay PostgreSQL da nova migration está integrado ao gate, mas este host
   não possui uma distribuição WSL para executá-lo localmente.

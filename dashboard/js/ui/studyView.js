@@ -1882,9 +1882,13 @@ async function handleUndo(app) {
   lastReview = null;
   updateUndoButton();
 
+  let restoredCard = card;
   try {
     const undone = await lfDb.undoReview(prevCard, reviewLogId);
     sessionXp = Math.max(0, sessionXp - (undone?.xpReverted || 0));
+    if (undone?.card) {
+      restoredCard = { ...undone.card, wordData: card.wordData || prevCard.wordData };
+    }
   } catch (e) {
     console.error('Falha ao desfazer:', e);
     lastReview = { prevCard, card, reviewLogId, isCorrect };
@@ -1900,7 +1904,7 @@ async function handleUndo(app) {
     consecutiveCorrect = Math.max(0, consecutiveCorrect - 1);
   }
   pendingLearning = pendingLearning.filter(p => p.card.id !== card.id);
-  dueQueue.unshift(card);
+  dueQueue.unshift(restoredCard);
   app.showToast('Revisão desfeita ↩️', 'info');
   loadNextCard(app);
 }

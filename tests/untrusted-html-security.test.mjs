@@ -1,13 +1,16 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [study, game, db, vercel, library, stories] = await Promise.all([
+const [study, game, db, vercel, library, stories, wordPopup, youtubeHook, settingsPanel] = await Promise.all([
   readFile(new URL('../dashboard/js/ui/studyView.js', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/js/ui/gameView.js', import.meta.url), 'utf8'),
   readFile(new URL('../utils/db.js', import.meta.url), 'utf8'),
   readFile(new URL('../vercel.json', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/js/ui/libraryView.js', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/js/ui/storiesView.js', import.meta.url), 'utf8'),
+  readFile(new URL('../content/word-popup.js', import.meta.url), 'utf8'),
+  readFile(new URL('../content/youtube-hook.js', import.meta.url), 'utf8'),
+  readFile(new URL('../content/settings-panel.js', import.meta.url), 'utf8'),
 ]);
 
 assert.match(study, /function renderHighlightedText\(/,
@@ -47,5 +50,28 @@ for (const requiredOrigin of ['https://cdn.jsdelivr.net', 'https://youglish.com'
   assert.match(scriptPolicy, new RegExp(requiredOrigin.replaceAll('.', '\\.')),
     `CSP deve preservar o recurso externo usado em produção: ${requiredOrigin}`);
 }
+
+assert.match(wordPopup, /const err = this\._escapeAttr\(response\?\.error/,
+  'popup deve escapar mensagem de erro da IA antes de injetar no DOM');
+assert.match(wordPopup, /const eng = this\._escapeAttr\(c\.eng\)/,
+  'chunks gerados ou salvos devem escapar inglês antes do innerHTML');
+assert.match(wordPopup, /const pt = this\._escapeAttr\(c\.pt\)/,
+  'chunks gerados ou salvos devem escapar tradução antes do innerHTML');
+assert.match(wordPopup, /const phon = this\._escapeAttr\(c\.phon\)/,
+  'chunks gerados ou salvos devem escapar fonética antes do innerHTML');
+assert.match(wordPopup, /let formatted = this\._escapeAttr\(text\)/,
+  '_formatAI deve sanitizar o texto antes de converter markdown em HTML');
+assert.match(wordPopup, /const safeWord = this\._escapeAttr\(r\.word\)/,
+  'decomposição de frase deve escapar termos antes de injetar no DOM');
+
+assert.match(youtubeHook, /if \(e\.origin !== window\.location\.origin \|\| e\.source !== window\) return;/,
+  'hook do YouTube deve validar origem e janela no listener de mensagens');
+
+assert.match(settingsPanel, /role="dialog" aria-modal="true"/,
+  'painel de configuracoes deve expor semantica de dialogo');
+assert.match(settingsPanel, /aria-label="Fechar painel de configurações"/,
+  'botao de fechar configuracoes deve ter nome acessivel');
+assert.match(settingsPanel, /if \(this\.isOpen && e\.key === 'Escape'\)/,
+  'painel de configuracoes deve fechar com Escape');
 
 console.log('Conteúdo persistido e respostas da IA permanecem texto não executável.');

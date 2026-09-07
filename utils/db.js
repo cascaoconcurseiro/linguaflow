@@ -1204,7 +1204,11 @@ class Database {
       method: 'POST',
       body: { p_review_log_id: reviewLogId, p_previous_card: prevCard },
     });
-    return { ok: true, xpReverted: Number(res?.xp_reverted || 0) };
+    return {
+      ok: true,
+      xpReverted: Number(res?.xp_reverted || 0),
+      card: res?.card || null,
+    };
   }
 
   async getReviewLog(days = 30) {

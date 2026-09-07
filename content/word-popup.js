@@ -2304,7 +2304,8 @@ export class WordPopup {
       if (response?.analysis) {
         resEl.innerHTML = this._formatAI(response.analysis);
       } else {
-        resEl.innerHTML = `<div style="color:#f87171;padding:10px;">⚠️ <b>Erro na Análise</b><br>${response?.error || 'A IA não conseguiu processar esta frase.'}</div>`;
+        const err = this._escapeAttr(response?.error || 'A IA não conseguiu processar esta frase.');
+        resEl.innerHTML = `<div style="color:#f87171;padding:10px;">⚠️ <b>Erro na Análise</b><br>${err}</div>`;
       }
     } catch (e) {
       console.error('[LinguaFlow] Erro ao analisar frase:', e);
@@ -2337,10 +2338,13 @@ export class WordPopup {
         this.generatedChunks = saved.chunks;
         let html = '';
         saved.chunks.forEach((c) => {
+          const eng = this._escapeAttr(c.eng);
+          const pt = this._escapeAttr(c.pt);
+          const phon = this._escapeAttr(c.phon);
           html += `<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px;margin-bottom:10px;">
-            <div style="font-size:14px;color:#e2e8f0;font-weight:700;margin-bottom:4px;">${c.eng}</div>
-            <div style="font-size:12px;color:#94a3b8;font-style:italic;margin-bottom:8px;">${c.pt}</div>
-            <div style="font-size:13px;color:#fbbf24;font-family:monospace;font-weight:600;background:rgba(251,191,36,.1);padding:4px 8px;border-radius:6px;display:inline-block;border:1px solid rgba(251,191,36,.3);">${c.phon}</div>
+            <div style="font-size:14px;color:#e2e8f0;font-weight:700;margin-bottom:4px;">${eng}</div>
+            <div style="font-size:12px;color:#94a3b8;font-style:italic;margin-bottom:8px;">${pt}</div>
+            <div style="font-size:13px;color:#fbbf24;font-family:monospace;font-weight:600;background:rgba(251,191,36,.1);padding:4px 8px;border-radius:6px;display:inline-block;border:1px solid rgba(251,191,36,.3);">${phon}</div>
           </div>`;
         });
         if (container) container.innerHTML = html;
@@ -2396,18 +2400,21 @@ export class WordPopup {
 
         let html = '';
         response.chunks.forEach((c) => {
+          const eng = this._escapeAttr(c.eng);
+          const pt = this._escapeAttr(c.pt);
+          const phon = this._escapeAttr(c.phon);
           html += `
             <div style="background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:12px; margin-bottom:10px;">
-                <div style="font-size:14px; color:#e2e8f0; font-weight:700; margin-bottom:4px;">${c.eng}</div>
-                <div style="font-size:12px; color:#94a3b8; font-style:italic; margin-bottom:8px;">${c.pt}</div>
-                <div style="font-size:13px; color:#fbbf24; font-family:monospace; font-weight:600; background:rgba(251,191,36,.1); padding:4px 8px; border-radius:6px; display:inline-block; border:1px solid rgba(251,191,36,.3);">${c.phon}</div>
+                <div style="font-size:14px; color:#e2e8f0; font-weight:700; margin-bottom:4px;">${eng}</div>
+                <div style="font-size:12px; color:#94a3b8; font-style:italic; margin-bottom:8px;">${pt}</div>
+                <div style="font-size:13px; color:#fbbf24; font-family:monospace; font-weight:600; background:rgba(251,191,36,.1); padding:4px 8px; border-radius:6px; display:inline-block; border:1px solid rgba(251,191,36,.3);">${phon}</div>
             </div>`;
         });
 
         if (resEl) resEl.innerHTML = html;
         if (btn) btn.style.display = 'none';
       } else {
-        const errorMsg = response?.error || 'A IA não conseguiu gerar os chunks.';
+        const errorMsg = this._escapeAttr(response?.error || 'A IA não conseguiu gerar os chunks.');
         if (resEl) {
           resEl.innerHTML = `<div style="color:#f87171;padding:10px;text-align:center;">⚠️ <b>Erro</b><br>${errorMsg}</div>`;
         }
@@ -2415,7 +2422,8 @@ export class WordPopup {
     } catch (e) {
       console.error('[LinguaFlow] Erro ao gerar chunks:', e);
       if (resEl) {
-        resEl.innerHTML = `<div style="color:#f87171;padding:10px;text-align:center;">⚠️ Falha na comunicação: ${e.message}</div>`;
+        const msg = this._escapeAttr(e.message);
+        resEl.innerHTML = `<div style="color:#f87171;padding:10px;text-align:center;">⚠️ Falha na comunicação: ${msg}</div>`;
       }
     } finally {
       if (btn) {
@@ -2452,7 +2460,7 @@ export class WordPopup {
 
   _formatAI(text) {
     if (!text) return '';
-    let formatted = text
+    let formatted = this._escapeAttr(text)
       // Mapeamento dos novos tópicos para um design mais "Duolingo" (cores suaves, ícones arredondados, bordas de 2px)
       .replace(
         /\*\*(.*?A ideia aqui.*?)\*\*(.*?)(?=\n\n\*\*|\n\n$|$)/gis,
@@ -2622,19 +2630,22 @@ export class WordPopup {
       const results = await Promise.all(tasks);
 
       for (let r of results) {
+        const safeWord = this._escapeAttr(r.word);
+        const safeTranslation = this._escapeAttr(r.translation);
         const posTag = r.pos
-          ? `<br><span style="font-size:10px;color:#a78bfa;font-weight:normal;background:rgba(167,139,250,0.15);padding:1px 4px;border-radius:3px;">${r.pos}</span>`
+          ? `<br><span style="font-size:10px;color:#a78bfa;font-weight:normal;background:rgba(167,139,250,0.15);padding:1px 4px;border-radius:3px;">${this._escapeAttr(r.pos)}</span>`
           : '';
         html += `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)">
-                <div style="font-weight:700;color:#7dd3fc;">${r.word}${posTag}</div>
-                <div style="color:#e2e8f0;text-align:right;">${r.translation}</div>
+                <div style="font-weight:700;color:#7dd3fc;">${safeWord}${posTag}</div>
+                <div style="color:#e2e8f0;text-align:right;">${safeTranslation}</div>
              </div>`;
       }
       html += '</div></div>';
       resEl.innerHTML = html;
       resEl.className = 'ai-res';
     } catch (e) {
-      resEl.innerHTML = `<div class="lfp-use-card amber"><div class="lfp-use-title"><span>⚠️</span><span>IA indisponível</span></div><div class="lfp-use-text">Não consegui gerar a explicação agora.<br><br><b>Detalhe técnico:</b> ${e.message}</div></div>`;
+      const msg = this._escapeAttr(e.message);
+      resEl.innerHTML = `<div class="lfp-use-card amber"><div class="lfp-use-title"><span>⚠️</span><span>IA indisponível</span></div><div class="lfp-use-text">Não consegui gerar a explicação agora.<br><br><b>Detalhe técnico:</b> ${msg}</div></div>`;
     }
   }
 }

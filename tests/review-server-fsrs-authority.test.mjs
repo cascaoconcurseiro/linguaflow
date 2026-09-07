@@ -28,6 +28,8 @@ assert.match(logReview, /p_state:\s*null/);
 assert.match(logReview, /p_client_review_id:\s*clientReviewId/);
 assert.doesNotMatch(logReview, /_calculateNextState/);
 assert.doesNotMatch(logReview, /cards\?id=eq/);
-assert.match(logReview, /saved\?\.card_before \|\| null/);
+const undoReview = db.slice(db.indexOf('async undoReview('), db.indexOf('async getReviewLog('));
+assert.match(undoReview, /card:\s*res\?\.card\s*\|\|\s*null/,
+  'undoReview deve retornar o card restaurado pelo servidor');
 
 console.log('SERVER-AUTHORITATIVE FSRS CONTRACT OK');

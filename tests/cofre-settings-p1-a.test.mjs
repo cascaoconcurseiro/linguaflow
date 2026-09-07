@@ -47,5 +47,22 @@ for (const id of [
 }
 assert.match(settings, /id="tts-lang-selector" role="group" aria-labelledby="tts-lang-label"/);
 assert.match(settings, /id="tts-speed-selector" role="group" aria-labelledby="tts-speed-label"/);
+assert.match(settings, /<label for="pl-writing"/,
+  'produção escrita do nivelamento deve ter label associado');
+assert.match(settings, /id="pl-writing"[^>]*aria-describedby="pl-writing-prompt pl-writing-count"/,
+  'textarea deve anunciar o enunciado e a contagem mínima');
+assert.match(settings, /id="pl-writing-count"[^>]*role="status"[^>]*aria-live="polite"/,
+  'contagem dinâmica da produção deve ser anunciada sem interromper');
+assert.match(settings, /class="cefr-btn[^>]*aria-pressed="\$\{cefr === '[A-C][12]' \? 'true' : 'false'\}"/,
+  'cada opção CEFR deve expor seu estado selecionado');
+assert.match(settings, /class="tts-opt-btn"[^>]*aria-pressed="\$\{ttsLang === 'en-US' \? 'true' : 'false'\}"/,
+  'sotaque deve expor a seleção inicial');
+assert.match(settings, /class="tts-speed-btn"[^>]*aria-pressed="\$\{ttsSpeed === 'normal' \? 'true' : 'false'\}"/,
+  'velocidade deve expor a seleção inicial');
+assert.match(settings, /b\.setAttribute\('aria-pressed', String\(b === btn\)\)/,
+  'seletores exclusivos devem sincronizar aria-pressed a cada clique');
+for (const id of ['srscat-status', 'kokoro-progress-text', 'push-status', 'email-status']) {
+  assert.match(settings, new RegExp(`id="${id}"[^>]*role="status"[^>]*aria-live="polite"`), `${id} deve anunciar atualizações`);
+}
 
 console.log('✓ P1-A: Cofre escaneável e Configurações seguras');

@@ -156,10 +156,10 @@ export async function runPlacementTest(app, onDone) {
     const MIN_WORDS = 15;
 
     frame('Fase 4/4: Produção escrita', 75, `
-      <p style="color:var(--color-text-light); font-size:13px; margin-bottom:8px;">Escreva em inglês (opcional, mas recomendado — refina seu resultado):</p>
-      <p style="font-size:15px; font-weight:700; color:var(--color-text); margin-bottom:14px;">${prompt}</p>
-      <textarea id="pl-writing" rows="5" placeholder="Write your answer here…" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text); resize:vertical; margin-bottom:8px;"></textarea>
-      <p id="pl-writing-count" style="font-size:11px; color:var(--color-text-light); margin-bottom:16px;">0 palavras (mínimo ${MIN_WORDS})</p>
+      <label for="pl-writing" style="color:var(--color-text-light); font-size:13px; margin-bottom:8px; display:block;">Escreva em inglês (opcional, mas recomendado — refina seu resultado):</label>
+      <p id="pl-writing-prompt" style="font-size:15px; font-weight:700; color:var(--color-text); margin-bottom:14px;">${prompt}</p>
+      <textarea id="pl-writing" rows="5" aria-describedby="pl-writing-prompt pl-writing-count" placeholder="Write your answer here…" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text); resize:vertical; margin-bottom:8px;"></textarea>
+      <p id="pl-writing-count" role="status" aria-live="polite" style="font-size:11px; color:var(--color-text-light); margin-bottom:16px;">0 palavras (mínimo ${MIN_WORDS})</p>
       <button id="pl-writing-submit" class="btn btn-primary" style="width:100%; padding:14px;" disabled>Enviar pra correção</button>
       <button id="pl-writing-skip" style="background:none; border:none; color:var(--color-text-light); font-family:var(--font-main); font-weight:700; font-size:13px; cursor:pointer; margin-top:12px;">Pular esta etapa</button>`);
 
@@ -298,13 +298,13 @@ export async function renderSettings(container, app) {
       <div style="background: var(--color-surface); border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px;">
         <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 8px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">Seu nível aproximado</h2>
         <p style="color:var(--color-text-light); margin-bottom:16px; font-size:14px;">Usamos esta estimativa para ajustar textos e explicações. Você pode mudar depois.</p>
-        <div id="cefr-selector" style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="cefr-btn lf-btn-bounce" data-level="A1">A1<br><span>Iniciante</span></button>
-          <button class="cefr-btn lf-btn-bounce" data-level="A2">A2<br><span>Básico</span></button>
-          <button class="cefr-btn lf-btn-bounce" data-level="B1">B1<br><span>Intermediário</span></button>
-          <button class="cefr-btn lf-btn-bounce" data-level="B2">B2<br><span>Intermediário alto</span></button>
-          <button class="cefr-btn lf-btn-bounce" data-level="C1">C1<br><span>Avançado</span></button>
-          <button class="cefr-btn lf-btn-bounce" data-level="C2">C2<br><span>Proficiente</span></button>
+        <div id="cefr-selector" role="group" aria-label="Nível CEFR" style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="cefr-btn lf-btn-bounce" data-level="A1" aria-pressed="${cefr === 'A1' ? 'true' : 'false'}">A1<br><span>Iniciante</span></button>
+          <button class="cefr-btn lf-btn-bounce" data-level="A2" aria-pressed="${cefr === 'A2' ? 'true' : 'false'}">A2<br><span>Básico</span></button>
+          <button class="cefr-btn lf-btn-bounce" data-level="B1" aria-pressed="${cefr === 'B1' ? 'true' : 'false'}">B1<br><span>Intermediário</span></button>
+          <button class="cefr-btn lf-btn-bounce" data-level="B2" aria-pressed="${cefr === 'B2' ? 'true' : 'false'}">B2<br><span>Intermediário alto</span></button>
+          <button class="cefr-btn lf-btn-bounce" data-level="C1" aria-pressed="${cefr === 'C1' ? 'true' : 'false'}">C1<br><span>Avançado</span></button>
+          <button class="cefr-btn lf-btn-bounce" data-level="C2" aria-pressed="${cefr === 'C2' ? 'true' : 'false'}">C2<br><span>Proficiente</span></button>
         </div>
         <button id="btn-placement" class="btn btn-secondary" style="margin-top:16px; width:100%;">🎯 Estimar meu nível (~4 min)</button>
         <p style="font-size:12px; color:var(--color-text-light); margin-top:8px;">Uma estimativa inicial com vocabulário, gramática em contexto e escuta — não substitui uma avaliação CEFR completa.</p>
@@ -422,7 +422,7 @@ export async function renderSettings(container, app) {
           <button id="srscat-save" class="btn btn-primary" style="padding:10px 20px; font-size:13px;">Salvar perfil desta categoria</button>
           <button id="srscat-clear" class="btn btn-outline" style="padding:10px 20px; font-size:13px;">Limpar (voltar ao global)</button>
         </div>
-        <p id="srscat-status" style="font-size:12px; color:var(--color-text-light); margin-top:8px; min-height:16px;"></p>
+        <p id="srscat-status" role="status" aria-live="polite" style="font-size:12px; color:var(--color-text-light); margin-top:8px; min-height:16px;"></p>
       </div>
 
       <!-- Audio Options -->
@@ -446,22 +446,22 @@ export async function renderSettings(container, app) {
             <div style="width:100%; background:var(--color-border); height:8px; border-radius:4px; overflow:hidden;">
               <div id="kokoro-progress-bar" style="width:0%; height:100%; background:var(--color-primary); transition:width 0.2s;"></div>
             </div>
-            <p id="kokoro-progress-text" style="font-size:12px; color:var(--color-text-light); margin-top:6px;">Baixando modelo… 0%</p>
+            <p id="kokoro-progress-text" role="status" aria-live="polite" style="font-size:12px; color:var(--color-text-light); margin-top:6px;">Baixando modelo… 0%</p>
           </div>
           <div style="display:flex; gap:16px; flex-wrap:wrap; margin-top:8px;">
             <div style="flex:1; min-width:200px;">
               <span id="tts-lang-label" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Sotaque</span>
               <div id="tts-lang-selector" role="group" aria-labelledby="tts-lang-label" style="display:flex; gap:8px;">
-                <button class="tts-opt-btn" data-lang="en-US" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-primary); background:rgba(88,204,2,0.1); font-family:var(--font-main); font-weight:800; cursor:pointer; color:var(--color-text);">🇺🇸 Americano</button>
-                <button class="tts-opt-btn" data-lang="en-GB" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); font-family:var(--font-main); font-weight:700; cursor:pointer; color:var(--color-text-light);">🇬🇧 Britânico</button>
+                <button class="tts-opt-btn" data-lang="en-US" aria-pressed="${ttsLang === 'en-US' ? 'true' : 'false'}" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-primary); background:rgba(88,204,2,0.1); font-family:var(--font-main); font-weight:800; cursor:pointer; color:var(--color-text);">🇺🇸 Americano</button>
+                <button class="tts-opt-btn" data-lang="en-GB" aria-pressed="${ttsLang === 'en-GB' ? 'true' : 'false'}" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); font-family:var(--font-main); font-weight:700; cursor:pointer; color:var(--color-text-light);">🇬🇧 Britânico</button>
               </div>
             </div>
             <div style="flex:1; min-width:200px;">
               <span id="tts-speed-label" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Velocidade</span>
               <div id="tts-speed-selector" role="group" aria-labelledby="tts-speed-label" style="display:flex; gap:8px;">
-                <button class="tts-speed-btn" data-speed="slow" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); font-family:var(--font-main); font-weight:700; cursor:pointer; color:var(--color-text-light); font-size:13px;">🐢 Lento</button>
-                <button class="tts-speed-btn" data-speed="normal" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-primary); background:rgba(88,204,2,0.1); font-family:var(--font-main); font-weight:800; cursor:pointer; font-size:13px; color:var(--color-text);">👌 Normal</button>
-                <button class="tts-speed-btn" data-speed="native" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); font-family:var(--font-main); font-weight:700; cursor:pointer; color:var(--color-text-light); font-size:13px;">🚀 Nativo</button>
+                <button class="tts-speed-btn" data-speed="slow" aria-pressed="${ttsSpeed === 'slow' ? 'true' : 'false'}" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); font-family:var(--font-main); font-weight:700; cursor:pointer; color:var(--color-text-light); font-size:13px;">🐢 Lento</button>
+                <button class="tts-speed-btn" data-speed="normal" aria-pressed="${ttsSpeed === 'normal' ? 'true' : 'false'}" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-primary); background:rgba(88,204,2,0.1); font-family:var(--font-main); font-weight:800; cursor:pointer; font-size:13px; color:var(--color-text);">👌 Normal</button>
+                <button class="tts-speed-btn" data-speed="native" aria-pressed="${ttsSpeed === 'native' ? 'true' : 'false'}" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); font-family:var(--font-main); font-weight:700; cursor:pointer; color:var(--color-text-light); font-size:13px;">🚀 Nativo</button>
               </div>
             </div>
           </div>
@@ -478,7 +478,7 @@ export async function renderSettings(container, app) {
           <input type="checkbox" id="push-toggle" style="width:18px; height:18px;">
           Ativar lembretes de revisão neste dispositivo
         </label>
-        <p id="push-status" style="font-size:12px; color:var(--color-text-light); margin-top:8px;"></p>
+        <p id="push-status" role="status" aria-live="polite" style="font-size:12px; color:var(--color-text-light); margin-top:8px;"></p>
       </div>
 
       <!-- Reengajamento por e-mail (Onda 3.4 — opt-in explícito) -->
@@ -489,7 +489,7 @@ export async function renderSettings(container, app) {
           <input type="checkbox" id="email-toggle" style="width:18px; height:18px;">
           Ativar resumo semanal por e-mail
         </label>
-        <p id="email-status" style="font-size:12px; color:var(--color-text-light); margin-top:8px;"></p>
+        <p id="email-status" role="status" aria-live="polite" style="font-size:12px; color:var(--color-text-light); margin-top:8px;"></p>
       </div>
 
       <!-- Export Section -->
@@ -583,7 +583,12 @@ export async function renderSettings(container, app) {
       btn.style.borderColor = 'var(--color-primary)';
     }
     btn.addEventListener('click', async () => {
-      cefrBtns.forEach(b => { b.style.background='var(--color-surface)'; b.style.color='var(--color-text)'; b.style.borderColor='var(--color-border)'; });
+      cefrBtns.forEach(b => {
+        b.setAttribute('aria-pressed', String(b === btn));
+        b.style.background='var(--color-surface)';
+        b.style.color='var(--color-text)';
+        b.style.borderColor='var(--color-border)';
+      });
       btn.style.background = 'var(--color-primary)';
       btn.style.color = 'white';
       btn.style.borderColor = 'var(--color-primary)';
@@ -614,6 +619,7 @@ export async function renderSettings(container, app) {
     }
     btn.addEventListener('click', async () => {
       document.querySelectorAll('.tts-opt-btn').forEach(b => {
+        b.setAttribute('aria-pressed', String(b === btn));
         b.style.borderColor = 'var(--color-border)';
         b.style.background = 'var(--color-surface)';
         b.style.color = 'var(--color-text-light)';
@@ -637,6 +643,7 @@ export async function renderSettings(container, app) {
     }
     btn.addEventListener('click', async () => {
       document.querySelectorAll('.tts-speed-btn').forEach(b => {
+        b.setAttribute('aria-pressed', String(b === btn));
         b.style.borderColor = 'var(--color-border)';
         b.style.background = 'var(--color-surface)';
         b.style.color = 'var(--color-text-light)';
@@ -1129,6 +1136,7 @@ export async function renderSettings(container, app) {
       // Reflete o nível novo nos botões da tela sem recarregar
       document.querySelectorAll('.cefr-btn').forEach(b => {
         const active = b.dataset.level === level;
+        b.setAttribute('aria-pressed', String(active));
         b.style.background = active ? 'var(--color-primary)' : 'var(--color-surface)';
         b.style.color = active ? 'white' : 'var(--color-text)';
         b.style.borderColor = active ? 'var(--color-primary)' : 'var(--color-border)';

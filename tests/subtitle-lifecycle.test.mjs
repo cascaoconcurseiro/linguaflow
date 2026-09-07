@@ -72,4 +72,45 @@ assert.match(source, /this\._lifecycleController\.abort\('engine-disposed'\)/);
 assert.match(source, /this\._managedObservers\.forEach\(\(observer\) => observer\.disconnect\(\)\)/);
 assert.match(source, /removeListener\(this\._runtimeMessageListener\)/);
 
-console.log('13 testes de epoch/lifecycle de legendas passaram — tudo verde ✅');
+// Teste de garantia de idioma original contra tlang (tradução automática do YouTube)
+{
+  const tlangEngine = bareEngine('https://www.youtube.com/watch?v=vid123');
+  tlangEngine._rebuildSubtitleList = () => {};
+  tlangEngine._processYtSub = (data) => data.cues;
+  tlangEngine.cues = [{ start: 0, end: 2, text: 'Hello world' }];
+
+  // Quando o YouTube envia tlang=pt e já temos legendas originais, não pode sobrescrever a frase original
+  await tlangEngine._processYouTubeRawSubtitles(
+    'https://www.youtube.com/api/timedtext?v=vid123&lang=en&tlang=pt',
+    JSON.stringify({ cues: [{ start: 0, end: 2, text: 'Olá mundo' }] }),
+    tlangEngine._beginNavigation(window.location.href),
+  );
+  assert.equal(tlangEngine.cues[0].text, 'Hello world', 'legenda original não deve ser substituída pela tradução');
+  assert.equal(tlangEngine.cues[0].translatedText, 'Olá mundo', 'tradução do tlang deve ser associada como translatedText');
+}
+
+{
+  const tlangFetchEngine = bareEngine('https://www.youtube.com/watch?v=vid456');
+  tlangFetchEngine._rebuildSubtitleList = () => {};
+  tlangFetchEngine._processYtSub = (data) => data.events.map((e, idx) => ({ start: idx, end: idx + 1, text: e.text }));
+  let requestedUrl = '';
+  globalThis.fetch = async (fetchUrl) => {
+    requestedUrl = fetchUrl;
+    return {
+      ok: true,
+      text: async () => JSON.stringify({ events: [{ text: 'Original English' }] }),
+    };
+  };
+
+  await tlangFetchEngine._processYouTubeRawSubtitles(
+    'https://www.youtube.com/api/timedtext?v=vid456&lang=en&tlang=pt',
+    JSON.stringify({ events: [{ text: 'Português Traduzido' }] }),
+    tlangFetchEngine._beginNavigation(window.location.href),
+  );
+
+  assert.ok(!requestedUrl.includes('tlang'), 'fetch deve requisitar URL limpa sem tlang');
+  assert.equal(tlangFetchEngine.cues[0].text, 'Original English', 'cues deve conter o texto original');
+  assert.equal(tlangFetchEngine.cues[0].translatedText, 'Português Traduzido', 'tradução deve ser salva no translatedText');
+}
+
+console.log('15 testes de epoch/lifecycle de legendas passaram — tudo verde ✅');

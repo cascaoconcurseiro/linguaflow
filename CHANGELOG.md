@@ -1,5 +1,29 @@
 # Changelog
 
+## [3.0.39] - 2026-09-07
+
+### Corrigido
+
+- A RPC de revisão calcula a transição FSRS no servidor, sob bloqueio do card,
+  e ignora propostas de estado do cliente mantendo a assinatura compatível.
+- O cliente aceita somente o card e o snapshot de undo devolvidos pelo servidor.
+- As configurações completam nomes, estados pressionados e anúncios acessíveis
+  para CEFR, voz, velocidade, Kokoro, push, e-mail e posicionamento.
+- O carregamento da extensão no Chrome falhava por match pattern inválido com
+  subcaminho em `web_accessible_resources[1]`; o padrão foi corrigido para origem (`*://*.amazon.com/*`).
+- No YouTube, legendas auto-traduzidas (`tlang=pt`) eram aceitas como idioma
+  original; o engine agora força a trilha de origem no player e remove `tlang` para carregar a legenda no idioma original.
+
+### Segurança
+
+- O manifesto substitui hosts genéricos por provedores HTTPS explícitos e limita
+  recursos acessíveis à Web aos módulos realmente carregados por cada integração.
+
+### Validação
+
+- Contratos novos cobrem a autoridade FSRS, as permissões mínimas, padrões de match
+  do manifesto e isolamento de tlang no ciclo de vida de legendas.
+
 ## [3.0.38] - 2026-09-06
 
 ### Corrigido

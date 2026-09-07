@@ -48,6 +48,8 @@ Estado vigente: [`docs/ESTADO_ATUAL_2026-07-29.md`](docs/ESTADO_ATUAL_2026-07-29
 
 | Data | Decisão | Motivo |
 |---|---|---|
+| 2026-09-07 | A RPC é a única autoridade para transições de revisão: bloqueia o card, lê configurações e limites, calcula FSRS e devolve o estado persistido. O parâmetro legado `p_state` permanece apenas para compatibilidade e é ignorado. | Impede que clientes alterados ou desatualizados proponham dificuldade, estabilidade, vencimento, leech, XP ou contadores. |
+| 2026-09-07 | Permissões de rede e recursos acessíveis à Web são enumeradas por provedor e integração; hosts e arquivos genéricos não fazem parte do contrato da extensão. | Reduz a superfície exposta sem impedir captura em páginas arbitrárias pelo Web Reader. |
 | 2026-09-05 | A Home abre diretamente, sem onboarding obrigatório. Preferências anteriores são opcionais para renderizar; ausência ou falha usa meta local de 20 revisões, sem atribuir nível nem gravar conclusão fictícia. Placement permanece nas configurações. | O primeiro acesso deve permitir uso imediato; falhas de personalização não podem bloquear a entrada. |
 | 2026-09-04 | DeepSeek `deepseek-chat`, acessado exclusivamente pelas Edge Functions autenticadas, é o único provedor de IA. Cada chamada resolve o JWT para `user.id`, consome cota individual e não persiste nem permite cache compartilhado de prompts/respostas. Não há fallback para outro modelo, captura de voz do aluno nem payload de gravação. | Mantém um único fornecedor, isola a IA por usuário e elimina do produto o tratamento de voz do aluno. |
 | 2026-07-29 | Tradução contextual é o valor canônico quando há frase; tradução isolada é fallback provisório. | Palavras polissêmicas não têm um sentido correto fora do contexto. |

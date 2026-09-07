@@ -95,6 +95,55 @@
         return originalOpen.apply(this, arguments);
     };
 
+    // ── GESTÃO DE TRILHA ORIGINAL (YouTube Player API) ──────────────────────
+    let currentSourceLang = 'en';
+
+    const ensureOriginalTrack = () => {
+        try {
+            const moviePlayer = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
+            if (!moviePlayer || typeof moviePlayer.getOption !== 'function' || typeof moviePlayer.setOption !== 'function') {
+                return false;
+            }
+            const tracklist = moviePlayer.getOption('captions', 'tracklist') || [];
+            if (!Array.isArray(tracklist) || tracklist.length === 0) return false;
+
+            const currentTrack = moviePlayer.getOption('captions', 'track') || {};
+            const isSourceLang = currentTrack.languageCode && currentTrack.languageCode.startsWith(currentSourceLang);
+            const isTranslated = Boolean(currentTrack.translationLanguage);
+
+            // Se a trilha atual já for do idioma original sem auto-tradução ativa, mantém
+            if (isSourceLang && !isTranslated) return true;
+
+            // Busca a melhor trilha original: 1º manual em sourceLang, 2º qualquer em sourceLang (ex: ASR)
+            const manualTrack = tracklist.find((t) => t.languageCode?.startsWith(currentSourceLang) && t.kind !== 'asr');
+            const anySourceTrack = tracklist.find((t) => t.languageCode?.startsWith(currentSourceLang));
+            const bestTrack = manualTrack || anySourceTrack;
+
+            if (bestTrack) {
+                console.debug('[LinguaFlow] 🎯 Forçando trilha original no YouTube:', bestTrack.languageCode);
+                moviePlayer.setOption('captions', 'track', {
+                    languageCode: bestTrack.languageCode,
+                    vssId: bestTrack.vssId,
+                });
+                try {
+                    moviePlayer.setOption('captions', 'translationLanguages', []);
+                } catch {}
+                return true;
+            }
+        } catch (err) {
+            console.debug('[LinguaFlow] Erro ao selecionar trilha original:', err);
+        }
+        return false;
+    };
+
+    window.addEventListener('message', (e) => {
+        if (!e.data || typeof e.data !== 'object') return;
+        if (e.data.type === 'LF_SET_SOURCE_LANG' && typeof e.data.sourceLang === 'string') {
+            currentSourceLang = e.data.sourceLang;
+            ensureOriginalTrack();
+        }
+    });
+
     // ── INTERCEPTAÇÃO DO PLAYER (YouTube API) ────────────────────────────────
     
     // Tenta capturar o player do YouTube para monitorar estados (Pause/Play/Seek)
@@ -102,11 +151,15 @@
     const monitorPlayer = () => {
         const moviePlayer = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
         if (moviePlayer && moviePlayer.addEventListener) {
+            ensureOriginalTrack();
             // Se o YouTube trocar de legenda via API interna, pegamos aqui
             moviePlayer.addEventListener('onStateChange', (state) => {
                 if (state !== lastPlayerState) {
                     postBridgeMessage({ type: 'LF_PLAYER_STATE', state });
                     lastPlayerState = state;
+                }
+                if (state === 1 || state === -1) {
+                    ensureOriginalTrack();
                 }
             });
             console.debug('[LinguaFlow] 🎥 Monitor de Player acoplado com sucesso.');

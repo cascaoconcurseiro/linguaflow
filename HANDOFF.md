@@ -1,10 +1,25 @@
 # Handoff — LinguaFlow
 
-## Última sessão — 2026-09-06
+## Última sessão — 2026-09-07
 
-Build local: `3.0.38`. Build `3.0.37` publicado na `main`; segundo lote em validação.
+Build local: `3.0.39`. Build `3.0.38` publicado na `main`; terceiro lote em publicação.
 
 ## Entregue hoje
+
+- A transição FSRS passou a ser calculada integralmente pela RPC sob bloqueio,
+  usando card, categoria e configurações persistidas; `p_state` é ignorado.
+- O cliente envia somente identidade da operação, card e qualidade, e aceita o
+  card e o snapshot de undo autoritativos devolvidos pelo servidor.
+- O manifesto enumera provedores HTTPS e expõe somente os módulos exigidos por
+  YouTube, Prime Video, Disney+, Netflix e Max.
+- Corrigido match pattern inválido com subcaminho em `web_accessible_resources[1]`
+  no Chrome MV3 (`*://*.amazon.com/*`).
+- No YouTube, o engine agora força a trilha original (`sourceLang`, padrão `en`)
+  no `movie_player` e descarta parâmetros de auto-tradução `tlang=pt` para garantir
+  que as legendas sempre venham no idioma original falado.
+- Configurações completam ARIA, estados pressionados e anúncios vivos para CEFR,
+  voz, velocidade, posicionamento, Kokoro, push e e-mail.
+- Contratos focados de FSRS, manifesto, legendas e configurações passaram no build 3.0.39.
 
 - O dicionário do popup possui três provedores com timeout e sempre encerra o
   estado de carregamento; a tradução também degrada para estado visível.
@@ -75,14 +90,14 @@ Build local: `3.0.38`. Build `3.0.37` publicado na `main`; segundo lote em valid
 
 ## Próximo passo concreto
 
-1. Recarregar extensão/PWA no build `3.0.37`, salvar uma palavra depois da
+1. Recarregar extensão/PWA no build `3.0.39`, salvar uma palavra depois da
    explicação contextual e abrir `Por que significa isso nesta frase?` no verso.
 2. Validar `0` cartões novos/dia, cartões reversos e áudio automático tanto no
    Estudo quanto na revisão rápida da extensão.
 3. Testar os limites autoritativos com duas abas simultâneas em sessão real.
 4. Recarregar a extensão e validar no YouTube: `Apenas Original`, chegada tardia
    da tradução, flash manual e troca entre os quatro modos.
-5. Em produção, confirmar `app.js?v=3.0.37` e verificar no console se CSP não
+5. Em produção, confirmar `app.js?v=3.0.39` e verificar no console se CSP não
    bloqueia YouGlish, importação EPUB, YouTube ou o TTS selecionado.
 6. Recarregar a extensão e confirmar as cores FSRS no primeiro vídeo, antes de
    abrir o painel lateral.
@@ -94,8 +109,8 @@ Build local: `3.0.38`. Build `3.0.37` publicado na `main`; segundo lote em valid
 
 - A migration `20260906130000_review_undo_snapshot_authority.sql` foi aplicada
   com sucesso no banco canônico `main PRODUCTION`.
-- A transição FSRS ainda chega à RPC como proposta do cliente; a autoridade
-  completa exige mover o cálculo para o servidor e versionar o algoritmo.
+- A migration `20260907100000_server_authoritative_fsrs.sql` precisa ser aplicada
+  isoladamente no banco canônico antes da publicação do cliente 3.0.39.
 - QA autenticado requer sessão real no navegador e recarregamento da extensão.
 - O replay PostgreSQL da nova migration está integrado ao gate, mas este host
   não possui uma distribuição WSL para executá-lo localmente.

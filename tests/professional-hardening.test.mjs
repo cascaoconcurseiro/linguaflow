@@ -36,6 +36,56 @@ assert.ok(!manifest.permissions.includes('scripting'));
 assert.ok(!manifest.host_permissions.some((host) => host.includes('api.deepseek.com')));
 assert.ok(!manifest.content_security_policy.extension_pages.includes('api.deepseek.com'));
 assert.ok(!manifest.web_accessible_resources.some((entry) => entry.resources.includes('assets/*')));
+assert.ok(!manifest.host_permissions.includes('<all_urls>'));
+assert.ok(!manifest.host_permissions.some((host) => host.startsWith('*://')));
+for (const requiredHost of [
+  'https://api.datamuse.com/*',
+  'https://en.wiktionary.org/*',
+  'https://qnutoswrufznztoznlql.supabase.co/*',
+  'https://translate.google.com/*',
+  'https://api.allorigins.win/*',
+]) {
+  assert.ok(manifest.host_permissions.includes(requiredHost), `host obrigatório ausente: ${requiredHost}`);
+}
+for (const requiredConnectHost of ['https://api.datamuse.com', 'https://en.wiktionary.org']) {
+  assert.ok(
+    manifest.content_security_policy.extension_pages.includes(requiredConnectHost),
+    `connect-src obrigatório ausente: ${requiredConnectHost}`,
+  );
+}
+
+const publicToAllSites = manifest.web_accessible_resources
+  .filter((entry) => entry.matches.includes('<all_urls>'))
+  .flatMap((entry) => entry.resources);
+assert.deepEqual(publicToAllSites.sort(), [
+  'utils/exclusive-playback.js',
+  'utils/offline-dict.js',
+  'utils/site-boundary.js',
+  'utils/tts.js',
+]);
+assert.ok(!manifest.web_accessible_resources.some((entry) =>
+  entry.resources.some((resource) => resource.includes('*')),
+));
+for (const entry of manifest.web_accessible_resources) {
+  for (const match of entry.matches || []) {
+    assert.ok(
+      match === '<all_urls>' || /^(\*|https?):\/\/[^/]+\/\*$/.test(match),
+      `match pattern inválido em web_accessible_resources (deve terminar em /* sem subcaminhos): ${match}`,
+    );
+  }
+}
+const youtubeHookExposure = manifest.web_accessible_resources.find((entry) =>
+  entry.resources.includes('content/youtube-hook.js'));
+assert.deepEqual(youtubeHookExposure?.resources, ['content/youtube-hook.js']);
+assert.deepEqual(youtubeHookExposure?.matches, ['https://*.youtube.com/*']);
+const hboHookExposure = manifest.web_accessible_resources.find((entry) =>
+  entry.resources.includes('content/hbo-inject.js'));
+assert.deepEqual(hboHookExposure?.resources, ['content/hbo-inject.js']);
+assert.deepEqual(hboHookExposure?.matches, [
+  'https://*.hbomax.com/*',
+  'https://*.max.com/*',
+  'https://*.hbo.com/*',
+]);
 assert.doesNotMatch(db, /async exportDatabase\(/);
 assert.doesNotMatch(db, /async importDatabase\(/);
 assert.equal(existsSync('assets/cefr.json'), false);
@@ -51,4 +101,4 @@ assert.match(db, /async reportClientError\(source, errorName, route = '', appVer
 assert.doesNotMatch(db, /app_version:\s*'dashboard-2026-07-10'/);
 assert.match(db, /app_version:\s*safe\(appVersion\)/);
 
-console.log('21 contratos de endurecimento profissional passaram ✅');
+console.log('34 contratos de endurecimento profissional passaram ✅');

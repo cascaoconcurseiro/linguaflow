@@ -37,7 +37,7 @@ assert.match(worker, /sender\?\.id !== chrome\.runtime\.id[\s\S]*DB_SENDER_BLOCK
   'o proxy deve rejeitar remetentes externos à extensão');
 assert.doesNotMatch(db, /_proxy\('_fetch'/,
   'consumidores não devem atravessar o proxy com requisições REST arbitrárias');
-assert.match(db, /prevCard: saved\?\.card_before \|\| prevCard/,
-  'undo deve preferir o snapshot autoritativo devolvido pela RPC');
+assert.match(db, /prevCard: saved\?\.card_before \|\| null/,
+  'undo deve aceitar somente o snapshot autoritativo devolvido pela RPC');
 
 console.log('P0.2 narrow card-write client contracts passed.');

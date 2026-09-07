@@ -673,6 +673,34 @@ class Database {
     return cards;
   }
 
+  // Busca cada estado com seu próprio limite. Uma grande quantidade de cards
+  // novos nunca pode consumir a janela SQL destinada a reviews já vencidos.
+  async getStudyCards({ newLimit = 0, reviewLimit = 0, topic = null } = {}) {
+    if (this.isProxyMode) return this._proxy('getStudyCards', [{ newLimit, reviewLimit, topic }]);
+
+    const horizon = encodeURIComponent(new Date().toISOString());
+    const safeNewLimit = Math.min(1000, Math.max(0, Math.floor(Number(newLimit) || 0)));
+    const safeReviewLimit = Math.min(1000, Math.max(0, Math.floor(Number(reviewLimit) || 0)));
+    const topicFilter = typeof topic === 'string' && topic.trim() ? topic.trim() : null;
+    const select = topicFilter ? `select=*,words!inner(${WORD_SELECT})&` : `select=*,words(${WORD_SELECT})&`;
+    const category = topicFilter ? `&words.category=eq.${encodeURIComponent(topicFilter)}` : '';
+    const query = (status, limit) => `cards?${select}status=${status}&due_date=lte.${horizon}&suspended=is.false${category}&order=due_date.asc&limit=${limit}`;
+
+    const [learning, reviews, newCards] = await Promise.all([
+      this._fetch(query('eq.learning', 1000)),
+      safeReviewLimit ? this._fetch(query('in.(review,mature)', safeReviewLimit)) : Promise.resolve([]),
+      safeNewLimit ? this._fetch(query('eq.new', safeNewLimit)) : Promise.resolve([]),
+    ]);
+    if (!learning || !reviews || !newCards) return null;
+
+    const cards = [...learning, ...reviews, ...newCards];
+    cards.forEach(card => {
+      card.wordData = card.words;
+      delete card.words;
+    });
+    return cards;
+  }
+
   // Contadores do dia para os limites diários (novas/dia e revisões/dia)
   async getTodayCounts() {
     if (this.isProxyMode) return this._proxy('getTodayCounts', []);

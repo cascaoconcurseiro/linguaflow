@@ -11,7 +11,7 @@ const db = read('utils/db.js');
 const weakStart = study.indexOf('if (weakOnly)');
 const weakEnd = study.indexOf('} else {', weakStart);
 const weakBranch = study.slice(weakStart, weakEnd);
-assert.match(weakBranch, /getCardsDue\(200, true\)/,
+assert.match(weakBranch, /getStudyCards\(\{ newLimit: 1000, reviewLimit: 1000, topic: topicFilter \}\)/,
   'reforço graduado usa apenas a fila vencida');
 assert.doesNotMatch(weakBranch, /getAllCards|getAllWords|ignora due_date/,
   'reforço não busca cards futuros nem antecipa respostas');

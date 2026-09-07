@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.0.38] - 2026-09-06
+
+### Corrigido
+
+- A fila consulta learning, review/mature e novos separadamente, aplica tópico
+  antes dos limites e suporta até 1.000 revisões sem starvation entre estados.
+- O canal de legendas valida origem, navegação, nonce rotativo, tipo, URL,
+  protocolo e tamanho do payload antes de aceitar mensagens da página.
+- O popup de palavras ganhou diálogo e abas ARIA, foco contido e restaurado,
+  teclado completo, chips nativos, contraste AA e movimento reduzido.
+
+### Validação
+
+- Novos contratos de fila, ponte de legendas e acessibilidade integram o gate
+  oficial de release.
+
 ## [3.0.37] - 2026-09-06
 
 ### Corrigido

@@ -133,39 +133,22 @@ export async function renderStudy(container, app, params = {}) {
     if (weakOnly) {
       // Reforço graduado respeita o relógio do SRS. Mostrar a resposta de um
       // card futuro antes da hora contaminaria a próxima medição de memória.
-      const dueCards = await lfDb.getCardsDue(200, true);
+      const dueCards = await lfDb.getStudyCards({ newLimit: 1000, reviewLimit: 1000, topic: topicFilter });
       const weakPool = (dueCards || [])
         .filter(c => !c.suspended && isWeakCard(c) && c.wordData);
       loadedQueue = buildSessionQueue(weakPool, {});
     } else {
-      const [counts, cards] = await Promise.all([
-        lfDb.getTodayCounts(),
-        lfDb.getCardsDue(200, true),
-      ]);
+      const counts = await lfDb.getTodayCounts();
       // LIMITES DIÁRIOS REAIS (paridade Anki): "novas cartas/dia" corta os cards
       // novos além da cota; "revisões máx/dia" limita o tamanho da sessão.
       const newAllowed = Math.max(0, (srs?.newPerDay ?? 20) - counts.newIntroducedToday);
       const revAllowed = Math.max(0, (srs?.maxRevPerDay ?? 200) - counts.reviewsToday);
-      let newSeen = 0;
-      let reviewSeen = 0;
-      // Onda 2.2: "Revisar por tópico" — filtra o pool ANTES da cota diária, que
-      // continua sendo o mesmo orçamento global (é a mesma sessão de estudo,
-      // só restrita a uma categoria).
-      const topicPool = topicFilter
-        ? (cards || []).filter(c => (c.wordData?.category || c.category) === topicFilter)
-        : (cards || []);
-      const limited = topicPool.filter(c => {
-        if (c.suspended) return false;
-        if (c.status === 'new') {
-          newSeen++;
-          return newSeen <= newAllowed;
-        }
-        // A cota de revisões não pode esconder cards novos. Learning também é
-        // revisão em curso: ele deve continuar na sessão que o introduziu.
-        if (c.status === 'learning') return true;
-        reviewSeen++;
-        return reviewSeen <= revAllowed;
+      const limited = await lfDb.getStudyCards({
+        newLimit: newAllowed,
+        reviewLimit: revAllowed,
+        topic: topicFilter,
       });
+      if (!Array.isArray(limited)) throw new Error('Fila de revisão indisponível');
       // INTERLEAVING objetivo: learning primeiro, fracas espaçadas e novas
       // distribuídas, sem diagnóstico textual ou inferência semanal.
       loadedQueue = buildSessionQueue(limited, {});

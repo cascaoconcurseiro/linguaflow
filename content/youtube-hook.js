@@ -3,15 +3,38 @@
 // e capturar a legenda direto da fonte de rede sem atraso.
 
 (function() {
+    const injectedScript = document.currentScript;
+    let bridgeNonce = injectedScript?.dataset?.lfNonce || '';
+    const previousNonce = injectedScript?.dataset?.lfPreviousNonce || '';
+    let bridgeUrl = injectedScript?.dataset?.lfNavigationUrl || window.location.href;
+    if (!bridgeNonce) return;
+
+    if (typeof window.__lf_youtube_bridge_update === 'function') {
+        window.__lf_youtube_bridge_update(previousNonce, bridgeNonce, bridgeUrl);
+        return;
+    }
+    window.__lf_youtube_bridge_update = (currentNonce, nonce, navigationUrl) => {
+        if (currentNonce !== bridgeNonce || !nonce) return false;
+        bridgeNonce = nonce;
+        bridgeUrl = navigationUrl;
+        return true;
+    };
+
     console.debug('[LinguaFlow] ⚡ Hook Superior Ativado (Nível: Main World)');
 
+    const postBridgeMessage = (payload) => window.postMessage({
+        ...payload,
+        nonce: bridgeNonce,
+        pageUrl: bridgeUrl,
+    }, window.location.origin);
+
     const notifyExt = (url, body) => {
-        window.postMessage({ 
+        postBridgeMessage({
             type: 'LF_SUBTITLE_HOOK', 
             url: url, 
             data: body,
             timestamp: Date.now()
-        }, '*');
+        });
     };
 
     // ── INTERCEPTAÇÃO DE REDE (Fetch & XHR) ───────────────────────────────────
@@ -38,7 +61,7 @@
                 // Se for Netflix ou HBO, o conteúdo pode ser binário ou comprimido
                 if (urlStr.includes('nflxvideo.net') || urlStr.includes('.vtt')) {
                     clone.arrayBuffer().then(buf => {
-                        window.postMessage({ type: 'LF_SUBTITLE_HOOK', url: urlStr, data: buf, isBinary: true }, '*');
+                        postBridgeMessage({ type: 'LF_SUBTITLE_HOOK', url: urlStr, data: buf, isBinary: true });
                     }).catch(() => {});
                 } else {
                     clone.text().then(text => notifyExt(urlStr, text)).catch(() => {});
@@ -63,7 +86,7 @@
         if (isSubtitle) {
             this.addEventListener('load', function() {
                 if (this.responseType === 'arraybuffer' || this.response instanceof ArrayBuffer) {
-                    window.postMessage({ type: 'LF_SUBTITLE_HOOK', url: urlStr, data: this.response, isBinary: true }, '*');
+                    postBridgeMessage({ type: 'LF_SUBTITLE_HOOK', url: urlStr, data: this.response, isBinary: true });
                 } else {
                     notifyExt(urlStr, this.responseText);
                 }
@@ -82,7 +105,7 @@
             // Se o YouTube trocar de legenda via API interna, pegamos aqui
             moviePlayer.addEventListener('onStateChange', (state) => {
                 if (state !== lastPlayerState) {
-                    window.postMessage({ type: 'LF_PLAYER_STATE', state: state }, '*');
+                    postBridgeMessage({ type: 'LF_PLAYER_STATE', state });
                     lastPlayerState = state;
                 }
             });
@@ -99,7 +122,7 @@
         const btn = e.target.closest('.ytp-subtitles-button');
         if (btn) {
             const isActive = btn.getAttribute('aria-pressed') === 'true';
-            window.postMessage({ type: 'LF_YT_SUB_TOGGLE', active: !isActive }, '*');
+            postBridgeMessage({ type: 'LF_YT_SUB_TOGGLE', active: !isActive });
         }
     }, true);
 

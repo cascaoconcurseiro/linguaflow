@@ -3,6 +3,65 @@ import { videoUtils } from '../utils/video-utils.js';
 
 import { escapeHTML } from '../utils/html.js';
 
+const SUBTITLE_BRIDGE_TYPES = new Set([
+  'LF_HBO_SUB',
+  'LF_SUBTITLE_HOOK',
+  'LF_PLAYER_STATE',
+  'LF_YT_SUB_TOGGLE',
+]);
+const MAX_SUBTITLE_PAYLOAD_BYTES = 5 * 1024 * 1024;
+const MAX_SUBTITLE_URL_LENGTH = 4096;
+
+export function isTrustedSubtitleBridgeMessage(event, bridgeState, currentUrl) {
+  const data = event?.data;
+  if (event?.source !== window || event?.origin !== window.location.origin) return false;
+  if (!bridgeState?.nonce || bridgeState.url !== currentUrl) return false;
+  if (!data || typeof data !== 'object' || !SUBTITLE_BRIDGE_TYPES.has(data.type)) return false;
+  if (data.nonce !== bridgeState.nonce || data.pageUrl !== currentUrl) return false;
+
+  let currentHostname;
+  try {
+    currentHostname = new URL(currentUrl).hostname;
+  } catch {
+    return false;
+  }
+  const isYouTube = currentHostname === 'youtube.com' || currentHostname.endsWith('.youtube.com');
+  const isMax = ['max.com', 'hbomax.com', 'hbo.com'].some(
+    (domain) => currentHostname === domain || currentHostname.endsWith(`.${domain}`),
+  );
+
+  if (data.type === 'LF_PLAYER_STATE') {
+    return isYouTube && Number.isInteger(data.state) && data.state >= -1 && data.state <= 5;
+  }
+  if (data.type === 'LF_YT_SUB_TOGGLE') return isYouTube && typeof data.active === 'boolean';
+
+  if (typeof data.url !== 'string' || data.url.length === 0 || data.url.length > MAX_SUBTITLE_URL_LENGTH) {
+    return false;
+  }
+  try {
+    const subtitleUrl = new URL(data.url, currentUrl);
+    const protocol = subtitleUrl.protocol;
+    if (protocol !== 'https:' && protocol !== 'http:') return false;
+    const subtitleLocator = `${subtitleUrl.pathname}${subtitleUrl.search}`.toLowerCase();
+    if (data.type === 'LF_SUBTITLE_HOOK' && (!isYouTube || !subtitleLocator.includes('timedtext'))) {
+      return false;
+    }
+    if (
+      data.type === 'LF_HBO_SUB'
+      && (!isMax || !/(\.vtt|\.webvtt|subtitle|caption)/.test(subtitleLocator))
+    ) return false;
+  } catch {
+    return false;
+  }
+
+  const payload = data.type === 'LF_HBO_SUB' ? data.response : data.data;
+  if (typeof payload === 'string') {
+    return payload.length <= MAX_SUBTITLE_PAYLOAD_BYTES
+      && new TextEncoder().encode(payload).byteLength <= MAX_SUBTITLE_PAYLOAD_BYTES;
+  }
+  return payload instanceof ArrayBuffer && payload.byteLength <= MAX_SUBTITLE_PAYLOAD_BYTES;
+}
+
 // ─── Engine Principal ─────────────────────────────────────────────────────────
 export class SubtitleEngine {
   constructor() {
@@ -449,7 +508,8 @@ export class SubtitleEngine {
     // ── Receptor de mensagens postMessage (HBO Max / Max.com / Netflix) ────
     window.addEventListener('message', (e) => {
       if (this._disposed) return;
-      if (e.source !== window || !e.data?.type) return;
+      const bridgeState = window.__linguaFlowSubtitleBridge;
+      if (!isTrustedSubtitleBridgeMessage(e, bridgeState, window.location.href)) return;
 
       if (e.data.type === 'LF_HBO_SUB' || e.data.type === 'LF_SUBTITLE_HOOK') {
         let url = e.data.url || '';

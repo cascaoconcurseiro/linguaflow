@@ -109,13 +109,13 @@ Build local: `3.0.39`. Build `3.0.38` publicado na `main`; terceiro lote em publ
 
 - A migration `20260906130000_review_undo_snapshot_authority.sql` foi aplicada
   com sucesso no banco canônico `main PRODUCTION`.
-- A migration `20260907100000_server_authoritative_fsrs.sql` precisa ser aplicada
-  isoladamente no banco canônico antes da publicação do cliente 3.0.39.
+- A migration `20260907100000_server_authoritative_fsrs.sql` foi aplicada com
+  sucesso no banco canônico `main PRODUCTION` via Management API.
 - QA autenticado requer sessão real no navegador e recarregamento da extensão.
 - O replay PostgreSQL da nova migration está integrado ao gate, mas este host
   não possui uma distribuição WSL para executá-lo localmente.
 - O histórico remoto de migrations contém versões antigas ausentes neste
   checkout; `supabase db push` permanece bloqueado até essa deriva ser
-  reconciliada. A migration atual foi aplicada isoladamente pelo SQL Editor.
+  reconciliada. As migrations recentes foram aplicadas isoladamente via SQL/API.
 - Leaked Password Protection deve ser revalidado no painel do Supabase.
 - Calibração humana e acompanhamento D7/D30/D90 continuam pendentes.

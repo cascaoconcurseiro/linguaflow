@@ -131,6 +131,8 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
 
 - [x] Tornar o servidor a única autoridade da transição FSRS, preservando a
   assinatura da RPC e ignorando `p_state` do cliente (2026-09-07).
+- [x] Aplicar a migração autoritativa FSRS (`20260907100000_server_authoritative_fsrs.sql`)
+  em produção no Supabase via Management API (2026-09-07).
 - [x] Restringir hosts e recursos Web do manifesto aos provedores e módulos
   efetivamente usados, com HTTPS nas integrações (2026-09-07).
 - [x] Corrigir match pattern inválido com subcaminho em `web_accessible_resources[1]`

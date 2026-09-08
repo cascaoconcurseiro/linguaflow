@@ -1766,10 +1766,13 @@ export class WordPopup {
           ? 'Sessão expirada na extensão. Abra o Dashboard do LinguaFlow e entre novamente.'
           : 'Falha ao obter professor IA. Tente novamente em instantes.';
         // Fallback caso a IA falhe
+        const safeSentenceTranslation = this._escapeAttr(
+          sentenceTranslation || 'tradução indisponível',
+        );
         el.innerHTML =
           nativeHtml +
           `
-              <b style="color:#7dd3fc">Frase traduzida:</b> <span style="color:#94a3b8">${sentenceTranslation || 'tradução indisponível'}</span><br>
+              <b style="color:#7dd3fc">Frase traduzida:</b> <span style="color:#94a3b8">${safeSentenceTranslation}</span><br>
               <span style="color:#f87171;font-size:12px;display:block;margin-top:8px;">${failureMessage}</span>
             `;
       }
@@ -1825,13 +1828,15 @@ export class WordPopup {
         this.context = response.sentence;
         this.saveContext = response.sentence; // frase da IA é completa por construção
         
+        const safeGeneratedSentence = this._escapeAttr(response.sentence);
+        const safeGeneratedTranslation = this._escapeAttr(response.translation || '');
         el.innerHTML = `
           <div style="background:rgba(56,189,248,0.1); border-left:3px solid #38bdf8; padding:8px; border-radius:4px; margin-bottom:8px;">
             <b style="color:#38bdf8; font-size:13px;">🤖 Exemplo Gerado (IA)</b><br>
             <span style="color:#cbd5e1; font-size:12px;">Como você salvou a palavra isolada, geramos um contexto real para você estudar:</span>
           </div>
-          <b style="color:#e2e8f0; font-size: 15px;">"${response.sentence}"</b><br>
-          <span style="color:#94a3b8; font-size:13px; display:block; margin-top:4px;">${response.translation || ''}</span>
+          <b style="color:#e2e8f0; font-size: 15px;">"${safeGeneratedSentence}"</b><br>
+          <span style="color:#94a3b8; font-size:13px; display:block; margin-top:4px;">${safeGeneratedTranslation}</span>
         `;
       } else {
         if (this._contextSession !== contextSession) return;

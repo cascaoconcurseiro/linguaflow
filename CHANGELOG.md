@@ -1,5 +1,22 @@
 # Changelog
 
+## [3.0.40] - 2026-09-08
+
+### Corrigido
+
+- O teto máximo também limita a primeira graduação por Bom/Fácil, e cards leech
+  existentes podem ser suspensos após a mudança da configuração.
+- Retry de uma revisão já desfeita devolve o card atual; valores SRS não finitos
+  degradam para defaults e a interface impede persistir entradas inválidas.
+- Frase, tradução e feedback de IA são escapados nos sinks restantes.
+- Notificações Push só navegam dentro da PWA; placement ganhou diálogo e ciclo
+  de foco; a exportação Anki descreve corretamente o sidecar de agendamento.
+
+### Validação
+
+- Contratos comportamentais cobrem o endurecimento FSRS, HTML não confiável,
+  configurações, acessibilidade e navegação de notificações.
+
 ## [3.0.39] - 2026-09-07
 
 ### Corrigido

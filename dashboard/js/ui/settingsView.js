@@ -8,7 +8,7 @@ import {
 } from '../core/placement.js';
 import { playNaturalAudio, stopAudio, preloadKokoro } from '../core/tts.js';
 import { gradeWriting } from '../core/ai.js';
-import { bindViewStateAction, renderViewState } from './viewState.js';
+import { bindViewStateAction, escapeHtml, renderViewState } from './viewState.js';
 
 const isExtensionCtx = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 
@@ -31,25 +31,54 @@ export async function runPlacementTest(app, onDone) {
     return;
   }
 
+  const returnFocusTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const overlay = document.createElement('div');
   overlay.id = 'placement-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-labelledby', 'pl-dialog-title');
   overlay.style.cssText = 'position:fixed; inset:0; background:rgba(2,6,23,0.75); z-index:99999; display:flex; align-items:center; justify-content:center; padding:20px;';
   overlay.innerHTML = '<div id="pl-box" style="background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-border); max-width:480px; width:100%; padding:32px; text-align:center;"></div>';
   document.body.appendChild(overlay);
   const box = overlay.querySelector('#pl-box');
-  const closeAll = () => { stopAudio(); overlay.remove(); };
+  const closeAll = () => {
+    stopAudio();
+    overlay.remove();
+    returnFocusTo?.focus();
+  };
+
+  overlay.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeAll();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusable = [...overlay.querySelectorAll('button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')];
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
 
   function frame(phaseLabel, progressPct, bodyHtml) {
     box.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-        <strong style="color:var(--color-text); font-size:14px;">🎯 Nivelamento — ${phaseLabel}</strong>
-        <button id="pl-close" style="background:none; border:none; font-size:18px; cursor:pointer; color:var(--color-text-light);">✕</button>
+        <h2 id="pl-dialog-title" tabindex="-1" style="color:var(--color-text); font-size:14px;">🎯 Nivelamento — ${phaseLabel}</h2>
+        <button id="pl-close" type="button" aria-label="Fechar nivelamento" style="background:none; border:none; font-size:18px; cursor:pointer; color:var(--color-text-light);">✕</button>
       </div>
-      <div style="width:100%; background:var(--color-border); height:8px; border-radius:4px; overflow:hidden; margin-bottom:24px;">
+      <div role="progressbar" aria-label="Progresso do nivelamento" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressPct}" style="width:100%; background:var(--color-border); height:8px; border-radius:4px; overflow:hidden; margin-bottom:24px;">
         <div style="width:${progressPct}%; height:100%; background:var(--color-primary); transition:width 0.2s;"></div>
       </div>
       ${bodyHtml}`;
     box.querySelector('#pl-close').addEventListener('click', closeAll);
+    box.querySelector('#pl-dialog-title')?.focus();
   }
 
   // ── FASE 1: vocabulário ────────────────────────────────────────────────────
@@ -208,7 +237,7 @@ export async function runPlacementTest(app, onDone) {
         ${skillRow('✍️ Gramática/Leitura', combo.breakdown.cloze)}
         ${skillRow('🎧 Escuta', combo.breakdown.listening)}
       </div>
-      ${writingResult?.feedback ? `<p style="text-align:left; font-size:13px; color:var(--color-text); background:rgba(28,176,246,0.08); border:1px solid var(--color-secondary); border-radius:8px; padding:10px 12px; margin-bottom:12px;">📝 ${writingResult.feedback}</p>` : ''}
+      ${writingResult?.feedback ? `<p style="text-align:left; font-size:13px; color:var(--color-text); background:rgba(28,176,246,0.08); border:1px solid var(--color-secondary); border-radius:8px; padding:10px 12px; margin-bottom:12px;">📝 ${escapeHtml(writingResult.feedback)}</p>` : ''}
       ${combo.gaps.length ? `<p style="color:#ff9600; font-size:13px; font-weight:700; margin-bottom:12px;">💡 Ponto a reforçar: ${combo.gaps.join(', ')}.</p>` : ''}
       ${combo.retestRequired ? '<p style="color:var(--color-danger); font-size:13px; margin-bottom:16px;">As pseudo-palavras indicam respostas por chute. Por segurança, este resultado não será aplicado: refaça o teste com calma.</p>' : '<p style="color:var(--color-text-light); font-size:13px; margin-bottom:16px;">Nível aplicado em todo o sistema: IA, histórias e legendas.</p>'}
       <button id="pl-apply" class="btn btn-primary" style="width:100%; padding:14px;" ${combo.retestRequired ? 'disabled aria-disabled="true" title="Refaça o teste para aplicar um resultado confiável"' : ''}>Usar este nível</button>
@@ -504,10 +533,10 @@ export async function renderSettings(container, app) {
             📄 Exportar CSV
           </button>
           <button id="btn-export-anki" class="btn btn-secondary" style="flex:1; min-width:160px;">
-            📦 Exportar pro Anki (.txt)
+            📦 Exportar notas para o Anki (.txt)
           </button>
         </div>
-        <p style="font-size:12px; color:var(--color-text-light); margin-top:8px;">No Anki: Arquivo → Importar → selecione o .txt. Os campos (frente com frase, verso com tradução/fonética) e as etiquetas já vão prontos.</p>
+        <p style="font-size:12px; color:var(--color-text-light); margin-top:8px;">No Anki: Arquivo → Importar → selecione o .txt. O segundo arquivo é uma cópia de referência do agendamento LinguaFlow; o Anki não aplica esse estado automaticamente.</p>
         <div style="display:flex; gap:16px; flex-wrap:wrap; margin-top:16px; padding-top:16px; border-top:1px dashed var(--color-border);">
           <button id="btn-backup-json" class="btn btn-outline" style="flex:1; min-width:160px;">
             💾 Backup completo (.json)
@@ -696,11 +725,23 @@ export async function renderSettings(container, app) {
   document.getElementById('srscat-save')?.addEventListener('click', async () => {
     const cat = srscatSelect?.value;
     if (!cat) return;
+    const invalidCategoryInput = [srscatRetention, srscatGrad]
+      .filter(Boolean)
+      .find(input => input.value && !input.checkValidity());
+    const categoryStepTokens = String(srscatSteps?.value || '').replace(/m/gi, '').trim().split(/[\s,]+/).filter(Boolean);
+    const categoryStepsValid = !categoryStepTokens.length
+      || categoryStepTokens.every(token => Number.isFinite(Number(token)) && Number(token) > 0);
+    if (invalidCategoryInput || !categoryStepsValid) {
+      invalidCategoryInput?.reportValidity();
+      (invalidCategoryInput || srscatSteps)?.focus();
+      if (srscatStatus) srscatStatus.textContent = 'Corrija os valores do perfil antes de salvar.';
+      return;
+    }
     const btn = document.getElementById('srscat-save');
     btn.disabled = true;
     try {
       const retVal = srscatRetention?.value ? (Number(srscatRetention.value) / 100).toFixed(2) : null;
-      const stepsVal = srscatSteps?.value?.trim() || null;
+      const stepsVal = categoryStepTokens.length ? categoryStepTokens.map(Number).join(' ') : null;
       const gradVal = srscatGrad?.value || null;
       await Promise.all([
         lfDb.setSRSCategoryOverride(cat, 'lf_srs_retention', retVal),
@@ -738,8 +779,36 @@ export async function renderSettings(container, app) {
   document.getElementById('btn-save').addEventListener('click', async () => {
     const btnSave = document.getElementById('btn-save');
     const originalText = btnSave.innerHTML;
+    const validatedInputs = [...container.querySelectorAll(
+      '#srs-new-per-day, #srs-max-rev, #srs-vault-cap, #srs-grad-interval, #srs-max-interval, #srs-int-mod, #srs-leech-thresh, #retention-slider',
+    )];
+    const invalidInput = validatedInputs.find(input => !input.checkValidity());
+    if (invalidInput) {
+      invalidInput.reportValidity();
+      invalidInput.focus();
+      app.showToast('Corrija o valor destacado antes de salvar.', 'error');
+      return;
+    }
+
+    const parseSteps = (raw) => {
+      const tokens = String(raw || '').replace(/m/gi, '').trim().split(/[\s,]+/).filter(Boolean);
+      const values = tokens.map(Number);
+      return values.length && values.every(value => Number.isFinite(value) && value > 0)
+        ? values.join(' ')
+        : null;
+    };
+    const learningStepsValue = parseSteps(document.getElementById('srs-learning-steps')?.value);
+    const relearningStepsValue = parseSteps(document.getElementById('srs-relearning-steps')?.value);
+    if (!learningStepsValue || !relearningStepsValue) {
+      app.showToast('Use apenas minutos positivos nos passos, por exemplo: 1 10.', 'error');
+      (!learningStepsValue
+        ? document.getElementById('srs-learning-steps')
+        : document.getElementById('srs-relearning-steps'))?.focus();
+      return;
+    }
+
     btnSave.innerHTML = '<span class="lf-spin"></span> Salvando...';
-    
+
     // CHAVES = as mesmas que getSRSSettings() lê. Se mudar aqui, MUDA o motor.
     const val = (id) => document.getElementById(id)?.value;
     const writes = [];
@@ -752,16 +821,8 @@ export async function renderSettings(container, app) {
     if (val('retention-slider')) writes.push(lfDb.setSetting('lf_srs_retention', (Number(val('retention-slider')) / 100).toFixed(2)));
 
     // Learning steps: aceita "1 10", "1m 10m", "1,10" — normaliza pra "1 10"
-    const stepsRaw = val('srs-learning-steps');
-    if (stepsRaw) {
-      const steps = stepsRaw.replace(/m/gi, '').split(/[\s,]+/).map(Number).filter(n => n > 0);
-      if (steps.length > 0) writes.push(lfDb.setSetting('learning_steps', steps.join(' ')));
-    }
-    const relearningRaw = val('srs-relearning-steps');
-    if (relearningRaw) {
-      const steps = relearningRaw.replace(/m/gi, '').split(/[\s,]+/).map(Number).filter(n => n > 0);
-      if (steps.length > 0) writes.push(lfDb.setSetting('relearning_steps', steps.join(' ')));
-    }
+    writes.push(lfDb.setSetting('learning_steps', learningStepsValue));
+    writes.push(lfDb.setSetting('relearning_steps', relearningStepsValue));
 
     if (val('srs-new-per-day') !== undefined) writes.push(lfDb.setSetting('new_per_day', val('srs-new-per-day')));
     if (val('srs-max-rev')) writes.push(lfDb.setSetting('max_reviews_per_day', val('srs-max-rev')));
@@ -826,7 +887,10 @@ export async function renderSettings(container, app) {
     try {
       const words = await lfDb.getAllWords();
       if (!words.length) { app.showToast('Nenhuma palavra para exportar.', 'info'); return; }
-      const clean = (s) => String(s ?? '').replace(/\t/g, ' ').replace(/\n/g, '<br>');
+      // O arquivo declara #html:true para preservar a formatação da nota.
+      // Conteúdo capturado/gerado precisa ser escapado antes de receber tags nossas.
+      const cleanHtml = (s) => escapeHtml(String(s ?? '').replace(/\t/g, ' ')).replace(/\r?\n/g, '<br>');
+      const cleanTsv = (s) => String(s ?? '').replace(/[\t\r\n]+/g, ' ').trim();
       const lines = [
         '#separator:tab',
         '#html:true',
@@ -835,12 +899,12 @@ export async function renderSettings(container, app) {
       const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       words.forEach(w => {
         const sentence = w.context_sentence && w.context_sentence !== w.word
-          ? `<br><i>${clean(w.context_sentence).replace(new RegExp(`\\b${escRe(w.word)}\\b`, 'i'), `<b>${w.word}</b>`)}</i>`
+          ? `<br><i>${cleanHtml(w.context_sentence).replace(new RegExp(`\\b${escRe(cleanHtml(w.word))}\\b`, 'i'), `<b>${cleanHtml(w.word)}</b>`)}</i>`
           : '';
-        const front = `<b>${clean(w.word)}</b>${sentence}`;
-        const backParts = [clean(w.translation)];
-        if (w.pronunciation_pt) backParts.push(`<i>[${clean(w.pronunciation_pt)}]</i>`);
-        if (w.definition) backParts.push(clean(w.definition));
+        const front = `<b>${cleanHtml(w.word)}</b>${sentence}`;
+        const backParts = [cleanHtml(w.translation)];
+        if (w.pronunciation_pt) backParts.push(`<i>[${cleanHtml(w.pronunciation_pt)}]</i>`);
+        if (w.definition) backParts.push(cleanHtml(w.definition));
         const back = backParts.filter(Boolean).join('<br>');
         const tags = ['linguaflow', w.category, w.level].filter(Boolean).join(' ');
         lines.push(`${front}\t${back}\t${tags}`);
@@ -858,7 +922,7 @@ export async function renderSettings(container, app) {
         (cards || []).forEach(c => {
           const w = wordById[c.word_id];
           if (!w) return;
-          schedRows.push([clean(w.word), c.status || '', c.stability ?? '', c.difficulty ?? '',
+          schedRows.push([cleanTsv(w.word), c.status || '', c.stability ?? '', c.difficulty ?? '',
             c.due_date || '', c.interval ?? '', c.reps ?? 0, c.lapses ?? 0, c.introduced_at || ''].join('\t'));
         });
         downloadFile(schedRows.join('\n'), 'linguaflow_agendamento.tsv', 'text/tab-separated-values;charset=utf-8');
@@ -866,7 +930,7 @@ export async function renderSettings(container, app) {
         console.warn('[Export] Agendamento não exportado:', schedErr);
       }
 
-      flashExportMsg(`${words.length} notas exportadas pro Anki (com arquivo de agendamento FSRS)!`);
+      flashExportMsg(`${words.length} notas exportadas. O agendamento FSRS foi salvo em um arquivo de referência separado.`);
     } catch(e) {
       console.error(e);
       app.showToast('Erro ao exportar pro Anki.', 'error');

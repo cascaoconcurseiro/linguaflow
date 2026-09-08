@@ -1067,8 +1067,8 @@ class Database {
         }
         nextStatus = 'review';
         nextStepIndex = 0;
-        nextInterval = Math.max(settings.easyInt || 4,
-          this._fsrsInterval(stability, retention) * settings.intMod);
+        nextInterval = Math.min(maxInt, Math.max(settings.easyInt || 4,
+          this._fsrsInterval(stability, retention) * settings.intMod));
       } else {
         // Bom: avança um step; gradua no fim dos steps.
         // graduating_interval (config) é o piso da graduação.
@@ -1076,8 +1076,8 @@ class Database {
         if (nextStepIndex >= activeSteps.length) {
           nextStatus = 'review';
           nextStepIndex = 0;
-          nextInterval = Math.max(settings.gradInt || 1,
-            this._fsrsInterval(stability, retention) * settings.intMod);
+          nextInterval = Math.min(maxInt, Math.max(settings.gradInt || 1,
+            this._fsrsInterval(stability, retention) * settings.intMod));
         } else {
           nextStatus = 'learning';
           nextInterval = activeSteps[nextStepIndex] / 1440;

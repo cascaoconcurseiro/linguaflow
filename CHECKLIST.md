@@ -1,7 +1,7 @@
 # Checklist — LinguaFlow
 
-**Atualizado em:** 2026-09-06
-**Referência:** auditoria geral e robustez, build `3.0.38`
+**Atualizado em:** 2026-09-08
+**Referência:** auditoria geral e robustez, build `3.0.40`
 
 Este arquivo contém apenas trabalho vigente. Auditorias e planos superados
 foram consolidados e permanecem recuperáveis pelo histórico Git.
@@ -110,7 +110,7 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
 - [x] Migrations e Edge Function registradas como aplicadas em produção.
 - [x] Contratos de catálogo, SQL, Edge, cliente e UX verdes.
 - [x] Registro de 29/07: PWA pública entrega `app.js?v=3.0.33` sem erro de console.
-- [ ] QA autenticado no build `3.0.34`.
+- [ ] QA autenticado no build `3.0.40`.
 - [ ] QA autenticado: `fluency_skill_profiles` HTTP 200 sem `42703`.
 - [ ] Jornada completa do Check sem captura de voz.
 - [x] Remover microfone, gravação, upload e avaliação de voz do aluno.
@@ -129,6 +129,19 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
 
 ## Produção e segurança
 
+- [x] Escapar os sinks restantes de frase, tradução e feedback gerados por IA
+  antes de inserir HTML (2026-09-08).
+- [x] Restringir cliques de Push ao origin da PWA, com fallback `/study`
+  (2026-09-08).
+- [x] Corrigir teto de graduação, leech existente, valores não finitos e retry
+  pós-undo na nova migration FSRS (2026-09-08).
+- [x] Validar configurações SRS antes de persistir e alinhar a exportação Anki
+  ao que o arquivo realmente restaura (2026-09-08).
+- [x] Completar semântica, foco, Escape e contenção de teclado do placement
+  (2026-09-08).
+- [x] Aplicar `20260908100000_harden_server_authoritative_fsrs.sql` no Supabase
+  canônico; dry-run posterior confirmou banco atualizado (2026-09-08).
+
 - [x] Tornar o servidor a única autoridade da transição FSRS, preservando a
   assinatura da RPC e ignorando `p_state` do cliente (2026-09-07).
 - [x] Aplicar a migração autoritativa FSRS (`20260907100000_server_authoritative_fsrs.sql`)
@@ -143,6 +156,8 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
   velocidade, notificações e posicionamento (2026-09-07).
 - [x] Integrar contratos de autoridade FSRS, permissões e acessibilidade ao
   release do build `3.0.39` (2026-09-07).
+- [x] Concluir auditoria 360° da equipe de agência (Tech Lead, SecOps, UX/UI e QA)
+  e publicar recomendações consolidadas em `docs/AUDITORIA_E_RECOMENDACOES_AGENCIA.md` (2026-09-07).
 
 - [x] Neutralizar HTML persistido em contexto, chunks, jogos e tutor da IA; CSP
   sem scripts inline e allowlist dos recursos externos necessários (2026-09-05).

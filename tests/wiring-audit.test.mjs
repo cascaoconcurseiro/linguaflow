@@ -21,6 +21,7 @@ for (const falsePositive of [
   '#lf-btn-panel',
   '#lf-save-btn',
   '#lf-hbo-switch',
+  'dashboard/js/core/fluencyTaskCatalog.js',
 ]) {
   assert.ok(!output.includes(falsePositive), `auditoria não deve reportar falso positivo: ${falsePositive}`);
 }

@@ -12,12 +12,12 @@ limpeza de 29/07 e não participavam do produto nem do deploy.
 
 ## Autoridade atual
 
-1. [`ESTADO_ATUAL_2026-07-29.md`](ESTADO_ATUAL_2026-07-29.md);
-2. [`../MASTER_BLUEPRINT.md`](../MASTER_BLUEPRINT.md);
-3. [`../CHECKLIST.md`](../CHECKLIST.md);
-4. [`../HANDOFF.md`](../HANDOFF.md);
-5. contratos ativos indicados em [`README.md`](README.md);
-6. código, testes e schema verificado de produção.
+1. código, testes e schema verificado de produção;
+2. [`ESTADO_ATUAL_2026-07-29.md`](ESTADO_ATUAL_2026-07-29.md);
+3. [`../MASTER_BLUEPRINT.md`](../MASTER_BLUEPRINT.md);
+4. [`../CHECKLIST.md`](../CHECKLIST.md);
+5. [`../HANDOFF.md`](../HANDOFF.md);
+6. contratos ativos indicados em [`README.md`](README.md).
 
 Uma decisão histórica só deve voltar ao produto depois de ser confrontada com
 o código, os contratos e o estado live atuais.

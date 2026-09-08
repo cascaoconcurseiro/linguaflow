@@ -1,6 +1,6 @@
 # Índice da documentação
 
-Revisado em 05/09/2026: entrada direta e contratos sem captura de voz.
+Revisado em 08/09/2026: build 3.0.40 e auditoria geral.
 
 ## Autoritativa
 
@@ -14,6 +14,7 @@ Revisado em 05/09/2026: entrada direta e contratos sem captura de voz.
 - [Contrato pedagógico e de economia](CONTRATO_PEDAGOGICO_ECONOMIA_P0_2_2026-07-14.md)
 - [Contrato de fluência A1–B2](CONTRATO_FLUENCIA_A1_B2_2026-07-28.md)
 - [Changelog atual](../CHANGELOG.md)
+- [Auditoria geral](AUDITORIA_E_RECOMENDACOES_AGENCIA.md)
 
 ## Referência especializada
 

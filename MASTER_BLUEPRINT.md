@@ -83,7 +83,7 @@ Estado vigente: [`docs/ESTADO_ATUAL_2026-07-29.md`](docs/ESTADO_ATUAL_2026-07-29
 
 ## Gates atuais
 
-- build `3.0.34` autenticado no navegador;
+- build `3.0.40` autenticado no navegador;
 - `fluency_skill_profiles` HTTP 200 sem `42703`;
 - Check de comunicação sem captura de voz;
 - voz natural real na escuta;

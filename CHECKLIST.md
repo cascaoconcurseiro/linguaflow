@@ -139,8 +139,8 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
   ao que o arquivo realmente restaura (2026-09-08).
 - [x] Completar semântica, foco, Escape e contenção de teclado do placement
   (2026-09-08).
-- [ ] Aplicar `20260908100000_harden_server_authoritative_fsrs.sql` no Supabase
-  canônico antes de publicar o build 3.0.40.
+- [x] Aplicar `20260908100000_harden_server_authoritative_fsrs.sql` no Supabase
+  canônico; dry-run posterior confirmou banco atualizado (2026-09-08).
 
 - [x] Tornar o servidor a única autoridade da transição FSRS, preservando a
   assinatura da RPC e ignorando `p_state` do cliente (2026-09-07).

@@ -29,6 +29,8 @@ Build local: `3.0.40`. Build `3.0.39` publicado na `main` em `590f436`.
 - Nova migration limita graduações pelo `max_interval`, suspende leeches já
   marcados quando configurado, neutraliza números não finitos e devolve o card
   atual em retry posterior ao undo.
+- `20260908100000_harden_server_authoritative_fsrs.sql` foi aplicada no Supabase
+  vinculado; o dry-run posterior retornou `Remote database is up to date`.
 - README, Estado Atual, contrato pedagógico, índices, backlog, Checklist,
   Changelog e relatório de auditoria foram reconciliados com o build 3.0.40.
 - O script local que sugeria `INSERT` direto em `schema_migrations` foi removido
@@ -44,13 +46,10 @@ Build local: `3.0.40`. Build `3.0.39` publicado na `main` em `590f436`.
 
 ## Próximo passo concreto
 
-1. Executar o gate PostgreSQL `tests/db/card-review-fsrs-hardening.sql` e aplicar
-   `20260908100000_harden_server_authoritative_fsrs.sql` no Supabase canônico.
-2. Rodar `npm run test:release -- --allow-dirty` no diff final.
-3. Publicar por branch, PR, checks e squash merge na `main`.
-4. Recarregar a extensão 3.0.40 e homologar YouTube, contexto salvo, undo,
+1. Abrir o PR do commit `f33d0ab`, acompanhar checks e fazer squash merge.
+2. Recarregar a extensão 3.0.40 e homologar YouTube, contexto salvo, undo,
    limites, voz e configurações.
-5. Validar RLS ao vivo com duas contas e conferir Leaked Password Protection.
+3. Validar RLS ao vivo com duas contas e conferir Leaked Password Protection.
 
 ## Limites conhecidos
 

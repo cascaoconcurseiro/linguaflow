@@ -46,17 +46,15 @@ de um futuro `db push`.
 
 ## Riscos residuais e homologação
 
-1. Aplicar `20260908100000_harden_server_authoritative_fsrs.sql` antes de publicar
-   o cliente deste lote e executar seu gate PostgreSQL comportamental.
-2. Recarregar a extensão 3.0.40 e testar YouTube: original, tradução tardia,
+1. Recarregar a extensão 3.0.40 e testar YouTube: original, tradução tardia,
    flash manual e salvamento da explicação contextual.
-3. Confirmar no verso do card que a explicação aparece sem nova chamada de IA.
-4. Testar revisão/undo/limites em duas abas e RLS com duas contas reais.
-5. Ouvir o TTS natural e validar fallback em aparelho móvel real.
-6. Reduzir risco de supply chain dos scripts remotos da PWA, priorizando
+2. Confirmar no verso do card que a explicação aparece sem nova chamada de IA.
+3. Testar revisão/undo/limites em duas abas e RLS com duas contas reais.
+4. Ouvir o TTS natural e validar fallback em aparelho móvel real.
+5. Reduzir risco de supply chain dos scripts remotos da PWA, priorizando
    autocustódia de fflate/Kokoro e isolamento do widget YouGlish.
-7. Verificar Leaked Password Protection no Auth Advisor do Supabase.
-8. Calibrar a avaliação de fluência com julgamento humano e acompanhamento
+6. Verificar Leaked Password Protection no Auth Advisor do Supabase.
+7. Calibrar a avaliação de fluência com julgamento humano e acompanhamento
    D7/D30/D90 antes de fazer alegações de eficácia.
 
 ## Evidência automatizada
@@ -64,4 +62,6 @@ de um futuro `db push`.
 - `npm run test:release -- --allow-dirty`: verde antes das correções deste lote.
 - Contratos focados de HTML não confiável, configurações, FSRS e release smoke:
   verdes após as correções.
-- O release completo deve ser repetido depois do diff final e antes do PR.
+- O release completo passou depois do diff final.
+- A migration `20260908100000_harden_server_authoritative_fsrs.sql` foi aplicada
+  isoladamente; o dry-run posterior confirmou o banco remoto atualizado.

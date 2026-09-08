@@ -3,7 +3,9 @@
 **Responsável pela especificação:** Codex — frente sênior de ciência da aprendizagem, SRS e economia anti-farm.
 **Estado:** contrato canônico implementado e promovido. Os gates permanecem
 obrigatórios e devem impedir regressão; detalhes de rollout são históricos.
-**Escopo:** elegibilidade server-side de card review, XP qualificado, prática livre, feedback e CTAs. Não redefine o FSRS completo, mastery, ligas por coorte ou novos jogos.
+**Escopo:** elegibilidade server-side de card review, FSRS autoritativo, XP
+qualificado, prática livre, feedback e CTAs. Não redefine mastery, ligas por
+coorte ou novos jogos.
 
 ## Regra de produto
 
@@ -19,7 +21,12 @@ XP recompensa a conclusão honesta de uma tentativa vencida. A nota informa mem�
 
 A elegibilidade é derivada do card bloqueado no banco antes da mutação. O cliente não declara que um card estava vencido, não envia XP e não define a chave contábil.
 
-O P0.2 não porta todas as fórmulas FSRS para SQL. Para compatibilidade, o próximo estado ainda pode ser calculado pelo cliente, com estes limites obrigatórios:
+Desde o build 3.0.39, o cliente calcula somente a prévia visual. A RPC bloqueia
+e relê o card, as configurações e os limites, calcula o próximo estado FSRS e
+persiste o resultado. O parâmetro legado `p_state` permanece na assinatura para
+compatibilidade, mas é ignorado como fonte de autoridade.
+
+Limites obrigatórios:
 
 1. lock por usuário/card;
 2. `expected_reps` igual ao valor armazenado;
@@ -28,9 +35,8 @@ O P0.2 não porta todas as fórmulas FSRS para SQL. Para compatibilidade, o pró
 5. allowlist de campos e faixas numéricas finitas;
 6. estado futuro, suspenso, limite de novos ou versão obsoleta não sofre mutação.
 
-O cálculo completo do próximo estado FSRS continua no cliente sob validação e
-lock server-side. Isso é uma fronteira consciente: não autoriza o cliente a
-declarar XP, elegibilidade ou propriedade.
+O resultado devolvido pela RPC é a única fonte de verdade para card, undo,
+agendamento e apresentação posterior ao usuário.
 
 ## Matriz de review
 
@@ -206,7 +212,7 @@ XP como aproximação temporária.
 
 ## Fora do P0.2
 
-- FSRS integral no servidor;
+- mudança de versão do algoritmo FSRS sem migration e regressão comportamental;
 - mastery multidimensional;
 - gabarito server-side de histórias;
 - XP por vídeo/checkpoint;

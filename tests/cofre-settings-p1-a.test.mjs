@@ -64,5 +64,19 @@ assert.match(settings, /b\.setAttribute\('aria-pressed', String\(b === btn\)\)/,
 for (const id of ['srscat-status', 'kokoro-progress-text', 'push-status', 'email-status']) {
   assert.match(settings, new RegExp(`id="${id}"[^>]*role="status"[^>]*aria-live="polite"`), `${id} deve anunciar atualizações`);
 }
+assert.match(settings, /validatedInputs[\s\S]+checkValidity\(\)[\s\S]+reportValidity\(\)/,
+  'configurações SRS devem validar limites antes de persistir');
+assert.match(settings, /Number\.isFinite\(value\) && value > 0/,
+  'learning steps devem rejeitar valores não finitos e não positivos');
+assert.match(settings, /Number\.isFinite\(Number\(token\)\) && Number\(token\) > 0/,
+  'overrides por categoria devem validar todos os passos');
+assert.match(settings, /setAttribute\('role', 'dialog'\)[\s\S]+setAttribute\('aria-modal', 'true'\)[\s\S]+setAttribute\('aria-labelledby', 'pl-dialog-title'\)/,
+  'placement deve ser um diálogo nomeado e modal');
+assert.match(settings, /event\.key === 'Escape'[\s\S]+closeAll\(\)/,
+  'placement deve fechar com Escape');
+assert.match(settings, /const closeAll[\s\S]+returnFocusTo\?\.focus\(\)/,
+  'placement deve restaurar foco ao fechar');
+assert.match(settings, /escapeHtml\(writingResult\.feedback\)/,
+  'feedback da IA no placement deve ser escapado');
 
 console.log('✓ P1-A: Cofre escaneável e Configurações seguras');

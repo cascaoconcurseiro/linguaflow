@@ -1,6 +1,6 @@
 # Comece aqui
 
-Revisado em 05/09/2026: entrada direta e contratos sem captura de voz.
+Revisado em 08/09/2026: build 3.0.40, FSRS autoritativo e auditoria geral.
 
 ## Referências atuais
 
@@ -12,7 +12,8 @@ Revisado em 05/09/2026: entrada direta e contratos sem captura de voz.
 6. [Handoff](../HANDOFF.md) — último trabalho, próximo passo e bloqueios.
 7. [Checklist](../CHECKLIST.md) — gates executáveis.
 8. [Changelog](../CHANGELOG.md) — histórico de versões atuais.
-9. [Política de histórico](HISTORY.md) — material consolidado e recuperação.
+9. [Auditoria geral](AUDITORIA_E_RECOMENDACOES_AGENCIA.md) — achados, correções e riscos residuais.
+10. [Política de histórico](HISTORY.md) — material consolidado e recuperação.
 
 ## Antes de alterar
 

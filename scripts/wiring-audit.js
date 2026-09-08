@@ -70,8 +70,14 @@ rx(mf, /"([^"]+\.js)"/g).forEach(p => importedPaths.add(p));
 const base = p => p.split('/').pop();
 const isImported = f => [...importedPaths].some(p => base(p) === base(f));
 
+// Módulos que são contratos de especificação/seed e intencionalmente
+// não entram no bundle do cliente para não expor critérios/rubricas:
+const offlineContracts = new Set([
+  'dashboard/js/core/fluencyTaskCatalog.js',
+]);
+
 const orphanFiles = CODE
-  .filter(([f]) => exportsOf[f].length > 0 && !isImported(f))
+  .filter(([f]) => exportsOf[f].length > 0 && !isImported(f) && !offlineContracts.has(f))
   .map(([f]) => f);
 
 const orphanSymbols = [];

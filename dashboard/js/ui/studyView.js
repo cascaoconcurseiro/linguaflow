@@ -1595,6 +1595,11 @@ async function sendGrammarQuestion(text) {
   }
 }
 
+function isMobileVoiceDevice() {
+  if (typeof navigator === 'undefined') return false;
+  return /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '');
+}
+
 function updateYouglish(word) {
   const box = document.getElementById('youglish-box');
   const fallback = document.getElementById('youglish-fallback');

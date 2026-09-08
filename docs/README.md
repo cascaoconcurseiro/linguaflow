@@ -1,6 +1,6 @@
 # Documentação do LinguaFlow
 
-Revisado em 05/09/2026: entrada direta e contratos sem captura de voz.
+Revisado em 08/09/2026: build 3.0.40 e auditoria geral.
 
 Esta pasta contém contratos ativos e registros históricos. O ponto de entrada
 é [`ESTADO_ATUAL_2026-07-29.md`](ESTADO_ATUAL_2026-07-29.md).
@@ -13,6 +13,7 @@ Esta pasta contém contratos ativos e registros históricos. O ponto de entrada
 4. [`../HANDOFF.md`](../HANDOFF.md)
 5. [`ARQUITETURA_DADOS.md`](ARQUITETURA_DADOS.md)
 6. [`BACKLOG_PRODUTO_2026-07-17.md`](BACKLOG_PRODUTO_2026-07-17.md)
+7. [`AUDITORIA_E_RECOMENDACOES_AGENCIA.md`](AUDITORIA_E_RECOMENDACOES_AGENCIA.md)
 
 ## Contratos ativos
 

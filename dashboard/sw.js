@@ -1,7 +1,7 @@
 // Service Worker do Web App (Vercel) — estudo offline
 // Estratégias: app shell pré-cacheado; network-first para código;
 // navegação network-first com fallback pro shell; Supabase NUNCA é cacheado.
-const CACHE_NAME = 'linguaflow-v3.0.39';
+const CACHE_NAME = 'linguaflow-v3.0.40';
 
 // URLs como o Vercel serve de verdade (via rewrites de vercel.json)
 const APP_SHELL = [
@@ -110,9 +110,20 @@ self.addEventListener('push', (event) => {
   }));
 });
 
+function safeNotificationTarget(rawTarget, origin) {
+  let target = '/study';
+  try {
+    const requestedTarget = new URL(rawTarget || target, origin);
+    if (requestedTarget.origin === origin) {
+      target = `${requestedTarget.pathname}${requestedTarget.search}${requestedTarget.hash}`;
+    }
+  } catch { /* payload de push malformado usa o destino seguro */ }
+  return target;
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = event.notification.data?.url || '/study';
+  const target = safeNotificationTarget(event.notification.data?.url, self.location.origin);
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {

@@ -73,12 +73,13 @@ ouvido ou validação live.
 
 ## Estado do projeto
 
-O produto está em desenvolvimento ativo no build `3.0.33`. Os contratos
-automatizados estão verdes; o gate atual é validar no navegador autenticado o
-primeiro acesso sem guia, o Check de comunicação, a voz natural e o Professor
-na extensão recarregada. Validação local em 05/09/2026: release completo e
-qualidade de tradução passaram; `npm audit --omit=dev --audit-level=high`
-retornou zero vulnerabilidades conhecidas. A rubrica de
+O produto está em desenvolvimento ativo no build `3.0.40`, preparado sobre a
+`main`. A revisão FSRS é calculada no servidor e a explicação contextual salva
+acompanha o card sem uma nova chamada de IA. Os contratos automatizados estão
+verdes; ainda exigem homologação real a extensão recarregada, o fluxo
+autenticado, o áudio ouvido e o isolamento entre duas contas. Validação local
+em 08/09/2026: os contratos focados passaram; o release completo será repetido
+antes da publicação. A rubrica de
 fluência é própria e alinhada a descritores CEFR; não é exame oficial nem
 certificação Cambridge.
 

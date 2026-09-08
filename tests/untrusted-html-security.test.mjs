@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [study, game, db, vercel, library, stories, wordPopup, youtubeHook, settingsPanel] = await Promise.all([
+const [study, game, db, vercel, library, stories, wordPopup, youtubeHook, settingsPanel, pwaWorker] = await Promise.all([
   readFile(new URL('../dashboard/js/ui/studyView.js', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/js/ui/gameView.js', import.meta.url), 'utf8'),
   readFile(new URL('../utils/db.js', import.meta.url), 'utf8'),
@@ -11,6 +11,7 @@ const [study, game, db, vercel, library, stories, wordPopup, youtubeHook, settin
   readFile(new URL('../content/word-popup.js', import.meta.url), 'utf8'),
   readFile(new URL('../content/youtube-hook.js', import.meta.url), 'utf8'),
   readFile(new URL('../content/settings-panel.js', import.meta.url), 'utf8'),
+  readFile(new URL('../dashboard/sw.js', import.meta.url), 'utf8'),
 ]);
 
 assert.match(study, /function renderHighlightedText\(/,
@@ -63,6 +64,54 @@ assert.match(wordPopup, /let formatted = this\._escapeAttr\(text\)/,
   '_formatAI deve sanitizar o texto antes de converter markdown em HTML');
 assert.match(wordPopup, /const safeWord = this\._escapeAttr\(r\.word\)/,
   'decomposição de frase deve escapar termos antes de injetar no DOM');
+assert.match(wordPopup, /const safeSentenceTranslation = this\._escapeAttr\(/,
+  'tradução externa da frase deve ser escapada antes do innerHTML');
+assert.doesNotMatch(wordPopup, /\$\{sentenceTranslation \|\| 'tradução indisponível'\}/,
+  'tradução externa da frase não pode entrar crua no innerHTML');
+assert.match(wordPopup, /const safeGeneratedSentence = this\._escapeAttr\(response\.sentence\)/,
+  'frase gerada pela IA deve ser escapada antes do innerHTML');
+assert.match(wordPopup, /const safeGeneratedTranslation = this\._escapeAttr\(response\.translation \|\| ''\)/,
+  'tradução gerada pela IA deve ser escapada antes do innerHTML');
+assert.doesNotMatch(wordPopup, /"\$\{response\.sentence\}"/,
+  'frase gerada pela IA não pode entrar crua no innerHTML');
+
+assert.match(pwaWorker, /function safeNotificationTarget\(rawTarget, origin\)/,
+  'service worker deve centralizar a validação do destino de push');
+assert.match(pwaWorker, /new URL\(rawTarget \|\| target, origin\)/,
+  'clique de push deve normalizar o destino contra a origem da PWA');
+assert.match(pwaWorker, /requestedTarget\.origin === origin/,
+  'clique de push deve aceitar somente destinos do mesmo origin');
+assert.match(pwaWorker, /let target = '\/study'/,
+  'clique de push deve usar /study como fallback seguro');
+assert.doesNotMatch(pwaWorker, /const target = event\.notification\.data\?\.url/,
+  'clique de push não pode navegar diretamente para URL fornecida no payload');
+
+const safeTargetSource = pwaWorker.match(
+  /function safeNotificationTarget\(rawTarget, origin\) \{[\s\S]*?\n\}/,
+)?.[0];
+assert.ok(safeTargetSource, 'helper de destino seguro deve ser testável');
+const safeNotificationTarget = Function(
+  `"use strict"; ${safeTargetSource}; return safeNotificationTarget;`,
+)();
+const productionOrigin = 'https://linguaflow-web-tau.vercel.app';
+assert.equal(safeNotificationTarget('/study?from=push#card', productionOrigin), '/study?from=push#card');
+assert.equal(
+  safeNotificationTarget(`${productionOrigin}/home?from=push`, productionOrigin),
+  '/home?from=push',
+);
+for (const unsafeTarget of [
+  'https://evil.example/phishing',
+  '//evil.example/phishing',
+  'javascript:alert(1)',
+  'data:text/html,phishing',
+  'http://[invalid',
+]) {
+  assert.equal(
+    safeNotificationTarget(unsafeTarget, productionOrigin),
+    '/study',
+    `destino externo ou inválido deve cair no fallback: ${unsafeTarget}`,
+  );
+}
 
 assert.match(youtubeHook, /if \(e\.origin !== window\.location\.origin \|\| e\.source !== window\) return;/,
   'hook do YouTube deve validar origem e janela no listener de mensagens');

@@ -1,7 +1,7 @@
 # Backlog atual do produto
 
-**Reconciliado em:** 2026-09-05
-**Base:** endurecimento de conteúdo não confiável, build `3.0.34` e suíte de release local verde.
+**Reconciliado em:** 2026-09-08
+**Base:** auditoria geral, build `3.0.40` e suíte de release local verde.
 
 O nome datado foi preservado para não quebrar links, mas o conteúdo abaixo é o
 backlog vigente. Itens dos planos antigos só entram aqui depois de nova
@@ -9,7 +9,7 @@ verificação no código e no produto.
 
 ## P0 — provar o corte já entregue
 
-- [ ] Confirmar no navegador autenticado que `app.js?v=3.0.34` está ativo.
+- [ ] Confirmar no navegador autenticado que `app.js?v=3.0.40` está ativo.
 - [ ] Confirmar `fluency_skill_profiles` com HTTP 200, sem `42703`.
 - [ ] Validar entrada direta com conta nova, sem guia obrigatório.
 - [ ] Executar Check completo sem captura de voz.
@@ -52,8 +52,6 @@ verificação no código e no produto.
   compatibilidade dos caminhos atuais.
 - [ ] Criar E2E autenticado das jornadas críticas além do monitor isolado de
   RLS.
-- [ ] Eliminar o warning de módulos dos testes sem alterar o runtime da
-  extensão.
 - [ ] Manter release SHA/build visível na investigação de incidentes.
 
 ## P3 — manutenção estrutural

@@ -1,8 +1,8 @@
 # Estado atual — LinguaFlow
 
-**Atualizado em:** 2026-09-05  
-**Código de referência:** correções de setembro na `main`; SHA em `git log -1`  
-**Build web/extensão:** `3.0.34`
+**Atualizado em:** 2026-09-08
+**Código de referência:** `590f436` na `main`, mais correções em auditoria
+**Build web/extensão:** `3.0.40` em validação; `3.0.39` publicado
 
 Este é o ponto de entrada canônico para saber o que existe, o que foi
 verificado e o que ainda falta. Planos e auditorias superados foram removidos
@@ -38,7 +38,8 @@ O LinguaFlow combina uma extensão Chrome MV3 e uma PWA:
 1. Supabase/Postgres é a fonte de verdade de conta, progresso e conteúdo do
    usuário. Estado visual, cache e reprodução permanecem locais.
 2. `utils/db.js` é a fronteira única de dados para PWA e extensão.
-3. Cards/FSRS medem memória; não certificam fluência.
+3. Cards/FSRS medem memória; a transição é autoritativa no servidor e não
+   certifica fluência.
 4. XP, ofensiva e liga não podem ser alimentados por prática livre ou atividade
    passiva.
 5. Evidência comunicativa vive em domínio separado e só se torna autoritativa
@@ -64,7 +65,7 @@ O corte técnico está integrado:
 
 Isso prova integração técnica, não validade científica. Ainda faltam:
 
-- smoke autenticado no navegador do build `3.0.34`;
+- smoke autenticado no navegador do build `3.0.40`;
 - jornada completa sem captura de voz;
 - calibração com respostas-âncora avaliadas por humanos;
 - concordância entre avaliadores, análise de falsos positivos e viés;
@@ -72,16 +73,16 @@ Isso prova integração técnica, não validade científica. Ainda faltam:
 
 ## Evidência automatizada atual
 
-Em 2026-09-05:
+Em 2026-09-08:
 
-- `npm run test:engine`: 38 testes verdes;
+- `npm run test:engine`: 39 testes verdes;
 - `npm run test:fluency`: todos os contratos de catálogo, autoridade, Edge,
   cliente e UX verdes;
 - `npm run test:release -- --allow-dirty`: verde;
 - entrada direta em cinco estados de preferências e cancelamento em duas fases;
 - contratos de contexto, dicionário, pronúncia e login da extensão;
 - auditoria das dependências: zero vulnerabilidades conhecidas;
-- release smoke: JavaScript parseado, build `3.0.33` consistente,
+- release smoke: 59 arquivos JavaScript parseados, build `3.0.40` consistente,
   migrations não vazias e manifest MV3 válido.
 
 Esses gates validam contratos do software. Eles não substituem Chrome real,
@@ -89,7 +90,7 @@ sessão autenticada, áudio ouvido, dados live ou estudo com usuários.
 
 ## Próximos gates, em ordem
 
-1. Confirmar no navegador autenticado `app.js?v=3.0.34` e leitura
+1. Confirmar no navegador autenticado `app.js?v=3.0.40` e leitura
    `fluency_skill_profiles` com HTTP 200, sem `42703`.
 2. Confirmar entrada direta com conta nova e executar o Check sem captura de voz.
 3. Ouvir a etapa de escuta e confirmar a mesma voz natural das demais

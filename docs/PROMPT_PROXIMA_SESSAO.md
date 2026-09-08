@@ -6,9 +6,10 @@ Copie o bloco abaixo:
 Leia integralmente, nesta ordem:
 
 1. `HANDOFF.md`;
-2. `docs/ESTADO_ATUAL_2026-07-29.md`;
-3. `MASTER_BLUEPRINT.md`;
-4. `CHECKLIST.md`.
+2. `docs/AUDITORIA_E_RECOMENDACOES_AGENCIA.md`;
+3. `docs/ESTADO_ATUAL_2026-07-29.md`;
+4. `MASTER_BLUEPRINT.md`;
+5. `CHECKLIST.md`.
 
 Trabalhe em `main`, preservando mudanças paralelas. Não execute planos,
 auditorias ou briefings datados como backlog; eles são históricos. Confirme o
@@ -16,14 +17,15 @@ estado atual no código, nos testes e, quando aplicável, na produção.
 
 Objetivo imediato:
 
-1. abrir a PWA autenticada e confirmar `app.js?v=3.0.34`;
+1. abrir a PWA autenticada e confirmar `app.js?v=3.0.39`;
 2. confirmar que `fluency_skill_profiles` retorna HTTP 200 sem `42703`;
 3. validar entrada direta com conta nova e executar o Check sem captura de voz;
 4. confirmar auditivamente voz natural na escuta;
-5. recarregar a extensão e validar convite de login, retomada e pronúncia BR;
-   testar uma palavra ambígua e acompanhar a tradução contextual
-   até Cofre/Estudo;
-6. registrar evidência exata no `CHECKLIST.md` e reescrever o `HANDOFF.md`.
+5. recarregar a extensão `3.0.39` no Chrome e validar no YouTube: modo `Apenas Original`,
+   chegada tardia da tradução, flash manual e salvar palavra com explicação contextual;
+6. no verso do card do Estudo/Cofre, confirmar abertura de "Por que significa isso nesta frase?"
+   com a explicação salva sem nova chamada de IA;
+7. registrar evidência exata no `CHECKLIST.md` e reescrever o `HANDOFF.md`.
 
 Não declarar conclusão a partir de compilação ou teste estático. Não chamar a
 rubrica própria de exame oficial, certificado CEFR ou Cambridge. Se o navegador

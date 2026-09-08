@@ -25,18 +25,18 @@ DO $$
 DECLARE r jsonb; u jsonb; log_id uuid;
 BEGIN
   PERFORM set_config('request.jwt.claim.sub','a8100000-0000-4000-8000-000000000001',false);
-  r:=public.record_card_review('c8100000-0000-4000-8000-000000000001',4,NULL,'d8100000-0000-4000-8000-000000000001');
+  r:=public.record_card_review('c8100000-0000-4000-8000-000000000001'::uuid,4::smallint,NULL::jsonb,'d8100000-0000-4000-8000-000000000001'::uuid);
   IF (r#>>'{card,interval}')::double precision > 1 THEN RAISE EXCEPTION 'Fácil ignorou max_interval: %',r; END IF;
-  r:=public.record_card_review('c8100000-0000-4000-8000-000000000002',3,NULL,'d8100000-0000-4000-8000-000000000002');
+  r:=public.record_card_review('c8100000-0000-4000-8000-000000000002'::uuid,3::smallint,NULL::jsonb,'d8100000-0000-4000-8000-000000000002'::uuid);
   IF (r#>>'{card,interval}')::double precision > 1 THEN RAISE EXCEPTION 'Bom ignorou max_interval: %',r; END IF;
-  r:=public.record_card_review('c8100000-0000-4000-8000-000000000003',3,NULL,'d8100000-0000-4000-8000-000000000003');
+  r:=public.record_card_review('c8100000-0000-4000-8000-000000000003'::uuid,3::smallint,NULL::jsonb,'d8100000-0000-4000-8000-000000000003'::uuid);
   IF (r#>>'{card,suspended}')::boolean IS NOT TRUE THEN RAISE EXCEPTION 'leech antigo não suspenso: %',r; END IF;
 
   UPDATE public.settings SET value='NaN' WHERE user_id='a8100000-0000-4000-8000-000000000001' AND key IN ('easy_interval','learning_steps');
-  r:=public.record_card_review('c8100000-0000-4000-8000-000000000004',3,NULL,'d8100000-0000-4000-8000-000000000004');
+  r:=public.record_card_review('c8100000-0000-4000-8000-000000000004'::uuid,3::smallint,NULL::jsonb,'d8100000-0000-4000-8000-000000000004'::uuid);
   log_id:=(r->>'review_log_id')::uuid;
   u:=public.revert_card_review(log_id,NULL);
-  r:=public.record_card_review('c8100000-0000-4000-8000-000000000004',3,NULL,'d8100000-0000-4000-8000-000000000004');
+  r:=public.record_card_review('c8100000-0000-4000-8000-000000000004'::uuid,3::smallint,NULL::jsonb,'d8100000-0000-4000-8000-000000000004'::uuid);
   IF r->>'outcome'<>'undone' OR (r->>'accepted')::boolean OR (r#>>'{card,reps}')::integer<>0 THEN
     RAISE EXCEPTION 'retry pós-undo incoerente: %',r;
   END IF;

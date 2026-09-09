@@ -67,17 +67,39 @@ Deno.serve(async (req) => {
   let sent = 0, failed = 0;
   for (const candidate of candidates || []) {
     if (!candidate.due_count && !candidate.at_risk) continue; // nada relevante pra contar essa semana
+    const claimToken = crypto.randomUUID();
+    const { data: claim, error: claimError } = await admin.rpc("claim_email_candidate", {
+      p_user_id: candidate.user_id,
+      p_claim_token: claimToken,
+    });
+    if (claimError || claim?.claimed !== true) continue;
     const { subject, html } = emailBody(candidate);
     try {
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
-        headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+        headers: {
+          Authorization: `Bearer ${resendKey}`,
+          "Content-Type": "application/json",
+          "Idempotency-Key": `linguaflow-reengagement-${claim.delivery_key}`,
+        },
         body: JSON.stringify({ from, to: candidate.email, subject, html }),
       });
       if (!res.ok) throw new Error(`resend_status_${res.status}`);
-      await admin.from("user_stats").update({ email_last_sent_at: new Date().toISOString() }).eq("user_id", candidate.user_id);
+      const { data: finished, error: finishError } = await admin.rpc("finish_email_candidate_claim", {
+        p_user_id: candidate.user_id,
+        p_claim_token: claimToken,
+        p_delivered: true,
+      });
+      if (finishError || finished !== true) {
+        console.error("email_claim_finish_failed", { userId: candidate.user_id });
+      }
       sent++;
     } catch (error) {
+      await admin.rpc("finish_email_candidate_claim", {
+        p_user_id: candidate.user_id,
+        p_claim_token: claimToken,
+        p_delivered: false,
+      });
       console.error("email_send_failed", { userId: candidate.user_id, error: String(error) });
       failed++;
     }

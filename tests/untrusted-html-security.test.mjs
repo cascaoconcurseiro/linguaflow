@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [study, game, db, vercel, library, stories, wordPopup, youtubeHook, settingsPanel, pwaWorker] = await Promise.all([
+const [study, game, db, vercel, library, stories, wordPopup, youtubeHook, settingsPanel, pwaWorker, subtitleEngine] = await Promise.all([
   readFile(new URL('../dashboard/js/ui/studyView.js', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/js/ui/gameView.js', import.meta.url), 'utf8'),
   readFile(new URL('../utils/db.js', import.meta.url), 'utf8'),
@@ -12,6 +12,7 @@ const [study, game, db, vercel, library, stories, wordPopup, youtubeHook, settin
   readFile(new URL('../content/youtube-hook.js', import.meta.url), 'utf8'),
   readFile(new URL('../content/settings-panel.js', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/sw.js', import.meta.url), 'utf8'),
+  readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8'),
 ]);
 
 assert.match(study, /function renderHighlightedText\(/,
@@ -122,5 +123,19 @@ assert.match(settingsPanel, /aria-label="Fechar painel de configurações"/,
   'botao de fechar configuracoes deve ter nome acessivel');
 assert.match(settingsPanel, /if \(this\.isOpen && e\.key === 'Escape'\)/,
   'painel de configuracoes deve fechar com Escape');
+assert.match(settingsPanel, /this\.isOpen && e\.key === 'Tab'/,
+  'painel de configuracoes deve conter Tab e Shift+Tab no dialogo');
+assert.match(subtitleEngine, /cue\.translatedText \? escapeHTML\(cue\.translatedText\)/,
+  'tradução do painel lateral deve ser escapada antes de entrar no HTML');
+assert.match(subtitleEngine, /const safeVideoTitle = escapeHTML\(videoTitle\)/,
+  'exportação PDF deve escapar o título do vídeo');
+assert.match(subtitleEngine, /const orig = escapeHTML\(c\.text \|\| ''\)\.replace\(\/\\n\/g, '<br>'\)/,
+  'exportações HTML devem escapar a legenda antes de criar quebras de linha');
+assert.match(subtitleEngine, /\^\[=\+\\-@\]/,
+  'CSV deve neutralizar fórmulas iniciadas por caracteres ativos');
+assert.match(subtitleEngine, /new IntersectionObserver/,
+  'painel lateral deve traduzir apenas itens próximos da área visível');
+assert.match(subtitleEngine, /rootMargin: '240px 0px'/,
+  'painel lateral deve antecipar uma janela limitada sem disparar todas as traduções');
 
 console.log('Conteúdo persistido e respostas da IA permanecem texto não executável.');

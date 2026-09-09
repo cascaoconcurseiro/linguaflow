@@ -1,7 +1,7 @@
 # Backlog atual do produto
 
 **Reconciliado em:** 2026-09-08
-**Base:** auditoria geral, build `3.0.40` e suíte de release local verde.
+**Base:** auditoria geral, build `3.0.41` em validação para publicação.
 
 O nome datado foi preservado para não quebrar links, mas o conteúdo abaixo é o
 backlog vigente. Itens dos planos antigos só entram aqui depois de nova
@@ -9,7 +9,7 @@ verificação no código e no produto.
 
 ## P0 — provar o corte já entregue
 
-- [ ] Confirmar no navegador autenticado que `app.js?v=3.0.40` está ativo.
+- [ ] Confirmar no navegador autenticado que `app.js?v=3.0.41` está ativo.
 - [ ] Confirmar `fluency_skill_profiles` com HTTP 200, sem `42703`.
 - [ ] Validar entrada direta com conta nova, sem guia obrigatório.
 - [ ] Executar Check completo sem captura de voz.

@@ -1,7 +1,21 @@
 # Checklist — LinguaFlow
 
 **Atualizado em:** 2026-09-08
-**Referência:** auditoria geral e robustez, build `3.0.40`
+**Referência:** auditoria geral e robustez, build `3.0.41`
+
+## Auditoria completa — build 3.0.41 (09/09/2026)
+
+- [x] Escapar conteúdo não confiável em jogo, barra lateral, PDF e Anki.
+- [x] Neutralizar fórmulas em CSV e preservar contexto/mnemônico no Anki.
+- [x] Restaurar leitura de `sourceLang` e `uiTheme` no painel da extensão.
+- [x] Limitar tradução lateral aos itens próximos da área visível.
+- [x] Completar teclado, foco e semântica de rotas, menus, jogos e modais.
+- [x] Rejeitar colisão idempotente divergente nos sinais adaptativos.
+- [x] Reservar Push/e-mail atomicamente antes do efeito externo.
+- [x] Integrar os novos contratos aos gates de release.
+- [ ] Aplicar migration e publicar `push-reminder`/`email-reengagement`.
+- [ ] Integrar o build 3.0.41 na `main` após checks obrigatórios.
+- [ ] Homologar Chrome, áudio, Anki e isolamento completo com duas contas.
 
 Este arquivo contém apenas trabalho vigente. Auditorias e planos superados
 foram consolidados e permanecem recuperáveis pelo histórico Git.

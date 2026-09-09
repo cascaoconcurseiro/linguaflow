@@ -14,7 +14,7 @@ import { renderFluencyCheck } from '../ui/fluencyCheckView.js';
 import { bindViewStateAction, renderViewState } from '../ui/viewState.js';
 import { db } from '../../../utils/db.js';
 
-const CLIENT_BUILD = '3.0.40';
+const CLIENT_BUILD = '3.0.41';
 
 // Uma versão antiga do PWA podia misturar HTML/app novo com db.js antigo.
 // Antes de inicializar qualquer tela, elimina esse estado e recarrega uma vez.
@@ -151,7 +151,9 @@ class App {
     this.profileMenu?.addEventListener('keydown', event => {
       if (event.key === 'Escape') {
         this.setProfileMenuOpen(false, true);
+        return;
       }
+      this.handleMenuKeydown(event, this.profileMenu);
     });
     this.setupFocusShell();
     // BFCache/restauração de aba pode preservar classes do <body>. Antes de
@@ -271,6 +273,22 @@ class App {
         this.setFocusMenuOpen(false, true);
       }
     });
+    this.focusMenu?.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') this.handleMenuKeydown(event, this.focusMenu);
+    });
+  }
+
+  handleMenuKeydown(event, menu) {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    const items = [...menu.querySelectorAll('[role="menuitem"]')];
+    if (!items.length) return;
+    event.preventDefault();
+    const current = Math.max(0, items.indexOf(document.activeElement));
+    const next = event.key === 'Home' ? 0
+      : event.key === 'End' ? items.length - 1
+        : event.key === 'ArrowDown' ? (current + 1) % items.length
+          : (current - 1 + items.length) % items.length;
+    items[next].focus();
   }
 
   setFocusMenuOpen(open, restoreFocus = false) {
@@ -365,6 +383,13 @@ class App {
     this.currentRoute = route;
     this.routeParams = params || {};
     this.syncShellForRoute(route);
+    const routeTitles = {
+      home: 'Hoje', learn: 'Aprender', library: 'O Cofre', progress: 'Progresso',
+      study: 'Sessão de estudo', stories: 'Histórias', reader: 'Leitor', game: 'Prática',
+      stats: 'Estatísticas', leagues: 'Ligas', settings: 'Configurações', login: 'Entrar',
+      'fluency-check': 'Check de comunicação',
+    };
+    document.title = `${routeTitles[route] || 'LinguaFlow'} · LinguaFlow`;
 
     // Update active state on buttons
     const learnRoutes = new Set(['learn', 'stories', 'reader', 'game']);
@@ -404,8 +429,9 @@ class App {
       targetContainer.style.display = 'block';
       
       targetContainer.innerHTML = `
-        <div style="display:flex;height:100%;width:100%;justify-content:center;align-items:center;flex-direction:column;color:var(--color-text-light);">
+        <div role="status" aria-live="polite" style="display:flex;height:100%;width:100%;justify-content:center;align-items:center;flex-direction:column;color:var(--color-text-light);">
           <div style="width:40px;height:40px;border:4px solid var(--color-border);border-top-color:var(--color-primary);border-radius:50%;animation:lf-spin 1s linear infinite;"></div>
+          <span class="sr-only">Carregando ${routeTitles[route] || 'tela'}…</span>
           <style>@keyframes lf-spin { to { transform: rotate(360deg); } }</style>
         </div>
       `;
@@ -416,6 +442,8 @@ class App {
       // Tela já existe no cache: mostra instantaneamente com os dados antigos
       targetContainer.style.display = 'block';
     }
+    targetContainer.tabIndex = -1;
+    targetContainer.focus({ preventScroll: true });
 
     // Chama o render para desenhar (se for a primeira vez) ou atualizar "por baixo dos panos"
     this.renderRouteView(route, targetContainer, this.routeParams);

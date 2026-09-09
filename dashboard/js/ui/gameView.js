@@ -269,19 +269,18 @@ async function renderMatchGame(container, app) {
     audioCtx.close().catch(() => {}); // libera o AudioContext ao terminar a partida
     container.innerHTML = `
       <div class="game-container">
-        <h2 id="game-result">Prática concluída</h2>
+        <h2 id="game-result" tabindex="-1">Prática concluída</h2>
         <p>Você associou todas as expressões desta rodada.</p>
         <p>Prática livre — sem alterar seu placar, ofensiva ou liga.</p>
+        <button type="button" class="btn btn-primary" data-game-finish>Voltar ao início</button>
       </div>
     `;
     celebrate(document.querySelector('.game-container'));
     let msg = 'Prática concluída';
     if (combo.best() >= 3) msg += ` · melhor combo: x${combo.best()}`;
     const el = document.getElementById('game-result');
-    if (el) el.textContent = msg;
-    setTimeout(() => {
-      app.navigate('home');
-    }, 2500);
+    if (el) { el.textContent = msg; el.focus({ preventScroll: true }); }
+    container.querySelector('[data-game-finish]')?.addEventListener('click', () => app.navigate('home'));
   }
 
   leftItems.forEach(item => {
@@ -353,11 +352,14 @@ async function renderListenGame(container, app) {
         <div class="listen-progress">Palavra ${step + 1} de ${order.length} · Acertos: ${correctCount}</div>
         <button class="listen-play-btn" id="listen-play-btn" title="Ouvir de novo" aria-label="Ouvir a palavra">🔊</button>
         <div class="listen-options" id="listen-options">
-          ${options.map(opt => `<button class="match-btn" data-option="${opt.replace(/"/g, '&quot;')}">${opt}</button>`).join('')}
+          ${options.map(opt => `<button class="match-btn" data-option="${escapeHtml(opt)}">${escapeHtml(opt)}</button>`).join('')}
         </div>
       </div>
     `;
     combo = makeComboTracker(document.querySelector('.game-container'), comboState);
+    const questionHeading = container.querySelector('h2');
+    questionHeading.tabIndex = -1;
+    questionHeading.focus({ preventScroll: true });
 
     const playBtn = document.getElementById('listen-play-btn');
     const playAudio = () => playNaturalAudio(target.word).catch(() => {});
@@ -372,6 +374,7 @@ async function renderListenGame(container, app) {
         const isCorrect = picked === target.translation;
         document.querySelectorAll('#listen-options .match-btn').forEach(b => {
           b.style.pointerEvents = 'none';
+          b.disabled = true;
           if (b.dataset.option === target.translation) b.classList.add('correct');
           else if (b === btn) b.classList.add('wrong');
         });
@@ -390,16 +393,17 @@ async function renderListenGame(container, app) {
     audioCtx.close().catch(() => {}); // libera o AudioContext ao terminar a partida
     container.innerHTML = `
       <div class="game-container">
-        <h2 id="listen-result">Prática concluída</h2>
+        <h2 id="listen-result" tabindex="-1">Prática concluída</h2>
         <p>${correctCount} de ${order.length} certas de ouvido.</p>
         <p>Prática livre — sem alterar seu placar, ofensiva ou liga.</p>
+        <button type="button" class="btn btn-primary" data-game-finish>Voltar ao início</button>
       </div>
     `;
     celebrate(document.querySelector('.game-container'));
     const msg = 'Prática concluída';
     const el = document.getElementById('listen-result');
-    if (el) el.textContent = msg;
-    setTimeout(() => app.navigate('home'), 2500);
+    if (el) { el.textContent = msg; el.focus({ preventScroll: true }); }
+    container.querySelector('[data-game-finish]')?.addEventListener('click', () => app.navigate('home'));
   }
 
   renderQuestion();
@@ -508,16 +512,17 @@ async function renderBuilderGame(container, app) {
     audioCtx.close().catch(() => {});
     container.innerHTML = `
       <div class="game-container">
-        <h2 id="builder-result">Prática concluída</h2>
+        <h2 id="builder-result" tabindex="-1">Prática concluída</h2>
         <p>${correctCount} de ${words.length} frases certas.</p>
         <p>Prática livre — sem alterar seu placar, ofensiva ou liga.</p>
+        <button type="button" class="btn btn-primary" data-game-finish>Voltar ao início</button>
       </div>
     `;
     celebrate(document.querySelector('.game-container'));
     const msg = 'Prática concluída';
     const el = document.getElementById('builder-result');
-    if (el) el.textContent = msg;
-    setTimeout(() => app.navigate('home'), 2500);
+    if (el) { el.textContent = msg; el.focus({ preventScroll: true }); }
+    container.querySelector('[data-game-finish]')?.addEventListener('click', () => app.navigate('home'));
   }
 
   renderRound();

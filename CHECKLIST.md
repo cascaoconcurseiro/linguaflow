@@ -12,7 +12,7 @@
 - [x] Invalidar respostas tardias após troca de vídeo ou idioma.
 - [x] Remover parser duplicado, separador frágil e testes com rede real.
 - [x] Executar o release completo local do build 3.0.42.
-- [ ] Publicar o build 3.0.42 na `main` após release e checks.
+- [x] Publicar o build 3.0.42 na `main` pelo PR #39 após release e checks (2026-09-09).
 
 ## Auditoria completa — build 3.0.41 (09/09/2026)
 

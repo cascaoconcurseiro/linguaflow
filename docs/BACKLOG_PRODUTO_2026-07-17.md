@@ -1,7 +1,7 @@
 # Backlog atual do produto
 
 **Reconciliado em:** 2026-09-09
-**Base:** auditoria geral, build `3.0.42` em validação; `3.0.41` publicado.
+**Base:** auditoria geral, build `3.0.42` publicado; homologação manual pendente.
 
 O nome datado foi preservado para não quebrar links, mas o conteúdo abaixo é o
 backlog vigente. Itens dos planos antigos só entram aqui depois de nova

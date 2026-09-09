@@ -2,7 +2,7 @@
 
 ## Última sessão — 2026-09-09
 
-Build `3.0.42` em validação no branch `codex/eager-sidebar-translations-3.0.42`. O build `3.0.41` está publicado na `main`.
+Build `3.0.42` publicado na `main` pelo PR #39, squash `0d2f1c1`.
 
 ## Auditoria e correções desta sessão
 
@@ -18,6 +18,7 @@ Build `3.0.42` em validação no branch `codex/eager-sidebar-translations-3.0.42
 ## Evidência atual
 
 - O release completo local do build 3.0.42 passou, incluindo o novo contrato de tradução antecipada sem acesso real à rede.
+- Os dois gates de release e o preview Vercel do PR #39 passaram antes do squash merge.
 - Checks de sintaxe dos módulos alterados, `git diff --check` e a suíte completa de release passaram.
 - `npm audit --omit=dev` não encontrou vulnerabilidades no snapshot auditado.
 - Cabeçalhos públicos de HSTS, CSP, anti-frame, nosniff, referrer e permissões foram confirmados; o workflow live de RLS consultado estava verde.
@@ -28,9 +29,8 @@ Build `3.0.42` em validação no branch `codex/eager-sidebar-translations-3.0.42
 
 ## Próximo passo concreto
 
-1. Executar o release completo do build 3.0.42 e publicar por PR protegido.
-2. Recarregar a extensão e confirmar que toda a lista lateral começa a preencher ainda no início do vídeo.
-3. Homologar contexto do card, exportação Anki, áudio e isolamento com duas contas.
+1. Recarregar a extensão e confirmar que toda a lista lateral começa a preencher ainda no início do vídeo.
+2. Homologar contexto do card, exportação Anki, áudio e isolamento com duas contas.
 
 ## Riscos residuais conhecidos
 

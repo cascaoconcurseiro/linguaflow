@@ -1,7 +1,18 @@
 # Checklist — LinguaFlow
 
 **Atualizado em:** 2026-09-08
-**Referência:** auditoria geral e robustez, build `3.0.41`
+**Referência:** auditoria geral e robustez, build `3.0.42`
+
+## Tradução antecipada da lista lateral — build 3.0.42
+
+- [x] Preservar o protótipo paralelo original antes da revisão.
+- [x] Buscar uma única trilha completa do YouTube no início do vídeo.
+- [x] Traduzir todas as cues fora da viewport com concorrência limitada.
+- [x] Atualizar cada linha assim que sua tradução termina.
+- [x] Invalidar respostas tardias após troca de vídeo ou idioma.
+- [x] Remover parser duplicado, separador frágil e testes com rede real.
+- [x] Executar o release completo local do build 3.0.42.
+- [ ] Publicar o build 3.0.42 na `main` após release e checks.
 
 ## Auditoria completa — build 3.0.41 (09/09/2026)
 

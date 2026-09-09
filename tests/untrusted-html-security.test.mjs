@@ -133,9 +133,9 @@ assert.match(subtitleEngine, /const orig = escapeHTML\(c\.text \|\| ''\)\.replac
   'exportações HTML devem escapar a legenda antes de criar quebras de linha');
 assert.match(subtitleEngine, /\^\[=\+\\-@\]/,
   'CSV deve neutralizar fórmulas iniciadas por caracteres ativos');
-assert.match(subtitleEngine, /new IntersectionObserver/,
-  'painel lateral deve traduzir apenas itens próximos da área visível');
-assert.match(subtitleEngine, /rootMargin: '240px 0px'/,
-  'painel lateral deve antecipar uma janela limitada sem disparar todas as traduções');
+assert.match(subtitleEngine, /_translateAllSidebarCues\(cues\)/,
+  'painel lateral deve antecipar a tradução da lista completa');
+assert.match(subtitleEngine, /translator\.translateBatch/,
+  'antecipação deve usar uma fila de tradução com concorrência limitada');
 
 console.log('Conteúdo persistido e respostas da IA permanecem texto não executável.');

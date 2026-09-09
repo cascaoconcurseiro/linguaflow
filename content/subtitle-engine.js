@@ -74,6 +74,8 @@ export class SubtitleEngine {
     this._managedTimeouts = new Set();
     this._managedIntervals = new Set();
     this._managedObservers = new Set();
+    this._sidebarTranslationPromise = null;
+    this._sidebarTranslationKey = '';
     this.platform = this._detectPlatform();
     this.cues = []; // Cues do YouTube (via XHR)
     this.xhrCues = []; // Cues do HBO/Netflix (via XHR intercept)
@@ -501,6 +503,10 @@ export class SubtitleEngine {
         await this._fetchYoutubeSubtitles(this._navigationSnapshot());
       };
       document.addEventListener('youtubeSubtitleXhrEvent', this._ytXhrListener);
+      window.postMessage({ type: 'LF_PRELOAD_SUBTITLES' }, window.location.origin);
+      this._scheduleForNavigation(() => {
+        window.postMessage({ type: 'LF_PRELOAD_SUBTITLES' }, window.location.origin);
+      }, 1200, initialNavigation);
       // Tenta carregar imediatamente (caso webRequest já tenha salvo a URL)
       this._scheduleForNavigation((nav) => this._fetchYoutubeSubtitles(nav), 500, initialNavigation);
     }
@@ -516,19 +522,17 @@ export class SubtitleEngine {
         let resp = e.data.response || e.data.data;
         if (!resp) return;
 
+        if (resp instanceof ArrayBuffer) resp = new TextDecoder('utf-8').decode(resp);
+        else if (typeof resp !== 'string') {
+          try { resp = JSON.stringify(resp); } catch { return; }
+        }
+
         console.debug(`[LinguaFlow] Captura de Legenda detectada: ${url.substring(0, 50)}...`);
 
         // Se for YouTube (timedtext), usa o processador específico
         if (url.includes('timedtext')) {
           this._processYouTubeRawSubtitles(url, resp, this._navigationSnapshot());
           return;
-        }
-
-        if (resp instanceof ArrayBuffer) resp = new TextDecoder('utf-8').decode(resp);
-        else if (typeof resp !== 'string') {
-          try {
-            resp = JSON.stringify(resp);
-          } catch {}
         }
 
         const newCues = this._parseVTT(resp);
@@ -2585,11 +2589,12 @@ export class SubtitleEngine {
       const sanitizeUrl = (r) => {
         try {
           const u = new URL(r);
-          if (u.searchParams.has('tlang')) {
-            u.searchParams.delete('tlang');
-            return u.toString();
-          }
-          return r;
+          u.searchParams.delete('tlang');
+          u.searchParams.delete('t');
+          u.searchParams.delete('range');
+          u.searchParams.delete('spv');
+          u.searchParams.set('fmt', 'json3');
+          return u.toString();
         } catch {
           return r;
         }
@@ -3165,6 +3170,18 @@ export class SubtitleEngine {
     }
 
     if (cues.length > 0 && this._isNavigationCurrent(navigation)) {
+      const existing = this.cues || [];
+      const incomingIsSegment = ['t', 'range', 'spv'].some((param) => parsedUrl.searchParams.has(param));
+      if (incomingIsSegment && existing.length > 0) {
+        const merged = new Map(existing.map((cue) => [Math.round(cue.start * 100), cue]));
+        cues.forEach((cue) => {
+          const key = Math.round(cue.start * 100);
+          const previous = merged.get(key);
+          if (previous?.translatedText && !cue.translatedText) cue.translatedText = previous.translatedText;
+          merged.set(key, cue);
+        });
+        cues = [...merged.values()].sort((a, b) => a.start - b.start);
+      }
       this.cues = cues;
       this.xhrCues = cues; // Unifica para garantir que o sync loop e sidebar vejam o mesmo
       this.usingXhr = true;
@@ -4054,11 +4071,14 @@ export class SubtitleEngine {
   }
 
   _rebuildSubtitleList(container, filter = '') {
+    const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
     if (!container) container = document.getElementById('lf-subtitle-list');
-    if (!container) return;
+    if (!container) {
+      if (cues?.length) this._translateAllSidebarCues(cues);
+      return;
+    }
 
     container.innerHTML = '';
-    const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
 
     if (!cues || cues.length === 0) {
       container.innerHTML =
@@ -4067,40 +4087,7 @@ export class SubtitleEngine {
     }
 
     const showTrans = document.getElementById('lf-show-translation')?.checked ?? true;
-    if (this._subtitleTranslationObserver) {
-      this._subtitleTranslationObserver.disconnect();
-      this._managedObservers.delete(this._subtitleTranslationObserver);
-    }
-    const translationTargets = new WeakMap();
-    const translateVisibleItem = async (item) => {
-      const target = translationTargets.get(item);
-      if (!target) return;
-      translationTargets.delete(item);
-      const { cue, navigation } = target;
-      try {
-        const { translator } = await import('../utils/translator.js');
-        if (!this._isNavigationCurrent(navigation)) return;
-        const res = await translator.translate(cue.text, 'auto', this.targetLang);
-        if (!this._isNavigationCurrent(navigation) || !cues.includes(cue)) return;
-        cue.translatedText = res.translation;
-        const translation = item.querySelector('.lf-translation-text');
-        if (translation) translation.textContent = res.translation;
-      } catch {
-        if (!this._isNavigationCurrent(navigation)) return;
-        const translation = item.querySelector('.lf-translation-text');
-        if (translation) translation.textContent = '';
-      }
-    };
-    this._subtitleTranslationObserver = showTrans && typeof IntersectionObserver !== 'undefined'
-      ? new IntersectionObserver((entries, observer) => {
-        entries.filter((entry) => entry.isIntersecting).forEach((entry) => {
-          observer.unobserve(entry.target);
-          translateVisibleItem(entry.target);
-        });
-      }, { root: container, rootMargin: '240px 0px' })
-      : null;
-    if (this._subtitleTranslationObserver) this._managedObservers.add(this._subtitleTranslationObserver);
-    let fallbackTranslationBudget = 12;
+    if (showTrans) this._translateAllSidebarCues(cues);
 
     cues.forEach((cue, idx) => {
       const matchesFilter =
@@ -4139,18 +4126,6 @@ export class SubtitleEngine {
                 </div>
             `;
 
-      // Auto-tradução na barra lateral se estiver faltando
-      if (!cue.translatedText && showTrans) {
-        const navigation = this._navigationSnapshot();
-        translationTargets.set(item, { cue, navigation });
-        if (this._subtitleTranslationObserver) {
-          this._subtitleTranslationObserver.observe(item);
-        } else if (fallbackTranslationBudget > 0) {
-          fallbackTranslationBudget -= 1;
-          translateVisibleItem(item);
-        }
-      }
-
       item.onclick = (e) => {
 
         if (e.target.classList.contains('lf-loop-cue')) {
@@ -4174,6 +4149,56 @@ export class SubtitleEngine {
     });
 
     this._updateSubtitlePanelHighlight();
+  }
+
+  _translateAllSidebarCues(cues) {
+    const targetLang = this.targetLang;
+    const sourceLang = this.sourceLang || 'auto';
+    const pending = cues.filter((cue) => cue?.text && (!cue.translatedText || cue._transLang !== targetLang));
+    if (!pending.length) return Promise.resolve([]);
+    const navigation = this._navigationSnapshot();
+    const key = `${navigation.epoch}:${targetLang}:${pending.length}:${pending[0]?.start}:${pending[pending.length - 1]?.end}`;
+    if (this._sidebarTranslationPromise && this._sidebarTranslationKey === key) {
+      return this._sidebarTranslationPromise;
+    }
+
+    this._sidebarTranslationKey = key;
+    const applyResult = (result, index) => {
+      if (!this._isNavigationCurrent(navigation) || this.targetLang !== targetLang) return;
+      const cue = pending[index];
+      if (!cue || !cues.includes(cue) || !result?.translation) return;
+      cue.translatedText = result.translation;
+      cue._transLang = targetLang;
+      const cueIndex = cues.indexOf(cue);
+      const item = document.querySelector(`.lf-subtitle-item[data-index="${cueIndex}"] .lf-translation-text`);
+      if (item) item.textContent = result.translation;
+    };
+
+    this._sidebarTranslationPromise = import('../utils/translator.js')
+      .then(({ translator }) => translator.translateBatch(
+        pending.map((cue) => cue.text),
+        sourceLang,
+        targetLang,
+        Math.min(12, Math.max(4, Number(this.translationSpeed) || 8)),
+        applyResult,
+      ))
+      .then((results) => {
+        results.forEach(applyResult);
+        return results;
+      })
+      .catch((error) => {
+        if (this._isNavigationCurrent(navigation)) {
+          console.warn('[LinguaFlow] Falha ao antecipar traduções da barra lateral:', error);
+        }
+        return [];
+      })
+      .finally(() => {
+        if (this._sidebarTranslationKey === key) {
+          this._sidebarTranslationPromise = null;
+          this._sidebarTranslationKey = '';
+        }
+      });
+    return this._sidebarTranslationPromise;
   }
 
   async _checkStreakNotification() {

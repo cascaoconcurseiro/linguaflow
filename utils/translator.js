@@ -136,26 +136,28 @@ class Translator {
         return null;
     }
 
-    async translateBatch(texts, fromLang = 'auto', toLang = 'pt', concurrency = 50) {
+    async translateBatch(texts, fromLang = 'auto', toLang = 'pt', concurrency = 8, onResult = null) {
         if (!texts || texts.length === 0) return [];
         const results = new Array(texts.length);
-        const tasks = [];
+        const workerCount = Math.min(texts.length, Math.max(1, Math.min(16, Number(concurrency) || 8)));
+        let nextIndex = 0;
 
-        for (let i = 0; i < texts.length; i++) {
-            const index = i;
-            const task = this.translate(texts[i], fromLang, toLang)
-                .then(r => ({ index, translation: r.translation, cached: r.cached, source: r.source }))
-                .catch(() => ({ index, translation: texts[i], cached: false, source: 'error' }));
-            tasks.push(task);
-
-            if (tasks.length >= concurrency) {
-                const done = await Promise.race(tasks.map((t, idx) => t.then(() => idx)));
-                results[(await tasks[done]).index] = await tasks[done];
-                tasks.splice(done, 1);
+        const worker = async () => {
+            while (nextIndex < texts.length) {
+                const index = nextIndex++;
+                try {
+                    const result = await this.translate(texts[index], fromLang, toLang);
+                    results[index] = { index, translation: result.translation, cached: result.cached, source: result.source };
+                } catch {
+                    results[index] = { index, translation: '', cached: false, source: 'error' };
+                }
+                if (typeof onResult === 'function') {
+                    try { onResult(results[index], index); } catch {}
+                }
             }
-        }
+        };
 
-        (await Promise.all(tasks)).forEach(r => { results[r.index] = r; });
+        await Promise.all(Array.from({ length: workerCount }, () => worker()));
         return results;
     }
 

@@ -73,7 +73,7 @@ ouvido ou validação live.
 
 ## Estado do projeto
 
-O produto está em desenvolvimento ativo no build `3.0.41`, publicado pela
+O produto está em desenvolvimento ativo no build `3.0.42`, em validação para a
 `main`. A revisão FSRS é calculada no servidor e a explicação contextual salva
 acompanha o card sem uma nova chamada de IA. Os contratos automatizados estão
 verdes; ainda exigem homologação real a extensão recarregada, o fluxo

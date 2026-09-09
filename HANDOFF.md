@@ -2,12 +2,14 @@
 
 ## Última sessão — 2026-09-09
 
-Build `3.0.41` publicado na `main` pelo PR #37, squash `45ac0f9`.
+Build `3.0.42` em validação no branch `codex/eager-sidebar-translations-3.0.42`. O build `3.0.41` está publicado na `main`.
 
 ## Auditoria e correções desta sessão
 
 - Fechados sinks de HTML não confiável no jogo, painel lateral e exportações PDF/Anki; CSV neutraliza fórmulas iniciadas por `=`, `+`, `-` ou `@`.
-- O painel da extensão lê `sourceLang` e `uiTheme` persistidos. Tradução continua marcada por padrão e a barra lateral solicita apenas itens próximos da área visível, com cancelamento por navegação e descarte correto do observer.
+- O painel da extensão lê `sourceLang` e `uiTheme` persistidos. Tradução continua marcada por padrão.
+- A estratégia por viewport foi substituída conforme o requisito confirmado: a extensão solicita uma trilha completa do YouTube e traduz antecipadamente todas as cues da barra lateral em uma fila limitada, entregando cada resultado assim que termina.
+- O protótipo paralelo foi preservado em stash, mas parser duplicado, fan-out de blocos, separador frágil e testes com rede real não entraram na implementação revisada.
 - Exportação Anki do dashboard inclui explicação contextual e mnemônico já salvos, sem gerar nova chamada de IA.
 - Rotas, menus, jogos e modais de Histórias/Cofre receberam títulos, estados de carregamento, foco, Escape, contenção de Tab, nomes acessíveis e retorno ao acionador. Resultados de jogos aguardam ação explícita.
 - Nova migration rejeita colisão de evento adaptativo com payload diferente e cria claims atômicos com lease para Push e e-mail. O Resend recebe chave de idempotência estável.
@@ -15,6 +17,7 @@ Build `3.0.41` publicado na `main` pelo PR #37, squash `45ac0f9`.
 
 ## Evidência atual
 
+- O release completo local do build 3.0.42 passou, incluindo o novo contrato de tradução antecipada sem acesso real à rede.
 - Checks de sintaxe dos módulos alterados, `git diff --check` e a suíte completa de release passaram.
 - `npm audit --omit=dev` não encontrou vulnerabilidades no snapshot auditado.
 - Cabeçalhos públicos de HSTS, CSP, anti-frame, nosniff, referrer e permissões foram confirmados; o workflow live de RLS consultado estava verde.
@@ -25,13 +28,15 @@ Build `3.0.41` publicado na `main` pelo PR #37, squash `45ac0f9`.
 
 ## Próximo passo concreto
 
-1. Homologar no Chrome autenticado os modos de legenda, tradução lateral, contexto do card, exportação Anki, áudio e isolamento com duas contas.
-2. Medir a busca linear de cues em vídeo longo antes de desenhar o índice temporal.
+1. Executar o release completo do build 3.0.42 e publicar por PR protegido.
+2. Recarregar a extensão e confirmar que toda a lista lateral começa a preencher ainda no início do vídeo.
+3. Homologar contexto do card, exportação Anki, áudio e isolamento com duas contas.
 
 ## Riscos residuais conhecidos
 
 - Push Web não oferece chave idempotente no provedor: o claim elimina execução concorrente normal, mas uma resposta de rede ambígua ainda admite duplicata após o lease.
 - A busca de legenda ativa percorre a lista completa por frame em vídeos; deve ser otimizada somente com índice temporal que preserve cues sobrepostos.
+- Disponibilidade imediata depende de o YouTube expor `captionTracks` e os provedores de tradução responderem; a interface preenche progressivamente e reutiliza cache quando algum serviço demora.
 - Dependências remotas de fflate, Kokoro e YouGlish e Actions fixadas por tag mantêm risco de supply chain.
 - O nonce da ponte MAIN world é observável por scripts da página hospedeira.
 - O gate live de RLS cobre a superfície exercitada pelo workflow, não todas as tabelas. Leaked Password Protection e QA visual/áudio continuam externos.

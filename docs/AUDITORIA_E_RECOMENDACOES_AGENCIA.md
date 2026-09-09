@@ -1,7 +1,7 @@
 # Auditoria geral — LinguaFlow
 
 **Data:** 2026-09-09
-**Base:** `main` em `45ac0f9`, build `3.0.41` publicado pelo PR #37
+**Base:** build `3.0.42` em validação sobre a `main`
 
 ## Escopo e método
 
@@ -9,13 +9,13 @@ A revisão cobriu extensão Chrome MV3, PWA, rotas e interfaces, motor de legend
 
 Os testes existentes foram tratados como evidência parcial: muitos são contratos estáticos e não exercitam DOM real, Chrome, provedores externos ou duas sessões autenticadas. Por isso, cada conclusão abaixo separa correção comprovada em código de homologação ainda necessária.
 
-## Achados corrigidos no build 3.0.41
+## Achados corrigidos nos builds 3.0.41–3.0.42
 
 | Severidade | Falha confirmada | Correção e efeito |
 |---|---|---|
 | Alta | Traduções persistidas entravam no HTML do jogo e da barra lateral sem escape. | Valores passam por escape antes de atributos/HTML; atualizações assíncronas usam `textContent`. |
 | Alta | Título e cues podiam gerar HTML executável no PDF/Anki; CSV aceitava fórmulas ativas. | Exportações escapam HTML e neutralizam os quatro prefixos ativos de planilha. |
-| Alta | A barra lateral iniciava tradução para todas as cues de uma vez. | `IntersectionObserver` limita o trabalho à janela visível e próxima; fallback tem orçamento de 12 itens. |
+| Alta | A estratégia por viewport não atendia ao requisito de ver toda a lista traduzida desde o início. | A extensão solicita a trilha completa e traduz todas as cues com no máximo 12 workers, atualizando cada linha progressivamente. |
 | Alta | `sourceLang` e `uiTheme` eram gravados, mas omitidos da leitura do painel. | A hidratação inclui as duas preferências; tradução permanece `true` quando ausente. |
 | Alta | Execuções concorrentes podiam enviar Push/e-mail mais de uma vez antes de atualizar o timestamp. | Claims atômicos no Postgres reservam o destinatário por 15 minutos; Resend recebe chave idempotente estável. |
 | Média | Reutilizar `client_event_id` com outro payload retornava o resultado anterior como se fosse retry válido. | A RPC compara o evento normalizado e responde `23505 idempotency_conflict` quando o significado diverge. |
@@ -45,7 +45,7 @@ Essas verificações não cobrem comprometimento futuro de CDN, segurança inter
 | Prioridade | Risco | Próxima ação verificável |
 |---|---|---|
 | P1 | Dependências remotas de fflate, Kokoro e YouGlish executam no origin autenticado. | Autocustodiar artefatos versionados ou isolar o widget; registrar hash/licença e fallback. |
-| P1 | QA autenticado da extensão, áudio, Anki e duas contas ainda não foi executado neste lote. | Recarregar 3.0.41 no Chrome e seguir a matriz de homologação abaixo. |
+| P1 | QA autenticado da extensão, áudio, Anki e duas contas ainda não foi executado neste lote. | Recarregar 3.0.42 no Chrome e seguir a matriz de homologação abaixo. |
 | P2 | Busca de cue ativa faz filtro linear por frame. | Medir vídeo longo e implementar índice temporal com teste de cues sobrepostos. |
 | P2 | Actions e dependências externas fixadas por tag podem mudar sem revisão local. | Fixar actions por SHA e automatizar atualização controlada. |
 | P2 | Nonce da ponte MAIN world é observável pela página hospedeira. | Reduzir comandos e payloads aceitos; tratar a página como origem não confiável. |
@@ -55,7 +55,7 @@ Essas verificações não cobrem comprometimento futuro de CDN, segurança inter
 ## Matriz de homologação manual
 
 1. Chrome/YouTube: idioma original como legenda inicial; tradução marcada por padrão; alternância original/tradução/dupla; troca de vídeo sem resultado tardio.
-2. Vídeo longo: abrir a barra lateral e confirmar que apenas itens próximos são traduzidos; rolar e confirmar carregamento progressivo sem rajada global.
+2. Vídeo longo: abrir a barra lateral no início e confirmar que todas as linhas começam a preencher sem depender da rolagem, mantendo no máximo 12 traduções em voo.
 3. Flashcard: salvar expressão com frase, explicação e mnemônico; abrir o verso e revelar o contexto; repetir após recarregar sem nova requisição de IA.
 4. Anki: importar TSV com HTML, tabulação, acentos e texto iniciado por fórmula; verificar frente, verso, explicação, dica e tags.
 5. Teclado/leitor de tela: navegar menus, Histórias, editor do Cofre e jogos; confirmar foco, Escape, Tab e anúncios de carregamento/resultado.

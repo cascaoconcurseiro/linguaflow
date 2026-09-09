@@ -324,30 +324,34 @@ const LEVEL_OPTIONS = ['', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
 function openWordEditor(w, app, container) {
   document.getElementById('lf-word-edit-modal')?.remove();
+  const returnFocusTo = document.activeElement;
 
   const modal = document.createElement('div');
   modal.id = 'lf-word-edit-modal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'lf-edit-title');
   modal.style.cssText = 'display:flex; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(2px);';
   modal.innerHTML = `
     <div style="background:var(--color-surface); border-radius:var(--radius-md); width:90%; max-width:420px; padding:24px; position:relative; box-shadow:0 8px 24px rgba(0,0,0,0.15); max-height:85vh; overflow-y:auto;">
-      <button id="lf-edit-close" style="position:absolute; top:12px; right:12px; background:none; border:none; font-size:20px; color:var(--color-text-light); cursor:pointer; padding:4px;">&times;</button>
-      <h2 style="font-size:20px; font-weight:800; color:var(--color-text); margin:0 0 16px 0;">✏️ ${escapeHtml(w.word)}</h2>
+      <button id="lf-edit-close" type="button" aria-label="Fechar editor" style="position:absolute; top:12px; right:12px; background:none; border:none; font-size:20px; color:var(--color-text-light); cursor:pointer; padding:4px;">&times;</button>
+      <h2 id="lf-edit-title" style="font-size:20px; font-weight:800; color:var(--color-text); margin:0 0 16px 0;">✏️ ${escapeHtml(w.word)}</h2>
 
-      <label style="display:block; font-size:12px; font-weight:700; color:var(--color-text-light); margin-bottom:4px;">Tradução</label>
+      <label for="lf-edit-translation" style="display:block; font-size:12px; font-weight:700; color:var(--color-text-light); margin-bottom:4px;">Tradução</label>
       <input id="lf-edit-translation" type="text" value="${escapeHtml(w.translation || '')}" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:8px; background:var(--color-bg); color:var(--color-text); font-size:14px; margin-bottom:14px;" />
 
-      <label style="display:block; font-size:12px; font-weight:700; color:var(--color-text-light); margin-bottom:4px;">Frase de contexto</label>
+      <label for="lf-edit-sentence" style="display:block; font-size:12px; font-weight:700; color:var(--color-text-light); margin-bottom:4px;">Frase de contexto</label>
       <textarea id="lf-edit-sentence" rows="3" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:8px; background:var(--color-bg); color:var(--color-text); font-size:14px; margin-bottom:14px; resize:vertical; font-family:inherit;">${escapeHtml(w.context_sentence || '')}</textarea>
 
       <div style="display:flex; gap:12px; margin-bottom:14px;">
         <div style="flex:1;">
-          <label style="display:block; font-size:12px; font-weight:700; color:var(--color-text-light); margin-bottom:4px;">Categoria</label>
+          <label for="lf-edit-category" style="display:block; font-size:12px; font-weight:700; color:var(--color-text-light); margin-bottom:4px;">Categoria</label>
           <select id="lf-edit-category" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:8px; background:var(--color-bg); color:var(--color-text); font-size:14px;">
             ${CATEGORY_OPTIONS.map(([v, label]) => `<option value="${v}" ${w.category === v ? 'selected' : ''}>${label}</option>`).join('')}
           </select>
         </div>
         <div style="flex:1;">
-          <label style="display:block; font-size:12px; font-weight:700; color:var(--color-text-light); margin-bottom:4px;">Nível CEFR</label>
+          <label for="lf-edit-level" style="display:block; font-size:12px; font-weight:700; color:var(--color-text-light); margin-bottom:4px;">Nível CEFR</label>
           <select id="lf-edit-level" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:8px; background:var(--color-bg); color:var(--color-text); font-size:14px;">
             ${LEVEL_OPTIONS.map(v => `<option value="${v}" ${((w.level || '') === v) ? 'selected' : ''}>${v || '—'}</option>`).join('')}
           </select>
@@ -359,9 +363,22 @@ function openWordEditor(w, app, container) {
   `;
   document.body.appendChild(modal);
 
-  const close = () => modal.remove();
+  const close = () => {
+    modal.remove();
+    returnFocusTo?.focus?.({ preventScroll: true });
+  };
+  modal.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') { event.preventDefault(); close(); return; }
+    if (event.key !== 'Tab') return;
+    const focusable = [...modal.querySelectorAll('button:not([disabled]), input, textarea, select, [tabindex]:not([tabindex="-1"])')];
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  });
   modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
   modal.querySelector('#lf-edit-close').addEventListener('click', close);
+  modal.querySelector('#lf-edit-translation').focus({ preventScroll: true });
 
   modal.querySelector('#lf-edit-save').addEventListener('click', async () => {
     const saveBtn = modal.querySelector('#lf-edit-save');

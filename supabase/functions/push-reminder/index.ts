@@ -55,12 +55,25 @@ Deno.serve(async (req) => {
           Date.now() - new Date(subscription.last_notified_at).getTime() < 20 * 60 * 60 * 1000) {
         continue;
       }
+      const claimToken = crypto.randomUUID();
+      const { data: claim, error: claimError } = await admin.rpc("claim_push_subscription", {
+        p_subscription_id: subscription.id,
+        p_claim_token: claimToken,
+      });
+      if (claimError || claim?.claimed !== true) continue;
       try {
         await webpush.sendNotification({ endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } }, JSON.stringify({
           title: candidate.at_risk ? "Não deixe sua ofensiva esfriar" : "Hora de revisar no LinguaFlow",
           body, tag: "linguaflow-daily-reminder", url: "/study",
         }), { TTL: 60 * 60 });
-        await admin.from("push_subscriptions").update({ last_notified_at: new Date().toISOString() }).eq("id", subscription.id);
+        const { data: finished, error: finishError } = await admin.rpc("finish_push_subscription_claim", {
+          p_subscription_id: subscription.id,
+          p_claim_token: claimToken,
+          p_delivered: true,
+        });
+        if (finishError || finished !== true) {
+          console.error("push_claim_finish_failed", { subscriptionId: subscription.id });
+        }
         sent++;
       } catch (error) {
         const statusCode = Number((error as { statusCode?: number })?.statusCode || 0);
@@ -68,6 +81,11 @@ Deno.serve(async (req) => {
           await admin.from("push_subscriptions").delete().eq("id", subscription.id);
           removed++;
         } else {
+          await admin.rpc("finish_push_subscription_claim", {
+            p_subscription_id: subscription.id,
+            p_claim_token: claimToken,
+            p_delivered: false,
+          });
           console.error("push_send_failed", { statusCode, subscriptionId: subscription.id });
           failed++;
         }

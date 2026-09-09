@@ -43,7 +43,7 @@ assert.match(stories, /role="tablist"/);
 assert.match(stories, />Criar<\/button>/);
 assert.match(stories, />Ler<\/button>/);
 assert.match(stories, /aria-selected', String\(isNew\)/);
-assert.match(stories, /event\.key === 'Enter' \|\| event\.key === ' '/);
+assert.match(stories, /type="button" class="story-open"/);
 
 // Configurações: cinco grupos; controles técnicos ficam no último, fechado.
 for (const label of ['Seu aprendizado', 'Memória', 'Som e lembretes', 'Dados e conta', 'Avançado']) {

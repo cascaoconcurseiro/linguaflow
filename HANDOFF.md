@@ -2,60 +2,35 @@
 
 ## Última sessão — 2026-09-09
 
-Build `3.0.40` publicado na `main` pelo PR #35, squash `3589a9f`.
-
-## Trabalho confirmado do Antigravity
-
-- PRs #32–#34 publicaram FSRS autoritativo, permissões restritas, legenda
-  original do YouTube, neutralização adicional de HTML, acessibilidade do painel
-  da extensão e restauração do card autoritativo no undo.
-- `20260907100000_server_authoritative_fsrs.sql` consta como aplicada no
-  Supabase `main PRODUCTION`; o registro anterior também informa histórico de
-  migrations reconciliado e `db push` sem pendências.
-- O lote local corrige `isMobileVoiceDevice()` e o falso positivo do catálogo
-  privado no auditor de fiação.
+Build `3.0.41` preparado no branch `codex/full-system-audit-3.0.41`. O lote anterior, `3.0.40`, está publicado na `main` pelo PR #35, squash `3589a9f`.
 
 ## Auditoria e correções desta sessão
 
-- Frase, tradução e feedback vindos de IA/provedores são escapados nos sinks
-  restantes de HTML.
-- Clique de Push aceita somente destino do mesmo origin e cai em `/study` para
-  URL externa ou inválida.
-- O placement expõe diálogo nomeado, foco inicial, Escape, contenção de Tab e
-  retorno ao acionador.
-- Configurações SRS validam limites e passos positivos/finitos antes de salvar.
-- Exportação Anki escapa HTML e informa que o TSV de agendamento é uma cópia de
-  referência, não uma restauração automática do FSRS no Anki.
-- Nova migration limita graduações pelo `max_interval`, suspende leeches já
-  marcados quando configurado, neutraliza números não finitos e devolve o card
-  atual em retry posterior ao undo.
-- `20260908100000_harden_server_authoritative_fsrs.sql` foi aplicada no Supabase
-  vinculado; o dry-run posterior retornou `Remote database is up to date`.
-- README, Estado Atual, contrato pedagógico, índices, backlog, Checklist,
-  Changelog e relatório de auditoria foram reconciliados com o build 3.0.40.
-- O script local que sugeria `INSERT` direto em `schema_migrations` foi removido
-  por poder marcar DDL inexistente como aplicado.
+- Fechados sinks de HTML não confiável no jogo, painel lateral e exportações PDF/Anki; CSV neutraliza fórmulas iniciadas por `=`, `+`, `-` ou `@`.
+- O painel da extensão lê `sourceLang` e `uiTheme` persistidos. Tradução continua marcada por padrão e a barra lateral solicita apenas itens próximos da área visível, com cancelamento por navegação e descarte correto do observer.
+- Exportação Anki do dashboard inclui explicação contextual e mnemônico já salvos, sem gerar nova chamada de IA.
+- Rotas, menus, jogos e modais de Histórias/Cofre receberam títulos, estados de carregamento, foco, Escape, contenção de Tab, nomes acessíveis e retorno ao acionador. Resultados de jogos aguardam ação explícita.
+- Nova migration rejeita colisão de evento adaptativo com payload diferente e cria claims atômicos com lease para Push e e-mail. O Resend recebe chave de idempotência estável.
+- Novos contratos foram ligados aos gates oficiais de UX e segurança de produção.
 
-## Evidência
+## Evidência atual
 
-- Release completo do build 3.0.39 passou antes do novo lote.
-- O release completo local do build 3.0.40 passou após o ajuste final.
-- Os checks obrigatórios de push e pull request passaram no GitHub; o preview
-  da Vercel também foi publicado antes do squash merge.
-- Teste local não substitui extensão recarregada, áudio ouvido, sessão
-  autenticada, duas contas reais ou verificação do painel Supabase.
+- Checks de sintaxe dos módulos alterados, `git diff --check` e contratos focados passaram antes da suíte completa.
+- `npm audit --omit=dev` não encontrou vulnerabilidades no snapshot auditado.
+- Cabeçalhos públicos de HSTS, CSP, anti-frame, nosniff, referrer e permissões foram confirmados; o workflow live de RLS consultado estava verde.
+- Testes locais não provam extensão recarregada, áudio ouvido, sessão autenticada, duas contas reais, importação manual no Anki ou produção Supabase aplicada.
 
 ## Próximo passo concreto
 
-1. Recarregar a extensão 3.0.40 e homologar YouTube, contexto salvo, undo,
-   limites, voz e configurações.
-2. Validar RLS ao vivo com duas contas e conferir Leaked Password Protection.
+1. Executar o release completo do build 3.0.41.
+2. Publicar a migration e as Edge Functions `push-reminder` e `email-reengagement` após os checks do PR.
+3. Fazer squash merge na `main`, sincronizar o checkout e verificar o build web.
+4. Homologar no Chrome autenticado os modos de legenda, tradução lateral, contexto do card, exportação Anki, áudio e isolamento com duas contas.
 
-## Limites conhecidos
+## Riscos residuais conhecidos
 
-- A PWA ainda executa dependências remotas de fflate, Kokoro e YouGlish no mesmo
-  origin autenticado; autocustódia/isolamento reduz o risco de supply chain.
-- O nonce da ponte MAIN world é observável pela própria página. Validação de
-  origem, tipo, URL e tamanho reduz impacto, mas não autentica contra script da
-  página hospedeira.
-- Calibração humana e acompanhamento D7/D30/D90 continuam pendentes.
+- Push Web não oferece chave idempotente no provedor: o claim elimina execução concorrente normal, mas uma resposta de rede ambígua ainda admite duplicata após o lease.
+- A busca de legenda ativa percorre a lista completa por frame em vídeos; deve ser otimizada somente com índice temporal que preserve cues sobrepostos.
+- Dependências remotas de fflate, Kokoro e YouGlish e Actions fixadas por tag mantêm risco de supply chain.
+- O nonce da ponte MAIN world é observável por scripts da página hospedeira.
+- O gate live de RLS cobre a superfície exercitada pelo workflow, não todas as tabelas. Leaked Password Protection e QA visual/áudio continuam externos.

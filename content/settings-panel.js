@@ -5,6 +5,8 @@ async function readAllSettings() {
   const { db } = await import('../utils/db.js');
   const settings = [
     'targetLang',
+    'sourceLang',
+    'uiTheme',
     'subtitleMode',
     'bgOpacity',
     'fontSize',
@@ -825,6 +827,23 @@ export class SettingsPanel {
 
   _attachListeners() {
     document.addEventListener('keydown', (e) => {
+      if (this.isOpen && e.key === 'Tab') {
+        const dialog = this.shadow?.querySelector('[role="dialog"]');
+        const focusable = dialog ? [...dialog.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+          .filter((element) => element.offsetParent !== null) : [];
+        if (focusable.length) {
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (e.shiftKey && this.shadow.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && this.shadow.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+        return;
+      }
       if (this.isOpen && e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();

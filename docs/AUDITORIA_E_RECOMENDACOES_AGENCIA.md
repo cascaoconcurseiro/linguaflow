@@ -1,66 +1,73 @@
 # Auditoria geral — LinguaFlow
 
 **Data:** 2026-09-09
-**Base:** `main` em `3589a9f`, build `3.0.40` publicado pelo PR #35
+**Base:** `main` em `e65a159`, build auditado `3.0.41`
 
 ## Escopo e método
 
-A revisão cobriu extensão MV3, PWA, Supabase, FSRS, undo, tradução e contexto,
-configurações, acessibilidade, permissões, conteúdo não confiável, documentação
-ativa e gates de release. Os achados foram confirmados no código e confrontados
-com testes. Testes locais não provam extensão recarregada, áudio ouvido, sessão
-autenticada, duas contas reais ou o estado atual dos painéis externos.
+A revisão cobriu extensão Chrome MV3, PWA, rotas e interfaces, motor de legendas, tradução, contexto e exportações, FSRS e adaptação, Supabase/RLS, Edge Functions, notificações, migrations, acessibilidade, infraestrutura, dependências, testes e documentação. A equipe combinou inspeção de fluxo, busca de sinks e fronteiras, revisão de concorrência e contratos automatizados.
 
-## Trabalho do Antigravity confirmado
+Os testes existentes foram tratados como evidência parcial: muitos são contratos estáticos e não exercitam DOM real, Chrome, provedores externos ou duas sessões autenticadas. Por isso, cada conclusão abaixo separa correção comprovada em código de homologação ainda necessária.
 
-- PRs #32 a #34 estão na `main`: FSRS autoritativo, manifesto restrito, legenda
-  original do YouTube, neutralização adicional de HTML, diálogo de configurações
-  da extensão e restauração autoritativa no undo.
-- A migration `20260907100000_server_authoritative_fsrs.sql` consta como aplicada
-  no Supabase de produção no registro operacional do projeto.
-- O lote local corrige `isMobileVoiceDevice()` e classifica o catálogo privado de
-  fluência como contrato offline no auditor de fiação.
+## Achados corrigidos no build 3.0.41
 
-## Achados corrigidos neste lote
-
-| Severidade | Falha | Correção |
+| Severidade | Falha confirmada | Correção e efeito |
 |---|---|---|
-| Alta | Frase, tradução e feedback retornados por serviços entravam em `innerHTML` sem escape. | Todo valor não confiável é escapado e os contratos cobrem os sinks restantes. |
-| Alta | `max_interval` não limitava cards graduados por Bom ou Fácil. | Cliente e nova migration aplicam o mesmo teto também na graduação. |
-| Alta | Mudar leech de `tag` para `suspend` não suspendia cards já marcados. | A suspensão considera lapsos e configuração atual, inclusive em leeches existentes. |
-| Média | Retry da revisão depois de undo devolvia o snapshot pós-review obsoleto. | A RPC detecta o undo e devolve o card atualmente persistido com outcome `undone`. |
-| Média | `NaN`/`Infinity` em configurações podiam abortar a RPC. | Cliente rejeita valores inválidos e servidor degrada para defaults finitos. |
-| Média | Notification click aceitava destino externo do payload. | Service Worker restringe a navegação ao mesmo origin e usa `/study` como fallback. |
-| Média | Modal de placement não tinha semântica e ciclo de foco completos. | Dialog nomeado, Escape, foco inicial, contenção de Tab e retorno ao acionador. |
-| Média | Exportação Anki podia gerar HTML inválido e sugeria restaurar FSRS automaticamente. | Conteúdo HTML é escapado e a interface explica que o TSV de agendamento é apenas referência. |
+| Alta | Traduções persistidas entravam no HTML do jogo e da barra lateral sem escape. | Valores passam por escape antes de atributos/HTML; atualizações assíncronas usam `textContent`. |
+| Alta | Título e cues podiam gerar HTML executável no PDF/Anki; CSV aceitava fórmulas ativas. | Exportações escapam HTML e neutralizam os quatro prefixos ativos de planilha. |
+| Alta | A barra lateral iniciava tradução para todas as cues de uma vez. | `IntersectionObserver` limita o trabalho à janela visível e próxima; fallback tem orçamento de 12 itens. |
+| Alta | `sourceLang` e `uiTheme` eram gravados, mas omitidos da leitura do painel. | A hidratação inclui as duas preferências; tradução permanece `true` quando ausente. |
+| Alta | Execuções concorrentes podiam enviar Push/e-mail mais de uma vez antes de atualizar o timestamp. | Claims atômicos no Postgres reservam o destinatário por 15 minutos; Resend recebe chave idempotente estável. |
+| Média | Reutilizar `client_event_id` com outro payload retornava o resultado anterior como se fosse retry válido. | A RPC compara o evento normalizado e responde `23505 idempotency_conflict` quando o significado diverge. |
+| Média | Exportação Anki principal perdia explicação e mnemônico já persistidos. | O verso inclui contexto pedagógico e dica existentes, sem nova chamada de IA. |
+| Média | Modais de Histórias e Cofre não continham foco nem o devolviam ao acionador. | Diálogo nomeado, foco inicial, Escape, Tab/Shift+Tab e restauração de foco. |
+| Média | Menus e rotas tinham navegação/foco incompletos; carregamento não era anunciado. | Setas, Home/End, título por rota, status live e foco programático foram adicionados. |
+| Média | Resultado de jogos desaparecia por redirecionamento temporizado. | O resultado recebe foco e permanece até o usuário acionar “Voltar ao início”. |
+| Média | Histórico de Histórias aninhava botões dentro de um elemento com papel de botão. | O acionador principal virou botão real independente; ações por ícone ganharam nomes acessíveis. |
 
-## Governança de migrations
+## Backend e integridade
 
-Foi descartado um script local que imprimia `INSERT` direto em
-`supabase_migrations.schema_migrations`. Registrar uma versão sem provar o DDL
-pode deixar o ambiente permanentemente incoerente. A verificação correta é
-somente leitura; qualquer reparo deve usar `supabase migration repair` depois de
-comparar objetos e versões. Uma saída anterior registrada no Handoff informa
-`Remote database is up to date`, mas isso deve ser novamente verificado antes
-de um futuro `db push`.
+A migration `20260909100000_notification_claims_and_adaptive_idempotency.sql` é append-only. As quatro RPCs de claim/finalização removem execução de `public`, `anon` e `authenticated` e concedem somente a `service_role`. Claims expirados podem ser retomados após 15 minutos; conclusão entregue grava o timestamp e limpa a chave. A RPC adaptativa continua exigindo `auth.uid()` e propriedade do card antes de registrar sinais.
 
-## Riscos residuais e homologação
+O claim de Push fornece proteção de concorrência, não garantia matemática de exactly-once: Web Push não expõe chave idempotente. Se o provedor aceitar o envio e a conexão falhar antes da confirmação, uma repetição após o lease pode duplicar a mensagem. O e-mail tem camada adicional pela chave do Resend.
 
-1. Recarregar a extensão 3.0.40 e testar YouTube: original, tradução tardia,
-   flash manual e salvamento da explicação contextual.
-2. Confirmar no verso do card que a explicação aparece sem nova chamada de IA.
-3. Testar revisão/undo/limites em duas abas e RLS com duas contas reais.
-4. Ouvir o TTS natural e validar fallback em aparelho móvel real.
-5. Reduzir risco de supply chain dos scripts remotos da PWA, priorizando
-   autocustódia de fflate/Kokoro e isolamento do widget YouGlish.
-6. Verificar Leaked Password Protection no Auth Advisor do Supabase.
-7. Calibrar a avaliação de fluência com julgamento humano e acompanhamento
-   D7/D30/D90 antes de fazer alegações de eficácia.
+## Segurança e infraestrutura verificadas
 
-## Evidência automatizada
+- `npm audit --omit=dev`: nenhuma vulnerabilidade conhecida no snapshot.
+- Produção pública respondeu com HSTS, CSP, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, Referrer-Policy e Permissions-Policy.
+- O workflow live de isolamento RLS consultado estava verde no commit anterior.
+- Chaves privadas permanecem nas Edge Functions; RPCs privilegiadas validam identidade ou são limitadas a `service_role`.
 
-- `npm run test:release -- --allow-dirty`: verde depois do diff final.
-- Os checks obrigatórios de push e pull request passaram no GitHub.
-- O preview Vercel concluiu antes do squash merge `3589a9f`.
-- A migration `20260908100000_harden_server_authoritative_fsrs.sql` foi aplicada
-  isoladamente; o dry-run posterior confirmou o banco remoto atualizado.
+Essas verificações não cobrem comprometimento futuro de CDN, segurança interna dos provedores, todas as tabelas RLS nem opções do painel Supabase.
+
+## Riscos residuais priorizados
+
+| Prioridade | Risco | Próxima ação verificável |
+|---|---|---|
+| P1 | Dependências remotas de fflate, Kokoro e YouGlish executam no origin autenticado. | Autocustodiar artefatos versionados ou isolar o widget; registrar hash/licença e fallback. |
+| P1 | QA autenticado da extensão, áudio, Anki e duas contas ainda não foi executado neste lote. | Recarregar 3.0.41 no Chrome e seguir a matriz de homologação abaixo. |
+| P2 | Busca de cue ativa faz filtro linear por frame. | Medir vídeo longo e implementar índice temporal com teste de cues sobrepostos. |
+| P2 | Actions e dependências externas fixadas por tag podem mudar sem revisão local. | Fixar actions por SHA e automatizar atualização controlada. |
+| P2 | Nonce da ponte MAIN world é observável pela página hospedeira. | Reduzir comandos e payloads aceitos; tratar a página como origem não confiável. |
+| P2 | CORS aceita origens de extensão e previews Vercel amplos, embora JWT seja obrigatório. | Manter inventário explícito de origins de produção quando os IDs/hosts estabilizarem. |
+| P3 | Leaked Password Protection depende do plano/configuração do Auth. | Conferir e ativar no painel compatível. |
+
+## Matriz de homologação manual
+
+1. Chrome/YouTube: idioma original como legenda inicial; tradução marcada por padrão; alternância original/tradução/dupla; troca de vídeo sem resultado tardio.
+2. Vídeo longo: abrir a barra lateral e confirmar que apenas itens próximos são traduzidos; rolar e confirmar carregamento progressivo sem rajada global.
+3. Flashcard: salvar expressão com frase, explicação e mnemônico; abrir o verso e revelar o contexto; repetir após recarregar sem nova requisição de IA.
+4. Anki: importar TSV com HTML, tabulação, acentos e texto iniciado por fórmula; verificar frente, verso, explicação, dica e tags.
+5. Teclado/leitor de tela: navegar menus, Histórias, editor do Cofre e jogos; confirmar foco, Escape, Tab e anúncios de carregamento/resultado.
+6. Backend: disparar duas invocações concorrentes dos lembretes e conferir um claim por destino; testar retry idêntico e conflito adaptativo divergente.
+7. Duas contas: confirmar isolamento de palavras, cards, preferências, histórias, sessões e eventos; o workflow atual não substitui essa matriz inteira.
+
+## Evidência automatizada exigida para publicação
+
+- `npm run test:release -- --allow-dirty` no diff final.
+- Replay limpo de todas as migrations pelo gate de banco.
+- Checks obrigatórios do PR e preview Vercel verdes.
+- `supabase db push --linked --dry-run` antes da aplicação real.
+- Deploy das duas Edge Functions somente depois da migration.
+
+Produção só pode ser declarada após esses passos. Validação local não prova que a extensão foi recarregada nem que o navegador e os provedores executaram o novo build.

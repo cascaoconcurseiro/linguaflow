@@ -4067,6 +4067,40 @@ export class SubtitleEngine {
     }
 
     const showTrans = document.getElementById('lf-show-translation')?.checked ?? true;
+    if (this._subtitleTranslationObserver) {
+      this._subtitleTranslationObserver.disconnect();
+      this._managedObservers.delete(this._subtitleTranslationObserver);
+    }
+    const translationTargets = new WeakMap();
+    const translateVisibleItem = async (item) => {
+      const target = translationTargets.get(item);
+      if (!target) return;
+      translationTargets.delete(item);
+      const { cue, navigation } = target;
+      try {
+        const { translator } = await import('../utils/translator.js');
+        if (!this._isNavigationCurrent(navigation)) return;
+        const res = await translator.translate(cue.text, 'auto', this.targetLang);
+        if (!this._isNavigationCurrent(navigation) || !cues.includes(cue)) return;
+        cue.translatedText = res.translation;
+        const translation = item.querySelector('.lf-translation-text');
+        if (translation) translation.textContent = res.translation;
+      } catch {
+        if (!this._isNavigationCurrent(navigation)) return;
+        const translation = item.querySelector('.lf-translation-text');
+        if (translation) translation.textContent = '';
+      }
+    };
+    this._subtitleTranslationObserver = showTrans && typeof IntersectionObserver !== 'undefined'
+      ? new IntersectionObserver((entries, observer) => {
+        entries.filter((entry) => entry.isIntersecting).forEach((entry) => {
+          observer.unobserve(entry.target);
+          translateVisibleItem(entry.target);
+        });
+      }, { root: container, rootMargin: '240px 0px' })
+      : null;
+    if (this._subtitleTranslationObserver) this._managedObservers.add(this._subtitleTranslationObserver);
+    let fallbackTranslationBudget = 12;
 
     cues.forEach((cue, idx) => {
       const matchesFilter =
@@ -4101,29 +4135,20 @@ export class SubtitleEngine {
                     </div>
                 </div>
                 <div class="lf-translation-text lf-trans-text" style="font-size:13px;padding-left:42px;font-weight:600;display:${showTrans ? 'block' : 'none'};">
-                    ${cue.translatedText || '<span style="opacity:0.6;font-style:italic;">traduzindo...</span>'}
+                    ${cue.translatedText ? escapeHTML(cue.translatedText) : '<span style="opacity:0.6;font-style:italic;">traduzindo...</span>'}
                 </div>
             `;
 
       // Auto-tradução na barra lateral se estiver faltando
       if (!cue.translatedText && showTrans) {
         const navigation = this._navigationSnapshot();
-        import('../utils/translator.js').then(({ translator }) => {
-          if (!this._isNavigationCurrent(navigation)) return;
-          translator
-            .translate(cue.text, 'auto', this.targetLang)
-            .then((res) => {
-              if (!this._isNavigationCurrent(navigation) || !this.cues.includes(cue)) return;
-              cue.translatedText = res.translation;
-              const tDiv = item.querySelector('.lf-translation-text');
-              if (tDiv) tDiv.textContent = res.translation;
-            })
-            .catch(() => {
-              if (!this._isNavigationCurrent(navigation)) return;
-              const tDiv = item.querySelector('.lf-translation-text');
-              if (tDiv) tDiv.textContent = '';
-            });
-        });
+        translationTargets.set(item, { cue, navigation });
+        if (this._subtitleTranslationObserver) {
+          this._subtitleTranslationObserver.observe(item);
+        } else if (fallbackTranslationBudget > 0) {
+          fallbackTranslationBudget -= 1;
+          translateVisibleItem(item);
+        }
       }
 
       item.onclick = (e) => {
@@ -4207,6 +4232,7 @@ export class SubtitleEngine {
 
   _exportPDF() {
     const videoTitle = document.title || 'Legendas';
+    const safeVideoTitle = escapeHTML(videoTitle);
     const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
 
     const printWindow = window.open('', '_blank');
@@ -4218,7 +4244,7 @@ export class SubtitleEngine {
     let html = `
             <html>
             <head>
-                <title>${videoTitle} - LinguaFlow Script</title>
+                <title>${safeVideoTitle} - LinguaFlow Script</title>
                 <style>
                     body { font-family: 'Segoe UI', Arial, sans-serif; color: #333; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; }
                     h1 { color: #0ea5e9; text-align: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; font-size: 20px; }
@@ -4233,14 +4259,14 @@ export class SubtitleEngine {
                 </style>
             </head>
             <body>
-                <h1>🎬 ${videoTitle}</h1>
+                <h1>🎬 ${safeVideoTitle}</h1>
                 <p style="text-align:center; color:#64748b; margin-bottom: 30px; font-size: 12px">Script exportado via LinguaFlow</p>
         `;
 
     cues.forEach((c) => {
       const time = this._formatTime(c.start);
-      const orig = (c.text || '').replace(/\n/g, '<br>');
-      const trans = (c.translatedText || '').replace(/\n/g, '<br>');
+      const orig = escapeHTML(c.text || '').replace(/\n/g, '<br>');
+      const trans = escapeHTML(c.translatedText || '').replace(/\n/g, '<br>');
 
       html += `<div class="cue-item">
                         <div class="time">${time}</div>
@@ -4267,8 +4293,9 @@ export class SubtitleEngine {
 
     cues.forEach((c) => {
       const time = this._formatTime(c.start);
-      const orig = (c.text || '').replace(/"/g, '""');
-      const trans = (c.translatedText || '').replace(/"/g, '""');
+      const neutralizeFormula = (value) => /^[=+\-@]/.test(value) ? `'${value}` : value;
+      const orig = neutralizeFormula(c.text || '').replace(/"/g, '""');
+      const trans = neutralizeFormula(c.translatedText || '').replace(/"/g, '""');
       csv += `${time};"${orig}";"${trans}"\n`;
     });
 
@@ -4285,8 +4312,8 @@ export class SubtitleEngine {
     let content = '';
 
     cues.forEach((c) => {
-      const orig = (c.text || '').replace(/\n/g, '<br>');
-      const trans = (c.translatedText || '').replace(/\n/g, '<br>');
+      const orig = escapeHTML(c.text || '').replace(/\n/g, '<br>');
+      const trans = escapeHTML(c.translatedText || '').replace(/\n/g, '<br>');
       const time = this._formatTime(c.start);
       // Formato Anki: Front [tab] Back [tab] Tag
       content += `${orig}<br><small style="color:gray">${time}</small>\t${trans}\tLinguaFlow_${this.platform}\n`;

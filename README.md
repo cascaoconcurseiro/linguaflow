@@ -73,12 +73,12 @@ ouvido ou validação live.
 
 ## Estado do projeto
 
-O produto está em desenvolvimento ativo no build `3.0.40`, preparado sobre a
+O produto está em desenvolvimento ativo no build `3.0.41`, preparado sobre a
 `main`. A revisão FSRS é calculada no servidor e a explicação contextual salva
 acompanha o card sem uma nova chamada de IA. Os contratos automatizados estão
 verdes; ainda exigem homologação real a extensão recarregada, o fluxo
 autenticado, o áudio ouvido e o isolamento entre duas contas. Validação local
-em 08/09/2026: os contratos focados passaram; o release completo será repetido
+em 09/09/2026: os contratos focados passaram; o release completo será repetido
 antes da publicação. A rubrica de
 fluência é própria e alinhada a descritores CEFR; não é exame oficial nem
 certificação Cambridge.

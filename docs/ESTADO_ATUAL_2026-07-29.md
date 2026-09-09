@@ -2,7 +2,7 @@
 
 **Atualizado em:** 2026-09-08
 **Código de referência:** `590f436` na `main`, mais correções em auditoria
-**Build web/extensão:** `3.0.40` em validação; `3.0.39` publicado
+**Build web/extensão:** `3.0.41` em validação; `3.0.40` publicado
 
 Este é o ponto de entrada canônico para saber o que existe, o que foi
 verificado e o que ainda falta. Planos e auditorias superados foram removidos
@@ -65,7 +65,7 @@ O corte técnico está integrado:
 
 Isso prova integração técnica, não validade científica. Ainda faltam:
 
-- smoke autenticado no navegador do build `3.0.40`;
+- smoke autenticado no navegador do build `3.0.41`;
 - jornada completa sem captura de voz;
 - calibração com respostas-âncora avaliadas por humanos;
 - concordância entre avaliadores, análise de falsos positivos e viés;
@@ -82,7 +82,7 @@ Em 2026-09-08:
 - entrada direta em cinco estados de preferências e cancelamento em duas fases;
 - contratos de contexto, dicionário, pronúncia e login da extensão;
 - auditoria das dependências: zero vulnerabilidades conhecidas;
-- release smoke: 59 arquivos JavaScript parseados, build `3.0.40` consistente,
+- release smoke: JavaScript parseado e build `3.0.41` consistente,
   migrations não vazias e manifest MV3 válido.
 
 Esses gates validam contratos do software. Eles não substituem Chrome real,
@@ -90,7 +90,7 @@ sessão autenticada, áudio ouvido, dados live ou estudo com usuários.
 
 ## Próximos gates, em ordem
 
-1. Confirmar no navegador autenticado `app.js?v=3.0.40` e leitura
+1. Confirmar no navegador autenticado `app.js?v=3.0.41` e leitura
    `fluency_skill_profiles` com HTTP 200, sem `42703`.
 2. Confirmar entrada direta com conta nova e executar o Check sem captura de voz.
 3. Ouvir a etapa de escuta e confirmar a mesma voz natural das demais

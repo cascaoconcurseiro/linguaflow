@@ -151,13 +151,13 @@ export function renderStories(container, app) {
     </div>
     
     <!-- Word Popup Modal (Simplified LingQ style) -->
-    <div id="lf-story-word-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(2px); animation: fadeIn 0.2s ease-out;">
+    <div id="lf-story-word-modal" role="dialog" aria-modal="true" aria-labelledby="lf-modal-word" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(2px); animation: fadeIn 0.2s ease-out;">
       <div style="background:var(--color-surface); border-radius:var(--radius-md); width:90%; max-width:350px; padding:20px; position:relative; box-shadow: 0 8px 24px rgba(0,0,0,0.15); animation: slideUp 0.2s ease-out;">
-        <button id="lf-close-modal" style="position:absolute; top:12px; right:12px; background:none; border:none; font-size:20px; color:var(--color-text-light); cursor:pointer; padding:4px;">&times;</button>
+        <button id="lf-close-modal" type="button" aria-label="Fechar detalhes da palavra" style="position:absolute; top:12px; right:12px; background:none; border:none; font-size:20px; color:var(--color-text-light); cursor:pointer; padding:4px;">&times;</button>
         
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
           <h2 id="lf-modal-word" style="font-size:24px; font-weight:800; color:var(--color-text); margin:0;">Word</h2>
-          <button id="lf-btn-tts-word" style="background:var(--color-bg); border:1px solid var(--color-border); border-radius:50%; width:36px; height:36px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:16px;" title="Ouvir">🔊</button>
+          <button id="lf-btn-tts-word" type="button" aria-label="Ouvir palavra" style="background:var(--color-bg); border:1px solid var(--color-border); border-radius:50%; width:36px; height:36px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:16px;" title="Ouvir">🔊</button>
         </div>
         
         <div id="lf-modal-loading" style="text-align:center; padding:16px; display:none;">
@@ -267,6 +267,26 @@ export function renderStories(container, app) {
   let storyMarkedThisView = false;
   let previousQuizQuestions = [];
   let modalRequestId = 0;
+  let modalReturnFocus = null;
+
+  function closeWordModal() {
+    modalRequestId++;
+    modal.style.display = 'none';
+    modalReturnFocus?.focus?.({ preventScroll: true });
+    modalReturnFocus = null;
+  }
+
+  modal.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') { event.preventDefault(); closeWordModal(); return; }
+    if (event.key !== 'Tab') return;
+    const focusable = [...modal.querySelectorAll('button:not([disabled]), a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+      .filter((element) => element.offsetParent !== null);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  });
 
   // --- Audio Player Logic (TTS Chunker) ---
   let ttsQueue = [];
@@ -736,18 +756,16 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
         const d = new Date(story.date);
         const div = document.createElement('div');
         div.className = 'history-item';
-        div.tabIndex = 0;
-        div.setAttribute('role', 'button');
         div.innerHTML = `
-          <div>
+          <button type="button" class="story-open" style="background:none;border:0;text-align:left;color:inherit;font:inherit;cursor:pointer;">
             <div style="font-weight:bold; font-size:18px; color:var(--color-text);">
               ${escapeHTML(story.title)} <span class="level-tag">${escapeHTML(story.level)}</span>
             </div>
             <div style="font-size:14px; color:var(--color-text-light);">${d.toLocaleDateString()} ${d.toLocaleTimeString()}</div>
-          </div>
+          </button>
           <div style="display:flex; gap:6px; align-items:center;">
-            <button type="button" class="story-act" data-act="arch" title="${archivedSet.has(storyKey(story)) ? 'Restaurar do arquivo' : 'Arquivar (sai da lista, nada e apagado)'}">${archivedSet.has(storyKey(story)) ? '📤' : '📦'}</button>
-            <button type="button" class="story-act" data-act="del" title="Excluir para sempre">🗑</button>
+            <button type="button" class="story-act" data-act="arch" aria-label="${archivedSet.has(storyKey(story)) ? 'Restaurar história do arquivo' : 'Arquivar história'}" title="${archivedSet.has(storyKey(story)) ? 'Restaurar do arquivo' : 'Arquivar (sai da lista, nada e apagado)'}">${archivedSet.has(storyKey(story)) ? '📤' : '📦'}</button>
+            <button type="button" class="story-act" data-act="del" aria-label="Excluir história para sempre" title="Excluir para sempre">🗑</button>
           </div>
         `;
         if (archivedSet.has(storyKey(story))) div.classList.add('archived');
@@ -759,7 +777,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
           event.stopPropagation();
           removeStory(story);
         });
-        div.addEventListener('click', () => {
+        div.querySelector('.story-open').addEventListener('click', () => {
           stopFullStoryTTS();
           storyTitleDisplay.textContent = story.title;
           storyLevelBadge.textContent = story.level;
@@ -772,12 +790,6 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
           renderStoryText(story.text, false);
           const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
           storyContainer.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
-        });
-        div.addEventListener('keydown', event => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            div.click();
-          }
         });
         historyList.appendChild(div);
       });
@@ -1005,6 +1017,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     currentSelectedWord = cleanWord;
     currentSelectedSentence = findSentenceForWord(rawWord);
     
+    modalReturnFocus = spanEl;
     modal.style.display = 'flex';
     modalWord.textContent = rawWord;
     
@@ -1012,6 +1025,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     modalExplanation.style.display = 'none';
     modalExplanation.innerHTML = '';
     btnSaveWord.style.display = 'none';
+    btnCloseModal.focus({ preventScroll: true });
 
     const requestId = ++modalRequestId;
     Promise.all([
@@ -1061,14 +1075,12 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
   }
 
   btnCloseModal.addEventListener('click', () => {
-    modalRequestId++;
-    modal.style.display = 'none';
+    closeWordModal();
   });
 
   modal.addEventListener('click', (e) => {
     if (e.target === modal) {
-      modalRequestId++;
-      modal.style.display = 'none';
+      closeWordModal();
     }
   });
 
@@ -1097,7 +1109,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
         }
       });
 
-      modal.style.display = 'none';
+      closeWordModal();
       btnSaveWord.innerHTML = btnOriginalText;
     } catch (e) {
       app.showToast('Erro ao salvar: ' + e.message, 'error');

@@ -36,6 +36,11 @@ const settingsSource = await readFile(
   'utf8',
 );
 
+assert.match(settingsSource, /'sourceLang'/,
+  'idioma original deve ser lido das configurações persistidas');
+assert.match(settingsSource, /'uiTheme'/,
+  'tema do painel deve ser lido das configurações persistidas');
+
 assert.match(
   settingsSource,
   /if \(displayModeChanged && this\.engine\._lastOrig\) \{\s*this\.engine\.renderDual\(this\.engine\._lastOrig, this\.engine\._lastTrans \|\| ''\);/,

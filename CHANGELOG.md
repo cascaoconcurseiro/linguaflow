@@ -1,5 +1,26 @@
 # Changelog
 
+## [3.0.41] - 2026-09-09
+
+### Corrigido
+
+- Configurações persistidas de idioma original e tema voltam a ser carregadas
+  pelo painel da extensão; a tradução permanece ativada por padrão.
+- A barra lateral traduz somente legendas próximas da área visível, evitando
+  milhares de requisições em vídeos longos, e escapa traduções antes do HTML.
+- PDF, CSV e exportações Anki neutralizam HTML e fórmulas de planilha; o Anki
+  principal inclui a explicação contextual e a dica já salvas no card.
+- Jogos, Histórias, Cofre, menus e rotas receberam foco previsível, nomes
+  acessíveis, teclado completo e resultados que não desaparecem sozinhos.
+- Sinais adaptativos rejeitam reutilização divergente do mesmo evento.
+  Push e e-mail reservam atomicamente cada envio; e-mail também usa chave de
+  idempotência estável no provedor.
+
+### Validação
+
+- Novos contratos cobrem conteúdo não confiável, carregamento limitado de
+  traduções, acessibilidade, exportação contextual e concorrência do backend.
+
 ## [3.0.40] - 2026-09-08
 
 ### Corrigido

@@ -37,10 +37,60 @@
         });
     };
 
+    const originalFetch = window.fetch;
+    let preloadedVideoKey = '';
+
+    const getCaptionTracks = () => {
+        try {
+            const player = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
+            const response = (typeof player?.getPlayerResponse === 'function' ? player.getPlayerResponse() : null)
+                || window.ytInitialPlayerResponse;
+            const tracks = response?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+            return Array.isArray(tracks) ? tracks : [];
+        } catch {
+            return [];
+        }
+    };
+
+    const preloadFullSubtitleTrack = async (attempt = 0) => {
+        const videoId = new URLSearchParams(window.location.search).get('v');
+        if (!videoId) return;
+        const tracks = getCaptionTracks();
+        if (!tracks.length) {
+            if (attempt < 4) setTimeout(() => preloadFullSubtitleTrack(attempt + 1), 400 * (attempt + 1));
+            return;
+        }
+
+        const manual = tracks.find((track) => track.languageCode?.startsWith(currentSourceLang) && track.kind !== 'asr');
+        const source = tracks.find((track) => track.languageCode?.startsWith(currentSourceLang));
+        const track = manual || source || tracks[0];
+        if (!track?.baseUrl) return;
+
+        const url = new URL(track.baseUrl, window.location.href);
+        url.searchParams.delete('tlang');
+        url.searchParams.delete('t');
+        url.searchParams.delete('range');
+        url.searchParams.delete('spv');
+        url.searchParams.set('fmt', 'json3');
+        const preloadKey = `${videoId}:${currentSourceLang}:${url}`;
+        if (preloadedVideoKey === preloadKey) return;
+        preloadedVideoKey = preloadKey;
+
+        try {
+            const response = await originalFetch(url.toString());
+            if (!response.ok) throw new Error(`subtitle_status_${response.status}`);
+            const body = await response.text();
+            if (body.length > 10) notifyExt(url.toString(), body);
+            else preloadedVideoKey = '';
+        } catch (error) {
+            preloadedVideoKey = '';
+            console.debug('[LinguaFlow] Falha ao antecipar trilha completa:', error);
+        }
+    };
+
     // ── INTERCEPTAÇÃO DE REDE (Fetch & XHR) ───────────────────────────────────
     
     // Hook Fetch (Padrão moderno)
-    const originalFetch = window.fetch;
     window.fetch = async function(...args) {
         const url = args[0];
         const urlStr = typeof url === 'string' ? url : (url instanceof URL ? url.href : '');
@@ -139,10 +189,19 @@
     window.addEventListener('message', (e) => {
         if (e.origin !== window.location.origin || e.source !== window) return;
         if (!e.data || typeof e.data !== 'object') return;
-        if (e.data.type === 'LF_SET_SOURCE_LANG' && typeof e.data.sourceLang === 'string') {
+        if (e.data.type === 'LF_PRELOAD_SUBTITLES') {
+            preloadFullSubtitleTrack();
+        } else if (e.data.type === 'LF_SET_SOURCE_LANG' && typeof e.data.sourceLang === 'string') {
+            if (currentSourceLang !== e.data.sourceLang) preloadedVideoKey = '';
             currentSourceLang = e.data.sourceLang;
             ensureOriginalTrack();
+            preloadFullSubtitleTrack();
         }
+    });
+
+    window.addEventListener('yt-navigate-finish', () => {
+        preloadedVideoKey = '';
+        setTimeout(() => preloadFullSubtitleTrack(), 250);
     });
 
     // ── INTERCEPTAÇÃO DO PLAYER (YouTube API) ────────────────────────────────
@@ -153,6 +212,7 @@
         const moviePlayer = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
         if (moviePlayer && moviePlayer.addEventListener) {
             ensureOriginalTrack();
+            preloadFullSubtitleTrack();
             // Se o YouTube trocar de legenda via API interna, pegamos aqui
             moviePlayer.addEventListener('onStateChange', (state) => {
                 if (state !== lastPlayerState) {

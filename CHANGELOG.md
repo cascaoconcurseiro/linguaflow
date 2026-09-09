@@ -1,5 +1,23 @@
 # Changelog
 
+## [3.0.42] - 2026-09-09
+
+### Corrigido
+
+- A barra lateral solicita a trilha completa do YouTube no início e antecipa a
+  tradução de todas as cues, inclusive as que ainda estão fora da rolagem.
+- A fila entrega cada tradução à interface assim que ela termina, preserva a
+  ordem e limita concorrência a 12 chamadas para evitar rajadas sem atrasar a
+  lista inteira até a última resposta.
+- Troca de vídeo ou idioma invalida resultados tardios; a pré-carga usa uma
+  única URL `json3` sem `tlang`, `t`, `range` ou `spv` e não dispara fan-out de
+  blocos nem depende de rede nos testes.
+
+### Validação
+
+- Contratos cobrem concorrência real da fila, ordem, preenchimento de todas as
+  cues, pré-carga da trilha completa e ausência da estratégia por viewport.
+
 ## [3.0.41] - 2026-09-09
 
 ### Corrigido

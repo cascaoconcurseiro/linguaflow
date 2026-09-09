@@ -178,6 +178,7 @@ foram consolidados e permanecem recuperáveis pelo histórico Git.
 - [x] Commit `71b6dfe` na main com IA, BR e remoção de gravação.
 - [x] Enviar correções e documentação à branch remota e abrir PR #24 para main.
 - [x] Release da branch aprovado no GitHub e preview Vercel publicado.
+- [x] Build 3.0.40 integrado na `main` pelo PR #35 após checks obrigatórios verdes (2026-09-09).
 - Integração final e checks: [PR #24](https://github.com/cascaoconcurseiro/linguaflow/pull/24).
 
 - [x] Publicar `deepseek-chat` e `fluency-assessment` exclusivamente DeepSeek no Supabase em 04/09.

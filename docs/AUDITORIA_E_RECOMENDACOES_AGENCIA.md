@@ -1,7 +1,7 @@
 # Auditoria geral — LinguaFlow
 
-**Data:** 2026-09-08  
-**Base:** `main` em `590f436`, build `3.0.40` em validação
+**Data:** 2026-09-09
+**Base:** `main` em `3589a9f`, build `3.0.40` publicado pelo PR #35
 
 ## Escopo e método
 
@@ -59,9 +59,8 @@ de um futuro `db push`.
 
 ## Evidência automatizada
 
-- `npm run test:release -- --allow-dirty`: verde antes das correções deste lote.
-- Contratos focados de HTML não confiável, configurações, FSRS e release smoke:
-  verdes após as correções.
-- O release completo passou depois do diff final.
+- `npm run test:release -- --allow-dirty`: verde depois do diff final.
+- Os checks obrigatórios de push e pull request passaram no GitHub.
+- O preview Vercel concluiu antes do squash merge `3589a9f`.
 - A migration `20260908100000_harden_server_authoritative_fsrs.sql` foi aplicada
   isoladamente; o dry-run posterior confirmou o banco remoto atualizado.

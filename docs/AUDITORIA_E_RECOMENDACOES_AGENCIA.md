@@ -1,7 +1,7 @@
 # Auditoria geral — LinguaFlow
 
 **Data:** 2026-09-09
-**Base:** `main` em `e65a159`, build auditado `3.0.41`
+**Base:** `main` em `45ac0f9`, build `3.0.41` publicado pelo PR #37
 
 ## Escopo e método
 
@@ -62,12 +62,12 @@ Essas verificações não cobrem comprometimento futuro de CDN, segurança inter
 6. Backend: disparar duas invocações concorrentes dos lembretes e conferir um claim por destino; testar retry idêntico e conflito adaptativo divergente.
 7. Duas contas: confirmar isolamento de palavras, cards, preferências, histórias, sessões e eventos; o workflow atual não substitui essa matriz inteira.
 
-## Evidência automatizada exigida para publicação
+## Evidência de publicação
 
-- `npm run test:release -- --allow-dirty` no diff final.
-- Replay limpo de todas as migrations pelo gate de banco.
-- Checks obrigatórios do PR e preview Vercel verdes.
-- `supabase db push --linked --dry-run` antes da aplicação real.
-- Deploy das duas Edge Functions somente depois da migration.
+- `npm run test:release -- --allow-dirty` passou no diff final.
+- Os dois gates obrigatórios do PR #37 e o preview Vercel ficaram verdes.
+- O dry-run listou somente `20260909100000`; ela foi aplicada e o dry-run posterior confirmou o banco atualizado.
+- `push-reminder` e `email-reengagement` foram publicadas depois da migration.
+- O PR #37 foi integrado por squash em `45ac0f9`.
 
-Produção só pode ser declarada após esses passos. Validação local não prova que a extensão foi recarregada nem que o navegador e os provedores executaram o novo build.
+O código web e o backend deste lote estão publicados. Isso não prova que a extensão foi recarregada nem que Chrome, áudio, Anki e duas contas reais executaram toda a matriz manual.

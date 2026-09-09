@@ -2,7 +2,7 @@
 
 ## Última sessão — 2026-09-09
 
-Build `3.0.41` preparado no branch `codex/full-system-audit-3.0.41`. O lote anterior, `3.0.40`, está publicado na `main` pelo PR #35, squash `3589a9f`.
+Build `3.0.41` publicado na `main` pelo PR #37, squash `45ac0f9`.
 
 ## Auditoria e correções desta sessão
 
@@ -15,17 +15,18 @@ Build `3.0.41` preparado no branch `codex/full-system-audit-3.0.41`. O lote ante
 
 ## Evidência atual
 
-- Checks de sintaxe dos módulos alterados, `git diff --check` e contratos focados passaram antes da suíte completa.
+- Checks de sintaxe dos módulos alterados, `git diff --check` e a suíte completa de release passaram.
 - `npm audit --omit=dev` não encontrou vulnerabilidades no snapshot auditado.
 - Cabeçalhos públicos de HSTS, CSP, anti-frame, nosniff, referrer e permissões foram confirmados; o workflow live de RLS consultado estava verde.
-- Testes locais não provam extensão recarregada, áudio ouvido, sessão autenticada, duas contas reais, importação manual no Anki ou produção Supabase aplicada.
+- A migration `20260909100000_notification_claims_and_adaptive_idempotency.sql` foi aplicada no Supabase; o dry-run posterior retornou `Remote database is up to date`.
+- As Edge Functions `push-reminder` e `email-reengagement` foram publicadas no projeto `qnutoswrufznztoznlql`.
+- Os dois gates de release do PR #37 e o preview Vercel passaram antes do squash merge.
+- Testes locais não provam extensão recarregada, áudio ouvido, sessão autenticada, duas contas reais ou importação manual no Anki.
 
 ## Próximo passo concreto
 
-1. Executar o release completo do build 3.0.41.
-2. Publicar a migration e as Edge Functions `push-reminder` e `email-reengagement` após os checks do PR.
-3. Fazer squash merge na `main`, sincronizar o checkout e verificar o build web.
-4. Homologar no Chrome autenticado os modos de legenda, tradução lateral, contexto do card, exportação Anki, áudio e isolamento com duas contas.
+1. Homologar no Chrome autenticado os modos de legenda, tradução lateral, contexto do card, exportação Anki, áudio e isolamento com duas contas.
+2. Medir a busca linear de cues em vídeo longo antes de desenhar o índice temporal.
 
 ## Riscos residuais conhecidos
 

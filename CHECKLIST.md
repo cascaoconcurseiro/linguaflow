@@ -13,8 +13,8 @@
 - [x] Rejeitar colisão idempotente divergente nos sinais adaptativos.
 - [x] Reservar Push/e-mail atomicamente antes do efeito externo.
 - [x] Integrar os novos contratos aos gates de release.
-- [ ] Aplicar migration e publicar `push-reminder`/`email-reengagement`.
-- [ ] Integrar o build 3.0.41 na `main` após checks obrigatórios.
+- [x] Aplicar migration e publicar `push-reminder`/`email-reengagement` (2026-09-09).
+- [x] Integrar o build 3.0.41 na `main` após checks obrigatórios pelo PR #37 (2026-09-09).
 - [ ] Homologar Chrome, áudio, Anki e isolamento completo com duas contas.
 
 Este arquivo contém apenas trabalho vigente. Auditorias e planos superados

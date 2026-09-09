@@ -1,8 +1,8 @@
 # Handoff — LinguaFlow
 
-## Última sessão — 2026-09-08
+## Última sessão — 2026-09-09
 
-Build local: `3.0.40`. Build `3.0.39` publicado na `main` em `590f436`.
+Build `3.0.40` publicado na `main` pelo PR #35, squash `3589a9f`.
 
 ## Trabalho confirmado do Antigravity
 
@@ -39,17 +39,17 @@ Build local: `3.0.40`. Build `3.0.39` publicado na `main` em `590f436`.
 ## Evidência
 
 - Release completo do build 3.0.39 passou antes do novo lote.
-- Contratos focados de FSRS, conteúdo não confiável, fiação e release smoke do
-  build 3.0.40 passaram; repetir o release completo após o diff final.
+- O release completo local do build 3.0.40 passou após o ajuste final.
+- Os checks obrigatórios de push e pull request passaram no GitHub; o preview
+  da Vercel também foi publicado antes do squash merge.
 - Teste local não substitui extensão recarregada, áudio ouvido, sessão
   autenticada, duas contas reais ou verificação do painel Supabase.
 
 ## Próximo passo concreto
 
-1. Abrir o PR do commit `f33d0ab`, acompanhar checks e fazer squash merge.
-2. Recarregar a extensão 3.0.40 e homologar YouTube, contexto salvo, undo,
+1. Recarregar a extensão 3.0.40 e homologar YouTube, contexto salvo, undo,
    limites, voz e configurações.
-3. Validar RLS ao vivo com duas contas e conferir Leaked Password Protection.
+2. Validar RLS ao vivo com duas contas e conferir Leaked Password Protection.
 
 ## Limites conhecidos
 

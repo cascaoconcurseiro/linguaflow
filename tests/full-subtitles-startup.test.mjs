@@ -140,4 +140,55 @@ function bareEngine(url = 'https://www.youtube.com/watch?v=full-test') {
   assert.equal(engine.cues.length, 4, 'a lista completa não deve regredir com a chegada de novo segmento');
 }
 
+// 4. Em vídeo de 20+ minutos onde o player inicial entrega apenas os primeiros 13 minutos (~800s),
+// o sistema busca automaticamente os blocos subsequentes até cobrir os 20+ minutos inteiros desde o início.
+{
+  const engine = bareEngine('https://www.youtube.com/watch?v=long-20min-test');
+  const navigation = engine._beginNavigation('https://www.youtube.com/watch?v=long-20min-test');
+  engine.videoElement = { duration: 1350 }; // 22.5 minutos
+
+  const chunk1Url = 'https://www.youtube.com/api/timedtext?v=long-20min-test&lang=en&spv=1&t=0';
+  const chunk1Json = JSON.stringify({
+    events: [
+      { tStartMs: 0, dDurationMs: 2000, segs: [{ utf8: 'Start at 00:00' }] },
+      { tStartMs: 400000, dDurationMs: 2000, segs: [{ utf8: 'Middle at 06:40' }] },
+      { tStartMs: 798000, dDurationMs: 2000, segs: [{ utf8: 'Boundary at 13:18' }] },
+    ],
+  });
+
+  const requestedUrls = [];
+  globalThis.fetch = async (url) => {
+    const uStr = typeof url === 'string' ? url : url.toString();
+    requestedUrls.push(uStr);
+    const parsed = new URL(uStr);
+
+    // Se for a tentativa de trilha limpa sem spv, simula rejeição 403 do YouTube em streaming ASR
+    if (!parsed.searchParams.has('spv')) {
+      return { ok: false, status: 403, text: async () => '' };
+    }
+
+    // Bloco 2 cobrindo os minutos 13.3 a 22.5
+    const chunk2Events = {
+      events: [
+        { tStartMs: 800000, dDurationMs: 2000, segs: [{ utf8: 'Chunk 2 at 13:20' }] },
+        { tStartMs: 1000000, dDurationMs: 2000, segs: [{ utf8: 'Chunk 2 at 16:40' }] },
+        { tStartMs: 1345000, dDurationMs: 3000, segs: [{ utf8: 'Chunk 2 final sentence at 22:25' }] },
+      ],
+    };
+    return {
+      ok: true,
+      text: async () => JSON.stringify(chunk2Events),
+    };
+  };
+
+  await engine._processYouTubeRawSubtitles(chunk1Url, chunk1Json, navigation);
+
+  assert.ok(requestedUrls.some((u) => u.includes('t=') && (u.includes('798') || u.includes('800'))),
+    'deve requisitar o bloco subsequente a partir de ~13 minutos');
+  assert.equal(engine.cues.length, 6, 'todas as 6 frases dos 22 minutos devem estar unificadas na lista');
+  assert.equal(engine.cues[0].text, 'Start at 00:00');
+  assert.equal(engine.cues[engine.cues.length - 1].text, 'Chunk 2 final sentence at 22:25');
+  assert.equal(engine._hasFullYoutubeTrack, true);
+}
+
 console.log('Testes de carregamento completo e antecipado de legendas: tudo verde ✅');

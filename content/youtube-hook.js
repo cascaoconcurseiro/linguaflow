@@ -77,7 +77,12 @@
 
             const tracks = response?.captions?.playerCaptionsTracklistRenderer?.captionTracks
                 || response?.captions?.playerCaptionsRenderer?.captionTracks;
-            return Array.isArray(tracks) ? tracks : [];
+            if (Array.isArray(tracks) && tracks.length > 0) return tracks;
+
+            const playerOptionTracks = typeof player?.getOption === 'function' ? player.getOption('captions', 'tracklist') : null;
+            if (Array.isArray(playerOptionTracks) && playerOptionTracks.length > 0) return playerOptionTracks;
+
+            return [];
         } catch {
             return [];
         }

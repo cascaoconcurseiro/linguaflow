@@ -2750,6 +2750,110 @@ export class SubtitleEngine {
     }
   }
 
+  _getVideoDuration() {
+    try {
+      const vid = this.videoElement || (typeof document !== 'undefined' ? document.querySelector('video') : null);
+      if (vid && typeof vid.duration === 'number' && !isNaN(vid.duration) && vid.duration > 0) {
+        return vid.duration;
+      }
+      const player = typeof document !== 'undefined'
+        ? (document.getElementById('movie_player') || document.querySelector('.html5-video-player'))
+        : null;
+      if (player && typeof player.getDuration === 'function') {
+        const d = player.getDuration();
+        if (typeof d === 'number' && !isNaN(d) && d > 0) return d;
+      }
+    } catch {}
+    return 0;
+  }
+
+  async _fetchRemainingYoutubeChunks(initialUrl, currentCues, navigation) {
+    if (!this._isNavigationCurrent(navigation) || !Array.isArray(currentCues) || currentCues.length === 0) {
+      return currentCues;
+    }
+    let cues = [...currentCues];
+    let attempts = 0;
+    const maxAttempts = 25;
+
+    while (attempts < maxAttempts && this._isNavigationCurrent(navigation)) {
+      attempts++;
+      const lastCue = cues[cues.length - 1];
+      if (!lastCue || typeof lastCue.end !== 'number') break;
+
+      const videoDuration = this._getVideoDuration();
+      if (videoDuration > 0 && lastCue.end >= videoDuration - 10) {
+        break;
+      }
+
+      let chunkCues = [];
+      const overlapSec = 2;
+      const targetStartSec = Math.max(0, lastCue.end - overlapSec);
+      const offsetsToTry = [
+        Math.floor(targetStartSec * 1000), // ms
+        Math.floor(targetStartSec),        // s
+      ];
+
+      for (const offset of offsetsToTry) {
+        if (!this._isNavigationCurrent(navigation)) return cues;
+        try {
+          const chunkUrl = new URL(initialUrl);
+          chunkUrl.searchParams.set('t', String(offset));
+          chunkUrl.searchParams.delete('range');
+          chunkUrl.searchParams.delete('tlang');
+
+          const response = await fetch(chunkUrl.toString(), { signal: navigation.signal });
+          if (!response.ok) continue;
+          const raw = await response.text();
+          if (!raw || raw.length < 10) continue;
+
+          let parsed = [];
+          if (raw.startsWith('{')) {
+            try { parsed = this._processYtSub(JSON.parse(raw)); } catch {}
+          } else if (raw.includes('WEBVTT') || raw.includes('-->')) {
+            parsed = this._parseVTT(raw);
+          } else if (raw.includes('<transcript') || raw.includes('<timedtext') || (raw.startsWith('<') && (raw.includes('</text>') || raw.includes('</p>')))) {
+            parsed = this._parseYouTubeXml(raw);
+          }
+
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const genuinelyNew = parsed.filter((c) => c.start > lastCue.start + 0.5);
+            if (genuinelyNew.length > 0) {
+              chunkCues = parsed;
+              break;
+            }
+          }
+        } catch (e) {
+          if (e?.name === 'AbortError' || !this._isNavigationCurrent(navigation)) return cues;
+        }
+      }
+
+      if (chunkCues.length === 0) break;
+
+      const cueMap = new Map(cues.map((c) => [Math.round(c.start * 100), c]));
+      let addedCount = 0;
+      chunkCues.forEach((c) => {
+        const key = Math.round(c.start * 100);
+        if (!cueMap.has(key)) {
+          cueMap.set(key, c);
+          addedCount++;
+        }
+      });
+
+      if (addedCount === 0) break;
+
+      cues = [...cueMap.values()].sort((a, b) => a.start - b.start);
+      this.cues = cues;
+      this.xhrCues = cues;
+      this._rebuildSubtitleList();
+      this._rebuildWordsList();
+
+      const newLastCue = cues[cues.length - 1];
+      if (newLastCue.end <= lastCue.end + 1) break;
+    }
+
+    return cues;
+  }
+
   async _processYouTubeRawSubtitles(url, raw, navigation = this._navigationSnapshot()) {
     if (!this._isNavigationCurrent(navigation)) return;
     try {
@@ -2905,6 +3009,23 @@ export class SubtitleEngine {
       this._rebuildSubtitleList(); // Atualiza painel lateral IMEDIATAMENTE
       this._rebuildWordsList();
       // this.toggleSubtitles(); // Removido: Não forçar ativação automática
+
+      // Se as legendas carregadas ainda não cobrem o vídeo todo (ex: chunk inicial de ~13min em vídeo de 20min+),
+      // busca automaticamente os chunks subsequentes para completar 100% da trilha imediatamente
+      const lastCue = cues[cues.length - 1];
+      const videoDuration = this._getVideoDuration();
+      const isPartialTrack = !this._hasFullYoutubeTrack
+        && lastCue
+        && ((videoDuration > 0 && lastCue.end < videoDuration - 15) || (incomingIsSegment && lastCue.end >= 400));
+
+      if (isPartialTrack) {
+        cues = await this._fetchRemainingYoutubeChunks(url, cues, navigation);
+        this.cues = cues;
+        this.xhrCues = cues;
+        this._hasFullYoutubeTrack = true;
+        this._rebuildSubtitleList();
+        this._rebuildWordsList();
+      }
 
       // Persistência para F5 — armazena apenas URL limpa (sem tlang)
       const cleanUrl = parsedUrl.searchParams.has('tlang')

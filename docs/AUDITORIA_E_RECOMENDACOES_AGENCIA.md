@@ -1,7 +1,7 @@
 # Auditoria geral — LinguaFlow
 
 **Data:** 2026-09-09
-**Base:** build `3.0.43` em validação sobre a `main`
+**Base:** `main` em `f49f679`, build `3.0.43` publicado pelo PR #41
 
 ## Escopo e método
 

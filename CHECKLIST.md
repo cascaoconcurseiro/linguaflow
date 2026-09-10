@@ -11,7 +11,7 @@
 - [x] Validar remetente e tamanho do texto no service worker.
 - [x] Integrar contrato de transporte ao gate de release.
 - [x] Executar o release completo com as mudanças de tradução/Max do Antigravity preservadas.
-- [ ] Publicar o build 3.0.43 na `main` após release e checks.
+- [x] Publicar o build 3.0.43 na `main` pelo PR #41 após release e checks (2026-09-10).
 
 ## Tradução antecipada da lista lateral — build 3.0.42
 

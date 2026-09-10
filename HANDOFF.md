@@ -2,7 +2,7 @@
 
 ## Última sessão — 2026-09-10
 
-Build `3.0.43` em validação para corrigir o CORS da tradução lateral. O build `3.0.42` está publicado na `main`.
+Build `3.0.43` publicado na `main` pelo PR #41, squash `f49f679`.
 
 ## Auditoria e correções desta sessão
 
@@ -19,6 +19,7 @@ Build `3.0.43` em validação para corrigir o CORS da tradução lateral. O buil
 ## Evidência atual
 
 - O release completo local do build 3.0.43 passou, incluindo a implementação do Antigravity para legendas/Max e o novo contrato de proxy sem CORS.
+- Os dois gates de release e o preview Vercel do PR #41 passaram antes do squash merge.
 - Os dois gates de release e o preview Vercel do PR #39 passaram antes do squash merge.
 - Checks de sintaxe dos módulos alterados, `git diff --check` e a suíte completa de release passaram.
 - `npm audit --omit=dev` não encontrou vulnerabilidades no snapshot auditado.
@@ -30,9 +31,8 @@ Build `3.0.43` em validação para corrigir o CORS da tradução lateral. O buil
 
 ## Próximo passo concreto
 
-1. Executar o release completo e publicar o build 3.0.43 por PR protegido.
-2. Recarregar a extensão e confirmar que toda a lista lateral começa a preencher ainda no início do vídeo, sem erros CORS.
-3. Homologar contexto do card, exportação Anki, áudio e isolamento com duas contas.
+1. Recarregar a extensão e confirmar que toda a lista lateral começa a preencher ainda no início do vídeo, sem erros CORS.
+2. Homologar contexto do card, exportação Anki, áudio e isolamento com duas contas.
 
 ## Riscos residuais conhecidos
 

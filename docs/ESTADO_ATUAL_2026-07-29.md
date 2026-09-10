@@ -1,8 +1,8 @@
 # Estado atual — LinguaFlow
 
 **Atualizado em:** 2026-09-10
-**Código de referência:** `0d2f1c1` na `main`
-**Build web/extensão:** `3.0.43` em validação; `3.0.42` publicado
+**Código de referência:** `f49f679` na `main`
+**Build web/extensão:** `3.0.43` publicado; homologação manual pendente
 
 Este é o ponto de entrada canônico para saber o que existe, o que foi
 verificado e o que ainda falta. Planos e auditorias superados foram removidos

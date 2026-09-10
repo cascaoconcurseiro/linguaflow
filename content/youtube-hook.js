@@ -39,13 +39,44 @@
 
     const originalFetch = window.fetch;
     let preloadedVideoKey = '';
+    let interceptedFullTrackKey = '';
+
+    const getCurrentVideoId = () => {
+        try {
+            return new URLSearchParams(window.location.search).get('v') || '';
+        } catch {
+            return '';
+        }
+    };
 
     const getCaptionTracks = () => {
         try {
             const player = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
-            const response = (typeof player?.getPlayerResponse === 'function' ? player.getPlayerResponse() : null)
-                || window.ytInitialPlayerResponse;
-            const tracks = response?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+            let response = typeof player?.getPlayerResponse === 'function' ? player.getPlayerResponse() : null;
+            if (typeof response === 'string') {
+                try { response = JSON.parse(response); } catch {}
+            }
+            if (!response || !response.captions) {
+                const flexy = document.querySelector('ytd-watch-flexy');
+                if (flexy && flexy.playerData) {
+                    response = flexy.playerData;
+                    if (typeof response === 'string') {
+                        try { response = JSON.parse(response); } catch {}
+                    }
+                }
+            }
+            if (!response || !response.captions) {
+                response = window.ytInitialPlayerResponse;
+                if (typeof response === 'string') {
+                    try { response = JSON.parse(response); } catch {}
+                }
+            }
+            const currentVid = getCurrentVideoId();
+            const responseVid = response?.videoDetails?.videoId;
+            if (currentVid && responseVid && currentVid !== responseVid) return [];
+
+            const tracks = response?.captions?.playerCaptionsTracklistRenderer?.captionTracks
+                || response?.captions?.playerCaptionsRenderer?.captionTracks;
             return Array.isArray(tracks) ? tracks : [];
         } catch {
             return [];
@@ -53,11 +84,11 @@
     };
 
     const preloadFullSubtitleTrack = async (attempt = 0) => {
-        const videoId = new URLSearchParams(window.location.search).get('v');
+        const videoId = getCurrentVideoId();
         if (!videoId) return;
         const tracks = getCaptionTracks();
         if (!tracks.length) {
-            if (attempt < 4) setTimeout(() => preloadFullSubtitleTrack(attempt + 1), 400 * (attempt + 1));
+            if (attempt < 8) setTimeout(() => preloadFullSubtitleTrack(attempt + 1), Math.min(1500, 350 * (attempt + 1)));
             return;
         }
 
@@ -77,15 +108,53 @@
         preloadedVideoKey = preloadKey;
 
         try {
-            const response = await originalFetch(url.toString());
-            if (!response.ok) throw new Error(`subtitle_status_${response.status}`);
+            let response = await originalFetch(url.toString(), { credentials: 'same-origin' });
+            if (!response.ok && response.status !== 304) {
+                const fallbackUrl = new URL(track.baseUrl, window.location.href);
+                fallbackUrl.searchParams.delete('tlang');
+                fallbackUrl.searchParams.delete('t');
+                fallbackUrl.searchParams.delete('range');
+                fallbackUrl.searchParams.delete('spv');
+                response = await originalFetch(fallbackUrl.toString(), { credentials: 'same-origin' });
+                if (!response.ok) throw new Error(`subtitle_status_${response.status}`);
+            }
             const body = await response.text();
-            if (body.length > 10) notifyExt(url.toString(), body);
+            if (body && body.length > 10) notifyExt(url.toString(), body);
             else preloadedVideoKey = '';
         } catch (error) {
             preloadedVideoKey = '';
             console.debug('[LinguaFlow] Falha ao antecipar trilha completa:', error);
         }
+    };
+
+    const maybeFetchFullTrackFromSegment = (urlStr) => {
+        try {
+            if (!urlStr.includes('timedtext') && !urlStr.includes('api/timedtext')) return;
+            const u = new URL(urlStr, window.location.href);
+            const isSegment = ['t', 'range', 'spv'].some((param) => u.searchParams.has(param));
+            if (!isSegment) return;
+            const videoId = u.searchParams.get('v') || getCurrentVideoId();
+            if (!videoId) return;
+
+            u.searchParams.delete('t');
+            u.searchParams.delete('range');
+            u.searchParams.delete('spv');
+            u.searchParams.delete('tlang');
+            const cleanUrl = u.toString();
+            const dedupeKey = `${videoId}:${cleanUrl}`;
+            if (interceptedFullTrackKey === dedupeKey) return;
+            interceptedFullTrackKey = dedupeKey;
+
+            originalFetch(cleanUrl, { credentials: 'same-origin' })
+                .then(async (res) => {
+                    if (!res.ok) return;
+                    const text = await res.text();
+                    if (text && text.length > 10) {
+                        notifyExt(cleanUrl, text);
+                    }
+                })
+                .catch(() => {});
+        } catch {}
     };
 
     // ── INTERCEPTAÇÃO DE REDE (Fetch & XHR) ───────────────────────────────────
@@ -105,6 +174,9 @@
 
         if (isSubtitle) {
             try {
+                if (urlStr.includes('timedtext') || urlStr.includes('api/timedtext')) {
+                    maybeFetchFullTrackFromSegment(urlStr);
+                }
                 const response = await originalFetch.apply(this, args);
                 const clone = response.clone();
                 
@@ -134,6 +206,9 @@
                            urlStr.includes('subtitles');
 
         if (isSubtitle) {
+            if (urlStr.includes('timedtext') || urlStr.includes('api/timedtext')) {
+                maybeFetchFullTrackFromSegment(urlStr);
+            }
             this.addEventListener('load', function() {
                 if (this.responseType === 'arraybuffer' || this.response instanceof ArrayBuffer) {
                     postBridgeMessage({ type: 'LF_SUBTITLE_HOOK', url: urlStr, data: this.response, isBinary: true });
@@ -192,7 +267,10 @@
         if (e.data.type === 'LF_PRELOAD_SUBTITLES') {
             preloadFullSubtitleTrack();
         } else if (e.data.type === 'LF_SET_SOURCE_LANG' && typeof e.data.sourceLang === 'string') {
-            if (currentSourceLang !== e.data.sourceLang) preloadedVideoKey = '';
+            if (currentSourceLang !== e.data.sourceLang) {
+                preloadedVideoKey = '';
+                interceptedFullTrackKey = '';
+            }
             currentSourceLang = e.data.sourceLang;
             ensureOriginalTrack();
             preloadFullSubtitleTrack();
@@ -201,6 +279,7 @@
 
     window.addEventListener('yt-navigate-finish', () => {
         preloadedVideoKey = '';
+        interceptedFullTrackKey = '';
         setTimeout(() => preloadFullSubtitleTrack(), 250);
     });
 
@@ -221,6 +300,7 @@
                 }
                 if (state === 1 || state === -1) {
                     ensureOriginalTrack();
+                    preloadFullSubtitleTrack();
                 }
             });
             console.debug('[LinguaFlow] 🎥 Monitor de Player acoplado com sucesso.');

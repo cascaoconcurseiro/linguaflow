@@ -246,6 +246,8 @@ export class SubtitleEngine {
     this._navigationController = new AbortController();
     this._navigationUrl = url;
     this._navigationEpoch += 1;
+    this._hasFullYoutubeTrack = false;
+    this._fullTrackFetchKey = '';
     return this._navigationSnapshot();
   }
 
@@ -2646,7 +2648,107 @@ export class SubtitleEngine {
     }
   }
 
-  // A injeção do youtube-hook.js agora é feita pelo injector.js em document_start
+  _parseYouTubeXml(raw) {
+    if (!raw || typeof raw !== 'string') return [];
+    try {
+      const cues = [];
+      if (typeof DOMParser !== 'undefined') {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(raw, 'text/xml');
+        const textNodes = xmlDoc.querySelectorAll('text');
+        if (textNodes && textNodes.length > 0) {
+          textNodes.forEach((node) => {
+            const start = parseFloat(node.getAttribute('start') || '0');
+            const dur = parseFloat(node.getAttribute('dur') || '0');
+            const text = (node.textContent || '').trim();
+            if (text) {
+              cues.push({
+                start: Math.max(0, start),
+                end: Math.max(start + dur, start + 0.5),
+                text: text.replace(/\s+/g, ' '),
+              });
+            }
+          });
+          if (cues.length > 0) return cues;
+        }
+        const pNodes = xmlDoc.querySelectorAll('p');
+        if (pNodes && pNodes.length > 0) {
+          pNodes.forEach((node) => {
+            const t = parseFloat(node.getAttribute('t') || '0');
+            const d = parseFloat(node.getAttribute('d') || '0');
+            const start = t / 1000;
+            const dur = d / 1000;
+            const text = (node.textContent || '').trim();
+            if (text) {
+              cues.push({
+                start: Math.max(0, start),
+                end: Math.max(start + dur, start + 0.5),
+                text: text.replace(/\s+/g, ' '),
+              });
+            }
+          });
+          if (cues.length > 0) return cues;
+        }
+      }
+
+      // Regex fallback (para Node.js ou ambientes sem DOMParser completo)
+      const textRegex = /<text\s+[^>]*start="([^"]+)"[^>]*dur="([^"]+)"[^>]*>([\s\S]*?)<\/text>/gi;
+      let match;
+      while ((match = textRegex.exec(raw)) !== null) {
+        const start = parseFloat(match[1]) || 0;
+        const dur = parseFloat(match[2]) || 0;
+        const clean = match[3].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
+        if (clean) {
+          cues.push({
+            start: Math.max(0, start),
+            end: Math.max(start + dur, start + 0.5),
+            text: clean.replace(/\s+/g, ' '),
+          });
+        }
+      }
+      if (cues.length > 0) return cues;
+
+      const pRegex = /<p\s+[^>]*t="([^"]+)"[^>]*d="([^"]+)"[^>]*>([\s\S]*?)<\/p>/gi;
+      while ((match = pRegex.exec(raw)) !== null) {
+        const start = (parseFloat(match[1]) || 0) / 1000;
+        const dur = (parseFloat(match[2]) || 0) / 1000;
+        const clean = match[3].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
+        if (clean) {
+          cues.push({
+            start: Math.max(0, start),
+            end: Math.max(start + dur, start + 0.5),
+            text: clean.replace(/\s+/g, ' '),
+          });
+        }
+      }
+      return cues;
+    } catch {
+      return [];
+    }
+  }
+
+  async _scheduleFullYoutubeTrackFetch(url, navigation) {
+    if (!this._isNavigationCurrent(navigation)) return;
+    try {
+      const fullUrl = new URL(url);
+      fullUrl.searchParams.delete('t');
+      fullUrl.searchParams.delete('range');
+      fullUrl.searchParams.delete('spv');
+      fullUrl.searchParams.delete('tlang');
+      const fetchKey = `${navigation.epoch}:${fullUrl.toString()}`;
+      if (this._fullTrackFetchKey === fetchKey) return;
+      this._fullTrackFetchKey = fetchKey;
+
+      const response = await fetch(fullUrl.toString(), { signal: navigation.signal });
+      if (!this._isNavigationCurrent(navigation) || !response.ok) return;
+      const text = await response.text();
+      if (!this._isNavigationCurrent(navigation) || !text || text.length < 10) return;
+      await this._processYouTubeRawSubtitles(fullUrl.toString(), text, navigation);
+      this._hasFullYoutubeTrack = true;
+    } catch (e) {
+      if (e?.name === 'AbortError' || !this._isNavigationCurrent(navigation)) return;
+    }
+  }
 
   async _processYouTubeRawSubtitles(url, raw, navigation = this._navigationSnapshot()) {
     if (!this._isNavigationCurrent(navigation)) return;
@@ -2672,6 +2774,7 @@ export class SubtitleEngine {
         try {
           if (raw.startsWith('{')) transCues = this._processYtSub(JSON.parse(raw));
           else if (raw.includes('WEBVTT') || raw.includes('-->')) transCues = this._parseVTT(raw);
+          else if (raw.includes('<transcript') || raw.includes('<timedtext') || (raw.startsWith('<') && (raw.includes('</text>') || raw.includes('</p>')))) transCues = this._parseYouTubeXml(raw);
         } catch {}
         if (Array.isArray(transCues) && transCues.length > 0) {
           this.cues.forEach((c, i) => {
@@ -2698,6 +2801,8 @@ export class SubtitleEngine {
               try { origCues = this._processYtSub(JSON.parse(origText)); } catch {}
             } else if (origText.includes('WEBVTT') || origText.includes('-->')) {
               origCues = this._parseVTT(origText);
+            } else if (origText.includes('<transcript') || origText.includes('<timedtext') || (origText.startsWith('<') && (origText.includes('</text>') || origText.includes('</p>')))) {
+              origCues = this._parseYouTubeXml(origText);
             }
 
             if (Array.isArray(origCues) && origCues.length > 0 && this._isNavigationCurrent(navigation)) {
@@ -2705,6 +2810,7 @@ export class SubtitleEngine {
               try {
                 if (raw.startsWith('{')) transCues = this._processYtSub(JSON.parse(raw));
                 else if (raw.includes('WEBVTT') || raw.includes('-->')) transCues = this._parseVTT(raw);
+                else if (raw.includes('<transcript') || raw.includes('<timedtext') || (raw.startsWith('<') && (raw.includes('</text>') || raw.includes('</p>')))) transCues = this._parseYouTubeXml(raw);
               } catch {}
 
               if (Array.isArray(transCues) && transCues.length > 0) {
@@ -2717,6 +2823,7 @@ export class SubtitleEngine {
               this.cues = origCues;
               this.xhrCues = origCues;
               this.usingXhr = true;
+              this._hasFullYoutubeTrack = true;
               this._rebuildSubtitleList();
               this._rebuildWordsList();
 
@@ -2750,19 +2857,26 @@ export class SubtitleEngine {
       try {
         cues = this._processYtSub(JSON.parse(raw));
       } catch (e) {}
-    } else if (raw.includes('WEBVTT')) {
+    } else if (raw.includes('WEBVTT') || raw.includes('-->')) {
       cues = this._parseVTT(raw);
-    } else if (raw.includes('-->')) {
-      cues = this._parseVTT(raw); // VTT/SRT unificado
+    } else if (raw.includes('<transcript') || raw.includes('<timedtext') || (raw.startsWith('<') && (raw.includes('</text>') || raw.includes('</p>')))) {
+      cues = this._parseYouTubeXml(raw);
     }
 
     if (cues.length > 0 && this._isNavigationCurrent(navigation)) {
       const existing = this.cues || [];
       const incomingIsSegment = ['t', 'range', 'spv'].some((param) => parsedUrl.searchParams.has(param));
-      if (existing.length > 0) {
-        const shouldMerge = incomingIsSegment || existing.length > cues.length;
+      if (incomingIsSegment && (!this._hasFullYoutubeTrack || existing.length < 15)) {
+        await this._scheduleFullYoutubeTrackFetch(url, navigation);
+      }
+      if (!incomingIsSegment && cues.length > 0) {
+        this._hasFullYoutubeTrack = true;
+      }
+      const baseExisting = this.cues || [];
+      if (baseExisting.length > 0) {
+        const shouldMerge = incomingIsSegment || baseExisting.length > cues.length;
         if (shouldMerge) {
-          const merged = new Map(existing.map((cue) => [Math.round(cue.start * 100), cue]));
+          const merged = new Map(baseExisting.map((cue) => [Math.round(cue.start * 100), cue]));
           cues.forEach((cue) => {
             const key = Math.round(cue.start * 100);
             const previous = merged.get(key);
@@ -2774,7 +2888,7 @@ export class SubtitleEngine {
           });
           cues = [...merged.values()].sort((a, b) => a.start - b.start);
         } else {
-          const prevMap = new Map(existing.map((cue) => [Math.round(cue.start * 100), cue]));
+          const prevMap = new Map(baseExisting.map((cue) => [Math.round(cue.start * 100), cue]));
           cues.forEach((cue) => {
             const key = Math.round(cue.start * 100);
             const previous = prevMap.get(key);

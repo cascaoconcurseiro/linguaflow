@@ -1,6 +1,6 @@
 # Comece aqui
 
-Revisado em 09/09/2026: build 3.0.42, FSRS autoritativo e auditoria geral.
+Revisado em 09/09/2026: build 3.0.43, FSRS autoritativo e auditoria geral.
 
 ## Referências atuais
 

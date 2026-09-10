@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.0.43] - 2026-09-09
+
+### Corrigido
+
+- A tradução antecipada da barra lateral passa pelo service worker da extensão,
+  que possui as permissões de host necessárias, em vez de fazer `fetch` a partir
+  do origin do YouTube e ser bloqueada por CORS.
+- Falha do proxy não repete a chamada pelo transporte bloqueado da página; o
+  service worker valida remetente e limita o texto antes de encaminhar.
+
+### Validação
+
+- Novo contrato diferencia content script, página da extensão, service worker e
+  PWA e impede regressão para acesso direto ao Google no contexto do YouTube.
+
 ## [3.0.42] - 2026-09-09
 
 ### Corrigido

@@ -62,6 +62,28 @@ export function isTrustedSubtitleBridgeMessage(event, bridgeState, currentUrl) {
   return payload instanceof ArrayBuffer && payload.byteLength <= MAX_SUBTITLE_PAYLOAD_BYTES;
 }
 
+const STOP_WORDS = new Set([
+  'the', 'a', 'an', 'and', 'or', 'but', 'to', 'of', 'in', 'on', 'at', 'for', 'with', 'is', 'are',
+  'was', 'were', 'be', 'been', 'it', 'this', 'that', 'you', 'i', 'we', 'they', 'he', 'she', 'do',
+  'does', 'did', 'not', 'so', 'as', 'if', 'my', 'your', 'our', 'their', 'his', 'her', 'its', 'by',
+  'from', 'up', 'about', 'into', 'than', 'then', 'when', 'what', 'which', 'who', 'how', 'all',
+  'each', 'more', 'also', 'just', 'can', 'will', 'would', 'could', 'should', 'may', 'might',
+  'have', 'has', 'had', 'get', 'got', 'go', 'come', 'know', 'think', 'see', 'look', 'want', 'use',
+  'find', 'give', 'tell', 'work', 'call', 'try', 'ask', 'need', 'feel', 'become', 'leave', 'put',
+  'mean', 'keep', 'let', 'begin', 'show', 'hear', 'play', 'run', 'move', 'live', 'believe', 'hold',
+  'bring', 'happen', 'write', 'provide', 'sit', 'stand', 'lose', 'pay', 'meet', 'include', 'continue',
+  'set', 'learn', 'change', 'lead', 'understand', 'watch', 'follow', 'stop', 'create', 'speak',
+  'read', 'spend', 'grow', 'open', 'walk', 'win', 'offer', 'remember', 'love', 'consider', 'appear',
+  'buy', 'wait', 'serve', 'die', 'send', 'expect', 'build', 'stay', 'fall', 'cut', 'reach', 'kill',
+  'remain', 'suggest', 'raise', 'pass', 'sell', 'require', 'report', 'decide', 'pull',
+]);
+
+const TOP5K_WORDS =
+  'the,be,to,of,and,a,in,that,have,it,for,not,on,with,he,as,you,do,at,this,but,his,by,from,they,we,say,her,she,or,an,will,my,one,all,would,there,their,what,so,up,out,if,about,who,get,which,go,me,when,make,can,like,time,no,just,him,know,take,people,into,year,your,good,some,could,them,see,other,than,then,now,look,only,come,its,over,think,also,back,after,use,two,how,our,work,first,well,way,even,new,want,because,any,these,give,day,most,us,great,between,need,large,often,hand,high,place,hold,real,life,few,north,open,seem,together,next,white,children,begin,got,walk,example,ease,paper,always,music,those,both,mark,book,letter,until,mile,river,car,feet,care,second,enough,plain,girl,usual,young,ready,above,ever,red,list,though,feel,talk,bird,soon,body,dog,family,direct,pose,leave,song,measure,door,product,black,short,numeral,class,wind,question,happen,complete,ship,area,half,rock,order,fire,south,problem,piece,told,knew,pass,since,top,whole,king,space,heard,best,hour,better,true,during,hundred,five,remember,step,early,hold,west,ground,interest,reach,fast,verb,sing,listen,six,table,travel,less,morning,ten,simple,several,vowel,toward,war,lay,against,pattern,slow,center,love,person,money,serve,appear,road,map,rain,rule,govern,pull,cold,notice,voice,unit,power,town,fine,drive,led,cry,dark,machine,note,wait,plan,figure,star,box,noun,field,rest,correct,able,pound,done,beauty,drive,stood,contain,front,teach,week,final,gave,green,oh,quick,develop,ocean,warm,free,minute,strong,special,mind,behind,clear,tail,produce,fact,street,inch,multiply,nothing,course,stay,wheel,full,force,blue,object,decide,surface,deep,moon,island,foot,system,busy,test,record,boat,common,gold,possible,plane,stead,dry,wonder,laugh,thousand,ago,ran,check,game,shape,equate,hot,miss,brought,heat,snow,tire,bring,yes,distant,fill,east,paint,language,among,grand,ball,yet,wave,drop,heart,am,present,heavy,dance,engine,position,arm,wide,sail,material,size,vary,settle,speak,weight,general,ice,matter,circle,pair,include,divide,syllable,felt,perhaps,pick,sudden,count,square,reason,length,represent,art,subject,region,energy,hunt,probable,bed,brother,egg,ride,cell,believe,fraction,forest,sit,race,window,store,summer,train,sleep,prove,lone,leg,exercise,wall,catch,mount,wish,sky,board,joy,winter,sat,written,wild,instrument,kept,glass,grass,cow,job,edge,sign,visit,past,soft,fun,bright,gas,weather,month,million,bear,finish,happy,hope,flower,clothe,strange,gone,jump,baby,eight,village,meet,root,buy,raise,solve,metal,whether,push,seven,paragraph,third,shall,held,hair,describe,cook,floor,either,result,burn,hill,safe,cat,century,consider,type,law,bit,coast,copy,phrase,silent,tall,sand,soil,roll,temperature,finger,industry,value,fight,lie,beat,excite,natural,view,sense,ear,else,quite,broke,case,middle,kill,son,lake,moment,scale,loud,spring,observe,child,straight,consonant,nation,dictionary,milk,speed,method,organ,pay,age,section,dress,cloud,surprise,quiet,stone,tiny,climb,cool,design,poor,lot,experiment,bottom,key,iron,single,stick,flat,twenty,skin,smile,crease,hole,trade,melody,trip,office,receive,row,mouth,exact,symbol,die,least,trouble,shout,except,wrote,seed,tone,join,suggest,clean,break,lady,yard,rise,bad,blow,oil,blood,touch,grew,cent,mix,team,wire,cost,lost,brown,wear,garden,equal,sent,choose,fell,fit,flow,fair,bank,collect,save,control,decimal,gentle,woman,captain,practice,separate,difficult,doctor,please,protect,noon,whose,locate,ring,character,insect,caught,period,indicate,radio,spoke,atom,human,history,effect,electric,expect,crop,modern,element,hit,student,corner,party,supply,bone,rail,imagine,provide,agree,thus,capital,chair,danger,fruit,rich,thick,soldier,process,operate,guess,necessary,sharp,wing,create,neighbor,wash,bat,rather,crowd,corn,compare,poem,string,bell,depend,meat,rub,tube,famous,dollar,stream,fear,sight,thin,triangle,planet,hurry,chief,colony,clock,mine,tie,enter,major,fresh,search,send,yellow,gun,allow,print,dead,spot,desert,suit,current,lift,rose,continue,block,chart,hat,sell,success,company,subtract,event,particular,deal,swim,term,opposite,wife,shoe,shoulder,spread,arrange,camp,invent,cotton,born,determine,quart,nine,truck,noise,level,chance,gather,shop,stretch,throw,shine,property,column,molecule,select,wrong,gray,repeat,require,broad,prepare,salt,nose,plural,anger,claim,continent,oxygen,sugar,death,pretty,skill,women,season,solution,magnet,silver,thank,branch,match,suffix,especially,fig,afraid,huge,sister,steel,discuss,forward,similar,guide,experience,score,apple,bought,led,pitch,coat,mass,card,band,rope,slip,win,dream,evening,condition,feed,tool,total,basic,smell,valley,nor,double,seat,arrive,master,track,parent,shore,division,sheet,substance,favor,connect,post,spend,chord,fat,glad,original,share,station,dad,bread,charge,proper,bar,offer,segment,slave,duck,instant,market,degree,populate,chick,dear,enemy,reply,drink,occur,support,speech,nature,range,steam,motion,path,liquid,log,meant,quotient,teeth,shell,neck'.split(',');
+
+const TOP5K_RANK_MAP = new Map();
+TOP5K_WORDS.forEach((w, i) => TOP5K_RANK_MAP.set(w, i + 1));
+
 // ─── Engine Principal ─────────────────────────────────────────────────────────
 export class SubtitleEngine {
   constructor() {
@@ -129,13 +151,17 @@ export class SubtitleEngine {
     // Atualiza quando uma palavra é salva ou conhecida
     window.addEventListener('LF_WORD_SAVED', (e) => {
       const w = e.detail?.word?.toLowerCase();
-      if (w) this.savedWords.set(w, 'new');
+      if (w) {
+        this.savedWords.set(w, 'new');
+        if (document.getElementById('lf-words-scroll')) this._rebuildWordsList();
+      }
     }, { signal: this._lifecycleController.signal });
     window.addEventListener('LF_WORD_KNOWN', (e) => {
       const w = (typeof e.detail === 'string' ? e.detail : e.detail?.word)?.toLowerCase();
       if (w) {
         this.knownWords.add(w);
         this.savedWords.delete(w);
+        if (document.getElementById('lf-words-scroll')) this._rebuildWordsList();
       }
     }, { signal: this._lifecycleController.signal });
     window.addEventListener('LF_UPDATE_DELAY', (e) => {
@@ -537,13 +563,27 @@ export class SubtitleEngine {
 
         const newCues = this._parseVTT(resp);
         if (newCues.length > 0) {
+          let hasNewCues = false;
           if (this.xhrCues.length > 0) {
-            const merged = [...this.xhrCues, ...newCues];
             const unique = new Map();
-            merged.forEach((c) => unique.set(c.start + '_' + c.end, c));
+            this.xhrCues.forEach((c) => unique.set(c.start + '_' + c.end, c));
+            newCues.forEach((nc) => {
+              const key = nc.start + '_' + nc.end;
+              const existing = unique.get(key);
+              if (existing) {
+                if (!existing.translatedText && nc.translatedText) {
+                  existing.translatedText = nc.translatedText;
+                  existing._transLang = nc._transLang;
+                }
+              } else {
+                unique.set(key, nc);
+                hasNewCues = true;
+              }
+            });
             this.xhrCues = Array.from(unique.values()).sort((a, b) => a.start - b.start);
           } else {
             this.xhrCues = newCues;
+            hasNewCues = true;
           }
           this.cues = this.xhrCues; // Unifica para o Sidebar
           this.usingXhr = true;
@@ -553,8 +593,10 @@ export class SubtitleEngine {
               ' frases ativas)',
           );
 
-          // Notifica reconstrução do painel lateral
-          this._rebuildSubtitleList();
+          // Notifica reconstrução do painel lateral de forma debounced
+          if (hasNewCues) {
+            this._debouncedRebuildPanels();
+          }
         }
       }
 
@@ -992,6 +1034,13 @@ export class SubtitleEngine {
     const host = document.getElementById('linguaflow-subtitle-host');
     if (!host) return;
 
+    if (this.platform === 'max') {
+      const targetRoot = document.fullscreenElement || document.body;
+      if (host.parentElement !== targetRoot) {
+        targetRoot.appendChild(host);
+      }
+    }
+
     const player = this._findPlayerContainer() || document.body;
     const playerWidth = player.getBoundingClientRect().width;
 
@@ -1093,7 +1142,8 @@ export class SubtitleEngine {
                 pointer-events: none;
                 padding: 0 !important;
             `;
-      document.body.appendChild(host);
+      const targetRoot = document.fullscreenElement || document.body;
+      targetRoot.appendChild(host);
       console.debug(`[LinguaFlow] HBO: legenda fixed bottom=${effectiveBottom}px`);
     } else if (playerContainer) {
       // YouTube e outros: absoluto dentro do player
@@ -1897,8 +1947,8 @@ export class SubtitleEngine {
     tabs.style.cssText =
       'display:flex;flex-shrink:0;';
     tabs.innerHTML = `
-            <button id="lf-tab-subtitles" style="flex:1;padding:14px;background:transparent;border:none;border-bottom:4px solid #1cb0f6;color:#1cb0f6;font-size:14px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;transition:all 0.1s;text-transform:uppercase;">Subtitles</button>
-            <button id="lf-tab-words" class="lf-checkbox-label" style="flex:1;padding:14px;background:transparent;border:none;border-bottom:4px solid transparent;font-size:14px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;transition:all 0.1s;text-transform:uppercase;">Words</button>
+            <button id="lf-tab-subtitles" class="lf-tab-btn active" data-tab="subtitles" style="flex:1;padding:14px;background:transparent;border:none;border-bottom:4px solid #1cb0f6;color:#1cb0f6;font-size:14px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;transition:all 0.1s;text-transform:uppercase;">Subtitles</button>
+            <button id="lf-tab-words" class="lf-tab-btn" data-tab="words" style="flex:1;padding:14px;background:transparent;border:none;border-bottom:4px solid transparent;font-size:14px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;transition:all 0.1s;text-transform:uppercase;">Words</button>
         `;
 
     // ── Painel Subtitles ──────────────────────────────────────────────────
@@ -1972,487 +2022,12 @@ export class SubtitleEngine {
     wordsPane.style.cssText = 'flex:1;display:none;flex-direction:column;overflow:hidden;';
 
     const wordsScroll = document.createElement('div');
+    wordsScroll.id = 'lf-words-scroll';
     wordsScroll.style.cssText =
       'flex:1;overflow-y:auto;padding:14px;scrollbar-width:thin;scrollbar-color:#334155 transparent;';
 
-    const stopWords = new Set([
-      'the',
-      'a',
-      'an',
-      'and',
-      'or',
-      'but',
-      'to',
-      'of',
-      'in',
-      'on',
-      'at',
-      'for',
-      'with',
-      'is',
-      'are',
-      'was',
-      'were',
-      'be',
-      'been',
-      'it',
-      'this',
-      'that',
-      'you',
-      'i',
-      'we',
-      'they',
-      'he',
-      'she',
-      'do',
-      'does',
-      'did',
-      'not',
-      'so',
-      'as',
-      'if',
-      'my',
-      'your',
-      'our',
-      'their',
-      'his',
-      'her',
-      'its',
-      'by',
-      'from',
-      'up',
-      'about',
-      'into',
-      'than',
-      'then',
-      'when',
-      'what',
-      'which',
-      'who',
-      'how',
-      'all',
-      'each',
-      'more',
-      'also',
-      'just',
-      'can',
-      'will',
-      'would',
-      'could',
-      'should',
-      'may',
-      'might',
-      'have',
-      'has',
-      'had',
-      'get',
-      'got',
-      'go',
-      'come',
-      'know',
-      'think',
-      'see',
-      'look',
-      'want',
-      'use',
-      'find',
-      'give',
-      'tell',
-      'work',
-      'call',
-      'try',
-      'ask',
-      'need',
-      'feel',
-      'become',
-      'leave',
-      'put',
-      'mean',
-      'keep',
-      'let',
-      'begin',
-      'show',
-      'hear',
-      'play',
-      'run',
-      'move',
-      'live',
-      'believe',
-      'hold',
-      'bring',
-      'happen',
-      'write',
-      'provide',
-      'sit',
-      'stand',
-      'lose',
-      'pay',
-      'meet',
-      'include',
-      'continue',
-      'set',
-      'learn',
-      'change',
-      'lead',
-      'understand',
-      'watch',
-      'follow',
-      'stop',
-      'create',
-      'speak',
-      'read',
-      'spend',
-      'grow',
-      'open',
-      'walk',
-      'win',
-      'offer',
-      'remember',
-      'love',
-      'consider',
-      'appear',
-      'buy',
-      'wait',
-      'serve',
-      'die',
-      'send',
-      'expect',
-      'build',
-      'stay',
-      'fall',
-      'cut',
-      'reach',
-      'kill',
-      'remain',
-      'suggest',
-      'raise',
-      'pass',
-      'sell',
-      'require',
-      'report',
-      'decide',
-      'pull',
-    ]);
-    const freqMap = new Map();
-    this.cues.forEach((cue) => {
-      (cue.text || '')
-        .toLowerCase()
-        .match(/[a-z][a-z'-]{1,}/g)
-        ?.forEach((w) => {
-          const clean = w.replace(/^'+|'+$/g, '');
-          if (clean.length > 2 && !stopWords.has(clean))
-            freqMap.set(clean, (freqMap.get(clean) || 0) + 1);
-        });
-    });
-
-    const TOP5K =
-      'the,be,to,of,and,a,in,that,have,it,for,not,on,with,he,as,you,do,at,this,but,his,by,from,they,we,say,her,she,or,an,will,my,one,all,would,there,their,what,so,up,out,if,about,who,get,which,go,me,when,make,can,like,time,no,just,him,know,take,people,into,year,your,good,some,could,them,see,other,than,then,now,look,only,come,its,over,think,also,back,after,use,two,how,our,work,first,well,way,even,new,want,because,any,these,give,day,most,us,great,between,need,large,often,hand,high,place,hold,real,life,few,north,open,seem,together,next,white,children,begin,got,walk,example,ease,paper,always,music,those,both,mark,book,letter,until,mile,river,car,feet,care,second,enough,plain,girl,usual,young,ready,above,ever,red,list,though,feel,talk,bird,soon,body,dog,family,direct,pose,leave,song,measure,door,product,black,short,numeral,class,wind,question,happen,complete,ship,area,half,rock,order,fire,south,problem,piece,told,knew,pass,since,top,whole,king,space,heard,best,hour,better,true,during,hundred,five,remember,step,early,hold,west,ground,interest,reach,fast,verb,sing,listen,six,table,travel,less,morning,ten,simple,several,vowel,toward,war,lay,against,pattern,slow,center,love,person,money,serve,appear,road,map,rain,rule,govern,pull,cold,notice,voice,unit,power,town,fine,drive,led,cry,dark,machine,note,wait,plan,figure,star,box,noun,field,rest,correct,able,pound,done,beauty,drive,stood,contain,front,teach,week,final,gave,green,oh,quick,develop,ocean,warm,free,minute,strong,special,mind,behind,clear,tail,produce,fact,street,inch,multiply,nothing,course,stay,wheel,full,force,blue,object,decide,surface,deep,moon,island,foot,system,busy,test,record,boat,common,gold,possible,plane,stead,dry,wonder,laugh,thousand,ago,ran,check,game,shape,equate,hot,miss,brought,heat,snow,tire,bring,yes,distant,fill,east,paint,language,among,grand,ball,yet,wave,drop,heart,am,present,heavy,dance,engine,position,arm,wide,sail,material,size,vary,settle,speak,weight,general,ice,matter,circle,pair,include,divide,syllable,felt,perhaps,pick,sudden,count,square,reason,length,represent,art,subject,region,energy,hunt,probable,bed,brother,egg,ride,cell,believe,fraction,forest,sit,race,window,store,summer,train,sleep,prove,lone,leg,exercise,wall,catch,mount,wish,sky,board,joy,winter,sat,written,wild,instrument,kept,glass,grass,cow,job,edge,sign,visit,past,soft,fun,bright,gas,weather,month,million,bear,finish,happy,hope,flower,clothe,strange,gone,jump,baby,eight,village,meet,root,buy,raise,solve,metal,whether,push,seven,paragraph,third,shall,held,hair,describe,cook,floor,either,result,burn,hill,safe,cat,century,consider,type,law,bit,coast,copy,phrase,silent,tall,sand,soil,roll,temperature,finger,industry,value,fight,lie,beat,excite,natural,view,sense,ear,else,quite,broke,case,middle,kill,son,lake,moment,scale,loud,spring,observe,child,straight,consonant,nation,dictionary,milk,speed,method,organ,pay,age,section,dress,cloud,surprise,quiet,stone,tiny,climb,cool,design,poor,lot,experiment,bottom,key,iron,single,stick,flat,twenty,skin,smile,crease,hole,trade,melody,trip,office,receive,row,mouth,exact,symbol,die,least,trouble,shout,except,wrote,seed,tone,join,suggest,clean,break,lady,yard,rise,bad,blow,oil,blood,touch,grew,cent,mix,team,wire,cost,lost,brown,wear,garden,equal,sent,choose,fell,fit,flow,fair,bank,collect,save,control,decimal,gentle,woman,captain,practice,separate,difficult,doctor,please,protect,noon,whose,locate,ring,character,insect,caught,period,indicate,radio,spoke,atom,human,history,effect,electric,expect,crop,modern,element,hit,student,corner,party,supply,bone,rail,imagine,provide,agree,thus,capital,chair,danger,fruit,rich,thick,soldier,process,operate,guess,necessary,sharp,wing,create,neighbor,wash,bat,rather,crowd,corn,compare,poem,string,bell,depend,meat,rub,tube,famous,dollar,stream,fear,sight,thin,triangle,planet,hurry,chief,colony,clock,mine,tie,enter,major,fresh,search,send,yellow,gun,allow,print,dead,spot,desert,suit,current,lift,rose,continue,block,chart,hat,sell,success,company,subtract,event,particular,deal,swim,term,opposite,wife,shoe,shoulder,spread,arrange,camp,invent,cotton,born,determine,quart,nine,truck,noise,level,chance,gather,shop,stretch,throw,shine,property,column,molecule,select,wrong,gray,repeat,require,broad,prepare,salt,nose,plural,anger,claim,continent,oxygen,sugar,death,pretty,skill,women,season,solution,magnet,silver,thank,branch,match,suffix,especially,fig,afraid,huge,sister,steel,discuss,forward,similar,guide,experience,score,apple,bought,led,pitch,coat,mass,card,band,rope,slip,win,dream,evening,condition,feed,tool,total,basic,smell,valley,nor,double,seat,arrive,master,track,parent,shore,division,sheet,substance,favor,connect,post,spend,chord,fat,glad,original,share,station,dad,bread,charge,proper,bar,offer,segment,slave,duck,instant,market,degree,populate,chick,dear,enemy,reply,drink,occur,support,speech,nature,range,steam,motion,path,liquid,log,meant,quotient,teeth,shell,neck'.split(
-        ',',
-      );
-
-    const rankMap = new Map();
-    TOP5K.forEach((w, i) => rankMap.set(w, i + 1));
-
-    const bands = [];
-    for (let s = 1; s <= 5000; s += 100)
-      bands.push({ label: s + ' – ' + (s + 99), start: s, end: s + 99, words: [] });
-    const outOfTop = { label: 'Fora do top-5k', words: [] };
-
-    freqMap.forEach((count, word) => {
-      const rank = rankMap.get(word);
-      if (rank) {
-        const bi = Math.floor((rank - 1) / 100);
-        if (bands[bi]) bands[bi].words.push({ word, count, rank });
-      } else outOfTop.words.push({ word, count, rank: 99999 });
-    });
-
-    const totalUnique = freqMap.size;
-    const inTop5k = [...freqMap.keys()].filter((w) => rankMap.has(w)).length;
-
-    // ── Stats card — renderiza com dados atuais e re-renderiza após reload do DB ──
-    const statsDiv = document.createElement('div');
-    statsDiv.style.cssText =
-      'background:rgba(255,255,255,0.04);border-radius:10px;padding:14px 16px;margin-bottom:14px;';
-
-    // --- CÁLCULO DE EXPRESSÕES ---
-    const expressionsFound = new Set();
-    this.cues.forEach((cue) => {
-      const text = (cue.text || '').toLowerCase();
-      expressionsDB.forEach((expr) => {
-        if (text.includes(expr)) expressionsFound.add(expr);
-      });
-    });
-    const totalExpressions = expressionsFound.size;
-
-    const renderStats = (knownWords, savedWords) => {
-      const videoWords = [...freqMap.keys()];
-      const cKnown = videoWords.filter((w) => knownWords.has(w)).length;
-      const cLearning = videoWords.filter((w) => savedWords.get(w) === 'learning').length;
-      const cReview = videoWords.filter((w) => savedWords.get(w) === 'review').length;
-      const cMature = videoWords.filter((w) => savedWords.get(w) === 'mature').length;
-      const cSaved = videoWords.filter((w) => savedWords.get(w) === 'new').length;
-      const cNew = videoWords.filter((w) => !knownWords.has(w) && !savedWords.has(w)).length;
-      const pct = (val) => Math.round((val / totalUnique) * 100) || 0;
-
-      // Comprehension score (ponderado por frequência de tokens)
-      let totalTokens = 0,
-        understoodTokens = 0;
-      freqMap.forEach((freq, w) => {
-        totalTokens += freq;
-        if (knownWords.has(w) || savedWords.get(w) === 'mature' || savedWords.get(w) === 'review') {
-          understoodTokens += freq;
-        } else if (savedWords.get(w) === 'learning') {
-          understoodTokens += Math.round(freq * 0.5);
-        }
-      });
-      const comprehension =
-        totalTokens > 0 ? Math.round((understoodTokens / totalTokens) * 100) : 0;
-      const compColor =
-        comprehension >= 80 ? '#34D399' : comprehension >= 60 ? '#FBBF24' : '#f87171';
-      const compLabel =
-        comprehension >= 95
-          ? 'Fluente'
-          : comprehension >= 80
-            ? 'Compreensão alta'
-            : comprehension >= 60
-              ? 'Intermediário'
-              : 'Desafio';
-
-      statsDiv.innerHTML = `
-                <div style="background:rgba(0,0,0,0.3);border:1px solid ${compColor}33;border-radius:14px;padding:14px 16px;margin-bottom:14px;text-align:center;">
-                  <div style="font-size:36px;font-weight:900;color:${compColor};line-height:1;letter-spacing:-1px;">${comprehension}%</div>
-                  <div style="font-size:11px;color:${compColor};font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">${compLabel}</div>
-                  <div style="font-size:10px;color:#475569;margin-top:4px;">Score de compreensão deste episódio</div>
-                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;margin-top:8px;">
-                    <div style="height:100%;width:${comprehension}%;background:linear-gradient(90deg,${compColor}88,${compColor});border-radius:6px;transition:width 0.8s;"></div>
-                  </div>
-                </div>
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
-                  <div style="display:flex;align-items:baseline;gap:8px;">
-                    <div style="font-size:28px;font-weight:800;color:#F1F5F9;line-height:1;">${totalUnique}</div>
-                    <div style="font-size:10px;color:#64748B;text-transform:uppercase;letter-spacing:0.8px;font-weight:700;">UNIQUE WORDS</div>
-                  </div>
-                  <div style="text-align:right;">
-                    <div style="font-size:18px;font-weight:800;color:#f472b6;line-height:1;">${totalExpressions}</div>
-                    <div style="font-size:9px;color:#f472b6;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">PHRASAL VERBS</div>
-                  </div>
-                </div>
-
-                <div style="margin-bottom:9px;">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Top-5k frequência</span>
-                    <span style="font-size:11px;color:#FFD700;font-weight:700;">${inTop5k}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-                  </div>
-                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-                    <div style="height:100%;width:${pct(inTop5k)}%;background:linear-gradient(90deg,#FF8C00,#FFD700);border-radius:6px;transition:width 0.5s;"></div>
-                  </div>
-                </div>
-
-                <div style="margin-bottom:9px;">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Novas (nunca vistas)</span>
-                    <span style="font-size:11px;color:#E2E8F0;font-weight:700;">${cNew}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-                  </div>
-                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-                    <div style="height:100%;width:${pct(cNew)}%;background:linear-gradient(90deg,#475569,#94A3B8);border-radius:6px;transition:width 0.5s;"></div>
-                  </div>
-                </div>
-
-                <div style="margin-bottom:9px;">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Salvas no deck</span>
-                    <span style="font-size:11px;color:#93C5FD;font-weight:700;">${cSaved}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-                  </div>
-                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-                    <div style="height:100%;width:${pct(cSaved)}%;background:linear-gradient(90deg,#2563EB,#93C5FD);border-radius:6px;transition:width 0.5s;"></div>
-                  </div>
-                </div>
-
-                <div style="margin-bottom:9px;">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Aprendendo</span>
-                    <span style="font-size:11px;color:#FBBF24;font-weight:700;">${cLearning}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-                  </div>
-                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-                    <div style="height:100%;width:${pct(cLearning)}%;background:linear-gradient(90deg,#D97706,#FBBF24);border-radius:6px;transition:width 0.5s;"></div>
-                  </div>
-                </div>
-
-                <div style="margin-bottom:9px;">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Revisando</span>
-                    <span style="font-size:11px;color:#38BDF8;font-weight:700;">${cReview}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-                  </div>
-                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-                    <div style="height:100%;width:${pct(cReview)}%;background:linear-gradient(90deg,#0284C7,#38BDF8);border-radius:6px;transition:width 0.5s;"></div>
-                  </div>
-                </div>
-
-                <div style="margin-bottom:9px;">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Dominadas</span>
-                    <span style="font-size:11px;color:#34D399;font-weight:700;">${cMature}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-                  </div>
-                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-                    <div style="height:100%;width:${pct(cMature)}%;background:linear-gradient(90deg,#059669,#34D399);border-radius:6px;transition:width 0.5s;"></div>
-                  </div>
-                </div>
-
-                <div style="margin-bottom:0;">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Conhecidas</span>
-                    <span style="font-size:11px;color:#86EFAC;font-weight:700;">${cKnown}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-                  </div>
-                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-                    <div style="height:100%;width:${pct(cKnown)}%;background:linear-gradient(90deg,#16A34A,#86EFAC);border-radius:6px;transition:width 0.5s;"></div>
-                  </div>
-                </div>
-            `;
-    };
-
-    // Renderiza imediatamente com o que já está em memória
-    renderStats(this.knownWords, this.savedWords);
-    wordsScroll.appendChild(statsDiv);
-
-    // Recarrega do DB para garantir dados frescos e re-renderiza
-    import('../utils/db.js').then(async ({ db }) => {
-      try {
-        await db.initPromise;
-        const words = await db.getAllWords();
-        const cards = await db.getAllCards();
-        const cardStatus = {};
-        if (cards)
-          cards.forEach((c) => {
-            cardStatus[c.word_id] = c.status;
-          });
-        const freshSaved = new Map();
-        const freshKnown = new Set(this.knownWords); // mantém os marcados em sessão
-        words.forEach((w) => {
-          // §4d.3: palavra salva SEM card não pode sumir do mapa — antes, o
-          // `if (status)` descartava e `this.savedWords = freshSaved` apagava
-          // a palavra da legenda ao vivo (voltava a cor de "nunca vista").
-          freshSaved.set(w.word.toLowerCase(), cardStatus[w.id] || 'new');
-        });
-        // Atualiza o mapa em memória também
-        this.savedWords = freshSaved;
-        renderStats(freshKnown, freshSaved);
-        // Repinta a legenda com os status reais dos cards (learning/review/
-        // mature), que são mais precisos que o 'new' genérico do boot.
-        this._updateSubtitleColors();
-      } catch (e) {
-        console.warn('[LinguaFlow] Stats: erro ao recarregar do DB', e.message);
-      }
-    });
-
-    const allBands = [
-      ...bands.filter((b) => b.words.length > 0),
-      ...(outOfTop.words.length > 0 ? [outOfTop] : []),
-    ];
-
-    if (allBands.length === 0) {
-      const empty = document.createElement('div');
-      empty.style.cssText = 'text-align:center;color:#475569;font-size:13px;padding:40px 20px;';
-      empty.textContent = 'Nenhuma legenda carregada ainda. Inicie o vídeo para ver as palavras.';
-      wordsScroll.appendChild(empty);
-    }
-
-    allBands.forEach((band) => {
-      band.words.sort((a, b) => (a.rank || 99999) - (b.rank || 99999));
-      const section = document.createElement('div');
-      section.style.cssText = 'margin-bottom:10px;';
-
-      const isTop1k = band.start && band.start <= 1000;
-      const hColor = isTop1k
-        ? '#FFD700'
-        : band.start <= 2000
-          ? '#FF8C00'
-          : band.start <= 3000
-            ? '#38BDF8'
-            : '#94A3B8';
-      const bandHeader = document.createElement('div');
-      bandHeader.style.cssText =
-        'display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:rgba(255,255,255,0.05);border-radius:7px;cursor:pointer;margin-bottom:6px;border-left:3px solid ' +
-        hColor +
-        ';';
-      bandHeader.innerHTML =
-        '<span style="font-size:12px;font-weight:700;color:' +
-        hColor +
-        '">' +
-        band.label +
-        '</span><span style="font-size:11px;color:#64748B;">' +
-        band.words.length +
-        ' palavras <span class="lf-band-arrow" style="margin-left:4px;">▼</span></span>';
-
-      const wordGrid = document.createElement('div');
-      wordGrid.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;padding:4px 2px 8px;';
-
-      band.words.forEach(({ word, count }) => {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        const isKnown = this.knownWords.has(word);
-        const status = this.savedWords.get(word);
-        let cc = '#94A3B8',
-          cb = 'rgba(255,255,255,0.05)',
-          cbo = 'rgba(255,255,255,0.1)';
-        if (isKnown) {
-          cc = '#86EFAC';
-          cb = 'rgba(134,239,172,0.1)';
-          cbo = 'rgba(134,239,172,0.25)';
-        } else if (status === 'mature') {
-          cc = '#34D399';
-          cb = 'rgba(52,211,153,0.1)';
-          cbo = 'rgba(52,211,153,0.25)';
-        } else if (status === 'learning') {
-          cc = '#FBBF24';
-          cb = 'rgba(251,191,36,0.1)';
-          cbo = 'rgba(251,191,36,0.25)';
-        } else if (status === 'new') {
-          cc = '#93C5FD';
-          cb = 'rgba(147,197,253,0.1)';
-          cbo = 'rgba(147,197,253,0.25)';
-        }
-        chip.style.cssText =
-          'background:' +
-          cb +
-          ';border:1px solid ' +
-          cbo +
-          ';color:' +
-          cc +
-          ';border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;transition:all 0.15s;';
-        chip.textContent = count > 1 ? word + ' ×' + count : word;
-        chip.title = 'Ir para "' + word + '"';
-        chip.addEventListener('mouseenter', () => {
-          chip.style.transform = 'scale(1.08)';
-        });
-        chip.addEventListener('mouseleave', () => {
-          chip.style.transform = '';
-        });
-        chip.addEventListener('click', () => {
-          const fi = this.cues.findIndex((cue) =>
-            new RegExp('\\b' + word + '\\b', 'i').test(cue.text || ''),
-          );
-          if (fi >= 0 && this.videoElement) {
-            this.videoElement.currentTime = this.cues[fi].start;
-            document.getElementById('lf-tab-subtitles')?.click();
-          }
-        });
-        wordGrid.appendChild(chip);
-      });
-
-      let collapsed = false;
-      bandHeader.addEventListener('click', () => {
-        collapsed = !collapsed;
-        wordGrid.style.display = collapsed ? 'none' : 'flex';
-        const arrow = bandHeader.querySelector('.lf-band-arrow');
-        if (arrow) arrow.textContent = collapsed ? '▶' : '▼';
-      });
-
-      section.appendChild(bandHeader);
-      section.appendChild(wordGrid);
-      wordsScroll.appendChild(section);
-    });
-
     wordsPane.appendChild(wordsScroll);
+    this._rebuildWordsList(wordsScroll);
 
     // ── Monta painel ──────────────────────────────────────────────────────
     panel.appendChild(header);
@@ -2471,6 +2046,8 @@ export class SubtitleEngine {
         tabSubtitles.style.color = '#38BDF8';
         tabWords.style.borderBottomColor = 'transparent';
         tabWords.style.color = '#64748B';
+        tabSubtitles.classList.add('active');
+        tabWords.classList.remove('active');
       } else {
         subtitlePane.style.display = 'none';
         wordsPane.style.display = 'flex';
@@ -2478,6 +2055,9 @@ export class SubtitleEngine {
         tabWords.style.color = '#38BDF8';
         tabSubtitles.style.borderBottomColor = 'transparent';
         tabSubtitles.style.color = '#64748B';
+        tabWords.classList.add('active');
+        tabSubtitles.classList.remove('active');
+        this._rebuildWordsList();
       }
     };
     tabSubtitles.addEventListener('click', () => switchTab('subtitles'));
@@ -2518,26 +2098,30 @@ export class SubtitleEngine {
 
   // ── VTT Parser (HBO Max) — V5 version ────────────────────────────────────
   _parseVTT(vttStr) {
+    if (!vttStr || typeof vttStr !== 'string') return [];
+    const normalized = vttStr.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     const cues = [];
-    const blocks = vttStr.split(/\n\s*\n/);
+    const blocks = normalized.split(/\n\s*\n/);
     blocks.forEach((b) => {
       const lines = b.trim().split('\n');
       let timeLine = lines.find((l) => l.includes('-->'));
       if (!timeLine) return;
       const [startStr, endStr] = timeLine.split('-->').map((s) => s.trim());
       const parseTime = (t) => {
+        if (!t) return 0;
         const timePart = t.split(/\s+/)[0].replace(',', '.');
         const p = timePart.split(':');
         let sec = parseFloat(p.pop() || 0);
-        if (p.length) sec += parseInt(p.pop() || 0) * 60;
-        if (p.length) sec += parseInt(p.pop() || 0) * 3600;
-        return sec;
+        if (p.length) sec += parseInt(p.pop() || 0, 10) * 60;
+        if (p.length) sec += parseInt(p.pop() || 0, 10) * 3600;
+        return isNaN(sec) ? 0 : sec;
       };
-      const text = lines
+      const rawText = lines
         .slice(lines.indexOf(timeLine) + 1)
         .map((l) => l.replace(/<[^>]+>/g, '').trim())
         .join(' ')
         .trim();
+      const text = this._cleanSubtitleText ? this._cleanSubtitleText(rawText) : rawText;
       if (text) cues.push({ start: parseTime(startStr), end: parseTime(endStr), text });
     });
     return cues;
@@ -2629,6 +2213,8 @@ export class SubtitleEngine {
             this.cues = cues;
             this.xhrCues = cues;
             this.usingXhr = true;
+            this._rebuildSubtitleList();
+            this._rebuildWordsList();
             console.debug(
               '[LinguaFlow] Legendas carregadas com sucesso (' + cues.length + ' frases)',
             );
@@ -3132,6 +2718,7 @@ export class SubtitleEngine {
               this.xhrCues = origCues;
               this.usingXhr = true;
               this._rebuildSubtitleList();
+              this._rebuildWordsList();
 
               chrome.storage.local.get('lastYoutubeSubtitleUrls', (res) => {
                 let urls = res.lastYoutubeSubtitleUrls || [];
@@ -3172,20 +2759,37 @@ export class SubtitleEngine {
     if (cues.length > 0 && this._isNavigationCurrent(navigation)) {
       const existing = this.cues || [];
       const incomingIsSegment = ['t', 'range', 'spv'].some((param) => parsedUrl.searchParams.has(param));
-      if (incomingIsSegment && existing.length > 0) {
-        const merged = new Map(existing.map((cue) => [Math.round(cue.start * 100), cue]));
-        cues.forEach((cue) => {
-          const key = Math.round(cue.start * 100);
-          const previous = merged.get(key);
-          if (previous?.translatedText && !cue.translatedText) cue.translatedText = previous.translatedText;
-          merged.set(key, cue);
-        });
-        cues = [...merged.values()].sort((a, b) => a.start - b.start);
+      if (existing.length > 0) {
+        const shouldMerge = incomingIsSegment || existing.length > cues.length;
+        if (shouldMerge) {
+          const merged = new Map(existing.map((cue) => [Math.round(cue.start * 100), cue]));
+          cues.forEach((cue) => {
+            const key = Math.round(cue.start * 100);
+            const previous = merged.get(key);
+            if (previous?.translatedText && !cue.translatedText) {
+              cue.translatedText = previous.translatedText;
+              cue._transLang = previous._transLang;
+            }
+            merged.set(key, cue);
+          });
+          cues = [...merged.values()].sort((a, b) => a.start - b.start);
+        } else {
+          const prevMap = new Map(existing.map((cue) => [Math.round(cue.start * 100), cue]));
+          cues.forEach((cue) => {
+            const key = Math.round(cue.start * 100);
+            const previous = prevMap.get(key);
+            if (previous?.translatedText && !cue.translatedText) {
+              cue.translatedText = previous.translatedText;
+              cue._transLang = previous._transLang;
+            }
+          });
+        }
       }
       this.cues = cues;
       this.xhrCues = cues; // Unifica para garantir que o sync loop e sidebar vejam o mesmo
       this.usingXhr = true;
       this._rebuildSubtitleList(); // Atualiza painel lateral IMEDIATAMENTE
+      this._rebuildWordsList();
       // this.toggleSubtitles(); // Removido: Não forçar ativação automática
 
       // Persistência para F5 — armazena apenas URL limpa (sem tlang)
@@ -3404,7 +3008,10 @@ export class SubtitleEngine {
         },
         (res) => {
           if (!this._isNavigationCurrent(navigation) || !this.cues.includes(c)) return;
-          if (res?.translation) c.translatedText = res.translation;
+          if (res?.translation) {
+            c.translatedText = res.translation;
+            c._transLang = this.targetLang;
+          }
           c.isTranslating = false;
         },
       );
@@ -3607,6 +3214,7 @@ export class SubtitleEngine {
           cue.isTranslating = false;
           if (res?.translation) {
             cue.translatedText = res.translation;
+            cue._transLang = this.targetLang;
             if (this._currentCue === cue) {
               this.renderDual(cue.text, res.translation);
             }
@@ -4070,6 +3678,18 @@ export class SubtitleEngine {
     return (h > 0 ? h + ':' : '') + (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
   }
 
+  _debouncedRebuildPanels() {
+    clearTimeout(this._rebuildPanelsTimer);
+    this._rebuildPanelsTimer = setTimeout(() => {
+      const activeTab = document.querySelector('.lf-tab-btn.active')?.dataset?.tab || 'subtitles';
+      if (activeTab === 'subtitles') {
+        this._rebuildSubtitleList();
+      } else if (activeTab === 'words') {
+        this._rebuildWordsList();
+      }
+    }, 250);
+  }
+
   _rebuildSubtitleList(container, filter = '') {
     const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
     if (!container) container = document.getElementById('lf-subtitle-list');
@@ -4078,6 +3698,7 @@ export class SubtitleEngine {
       return;
     }
 
+    const previousScrollTop = typeof container.scrollTop === 'number' ? container.scrollTop : 0;
     container.innerHTML = '';
 
     if (!cues || cues.length === 0) {
@@ -4149,6 +3770,9 @@ export class SubtitleEngine {
     });
 
     this._updateSubtitlePanelHighlight();
+    if (previousScrollTop > 0 && !this._userScrolling) {
+      container.scrollTop = previousScrollTop;
+    }
   }
 
   _translateAllSidebarCues(cues) {
@@ -4172,6 +3796,9 @@ export class SubtitleEngine {
       const cueIndex = cues.indexOf(cue);
       const item = document.querySelector(`.lf-subtitle-item[data-index="${cueIndex}"] .lf-translation-text`);
       if (item) item.textContent = result.translation;
+      if (this._currentCue === cue && this.shadowContainer) {
+        this.renderDual(cue.text, result.translation);
+      }
     };
 
     this._sidebarTranslationPromise = import('../utils/translator.js')
@@ -4232,6 +3859,345 @@ export class SubtitleEngine {
     if (list) this._rebuildSubtitleList(list, text);
   }
 
+  _rebuildWordsList(container) {
+    if (!container && typeof document !== 'undefined') container = document.getElementById('lf-words-scroll');
+    if (!container) return;
+
+    const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
+    const previousScrollTop = typeof container.scrollTop === 'number' ? container.scrollTop : 0;
+    this._collapsedBands = this._collapsedBands || new Set();
+    container.innerHTML = '';
+
+    if (!cues || cues.length === 0) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'text-align:center;color:#475569;font-size:13px;padding:40px 20px;';
+      empty.textContent = 'Nenhuma legenda carregada ainda. Inicie o vídeo para ver as palavras.';
+      container.appendChild(empty);
+      return;
+    }
+
+    const freqMap = new Map();
+    cues.forEach((cue) => {
+      const cleanText = this._cleanSubtitleText ? this._cleanSubtitleText(cue.text || '') : (cue.text || '');
+      cleanText
+        .toLowerCase()
+        .match(/[a-z\u00C0-\u024F][a-z\u00C0-\u024F'-]{1,}/gu)
+        ?.forEach((w) => {
+          const clean = w.replace(/^'+|'+$/g, '');
+          if (clean.length > 2 && !STOP_WORDS.has(clean))
+            freqMap.set(clean, (freqMap.get(clean) || 0) + 1);
+        });
+    });
+
+    const bands = [];
+    for (let s = 1; s <= 5000; s += 100)
+      bands.push({ label: s + ' – ' + (s + 99), start: s, end: s + 99, words: [] });
+    const outOfTop = { label: 'Fora do top-5k', words: [] };
+
+    freqMap.forEach((count, word) => {
+      const rank = TOP5K_RANK_MAP.get(word);
+      if (rank) {
+        const bi = Math.floor((rank - 1) / 100);
+        if (bands[bi]) bands[bi].words.push({ word, count, rank });
+      } else outOfTop.words.push({ word, count, rank: 99999 });
+    });
+
+    const totalUnique = freqMap.size;
+    const inTop5k = [...freqMap.keys()].filter((w) => TOP5K_RANK_MAP.has(w)).length;
+
+    // --- CÁLCULO DE EXPRESSÕES ---
+    const expressionsFound = new Set();
+    cues.forEach((cue) => {
+      const text = (cue.text || '').toLowerCase();
+      expressionsDB.forEach((expr) => {
+        if (text.includes(expr)) expressionsFound.add(expr);
+      });
+    });
+    const totalExpressions = expressionsFound.size;
+
+    // Stats card
+    const statsDiv = document.createElement('div');
+    statsDiv.style.cssText =
+      'background:rgba(255,255,255,0.04);border-radius:10px;padding:14px 16px;margin-bottom:14px;';
+
+    const renderStats = (knownWords, savedWords) => {
+      const videoWords = [...freqMap.keys()];
+      const cKnown = videoWords.filter((w) => knownWords.has(w)).length;
+      const cLearning = videoWords.filter((w) => savedWords.get(w) === 'learning').length;
+      const cReview = videoWords.filter((w) => savedWords.get(w) === 'review').length;
+      const cMature = videoWords.filter((w) => savedWords.get(w) === 'mature').length;
+      const cSaved = videoWords.filter((w) => savedWords.get(w) === 'new').length;
+      const cNew = videoWords.filter((w) => !knownWords.has(w) && !savedWords.has(w)).length;
+      const pct = (val) => Math.round((val / totalUnique) * 100) || 0;
+
+      let totalTokens = 0,
+        understoodTokens = 0;
+      freqMap.forEach((freq, w) => {
+        totalTokens += freq;
+        if (knownWords.has(w) || savedWords.get(w) === 'mature' || savedWords.get(w) === 'review') {
+          understoodTokens += freq;
+        } else if (savedWords.get(w) === 'learning') {
+          understoodTokens += Math.round(freq * 0.5);
+        }
+      });
+      const comprehension =
+        totalTokens > 0 ? Math.round((understoodTokens / totalTokens) * 100) : 0;
+      const compColor =
+        comprehension >= 80 ? '#34D399' : comprehension >= 60 ? '#FBBF24' : '#f87171';
+      const compLabel =
+        comprehension >= 95
+          ? 'Fluente'
+          : comprehension >= 80
+            ? 'Compreensão alta'
+            : comprehension >= 60
+              ? 'Intermediário'
+              : 'Desafio';
+
+      statsDiv.innerHTML = `
+                <div style="background:rgba(0,0,0,0.3);border:1px solid ${compColor}33;border-radius:14px;padding:14px 16px;margin-bottom:14px;text-align:center;">
+                  <div style="font-size:36px;font-weight:900;color:${compColor};line-height:1;letter-spacing:-1px;">${comprehension}%</div>
+                  <div style="font-size:11px;color:${compColor};font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">${compLabel}</div>
+                  <div style="font-size:10px;color:#475569;margin-top:4px;">Score de compreensão deste episódio</div>
+                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;margin-top:8px;">
+                    <div style="height:100%;width:${comprehension}%;background:linear-gradient(90deg,${compColor}88,${compColor});border-radius:6px;transition:width 0.8s;"></div>
+                  </div>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+                  <div style="display:flex;align-items:baseline;gap:8px;">
+                    <div style="font-size:28px;font-weight:800;color:#F1F5F9;line-height:1;">${totalUnique}</div>
+                    <div style="font-size:10px;color:#64748B;text-transform:uppercase;letter-spacing:0.8px;font-weight:700;">UNIQUE WORDS</div>
+                  </div>
+                  <div style="text-align:right;">
+                    <div style="font-size:18px;font-weight:800;color:#f472b6;line-height:1;">${totalExpressions}</div>
+                    <div style="font-size:9px;color:#f472b6;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">PHRASAL VERBS</div>
+                  </div>
+                </div>
+
+                <div style="margin-bottom:9px;">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Top-5k frequência</span>
+                    <span style="font-size:11px;color:#FFD700;font-weight:700;">${inTop5k}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
+                  </div>
+                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
+                    <div style="height:100%;width:${pct(inTop5k)}%;background:linear-gradient(90deg,#FF8C00,#FFD700);border-radius:6px;transition:width 0.5s;"></div>
+                  </div>
+                </div>
+
+                <div style="margin-bottom:9px;">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Novas (nunca vistas)</span>
+                    <span style="font-size:11px;color:#E2E8F0;font-weight:700;">${cNew}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
+                  </div>
+                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
+                    <div style="height:100%;width:${pct(cNew)}%;background:linear-gradient(90deg,#475569,#94A3B8);border-radius:6px;transition:width 0.5s;"></div>
+                  </div>
+                </div>
+
+                <div style="margin-bottom:9px;">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Salvas no deck</span>
+                    <span style="font-size:11px;color:#93C5FD;font-weight:700;">${cSaved}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
+                  </div>
+                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
+                    <div style="height:100%;width:${pct(cSaved)}%;background:linear-gradient(90deg,#2563EB,#93C5FD);border-radius:6px;transition:width 0.5s;"></div>
+                  </div>
+                </div>
+
+                <div style="margin-bottom:9px;">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Aprendendo</span>
+                    <span style="font-size:11px;color:#FBBF24;font-weight:700;">${cLearning}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
+                  </div>
+                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
+                    <div style="height:100%;width:${pct(cLearning)}%;background:linear-gradient(90deg,#D97706,#FBBF24);border-radius:6px;transition:width 0.5s;"></div>
+                  </div>
+                </div>
+
+                <div style="margin-bottom:9px;">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Revisando</span>
+                    <span style="font-size:11px;color:#38BDF8;font-weight:700;">${cReview}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
+                  </div>
+                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
+                    <div style="height:100%;width:${pct(cReview)}%;background:linear-gradient(90deg,#0284C7,#38BDF8);border-radius:6px;transition:width 0.5s;"></div>
+                  </div>
+                </div>
+
+                <div style="margin-bottom:9px;">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Dominadas</span>
+                    <span style="font-size:11px;color:#34D399;font-weight:700;">${cMature}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
+                  </div>
+                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
+                    <div style="height:100%;width:${pct(cMature)}%;background:linear-gradient(90deg,#059669,#34D399);border-radius:6px;transition:width 0.5s;"></div>
+                  </div>
+                </div>
+
+                <div style="margin-bottom:0;">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Conhecidas</span>
+                    <span style="font-size:11px;color:#86EFAC;font-weight:700;">${cKnown}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
+                  </div>
+                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
+                    <div style="height:100%;width:${pct(cKnown)}%;background:linear-gradient(90deg,#16A34A,#86EFAC);border-radius:6px;transition:width 0.5s;"></div>
+                  </div>
+                </div>
+            `;
+    };
+
+    renderStats(this.knownWords, this.savedWords);
+    container.appendChild(statsDiv);
+
+    import('../utils/db.js').then(async ({ db }) => {
+      try {
+        await db.initPromise;
+        const words = await db.getAllWords();
+        const cards = await db.getAllCards();
+        const cardStatus = {};
+        if (cards)
+          cards.forEach((c) => {
+            cardStatus[c.word_id] = c.status;
+          });
+        const freshSaved = new Map();
+        const freshKnown = new Set(this.knownWords);
+        words.forEach((w) => {
+          freshSaved.set(w.word.toLowerCase(), cardStatus[w.id] || 'new');
+        });
+        this.savedWords = freshSaved;
+        renderStats(freshKnown, freshSaved);
+        this._updateSubtitleColors();
+      } catch (e) {
+        console.warn('[LinguaFlow] Stats: erro ao recarregar do DB', e.message);
+      }
+    });
+
+    const allBands = [
+      ...bands.filter((b) => b.words.length > 0),
+      ...(outOfTop.words.length > 0 ? [outOfTop] : []),
+    ];
+
+    if (allBands.length === 0) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'text-align:center;color:#475569;font-size:13px;padding:40px 20px;';
+      empty.textContent = 'Nenhuma palavra encontrada nas legendas deste vídeo.';
+      container.appendChild(empty);
+      return;
+    }
+
+    allBands.forEach((band) => {
+      band.words.sort((a, b) => (a.rank || 99999) - (b.rank || 99999));
+      const section = document.createElement('div');
+      section.style.cssText = 'margin-bottom:10px;';
+
+      const isTop1k = band.start && band.start <= 1000;
+      const hColor = isTop1k
+        ? '#FFD700'
+        : band.start <= 2000
+          ? '#FF8C00'
+          : band.start <= 3000
+            ? '#38BDF8'
+            : '#94A3B8';
+      const bandHeader = document.createElement('div');
+      bandHeader.style.cssText =
+        'display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:rgba(255,255,255,0.05);border-radius:7px;cursor:pointer;margin-bottom:6px;border-left:3px solid ' +
+        hColor +
+        ';';
+      bandHeader.innerHTML =
+        '<span style="font-size:12px;font-weight:700;color:' +
+        hColor +
+        '">' +
+        band.label +
+        '</span><span style="font-size:11px;color:#64748B;">' +
+        band.words.length +
+        ' palavras <span class="lf-band-arrow" style="margin-left:4px;">▼</span></span>';
+
+      const wordGrid = document.createElement('div');
+      wordGrid.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;padding:4px 2px 8px;';
+
+      band.words.forEach(({ word, count }) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        const isKnown = this.knownWords.has(word);
+        const status = this.savedWords.get(word);
+        let cc = '#94A3B8',
+          cb = 'rgba(255,255,255,0.05)',
+          cbo = 'rgba(255,255,255,0.1)';
+        if (isKnown) {
+          cc = '#86EFAC';
+          cb = 'rgba(134,239,172,0.1)';
+          cbo = 'rgba(134,239,172,0.25)';
+        } else if (status === 'mature') {
+          cc = '#34D399';
+          cb = 'rgba(52,211,153,0.1)';
+          cbo = 'rgba(52,211,153,0.25)';
+        } else if (status === 'learning') {
+          cc = '#FBBF24';
+          cb = 'rgba(251,191,36,0.1)';
+          cbo = 'rgba(251,191,36,0.25)';
+        } else if (status === 'new') {
+          cc = '#93C5FD';
+          cb = 'rgba(147,197,253,0.1)';
+          cbo = 'rgba(147,197,253,0.25)';
+        }
+        chip.style.cssText =
+          'background:' +
+          cb +
+          ';border:1px solid ' +
+          cbo +
+          ';color:' +
+          cc +
+          ';border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;transition:all 0.15s;';
+        chip.textContent = count > 1 ? word + ' ×' + count : word;
+        chip.title = 'Ir para "' + word + '"';
+        chip.addEventListener('mouseenter', () => {
+          chip.style.transform = 'scale(1.08)';
+        });
+        chip.addEventListener('mouseleave', () => {
+          chip.style.transform = '';
+        });
+        chip.addEventListener('click', () => {
+          const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const fi = cues.findIndex((cue) =>
+            new RegExp('\\b' + escaped + '\\b', 'i').test(cue.text || ''),
+          );
+          const vid = this.videoElement || document.querySelector('video');
+          if (fi >= 0 && vid) {
+            vid.currentTime = cues[fi].start;
+            vid.play().catch(() => {});
+            document.getElementById('lf-tab-subtitles')?.click();
+          }
+        });
+        wordGrid.appendChild(chip);
+      });
+
+      let collapsed = this._collapsedBands.has(band.label);
+      if (collapsed) {
+        wordGrid.style.display = 'none';
+        const arrow = bandHeader.querySelector('.lf-band-arrow');
+        if (arrow) arrow.textContent = '▶';
+      }
+      bandHeader.addEventListener('click', () => {
+        collapsed = !collapsed;
+        if (collapsed) {
+          this._collapsedBands.add(band.label);
+        } else {
+          this._collapsedBands.delete(band.label);
+        }
+        wordGrid.style.display = collapsed ? 'none' : 'flex';
+        const arrow = bandHeader.querySelector('.lf-band-arrow');
+        if (arrow) arrow.textContent = collapsed ? '▶' : '▼';
+      });
+
+      section.appendChild(bandHeader);
+      section.appendChild(wordGrid);
+      container.appendChild(section);
+    });
+
+    if (previousScrollTop > 0) {
+      container.scrollTop = previousScrollTop;
+    }
+  }
+
   _updateSubtitlePanelHighlight() {
     const list = document.getElementById('lf-subtitle-list');
     if (!list) return;
@@ -4256,9 +4222,195 @@ export class SubtitleEngine {
   }
 
   _exportPDF() {
+    this._showPdfExportModal();
+  }
+
+  _showPdfExportModal() {
+    const existing = document.getElementById('lf-pdf-modal-overlay');
+    if (existing) existing.remove();
+
+    const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
+    if (!cues || cues.length === 0) {
+      alert('Nenhuma legenda carregada ainda para exportar.');
+      return;
+    }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'lf-pdf-modal-overlay';
+    overlay.style.cssText = `
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(4px);
+      z-index: 2147483647;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      animation: lfFadeIn 0.15s ease-out;
+    `;
+
+    const isDark = this.uiTheme === 'dark';
+    const bg = isDark ? '#1e293b' : '#ffffff';
+    const textColor = isDark ? '#f8fafc' : '#0f172a';
+    const mutedColor = isDark ? '#94a3b8' : '#64748b';
+    const borderColor = isDark ? '#334155' : '#e2e8f0';
+    const cardBg = isDark ? '#0f172a' : '#f8fafc';
+    const accent = '#0284c7';
+
+    overlay.innerHTML = `
+      <style>
+        @keyframes lfFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes lfScaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .lf-pdf-opt-card {
+          border: 2px solid ${borderColor};
+          background: ${cardBg};
+          border-radius: 8px;
+          padding: 10px 12px;
+          cursor: pointer;
+          transition: all 0.15s;
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+        }
+        .lf-pdf-opt-card:hover {
+          border-color: ${accent};
+        }
+        .lf-pdf-opt-card.selected {
+          border-color: ${accent};
+          background: ${isDark ? 'rgba(2, 132, 199, 0.15)' : 'rgba(2, 132, 199, 0.08)'};
+        }
+      </style>
+      <div style="background:${bg};color:${textColor};width:460px;max-width:92vw;border-radius:14px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.4);border:1px solid ${borderColor};overflow:hidden;animation:lfScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);">
+        <div style="padding:16px 20px;border-bottom:1px solid ${borderColor};display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:20px;">📄</span>
+            <h3 style="margin:0;font-size:16px;font-weight:700;">Opções de Exportação PDF</h3>
+          </div>
+          <button id="lf-pdf-modal-close" style="background:transparent;border:none;color:${mutedColor};font-size:18px;cursor:pointer;padding:4px;border-radius:4px;">✕</button>
+        </div>
+
+        <div style="padding:16px 20px;display:flex;flex-direction:column;gap:14px;max-height:75vh;overflow-y:auto;">
+          <!-- Densidade / Economia de Páginas -->
+          <div>
+            <label style="font-size:12px;font-weight:700;text-transform:uppercase;color:${mutedColor};display:block;margin-bottom:8px;">Formatação & Economia de Páginas</label>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <label class="lf-pdf-opt-card selected" data-group="layout">
+                <input type="radio" name="lf-pdf-layout" value="two-col" checked style="margin-top:2px;">
+                <div>
+                  <div style="font-size:13px;font-weight:700;color:${textColor};">⚡ Econômico (2 Colunas) <span style="background:#10b981;color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px;">Economiza até 75%</span></div>
+                  <div style="font-size:11px;color:${mutedColor};margin-top:2px;">Duas colunas compactas e densas. Reduz drasticamente a quantidade de folhas impressas.</div>
+                </div>
+              </label>
+
+              <label class="lf-pdf-opt-card" data-group="layout">
+                <input type="radio" name="lf-pdf-layout" value="compact-table" style="margin-top:2px;">
+                <div>
+                  <div style="font-size:13px;font-weight:700;color:${textColor};">📋 Tabela Compacta (1 Coluna)</div>
+                  <div style="font-size:11px;color:${mutedColor};margin-top:2px;">Linhas finas condensadas em formato de tabela tradicional.</div>
+                </div>
+              </label>
+
+              <label class="lf-pdf-opt-card" data-group="layout">
+                <input type="radio" name="lf-pdf-layout" value="expanded" style="margin-top:2px;">
+                <div>
+                  <div style="font-size:13px;font-weight:700;color:${textColor};">📖 Expandido (Modo Estudo)</div>
+                  <div style="font-size:11px;color:${mutedColor};margin-top:2px;">Espaçamento maior entre falas, ideal para leitura solta e anotações.</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Conteúdo -->
+          <div>
+            <label style="font-size:12px;font-weight:700;text-transform:uppercase;color:${mutedColor};display:block;margin-bottom:8px;">Conteúdo das Legendas</label>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+              <label class="lf-pdf-opt-card selected" data-group="content" style="padding:8px 10px;flex-direction:row;align-items:center;">
+                <input type="radio" name="lf-pdf-content" value="bilingual" checked>
+                <span style="font-size:12px;font-weight:600;">Bilíngue</span>
+              </label>
+              <label class="lf-pdf-opt-card" data-group="content" style="padding:8px 10px;flex-direction:row;align-items:center;">
+                <input type="radio" name="lf-pdf-content" value="orig-only">
+                <span style="font-size:12px;font-weight:600;">Só Original</span>
+              </label>
+              <label class="lf-pdf-opt-card" data-group="content" style="padding:8px 10px;flex-direction:row;align-items:center;">
+                <input type="radio" name="lf-pdf-content" value="trans-only">
+                <span style="font-size:12px;font-weight:600;">Só Tradução</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Opções Adicionais -->
+          <div style="display:flex;align-items:center;justify-content:space-between;padding-top:4px;">
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;">
+              <input type="checkbox" id="lf-pdf-timestamps" checked style="accent-color:${accent};">
+              <span>Incluir Minutagem (Timestamps)</span>
+            </label>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:12px;color:${mutedColor};">Fonte:</span>
+              <select id="lf-pdf-font-size" style="background:${cardBg};color:${textColor};border:1px solid ${borderColor};border-radius:6px;padding:4px 8px;font-size:11px;outline:none;">
+                <option value="small" selected>Pequena (Econômica)</option>
+                <option value="medium">Média</option>
+                <option value="large">Grande</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding:14px 20px;border-top:1px solid ${borderColor};display:flex;gap:10px;justify-content:flex-end;background:${cardBg};">
+          <button id="lf-pdf-btn-cancel" style="background:transparent;border:1px solid ${borderColor};color:${textColor};padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Cancelar</button>
+          <button id="lf-pdf-btn-generate" style="background:${accent};border:none;color:#ffffff;padding:8px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 4px rgba(2,132,199,0.3);">🖨️ Gerar PDF / Imprimir</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const closeModal = () => overlay.remove();
+
+    overlay.querySelector('#lf-pdf-modal-close').onclick = closeModal;
+    overlay.querySelector('#lf-pdf-btn-cancel').onclick = closeModal;
+    overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
+
+    // Sincroniza classes visuais dos radio buttons
+    const bindRadioGroup = (groupName) => {
+      const cards = overlay.querySelectorAll(`.lf-pdf-opt-card[data-group="${groupName}"]`);
+      cards.forEach((card) => {
+        card.onclick = () => {
+          const radio = card.querySelector('input[type="radio"]');
+          if (radio) radio.checked = true;
+          cards.forEach((c) => c.classList.remove('selected'));
+          card.classList.add('selected');
+        };
+      });
+    };
+    bindRadioGroup('layout');
+    bindRadioGroup('content');
+
+    overlay.querySelector('#lf-pdf-btn-generate').onclick = () => {
+      const layout = overlay.querySelector('input[name="lf-pdf-layout"]:checked')?.value || 'two-col';
+      const content = overlay.querySelector('input[name="lf-pdf-content"]:checked')?.value || 'bilingual';
+      const timestamps = overlay.querySelector('#lf-pdf-timestamps')?.checked ?? true;
+      const fontSize = overlay.querySelector('#lf-pdf-font-size')?.value || 'small';
+
+      closeModal();
+      this._generatePDF({ layout, content, timestamps, fontSize });
+    };
+  }
+
+  _generatePDF(options = {}) {
     const videoTitle = document.title || 'Legendas';
     const safeVideoTitle = escapeHTML(videoTitle);
     const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
+
+    if (!cues || cues.length === 0) return;
+
+    const {
+      layout = 'two-col',
+      content = 'bilingual',
+      timestamps = true,
+      fontSize = 'small',
+    } = options;
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -4266,49 +4418,161 @@ export class SubtitleEngine {
       return;
     }
 
-    let html = `
-            <html>
-            <head>
-                <title>${safeVideoTitle} - LinguaFlow Script</title>
-                <style>
-                    body { font-family: 'Segoe UI', Arial, sans-serif; color: #333; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; }
-                    h1 { color: #0ea5e9; text-align: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; font-size: 20px; }
-                    .cue-item { border-bottom: 1px solid #f1f5f9; padding: 10px 0; page-break-inside: avoid; display:flex; gap: 15px; }
-                    .time { font-family: monospace; color: #94a3b8; font-size: 13px; min-width: 60px; }
-                    .text-content { flex: 1; }
-                    .orig { font-size: 16px; font-weight: 600; color: #0f172a; }
-                    .trans { font-size: 15px; color: #475569; margin-top: 4px; }
-                    @media print {
-                        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 0; }
-                    }
-                </style>
-            </head>
-            <body>
-                <h1>🎬 ${safeVideoTitle}</h1>
-                <p style="text-align:center; color:#64748b; margin-bottom: 30px; font-size: 12px">Script exportado via LinguaFlow</p>
-        `;
+    const fontStyles = {
+      small: { base: '9.5pt', time: '8pt', orig: '10pt', trans: '9pt' },
+      medium: { base: '11pt', time: '9pt', orig: '11.5pt', trans: '10.5pt' },
+      large: { base: '13pt', time: '10pt', orig: '14pt', trans: '12.5pt' },
+    }[fontSize] || { base: '9.5pt', time: '8pt', orig: '10pt', trans: '9pt' };
 
-    cues.forEach((c) => {
-      const time = this._formatTime(c.start);
-      const orig = escapeHTML(c.text || '').replace(/\n/g, '<br>');
-      const trans = escapeHTML(c.translatedText || '').replace(/\n/g, '<br>');
+    let layoutCSS = '';
+    if (layout === 'two-col') {
+      layoutCSS = `
+        .cues-container {
+          column-count: 2;
+          column-gap: 24px;
+          column-rule: 1px solid #e2e8f0;
+        }
+        .cue-item {
+          break-inside: avoid;
+          page-break-inside: avoid;
+          padding: 2.5px 0;
+          border-bottom: 1px solid #f1f5f9;
+          display: flex;
+          gap: 8px;
+        }
+      `;
+    } else if (layout === 'compact-table') {
+      layoutCSS = `
+        table { width: 100%; border-collapse: collapse; }
+        tr { break-inside: avoid; page-break-inside: avoid; }
+        td { padding: 3px 6px; vertical-align: top; border-bottom: 1px solid #e2e8f0; }
+      `;
+    } else {
+      // expanded
+      layoutCSS = `
+        .cues-container { max-width: 800px; margin: 0 auto; }
+        .cue-item {
+          break-inside: avoid;
+          page-break-inside: avoid;
+          padding: 10px 0;
+          border-bottom: 1px solid #f1f5f9;
+          display: flex;
+          gap: 15px;
+        }
+      `;
+    }
 
-      html += `<div class="cue-item">
-                        <div class="time">${time}</div>
-                        <div class="text-content">
-                            <div class="orig">${orig}</div>
-                            ${trans ? `<div class="trans">${trans}</div>` : ''}
-                        </div>
-                     </div>`;
-    });
+    let html = `<!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <title>${safeVideoTitle} - LinguaFlow Script</title>
+        <style>
+          @page {
+            margin: 1.2cm 1.4cm;
+            size: A4;
+          }
+          @media print {
+            body {
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+              padding: 0;
+              margin: 0;
+            }
+          }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: #1e293b;
+            line-height: 1.35;
+            font-size: ${fontStyles.base};
+            padding: 12px;
+            margin: 0 auto;
+          }
+          .pdf-header {
+            border-bottom: 2px solid #0284c7;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+            text-align: center;
+          }
+          .pdf-header h1 {
+            font-size: 15px;
+            color: #0f172a;
+            margin: 0 0 3px;
+          }
+          .pdf-header p {
+            font-size: 10px;
+            color: #64748b;
+            margin: 0;
+          }
+          .time {
+            font-family: monospace;
+            color: #64748b;
+            font-size: ${fontStyles.time};
+            white-space: nowrap;
+            min-width: 38px;
+            flex-shrink: 0;
+            margin-top: 1px;
+          }
+          .text-content { flex: 1; min-width: 0; }
+          .orig { font-size: ${fontStyles.orig}; font-weight: 600; color: #0f172a; }
+          .trans { font-size: ${fontStyles.trans}; color: #0284c7; margin-top: 1px; font-weight: 500; }
+          ${layoutCSS}
+        </style>
+      </head>
+      <body>
+        <div class="pdf-header">
+          <h1>🎬 ${safeVideoTitle}</h1>
+          <p>${cues.length} falas &bull; LinguaFlow &bull; ${new Date().toLocaleDateString('pt-BR')}</p>
+        </div>
+    `;
 
-    html += `</body></html>`;
+    if (layout === 'compact-table') {
+      html += '<table>';
+      cues.forEach((c) => {
+        const time = this._formatTime(c.start);
+        const orig = escapeHTML(c.text || '').replace(/\n/g, '<br>');
+        const trans = escapeHTML(c.translatedText || '').replace(/\n/g, '<br>');
+
+        const showOrig = content === 'bilingual' || content === 'orig-only';
+        const showTrans = (content === 'bilingual' || content === 'trans-only') && trans;
+
+        html += `<tr>
+          ${timestamps ? `<td class="time">${time}</td>` : ''}
+          <td class="text-content">
+            ${showOrig ? `<div class="orig">${orig}</div>` : ''}
+            ${showTrans ? `<div class="trans">${trans}</div>` : ''}
+          </td>
+        </tr>`;
+      });
+      html += '</table>';
+    } else {
+      html += '<div class="cues-container">';
+      cues.forEach((c) => {
+        const time = this._formatTime(c.start);
+        const orig = escapeHTML(c.text || '').replace(/\n/g, '<br>');
+        const trans = escapeHTML(c.translatedText || '').replace(/\n/g, '<br>');
+
+        const showOrig = content === 'bilingual' || content === 'orig-only';
+        const showTrans = (content === 'bilingual' || content === 'trans-only') && trans;
+
+        html += `<div class="cue-item">
+          ${timestamps ? `<div class="time">${time}</div>` : ''}
+          <div class="text-content">
+            ${showOrig ? `<div class="orig">${orig}</div>` : ''}
+            ${showTrans ? `<div class="trans">${trans}</div>` : ''}
+          </div>
+        </div>`;
+      });
+      html += '</div>';
+    }
+
+    html += '</body></html>';
     printWindow.document.write(html);
     printWindow.document.close();
 
     setTimeout(() => {
       printWindow.print();
-    }, 500);
+    }, 400);
   }
 
   _exportCSV() {

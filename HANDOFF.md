@@ -1,14 +1,15 @@
 # Handoff — LinguaFlow
 
-## Última sessão — 2026-09-09
+## Última sessão — 2026-09-10
 
-Build `3.0.42` publicado na `main` pelo PR #39, squash `0d2f1c1`.
+Build `3.0.43` em validação para corrigir o CORS da tradução lateral. O build `3.0.42` está publicado na `main`.
 
 ## Auditoria e correções desta sessão
 
 - Fechados sinks de HTML não confiável no jogo, painel lateral e exportações PDF/Anki; CSV neutraliza fórmulas iniciadas por `=`, `+`, `-` ou `@`.
 - O painel da extensão lê `sourceLang` e `uiTheme` persistidos. Tradução continua marcada por padrão.
 - A estratégia por viewport foi substituída conforme o requisito confirmado: a extensão solicita uma trilha completa do YouTube e traduz antecipadamente todas as cues da barra lateral em uma fila limitada, entregando cada resultado assim que termina.
+- O console real revelou que a fila chamava Google/MyMemory no origin do YouTube e era bloqueada por CORS. No 3.0.43, o content script usa o service worker com `host_permissions`; PWA e páginas da extensão preservam o transporte direto.
 - O protótipo paralelo foi preservado em stash, mas parser duplicado, fan-out de blocos, separador frágil e testes com rede real não entraram na implementação revisada.
 - Exportação Anki do dashboard inclui explicação contextual e mnemônico já salvos, sem gerar nova chamada de IA.
 - Rotas, menus, jogos e modais de Histórias/Cofre receberam títulos, estados de carregamento, foco, Escape, contenção de Tab, nomes acessíveis e retorno ao acionador. Resultados de jogos aguardam ação explícita.
@@ -17,7 +18,7 @@ Build `3.0.42` publicado na `main` pelo PR #39, squash `0d2f1c1`.
 
 ## Evidência atual
 
-- O release completo local do build 3.0.42 passou, incluindo o novo contrato de tradução antecipada sem acesso real à rede.
+- O release completo local do build 3.0.43 passou, incluindo a implementação do Antigravity para legendas/Max e o novo contrato de proxy sem CORS.
 - Os dois gates de release e o preview Vercel do PR #39 passaram antes do squash merge.
 - Checks de sintaxe dos módulos alterados, `git diff --check` e a suíte completa de release passaram.
 - `npm audit --omit=dev` não encontrou vulnerabilidades no snapshot auditado.
@@ -29,8 +30,9 @@ Build `3.0.42` publicado na `main` pelo PR #39, squash `0d2f1c1`.
 
 ## Próximo passo concreto
 
-1. Recarregar a extensão e confirmar que toda a lista lateral começa a preencher ainda no início do vídeo.
-2. Homologar contexto do card, exportação Anki, áudio e isolamento com duas contas.
+1. Executar o release completo e publicar o build 3.0.43 por PR protegido.
+2. Recarregar a extensão e confirmar que toda a lista lateral começa a preencher ainda no início do vídeo, sem erros CORS.
+3. Homologar contexto do card, exportação Anki, áudio e isolamento com duas contas.
 
 ## Riscos residuais conhecidos
 

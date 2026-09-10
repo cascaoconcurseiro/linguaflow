@@ -1,7 +1,17 @@
 # Checklist — LinguaFlow
 
 **Atualizado em:** 2026-09-08
-**Referência:** auditoria geral e robustez, build `3.0.42`
+**Referência:** auditoria geral e robustez, build `3.0.43`
+
+## CORS da tradução lateral — build 3.0.43
+
+- [x] Confirmar no console que Google Translate era bloqueado pelo origin do YouTube.
+- [x] Encaminhar tradução do content script pelo service worker.
+- [x] Impedir fallback para `fetch` direto quando o proxy falhar.
+- [x] Validar remetente e tamanho do texto no service worker.
+- [x] Integrar contrato de transporte ao gate de release.
+- [x] Executar o release completo com as mudanças de tradução/Max do Antigravity preservadas.
+- [ ] Publicar o build 3.0.43 na `main` após release e checks.
 
 ## Tradução antecipada da lista lateral — build 3.0.42
 

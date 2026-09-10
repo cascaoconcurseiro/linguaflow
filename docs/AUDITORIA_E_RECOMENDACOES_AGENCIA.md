@@ -1,7 +1,7 @@
 # Auditoria geral — LinguaFlow
 
 **Data:** 2026-09-09
-**Base:** `main` em `0d2f1c1`, build `3.0.42` publicado pelo PR #39
+**Base:** build `3.0.43` em validação sobre a `main`
 
 ## Escopo e método
 
@@ -9,13 +9,14 @@ A revisão cobriu extensão Chrome MV3, PWA, rotas e interfaces, motor de legend
 
 Os testes existentes foram tratados como evidência parcial: muitos são contratos estáticos e não exercitam DOM real, Chrome, provedores externos ou duas sessões autenticadas. Por isso, cada conclusão abaixo separa correção comprovada em código de homologação ainda necessária.
 
-## Achados corrigidos nos builds 3.0.41–3.0.42
+## Achados corrigidos nos builds 3.0.41–3.0.43
 
 | Severidade | Falha confirmada | Correção e efeito |
 |---|---|---|
 | Alta | Traduções persistidas entravam no HTML do jogo e da barra lateral sem escape. | Valores passam por escape antes de atributos/HTML; atualizações assíncronas usam `textContent`. |
 | Alta | Título e cues podiam gerar HTML executável no PDF/Anki; CSV aceitava fórmulas ativas. | Exportações escapam HTML e neutralizam os quatro prefixos ativos de planilha. |
 | Alta | A estratégia por viewport não atendia ao requisito de ver toda a lista traduzida desde o início. | A extensão solicita a trilha completa e traduz todas as cues com no máximo 12 workers, atualizando cada linha progressivamente. |
+| Alta | O content script chamava Google Translate a partir do origin do YouTube e todas as requisições eram bloqueadas por CORS. | A tradução passa pelo service worker com `host_permissions`; falha do proxy não repete o transporte bloqueado da página. |
 | Alta | `sourceLang` e `uiTheme` eram gravados, mas omitidos da leitura do painel. | A hidratação inclui as duas preferências; tradução permanece `true` quando ausente. |
 | Alta | Execuções concorrentes podiam enviar Push/e-mail mais de uma vez antes de atualizar o timestamp. | Claims atômicos no Postgres reservam o destinatário por 15 minutos; Resend recebe chave idempotente estável. |
 | Média | Reutilizar `client_event_id` com outro payload retornava o resultado anterior como se fosse retry válido. | A RPC compara o evento normalizado e responde `23505 idempotency_conflict` quando o significado diverge. |
@@ -45,7 +46,7 @@ Essas verificações não cobrem comprometimento futuro de CDN, segurança inter
 | Prioridade | Risco | Próxima ação verificável |
 |---|---|---|
 | P1 | Dependências remotas de fflate, Kokoro e YouGlish executam no origin autenticado. | Autocustodiar artefatos versionados ou isolar o widget; registrar hash/licença e fallback. |
-| P1 | QA autenticado da extensão, áudio, Anki e duas contas ainda não foi executado neste lote. | Recarregar 3.0.42 no Chrome e seguir a matriz de homologação abaixo. |
+| P1 | QA autenticado da extensão, áudio, Anki e duas contas ainda não foi executado neste lote. | Recarregar 3.0.43 no Chrome e seguir a matriz de homologação abaixo. |
 | P2 | Busca de cue ativa faz filtro linear por frame. | Medir vídeo longo e implementar índice temporal com teste de cues sobrepostos. |
 | P2 | Actions e dependências externas fixadas por tag podem mudar sem revisão local. | Fixar actions por SHA e automatizar atualização controlada. |
 | P2 | Nonce da ponte MAIN world é observável pela página hospedeira. | Reduzir comandos e payloads aceitos; tratar a página como origem não confiável. |

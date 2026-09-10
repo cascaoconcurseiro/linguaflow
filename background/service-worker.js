@@ -250,10 +250,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   // Tradução de texto (Usando utilitário Translator com Cache multinível)
   if (request.action === 'translate') {
+    if (sender?.id !== chrome.runtime.id) {
+      sendResponse({ translation: null, error: 'Remetente não autorizado.' });
+      return false;
+    }
     const { text, from, to } = request;
+    if (typeof text !== 'string' || text.length === 0 || text.length > 5000) {
+      sendResponse({ translation: null, error: 'Texto de tradução inválido.' });
+      return false;
+    }
     translator
       .translate(text, from, to)
-      .then((result) => sendResponse({ translation: result.translation, source: result.source }))
+      .then((result) => sendResponse({ translation: result.translation, source: result.source, cached: result.cached }))
       .catch((err) => sendResponse({ translation: null, error: err.message }));
     return true;
   }

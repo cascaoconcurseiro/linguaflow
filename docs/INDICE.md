@@ -1,6 +1,6 @@
 # Índice da documentação
 
-Revisado em 09/09/2026: build 3.0.42 e auditoria geral.
+Revisado em 09/09/2026: build 3.0.43 e auditoria geral.
 
 ## Autoritativa
 

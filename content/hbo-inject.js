@@ -50,9 +50,22 @@
     const originalFetch = window.fetch;
     window.fetch = async (...args) => {
         const response = await originalFetch(...args);
-        const url = args[0] instanceof Request ? args[0].url : args[0];
+        const rawUrl = args[0] instanceof Request ? args[0].url : (args[0] instanceof URL ? args[0].href : String(args[0]?.url || args[0] || ''));
+        const url = typeof rawUrl === 'string' ? rawUrl : String(rawUrl || '');
         
-        if (typeof url === 'string' && (url.includes('.vtt') || url.includes('subtitle') || url.includes('caption'))) {
+        const isUrlCandidate = url && (
+            url.includes('.vtt') ||
+            url.includes('.webvtt') ||
+            url.includes('subtitle') ||
+            url.includes('caption') ||
+            url.includes('timedtext')
+        );
+        const contentType = response?.headers?.get?.('content-type') || '';
+        const isContentTypeCandidate = contentType.includes('text/vtt') ||
+                                       contentType.includes('application/x-subrip') ||
+                                       contentType.includes('application/ttml+xml');
+
+        if (isUrlCandidate || isContentTypeCandidate) {
             const clone = response.clone();
             clone.text().then(text => {
                 handleSubtitleData(url, text);
@@ -64,11 +77,20 @@
     // ── Processamento de Dados de Legenda ───────────────────────────────────
     function handleSubtitleData(url, content) {
         if (!url || !content) return;
+        if (typeof url !== 'string') url = String(url);
         if (url.includes('empty-dash-subs')) return;
 
         // Filtro agressivo para VTT ou conteúdo que pareça legenda
         const isVtt = url.includes('.vtt') || url.includes('.webvtt');
-        const hasVttHeader = typeof content === 'string' && (content.includes('WEBVTT') || content.includes('-->'));
+        let hasVttHeader = false;
+        if (typeof content === 'string') {
+            hasVttHeader = content.includes('WEBVTT') || content.includes('-->');
+        } else if (content instanceof ArrayBuffer) {
+            try {
+                const sample = new TextDecoder('utf-8').decode(content.slice(0, 2048));
+                hasVttHeader = sample.includes('WEBVTT') || sample.includes('-->');
+            } catch (e) {}
+        }
 
         if (isVtt || hasVttHeader) {
             console.debug('[LF-inject] Legenda detectada, enviando via postMessage');

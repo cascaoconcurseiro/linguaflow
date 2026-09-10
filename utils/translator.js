@@ -2,6 +2,17 @@
 import { db } from './db.js';
 import { offlineDict } from './offline-dict.js';
 
+export function shouldProxyTranslationThroughExtension(
+    locationLike = globalThis.location,
+    runtime = globalThis.chrome?.runtime,
+) {
+    return Boolean(
+        runtime?.id
+        && typeof runtime.sendMessage === 'function'
+        && /^https?:$/.test(locationLike?.protocol || ''),
+    );
+}
+
 class Translator {
     constructor() {
         this.memoryCache = new Map();
@@ -58,6 +69,20 @@ class Translator {
                     }
                 }
 
+                if (shouldProxyTranslationThroughExtension()) {
+                    const proxied = await this._fetchExtensionTranslate(text, fromLang, toLang);
+                    if (!proxied?.translation) {
+                        return { translation: '', source: 'extension_proxy_error', cached: false };
+                    }
+                    this._updateMemoryCache(key, proxied.translation);
+                    db.setTranslationCache(cacheKey, proxied.translation).catch(() => {});
+                    return {
+                        translation: proxied.translation,
+                        source: proxied.source || 'extension_proxy',
+                        cached: Boolean(proxied.cached),
+                    };
+                }
+
                 const google = await this._fetchGoogleTranslate(text, fromLang, toLang);
                 if (google) {
                     this._updateMemoryCache(key, google);
@@ -82,33 +107,63 @@ class Translator {
         return await promise;
     }
 
-    async _fetchGoogleTranslate(text, fromLang, toLang) {
+    async _fetchExtensionTranslate(text, fromLang, toLang) {
+        if (!shouldProxyTranslationThroughExtension()) return null;
         try {
-            const sl = fromLang === 'auto' ? 'auto' : fromLang;
-            const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${toLang}&dt=t&q=${encodeURIComponent(text.trim())}`;
+            const response = await chrome.runtime.sendMessage({
+                action: 'translate',
+                text,
+                from: fromLang,
+                to: toLang,
+            });
+            if (!response?.translation) return null;
+            return response;
+        } catch (error) {
+            console.warn('[LinguaFlow Translator] Proxy da extensão falhou:', error?.message || error);
+            return null;
+        }
+    }
 
-            const controller = new AbortController();
-            const tid = setTimeout(() => controller.abort(), 5000);
-            const response = await fetch(url, { signal: controller.signal });
-            clearTimeout(tid);
+    async _fetchGoogleTranslate(text, fromLang, toLang) {
+        const sl = fromLang === 'auto' ? 'auto' : fromLang;
+        const q = encodeURIComponent(text.trim());
+        const endpoints = [
+            `https://translate.googleapis.com/translate_a/single?client=dict-chrome-ex&sl=${sl}&tl=${toLang}&dt=t&q=${q}`,
+            `https://translate.google.com/translate_a/single?client=dict-chrome-ex&sl=${sl}&tl=${toLang}&dt=t&q=${q}`,
+            `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${toLang}&dt=t&q=${q}`,
+        ];
 
-            if (!response.ok) return null;
+        for (const url of endpoints) {
+            try {
+                const controller = new AbortController();
+                const tid = setTimeout(() => controller.abort(), 5000);
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(tid);
 
-            // Usa text() + JSON.parse para garantir UTF-8 correto
-            // response.json() pode interpretar mal caracteres especiais em alguns browsers
-            const raw = await response.text();
-            const data = JSON.parse(raw);
+                if (!response.ok) {
+                    if (response.status === 429) {
+                        console.warn('[LinguaFlow Translator] Rate limit 429 em endpoint Google, tentando alternativa...');
+                    }
+                    continue;
+                }
 
-            if (data && data[0] && Array.isArray(data[0])) {
-                const translation = data[0]
-                    .filter(part => part && part[0])
-                    .map(part => part[0])
-                    .join('')
-                    .trim();
-                return translation || null;
+                // Usa text() + JSON.parse para garantir UTF-8 correto
+                // response.json() pode interpretar mal caracteres especiais em alguns browsers
+                const raw = await response.text();
+                if (!raw || raw.startsWith('<')) continue;
+                const data = JSON.parse(raw);
+
+                if (data && data[0] && Array.isArray(data[0])) {
+                    const translation = data[0]
+                        .filter(part => part && part[0])
+                        .map(part => part[0])
+                        .join('')
+                        .trim();
+                    if (translation) return translation;
+                }
+            } catch (err) {
+                console.warn('[LinguaFlow Translator] Endpoint Google falhou:', err.message);
             }
-        } catch (err) {
-            console.warn('[LinguaFlow Translator] Google GTX falhou:', err.message);
         }
         return null;
     }
@@ -153,6 +208,9 @@ class Translator {
                 }
                 if (typeof onResult === 'function') {
                     try { onResult(results[index], index); } catch {}
+                }
+                if (results[index] && !results[index].cached) {
+                    await new Promise((resolve) => setTimeout(resolve, 35));
                 }
             }
         };

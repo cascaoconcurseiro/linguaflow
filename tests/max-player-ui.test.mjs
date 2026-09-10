@@ -119,4 +119,81 @@ assert.match(popupSource, /computeMaxPopupLayout/);
 assert.match(popupSource, /ResizeObserver/);
 assert.doesNotMatch(popupSource, /platform === 'max' && subtitleHost\?\.offsetParent/);
 
+// Words tab on Max / HBO contracts
+assert.equal(typeof SubtitleEngine.prototype._rebuildWordsList, 'function');
+
+const mockContainer = {
+  innerHTML: '',
+  children: [],
+  appendChild(child) {
+    this.children.push(child);
+    return child;
+  },
+};
+
+const wordsEngine = Object.create(SubtitleEngine.prototype);
+let subtitleTabClicked = false;
+let videoPlayCalled = false;
+
+Object.assign(wordsEngine, {
+  xhrCues: [
+    { start: 15, end: 18, text: 'Remember to stay calm and focus on learning.' },
+    { start: 20, end: 25, text: 'This mysterious stranger arrived yesterday.' },
+  ],
+  cues: [],
+  knownWords: new Set(['remember']),
+  savedWords: new Map([['calm', 'learning']]),
+  videoElement: {
+    currentTime: 0,
+    play() {
+      videoPlayCalled = true;
+      return Promise.resolve();
+    },
+  },
+  _cleanSubtitleText: (t) => t,
+});
+
+globalThis.document = {
+  getElementById(id) {
+    if (id === 'lf-words-scroll') return mockContainer;
+    if (id === 'lf-tab-subtitles') return { click() { subtitleTabClicked = true; } };
+    return null;
+  },
+  createElement(tag) {
+    const el = {
+      tagName: tag,
+      style: {},
+      children: [],
+      classList: new Set(),
+      dataset: {},
+      listeners: {},
+      appendChild(c) {
+        this.children.push(c);
+        return c;
+      },
+      querySelector() { return null; },
+      querySelectorAll() { return []; },
+      addEventListener(evt, fn) {
+        this.listeners[evt] = fn;
+      },
+    };
+    return el;
+  },
+};
+
+wordsEngine._rebuildWordsList(mockContainer);
+assert.ok(mockContainer.children.length > 0, 'Words tab deve conter elementos renderizados a partir de xhrCues');
+
+// Contract: _debouncedRebuildPanels existe e funciona
+assert.equal(typeof SubtitleEngine.prototype._debouncedRebuildPanels, 'function');
+
+// Contract: hbo-inject.js inspeciona content-type para capturar VTT mesmo sem extensão explícita
+const hboInjectSource = await readFile(new URL('../content/hbo-inject.js', import.meta.url), 'utf8');
+assert.match(hboInjectSource, /contentType\.includes\('text\/vtt'\)/, 'hbo-inject deve verificar Content-Type text/vtt');
+
+// Contract: subtitle-engine reparenta host para document.fullscreenElement no HBO Max
+const engineSource = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+assert.match(engineSource, /targetRoot = document\.fullscreenElement \|\| document\.body/, 'subtitle-engine deve anexar host no targetRoot em fullscreen');
+assert.match(engineSource, /existing\.translatedText = nc\.translatedText/, 'subtitle-engine não deve sobrescrever traduções existentes ao mesclar cues');
+
 console.log('Max/HBO player UI contracts passed.');

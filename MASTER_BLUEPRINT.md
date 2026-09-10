@@ -48,6 +48,7 @@ Estado vigente: [`docs/ESTADO_ATUAL_2026-07-29.md`](docs/ESTADO_ATUAL_2026-07-29
 
 | Data | Decisão | Motivo |
 |---|---|---|
+| 2026-09-09 | Requisições de tradução iniciadas por content scripts passam pelo service worker; páginas da extensão, service worker e PWA usam o transporte direto quando permitido. | `host_permissions` remove CORS no contexto da extensão, mas não concede essa exceção ao origin da página hospedeira. |
 | 2026-09-09 | Ao abrir um vídeo, a extensão busca a trilha completa disponível e antecipa a tradução de todas as cues da barra lateral em uma fila limitada, entregando resultados progressivamente. | A lista lateral deve estar disponível desde o começo do vídeo; limitar por viewport contradiz essa experiência, enquanto limitar concorrência protege rede e provedores. |
 | 2026-09-09 | Efeitos externos de Push e e-mail exigem claim atômico com lease no Postgres; provedores com suporte recebem chave de idempotência estável. Reutilizar um evento adaptativo com payload diferente é conflito. | Impede execuções concorrentes comuns de duplicarem notificações e evita que retries alterem silenciosamente o significado de um evento já aceito. |
 | 2026-09-07 | A RPC é a única autoridade para transições de revisão: bloqueia o card, lê configurações e limites, calcula FSRS e devolve o estado persistido. O parâmetro legado `p_state` permanece apenas para compatibilidade e é ignorado. | Impede que clientes alterados ou desatualizados proponham dificuldade, estabilidade, vencimento, leech, XP ou contadores. |
@@ -85,7 +86,7 @@ Estado vigente: [`docs/ESTADO_ATUAL_2026-07-29.md`](docs/ESTADO_ATUAL_2026-07-29
 
 ## Gates atuais
 
-- build `3.0.42` autenticado no navegador;
+- build `3.0.43` autenticado no navegador;
 - `fluency_skill_profiles` HTTP 200 sem `42703`;
 - Check de comunicação sem captura de voz;
 - voz natural real na escuta;

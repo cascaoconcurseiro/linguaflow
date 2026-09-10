@@ -1,6 +1,6 @@
 # Documentação do LinguaFlow
 
-Revisado em 09/09/2026: build 3.0.42 e auditoria geral.
+Revisado em 09/09/2026: build 3.0.43 e auditoria geral.
 
 Esta pasta contém contratos ativos e registros históricos. O ponto de entrada
 é [`ESTADO_ATUAL_2026-07-29.md`](ESTADO_ATUAL_2026-07-29.md).

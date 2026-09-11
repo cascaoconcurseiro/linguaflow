@@ -307,4 +307,125 @@ function bareEngine(url = 'https://www.youtube.com/watch?v=full-test') {
   assert.equal(engine._hasFullYoutubeTrack, true);
 }
 
+// 7. HBO Max: Master Playlist M3U8 é interceptada, resolve playlist de legenda e busca 100% dos segmentos
+{
+  const engine = bareEngine('https://play.max.com/video/watch/episode-1');
+  engine.platform = 'max';
+  const navigation = engine._beginNavigation('https://play.max.com/video/watch/episode-1');
+
+  const masterPlaylistText = `
+#EXTM3U
+#EXT-X-VERSION:6
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",DEFAULT=YES,AUTOSELECT=YES,FORCED=NO,LANGUAGE="en",URI="sub_en.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=800000,SUBTITLES="subs"
+video_800k.m3u8
+  `.trim();
+
+  const subPlaylistText = `
+#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:6
+#EXT-X-MEDIA-SEQUENCE:0
+#EXTINF:6.000,
+seg_000.vtt
+#EXTINF:6.000,
+seg_001.vtt
+#EXTINF:6.000,
+seg_002.vtt
+#EXT-X-ENDLIST
+  `.trim();
+
+  const vttSegmentResponses = {
+    'https://play.max.com/video/watch/seg_000.vtt': 'WEBVTT\n\n00:00:01.000 --> 00:00:04.000\nWelcome to HBO Max full video',
+    'https://play.max.com/video/watch/seg_001.vtt': 'WEBVTT\n\n00:00:07.000 --> 00:00:09.500\nMiddle of episode dialogue at 7s',
+    'https://play.max.com/video/watch/seg_002.vtt': 'WEBVTT\n\n00:22:00.000 --> 00:22:05.000\nFinal scene of 22-minute episode on Max',
+  };
+
+  globalThis.fetch = async (url) => {
+    const s = String(url);
+    if (s === 'https://play.max.com/video/watch/sub_en.m3u8') {
+      return { ok: true, text: async () => subPlaylistText };
+    }
+    if (vttSegmentResponses[s]) {
+      return { ok: true, text: async () => vttSegmentResponses[s] };
+    }
+    return { ok: false, status: 404, text: async () => '' };
+  };
+
+  await engine._processHboM3u8Playlist('https://play.max.com/video/watch/master.m3u8', masterPlaylistText, navigation);
+
+  assert.equal(engine._hasFullHboTrack, true, 'deve marcar _hasFullHboTrack como true');
+  assert.equal(engine.xhrCues.length, 3, 'deve conter todas as frases da trilha inteira');
+  assert.equal(engine.cues.length, 3);
+  assert.equal(engine.cues[0].text, 'Welcome to HBO Max full video');
+  assert.equal(engine.cues[2].text, 'Final scene of 22-minute episode on Max');
+  assert.equal(engine.cues[2].start, 1320); // 22:00
+}
+
+// 8. HBO Max: Recebe apenas o segmento inicial do player (que cobre só os primeiros minutos),
+// deduz a sequência e busca todos os segmentos até o final de um vídeo de 20+ minutos
+{
+  const engine = bareEngine('https://play.max.com/video/watch/long-movie');
+  engine.platform = 'max';
+  engine.videoElement = { duration: 1260 }; // 21 minutos
+  const navigation = engine._beginNavigation('https://play.max.com/video/watch/long-movie');
+
+  // Simula 4 segmentos gerados sequencialmente cobrindo 0 a 21 minutos
+  const mockSegs = {
+    'https://cdn.max.com/sub/segment_00000.vtt': 'WEBVTT\n\n00:00:00.500 --> 00:00:03.000\nHBO startup sentence at 0m',
+    'https://cdn.max.com/sub/segment_00001.vtt': 'WEBVTT\n\n00:00:06.000 --> 00:00:09.000\nSentence at 6s',
+    'https://cdn.max.com/sub/segment_00130.vtt': 'WEBVTT\n\n00:13:00.000 --> 00:13:04.000\nSentence at 13m where native player usually paused requests',
+    'https://cdn.max.com/sub/segment_00200.vtt': 'WEBVTT\n\n00:20:30.000 --> 00:20:35.000\nFinal sentence at 20m30s of 21-min video',
+  };
+
+  globalThis.fetch = async (url) => {
+    const s = String(url);
+    if (s.endsWith('.m3u8')) {
+      return { ok: false, status: 404, text: async () => '' };
+    }
+    if (mockSegs[s]) {
+      return { ok: true, text: async () => mockSegs[s] };
+    }
+    // Segmentos intermediários vazios ou não encontrados
+    return { ok: false, status: 404, text: async () => '' };
+  };
+
+  const initialCues = [{ start: 0.5, end: 3.0, text: 'HBO startup sentence at 0m' }];
+  await engine._scheduleHboRemainingSegments('https://cdn.max.com/sub/segment_00000.vtt', initialCues, navigation);
+
+  assert.equal(engine._hasFullHboTrack, true, 'deve marcar a trilha como 100% completa');
+  assert.ok(engine.xhrCues.length >= 3, 'deve carregar segmentos além do minuto 13');
+  const hasPast13Min = engine.xhrCues.some((c) => c.start >= 1200);
+  assert.equal(hasPast13Min, true, 'deve conter legendas do minuto 20');
+}
+
+// 9. HBO Max: Extração de TextTracks do elemento <video> como fallback de segurança
+{
+  const engine = bareEngine('https://play.max.com/video/watch/tracks-test');
+  engine.platform = 'max';
+  engine.videoElement = {
+    textTracks: [
+      {
+        kind: 'subtitles',
+        cues: [
+          { startTime: 2.0, endTime: 5.0, text: 'Fallback TextTrack cue 1' },
+          { startTime: 1200.0, endTime: 1204.0, text: 'Fallback TextTrack cue at 20m' },
+        ],
+      },
+    ],
+  };
+
+  const extracted = engine._extractCuesFromTextTracks();
+  assert.equal(extracted.length, 2);
+  assert.equal(extracted[0].text, 'Fallback TextTrack cue 1');
+  assert.equal(extracted[1].start, 1200);
+
+  // Testa integração no _rebuildSubtitleList
+  globalThis.document = { getElementById: () => null };
+  engine.xhrCues = [];
+  engine.cues = [];
+  SubtitleEngine.prototype._rebuildSubtitleList.call(engine);
+  assert.equal(engine.cues.length, 2, '_rebuildSubtitleList deve preencher cues a partir de TextTracks no Max');
+}
+
 console.log('Testes de carregamento completo e antecipado de legendas: tudo verde ✅');

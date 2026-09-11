@@ -56,14 +56,21 @@
         const isUrlCandidate = url && (
             url.includes('.vtt') ||
             url.includes('.webvtt') ||
+            url.includes('.m3u8') ||
+            url.includes('.mpd') ||
             url.includes('subtitle') ||
             url.includes('caption') ||
-            url.includes('timedtext')
+            url.includes('timedtext') ||
+            url.includes('segment') ||
+            url.includes('seg-') ||
+            url.includes('seg_')
         );
         const contentType = response?.headers?.get?.('content-type') || '';
         const isContentTypeCandidate = contentType.includes('text/vtt') ||
                                        contentType.includes('application/x-subrip') ||
-                                       contentType.includes('application/ttml+xml');
+                                       contentType.includes('application/ttml+xml') ||
+                                       contentType.includes('application/vnd.apple.mpegurl') ||
+                                       contentType.includes('application/x-mpegurl');
 
         if (isUrlCandidate || isContentTypeCandidate) {
             const clone = response.clone();
@@ -80,20 +87,27 @@
         if (typeof url !== 'string') url = String(url);
         if (url.includes('empty-dash-subs')) return;
 
-        // Filtro agressivo para VTT ou conteúdo que pareça legenda
         const isVtt = url.includes('.vtt') || url.includes('.webvtt');
-        let hasVttHeader = false;
+        let textSample = '';
         if (typeof content === 'string') {
-            hasVttHeader = content.includes('WEBVTT') || content.includes('-->');
+            textSample = content.substring(0, 4096);
         } else if (content instanceof ArrayBuffer) {
             try {
-                const sample = new TextDecoder('utf-8').decode(content.slice(0, 2048));
-                hasVttHeader = sample.includes('WEBVTT') || sample.includes('-->');
+                textSample = new TextDecoder('utf-8').decode(content.slice(0, 4096));
             } catch (e) {}
         }
 
-        if (isVtt || hasVttHeader) {
-            console.debug('[LF-inject] Legenda detectada, enviando via postMessage');
+        const hasVttHeader = textSample.includes('WEBVTT') || textSample.includes('-->');
+        const isM3u8Subtitle = textSample.includes('#EXTM3U') && (
+            textSample.includes('.vtt') ||
+            textSample.includes('SUBTITLES') ||
+            textSample.includes('#EXTINF') ||
+            url.includes('sub') ||
+            url.includes('caption')
+        );
+
+        if (isVtt || hasVttHeader || isM3u8Subtitle) {
+            console.debug('[LF-inject] Legenda ou playlist detectada, enviando via postMessage');
             postBridgeMessage({
                 type: 'LF_HBO_SUB',
                 url: url,

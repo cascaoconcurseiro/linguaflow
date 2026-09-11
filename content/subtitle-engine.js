@@ -48,7 +48,7 @@ export function isTrustedSubtitleBridgeMessage(event, bridgeState, currentUrl) {
     }
     if (
       data.type === 'LF_HBO_SUB'
-      && (!isMax || !/(\.vtt|\.webvtt|subtitle|caption)/.test(subtitleLocator))
+      && (!isMax || !/(\.vtt|\.webvtt|\.m3u8|\.mpd|subtitle|caption|segment|seg-|seg_|hls)/i.test(subtitleLocator))
     ) return false;
   } catch {
     return false;
@@ -102,6 +102,9 @@ export class SubtitleEngine {
     this.cues = []; // Cues do YouTube (via XHR)
     this.xhrCues = []; // Cues do HBO/Netflix (via XHR intercept)
     this.usingXhr = false; // Flag para saber se está usando XHR
+    this._hasFullHboTrack = false;
+    this._fetchingHboSegments = false;
+    this._lastHboSubtitleUrl = '';
     this.currentCueIndex = -1;
     this.shadowContainer = null;
     this.videoElement = null;
@@ -248,6 +251,9 @@ export class SubtitleEngine {
     this._navigationEpoch += 1;
     this._hasFullYoutubeTrack = false;
     this._fullTrackFetchKey = '';
+    this._hasFullHboTrack = false;
+    this._fetchingHboSegments = false;
+    this._lastHboSubtitleUrl = '';
     return this._navigationSnapshot();
   }
 
@@ -563,6 +569,12 @@ export class SubtitleEngine {
           return;
         }
 
+        // Se for Playlist HLS (.m3u8) no HBO / Max
+        if (typeof resp === 'string' && resp.includes('#EXTM3U')) {
+          this._processHboM3u8Playlist(url, resp, this._navigationSnapshot());
+          return;
+        }
+
         const newCues = this._parseVTT(resp);
         if (newCues.length > 0) {
           let hasNewCues = false;
@@ -594,6 +606,12 @@ export class SubtitleEngine {
               this.xhrCues.length +
               ' frases ativas)',
           );
+
+          // Se estiver no HBO Max e ainda não tiver a trilha 100% completa,
+          // busca os segmentos restantes do vídeo inteiro desde o início!
+          if (this.platform === 'max' && !this._hasFullHboTrack && !this._fetchingHboSegments) {
+            this._scheduleHboRemainingSegments(url, newCues, this._navigationSnapshot());
+          }
 
           // Notifica reconstrução do painel lateral de forma debounced
           if (hasNewCues) {
@@ -2814,21 +2832,28 @@ export class SubtitleEngine {
     if (!video || video._lfDurationListenerAttached) return;
     video._lfDurationListenerAttached = true;
     const checkCompleteness = () => {
-      if (this.platform !== 'youtube') return;
-      if (this._hasFullYoutubeTrack) return;
-      if (!this._lastRawSubtitleUrl || !this.cues || this.cues.length === 0) return;
-      if (this._isTrackIncomplete(this.cues)) {
-        this._fetchRemainingYoutubeChunks(this._lastRawSubtitleUrl, this.cues, this._navigationSnapshot())
-          .then((fullCues) => {
-            if (Array.isArray(fullCues) && fullCues.length > this.cues.length) {
-              this.cues = fullCues;
-              this.xhrCues = fullCues;
-              this._hasFullYoutubeTrack = !this._isTrackIncomplete(fullCues);
-              this._rebuildSubtitleList();
-              this._rebuildWordsList();
-            }
-          })
-          .catch(() => {});
+      if (this.platform === 'youtube') {
+        if (this._hasFullYoutubeTrack) return;
+        if (!this._lastRawSubtitleUrl || !this.cues || this.cues.length === 0) return;
+        if (this._isTrackIncomplete(this.cues)) {
+          this._fetchRemainingYoutubeChunks(this._lastRawSubtitleUrl, this.cues, this._navigationSnapshot())
+            .then((fullCues) => {
+              if (Array.isArray(fullCues) && fullCues.length > this.cues.length) {
+                this.cues = fullCues;
+                this.xhrCues = fullCues;
+                this._hasFullYoutubeTrack = !this._isTrackIncomplete(fullCues);
+                this._rebuildSubtitleList();
+                this._rebuildWordsList();
+              }
+            })
+            .catch(() => {});
+        }
+      } else if (this.platform === 'max') {
+        if (this._hasFullHboTrack || this._fetchingHboSegments) return;
+        const currentCues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
+        if (this._lastHboSubtitleUrl && currentCues && currentCues.length > 0 && this._isTrackIncomplete(currentCues)) {
+          this._scheduleHboRemainingSegments(this._lastHboSubtitleUrl, currentCues, this._navigationSnapshot());
+        }
       }
     };
     video.addEventListener('durationchange', checkCompleteness);
@@ -3241,6 +3266,301 @@ export class SubtitleEngine {
         ytWrap.style.display = 'none';
         console.debug('[LinguaFlow] Legenda nativa do YouTube escondida');
       }
+    }
+  }
+
+  // ── HBO Max: Processador de Playlist HLS (.m3u8) ──────────────────────────
+  async _processHboM3u8Playlist(playlistUrl, m3u8Text, navigation = this._navigationSnapshot()) {
+    if (!this._isNavigationCurrent(navigation) || !m3u8Text || typeof m3u8Text !== 'string') return;
+    this._lastHboSubtitleUrl = playlistUrl;
+
+    const lines = m3u8Text.split(/\r?\n/);
+    const subTracks = [];
+    const segmentUrls = [];
+
+    const isMasterPlaylist = m3u8Text.includes('#EXT-X-STREAM-INF') ||
+      (m3u8Text.includes('#EXT-X-MEDIA:') && m3u8Text.includes('TYPE=SUBTITLES') && !m3u8Text.includes('#EXTINF:'));
+
+    if (isMasterPlaylist) {
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('#EXT-X-MEDIA:') && trimmed.includes('TYPE=SUBTITLES')) {
+          const uriMatch = trimmed.match(/URI="([^"]+)"/);
+          const langMatch = trimmed.match(/LANGUAGE="([^"]+)"/i);
+          const defaultMatch = trimmed.match(/DEFAULT=(YES|NO)/i);
+          const nameMatch = trimmed.match(/NAME="([^"]+)"/i);
+          if (uriMatch && uriMatch[1]) {
+            subTracks.push({
+              uri: uriMatch[1],
+              lang: (langMatch ? langMatch[1] : '').toLowerCase(),
+              isDefault: defaultMatch ? defaultMatch[1].toUpperCase() === 'YES' : false,
+              name: nameMatch ? nameMatch[1] : '',
+            });
+          }
+        }
+      }
+
+      if (subTracks.length > 0) {
+        const srcLang = (this.sourceLang || 'en').toLowerCase();
+        const track = subTracks.find((t) => t.lang.startsWith(srcLang))
+          || subTracks.find((t) => t.isDefault)
+          || subTracks[0];
+
+        if (track && track.uri) {
+          try {
+            const subPlaylistUrl = new URL(track.uri, playlistUrl).toString();
+            const res = await fetch(subPlaylistUrl, {
+              signal: navigation?.signal,
+              credentials: 'same-origin',
+            });
+            if (res.ok) {
+              const text = await res.text();
+              await this._processHboM3u8Playlist(subPlaylistUrl, text, navigation);
+            }
+          } catch (e) {
+            if (e?.name === 'AbortError' || !this._isNavigationCurrent(navigation)) return;
+            console.error('[LinguaFlow] Erro ao buscar sub-playlist HBO:', e);
+          }
+        }
+      }
+      return;
+    }
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      try {
+        const resolved = new URL(trimmed, playlistUrl).toString();
+        segmentUrls.push(resolved);
+      } catch {}
+    }
+
+    if (segmentUrls.length > 0) {
+      await this._fetchAllHboSegments(segmentUrls, navigation);
+    }
+  }
+
+  // ── HBO Max: Busca paralela de todos os segmentos da trilha completa ──────
+  async _fetchAllHboSegments(segmentUrls, navigation = this._navigationSnapshot()) {
+    if (!this._isNavigationCurrent(navigation) || !Array.isArray(segmentUrls) || segmentUrls.length === 0) {
+      return;
+    }
+    if (this._fetchingHboSegments) return;
+    this._fetchingHboSegments = true;
+
+    try {
+      const uniqueUrls = Array.from(new Set(segmentUrls));
+      const allCues = [];
+      const CONCURRENCY = 10;
+
+      for (let i = 0; i < uniqueUrls.length; i += CONCURRENCY) {
+        if (!this._isNavigationCurrent(navigation)) break;
+        const batch = uniqueUrls.slice(i, i + CONCURRENCY);
+        const results = await Promise.allSettled(
+          batch.map(async (segUrl) => {
+            const res = await fetch(segUrl, { signal: navigation?.signal, credentials: 'same-origin' });
+            if (!res.ok) return [];
+            const vtt = await res.text();
+            return this._parseVTT(vtt);
+          })
+        );
+        for (const r of results) {
+          if (r.status === 'fulfilled' && Array.isArray(r.value)) {
+            allCues.push(...r.value);
+          }
+        }
+      }
+
+      if (allCues.length > 0 && this._isNavigationCurrent(navigation)) {
+        const unique = new Map();
+        (this.xhrCues || []).forEach((c) => unique.set(c.start + '_' + c.end, c));
+        allCues.forEach((nc) => {
+          const key = nc.start + '_' + nc.end;
+          const existing = unique.get(key);
+          if (existing) {
+            if (!existing.translatedText && nc.translatedText) {
+              existing.translatedText = nc.translatedText;
+              existing._transLang = nc._transLang;
+            }
+          } else {
+            unique.set(key, nc);
+          }
+        });
+        this.xhrCues = Array.from(unique.values()).sort((a, b) => a.start - b.start);
+        this.cues = this.xhrCues;
+        this.usingXhr = true;
+        this._hasFullHboTrack = true;
+        console.debug(
+          `[LinguaFlow] HBO/Max: 100% das legendas carregadas (${this.xhrCues.length} frases do vídeo inteiro)`,
+        );
+        this._rebuildSubtitleList();
+        this._rebuildWordsList();
+        this._debouncedRebuildPanels();
+        if (typeof this._translateAllSidebarCues === 'function') {
+          this._translateAllSidebarCues();
+        }
+      }
+    } catch (e) {
+      if (e?.name === 'AbortError' || !this._isNavigationCurrent(navigation)) return;
+      console.error('[LinguaFlow] Erro ao buscar segmentos HBO:', e);
+    } finally {
+      this._fetchingHboSegments = false;
+    }
+  }
+
+  // ── HBO Max: Descoberta de segmentos restantes via probe ou sequência ────
+  async _scheduleHboRemainingSegments(segmentUrl, initialCues, navigation = this._navigationSnapshot()) {
+    if (!this._isNavigationCurrent(navigation) || this._hasFullHboTrack || this._fetchingHboSegments) {
+      return;
+    }
+    this._lastHboSubtitleUrl = segmentUrl;
+
+    // 1. Probe em nomes comuns de playlist m3u8 na mesma pasta do segmento
+    const probeCandidates = ['prog_index.m3u8', 'playlist.m3u8', 'index.m3u8', 'subtitles.m3u8'];
+    for (const candidate of probeCandidates) {
+      if (!this._isNavigationCurrent(navigation) || this._hasFullHboTrack) return;
+      try {
+        const candidateUrl = new URL(candidate, segmentUrl).toString();
+        const res = await fetch(candidateUrl, { signal: navigation?.signal, credentials: 'same-origin' });
+        if (res.ok) {
+          const text = await res.text();
+          if (text.includes('#EXTM3U')) {
+            console.debug(`[LinguaFlow] HBO/Max: playlist encontrada no probe: ${candidate}`);
+            await this._processHboM3u8Playlist(candidateUrl, text, navigation);
+            if (this._hasFullHboTrack) return;
+          }
+        }
+      } catch {}
+    }
+
+    // 2. Deduz o padrão sequencial do segmento para carregar o vídeo inteiro (ex: 20+ min)
+    const match = segmentUrl.match(/^(.*?)(\d+)(\.vtt.*|\.webvtt.*)$/i);
+    if (!match) return;
+
+    const prefix = match[1];
+    const numStr = match[2];
+    const suffix = match[3];
+    const padLength = numStr.length;
+    const currentNum = parseInt(numStr, 10);
+
+    const videoDuration = this._getVideoDuration();
+    let segDuration = 6;
+    if (Array.isArray(initialCues) && initialCues.length > 0) {
+      const span = initialCues[initialCues.length - 1].end - initialCues[0].start;
+      if (span > 0 && span < 30) segDuration = Math.max(2, Math.round(span));
+    }
+
+    let targetSegments = 300; // ~30 minutos por padrão
+    if (videoDuration > 30) {
+      targetSegments = Math.ceil(videoDuration / segDuration) + 15;
+    } else {
+      targetSegments = 600; // ~60 minutos se duração ainda não estiver disponível
+    }
+
+    this._fetchingHboSegments = true;
+    try {
+      const generatedUrls = [];
+      for (let i = 0; i <= targetSegments; i++) {
+        const padded = padLength > 1 ? String(i).padStart(padLength, '0') : String(i);
+        generatedUrls.push(`${prefix}${padded}${suffix}`);
+      }
+
+      const CONCURRENCY = 10;
+      const allCues = [];
+      let consecutiveErrors = 0;
+
+      for (let i = 0; i < generatedUrls.length; i += CONCURRENCY) {
+        if (!this._isNavigationCurrent(navigation)) break;
+        const batch = generatedUrls.slice(i, i + CONCURRENCY);
+        const results = await Promise.allSettled(
+          batch.map(async (segUrl) => {
+            const res = await fetch(segUrl, { signal: navigation?.signal, credentials: 'same-origin' });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const vtt = await res.text();
+            return this._parseVTT(vtt);
+          })
+        );
+
+        let batchSuccess = 0;
+        for (const r of results) {
+          if (r.status === 'fulfilled' && Array.isArray(r.value) && r.value.length > 0) {
+            allCues.push(...r.value);
+            batchSuccess++;
+          }
+        }
+
+        if (batchSuccess === 0) {
+          consecutiveErrors++;
+          const isPastDuration = videoDuration > 0 && (i * segDuration) >= videoDuration;
+          if ((!videoDuration || isPastDuration) && consecutiveErrors >= 4) {
+            break;
+          }
+        } else {
+          consecutiveErrors = 0;
+        }
+      }
+
+      if (allCues.length > 0 && this._isNavigationCurrent(navigation)) {
+        const unique = new Map();
+        (this.xhrCues || []).forEach((c) => unique.set(c.start + '_' + c.end, c));
+        allCues.forEach((nc) => {
+          const key = nc.start + '_' + nc.end;
+          const existing = unique.get(key);
+          if (existing) {
+            if (!existing.translatedText && nc.translatedText) {
+              existing.translatedText = nc.translatedText;
+              existing._transLang = nc._transLang;
+            }
+          } else {
+            unique.set(key, nc);
+          }
+        });
+        this.xhrCues = Array.from(unique.values()).sort((a, b) => a.start - b.start);
+        this.cues = this.xhrCues;
+        this.usingXhr = true;
+        this._hasFullHboTrack = true;
+        console.debug(
+          `[LinguaFlow] HBO/Max: ${this.xhrCues.length} legendas capturadas via padrão sequencial`,
+        );
+        this._rebuildSubtitleList();
+        this._rebuildWordsList();
+        this._debouncedRebuildPanels();
+        if (typeof this._translateAllSidebarCues === 'function') {
+          this._translateAllSidebarCues();
+        }
+      }
+    } catch (e) {
+      if (e?.name === 'AbortError' || !this._isNavigationCurrent(navigation)) return;
+      console.error('[LinguaFlow] Erro ao deduzir segmentos sequenciais HBO:', e);
+    } finally {
+      this._fetchingHboSegments = false;
+    }
+  }
+
+  // ── Extrai legendas de TextTracks do elemento <video> ─────────────────────
+  _extractCuesFromTextTracks() {
+    try {
+      const vid = this.videoElement || (typeof document !== 'undefined' ? document.querySelector('video') : null);
+      if (!vid || !vid.textTracks || vid.textTracks.length === 0) return [];
+      const extracted = [];
+      for (let i = 0; i < vid.textTracks.length; i++) {
+        const track = vid.textTracks[i];
+        if (track.cues && track.cues.length > 0) {
+          for (let j = 0; j < track.cues.length; j++) {
+            const c = track.cues[j];
+            if (c && typeof c.startTime === 'number' && typeof c.endTime === 'number' && c.text) {
+              extracted.push({
+                start: c.startTime,
+                end: c.endTime,
+                text: this._cleanSubtitleText ? this._cleanSubtitleText(c.text) : c.text,
+              });
+            }
+          }
+        }
+      }
+      return extracted.sort((a, b) => a.start - b.start);
+    } catch {
+      return [];
     }
   }
 
@@ -4108,6 +4428,7 @@ export class SubtitleEngine {
   _debouncedRebuildPanels() {
     clearTimeout(this._rebuildPanelsTimer);
     this._rebuildPanelsTimer = setTimeout(() => {
+      if (typeof document === 'undefined' || typeof document.querySelector !== 'function') return;
       const activeTab = document.querySelector('.lf-tab-btn.active')?.dataset?.tab || 'subtitles';
       if (activeTab === 'subtitles') {
         this._rebuildSubtitleList();
@@ -4126,6 +4447,14 @@ export class SubtitleEngine {
         this.xhrCues = domCues;
         this.usingXhr = true;
         cues = domCues;
+      } else if (this.platform === 'max') {
+        const trackCues = this._extractCuesFromTextTracks();
+        if (trackCues.length > (cues?.length || 0)) {
+          this.cues = trackCues;
+          this.xhrCues = trackCues;
+          this.usingXhr = true;
+          cues = trackCues;
+        }
       }
     }
     if (!container) container = document.getElementById('lf-subtitle-list');

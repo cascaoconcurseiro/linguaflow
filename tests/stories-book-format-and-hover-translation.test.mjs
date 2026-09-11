@@ -92,4 +92,50 @@ assert.match(
   'card da história deve ser centralizado e contido como uma página de livro'
 );
 
-console.log('✓ Formatação de livro e tradução no hover das Histórias verificadas com sucesso!');
+// 6. Contrato do Popup de Vídeos no Clique das Palavras da História
+assert.match(
+  stories,
+  /id="lf-story-word-modal"[^>]*role="dialog"/,
+  'modal de palavra deve existir e ter role dialog'
+);
+assert.match(
+  stories,
+  /id="lf-tab-youglish"[^>]*>🎬 YouGlish \(Vídeos\)</,
+  'popup de histórias deve conter a aba YouGlish para ouvir vídeos reais'
+);
+assert.match(
+  stories,
+  /id="lf-panel-youglish"/,
+  'popup de histórias deve conter painel do YouGlish com vídeos reais'
+);
+assert.match(
+  stories,
+  /https:\/\/youglish\.com\/pronounce\//,
+  'popup de histórias deve conter rotas com pronúncias nativas no YouGlish'
+);
+assert.match(
+  stories,
+  /id="lf-btn-known-word"/,
+  'popup de histórias deve conter botão "Já sei esta palavra"'
+);
+assert.match(
+  stories,
+  /FALSE_FRIENDS/,
+  'deve conter mapeamento de falsos cognatos perigosos'
+);
+assert.match(
+  stories,
+  /formatStoryAsBook\(normalized\)/,
+  'renderStoryText deve utilizar formatStoryAsBook para segmentar parágrafos'
+);
+
+// 7. Teste funcional da função formatStoryAsBook com texto contínuo sem quebras duplas
+import { formatStoryAsBook, FALSE_FRIENDS } from '../dashboard/js/ui/storiesView.js';
+
+const sampleOneBlock = `Amara stands in front of the neighborhood gym. The air stinks like old socks and sweat. She holds her gym bag tight. Today is her first day at this new place. "Hi," a woman says. "I'm Rosa. Are you here for the class?" "Yes," Amara says. "But I'm a little shy." "Don't worry," Rosa says. "Everyone is friendly here. We're all learning." Rosa shows her the room. There are ten people. A man drops his water bottle. It makes a big mess. "Sorry," he says. "I'm always messing up." "No problem," Rosa says. "We can clean it later."`;
+const paragraphs = formatStoryAsBook(sampleOneBlock);
+assert(paragraphs.length >= 5, `Texto contínuo deve ser dividido em parágrafos de livro (obtido: ${paragraphs.length})`);
+assert.equal(FALSE_FRIENDS.actually !== undefined, true, 'actually deve estar em FALSE_FRIENDS');
+assert.equal(FALSE_FRIENDS.contest !== undefined, true, 'contest deve estar em FALSE_FRIENDS');
+
+console.log('✓ Formatação de livro, tradução no hover e Popup de Vídeos com YouGlish verificados com sucesso!');

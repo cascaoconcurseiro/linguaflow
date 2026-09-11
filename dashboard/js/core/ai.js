@@ -230,7 +230,7 @@ DIRETRIZES FUNDAMENTAIS DE FORMATO:
 - O texto DEVE ser rico em DIÁLOGOS REAIS entre os personagens (cerca de 60% a 70% da história em conversas diretas que uma pessoa pode usar no mundo real em viagens, trabalho, compras e dia a dia).
 - Use aspas inglesas ("...") para as falas e intercale as falas com reações, sentimentos e ações dos personagens.
 - O vocabulário e a gramática devem estar estritamente alinhados ao nível CEFR ${cefr} especificado.
-- Não traduza a história. Apenas escreva a história em inglês, usando quebras de linha normais para parágrafos.
+- Não traduza a história. Apenas escreva a história em inglês, diagramada como um livro: separe CADA parágrafo e CADA turno de fala de personagem OBRIGATORIAMENTE com duas quebras de linha (\n\n). NUNCA junte falas de dois personagens no mesmo parágrafo.
 - NÃO use formatação markdown, NÃO coloque um título, apenas o texto da história.`;
 
   const story = await aiChatStream(

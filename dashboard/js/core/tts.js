@@ -14,13 +14,25 @@ const playback = new ExclusivePlayback(() => window.speechSynthesis);
 const memCache = new Map(); // `${lang}|${text}` -> object URL
 const pendingAudio = new Map(); // evita duas buscas iguais enquanto o prefetch está em voo
 
+let _idbPromise = null;
 function idbOpen() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open('lf-audio-cache', 1);
-    req.onupgradeneeded = () => req.result.createObjectStore('audio');
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+  if (!_idbPromise) {
+    _idbPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open('lf-audio-cache', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('audio');
+      req.onsuccess = () => {
+        const db = req.result;
+        db.onclose = () => { _idbPromise = null; };
+        db.onversionchange = () => { db.close(); _idbPromise = null; };
+        resolve(db);
+      };
+      req.onerror = () => {
+        _idbPromise = null;
+        reject(req.error);
+      };
+    });
+  }
+  return _idbPromise;
 }
 
 async function idbGet(key) {

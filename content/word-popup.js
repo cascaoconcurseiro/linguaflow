@@ -171,6 +171,23 @@ export class WordPopup {
     ]);
   }
 
+  async _getPhrasalVerbsDB() {
+    if (this._phrasalVerbsDB) return this._phrasalVerbsDB;
+    if (this._phrasalPromise) return this._phrasalPromise;
+    const BASE = chrome.runtime.getURL('utils/');
+    this._phrasalPromise = (async () => {
+      try {
+        const { phrasalVerbsDB } = await import(BASE + 'phrasal-verbs.js');
+        this._phrasalVerbsDB = phrasalVerbsDB || null;
+        return this._phrasalVerbsDB;
+      } catch {
+        this._phrasalVerbsDB = null;
+        return null;
+      }
+    })();
+    return this._phrasalPromise;
+  }
+
   // Detecta o tipo linguístico da expressão clicada
   _detectExprType(word, phrasalVerbsDB) {
     const w = word.toLowerCase().trim();
@@ -786,12 +803,7 @@ export class WordPopup {
 
     // — Expression type badge (async, loads phrasal verbs db) —
     (async () => {
-      const BASE = chrome.runtime.getURL('utils/');
-      let phrasalDB = null;
-      try {
-        const m = await import(BASE + 'phrasal-verbs.js');
-        phrasalDB = m.phrasalVerbsDB;
-      } catch {}
+      const phrasalDB = await this._getPhrasalVerbsDB();
       const exprInfo = this._detectExprType(this.word, phrasalDB);
       this._exprType = exprInfo;
       const el = q('#fexprtype');
@@ -1062,8 +1074,7 @@ export class WordPopup {
     const d = this.cache[this.word] || {};
 
     // Carrega DB de phrasal verbs
-    const BASE = chrome.runtime.getURL('utils/');
-    const { phrasalVerbsDB } = await import(BASE + 'phrasal-verbs.js');
+    const phrasalVerbsDB = (await this._getPhrasalVerbsDB()) || {};
 
     // Usa o tipo já detectado (pode ter sido enriquecido pela IA)
     const exprInfo = this._exprType || this._detectExprType(this.word, phrasalVerbsDB);
@@ -1214,12 +1225,8 @@ export class WordPopup {
     q('#fexb').innerHTML =
       '<div style="color:#94a3b8;font-size:12px;text-align:center;padding:8px;">Traduzindo exemplos…</div>';
 
-    // Tradução sequencial para não sobrecarregar o canal de mensagens
-    const translated = [];
-    for (const e of exs) {
-      const tr = await this._translate(e.en);
-      translated.push(tr);
-    }
+    // Tradução concorrente em paralelo para renderização imediata
+    const translated = await Promise.all(exs.map((e) => this._translate(e.en)));
 
     q('#fexb').innerHTML = exs
       .map(
@@ -1319,6 +1326,18 @@ export class WordPopup {
         ? videoUtils.getVideoClip(this.currentCue)
         : { video_url: await this._getVideoUrlWithTimestamp(), video_start_ms: null, video_end_ms: null };
 
+      // Capture tags
+      const tags = [];
+      if (this._exprType?.label) tags.push(this._exprType.label);
+      if (d.partOfSpeech) tags.push(this._posLabel(d.partOfSpeech));
+      if (this.freqList) {
+        const cleanWord = this.word.toLowerCase().replace(/[^a-z0-9]/gi, '');
+        const rank = this.freqList[cleanWord];
+        if (rank) {
+          tags.push(rank <= 1000 ? `🔥 Top ${rank}` : rank <= 5000 ? `📊 Top ${rank}` : `✨ Rara (>5k)`);
+        }
+      }
+
       const payload = {
         word: this.word,
         lang: this.engine?.sourceLang || 'en',
@@ -1338,6 +1357,10 @@ export class WordPopup {
         video_title: document.title,
         platform: this.platform || 'youtube',
         level: this.activeLevel || '',
+        category: (['word', 'phrasal', 'idiom', 'slang'].includes(this._exprType?.type)
+          ? this._exprType.type
+          : (this._exprType?.type === 'chunk' || this._exprType?.type === 'collocation' ? 'idiom' : 'word')),
+        tags: tags.length ? tags : null,
         synonyms: (d.synonyms || []).join(','),
         antonyms: (d.antonyms || []).join(','),
         snapshot: null,
@@ -1414,12 +1437,14 @@ export class WordPopup {
         translation: contextSession.translation || currentPayload.translation || '',
         context_sentence: contextSession.saveContext || contextSession.context || '',
         explanation: contextSession.explanation || '',
+        pronunciation_pt: contextSession.pronunciation_pt || currentPayload.pronunciation_pt || '',
       };
       if (
         nextPayload.translation === currentPayload.translation
         &&
         nextPayload.context_sentence === currentPayload.context_sentence
         && nextPayload.explanation === currentPayload.explanation
+        && nextPayload.pronunciation_pt === currentPayload.pronunciation_pt
       ) return;
 
       const result = await chrome.runtime.sendMessage({
@@ -1657,10 +1682,8 @@ export class WordPopup {
         this._showContextLogin(word, sentence);
         return;
       }
-      const BASE = chrome.runtime.getURL('utils/');
       const sentenceTranslationPromise = this._translate(sentence);
-      const phrasalPromise = import(BASE + 'phrasal-verbs.js')
-        .catch(() => ({ phrasalVerbsDB: null }));
+      const phrasalPromise = this._getPhrasalVerbsDB();
       const responsePromise = new Promise((resolve) => {
         chrome.runtime.sendMessage(
           {
@@ -1674,7 +1697,7 @@ export class WordPopup {
           },
         );
       });
-      const [{ phrasalVerbsDB }, response] = await Promise.all([phrasalPromise, responsePromise]);
+      const [phrasalVerbsDB, response] = await Promise.all([phrasalPromise, responsePromise]);
       const exprInfo = this._detectExprType(word, phrasalVerbsDB);
 
       const typeDescriptions = {
@@ -1725,6 +1748,7 @@ export class WordPopup {
         if (contextSession) {
           contextSession.translation = contextualTranslation;
           contextSession.explanation = explanation;
+          contextSession.pronunciation_pt = contextualPronunciation;
           contextSession.contextResolved = true;
           this._syncLateSaveEnrichment(contextSession).catch((error) => {
             console.warn('[WordPopup] Contexto tardio aguardará nova sincronização:', error);

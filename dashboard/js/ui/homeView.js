@@ -275,6 +275,16 @@ export async function renderHome(container, app) {
         if (myGen === _homeRenderGen) renderHomeLoadError(container, app);
         return;
     }
+    const knownWordsPromise = typeof db?.getAllKnownWords === 'function'
+      ? db.getAllKnownWords().catch(() => [])
+      : Promise.resolve([]);
+    const storiesPromise = typeof db?.getStories === 'function'
+      ? db.getStories(50).catch(() => [])
+      : Promise.resolve([]);
+    const vaultCapPromise = typeof db?.getSetting === 'function'
+      ? db.getSetting('lf_vault_cap').catch(() => null)
+      : Promise.resolve(null);
+
     const [statsResult, onboardingResult, fluencyStateResult] = await Promise.allSettled([
         db.getStats(), db.getSetting(ONBOARDING_KEY), loadFluencyHomeState(db),
     ]);
@@ -325,11 +335,12 @@ export async function renderHome(container, app) {
         // 100% redundante. Achado da auditoria de performance do painel:
         // "Início" fazia 5 buscas na 2ª leva, 2 delas repetindo dados que a
         // 1ª leva já tinha. Agora reaproveita — zero rede a mais aqui.
-        const [allWords, allCards, knownWords, stories] = await Promise.all([
+        const [allWords, allCards, knownWords, stories, capRaw] = await Promise.all([
             db ? db.getAllWords() : [],
             db ? db.getAllCards() : [],
-            db ? db.getAllKnownWords().catch(() => []) : [],
-            db ? db.getStories(50).catch(() => []) : []
+            knownWordsPromise,
+            storiesPromise,
+            vaultCapPromise,
         ]);
         const log30 = stats.reviewLog || [];
         const activityDate = (row) => row?.ts ? localDateKey(row.ts) : row?.date;
@@ -340,7 +351,6 @@ export async function renderHome(container, app) {
 
         // A7: estado do teto do cofre para o banner
         try {
-          const capRaw = await db.getSetting('lf_vault_cap').catch(() => null);
           vaultCap = capRaw === null || capRaw === undefined || capRaw === '' ? 300 : Math.max(0, Number(capRaw) || 0);
           const tagsByWordId = {};
           (allWords || []).forEach(w => { tagsByWordId[w.id] = Array.isArray(w.tags) ? w.tags : []; });

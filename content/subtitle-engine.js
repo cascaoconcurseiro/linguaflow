@@ -1470,130 +1470,328 @@ export class SubtitleEngine {
 
   }
 
-  // ── Injeção dos Botões na Barra do YouTube ───────────────────────────────
+  // ── Injeção dos Botões na Barra do YouTube (Dock Horizontal) ───────────────
   _injectYouTubeControls() {
     if (this.platform !== 'youtube') return;
 
     const tryInject = () => {
       const rightCtrl = document.querySelector('.ytp-right-controls');
-      if (!rightCtrl || document.getElementById('lf-yt-btn')) return false;
+      if (!rightCtrl || document.getElementById('lf-yt-horizontal-dock')) return false;
 
-      // Injeta CSS para os botões e switch (apenas uma vez)
+      // Injeta CSS para a dock horizontal e botões (apenas uma vez)
       if (!document.getElementById('lf-yt-styles')) {
         const style = document.createElement('style');
         style.id = 'lf-yt-styles';
         style.textContent = `
-                    .lf-yt-btn {
-                        width: 44px; height: 44px;
-                        display: inline-flex; align-items: center; justify-content: center;
-                        background: transparent; border: none; cursor: pointer;
-                        vertical-align: top; opacity: 0.9;
-                        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-                        position: relative;
-                    }
-                    .lf-yt-btn:hover { opacity: 1; transform: scale(1.1); }
-                    .lf-yt-btn svg { width: 22px; height: 22px; fill: #64748B; transition: fill 0.3s; }
-                    .lf-yt-btn.active svg { fill: #38BDF8; filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.5)); }
-
-                    .lf-switch-wrapper {
-                        display: inline-flex; align-items: center; justify-content: center;
-                        width: 50px; height: 44px; vertical-align: top; cursor: pointer;
-                        opacity: 0.9; transition: opacity 0.2s;
-                    }
-                    .lf-switch-wrapper:hover { opacity: 1; }
-                    .lf-switch {
-                        width: 34px; height: 18px;
-                        background: rgba(100, 116, 139, 0.3);
-                        border-radius: 20px; position: relative;
-                        transition: background 0.3s;
-                    }
-                    .lf-switch.active { background: rgba(56, 189, 248, 0.4); }
-                    .lf-switch-slider {
-                        width: 12px; height: 12px;
-                        background: #64748B; border-radius: 50%;
-                        position: absolute; top: 3px; left: 3px;
-                        transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-                    }
-                    .lf-switch.active .lf-switch-slider {
-                        left: 19px; background: #38BDF8;
-                        box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
-                    }
-                `;
+          #lf-yt-horizontal-dock {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            height: 44px;
+            padding: 0 8px;
+            border-radius: 999px;
+            background: rgba(8, 12, 22, 0.78);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(12px) saturate(150%);
+            margin-right: 8px;
+            vertical-align: middle;
+            box-sizing: border-box;
+          }
+          .lf-dock-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            color: #f8fafc;
+            font: 700 17px/1 system-ui, -apple-system, sans-serif;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            transition: background 0.18s ease, color 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
+            outline: none;
+          }
+          .lf-dock-btn:hover,
+          .lf-dock-btn:focus-visible {
+            background: rgba(56, 189, 248, 0.22);
+            color: #7dd3fc;
+            transform: scale(1.08);
+          }
+          .lf-dock-btn[data-action="previous"],
+          .lf-dock-btn[data-action="next"] {
+            font-size: 21px;
+            line-height: 1;
+          }
+          .lf-dock-toggle {
+            height: 36px;
+            padding: 0 8px;
+            border-radius: 999px;
+            border: none;
+            background: transparent;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            color: #94a3b8;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            transition: color 0.2s ease;
+            outline: none;
+          }
+          .lf-dock-toggle[aria-pressed="true"],
+          .lf-dock-toggle.active {
+            color: #7dd3fc;
+          }
+          .lf-dock-toggle .lf-switch-track {
+            width: 32px;
+            height: 16px;
+            background: #334155;
+            border-radius: 999px;
+            position: relative;
+            transition: background 0.25s ease;
+            display: inline-block;
+          }
+          .lf-dock-toggle[aria-pressed="true"] .lf-switch-track,
+          .lf-dock-toggle .lf-switch-track.active,
+          .lf-switch-track.active {
+            background: #0284c7;
+          }
+          .lf-dock-toggle .lf-switch-thumb {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #cbd5e1;
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), background 0.25s ease;
+          }
+          .lf-dock-toggle[aria-pressed="true"] .lf-switch-thumb,
+          .lf-dock-toggle .lf-switch-track.active .lf-switch-thumb,
+          .lf-switch-track.active .lf-switch-thumb {
+            transform: translateX(16px);
+            background: #38bdf8;
+            box-shadow: 0 0 8px #38bdf8;
+          }
+          .lf-dock-btn[data-action="loop"].is-active,
+          .lf-dock-btn[data-action="loop"][aria-pressed="true"] {
+            background: rgba(56, 189, 248, 0.28);
+            color: #7dd3fc;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.45), inset 0 0 0 1px rgba(125, 211, 252, 0.45);
+          }
+          .lf-dock-btn[data-action="speed"] {
+            font-size: 13px;
+            letter-spacing: -0.02em;
+            width: 36px;
+          }
+          .lf-dock-btn[data-action="speed"].is-altered {
+            color: #facc15;
+            background: rgba(250, 204, 21, 0.18);
+            box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.45);
+          }
+          .lf-dock-btn[data-action="panel"].is-active {
+            background: rgba(168, 85, 247, 0.25);
+            color: #c084fc;
+            box-shadow: 0 0 10px rgba(168, 85, 247, 0.45), inset 0 0 0 1px rgba(168, 85, 247, 0.5);
+          }
+          .lf-dock-btn[data-action="previous"]:active,
+          .lf-dock-btn[data-action="next"]:active {
+            background: rgba(56, 189, 248, 0.3);
+            color: #38bdf8;
+            transform: scale(0.92);
+          }
+          .lf-dock-sep {
+            width: 1px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.18);
+            margin: 0 2px;
+          }
+          #lf-speed-popover {
+            position: fixed;
+            z-index: 2147483646;
+            width: 250px;
+            background: rgba(15, 23, 42, 0.96);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 14px;
+            padding: 12px;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(14px) saturate(150%);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: #f8fafc;
+            box-sizing: border-box;
+            pointer-events: auto;
+            animation: lfFadeInUp 0.18s ease-out;
+          }
+          #lf-speed-popover .lf-speed-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+          }
+          #lf-speed-popover .lf-speed-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #f8fafc;
+          }
+          #lf-speed-popover .lf-speed-val {
+            font-size: 13px;
+            font-weight: 800;
+            color: #38bdf8;
+            background: rgba(56, 189, 248, 0.15);
+            padding: 2px 7px;
+            border-radius: 6px;
+          }
+          #lf-speed-popover .lf-speed-presets {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            margin-bottom: 12px;
+          }
+          #lf-speed-popover .lf-speed-chip {
+            appearance: none;
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            padding: 6px 4px;
+            color: #e2e8f0;
+            font: 700 12px/1.2 system-ui, sans-serif;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            transition: all 0.15s ease;
+          }
+          #lf-speed-popover .lf-speed-chip:hover {
+            background: rgba(56, 189, 248, 0.18);
+            border-color: rgba(56, 189, 248, 0.4);
+            color: #7dd3fc;
+          }
+          #lf-speed-popover .lf-speed-chip.is-selected {
+            background: rgba(56, 189, 248, 0.28);
+            border-color: #38bdf8;
+            color: #38bdf8;
+            box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+          }
+          #lf-speed-popover .lf-speed-chip-desc {
+            font-size: 9px;
+            font-weight: 500;
+            opacity: 0.8;
+          }
+          #lf-speed-popover .lf-speed-slider-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 6px 8px;
+            border-radius: 8px;
+          }
+          #lf-speed-popover .lf-speed-step-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.08);
+            color: #f8fafc;
+            font: 700 14px/1 system-ui;
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            padding: 0;
+            transition: all 0.15s;
+          }
+          #lf-speed-popover .lf-speed-step-btn:hover {
+            background: rgba(56, 189, 248, 0.25);
+            color: #38bdf8;
+            border-color: #38bdf8;
+          }
+          #lf-speed-popover #lf-speed-range {
+            flex: 1;
+            height: 6px;
+            border-radius: 999px;
+            accent-color: #38bdf8;
+            cursor: pointer;
+          }
+          #lf-speed-popover .lf-speed-hint {
+            font-size: 10px;
+            color: #94a3b8;
+            text-align: center;
+            line-height: 1.3;
+          }
+          @keyframes lfFadeInUp {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+        `;
         document.head.appendChild(style);
       }
 
-      // Wrapper do Switch
-      // Inicia sempre com o switch DESLIGADO visualmente
+      // Wrapper do Switch (inicia desligado por padrão)
       const isSubVisible = false;
-      const switchWrapper = document.createElement('div');
-      switchWrapper.id = 'lf-yt-toggle-wrapper';
-      switchWrapper.className = 'lf-switch-wrapper';
-      switchWrapper.title = isSubVisible ? 'Desativar LinguaFlow (C)' : 'Ativar LinguaFlow (C)';
-      switchWrapper.innerHTML = `
-                <div class="lf-switch ${isSubVisible ? 'active' : ''}" id="lf-yt-switch">
-                    <div class="lf-switch-slider"></div>
-                </div>
-            `;
 
-      switchWrapper.onclick = () => {
-        const sw = document.getElementById('lf-yt-switch');
-        if (!sw) return;
+      const dock = document.createElement('div');
+      dock.id = 'lf-yt-horizontal-dock';
+      dock.className = 'lf-yt-dock';
+      dock.setAttribute('role', 'toolbar');
+      dock.setAttribute('aria-label', 'Controles LinguaFlow');
+      dock.innerHTML = `
+        <button type="button" id="lf-yt-toggle-wrapper" data-action="toggle" class="lf-dock-toggle" aria-pressed="false" title="Ativar LinguaFlow (C)">
+          <span class="lf-toggle-text">LF</span>
+          <span class="lf-switch-track" id="lf-yt-switch" aria-hidden="true"><span class="lf-switch-thumb"></span></span>
+        </button>
+        <span class="lf-dock-sep" aria-hidden="true"></span>
+        <button type="button" data-action="previous" class="lf-dock-btn" title="Legenda anterior (A)" aria-label="Legenda anterior">‹</button>
+        <button type="button" data-action="loop" class="lf-dock-btn" aria-pressed="false" title="Ativar loop da frase" aria-label="Ativar loop da frase">↻</button>
+        <button type="button" data-action="next" class="lf-dock-btn" title="Próxima legenda (D)" aria-label="Próxima legenda">›</button>
+        <button type="button" data-action="speed" class="lf-dock-btn" title="Velocidade da fala e vídeo: 1×. Clique para ajustar ou falar mais lento" aria-label="Velocidade da fala e vídeo: 1×. Clique para ajustar">1×</button>
+        <span class="lf-dock-sep" aria-hidden="true"></span>
+        <button type="button" data-action="panel" id="lf-yt-panel-btn" class="lf-dock-btn" title="Painel de legendas (L)" aria-label="Painel de legendas">▤</button>
+        <button type="button" data-action="settings" id="lf-yt-btn" class="lf-dock-btn" title="Configurações LinguaFlow (O)" aria-label="Configurações LinguaFlow">⚙</button>
+      `;
 
-        const nowVisible = !sw.classList.contains('active');
-        localStorage.setItem('lf_sub_visible', nowVisible);
-        switchWrapper.title = nowVisible ? 'Desativar LinguaFlow (C)' : 'Ativar LinguaFlow (C)';
+      dock.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        if (action === 'toggle') {
+          const nowVisible = !this.isActivated;
+          localStorage.setItem('lf_sub_visible', String(nowVisible));
+          this.toggleSubtitles(nowVisible);
+        } else if (action === 'previous') {
+          this.gotoPreviousCue();
+        } else if (action === 'loop') {
+          this.toggleLoop();
+        } else if (action === 'next') {
+          this.gotoNextCue();
+        } else if (action === 'speed') {
+          this._toggleSpeedMenu(btn);
+        } else if (action === 'panel') {
+          this.toggleSubtitlePanel();
+        } else if (action === 'settings') {
+          window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
+        }
+      });
+      dock.addEventListener('mousedown', (e) => e.stopPropagation());
 
-        // toggleSubtitles agora gerencia a sincronia global e com o botão nativo do YouTube
-        this.toggleSubtitles(nowVisible);
-      };
+      rightCtrl.insertBefore(dock, rightCtrl.firstChild);
 
-      // Botão de Configurações (Bolt Premium)
-      const btnSettings = document.createElement('button');
-      btnSettings.id = 'lf-yt-btn';
-      btnSettings.className = 'lf-yt-btn';
-      btnSettings.title = 'Configurações LinguaFlow (O)';
-      btnSettings.innerHTML = `
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" fill="url(#boltGrad)" stroke="#38BDF8" stroke-width="1.2" stroke-linejoin="round"/>
-                    <defs>
-                        <linearGradient id="boltGrad" x1="13" y1="2" x2="11" y2="22" gradientUnits="userSpaceOnUse">
-                            <stop stop-color="#38BDF8"/>
-                            <stop offset="1" stop-color="#818CF8"/>
-                        </linearGradient>
-                    </defs>
-                </svg>
-            `;
+      const curRate = this._readPlaybackRate();
+      this._setPlaybackRate(curRate, { persist: false });
+      if (this.videoElement && !this._videoRateBound) {
+        this._videoRateBound = true;
+        this.videoElement.addEventListener('ratechange', () => {
+          const r = Number(this.videoElement?.playbackRate);
+          if (Number.isFinite(r) && r > 0) this._updateSpeedButtons(r);
+        });
+      }
 
-      btnSettings.onclick = () => {
-        window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
-      };
-
-      // Botão do Painel Lateral (SVG minimalista)
-      const btnPanel = document.createElement('button');
-      btnPanel.id = 'lf-yt-panel-btn';
-      btnPanel.className = 'lf-yt-btn';
-      btnPanel.title = 'Painel de Legendas (L)';
-      btnPanel.innerHTML = `
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                    <line x1="9" y1="3" x2="9" y2="21"></line>
-                </svg>
-            `;
-      btnPanel.onclick = () => {
-        this.toggleSubtitlePanel();
-      };
-
-      // Insere no player
-      rightCtrl.insertBefore(btnPanel, rightCtrl.firstChild);
-      rightCtrl.insertBefore(btnSettings, btnPanel);
-      rightCtrl.insertBefore(switchWrapper, btnSettings);
-
-      // Atalhos C/O ficam SÓ em _setupKeyboardShortcuts. O listener duplicado
-      // que vivia aqui fazia C ligar+desligar a legenda na mesma tecla e O
-      // abrir+fechar as configurações no YouTube (§4d.4 da auditoria).
-
-      // Inicia sempre DESLIGADO (OFF by default)
-      this.toggleSubtitles(false);
+      this.toggleSubtitles(isSubVisible);
       return true;
     };
 
@@ -1673,6 +1871,7 @@ export class SubtitleEngine {
       }
       console.debug('[LinguaFlow] Loop DESATIVADO');
       this._showNotification('▶️ Loop Desativado');
+      this._syncLoopButtons();
       return false;
     }
 
@@ -1703,7 +1902,185 @@ export class SubtitleEngine {
       `[LinguaFlow] Loop ATIVADO: ${this.loopStartTime.toFixed(2)}s - ${this.loopEndTime.toFixed(2)}s`,
     );
     this._showNotification('🔁 Loop da frase ativado');
+    this._syncLoopButtons();
     return true;
+  }
+
+  _syncLoopButtons() {
+    const isLoop = this.isLooping === true;
+    const buttons = typeof document !== 'undefined' && typeof document.querySelectorAll === 'function'
+      ? document.querySelectorAll('button[data-action="loop"]')
+      : [];
+    for (const btn of buttons) {
+      btn.setAttribute?.('aria-pressed', String(isLoop));
+      btn.classList?.toggle?.('is-active', isLoop);
+      btn.title = isLoop ? 'Desativar loop da frase' : 'Ativar loop da frase';
+      btn.setAttribute?.('aria-label', btn.title);
+    }
+  }
+
+  _readPlaybackRate() {
+    try {
+      const saved = Number(globalThis.localStorage?.getItem('lf_video_playback_rate'));
+      return Number.isFinite(saved) && saved >= 0.25 && saved <= 4 ? saved : 1;
+    } catch {
+      return 1;
+    }
+  }
+
+  _setPlaybackRate(rate, { persist = true } = {}) {
+    const normalized = Number(rate);
+    if (!Number.isFinite(normalized) || normalized < 0.25 || normalized > 4) return 1;
+    if (this.videoElement && Math.abs(this.videoElement.playbackRate - normalized) > 0.001) {
+      this.videoElement.playbackRate = normalized;
+    }
+    this.ttsPlaybackRate = normalized;
+    if (persist) {
+      try {
+        globalThis.localStorage?.setItem('lf_video_playback_rate', String(normalized));
+      } catch {}
+      try {
+        chrome.storage?.local?.set?.({ ttsPlaybackRate: normalized });
+      } catch {}
+    }
+    this._updateSpeedButtons(normalized);
+    return normalized;
+  }
+
+  _updateSpeedButtons(rate) {
+    const label = `${rate}×`;
+    const buttons = typeof document !== 'undefined' && typeof document.querySelectorAll === 'function'
+      ? document.querySelectorAll('button[data-action="speed"]')
+      : [];
+    for (const btn of buttons) {
+      btn.textContent = label;
+      btn.title = `Velocidade da fala e vídeo: ${label}. Clique para ajustar ou falar mais lento`;
+      btn.setAttribute?.('aria-label', `Velocidade da fala e vídeo: ${label}. Clique para ajustar`);
+      btn.classList?.toggle?.('is-altered', rate !== 1);
+    }
+  }
+
+  _toggleSpeedMenu(anchorBtn) {
+    if (!anchorBtn) return;
+    const existing = document.getElementById('lf-speed-popover');
+    if (existing) {
+      if (typeof existing._lfCleanup === 'function') existing._lfCleanup();
+      else existing.remove();
+      return;
+    }
+
+    const currentRate = Number(this.videoElement?.playbackRate) || this._readPlaybackRate() || 1;
+    const popover = document.createElement('div');
+    popover.id = 'lf-speed-popover';
+    popover.setAttribute('role', 'dialog');
+    popover.setAttribute('aria-label', 'Ajuste de Velocidade da Fala e Vídeo');
+
+    const presets = [
+      { rate: 0.5, label: '0.5×', desc: 'Muito lenta' },
+      { rate: 0.75, label: '0.75×', desc: 'Lenta' },
+      { rate: 0.85, label: '0.85×', desc: 'Pausada' },
+      { rate: 1.0, label: '1.0×', desc: 'Normal' },
+      { rate: 1.25, label: '1.25×', desc: 'Rápida' },
+    ];
+
+    const presetsHtml = presets.map((p) => {
+      const isSelected = Math.abs(currentRate - p.rate) < 0.03;
+      return `<button type="button" class="lf-speed-chip ${isSelected ? 'is-selected' : ''}" data-rate="${p.rate}">
+        <span>${p.label}</span>
+        <span class="lf-speed-chip-desc">${p.desc}</span>
+      </button>`;
+    }).join('');
+
+    popover.innerHTML = `
+      <div class="lf-speed-head">
+        <span class="lf-speed-title">⚡ Velocidade da Fala</span>
+        <span class="lf-speed-val" id="lf-speed-display-val">${currentRate.toFixed(2).replace(/\\.?0+$/, '')}×</span>
+      </div>
+      <div class="lf-speed-presets">
+        ${presetsHtml}
+      </div>
+      <div class="lf-speed-slider-wrap">
+        <button type="button" class="lf-speed-step-btn" data-step="-0.05" title="Diminuir velocidade (−0.05)" aria-label="Diminuir velocidade">−</button>
+        <input type="range" id="lf-speed-range" min="0.5" max="1.5" step="0.05" value="${currentRate}" aria-label="Ajuste fino de velocidade">
+        <button type="button" class="lf-speed-step-btn" data-step="0.05" title="Aumentar velocidade (+0.05)" aria-label="Aumentar velocidade">+</button>
+      </div>
+      <div class="lf-speed-hint">Ajusta o diálogo do vídeo e a fala das palavras (TTS)</div>
+    `;
+
+    const rect = anchorBtn.getBoundingClientRect();
+    const bottomPos = Math.max(12, window.innerHeight - rect.top + 10);
+    const rightPos = Math.max(10, window.innerWidth - rect.right - 10);
+    popover.style.bottom = `${bottomPos}px`;
+    popover.style.right = `${rightPos}px`;
+
+    popover.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const chip = e.target.closest('button[data-rate]');
+      if (chip) {
+        const rate = parseFloat(chip.dataset.rate);
+        this._setPlaybackRate(rate);
+        popover.querySelectorAll('.lf-speed-chip').forEach((c) => c.classList.toggle('is-selected', c === chip));
+        const slider = popover.querySelector('#lf-speed-range');
+        if (slider) slider.value = rate;
+        const valDisp = popover.querySelector('#lf-speed-display-val');
+        if (valDisp) valDisp.textContent = `${rate}×`;
+        return;
+      }
+      const stepBtn = e.target.closest('button[data-step]');
+      if (stepBtn) {
+        const step = parseFloat(stepBtn.dataset.step);
+        const cur = Number(this.videoElement?.playbackRate) || 1;
+        const next = Math.round(Math.min(1.5, Math.max(0.5, cur + step)) * 100) / 100;
+        this._setPlaybackRate(next);
+        const slider = popover.querySelector('#lf-speed-range');
+        if (slider) slider.value = next;
+        const valDisp = popover.querySelector('#lf-speed-display-val');
+        if (valDisp) valDisp.textContent = `${next}×`;
+        popover.querySelectorAll('.lf-speed-chip').forEach((c) => {
+          c.classList.toggle('is-selected', Math.abs(parseFloat(c.dataset.rate) - next) < 0.03);
+        });
+      }
+    });
+
+    const rangeInput = popover.querySelector('#lf-speed-range');
+    rangeInput?.addEventListener('input', (e) => {
+      e.stopPropagation();
+      const val = parseFloat(e.target.value);
+      this._setPlaybackRate(val);
+      const valDisp = popover.querySelector('#lf-speed-display-val');
+      if (valDisp) valDisp.textContent = `${val.toFixed(2).replace(/\\.?0+$/, '')}×`;
+      popover.querySelectorAll('.lf-speed-chip').forEach((c) => {
+        c.classList.toggle('is-selected', Math.abs(parseFloat(c.dataset.rate) - val) < 0.03);
+      });
+    });
+
+    popover.addEventListener('mousedown', (e) => e.stopPropagation());
+
+    const cleanup = () => {
+      popover.remove();
+      document.removeEventListener('click', closeHandler);
+      document.removeEventListener('keydown', keyHandler);
+      delete popover._lfCleanup;
+    };
+    popover._lfCleanup = cleanup;
+
+    const closeHandler = (e) => {
+      if (!popover.contains(e.target) && !anchorBtn.contains(e.target)) {
+        cleanup();
+      }
+    };
+    const keyHandler = (e) => {
+      if (e.key === 'Escape') {
+        cleanup();
+      }
+    };
+    setTimeout(() => {
+      document.addEventListener('click', closeHandler);
+      document.addEventListener('keydown', keyHandler);
+    }, 10);
+
+    const targetRoot = document.fullscreenElement || document.getElementById('movie_player') || document.body;
+    targetRoot.appendChild(popover);
   }
 
   _showNotification(message) {
@@ -1747,7 +2124,9 @@ export class SubtitleEngine {
 
   toggleSubtitlePanel() {
     const wrapper = document.getElementById('lf-subtitle-panel-wrapper');
+    const panelBtns = document.querySelectorAll('button[data-action="panel"], #lf-yt-panel-btn');
     if (wrapper) {
+      panelBtns.forEach((b) => b.classList.remove('is-active'));
       const overlay = wrapper.querySelector('div');
       const panel = wrapper.querySelector('#lf-subtitle-panel');
       if (overlay && panel) {
@@ -1761,6 +2140,7 @@ export class SubtitleEngine {
       return;
     }
 
+    panelBtns.forEach((b) => b.classList.add('is-active'));
     this._createSubtitlePanel();
   }
 
@@ -1888,8 +2268,8 @@ export class SubtitleEngine {
             #lf-subtitle-panel.theme-light .lf-subtitle-item { border-bottom: 1px solid #e5e5e5; border-left: 4px solid transparent; }
             #lf-subtitle-panel.theme-dark .lf-subtitle-item { border-bottom: 1px solid #1e293b; border-left: 4px solid transparent; }
             
-            #lf-subtitle-panel.theme-light .lf-subtitle-item:hover { background: #f7f7f7; }
-            #lf-subtitle-panel.theme-dark .lf-subtitle-item:hover { background: #1e293b; }
+            #lf-subtitle-panel.theme-light .lf-subtitle-item:not(.active):hover { background: #f1f5f9 !important; }
+            #lf-subtitle-panel.theme-dark .lf-subtitle-item:not(.active):hover { background: #1e293b !important; }
             
             #lf-subtitle-panel.theme-light .lf-time { color: #afafaf; }
             #lf-subtitle-panel.theme-dark .lf-time { color: #64748B; }
@@ -3519,12 +3899,13 @@ export class SubtitleEngine {
 
     let isVisible;
     if (forceState !== null) {
-      isVisible = forceState;
+      isVisible = !!forceState;
     } else {
-      // Se for chamado sem argumentos, alterna o estado.
-      // NOVO PADRÃO: Sempre começa DESLIGADO (false) se não houver registro explícito de 'true'.
-      const stored = localStorage.getItem('lf_sub_visible');
-      isVisible = stored === 'true';
+      // Se chamado sem argumentos (ex: tecla C), alterna o estado atual
+      isVisible = !this.isActivated;
+      try {
+        localStorage.setItem('lf_sub_visible', String(isVisible));
+      } catch {}
     }
 
     host.style.visibility = isVisible ? 'visible' : 'hidden';
@@ -3535,6 +3916,12 @@ export class SubtitleEngine {
     // Sincroniza os switches visuais da interface
     const swYt = document.getElementById('lf-yt-switch');
     if (swYt) swYt.classList.toggle('active', isVisible);
+    const toggleBtn = document.getElementById('lf-yt-toggle-wrapper');
+    if (toggleBtn) {
+      toggleBtn.setAttribute('aria-pressed', String(isVisible));
+      toggleBtn.classList.toggle('active', isVisible);
+      toggleBtn.title = isVisible ? 'Desativar LinguaFlow (C)' : 'Ativar LinguaFlow (C)';
+    }
 
     // Sincronização Automática com o botão de Legendas Ocultas (CC) do YouTube
     if (this.platform === 'youtube') {
@@ -3758,14 +4145,6 @@ export class SubtitleEngine {
           this.videoElement.play();
         }
       };
-
-      item.onmouseenter = () => {
-        if (this.currentCueIndex !== idx) item.style.background = '#f7f7f7';
-      };
-      item.onmouseleave = () => {
-        if (this.currentCueIndex !== idx) item.style.background = '#ffffff';
-      };
-
       container.appendChild(item);
     });
 
@@ -4208,6 +4587,7 @@ export class SubtitleEngine {
     items.forEach((item) => {
       const idx = parseInt(item.dataset.index);
       if (idx === this.currentCueIndex) {
+        item.classList.add('active');
         item.style.background = 'rgba(56, 189, 248, 0.12)';
         item.style.borderLeftColor = '#38BDF8';
 
@@ -4215,8 +4595,9 @@ export class SubtitleEngine {
           item.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       } else {
-        item.style.background = 'transparent';
-        item.style.borderLeftColor = 'transparent';
+        item.classList.remove('active');
+        item.style.background = '';
+        item.style.borderLeftColor = '';
       }
     });
   }
@@ -4651,7 +5032,13 @@ export class SubtitleEngine {
     this.domCapture?.stop?.();
     this.wordPopup?.destroy?.();
     this.shadowContainer?.host?.remove();
+    document.getElementById('lf-yt-horizontal-dock')?.remove();
     document.getElementById('lf-yt-btn')?.remove();
     document.getElementById('lf-subtitle-panel')?.remove();
+    const pop = document.getElementById('lf-speed-popover');
+    if (pop) {
+      if (typeof pop._lfCleanup === 'function') pop._lfCleanup();
+      else pop.remove();
+    }
   }
 }

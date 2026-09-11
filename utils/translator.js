@@ -24,6 +24,29 @@ class Translator {
         return `${fromLang}:${toLang}:${text.trim().toLowerCase().replace(/\s+/g, ' ')}`;
     }
 
+    async _getLocalCache(cacheKey) {
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+            return new Promise((resolve) => {
+                try {
+                    chrome.storage.local.get(cacheKey, (res) => resolve(res?.[cacheKey] || null));
+                } catch { resolve(null); }
+            });
+        }
+        if (typeof localStorage !== 'undefined') {
+            try { return localStorage.getItem(cacheKey) || null; } catch { return null; }
+        }
+        return null;
+    }
+
+    _setLocalCache(cacheKey, value) {
+        if (!value) return;
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+            try { chrome.storage.local.set({ [cacheKey]: value }); } catch {}
+        } else if (typeof localStorage !== 'undefined') {
+            try { localStorage.setItem(cacheKey, value); } catch {}
+        }
+    }
+
     _updateMemoryCache(key, translation) {
         if (this.memoryCache.size >= this.maxCacheSize) {
             this.memoryCache.delete(this.memoryCache.keys().next().value);
@@ -49,9 +72,16 @@ class Translator {
                 // NUNCA mais em settings: cada tradução gravada lá invalidava o
                 // cache do motor SRS e deixava o app inteiro lento.
                 const cacheKey = `trans_${key}`;
+                const localCached = await this._getLocalCache(cacheKey);
+                if (localCached) {
+                    this._updateMemoryCache(key, localCached);
+                    return { translation: localCached, source: 'local_cache', cached: true };
+                }
+
                 const cached = await db.getTranslationCache(cacheKey).catch(() => null);
                 if (cached) {
                     this._updateMemoryCache(key, cached);
+                    this._setLocalCache(cacheKey, cached);
                     return { translation: cached, source: 'idb_cache', cached: true };
                 }
 
@@ -75,6 +105,7 @@ class Translator {
                         return { translation: '', source: 'extension_proxy_error', cached: false };
                     }
                     this._updateMemoryCache(key, proxied.translation);
+                    this._setLocalCache(cacheKey, proxied.translation);
                     db.setTranslationCache(cacheKey, proxied.translation).catch(() => {});
                     return {
                         translation: proxied.translation,
@@ -86,6 +117,7 @@ class Translator {
                 const google = await this._fetchGoogleTranslate(text, fromLang, toLang);
                 if (google) {
                     this._updateMemoryCache(key, google);
+                    this._setLocalCache(cacheKey, google);
                     db.setTranslationCache(cacheKey, google).catch(() => {});
                     return { translation: google, source: 'google_api', cached: false };
                 }
@@ -93,6 +125,7 @@ class Translator {
                 const mymemory = await this._fetchMyMemory(text, fromLang, toLang);
                 if (mymemory) {
                     this._updateMemoryCache(key, mymemory);
+                    this._setLocalCache(cacheKey, mymemory);
                     db.setTranslationCache(cacheKey, mymemory).catch(() => {});
                     return { translation: mymemory, source: 'mymemory_api', cached: false };
                 }
@@ -165,6 +198,34 @@ class Translator {
                 console.warn('[LinguaFlow Translator] Endpoint Google falhou:', err.message);
             }
         }
+
+        // No navegador web, requisições diretas a translate.googleapis.com sofrem bloqueio de CORS.
+        // O proxy allorigins (homologado no CSP e host_permissions) viabiliza a tradução no ambiente web.
+        try {
+            const proxyTarget = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${toLang}&dt=t&q=${q}`;
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(proxyTarget)}`;
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 4000);
+            const response = await fetch(proxyUrl, { signal: controller.signal });
+            clearTimeout(tid);
+            if (response.ok) {
+                const raw = await response.text();
+                if (raw && !raw.startsWith('<')) {
+                    const data = JSON.parse(raw);
+                    if (data && data[0] && Array.isArray(data[0])) {
+                        const translation = data[0]
+                            .filter(part => part && part[0])
+                            .map(part => part[0])
+                            .join('')
+                            .trim();
+                        if (translation) return translation;
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn('[LinguaFlow Translator] Proxy allorigins falhou:', err.message);
+        }
+
         return null;
     }
 

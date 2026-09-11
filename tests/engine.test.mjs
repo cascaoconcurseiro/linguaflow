@@ -362,6 +362,20 @@ test('isWeakCard: 3+ lapsos ou leech', () => {
   assert.equal(Q.isWeakCard({ is_leech: true }), true);
 });
 
+test('buildSessionQueue: suporta newOrder e reviewOrder sem perder cards', () => {
+  const mk = (id, status) => ({ id, status, lapses: 0 });
+  const cards = [
+    mk('r1', 'review'), mk('r2', 'review'), mk('r3', 'review'),
+    mk('n1', 'new'), mk('n2', 'new'), mk('n3', 'new'),
+  ];
+  const qSeq = Q.buildSessionQueue(cards, { newOrder: 'sequential', reviewOrder: 'due' });
+  assert.equal(qSeq.length, 6);
+  const qRand = Q.buildSessionQueue(cards, { newOrder: 'random', reviewOrder: 'random' });
+  assert.equal(qRand.length, 6);
+  const idsRand = new Set(qRand.map(c => c.id));
+  assert.equal(idsRand.size, 6);
+});
+
 console.log('── Estatísticas (statsEngine) ──');
 
 test('retentionByDay: agrega por dia local, dias sem revisão ficam null', () => {

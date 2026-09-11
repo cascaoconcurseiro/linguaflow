@@ -439,13 +439,21 @@ export async function renderReader(container, app) {
 
     const wordAtRequest = popupWord.toLowerCase();
     const contextAtRequest = currentText ? sentenceAround(currentText.content, popupWord) : '';
-    const [baseTranslation, contextual] = await Promise.all([
-      translateText(wordAtRequest),
-      contextAtRequest ? enrichCard(wordAtRequest, contextAtRequest).catch(() => null) : null,
-    ]);
-    const trans = contextual?.word_pt || baseTranslation;
-    if (popupWord.toLowerCase() === wordAtRequest) {
-      document.getElementById('rdp-trans').textContent = trans || 'Sem tradução.';
+
+    translateText(wordAtRequest).then(baseTranslation => {
+      if (popupWord.toLowerCase() === wordAtRequest && baseTranslation) {
+        document.getElementById('rdp-trans').textContent = baseTranslation;
+      } else if (popupWord.toLowerCase() === wordAtRequest && document.getElementById('rdp-trans').textContent === '…') {
+        document.getElementById('rdp-trans').textContent = 'Sem tradução.';
+      }
+    });
+
+    if (contextAtRequest) {
+      enrichCard(wordAtRequest, contextAtRequest).then(contextual => {
+        if (popupWord.toLowerCase() === wordAtRequest && contextual?.word_pt) {
+          document.getElementById('rdp-trans').textContent = contextual.word_pt;
+        }
+      }).catch(() => null);
     }
   });
 

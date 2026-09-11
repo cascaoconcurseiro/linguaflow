@@ -1,6 +1,17 @@
 # Handoff — LinguaFlow
 
-## Última sessão — 2026-09-10
+## Cadastro — 2026-09-11
+
+Candidato 3.0.44: utils/db.js reconhece e persiste a sessão REST do cadastro.
+A confirmação de email já estava desativada no Supabase; a mensagem era
+causada pela interpretação incorreta do token. Teste reproduziu a falha antes
+da correção e passou depois. Release funcional local passou; publicação e
+checks remotos devem ser verificados no PR desta correção.
+
+Próximo passo: validar cadastro no site publicado e entrada direta na Home.
+O checkout original contém commits locais de legendas que não integram este release.
+
+## Sessão anterior — 2026-09-10
 
 Build `3.0.43` publicado na `main` pelo PR #41, squash `f49f679`.
 

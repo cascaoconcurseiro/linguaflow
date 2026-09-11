@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.44] - 2026-09-11
+
+### Corrigido
+
+- Cadastro reconhece os tokens retornados na raiz pela API REST do Supabase,
+  persiste a sessão e permite entrada direta na Home quando a confirmação de
+  email está desativada. Antes, a sessão era ignorada e a tela afirmava que um
+  email de confirmação havia sido enviado.
+- Teste de regressão cobre resposta REST, envelope de sessão, persistência,
+  invalidação de cache e resposta sem token. Versão do cache PWA atualizada.
+
 ## [3.0.43] - 2026-09-09
 
 ### Corrigido

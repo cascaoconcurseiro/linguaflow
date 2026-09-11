@@ -9,6 +9,10 @@ assert.equal(shouldProxyTranslationThroughExtension({ protocol: 'chrome-extensio
   'service worker e páginas da extensão devem usar fetch com host_permissions, sem recursão');
 assert.equal(shouldProxyTranslationThroughExtension({ protocol: 'https:' }, null), false,
   'PWA sem chrome.runtime deve continuar usando o transporte web');
+assert.equal(shouldProxyTranslationThroughExtension({ protocol: 'https:', hostname: 'linguaflow.vercel.app' }, runtime), false,
+  'Dashboard no Vercel deve usar transporte web direto para não falhar por falta de autorização externa');
+assert.equal(shouldProxyTranslationThroughExtension({ protocol: 'http:', hostname: 'localhost' }, runtime), false,
+  'Dashboard no localhost deve usar transporte web direto');
 
 const [translatorSource, workerSource] = await Promise.all([
   readFile(new URL('../utils/translator.js', import.meta.url), 'utf8'),

@@ -8,7 +8,7 @@ import { escapeHTML } from '../../../utils/html.js';
 import { bindViewStateAction, renderViewState } from './viewState.js';
 import { bindReadingHeader, renderReadingHeader } from './readingHub.js';
 
-const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
+const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location !== 'undefined' && location.protocol === 'chrome-extension:');
 let storiesDocumentController = null;
 let vaultTranslations = new Map();
 
@@ -45,19 +45,61 @@ async function getReencounterWords() {
 }
 
 async function translateText(text) {
+  if (!text || typeof text !== 'string') return null;
+  const clean = text.trim();
+  if (!clean) return null;
+
+  const cleanLower = clean.toLowerCase().replace(/[^a-zA-Z0-9'-]/g, '');
+  const tokenLemma = lemma(cleanLower) || cleanLower;
+
+  // 1. Cache do cofre ou memória imediato (0ms)
+  if (vaultTranslations.has(cleanLower)) return vaultTranslations.get(cleanLower);
+  if (vaultTranslations.has(tokenLemma)) return vaultTranslations.get(tokenLemma);
+  const memoryKey = `en:pt:${cleanLower}`;
+  if (translator.memoryCache?.has(memoryKey)) return translator.memoryCache.get(memoryKey);
+
+  // 2. Extensão: se estiver dentro de página da extensão (chrome-extension:)
   if (isExtension) {
-    return new Promise((resolve) => {
-      chrome.runtime.sendMessage({ action: 'translate', text, from: 'en', to: 'pt' }, (res) => {
-        resolve(res?.translation || null);
-      });
+    const extTrans = await new Promise((resolve) => {
+      try {
+        chrome.runtime.sendMessage({ action: 'translate', text: clean, from: 'en', to: 'pt' }, (res) => {
+          if (chrome.runtime.lastError || !res?.translation) {
+            resolve(null);
+          } else {
+            resolve(res.translation);
+          }
+        });
+      } catch {
+        resolve(null);
+      }
     });
+    if (extTrans) {
+      vaultTranslations.set(cleanLower, extTrans);
+      return extTrans;
+    }
   }
+
+  // 3. Tradutor universal (Cache multinível, Dicionário offline, Google, MyMemory)
   try {
-    const res = await translator.translate(text, 'en', 'pt');
-    return res?.translation || null;
-  } catch {
-    return null;
+    const res = await translator.translate(clean, 'en', 'pt');
+    if (res?.translation) {
+      vaultTranslations.set(cleanLower, res.translation);
+      return res.translation;
+    }
+  } catch (e) {
+    console.warn('[Stories] translator.translate falhou:', e);
   }
+
+  // 4. Fallback direto MyMemory (CORS liberado no ambiente web)
+  try {
+    const fallback = await translator._fetchMyMemory(clean, 'en', 'pt');
+    if (fallback) {
+      vaultTranslations.set(cleanLower, fallback);
+      return fallback;
+    }
+  } catch {}
+
+  return null;
 }
 
 export function renderStories(container, app) {
@@ -110,19 +152,19 @@ export function renderStories(container, app) {
       </div>
 
       <!-- Story Reader Container -->
-      <div id="story-reader-container" style="display:none; background: var(--color-surface); border-radius: var(--radius-md); padding: clamp(16px, 4vw, 32px); border: 2px solid var(--color-border); box-shadow: 0 4px 12px rgba(0,0,0,0.05); position:relative;">
+      <div id="story-reader-container" style="display:none; background: var(--color-surface); border-radius: var(--radius-lg, 16px); padding: clamp(24px, 4vw, 44px) clamp(20px, 4vw, 48px); border: 1px solid var(--color-border); box-shadow: 0 4px 24px rgba(0,0,0,0.06); position:relative; max-width: 780px; margin: 0 auto 32px auto;">
         <div id="story-loading" style="display:none; text-align:center; padding: 40px; color:var(--color-text-light);">
           <div class="lf-spin" style="width: 40px; height: 40px; border: 4px solid var(--color-border); border-top-color: var(--color-primary); border-radius: 50%; margin: 0 auto 16px;"></div>
           <p style="font-size: 16px; font-weight:bold;">Criando sua história…</p>
         </div>
         
-        <div id="story-header" style="display:none; margin-bottom:24px; border-bottom:1px solid var(--color-border); padding-bottom:16px;">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+        <div id="story-header" style="display:none; margin-bottom:28px; border-bottom:1px solid var(--color-border); padding-bottom:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
             <div>
-              <h2 id="story-title-display" style="margin-top:0; color:var(--color-text); font-size:24px; margin-bottom:8px;"></h2>
+              <h2 id="story-title-display" style="margin-top:0; color:var(--color-text); font-size:26px; font-weight:800; letter-spacing:-0.02em; margin-bottom:10px;"></h2>
               <span id="story-level-badge" style="background:var(--color-primary); color:white; font-size:12px; font-weight:bold; padding:4px 8px; border-radius:12px;">B1</span>
               <span id="story-known-badge" style="background:var(--color-secondary); color:white; font-size:12px; font-weight:bold; padding:4px 8px; border-radius:12px; margin-left:6px; display:none;" title="Estimativa que combina termos marcados por você e itens com memória estável; não mede compreensão."></span>
-              <div id="story-reencounter" style="display:none; font-size:12px; color:var(--color-text-light); margin-top:6px;"></div>
+              <div id="story-reencounter" style="display:none; font-size:13px; color:var(--color-text-light); margin-top:8px; line-height:1.5;"></div>
             </div>
 
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -145,7 +187,7 @@ export function renderStories(container, app) {
         <!-- Quiz de compreensão (estilo LingQ): perguntas geradas da própria história -->
         <div id="story-quiz-box" style="display:none; margin-bottom:24px; padding:20px; background:var(--color-bg-alt); border:2px dashed var(--color-secondary); border-radius:var(--radius-md);"></div>
         
-        <div id="story-content" style="font-size: 20px; line-height: 1.8; color: var(--color-text); font-family: var(--font-main);">
+        <div id="story-content">
           <!-- Words will be injected here -->
         </div>
       </div>
@@ -192,11 +234,66 @@ export function renderStories(container, app) {
     style.innerHTML = `
       @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-      .story-word { cursor: pointer; transition: color var(--motion-fast), background-color var(--motion-fast); border-radius: 4px; padding: 0 1px; }
-      .story-word:hover { background-color: rgba(88,204,2,0.2); color: var(--color-primary); font-weight: 600; }
-      .story-word:focus-visible { outline: 3px solid var(--color-secondary); outline-offset: 2px; }
-      .story-word.saved { border-bottom: 2px dashed #ffc800; background: rgba(255,200,0,0.12); } /* aprendendo (LingQ amarelo) */
-      .story-word.known { color: var(--color-primary); } /* conhecida (madura ou marcada) */
+      #story-content {
+        max-width: 680px;
+        margin: 0 auto;
+        font-size: 19px;
+        line-height: 1.85;
+        letter-spacing: -0.003em;
+        color: var(--color-text);
+        font-family: 'Newsreader', 'Merriweather', 'Charter', 'Georgia', serif, system-ui;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+      }
+      .story-paragraph {
+        margin: 0 0 24px 0;
+        text-align: left;
+        line-height: 1.85;
+        word-break: break-word;
+      }
+      .story-paragraph:last-child {
+        margin-bottom: 0;
+      }
+      .story-word {
+        cursor: pointer;
+        transition: color var(--motion-fast), background-color var(--motion-fast);
+        border-radius: 4px;
+        padding: 0 2px;
+        display: inline;
+      }
+      .story-word:hover {
+        background-color: rgba(88,204,2,0.18);
+        color: var(--color-primary);
+        font-weight: 600;
+      }
+      .story-word:focus-visible {
+        outline: 2px solid var(--color-secondary);
+        outline-offset: 2px;
+      }
+      .story-word.saved {
+        border-bottom: 2px solid #ffc800;
+        background: rgba(255,200,0,0.12);
+      }
+      .story-word.known {
+        color: var(--color-primary);
+      }
+      #lf-story-word-tooltip {
+        position: fixed;
+        display: none;
+        z-index: 9500;
+        background: var(--color-surface);
+        border: 1.5px solid var(--color-border);
+        border-radius: 8px;
+        padding: 6px 12px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--color-text);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+        pointer-events: none;
+        max-width: 260px;
+        line-height: 1.4;
+        transition: opacity 0.12s ease;
+      }
       .quiz-opt { display:block; width:100%; text-align:left; margin:6px 0; padding:10px 14px; border:2px solid var(--color-border); border-radius:8px; background:var(--color-surface); color:var(--color-text); font-family:var(--font-main); font-size:14px; font-weight:600; cursor:pointer; }
       .quiz-opt:hover, .quiz-opt:focus-visible { border-color: var(--color-secondary); }
       .quiz-opt.correct { border-color: var(--color-primary); background: rgba(88,204,2,0.15); }
@@ -216,9 +313,10 @@ export function renderStories(container, app) {
       .story-library-heading { margin-bottom:16px; }
       .story-library-heading h2 { margin:0 0 4px; color:var(--color-text); font-size:20px; }
       .story-library-heading p { margin:0; color:var(--color-text-light); font-size:14px; }
-      @media (max-width: 480px) {
-        #story-content { font-size: 17px !important; line-height: 1.7 !important; }
-        #story-title-display { font-size: 20px !important; }
+      @media (max-width: 640px) {
+        #story-content { font-size: 17px !important; line-height: 1.75 !important; }
+        .story-paragraph { margin-bottom: 18px; }
+        #story-title-display { font-size: 22px !important; }
       }
     `;
     document.head.appendChild(style);
@@ -557,25 +655,33 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
   // Tooltip é uma ajuda opcional: mostra apenas a tradução da palavra, nunca
   // a frase. Também responde ao foco para funcionar com teclado.
   const wordTooltip = document.createElement('div');
+  wordTooltip.id = 'lf-story-word-tooltip';
   wordTooltip.setAttribute('role', 'tooltip');
-  wordTooltip.style.cssText = 'position:fixed; display:none; z-index:9500; background:var(--color-surface); border:2px solid var(--color-secondary); border-radius:8px; padding:6px 10px; font-size:13px; font-weight:700; color:var(--color-text); box-shadow:0 4px 12px rgba(0,0,0,0.15); pointer-events:none; max-width:240px;';
   document.body.appendChild(wordTooltip);
   let tooltipTimer = null;
   let tooltipRequestId = 0;
+  let currentTooltipWordEl = null;
+
   const hideWordTooltip = () => {
     tooltipRequestId++;
+    currentTooltipWordEl = null;
     if (tooltipTimer) clearTimeout(tooltipTimer);
     wordTooltip.style.display = 'none';
   };
+
   const showWordTooltip = (span) => {
+    if (!span) return;
+    if (span === currentTooltipWordEl && wordTooltip.style.display === 'block') return;
+    currentTooltipWordEl = span;
+
     const token = span?.textContent?.replace(/[^a-zA-Z0-9'-]/g, '').toLowerCase();
     if (!token) return;
     const tokenLemma = lemma(token) || token;
-    const localTrans = vaultTranslations.get(token) || vaultTranslations.get(tokenLemma) || translator.memoryCache?.get(`en:pt:${token}`);
+    const localTrans = vaultTranslations.get(token) || vaultTranslations.get(tokenLemma) || translator.memoryCache?.get(`en:pt:${token}`) || translator.memoryCache?.get(`en:pt:${tokenLemma}`);
 
     const rect = span.getBoundingClientRect();
-    wordTooltip.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 250))}px`;
-    wordTooltip.style.top = `${Math.max(8, rect.top - 38)}px`;
+    wordTooltip.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 270))}px`;
+    wordTooltip.style.top = `${Math.max(8, rect.top - 40)}px`;
 
     if (localTrans) {
       if (tooltipTimer) clearTimeout(tooltipTimer);
@@ -590,10 +696,17 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     wordTooltip.style.display = 'block';
 
     tooltipTimer = setTimeout(async () => {
-      const translation = await translateText(token);
+      let translation = await translateText(token);
+      if (!translation && tokenLemma && tokenLemma !== token) {
+        translation = await translateText(tokenLemma);
+      }
       if (requestId !== tooltipRequestId) return;
-      if (translation) vaultTranslations.set(token, translation);
-      wordTooltip.textContent = translation || 'Tradução indisponível';
+      if (translation) {
+        vaultTranslations.set(token, translation);
+        wordTooltip.textContent = translation;
+      } else {
+        wordTooltip.textContent = 'Tradução indisponível';
+      }
     }, 120);
   };
   storyContent.addEventListener('mouseover', (event) => {
@@ -601,7 +714,9 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     if (word) showWordTooltip(word);
   });
   storyContent.addEventListener('mouseout', (event) => {
-    if (event.target.closest('.story-word')) hideWordTooltip();
+    const related = event.relatedTarget;
+    if (related && related.closest && related.closest('.story-word') === currentTooltipWordEl) return;
+    hideWordTooltip();
   });
   storyContent.addEventListener('focusin', (event) => {
     const word = event.target.closest('.story-word');
@@ -843,10 +958,10 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
       let title = `${genre} Story`;
       let contentToRender = storyText;
       
-      const lines = storyText.split('\n');
+      const lines = storyText.split(/\r?\n/);
       if (lines.length > 0 && lines[0].length < 60 && !lines[0].endsWith('.')) {
         title = lines[0].replace(/[#*]/g, '').trim();
-        contentToRender = lines.slice(1).join('\\n').trim();
+        contentToRender = lines.slice(1).join('\n').trim();
       }
 
       storyTitleDisplay.textContent = title;
@@ -933,19 +1048,41 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     const { learning: savedWordsSet, known: knownWordsSet, available: statusAvailable } = await getWordStatusSets();
     let knownCount = 0;   // % conhecido da história (o número que engaja no LingQ)
     let totalTokens = 0;
-    const paragraphs = text.split('\\n').filter(p => p.trim().length > 0);
+
+    // Normalização completa: unifica \r\n, \n escapado (\\n) e \n real
+    const raw = String(text || '');
+    const normalized = raw
+      .replace(/\r\n/g, '\n')
+      .replace(/\\r\\n/g, '\n')
+      .replace(/\\n/g, '\n')
+      .trim();
+
+    // Divide em parágrafos de livro (quebras duplas ou simples)
+    const hasDouble = /\n\s*\n/.test(normalized);
+    const rawParagraphs = hasDouble
+      ? normalized.split(/\n\s*\n/)
+      : normalized.split(/\n+/);
+
+    const paragraphs = rawParagraphs
+      .map(p => p.trim())
+      .filter(p => p.length > 0);
+
+    if (paragraphs.length === 0 && normalized.length > 0) {
+      paragraphs.push(normalized);
+    }
     
     storyContent.innerHTML = '';
     
     // Split into sentences for the TTS Chunker and Context finder
-    currentStorySentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+    const cleanForSentences = normalized.replace(/\n+/g, ' ');
+    currentStorySentences = cleanForSentences.match(/[^.!?]+[.!?]+/g) || [cleanForSentences];
     // Clean sentences slightly for better TTS
     currentStorySentences = currentStorySentences.map(s => s.trim()).filter(s => s.length > 0);
 
     const pElements = [];
     paragraphs.forEach(p => {
       const pEl = document.createElement('p');
-      pEl.style.marginBottom = '20px';
+      pEl.className = 'story-paragraph';
       const delimRegex = /([\s.,!?;:"'()\[\]{}*#—–\-“”‘’]+)/;
       const tokens = p.split(delimRegex);
       const tokenNodes = [];
@@ -1028,8 +1165,9 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
   }
 
   function findSentenceForWord(rawWord) {
+    if (!rawWord) return '';
     for (const sent of currentStorySentences) {
-      if (sent.includes(rawWord)) return sent.trim();
+      if (sent.toLowerCase().includes(rawWord.toLowerCase())) return sent.trim();
     }
     return '';
   }

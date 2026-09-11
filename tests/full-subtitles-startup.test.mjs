@@ -191,4 +191,120 @@ function bareEngine(url = 'https://www.youtube.com/watch?v=full-test') {
   assert.equal(engine._hasFullYoutubeTrack, true);
 }
 
+// 5. Cenário real de produção: URL limpa (sem spv, sem t, sem range) vinda do preloadFullSubtitleTrack
+// em vídeo longo de 25 minutos onde o YouTube encerra o primeiro payload em ~13.3 minutos (~800s).
+// O motor NÃO pode marcar a trilha como completa prematuramente e DEVE requisitar os chunks restantes com spv=1.
+{
+  const engine = bareEngine('https://www.youtube.com/watch?v=prod-clean-25min');
+  const navigation = engine._beginNavigation('https://www.youtube.com/watch?v=prod-clean-25min');
+  engine.videoElement = { duration: 1500 }; // 25 minutos
+
+  // URL 100% limpa (como enviado pelo preloadFullSubtitleTrack no YouTube real)
+  const cleanInitialUrl = 'https://www.youtube.com/api/timedtext?v=prod-clean-25min&lang=en&fmt=json3';
+  const chunk1Events = JSON.stringify({
+    events: [
+      { tStartMs: 0, dDurationMs: 3000, segs: [{ utf8: 'First phrase at 00:00' }] },
+      { tStartMs: 500000, dDurationMs: 4000, segs: [{ utf8: 'Middle phrase at 08:20' }] },
+      { tStartMs: 799000, dDurationMs: 2000, segs: [{ utf8: 'Cutoff phrase at 13:19' }] },
+    ],
+  });
+
+  const requestedUrls = [];
+  globalThis.fetch = async (url) => {
+    const uStr = typeof url === 'string' ? url : url.toString();
+    requestedUrls.push(uStr);
+    const parsed = new URL(uStr);
+
+    // O YouTube rejeita chamadas de blocos subsequentes se faltar spv=1
+    if (!parsed.searchParams.has('spv')) {
+      return { ok: false, status: 403, text: async () => '' };
+    }
+
+    // Retorna bloco 2 cobrindo até os 25 minutos
+    return {
+      ok: true,
+      text: async () => JSON.stringify({
+        events: [
+          { tStartMs: 801000, dDurationMs: 2500, segs: [{ utf8: 'Continuation at 13:21' }] },
+          { tStartMs: 1200000, dDurationMs: 3000, segs: [{ utf8: 'Later phrase at 20:00' }] },
+          { tStartMs: 1490000, dDurationMs: 4000, segs: [{ utf8: 'Final phrase at 24:50' }] },
+        ],
+      }),
+    };
+  };
+
+  await engine._processYouTubeRawSubtitles(cleanInitialUrl, chunk1Events, navigation);
+
+  assert.ok(requestedUrls.length > 0, 'deve ter realizado requisição para os chunks restantes');
+  assert.ok(requestedUrls.some((u) => u.includes('spv=1')), 'deve incluir spv=1 na requisição dos blocos subsequentes');
+  assert.equal(engine.cues.length, 6, 'todas as frases dos 25 minutos devem estar presentes desde o início');
+  assert.equal(engine.cues[0].text, 'First phrase at 00:00');
+  assert.equal(engine.cues[5].text, 'Final phrase at 24:50');
+  assert.equal(engine._hasFullYoutubeTrack, true);
+}
+
+// 6. Suporte a payload do YouTube InnerTube get_transcript (100% das legendas em uma única chamada)
+{
+  const engine = bareEngine('https://www.youtube.com/watch?v=innertube-transcript');
+  const navigation = engine._beginNavigation('https://www.youtube.com/watch?v=innertube-transcript');
+
+  const transcriptPayload = JSON.stringify({
+    actions: [
+      {
+        updateEngagementPanelAction: {
+          content: {
+            transcriptRenderer: {
+              content: {
+                transcriptSearchPanelRenderer: {
+                  body: {
+                    transcriptSegmentListRenderer: {
+                      initialSegments: [
+                        {
+                          transcriptSegmentRenderer: {
+                            startMs: '0',
+                            endMs: '2500',
+                            snippet: { runs: [{ text: 'InnerTube first cue' }] },
+                            startTimeText: { simpleText: '0:00' },
+                          },
+                        },
+                        {
+                          transcriptSegmentRenderer: {
+                            startMs: '900000',
+                            endMs: '903000',
+                            snippet: { runs: [{ text: 'InnerTube cue at 15:00' }] },
+                            startTimeText: { simpleText: '15:00' },
+                          },
+                        },
+                        {
+                          transcriptSegmentRenderer: {
+                            startMs: '1800000',
+                            endMs: '1805000',
+                            snippet: { runs: [{ text: 'InnerTube final cue at 30:00' }] },
+                            startTimeText: { simpleText: '30:00' },
+                          },
+                        },
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    ],
+  });
+
+  const transcriptUrl = 'https://www.youtube.com/youtubei/v1/get_transcript?v=innertube-transcript';
+  await engine._processYouTubeRawSubtitles(transcriptUrl, transcriptPayload, navigation);
+
+  assert.equal(engine.cues.length, 3, 'deve parsear perfeitamente todos os segmentos da API de transcrição');
+  assert.equal(engine.cues[0].text, 'InnerTube first cue');
+  assert.equal(engine.cues[0].start, 0);
+  assert.equal(engine.cues[1].start, 900);
+  assert.equal(engine.cues[2].text, 'InnerTube final cue at 30:00');
+  assert.equal(engine.cues[2].start, 1800);
+  assert.equal(engine._hasFullYoutubeTrack, true);
+}
+
 console.log('Testes de carregamento completo e antecipado de legendas: tudo verde ✅');

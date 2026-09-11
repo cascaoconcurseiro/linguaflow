@@ -43,7 +43,7 @@ export function isTrustedSubtitleBridgeMessage(event, bridgeState, currentUrl) {
     const protocol = subtitleUrl.protocol;
     if (protocol !== 'https:' && protocol !== 'http:') return false;
     const subtitleLocator = `${subtitleUrl.pathname}${subtitleUrl.search}`.toLowerCase();
-    if (data.type === 'LF_SUBTITLE_HOOK' && (!isYouTube || !subtitleLocator.includes('timedtext'))) {
+    if (data.type === 'LF_SUBTITLE_HOOK' && (!isYouTube || (!subtitleLocator.includes('timedtext') && !subtitleLocator.includes('get_transcript')))) {
       return false;
     }
     if (
@@ -2541,6 +2541,7 @@ export class SubtitleEngine {
       if (!vid) return;
 
       this.videoElement = vid;
+      this._attachVideoDurationListener(vid);
       clearInterval(this._videoWaitInterval);
       this._videoWaitInterval = null;
 
@@ -2744,7 +2745,7 @@ export class SubtitleEngine {
       const text = await response.text();
       if (!this._isNavigationCurrent(navigation) || !text || text.length < 10) return;
       await this._processYouTubeRawSubtitles(fullUrl.toString(), text, navigation);
-      this._hasFullYoutubeTrack = true;
+      this._hasFullYoutubeTrack = !this._isTrackIncomplete(this.cues);
     } catch (e) {
       if (e?.name === 'AbortError' || !this._isNavigationCurrent(navigation)) return;
     }
@@ -2763,17 +2764,180 @@ export class SubtitleEngine {
         const d = player.getDuration();
         if (typeof d === 'number' && !isNaN(d) && d > 0) return d;
       }
+      if (typeof window !== 'undefined') {
+        const lengthSec = window.ytInitialPlayerResponse?.videoDetails?.lengthSeconds;
+        if (lengthSec) {
+          const parsed = parseInt(lengthSec, 10);
+          if (!isNaN(parsed) && parsed > 0) return parsed;
+        }
+      }
+      if (typeof document !== 'undefined') {
+        const flexy = document.querySelector('ytd-watch-flexy');
+        const flexyLength = flexy?.playerData?.videoDetails?.lengthSeconds;
+        if (flexyLength) {
+          const parsed = parseInt(flexyLength, 10);
+          if (!isNaN(parsed) && parsed > 0) return parsed;
+        }
+        const timeDurationEl = document.querySelector('.ytp-time-duration');
+        if (timeDurationEl && timeDurationEl.textContent) {
+          const parts = timeDurationEl.textContent.trim().split(':').map(Number);
+          if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+            return parts[0] * 60 + parts[1];
+          }
+          if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+            return parts[0] * 3600 + parts[1] * 60 + parts[2];
+          }
+        }
+      }
     } catch {}
     return 0;
+  }
+
+  _isTrackIncomplete(cues) {
+    if (!Array.isArray(cues) || cues.length === 0) return true;
+    const lastCue = cues[cues.length - 1];
+    if (!lastCue || typeof lastCue.end !== 'number') return true;
+
+    const videoDuration = this._getVideoDuration();
+    if (videoDuration > 30) {
+      return lastCue.end < videoDuration - 15;
+    }
+
+    if (lastCue.end >= 700 && lastCue.end <= 860) {
+      return true;
+    }
+
+    return false;
+  }
+
+  _attachVideoDurationListener(video) {
+    if (!video || video._lfDurationListenerAttached) return;
+    video._lfDurationListenerAttached = true;
+    const checkCompleteness = () => {
+      if (this.platform !== 'youtube') return;
+      if (this._hasFullYoutubeTrack) return;
+      if (!this._lastRawSubtitleUrl || !this.cues || this.cues.length === 0) return;
+      if (this._isTrackIncomplete(this.cues)) {
+        this._fetchRemainingYoutubeChunks(this._lastRawSubtitleUrl, this.cues, this._navigationSnapshot())
+          .then((fullCues) => {
+            if (Array.isArray(fullCues) && fullCues.length > this.cues.length) {
+              this.cues = fullCues;
+              this.xhrCues = fullCues;
+              this._hasFullYoutubeTrack = !this._isTrackIncomplete(fullCues);
+              this._rebuildSubtitleList();
+              this._rebuildWordsList();
+            }
+          })
+          .catch(() => {});
+      }
+    };
+    video.addEventListener('durationchange', checkCompleteness);
+    video.addEventListener('loadedmetadata', checkCompleteness);
+  }
+
+  _parseYouTubeTranscriptApi(data) {
+    try {
+      const json = typeof data === 'string' ? JSON.parse(data) : data;
+      let segments = [];
+      const actions = json?.actions || [];
+      for (const action of actions) {
+        const panel = action?.updateEngagementPanelAction?.content?.transcriptRenderer
+          || action?.openEngagementPanelAction?.content?.transcriptRenderer;
+        const body = panel?.content?.transcriptSearchPanelRenderer?.body || panel?.body;
+        const segList = body?.transcriptSegmentListRenderer?.initialSegments;
+        if (Array.isArray(segList)) {
+          segments = segList;
+          break;
+        }
+      }
+      if (segments.length === 0) {
+        segments = json?.initialSegments
+          || json?.transcriptRenderer?.body?.transcriptSegmentListRenderer?.initialSegments
+          || [];
+      }
+      if (!Array.isArray(segments) || segments.length === 0) {
+        const findSegments = (obj, depth = 0) => {
+          if (!obj || depth > 7) return [];
+          if (Array.isArray(obj)) {
+            for (const item of obj) {
+              if (item?.transcriptSegmentRenderer) return obj;
+              const res = findSegments(item, depth + 1);
+              if (res.length > 0) return res;
+            }
+          } else if (typeof obj === 'object') {
+            for (const k of Object.keys(obj)) {
+              const res = findSegments(obj[k], depth + 1);
+              if (res.length > 0) return res;
+            }
+          }
+          return [];
+        };
+        segments = findSegments(json);
+      }
+      if (!Array.isArray(segments) || segments.length === 0) return [];
+
+      const cues = [];
+      for (const seg of segments) {
+        const renderer = seg?.transcriptSegmentRenderer;
+        if (!renderer) continue;
+        const startMs = parseFloat(renderer.startMs || '0');
+        const endMs = parseFloat(renderer.endMs || String(startMs + 2000));
+        const text = (renderer.snippet?.runs || []).map((r) => r.text || '').join('').trim();
+        if (!text) continue;
+        cues.push({
+          start: startMs / 1000,
+          end: endMs / 1000,
+          text: text,
+          duration: Math.max(0.5, (endMs - startMs) / 1000),
+        });
+      }
+      return cues.sort((a, b) => a.start - b.start);
+    } catch {
+      return [];
+    }
+  }
+
+  _extractCuesFromTranscriptDom() {
+    try {
+      if (typeof document === 'undefined') return [];
+      const segments = document.querySelectorAll('ytd-transcript-segment-renderer');
+      if (!segments || segments.length === 0) return [];
+      const cues = [];
+      for (let i = 0; i < segments.length; i++) {
+        const seg = segments[i];
+        const timeText = seg.querySelector('.segment-timestamp')?.textContent?.trim() || '';
+        const text = seg.querySelector('.segment-text')?.textContent?.trim() || '';
+        if (!text || !timeText) continue;
+        const parts = timeText.split(':').map(Number);
+        let start = 0;
+        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+          start = parts[0] * 60 + parts[1];
+        } else if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+          start = parts[0] * 3600 + parts[1] * 60 + parts[2];
+        }
+        cues.push({ start, end: start + 2, text, duration: 2 });
+      }
+      for (let i = 0; i < cues.length - 1; i++) {
+        cues[i].end = cues[i + 1].start;
+        cues[i].duration = Math.max(0.5, cues[i].end - cues[i].start);
+      }
+      return cues;
+    } catch {
+      return [];
+    }
   }
 
   async _fetchRemainingYoutubeChunks(initialUrl, currentCues, navigation) {
     if (!this._isNavigationCurrent(navigation) || !Array.isArray(currentCues) || currentCues.length === 0) {
       return currentCues;
     }
+    if (!initialUrl || !initialUrl.includes('timedtext')) {
+      return currentCues;
+    }
+
     let cues = [...currentCues];
     let attempts = 0;
-    const maxAttempts = 25;
+    const maxAttempts = 35;
 
     while (attempts < maxAttempts && this._isNavigationCurrent(navigation)) {
       attempts++;
@@ -2788,20 +2952,36 @@ export class SubtitleEngine {
       let chunkCues = [];
       const overlapSec = 2;
       const targetStartSec = Math.max(0, lastCue.end - overlapSec);
-      const offsetsToTry = [
-        Math.floor(targetStartSec * 1000), // ms
-        Math.floor(targetStartSec),        // s
+      const msOffset = Math.floor(targetStartSec * 1000);
+      const sOffset = Math.floor(targetStartSec);
+
+      const requestVariants = [
+        { spv: '1', t: String(msOffset), fmt: 'json3' },
+        { spv: '1', t: String(sOffset), fmt: 'json3' },
+        { spv: null, t: String(msOffset), fmt: 'json3' },
+        { spv: null, t: String(sOffset), fmt: 'json3' },
       ];
 
-      for (const offset of offsetsToTry) {
+      for (const variant of requestVariants) {
         if (!this._isNavigationCurrent(navigation)) return cues;
         try {
           const chunkUrl = new URL(initialUrl);
-          chunkUrl.searchParams.set('t', String(offset));
+          chunkUrl.searchParams.set('t', variant.t);
+          if (variant.spv) {
+            chunkUrl.searchParams.set('spv', variant.spv);
+          } else {
+            chunkUrl.searchParams.delete('spv');
+          }
+          if (variant.fmt) {
+            chunkUrl.searchParams.set('fmt', variant.fmt);
+          }
           chunkUrl.searchParams.delete('range');
           chunkUrl.searchParams.delete('tlang');
 
-          const response = await fetch(chunkUrl.toString(), { signal: navigation.signal });
+          const response = await fetch(chunkUrl.toString(), {
+            signal: navigation.signal,
+            credentials: 'same-origin',
+          });
           if (!response.ok) continue;
           const raw = await response.text();
           if (!raw || raw.length < 10) continue;
@@ -2862,6 +3042,8 @@ export class SubtitleEngine {
       if (cueVideoId && currentVideoId && cueVideoId !== currentVideoId) return;
     } catch { return; }
     if (!raw || raw.length < 10) return;
+
+    this._lastRawSubtitleUrl = url;
 
     let parsedUrl;
     try {
@@ -2927,9 +3109,18 @@ export class SubtitleEngine {
               this.cues = origCues;
               this.xhrCues = origCues;
               this.usingXhr = true;
-              this._hasFullYoutubeTrack = true;
+              this._hasFullYoutubeTrack = !this._isTrackIncomplete(origCues);
               this._rebuildSubtitleList();
               this._rebuildWordsList();
+
+              if (!this._hasFullYoutubeTrack) {
+                origCues = await this._fetchRemainingYoutubeChunks(origUrl.toString(), origCues, navigation);
+                this.cues = origCues;
+                this.xhrCues = origCues;
+                this._hasFullYoutubeTrack = !this._isTrackIncomplete(origCues);
+                this._rebuildSubtitleList();
+                this._rebuildWordsList();
+              }
 
               chrome.storage.local.get('lastYoutubeSubtitleUrls', (res) => {
                 let urls = res.lastYoutubeSubtitleUrls || [];
@@ -2956,8 +3147,11 @@ export class SubtitleEngine {
       return;
     }
 
+    const isTranscriptApi = url.includes('get_transcript') || raw.includes('transcriptSegmentRenderer');
     let cues = [];
-    if (raw.startsWith('{')) {
+    if (isTranscriptApi) {
+      cues = this._parseYouTubeTranscriptApi(raw);
+    } else if (raw.startsWith('{')) {
       try {
         cues = this._processYtSub(JSON.parse(raw));
       } catch (e) {}
@@ -2969,12 +3163,14 @@ export class SubtitleEngine {
 
     if (cues.length > 0 && this._isNavigationCurrent(navigation)) {
       const existing = this.cues || [];
-      const incomingIsSegment = ['t', 'range', 'spv'].some((param) => parsedUrl.searchParams.has(param));
+      const incomingIsSegment = !isTranscriptApi && ['t', 'range', 'spv'].some((param) => parsedUrl.searchParams.has(param));
       if (incomingIsSegment && (!this._hasFullYoutubeTrack || existing.length < 15)) {
         await this._scheduleFullYoutubeTrackFetch(url, navigation);
       }
-      if (!incomingIsSegment && cues.length > 0) {
+      if (isTranscriptApi && cues.length > 0) {
         this._hasFullYoutubeTrack = true;
+      } else if (cues.length > 0) {
+        this._hasFullYoutubeTrack = !this._isTrackIncomplete(cues);
       }
       const baseExisting = this.cues || [];
       if (baseExisting.length > 0) {
@@ -3012,17 +3208,13 @@ export class SubtitleEngine {
 
       // Se as legendas carregadas ainda não cobrem o vídeo todo (ex: chunk inicial de ~13min em vídeo de 20min+),
       // busca automaticamente os chunks subsequentes para completar 100% da trilha imediatamente
-      const lastCue = cues[cues.length - 1];
-      const videoDuration = this._getVideoDuration();
-      const isPartialTrack = !this._hasFullYoutubeTrack
-        && lastCue
-        && ((videoDuration > 0 && lastCue.end < videoDuration - 15) || (incomingIsSegment && lastCue.end >= 400));
+      const isPartialTrack = !isTranscriptApi && (!this._hasFullYoutubeTrack || this._isTrackIncomplete(cues));
 
       if (isPartialTrack) {
         cues = await this._fetchRemainingYoutubeChunks(url, cues, navigation);
         this.cues = cues;
         this.xhrCues = cues;
-        this._hasFullYoutubeTrack = true;
+        this._hasFullYoutubeTrack = !this._isTrackIncomplete(cues);
         this._rebuildSubtitleList();
         this._rebuildWordsList();
       }
@@ -3926,7 +4118,16 @@ export class SubtitleEngine {
   }
 
   _rebuildSubtitleList(container, filter = '') {
-    const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
+    let cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
+    if ((!cues || cues.length === 0 || this._isTrackIncomplete(cues)) && typeof document !== 'undefined') {
+      const domCues = this._extractCuesFromTranscriptDom();
+      if (domCues.length > (cues?.length || 0)) {
+        this.cues = domCues;
+        this.xhrCues = domCues;
+        this.usingXhr = true;
+        cues = domCues;
+      }
+    }
     if (!container) container = document.getElementById('lf-subtitle-list');
     if (!container) {
       if (cues?.length) this._translateAllSidebarCues(cues);

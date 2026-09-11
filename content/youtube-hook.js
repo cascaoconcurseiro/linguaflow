@@ -88,9 +88,45 @@
         }
     };
 
+    const fetchInnerTubeTranscript = async () => {
+        try {
+            const videoId = getCurrentVideoId();
+            if (!videoId) return false;
+            const apiKey = window.ytcfg?.get?.('INNERTUBE_API_KEY') || window.ytcfg?.data_?.INNERTUBE_API_KEY;
+            const context = window.ytcfg?.get?.('INNERTUBE_CONTEXT') || window.ytcfg?.data_?.INNERTUBE_CONTEXT;
+            if (!apiKey || !context) return false;
+
+            const panels = window.ytInitialData?.engagementPanels || [];
+            const transPanel = panels.find((p) => {
+                const id = p?.engagementPanelSectionListRenderer?.targetId || p?.engagementPanelSectionListRenderer?.panelIdentifier;
+                return id === 'engagement-panel-searchable-transcript';
+            });
+            const params = transPanel?.engagementPanelSectionListRenderer?.content?.continuationItemRenderer?.continuationEndpoint?.getTranscriptEndpoint?.params;
+            if (!params) return false;
+
+            const res = await originalFetch(`/youtubei/v1/get_transcript?key=${apiKey}&prettyPrint=false`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ context, params }),
+                credentials: 'same-origin'
+            });
+            if (!res.ok) return false;
+            const jsonText = await res.text();
+            if (jsonText && jsonText.includes('transcriptSegmentRenderer')) {
+                notifyExt(`https://www.youtube.com/youtubei/v1/get_transcript?v=${videoId}`, jsonText);
+                return true;
+            }
+        } catch {}
+        return false;
+    };
+
     const preloadFullSubtitleTrack = async (attempt = 0) => {
         const videoId = getCurrentVideoId();
         if (!videoId) return;
+
+        // Tenta obter a transcrição completa via InnerTube (100% de uma vez só) em paralelo
+        fetchInnerTubeTranscript().catch(() => {});
+
         const tracks = getCaptionTracks();
         if (!tracks.length) {
             if (attempt < 8) setTimeout(() => preloadFullSubtitleTrack(attempt + 1), Math.min(1500, 350 * (attempt + 1)));
@@ -169,9 +205,10 @@
         const url = args[0];
         const urlStr = typeof url === 'string' ? url : (url instanceof URL ? url.href : '');
 
-        // Padrões Universais: YouTube (timedtext), Netflix (nflxvideo), HBO/Max (vtt/ttml)
+        // Padrões Universais: YouTube (timedtext, get_transcript), Netflix (nflxvideo), HBO/Max (vtt/ttml)
         const isSubtitle = urlStr.includes('timedtext') || 
                            urlStr.includes('api/timedtext') || 
+                           urlStr.includes('get_transcript') ||
                            urlStr.includes('nflxvideo.net') || 
                            urlStr.includes('.vtt') || 
                            urlStr.includes('.ttml') ||
@@ -206,6 +243,7 @@
     XMLHttpRequest.prototype.open = function(method, url) {
         const urlStr = typeof url === 'string' ? url : '';
         const isSubtitle = urlStr.includes('timedtext') || 
+                           urlStr.includes('get_transcript') ||
                            urlStr.includes('nflxvideo.net') || 
                            urlStr.includes('.vtt') || 
                            urlStr.includes('subtitles');

@@ -4,7 +4,7 @@ import { bindViewStateAction, renderViewState } from '../ui/viewState.js';
 import { db } from '../../../utils/db.js';
 
 const renderLibrary = (...args) => import('../ui/libraryView.js').then((m) => m.renderLibrary(...args));
-const renderStudy = (...args) => import('../ui/studyView.js').then((m) => m.renderStudy(...args));
+const renderStudy = (...args) => import(`../ui/studyView.js?v=${CLIENT_BUILD}`).then((m) => m.renderStudy(...args));
 const renderSettings = (...args) => import('../ui/settingsView.js').then((m) => m.renderSettings(...args));
 const renderLeagues = (...args) => import('../ui/leaguesView.js').then((m) => m.renderLeagues(...args));
 const renderStories = (...args) => import('../ui/storiesView.js').then((m) => m.renderStories(...args));
@@ -15,7 +15,7 @@ const renderStats = (...args) => import('../ui/statsView.js').then((m) => m.rend
 const renderLearn = (...args) => import('../ui/learnView.js').then((m) => m.renderLearn(...args));
 const renderProgress = (...args) => import('../ui/progressView.js').then((m) => m.renderProgress(...args));
 
-const CLIENT_BUILD = '3.0.44';
+const CLIENT_BUILD = '3.0.45';
 
 // Uma versão antiga do PWA podia misturar HTML/app novo com db.js antigo.
 // Antes de inicializar qualquer tela, elimina esse estado e recarrega uma vez.

@@ -6,6 +6,10 @@ export function shouldProxyTranslationThroughExtension(
     locationLike = globalThis.location,
     runtime = globalThis.chrome?.runtime,
 ) {
+    const host = String(locationLike?.host || locationLike?.hostname || '').toLowerCase();
+    const isLinguaflowApp = host.includes('vercel.app') || host.includes('linguaflow') || host === 'localhost' || host === '127.0.0.1';
+    if (isLinguaflowApp) return false;
+
     return Boolean(
         runtime?.id
         && typeof runtime.sendMessage === 'function'

@@ -25,8 +25,8 @@ if (!isSupported) {
     const engine = new SubtitleEngine();
     engine.init();
 
-    // Max/HBO recebe uma camada visual própria. O motor de captura/sincronia
-    // permanece intocado; este módulo só coordena safe-area, dock e fullscreen.
+    // Max/HBO recebe a camada visual do dock lateral. No YouTube, os controles agora
+    // vivem fixos na barra inferior horizontal.
     if (engine.platform === 'max') {
       const { MaxPlayerUI } = await import(chrome.runtime.getURL('content/max-player-ui.js'));
       const maxPlayerUI = new MaxPlayerUI(engine);

@@ -116,14 +116,15 @@ export async function renderStudy(container, app, params = {}) {
   if (!studyViewActive || viewGeneration !== studyViewGeneration) return;
   gradeBusy = false;
   try {
-    const [reverseRaw, variedRaw, cefrNow, audioFrontRaw, audioBackRaw, srs] = await Promise.all([
-      lfDb.getSetting('lf_reverse_cards').catch(() => null),
-      lfDb.getSetting('lf_varied_exercises').catch(() => null),
+    const [settingsMap, cefrNow, srs] = await Promise.all([
+      lfDb.getSettings(['lf_reverse_cards', 'lf_varied_exercises', 'lf_audio_auto_front', 'lf_audio_auto_back']).catch(() => ({})),
       getCefrLevel().catch(() => null),
-      lfDb.getSetting('lf_audio_auto_front').catch(() => null),
-      lfDb.getSetting('lf_audio_auto_back').catch(() => null),
       lfDb.getSRSSettings(),
     ]);
+    const reverseRaw = settingsMap?.lf_reverse_cards ?? null;
+    const variedRaw = settingsMap?.lf_varied_exercises ?? null;
+    const audioFrontRaw = settingsMap?.lf_audio_auto_front ?? null;
+    const audioBackRaw = settingsMap?.lf_audio_auto_back ?? null;
     reverseEnabled = reverseRaw === true || reverseRaw === 'true';
     studentCefr = cefrNow || null;
     variedEnabled = variedRaw === null || variedRaw === true || variedRaw === 'true';
@@ -136,7 +137,10 @@ export async function renderStudy(container, app, params = {}) {
       const dueCards = await lfDb.getStudyCards({ newLimit: 1000, reviewLimit: 1000, topic: topicFilter });
       const weakPool = (dueCards || [])
         .filter(c => !c.suspended && isWeakCard(c) && c.wordData);
-      loadedQueue = buildSessionQueue(weakPool, {});
+      loadedQueue = buildSessionQueue(weakPool, {
+        newOrder: srs?.newOrder,
+        reviewOrder: srs?.reviewOrder,
+      });
     } else {
       const counts = await lfDb.getTodayCounts();
       // LIMITES DIÁRIOS REAIS (paridade Anki): "novas cartas/dia" corta os cards
@@ -151,7 +155,10 @@ export async function renderStudy(container, app, params = {}) {
       if (!Array.isArray(limited)) throw new Error('Fila de revisão indisponível');
       // INTERLEAVING objetivo: learning primeiro, fracas espaçadas e novas
       // distribuídas, sem diagnóstico textual ou inferência semanal.
-      loadedQueue = buildSessionQueue(limited, {});
+      loadedQueue = buildSessionQueue(limited, {
+        newOrder: srs?.newOrder,
+        reviewOrder: srs?.reviewOrder,
+      });
     }
   } catch (e) {
     console.error('DB Error:', e);
@@ -205,6 +212,20 @@ export async function renderStudy(container, app, params = {}) {
       <!-- Main Study Area -->
       <div class="study-main" tabindex="-1">
         <div id="study-status" class="sr-only" role="status" aria-live="polite"></div>
+
+        <!-- Anki Session Header Bar -->
+        <div class="anki-study-header" id="anki-study-header">
+          <div class="anki-session-counters" id="anki-session-counters" aria-label="Progresso dos cards da sessão">
+            <span class="anki-counter-badge anki-badge-new" title="Cards Novos"><strong id="anki-count-new">0</strong> novos</span>
+            <span class="anki-counter-badge anki-badge-learn" title="Em Aprendizado"><strong id="anki-count-learn">0</strong> aprendendo</span>
+            <span class="anki-counter-badge anki-badge-review" title="A Revisar"><strong id="anki-count-review">0</strong> a revisar</span>
+          </div>
+          <div class="anki-card-quick-actions">
+            <button type="button" class="anki-action-btn" id="btn-quick-edit" title="Editar card (E)" aria-label="Editar card (E)">✏️ <span class="action-btn-text">Editar (E)</span></button>
+            <button type="button" class="anki-action-btn" id="btn-card-info" title="Informações FSRS (I)" aria-label="Informações FSRS (I)">ℹ️ <span class="action-btn-text">Info (I)</span></button>
+            <button type="button" class="anki-action-btn" id="btn-card-suspend" title="Pausar este card (@)" aria-label="Pausar este card (@)">⏸️ <span class="action-btn-text">Pausar (@)</span></button>
+          </div>
+        </div>
 
         <div class="media-container">
           <div class="audio-wave-placeholder" id="audio-wave">
@@ -327,6 +348,9 @@ export async function renderStudy(container, app, params = {}) {
                 </div>` : ''}
                 <div class="study-card-actions">
                   <button id="btn-undo" style="display:none">Desfazer última (Z)</button>
+                  <button id="menu-quick-edit-btn">✏️ Editar card (E)</button>
+                  <button id="menu-card-info-btn">ℹ️ Informações FSRS (I)</button>
+                  <button id="menu-suspend-btn" title="Pausa as revisões deste card">⏸️ Pausar revisões (@)</button>
                   <button id="improve-btn" class="hidden">Editar ou regenerar frase</button>
                   <button id="bury-btn" title="Adia este card para amanhã sem afetar o agendamento">Deixar para amanhã</button>
                 </div>
@@ -338,6 +362,7 @@ export async function renderStudy(container, app, params = {}) {
     </div>
   `;
 
+  updateSessionCounters();
   document.getElementById('play-audio-btn').addEventListener('click', playCurrentAudio);
   document.getElementById('reveal-btn').addEventListener('click', revealCard);
   // Shadowing (§4g.1): compara a fala com a frase que o TTS acabou de tocar.
@@ -400,6 +425,12 @@ export async function renderStudy(container, app, params = {}) {
 
   document.getElementById('btn-undo')?.addEventListener('click', () => handleUndo(app));
   document.getElementById('bury-btn')?.addEventListener('click', () => buryCard(app));
+  document.getElementById('btn-quick-edit')?.addEventListener('click', () => openQuickEditModal(app));
+  document.getElementById('btn-card-info')?.addEventListener('click', () => openCardInfoModal(app));
+  document.getElementById('btn-card-suspend')?.addEventListener('click', () => suspendCurrentCard(app));
+  document.getElementById('menu-quick-edit-btn')?.addEventListener('click', () => openQuickEditModal(app));
+  document.getElementById('menu-card-info-btn')?.addEventListener('click', () => openCardInfoModal(app));
+  document.getElementById('menu-suspend-btn')?.addEventListener('click', () => suspendCurrentCard(app));
 
   if (window.currentKeydownHandler) {
     document.removeEventListener('keydown', window.currentKeydownHandler);
@@ -415,6 +446,34 @@ function handleKeydown(e) {
   const gradingArea = document.getElementById('grading-area');
 
   if (e.target.closest('button, a, summary, input, textarea, select, [contenteditable="true"]')) return;
+  if (e.target.closest('.anki-modal-overlay')) return;
+
+  // Atalhos rápidos do Anki
+  if (e.code === 'KeyE' && !e.ctrlKey && !e.metaKey && !e.altKey && currentCard) {
+    e.preventDefault();
+    openQuickEditModal(exerciseApp);
+    return;
+  }
+  if (e.code === 'KeyI' && !e.ctrlKey && !e.metaKey && !e.altKey && currentCard) {
+    e.preventDefault();
+    openCardInfoModal(exerciseApp);
+    return;
+  }
+  if ((e.key === '@' || (e.code === 'KeyS' && !e.ctrlKey && !e.metaKey && !e.altKey)) && currentCard) {
+    e.preventDefault();
+    suspendCurrentCard(exerciseApp);
+    return;
+  }
+  if ((e.code === 'KeyB' || e.key === '-') && currentCard) {
+    e.preventDefault();
+    buryCard(exerciseApp);
+    return;
+  }
+  if (e.code === 'KeyR') {
+    e.preventDefault();
+    playCurrentAudio();
+    return;
+  }
 
   if (e.code === 'Space') {
     e.preventDefault();
@@ -536,6 +595,7 @@ function publishFocusProgress(app) {
     completed,
     remaining,
   });
+  updateSessionCounters();
 }
 
 function renderSessionComplete(app) {
@@ -1166,8 +1226,7 @@ async function revealCard() {
     phonEl.textContent = '🗣️ Gerando pronúncia...';
     phonEl.classList.remove('hidden');
 
-    try {
-      const data = await enrichCard(word, context);
+    enrichCard(word, context).then(async (data) => {
       if (currentCard !== card || !data) return;
 
       if (needsContextRepair && data.sentence_phon && data.sentence_pt && !hasSourcePhraseLeak(context, data.sentence_pt)) {
@@ -1189,11 +1248,120 @@ async function revealCard() {
       // apontando para botões já removidos.
       renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { renderVideo: false });
       renderChunksList(chunks, context);
-    } catch (e) {
+    }).catch((e) => {
       if (currentCard === card) phonEl.classList.add('hidden');
       console.warn('[Study] Enriquecimento falhou:', e);
+    });
+  }
+}
+
+function renderRichContextCard(wordData = {}, card = {}, word = '', context = '', translation = '') {
+  const safeWord = escapeHtml(word || wordData.word || card.word || '');
+  const trans = escapeHtml(translation || wordData.translation || card.translation || '');
+  const def = escapeHtml(wordData.definition || '');
+  const explanation = String(wordData.explanation || '').trim();
+  const phonetic = escapeHtml(wordData.phonetic || '');
+  const pronunciationPt = escapeHtml(wordData.pronunciation_pt || '');
+  const level = String(wordData.level || '').toUpperCase().trim();
+  const cefrNames = {
+    A1: 'INICIANTE',
+    A2: 'BÁSICO',
+    B1: 'INTERMEDIÁRIO',
+    B2: 'INTERMEDIÁRIO ALTO',
+    C1: 'AVANÇADO',
+    C2: 'PROFICIÊNCIA',
+  };
+  const cefrLabel = cefrNames[level] ? `CEFR ${level} · ${cefrNames[level]}` : (level ? `CEFR ${level}` : '');
+
+  const posMap = {
+    noun: 'SUBSTANTIVO',
+    verb: 'VERBO',
+    adjective: 'ADJETIVO',
+    adverb: 'ADVÉRBIO',
+    preposition: 'PREPOSIÇÃO',
+    conjunction: 'CONJUNÇÃO',
+    pronoun: 'PRONOME',
+    interjection: 'INTERJEIÇÃO',
+  };
+  const categoryRaw = String(wordData.category || '').toLowerCase();
+  const posName = posMap[categoryRaw] || (categoryRaw ? categoryRaw.toUpperCase() : '');
+
+  let tagsList = Array.isArray(wordData.tags) ? wordData.tags : [];
+  if (typeof wordData.tags === 'string' && wordData.tags) {
+    tagsList = wordData.tags.split(',').map(t => t.trim()).filter(Boolean);
+  }
+
+  // Quote highlight
+  const safeContext = escapeHtml(context || wordData.context_sentence || '');
+  let highlightedContext = safeContext;
+  if (safeWord && safeContext) {
+    try {
+      const reg = new RegExp(`\\b(${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'gi');
+      highlightedContext = safeContext.replace(reg, '<span style="color:#fb923c;font-weight:700;">$1</span>');
+    } catch {
+      highlightedContext = safeContext;
     }
   }
+
+  return `
+    <div class="rich-word-card" style="background:#0d111c; border:1px solid rgba(255,255,255,0.1); border-radius:18px; padding:18px 20px; font-family:'Outfit','Inter',system-ui,sans-serif; color:#f8fafc; box-shadow:0 12px 30px rgba(0,0,0,0.35); text-align:left; margin-top:8px;">
+      <!-- Top header: Word + Audio -->
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;">
+            <h3 style="font-size:26px; font-weight:800; color:#f8fafc; margin:0; line-height:1.1; letter-spacing:-.02em;">${safeWord}</h3>
+          </div>
+          ${cefrLabel ? `
+            <div style="margin-top:6px;">
+              <span style="display:inline-block; border:1px solid #ca8a04; background:rgba(202,138,4,0.12); color:#facc15; font-size:11px; font-weight:800; border-radius:999px; padding:2px 10px; letter-spacing:0.04em;">${cefrLabel}</span>
+            </div>
+          ` : ''}
+          ${(phonetic || pronunciationPt) ? `
+            <div style="display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap;">
+              ${phonetic ? `<span style="font-size:13px; color:#94a3b8; font-family:monospace;">${phonetic}</span>` : ''}
+              ${pronunciationPt ? `
+                <span style="font-size:13px; font-weight:700; color:#fbbf24; font-family:monospace; background:rgba(251,191,36,0.15); padding:2px 8px; border-radius:6px; border:1px solid rgba(251,191,36,0.3); display:inline-flex; align-items:center; gap:5px;">
+                  <span style="font-size:10px; color:#fde68a;">BR</span> ${pronunciationPt}
+                </span>
+              ` : ''}
+            </div>
+          ` : ''}
+          <div style="display:flex; align-items:center; gap:6px; margin-top:8px; flex-wrap:wrap;">
+            <span style="background:#1e293b; color:#94a3b8; border:1px solid #334155; font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:2px 8px; border-radius:6px;">📖 PALAVRA</span>
+            ${posName ? `<span style="background:rgba(125,209,252,.1); color:#7dd3fc; border:1px solid rgba(125,209,252,.25); font-size:10px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; padding:2px 8px; border-radius:6px;">${posName}</span>` : ''}
+            ${tagsList.filter(t => String(t).toLowerCase() !== 'palavra' && String(t).toLowerCase() !== posName.toLowerCase()).map(t => `<span style="background:rgba(167,139,250,.1); color:#c4b5fd; border:1px solid rgba(167,139,250,.25); font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:2px 8px; border-radius:6px;">${escapeHtml(String(t))}</span>`).join('')}
+          </div>
+        </div>
+        <button type="button" class="btn-iso-audio" data-word="${safeWord}" aria-label="Ouvir pronúncia de ${safeWord}" style="min-width:40px; min-height:40px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); border-radius:10px; color:#7dd3fc; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">🔊</button>
+      </div>
+
+      <!-- Tab line -->
+      <div style="display:flex; border-bottom:1px solid rgba(255,255,255,.08); margin-top:14px; margin-bottom:12px; padding:0 2px;">
+        <span style="padding:4px 2px; font-size:11px; font-weight:700; color:#7dd3fc; border-bottom:2px solid #7dd3fc; letter-spacing:.04em; text-transform:uppercase;">Tradução</span>
+      </div>
+
+      <!-- Contextual translation & definition -->
+      <div style="font-size:24px; font-weight:800; color:#4ade80; margin-bottom:4px; line-height:1.2;">${trans || '—'}</div>
+      ${def ? `<div style="font-size:13px; color:#94a3b8; font-style:italic; line-height:1.5; margin-bottom:12px;">${def}</div>` : ''}
+
+      <!-- Purple Context Card -->
+      ${explanation ? `
+        <div style="background:rgba(139,92,246,.08); border:1px solid rgba(139,92,246,.25); border-radius:10px; padding:12px 14px; margin-bottom:12px;">
+          <div style="font-size:11px; color:#c084fc; font-weight:800; letter-spacing:.06em; text-transform:uppercase; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+            <span>💡</span><span>CONTEXTO NESTA FRASE</span>
+          </div>
+          <div style="font-size:13px; color:#f1f5f9; line-height:1.65;">${escapeHtml(explanation).replace(/\n/g, '<br>')}</div>
+        </div>
+      ` : ''}
+
+      <!-- Quote Box -->
+      ${highlightedContext ? `
+        <div style="background:rgba(15,23,42,.6); border-left:3px solid #0284c7; border-radius:0 8px 8px 0; padding:10px 14px; font-size:13px; color:#cbd5e1; line-height:1.6;">
+          ${highlightedContext}
+        </div>
+      ` : ''}
+    </div>
+  `;
 }
 
 function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { renderVideo = true } = {}) {
@@ -1233,6 +1401,15 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
   contextExplanation.textContent = savedExplanation;
   contextDetails.open = false;
   contextDetails.classList.toggle('hidden', !savedExplanation);
+  if (savedExplanation) {
+    const activeTrans = (wordEntry && wordEntry.pt) || wordData.translation || card.translation || '';
+    contextExplanation.innerHTML = renderRichContextCard(wordData, card, word, context, activeTrans);
+    contextExplanation.querySelector('.btn-iso-audio')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const lang = localStorage.getItem('lf_tts_lang') || 'en-US';
+      playNaturalAudio(word, { lang });
+    });
+  }
   isoBox.classList.remove('hidden');
 
   // Onda 3.3: mnemônico por IA — gerado uma vez e salvo no card
@@ -1959,6 +2136,322 @@ async function buryCard(app) {
   }
 }
 
+// Suspender card (Anki Suspend): pausa indefinidamente sem perder dados
+async function suspendCurrentCard(app) {
+  if (gradeBusy) return;
+  const card = currentCard;
+  if (!card) return;
+  const operationGeneration = studyViewGeneration;
+  gradeBusy = true;
+  document.querySelectorAll('.grade-btn').forEach(btn => { btn.disabled = true; });
+  try {
+    const mutationPromise = lfDb.setCardSuspended(card.id, true);
+    cardMutationPromise = mutationPromise;
+    await mutationPromise;
+    if (!studyViewActive || operationGeneration !== studyViewGeneration || currentCard !== card) return;
+    lastReview = null;
+    updateUndoButton();
+    if (dueQueue[0] === card) dueQueue.shift();
+    else dueQueue = dueQueue.filter(queued => queued.id !== card.id);
+    app.showToast('Card pausado (suspenso) ⏸️', 'info');
+    loadNextCard(app);
+  } catch (e) {
+    console.error('Falha ao suspender:', e);
+    if (studyViewActive && operationGeneration === studyViewGeneration) {
+      app.showToast('Erro ao pausar o card. Tente novamente.', 'error');
+    }
+  } finally {
+    if (cardMutationPromise) cardMutationPromise = null;
+    if (operationGeneration === studyViewGeneration) {
+      gradeBusy = false;
+      document.querySelectorAll('.grade-btn').forEach(btn => { btn.disabled = false; });
+    }
+  }
+}
+
+// Atualiza a trinca de contadores do Anki no topo da sessão
+function updateSessionCounters() {
+  let newCount = 0;
+  let learnCount = 0;
+  let reviewCount = 0;
+
+  const allActive = [...dueQueue, ...pendingLearning.map(p => p.card)];
+  for (const c of allActive) {
+    if (c.status === 'new') newCount++;
+    else if (c.status === 'learning') learnCount++;
+    else reviewCount++;
+  }
+
+  const elNew = document.getElementById('anki-count-new');
+  const elLearn = document.getElementById('anki-count-learn');
+  const elReview = document.getElementById('anki-count-review');
+
+  if (elNew) elNew.textContent = String(newCount);
+  if (elLearn) elLearn.textContent = String(learnCount);
+  if (elReview) elReview.textContent = String(reviewCount);
+}
+
+// Edição rápida de card durante o estudo (Tecla E - Anki Quick Edit)
+function openQuickEditModal(app) {
+  if (!currentCard) return;
+  const existing = document.getElementById('anki-quick-edit-dialog');
+  if (existing) existing.remove();
+
+  const card = currentCard;
+  const wordData = card.wordData || {};
+  const currentWord = wordData.word || card.word || '';
+  const currentContext = card._ctx || wordData.context_sentence || card.context || '';
+  const currentTrans = wordData.translation || card.translation || '';
+
+  const dialog = document.createElement('div');
+  dialog.id = 'anki-quick-edit-dialog';
+  dialog.className = 'anki-modal-overlay';
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-labelledby', 'quick-edit-title');
+
+  dialog.innerHTML = `
+    <div class="anki-modal-box">
+      <div class="anki-modal-header">
+        <h3 id="quick-edit-title">✏️ Editar Card (Atalho E)</h3>
+        <button type="button" class="anki-modal-close" id="quick-edit-close" aria-label="Fechar">✕</button>
+      </div>
+      <form id="quick-edit-form" class="anki-modal-form">
+        <div class="anki-form-group">
+          <label for="quick-edit-term">Termo / Palavra:</label>
+          <input type="text" id="quick-edit-term" value="${escapeHtml(currentWord)}" required autocomplete="off" />
+        </div>
+        <div class="anki-form-group">
+          <label for="quick-edit-ctx">Frase de Contexto:</label>
+          <textarea id="quick-edit-ctx" rows="3" required>${escapeHtml(currentContext)}</textarea>
+        </div>
+        <div class="anki-form-group">
+          <label for="quick-edit-tr">Tradução:</label>
+          <input type="text" id="quick-edit-tr" value="${escapeHtml(currentTrans)}" required autocomplete="off" />
+        </div>
+        <div class="anki-modal-actions">
+          <button type="button" class="btn btn-secondary" id="quick-edit-cancel">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="quick-edit-submit">Salvar Alterações</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(dialog);
+  const termInput = dialog.querySelector('#quick-edit-term');
+  termInput?.focus();
+
+  const closeDialog = () => {
+    document.removeEventListener('keydown', keyHandler);
+    dialog.remove();
+  };
+  const keyHandler = (e) => {
+    if (e.key === 'Escape') closeDialog();
+  };
+  document.addEventListener('keydown', keyHandler);
+  dialog.querySelector('#quick-edit-close')?.addEventListener('click', closeDialog);
+  dialog.querySelector('#quick-edit-cancel')?.addEventListener('click', closeDialog);
+  dialog.addEventListener('click', (e) => { if (e.target === dialog) closeDialog(); });
+
+  dialog.querySelector('#quick-edit-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const newWord = dialog.querySelector('#quick-edit-term').value.trim();
+    const newContext = dialog.querySelector('#quick-edit-ctx').value.trim();
+    const newTrans = dialog.querySelector('#quick-edit-tr').value.trim();
+    if (!newWord || !newContext || !newTrans) return;
+
+    const submitBtn = dialog.querySelector('#quick-edit-submit');
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Salvando…'; }
+
+    try {
+      const targetWordId = card.word_id || card.wordData?.id || card.id;
+      await lfDb.updateWord(targetWordId, {
+        word: newWord,
+        context_sentence: newContext,
+        translation: newTrans,
+      });
+
+      card.word = newWord;
+      card._ctx = newContext;
+      if (card.wordData) {
+        card.wordData.word = newWord;
+        card.wordData.context_sentence = newContext;
+        card.wordData.translation = newTrans;
+      }
+      (card._chunks || []).forEach(c => {
+        if (c.is_context) { c.eng = newContext; c.pt = newTrans; }
+        if (c.is_word) { c.eng = newWord; c.pt = newTrans; }
+      });
+
+      const sentenceEl = document.getElementById('pump-sentence');
+      if (sentenceEl && !card._reverse) {
+        sentenceEl.textContent = newContext;
+      }
+      const transEl = document.getElementById('pump-translation');
+      if (transEl) transEl.textContent = newTrans;
+      const isoWord = document.getElementById('iso-word');
+      if (isoWord) isoWord.textContent = newWord;
+      const isoTrans = document.getElementById('iso-trans');
+      if (isoTrans) isoTrans.textContent = newTrans;
+
+      app.showToast('Card atualizado com sucesso! ✅', 'info');
+      closeDialog();
+    } catch (err) {
+      console.error('[QuickEdit] Erro ao salvar:', err);
+      app.showToast('Erro ao salvar alterações.', 'error');
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Salvar Alterações'; }
+    }
+  });
+}
+
+// Informações completas do Card (Tecla I - Anki Card Info com métricas FSRS)
+async function openCardInfoModal(app) {
+  if (!currentCard) return;
+  const existing = document.getElementById('anki-card-info-dialog');
+  if (existing) existing.remove();
+
+  const card = currentCard;
+  const wordData = card.wordData || {};
+  const word = wordData.word || card.word || '';
+  const stability = card.stability ? `${Number(card.stability).toFixed(1)} dias` : '—';
+  const difficulty = card.difficulty ? `${Number(card.difficulty).toFixed(1)} / 10` : '—';
+
+  let retrievabilityStr = '—';
+  if (card.stability && card.last_review) {
+    const elapsedDays = Math.max(0, (Date.now() - new Date(card.last_review).getTime()) / 86400000);
+    const r = lfDb._fsrsRetrievability(elapsedDays, card.stability);
+    if (r && !isNaN(r)) retrievabilityStr = `${Math.round(r * 100)}%`;
+  }
+
+  const nextDue = card.due_date ? new Date(card.due_date).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
+  const lastRev = card.last_review ? new Date(card.last_review).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : 'Nunca';
+
+  const statusMap = {
+    'new': 'Novo',
+    'learning': 'Em Aprendizado',
+    'review': 'Consolidando',
+    'mature': 'Memória Estável',
+  };
+  const statusLabel = statusMap[card.status] || card.status;
+
+  const dialog = document.createElement('div');
+  dialog.id = 'anki-card-info-dialog';
+  dialog.className = 'anki-modal-overlay';
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-labelledby', 'card-info-title');
+
+  dialog.innerHTML = `
+    <div class="anki-modal-box card-info-modal-box">
+      <div class="anki-modal-header">
+        <h3 id="card-info-title">ℹ️ Informações FSRS do Card (Atalho I)</h3>
+        <button type="button" class="anki-modal-close" id="card-info-close" aria-label="Fechar">✕</button>
+      </div>
+      <div class="card-info-content">
+        <div class="card-info-header-row">
+          <strong class="card-info-word">${escapeHtml(word)}</strong>
+          <span class="badge ${card.status === 'mature' ? 'badge-mature' : card.status === 'new' ? 'badge-new' : 'badge-review'}">${statusLabel}</span>
+        </div>
+        
+        <div class="card-info-grid">
+          <div class="card-info-cell">
+            <span class="cell-label">Estabilidade (S)</span>
+            <span class="cell-value">${stability}</span>
+          </div>
+          <div class="card-info-cell">
+            <span class="cell-label">Dificuldade (D)</span>
+            <span class="cell-value">${difficulty}</span>
+          </div>
+          <div class="card-info-cell">
+            <span class="cell-label">Retenção Estimada (R)</span>
+            <span class="cell-value">${retrievabilityStr}</span>
+          </div>
+          <div class="card-info-cell">
+            <span class="cell-label">Intervalo Atual</span>
+            <span class="cell-value">${formatInterval(card.interval)}</span>
+          </div>
+          <div class="card-info-cell">
+            <span class="cell-label">Repetições</span>
+            <span class="cell-value">${card.reps || 0}</span>
+          </div>
+          <div class="card-info-cell">
+            <span class="cell-label">Lapsos / Erros</span>
+            <span class="cell-value">${card.lapses || 0}</span>
+          </div>
+          <div class="card-info-cell full-width">
+            <span class="cell-label">Próximo Vencimento</span>
+            <span class="cell-value">${nextDue}</span>
+          </div>
+          <div class="card-info-cell full-width">
+            <span class="cell-label">Última Revisão</span>
+            <span class="cell-value">${lastRev}</span>
+          </div>
+        </div>
+
+        <div class="card-info-history">
+          <h4>Histórico de Revisões</h4>
+          <div id="card-info-history-list" class="card-info-history-list">Carregando histórico…</div>
+        </div>
+
+        <div class="anki-modal-actions">
+          <button type="button" class="btn btn-primary" id="card-info-done">Fechar</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(dialog);
+  const closeDialog = () => {
+    document.removeEventListener('keydown', keyHandler);
+    dialog.remove();
+  };
+  const keyHandler = (e) => {
+    if (e.key === 'Escape') closeDialog();
+  };
+  document.addEventListener('keydown', keyHandler);
+  dialog.querySelector('#card-info-close')?.addEventListener('click', closeDialog);
+  dialog.querySelector('#card-info-done')?.addEventListener('click', closeDialog);
+  dialog.addEventListener('click', (e) => { if (e.target === dialog) closeDialog(); });
+
+  lfDb.getCardStats(card.id).then((history) => {
+    const listEl = dialog.querySelector('#card-info-history-list');
+    if (!listEl) return;
+    if (!history || history.length === 0) {
+      listEl.innerHTML = '<p class="empty-history">Nenhuma revisão gravada ainda.</p>';
+      return;
+    }
+    const gradeLabels = { 1: 'Errei (1)', 2: 'Difícil (2)', 3: 'Bom (3)', 4: 'Fácil (4)' };
+    const gradeColors = { 1: '#ef4444', 2: '#f59e0b', 3: '#3b82f6', 4: '#10b981' };
+    listEl.innerHTML = `
+      <table class="card-history-table">
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Avaliação</th>
+            <th>Intervalo</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${history.slice(0, 8).map(h => {
+            const d = new Date(h.ts || h.date).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+            const gradeName = gradeLabels[h.quality] || h.quality;
+            const color = gradeColors[h.quality] || 'var(--color-text)';
+            const ivl = h.interval ? formatInterval(h.interval) : '—';
+            return `<tr>
+              <td>${d}</td>
+              <td style="color:${color};font-weight:700;">${gradeName}</td>
+              <td>${ivl}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  }).catch(() => {
+    const listEl = dialog.querySelector('#card-info-history-list');
+    if (listEl) listEl.innerHTML = '<p class="empty-history">Histórico indisponível.</p>';
+  });
+}
+
 function injectStyles() {
   if (document.getElementById('study-styles-v2')) return;
   document.getElementById('study-styles')?.remove();
@@ -1967,6 +2460,43 @@ function injectStyles() {
   style.innerHTML = `
     .study-layout { display:block; min-height:100%; width:100%; background-color:var(--color-bg-alt); }
     .study-main { width:100%; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; padding:32px 24px 48px; position:relative; }
+
+    .anki-study-header { width:100%; max-width:720px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:16px; }
+    .anki-session-counters { display:flex; align-items:center; gap:8px; }
+    .anki-counter-badge { font-size:12px; font-weight:800; padding:4px 10px; border-radius:14px; display:inline-flex; align-items:center; gap:4px; }
+    .anki-badge-new { background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; }
+    .anki-badge-learn { background:#fff7ed; color:#ea580c; border:1px solid #fed7aa; }
+    .anki-badge-review { background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; }
+    .anki-card-quick-actions { display:flex; align-items:center; gap:6px; }
+    .anki-action-btn { min-height:36px; padding:6px 12px; border-radius:8px; border:1px solid var(--color-border); background:var(--color-surface); color:var(--color-text); font-family:var(--font-main); font-size:12px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:transform 0.1s, background-color 0.2s; }
+    .anki-action-btn:hover { background:var(--color-bg-alt); }
+    .anki-action-btn:active { transform:translateY(2px); }
+
+    .anki-modal-overlay { position:fixed; z-index:9999; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(3px); display:flex; justify-content:center; align-items:center; padding:16px; }
+    .anki-modal-box { background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-lg); width:min(520px, 100%); max-height:90vh; overflow-y:auto; box-shadow:var(--shadow-lg); padding:24px; }
+    .anki-modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; border-bottom:1px solid var(--color-border); padding-bottom:12px; }
+    .anki-modal-header h3 { margin:0; font-size:18px; color:var(--color-text); font-weight:900; }
+    .anki-modal-close { background:transparent; border:none; font-size:20px; color:var(--color-text-light); cursor:pointer; padding:4px 8px; font-weight:bold; }
+    .anki-modal-form { display:grid; gap:16px; }
+    .anki-form-group { display:grid; gap:6px; text-align:left; }
+    .anki-form-group label { font-size:13px; font-weight:800; color:var(--color-text); }
+    .anki-form-group input, .anki-form-group textarea { width:100%; box-sizing:border-box; padding:10px 12px; border:2px solid var(--color-border); border-radius:var(--radius-md); font-family:var(--font-main); font-size:15px; background:var(--color-bg-alt); color:var(--color-text); }
+    .anki-form-group input:focus, .anki-form-group textarea:focus { border-color:var(--color-secondary); outline:none; }
+    .anki-modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:16px; }
+
+    .card-info-modal-box { width:min(560px, 100%); }
+    .card-info-header-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+    .card-info-word { font-size:22px; font-weight:900; color:var(--color-primary); }
+    .card-info-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; margin-bottom:20px; }
+    .card-info-cell { background:var(--color-bg-alt); padding:10px 12px; border-radius:10px; display:flex; flex-direction:column; gap:4px; text-align:left; }
+    .card-info-cell.full-width { grid-column:span 2; }
+    .cell-label { font-size:11px; font-weight:800; color:var(--color-text-light); text-transform:uppercase; letter-spacing:0.5px; }
+    .cell-value { font-size:15px; font-weight:900; color:var(--color-text); }
+    .card-info-history h4 { margin:0 0 10px 0; font-size:14px; font-weight:900; color:var(--color-text); text-align:left; }
+    .card-history-table { width:100%; border-collapse:collapse; font-size:13px; text-align:left; }
+    .card-history-table th, .card-history-table td { padding:8px 10px; border-bottom:1px solid var(--color-border); }
+    .card-history-table th { color:var(--color-text-light); font-weight:800; font-size:11px; text-transform:uppercase; }
+    .empty-history { font-size:13px; color:var(--color-text-light); text-align:left; font-style:italic; }
 
     .media-container { width:100%; max-width:720px; min-height:88px; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-lg); display:flex; align-items:center; justify-content:center; margin-bottom:28px; }
 

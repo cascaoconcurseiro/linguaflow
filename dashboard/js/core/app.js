@@ -1,18 +1,19 @@
 import { renderHome } from '../ui/homeView.js';
-import { renderLibrary } from '../ui/libraryView.js';
-import { renderStudy } from '../ui/studyView.js';
-import { renderSettings } from '../ui/settingsView.js';
-import { renderLeagues } from '../ui/leaguesView.js';
-import { renderStories } from '../ui/storiesView.js';
-import { renderReader } from '../ui/readerView.js';
-import { renderGame } from '../ui/gameView.js';
-import { renderLogin } from '../ui/loginView.js';
-import { renderStats } from '../ui/statsView.js';
-import { renderLearn } from '../ui/learnView.js';
-import { renderProgress } from '../ui/progressView.js';
 import { renderFluencyCheck } from '../ui/fluencyCheckView.js';
 import { bindViewStateAction, renderViewState } from '../ui/viewState.js';
 import { db } from '../../../utils/db.js';
+
+const renderLibrary = (...args) => import('../ui/libraryView.js').then((m) => m.renderLibrary(...args));
+const renderStudy = (...args) => import('../ui/studyView.js').then((m) => m.renderStudy(...args));
+const renderSettings = (...args) => import('../ui/settingsView.js').then((m) => m.renderSettings(...args));
+const renderLeagues = (...args) => import('../ui/leaguesView.js').then((m) => m.renderLeagues(...args));
+const renderStories = (...args) => import('../ui/storiesView.js').then((m) => m.renderStories(...args));
+const renderReader = (...args) => import('../ui/readerView.js').then((m) => m.renderReader(...args));
+const renderGame = (...args) => import('../ui/gameView.js').then((m) => m.renderGame(...args));
+const renderLogin = (...args) => import('../ui/loginView.js').then((m) => m.renderLogin(...args));
+const renderStats = (...args) => import('../ui/statsView.js').then((m) => m.renderStats(...args));
+const renderLearn = (...args) => import('../ui/learnView.js').then((m) => m.renderLearn(...args));
+const renderProgress = (...args) => import('../ui/progressView.js').then((m) => m.renderProgress(...args));
 
 const CLIENT_BUILD = '3.0.44';
 
@@ -352,8 +353,7 @@ class App {
     this.setProfileMenuOpen(false);
     if (focus) {
       this._focusProgressBound = false;
-      const due = Number(document.getElementById('due-val')?.textContent);
-      this.updateFocusStatus(Number.isFinite(due) ? due : null);
+      this.updateFocusStatus(null);
     } else {
       this._focusProgressBound = false;
     }

@@ -40,18 +40,18 @@ export function recentStorySnippets(stories = [], genre = '') {
 // nível recebia os mesmos "200-300 palavras" — um A1 ganha um texto 3x maior
 // do que aguenta e desiste achando que o problema é ele). W5.1 do plano.
 const LEVEL_SPECS = {
-  A1: { words: '90 a 130', maxSentence: 8, maxTokens: 500,
-    structures: 'APENAS presente simples, "there is/are" e imperativo. Vocabulário das 1000 palavras mais comuns.' },
-  A2: { words: '140 a 200', maxSentence: 12, maxTokens: 650,
-    structures: 'presente e passado simples, "going to", comparativos. Nada de perfect tenses.' },
-  B1: { words: '220 a 300', maxSentence: 16, maxTokens: 900,
-    structures: 'inclui present perfect, 1º condicional e passado contínuo.' },
-  B2: { words: '320 a 420', maxSentence: 20, maxTokens: 1200,
-    structures: 'inclui voz passiva, 2º/3º condicional, discurso indireto e phrasal verbs comuns.' },
-  C1: { words: '450 a 600', maxSentence: 26, maxTokens: 1600,
-    structures: 'inclui inversão, cleft sentences, nominalização e vocabulário idiomático.' },
-  C2: { words: '600 a 800', maxSentence: 40, maxTokens: 2000,
-    structures: 'estrutura livre, registro sofisticado, nuance e ironia bem-vindas.' },
+  A1: { words: '280 a 380', maxSentence: 10, maxTokens: 1100,
+    structures: 'diálogos cotidianos simples (apresentações, cafeteria, compras, rotina), APENAS presente simples, "there is/are" e imperativo. Vocabulário das 1000 palavras mais comuns.' },
+  A2: { words: '400 a 550', maxSentence: 14, maxTokens: 1500,
+    structures: 'diálogos práticos ricos do dia a dia (viagens, transporte, restaurantes, trabalho, imprevistos reais), presente e passado simples, "going to", comparativos. Nada de perfect tenses.' },
+  B1: { words: '600 a 800', maxSentence: 18, maxTokens: 2200,
+    structures: 'conversas realistas completas com troca de opiniões, sentimentos, situações imprevistas, present perfect, 1º condicional e passado contínuo.' },
+  B2: { words: '800 a 1100', maxSentence: 22, maxTokens: 2800,
+    structures: 'diálogos naturais aprofundados, discussões, phrasal verbs cotidianos, voz passiva, 2º/3º condicional e discurso indireto.' },
+  C1: { words: '1100 a 1500', maxSentence: 26, maxTokens: 3600,
+    structures: 'diálogos sofisticados, debates, negociações, inversões, cleft sentences, nominalização e vocabulário idiomático.' },
+  C2: { words: '1500 a 2000', maxSentence: 40, maxTokens: 4500,
+    structures: 'diálogos com naturalidade nativa completa, humor sutil, ironia, registro flexível e nuance cultural.' },
 };
 
 export function levelSpecFor(cefr) {
@@ -61,9 +61,10 @@ export function levelSpecFor(cefr) {
 export function buildLevelNote(cefr) {
   const spec = levelSpecFor(cefr);
   return `\nCALIBRAGEM OBRIGATÓRIA para o nível ${cefr}:
-- Comprimento: ${spec.words} palavras (respeite a faixa; não escreva mais).
-- Frases de NO MÁXIMO ${spec.maxSentence} palavras cada.
-- Estruturas: ${spec.structures}`;
+- Comprimento: ${spec.words} palavras (desenvolva a história nessa extensão substancial).
+- Formato: predominantemente DIÁLOGOS REAIS entre os personagens (falas diretas úteis para a vida real).
+- Frases de no máximo ${spec.maxSentence} palavras cada.
+- Estruturas e vocabulário: ${spec.structures}`;
 }
 
 // rand injetável para teste determinístico (mesmo padrão do placement.js)

@@ -4,7 +4,8 @@
 
 (async () => {
     try {
-        const src = chrome.runtime.getURL("content/index.js") + '?v=' + Date.now();
+        const version = chrome?.runtime?.getManifest?.()?.version || '3.0.44';
+        const src = chrome.runtime.getURL("content/index.js") + '?v=' + version;
         await import(src);
     } catch (e) {
         console.error("LinguaFlow: Erro crítico no Bootloader do ES Module", e);

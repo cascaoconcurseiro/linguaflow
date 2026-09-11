@@ -280,7 +280,7 @@ export async function renderSettings(container, app) {
     'graduating_interval', 'max_interval', 'interval_modifier', 'leech_threshold',
     'leech_action', 'lf_srs_retention', 'learning_steps', 'relearning_steps', 'new_per_day',
     'max_reviews_per_day', 'lf_vault_cap', 'lf_reverse_cards', 'lf_varied_exercises',
-    'lf_audio_auto_front', 'lf_audio_auto_back'];
+    'lf_audio_auto_front', 'lf_audio_auto_back', 'srs_new_order', 'srs_review_order'];
   container.setAttribute('aria-busy', 'true');
   container.innerHTML = renderViewState({ kind: 'loading', title: 'Carregando suas configurações…', message: 'Lendo suas preferências sem alterar nenhum valor.' });
   let settings;
@@ -296,7 +296,7 @@ export async function renderSettings(container, app) {
   container.setAttribute('aria-busy', 'false');
   const [savedCefr, savedTtsLang, savedTtsSpeed, srsGradInt, srsMaxInt, srsIntMod,
     srsLeech, srsLeechAction, srsRetentionRaw, srsSteps, srsRelearningSteps, srsNewPerDay, srsMaxRev,
-    srsVaultCap, srsReverseRaw, srsVariedRaw, audioFrontRaw, audioBackRaw] = settingKeys.map(key => settings[key] ?? null);
+    srsVaultCap, srsReverseRaw, srsVariedRaw, audioFrontRaw, audioBackRaw, srsNewOrderRaw, srsReviewOrderRaw] = settingKeys.map(key => settings[key] ?? null);
 
   const cefr = savedCefr || '';
   const ttsLang = savedTtsLang || 'en-US';
@@ -317,6 +317,8 @@ export async function renderSettings(container, app) {
   const srsVaried = srsVariedRaw === null || srsVariedRaw === true || srsVariedRaw === 'true';
   const audioFront = audioFrontRaw === null || audioFrontRaw === true || audioFrontRaw === 'true';
   const audioBack = audioBackRaw === null || audioBackRaw === true || audioBackRaw === 'true';
+  const srsNewOrder = srsNewOrderRaw === 'random' ? 'random' : 'sequential';
+  const srsReviewOrder = srsReviewOrderRaw === 'random' ? 'random' : 'due';
 
   container.innerHTML = `
     <div class="settings-page" style="padding: clamp(16px, 5vw, 40px); max-width: 800px; margin: 0 auto; padding-bottom:100px;">
@@ -404,6 +406,20 @@ export async function renderSettings(container, app) {
             <select id="srs-leech-action" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
               <option value="tag" ${leechAction === 'tag' ? 'selected' : ''}>Sinalizar e continuar</option>
               <option value="suspend" ${leechAction === 'suspend' ? 'selected' : ''}>Pausar revisões desse item</option>
+            </select>
+          </div>
+          <div style="flex:1; min-width:180px;">
+            <label for="srs-new-order" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Ordem dos novos cards</label>
+            <select id="srs-new-order" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
+              <option value="sequential" ${srsNewOrder === 'sequential' ? 'selected' : ''}>Ordem de adição (sequencial)</option>
+              <option value="random" ${srsNewOrder === 'random' ? 'selected' : ''}>Aleatória (misturar novos)</option>
+            </select>
+          </div>
+          <div style="flex:1; min-width:180px;">
+            <label for="srs-review-order" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Ordem das revisões</label>
+            <select id="srs-review-order" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:6px; font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
+              <option value="due" ${srsReviewOrder === 'due' ? 'selected' : ''}>Por vencimento (mais atrasados)</option>
+              <option value="random" ${srsReviewOrder === 'random' ? 'selected' : ''}>Aleatória (misturar revisões)</option>
             </select>
           </div>
         </div>
@@ -827,6 +843,9 @@ export async function renderSettings(container, app) {
     if (val('srs-new-per-day') !== undefined) writes.push(lfDb.setSetting('new_per_day', val('srs-new-per-day')));
     if (val('srs-max-rev')) writes.push(lfDb.setSetting('max_reviews_per_day', val('srs-max-rev')));
     if (val('srs-vault-cap') !== null && val('srs-vault-cap') !== '') writes.push(lfDb.setSetting('lf_vault_cap', val('srs-vault-cap')));
+
+    if (val('srs-new-order')) writes.push(lfDb.setSetting('srs_new_order', val('srs-new-order')));
+    if (val('srs-review-order')) writes.push(lfDb.setSetting('srs_review_order', val('srs-review-order')));
 
     const reverseChk = document.getElementById('srs-reverse-cards');
     if (reverseChk) writes.push(lfDb.setSetting('lf_reverse_cards', reverseChk.checked ? 'true' : ''));

@@ -1,4 +1,4 @@
-﻿import { db } from '../../../utils/db.js';
+import { db } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio } from '../core/tts.js';
 import { generateStoryWeb, aiChat, enrichCard } from '../core/ai.js';
 import { measureStoryLevel } from '../core/readability.js';
@@ -10,6 +10,7 @@ import { bindReadingHeader, renderReadingHeader } from './readingHub.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 let storiesDocumentController = null;
+let vaultTranslations = new Map();
 
 // Roteadores extensão/web: na extensão o service worker faz o trabalho;
 // no site (Vercel) chamamos a Edge Function (história) e o translator
@@ -569,18 +570,31 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
   const showWordTooltip = (span) => {
     const token = span?.textContent?.replace(/[^a-zA-Z0-9'-]/g, '').toLowerCase();
     if (!token) return;
+    const tokenLemma = lemma(token) || token;
+    const localTrans = vaultTranslations.get(token) || vaultTranslations.get(tokenLemma) || translator.memoryCache?.get(`en:pt:${token}`);
+
+    const rect = span.getBoundingClientRect();
+    wordTooltip.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 250))}px`;
+    wordTooltip.style.top = `${Math.max(8, rect.top - 38)}px`;
+
+    if (localTrans) {
+      if (tooltipTimer) clearTimeout(tooltipTimer);
+      wordTooltip.textContent = localTrans;
+      wordTooltip.style.display = 'block';
+      return;
+    }
+
     const requestId = ++tooltipRequestId;
     if (tooltipTimer) clearTimeout(tooltipTimer);
+    wordTooltip.textContent = '…';
+    wordTooltip.style.display = 'block';
+
     tooltipTimer = setTimeout(async () => {
-      const rect = span.getBoundingClientRect();
-      wordTooltip.textContent = '…';
-      wordTooltip.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 250))}px`;
-      wordTooltip.style.top = `${Math.max(8, rect.top - 38)}px`;
-      wordTooltip.style.display = 'block';
       const translation = await translateText(token);
       if (requestId !== tooltipRequestId) return;
+      if (translation) vaultTranslations.set(token, translation);
       wordTooltip.textContent = translation || 'Tradução indisponível';
-    }, 300);
+    }, 120);
   };
   storyContent.addEventListener('mouseover', (event) => {
     const word = event.target.closest('.story-word');
@@ -887,14 +901,26 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
       (cards || []).forEach(c => { matureByWordId[c.word_id] = c.status === 'mature'; });
       const learning = new Set();
       const known = new Set();
+      vaultTranslations.clear();
       (words || []).forEach(w => {
         const key = (w.word || '').toLowerCase();
         if (matureByWordId[w.id]) known.add(key); else learning.add(key);
-        const l = lemma(key); if (l && l !== key) (matureByWordId[w.id] ? known : learning).add(l);
+        if (w.translation) vaultTranslations.set(key, w.translation);
+        const l = lemma(key);
+        if (l && l !== key) {
+          (matureByWordId[w.id] ? known : learning).add(l);
+          if (w.translation && !vaultTranslations.has(l)) vaultTranslations.set(l, w.translation);
+        }
       });
       (knownWords || []).forEach(k => {
-        known.add((k.word || '').toLowerCase());
-        const l = lemma(k.word); if (l) known.add(l);
+        const key = (k.word || '').toLowerCase();
+        known.add(key);
+        if (k.translation) vaultTranslations.set(key, k.translation);
+        const l = lemma(k.word);
+        if (l) {
+          known.add(l);
+          if (k.translation && !vaultTranslations.has(l)) vaultTranslations.set(l, k.translation);
+        }
       });
       return { learning, known, available: true };
     } catch(e) {
@@ -1028,15 +1054,31 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     btnCloseModal.focus({ preventScroll: true });
 
     const requestId = ++modalRequestId;
-    Promise.all([
-      translateText(cleanWord),
-      currentSelectedSentence
-        ? enrichCard(cleanWord, currentSelectedSentence).catch(() => null)
-        : null,
-    ]).then(([baseTranslation, contextual]) => {
-      if (requestId !== modalRequestId || modal.style.display === 'none') return;
-      showModalContent(contextual?.word_pt || baseTranslation);
-    });
+    const tokenLemma = lemma(cleanWord) || cleanWord;
+    const cachedTrans = vaultTranslations.get(cleanWord) || vaultTranslations.get(tokenLemma) || translator.memoryCache?.get(`en:pt:${cleanWord}`);
+
+    if (cachedTrans) {
+      showModalContent(cachedTrans);
+    }
+
+    if (!cachedTrans) {
+      translateText(cleanWord).then((baseTranslation) => {
+        if (requestId !== modalRequestId || modal.style.display === 'none') return;
+        if (baseTranslation && !currentWordTranslation) {
+          vaultTranslations.set(cleanWord, baseTranslation);
+          showModalContent(baseTranslation);
+        }
+      });
+    }
+
+    if (currentSelectedSentence) {
+      enrichCard(cleanWord, currentSelectedSentence).then((contextual) => {
+        if (requestId !== modalRequestId || modal.style.display === 'none') return;
+        if (contextual?.word_pt) {
+          showModalContent(contextual.word_pt);
+        }
+      }).catch(() => null);
+    }
 
     function showModalContent(wordTrans) {
       modalLoading.style.display = 'none';

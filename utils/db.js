@@ -498,7 +498,7 @@ class Database {
     if (this.isProxyMode) return this._proxy('updateWord', [id, patch]);
     // video_start/end_ms: ajuste fino do trecho no Estudo (17/07) — o aluno
     // corrige a janela do loop e a correção persiste no card para sempre.
-    const allowed = ['translation', 'context_sentence', 'category', 'level', 'phonetic', 'mnemonic', 'video_start_ms', 'video_end_ms'];
+    const allowed = ['word', 'translation', 'context_sentence', 'category', 'level', 'phonetic', 'mnemonic', 'tags', 'video_start_ms', 'video_end_ms'];
     const body = {};
     allowed.forEach(k => { if (patch && patch[k] !== undefined) body[k] = patch[k]; });
     if (Object.keys(body).length === 0) return { ok: true };
@@ -548,12 +548,12 @@ class Database {
     return data || [];
   }
 
-  _invalidateReadCache() {
+  _invalidateReadCache(target = 'all') {
     this._cacheGeneration = (this._cacheGeneration || 0) + 1;
-    this._wordsCache = null;
-    this._cardsCache = null;
-    this._sentencesCache = null;
-    this._knownWordsCache = null;
+    if (target === 'all' || target === 'cards') this._cardsCache = null;
+    if (target === 'all' || target === 'words') this._wordsCache = null;
+    if (target === 'all' || target === 'sentences') this._sentencesCache = null;
+    if (target === 'all' || target === 'known_words') this._knownWordsCache = null;
   }
 
   // Onda 4: aceita paginação real (limit/offset viram LIMIT/OFFSET no
@@ -674,6 +674,14 @@ class Database {
     return cards;
   }
 
+  async getCardsDueCount(minutesAhead = 0) {
+    if (this.isProxyMode) return this._proxy('getCardsDueCount', [minutesAhead]);
+    const horizon = new Date(Date.now() + minutesAhead * 60000).toISOString();
+    const query = `cards?select=id&due_date=lte.${encodeURIComponent(horizon)}&suspended=is.false`;
+    const res = await this._fetch(query);
+    return Array.isArray(res) ? res.length : 0;
+  }
+
   // Busca cada estado com seu próprio limite. Uma grande quantidade de cards
   // novos nunca pode consumir a janela SQL destinada a reviews já vencidos.
   async getStudyCards({ newLimit = 0, reviewLimit = 0, topic = null } = {}) {
@@ -720,7 +728,7 @@ class Database {
   }
 
   async buryCard(cardId) {
-    this._invalidateReadCache();
+    this._invalidateReadCache('cards');
     if (this.isProxyMode) return this._proxy('buryCard', [cardId]);
     return this._fetch('rpc/bury_card', {
       method: 'POST',
@@ -729,7 +737,7 @@ class Database {
   }
 
   async setCardSuspended(cardId, suspended = true) {
-    this._invalidateReadCache();
+    this._invalidateReadCache('cards');
     if (this.isProxyMode) return this._proxy('setCardSuspended', [cardId, suspended]);
     return this._fetch(`rpc/${suspended ? 'suspend_card' : 'restore_card'}`, {
       method: 'POST',
@@ -738,11 +746,21 @@ class Database {
   }
 
   async restoreCardState(cardId, state) {
-    this._invalidateReadCache();
+    this._invalidateReadCache('cards');
     if (this.isProxyMode) return this._proxy('restoreCardState', [cardId, state]);
     return this._fetch('rpc/restore_card_state', {
       method: 'POST',
       body: { p_card_id: cardId, p_state: state },
+    });
+  }
+
+  // Resetar card (Forget / Reset do Anki): volta o card ao estado 'new' sem apagar histórico
+  async resetCardToNew(cardId) {
+    this._invalidateReadCache('cards');
+    if (this.isProxyMode) return this._proxy('resetCardToNew', [cardId]);
+    return this._fetch('rpc/reset_card_to_new', {
+      method: 'POST',
+      body: { p_card_id: cardId },
     });
   }
 
@@ -831,7 +849,7 @@ class Database {
     if (this.isProxyMode) return this._proxy('getStatsSnapshot', [days]);
     // Estatísticas são uma tela de conferência, não um feed otimista: sempre
     // descarte SWR e leia o banco sob o JWT da sessão atual.
-    this._invalidateReadCache();
+    this._invalidateReadCache('cards');
     const [cards, reviewLog, sessions] = await Promise.all([
       this.getAllCards(),
       this.getReviewLog(days),
@@ -885,7 +903,7 @@ class Database {
     const baseKeys = ['graduating_interval', 'easy_interval', 'initial_ease', 'max_interval',
       'leech_threshold', 'easy_bonus', 'interval_modifier', 'lapse_modifier',
       'leech_action', 'lf_srs_retention', 'learning_steps', 'relearning_steps',
-      'new_per_day', 'max_reviews_per_day'];
+      'new_per_day', 'max_reviews_per_day', 'srs_new_order', 'srs_review_order'];
     const catKeys = category ? Database.SRS_OVERRIDABLE_KEYS.map(k => `${k}:${category}`) : [];
     // Onda 9 (auditoria de bugs): `category` chega da coluna words.category,
     // que não é validada como enum no banco (a checagem contra a lista
@@ -935,6 +953,8 @@ class Database {
       maxRevPerDay: Number.isFinite(parsedMaxRevPerDay)
         ? Math.min(1000, Math.max(1, parsedMaxRevPerDay))
         : 200,
+      newOrder: map.srs_new_order || 'sequential',
+      reviewOrder: map.srs_review_order || 'due',
     };
     if (value.learningSteps.length === 0) value.learningSteps = [1, 10];
     if (value.relearningSteps.length === 0) value.relearningSteps = [10];
@@ -1152,7 +1172,7 @@ class Database {
   }
 
   async logReview(cardId, quality, category, plannedState = null, operationId = null) {
-    this._invalidateReadCache();
+    this._invalidateReadCache('cards');
     if (this.isProxyMode) return this._proxy('logReview', [cardId, quality, category, plannedState, operationId]);
 
     // A prévia continua sendo calculada no cliente para mostrar os intervalos
@@ -1195,7 +1215,7 @@ class Database {
   // Desfaz a última revisão: restaura o card ao estado anterior e apaga o
   // registro mais recente de review_log daquele card (Ctrl+Z do Anki).
   async undoReview(prevCard, reviewLogId) {
-    this._invalidateReadCache();
+    this._invalidateReadCache('cards');
     if (this.isProxyMode) return this._proxy('undoReview', [prevCard, reviewLogId]);
     if (!prevCard || !prevCard.id || !reviewLogId) return { ok: false };
 

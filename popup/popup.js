@@ -31,14 +31,29 @@ async function renderLoggedIn() {
   // Cards devidos
   const statsText = document.getElementById('stats-text');
   if (new URLSearchParams(window.location.search).get('login') === '1') {
-    statsText.textContent = 'Você entrou na extensão. Volte ao vídeo para continuar com o professor IA.';
+    statsText.innerHTML = `
+      <div style="margin: 8px 0 16px;">
+        <span style="display:inline-block; background:rgba(88, 204, 2, 0.15); color:var(--color-primary-shadow); font-size:24px; width:48px; height:48px; line-height:48px; border-radius:50%; margin-bottom:8px;">✓</span>
+        <h2 style="font-size: 18px; color: var(--color-text); margin-bottom: 4px;">Login realizado!</h2>
+        <p style="font-size: 14px; color: var(--color-text-light); line-height: 1.5;">Você entrou na extensão. A explicação do professor continuará no vídeo.</p>
+      </div>
+      <button type="button" id="btn-return-video" class="btn btn-primary" style="margin-bottom: 12px;">Voltar ao vídeo</button>
+    `;
     statsText.setAttribute('role', 'status');
+    const returnBtn = document.getElementById('btn-return-video');
+    if (returnBtn) {
+      returnBtn.addEventListener('click', () => {
+        window.close();
+      });
+    }
     return;
   }
   try {
-    const due = await lfDb.getCardsDue(1000, false);
-    if (due && due.length > 0) {
-      statsText.innerHTML = `Você tem <strong style="color:var(--color-secondary);">${due.length}</strong> ${due.length === 1 ? 'frase pendente' : 'frases pendentes'}.<br>Abra o Dashboard para estudar!`;
+    const dueCount = typeof lfDb.getCardsDueCount === 'function'
+      ? await lfDb.getCardsDueCount(0)
+      : (await lfDb.getCardsDue(1000, false))?.length || 0;
+    if (dueCount > 0) {
+      statsText.innerHTML = `Você tem <strong style="color:var(--color-secondary);">${dueCount}</strong> ${dueCount === 1 ? 'frase pendente' : 'frases pendentes'}.<br>Abra o Dashboard para estudar!`;
     } else {
       statsText.innerHTML = 'Você não tem cartas atrasadas!<br>Continue assistindo vídeos e salvando frases.';
     }
@@ -49,6 +64,11 @@ async function renderLoggedIn() {
 }
 
 async function init() {
+  const isTabMode = new URLSearchParams(window.location.search).get('login') === '1' || window.innerWidth > 450;
+  if (isTabMode && typeof document !== 'undefined' && document.body) {
+    document.body.classList.add('is-tab-mode');
+  }
+
   if (new URLSearchParams(window.location.search).get('login') === '1') {
     show(areaLogin);
     document.getElementById('login-email').focus();

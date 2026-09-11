@@ -150,6 +150,7 @@ export class MaxPlayerUI {
     button.textContent = label;
     button.title = `Velocidade do vídeo: ${label}`;
     button.setAttribute('aria-label', `Velocidade do vídeo: ${label}. Clique para alterar`);
+    button.classList.toggle('is-altered', this.playbackRate !== 1);
   }
 
   _syncLoopButton() {
@@ -209,8 +210,10 @@ export class MaxPlayerUI {
   _mountInOverlayRoot() {
     const root = this._overlayRoot();
     if (this.dock && this.dock.parentElement !== root) root.appendChild(this.dock);
-    const subtitleHost = document.getElementById('linguaflow-subtitle-host');
-    if (subtitleHost && subtitleHost.parentElement !== root) root.appendChild(subtitleHost);
+    if (isMaxHost(window.location.hostname)) {
+      const subtitleHost = document.getElementById('linguaflow-subtitle-host');
+      if (subtitleHost && subtitleHost.parentElement !== root) root.appendChild(subtitleHost);
+    }
   }
 
   _ensureDock() {
@@ -222,7 +225,10 @@ export class MaxPlayerUI {
     dock.setAttribute('role', 'toolbar');
     dock.setAttribute('aria-label', 'Controles LinguaFlow');
     dock.innerHTML = `
-      <button type="button" data-action="toggle" aria-pressed="true" title="Ativar ou ocultar legendas LinguaFlow (C)">LF</button>
+      <button type="button" data-action="toggle" class="lf-dock-toggle" aria-pressed="true" title="Ativar ou ocultar legendas LinguaFlow (C)">
+        <span class="lf-toggle-text">LF</span>
+        <span class="lf-switch-track" aria-hidden="true"><span class="lf-switch-thumb"></span></span>
+      </button>
       <span class="lf-max-separator" aria-hidden="true"></span>
       <button type="button" data-action="previous" title="Legenda anterior (A)" aria-label="Legenda anterior">‹</button>
       <button type="button" data-action="loop" aria-pressed="false" title="Ativar loop da frase" aria-label="Ativar loop da frase">↻</button>
@@ -243,14 +249,21 @@ export class MaxPlayerUI {
         pointer-events:auto;transition:opacity .16s ease,transform .16s ease;}
       #lf-max-controls button{appearance:none;width:44px;height:44px;border:0;border-radius:50%;
         display:grid;place-items:center;background:transparent;color:#f8fafc;font:700 17px/1 system-ui;
-        cursor:pointer;transition:background .15s ease,color .15s ease,transform .15s ease;}
+        cursor:pointer;transition:background .15s ease,color .15s ease,transform .15s ease,box-shadow .15s ease;}
       #lf-max-controls button:hover,#lf-max-controls button:focus-visible{background:rgba(56,189,248,.2);
         color:#7dd3fc;outline:2px solid #7dd3fc;outline-offset:1px;transform:scale(1.04);}
-      #lf-max-controls button[data-action="toggle"]{font-size:11px;letter-spacing:.03em;color:#7dd3fc;}
+      #lf-max-controls button[data-action="toggle"]{height:46px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;letter-spacing:.03em;color:#7dd3fc;}
       #lf-max-controls button[data-action="toggle"][aria-pressed="false"]{color:#94a3b8;}
+      #lf-max-controls .lf-switch-track{width:26px;height:12px;background:#334155;border-radius:999px;position:relative;transition:background .2s ease;}
+      #lf-max-controls button[data-action="toggle"][aria-pressed="true"] .lf-switch-track{background:#0284c7;}
+      #lf-max-controls .lf-switch-thumb{position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:50%;background:#cbd5e1;transition:transform .2s ease,background .2s ease;}
+      #lf-max-controls button[data-action="toggle"][aria-pressed="true"] .lf-switch-thumb{transform:translateX(14px);background:#38bdf8;box-shadow:0 0 6px #38bdf8;}
       #lf-max-controls button[data-action="loop"][aria-pressed="true"]{background:rgba(56,189,248,.28);
-        color:#7dd3fc;box-shadow:inset 0 0 0 1px rgba(125,211,252,.45);}
+        color:#7dd3fc;box-shadow:0 0 10px rgba(56,189,248,.35), inset 0 0 0 1px rgba(125,211,252,.45);}
       #lf-max-controls button[data-action="speed"]{font-size:11px;letter-spacing:-.02em;}
+      #lf-max-controls button[data-action="speed"].is-altered{color:#facc15;background:rgba(250,204,21,.15);box-shadow:inset 0 0 0 1px rgba(250,204,21,.35);}
+      #lf-max-controls button[data-action="panel"].is-active{background:rgba(168,85,247,.25);color:#c084fc;box-shadow:0 0 10px rgba(168,85,247,.35), inset 0 0 0 1px rgba(168,85,247,.5);}
+      #lf-max-controls button[data-action="previous"]:active,#lf-max-controls button[data-action="next"]:active{background:rgba(56,189,248,.3);color:#38bdf8;transform:scale(0.92);}
       #lf-max-controls .lf-max-separator{width:20px;height:1px;background:rgba(255,255,255,.14);margin:2px 0;}
       @media (max-width:640px){#lf-max-controls{right:10px;gap:1px;padding-block:4px}}
       @media (prefers-reduced-motion:reduce){#lf-max-controls,#lf-max-controls button{transition:none}}
@@ -275,7 +288,12 @@ export class MaxPlayerUI {
       }
       else if (action === 'next') this.engine.nextSubtitle();
       else if (action === 'speed') this._setPlaybackRate(nextPlaybackRate(this.playbackRate));
-      else if (action === 'panel') this.engine.toggleSubtitlePanel();
+      else if (action === 'panel') {
+        this.engine.toggleSubtitlePanel();
+        const panel = document.getElementById('lf-subtitle-panel');
+        const isOpen = panel && panel.style.display !== 'none';
+        button.classList.toggle('is-active', !!isOpen);
+      }
       else if (action === 'settings') window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
     });
     dock.addEventListener('mousedown', (event) => event.stopPropagation());
@@ -322,15 +340,20 @@ export class MaxPlayerUI {
     this.lastLayout = signature;
 
     this.dock.style.display = expectedDisplay;
+    const isOverlayContainer = this._overlayRoot() !== document.body;
+    this.dock.style.setProperty('position', isOverlayContainer ? 'absolute' : 'fixed', 'important');
     this.dock.style.removeProperty('bottom');
     this.dock.style.setProperty('right', `${placement.right}px`, 'important');
     this.dock.style.setProperty('top', '50%', 'important');
     this.dock.style.setProperty('left', placement.left, 'important');
     this.dock.style.setProperty('transform', 'translateY(-50%)', 'important');
-    subtitleHost.style.setProperty('position', 'fixed', 'important');
-    subtitleHost.style.setProperty('bottom', `${layout.subtitleBottom}px`, 'important');
-    subtitleHost.style.setProperty('left', '50%', 'important');
-    subtitleHost.style.setProperty('transform', 'translateX(-50%)', 'important');
-    subtitleHost.style.setProperty('z-index', '2147483641', 'important');
+
+    if (isMaxHost(window.location.hostname)) {
+      subtitleHost.style.setProperty('position', 'fixed', 'important');
+      subtitleHost.style.setProperty('bottom', `${layout.subtitleBottom}px`, 'important');
+      subtitleHost.style.setProperty('left', '50%', 'important');
+      subtitleHost.style.setProperty('transform', 'translateX(-50%)', 'important');
+      subtitleHost.style.setProperty('z-index', '2147483641', 'important');
+    }
   }
 }

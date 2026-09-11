@@ -39,11 +39,26 @@ function defaultGetCategory(card) {
   return (card && (card.wordData?.category || card.category)) || null;
 }
 
+function shuffleArray(arr) {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 // opts.priorityCategory (Onda 1.3): a categoria mais fraca do diagnóstico. Os
 // cards de revisão dessa categoria são estudados PRIMEIRO (memória fresca),
 // sem quebrar o interleaving de novas/fracas. opts.getCategory permite testar.
+// opts.newOrder ('sequential' | 'random') e opts.reviewOrder ('due' | 'random') (paridade Anki).
 export function buildSessionQueue(cards, opts = {}) {
-  const { priorityCategory = null, getCategory = defaultGetCategory } = opts;
+  const {
+    priorityCategory = null,
+    getCategory = defaultGetCategory,
+    newOrder = 'sequential',
+    reviewOrder = 'due',
+  } = opts;
   const learning = [];
   const weak = [];
   const reviews = [];
@@ -65,8 +80,14 @@ export function buildSessionQueue(cards, opts = {}) {
     ];
   }
 
+  if (reviewOrder === 'random') {
+    reviewsOrdered = shuffleArray(reviewsOrdered);
+  }
+
+  const newsOrdered = newOrder === 'random' ? shuffleArray(news) : news;
+
   // reviews mantêm a ordem; novas e fracas entram espaçadas
-  const withNews = spreadInto(reviewsOrdered, news);
+  const withNews = spreadInto(reviewsOrdered, newsOrdered);
   const interleaved = spreadInto(withNews, weak);
   return [...learning, ...interleaved];
 }

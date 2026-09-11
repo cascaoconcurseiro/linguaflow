@@ -12,6 +12,77 @@ const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrom
 let storiesDocumentController = null;
 let vaultTranslations = new Map();
 
+export const FALSE_FRIENDS = {
+  actually: '"actually" = na verdade / de fato (NÃO "atualmente" → use "currently" ou "nowadays")',
+  pretend: '"pretend" = fingir / simular (NÃO "pretender" → use "intend" ou "plan to")',
+  eventually: '"eventually" = no fim das contas / com o tempo (NÃO "eventualmente" = às vezes → use "occasionally")',
+  library: '"library" = biblioteca (NÃO "livraria" → use "bookstore")',
+  college: '"college" = faculdade / universidade (NÃO "colégio" = high school)',
+  fabric: '"fabric" = tecido / pano (NÃO "fábrica" → use "factory")',
+  parents: '"parents" = pais (pai e mãe) (NÃO "parentes" = relatives)',
+  push: '"push" = empurrar (NÃO "puxar" = pull)',
+  exit: '"exit" = saída (NÃO "êxito" = success)',
+  novel: '"novel" = romance (livro) (NÃO "novela" = soap opera)',
+  sensible: '"sensible" = sensato / prudente (NÃO "sensível" = sensitive)',
+  polite: '"polite" = educado / cortês (NÃO "político" = politician)',
+  large: '"large" = grande (NÃO "largo" = wide)',
+  assist: '"assist" = ajudar / auxiliar (NÃO "assistir" a um filme → "watch")',
+  contest: '"contest" = competição / concurso (NÃO "contestar" = dispute/challenge)',
+  editor: '"editor" = revisor / redator (NÃO "editor" de livros = publisher)',
+  exquisite: '"exquisite" = refinado / primoroso (NÃO "esquisito" = weird/strange)',
+  genial: '"genial" = simpático / cordial (NÃO "genial" = brilliant → "genius")',
+  legend: '"legend" = lenda (NÃO "legenda" de vídeo = subtitle/caption)',
+  realize: '"realize" = perceber / tomar consciência (NÃO "realizar" uma tarefa = carry out)',
+  resume: '"resume" = retomar (NÃO "resumo" = summary)',
+  sympathetic: '"sympathetic" = solidário / compreensivo (NÃO "simpático" = nice/friendly)',
+};
+
+export function formatStoryAsBook(text) {
+  if (!text) return [];
+  let normalized = String(text)
+    .replace(/\r\n/g, '\n')
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .trim();
+
+  // Se o texto veio com quebras simples (\n) sem quebra dupla (\n\n), expande para parágrafos
+  if (!/\n\s*\n/.test(normalized) && /\n/.test(normalized)) {
+    normalized = normalized.replace(/\n+/g, '\n\n');
+  }
+
+  const initialBlocks = normalized.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
+  const formattedBlocks = [];
+
+  for (const block of initialBlocks) {
+    // Se o bloco for curto e não contiver turnos múltiplos de aspas, preserva
+    if (block.length < 180 && !/(["”]).*?(["“])/.test(block)) {
+      formattedBlocks.push(block);
+      continue;
+    }
+
+    // Segmentação literária em turnos de diálogo e narrativa de livro:
+    // 1. Narrativa anterior terminando em pontuação, seguida do início de fala direta
+    let s = block.replace(/([.!?])\s+(["“])/g, '$1\n\n$2');
+
+    // 2. Fim de fala/speech tag seguido do início de outra fala direta
+    s = s.replace(/([.!?]["”])\s+(["“])/g, '$1\n\n$2');
+
+    // 3. Fala com speech tag seguida de ação de outro personagem / mudança de cena
+    s = s.replace(/([.!?]["”]\s*(?:[A-Z][a-z]+|he|she|they)\s+(?:says|said|asks|asked|replies|replied|smiles|whispers|tells|answers|murmurs|calls|shouts|yells|cries)\.?)\s+(?=[A-Z][a-z]+(?:\s+[a-z]+)*\s+[a-z]+|[A-Z][a-z]+\s+(?:looks|walks|thinks|sits|runs|takes|stops|holds|feels|cheers))/g, '$1\n\n');
+
+    // 4. Quebra após fala completa fechada se a próxima frase for narrativa de ação
+    s = s.replace(/([.!?]["”])\s+([A-Z][a-z]+\s+(?:looks|walks|thinks|sits|runs|takes|stops|holds|feels|cheers|smiles|shows|likes|is|was|has|had|goes))/g, '$1\n\n$2');
+
+    // 5. Quebra narrativa antes de novo personagem agir
+    s = s.replace(/([.!?])\s+(A\s+[a-z]+\s+man|The\s+people|The\s+next\s+day|At\s+home|After\s+class)\b/g, '$1\n\n$2');
+
+    const parts = s.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+    formattedBlocks.push(...parts);
+  }
+
+  return formattedBlocks.length > 0 ? formattedBlocks : [normalized];
+}
+
 // Roteadores extensão/web: na extensão o service worker faz o trabalho;
 // no site (Vercel) chamamos a Edge Function (história) e o translator
 // client-side (Google GTX/MyMemory têm CORS liberado — verificado).
@@ -193,27 +264,105 @@ export function renderStories(container, app) {
       </div>
     </div>
     
-    <!-- Word Popup Modal (Simplified LingQ style) -->
-    <div id="lf-story-word-modal" role="dialog" aria-modal="true" aria-labelledby="lf-modal-word" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(2px); animation: fadeIn 0.2s ease-out;">
-      <div style="background:var(--color-surface); border-radius:var(--radius-md); width:90%; max-width:350px; padding:20px; position:relative; box-shadow: 0 8px 24px rgba(0,0,0,0.15); animation: slideUp 0.2s ease-out;">
-        <button id="lf-close-modal" type="button" aria-label="Fechar detalhes da palavra" style="position:absolute; top:12px; right:12px; background:none; border:none; font-size:20px; color:var(--color-text-light); cursor:pointer; padding:4px;">&times;</button>
-        
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-          <h2 id="lf-modal-word" style="font-size:24px; font-weight:800; color:var(--color-text); margin:0;">Word</h2>
-          <button id="lf-btn-tts-word" type="button" aria-label="Ouvir palavra" style="background:var(--color-bg); border:1px solid var(--color-border); border-radius:50%; width:36px; height:36px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:16px;" title="Ouvir">🔊</button>
-        </div>
-        
-        <div id="lf-modal-loading" style="text-align:center; padding:16px; display:none;">
-          <div class="lf-spin" style="width: 20px; height: 20px; border: 3px solid var(--color-border); border-top-color: var(--color-primary); border-radius: 50%; margin: 0 auto 8px;"></div>
-        </div>
-        
-        <div id="lf-modal-explanation" style="font-size:16px; color:var(--color-text); line-height:1.5; margin-bottom:20px; display:none;">
-          <!-- AI explanation will go here -->
+    <!-- Word Popup Modal (Idêntico ao Popup dos Vídeos do LinguaFlow) -->
+    <div id="lf-story-word-modal" role="dialog" aria-modal="true" aria-labelledby="lf-modal-word" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(8,12,24,0.65); z-index:9999; justify-content:center; align-items:center; backdrop-filter:blur(6px); animation:fadeIn 0.2s ease-out; padding:16px;">
+      <div style="background:var(--color-surface); border:1px solid var(--color-border); border-radius:22px; width:100%; max-width:420px; position:relative; box-shadow:0 25px 50px -12px rgba(0,0,0,0.45); animation:slideUp 0.2s ease-out; overflow:hidden; display:flex; flex-direction:column; max-height:90vh;">
+        <!-- Header -->
+        <div style="padding:16px 18px 12px; display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid var(--color-border);">
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;">
+              <h2 id="lf-modal-word" style="font-size:26px; font-weight:800; color:var(--color-text); margin:0; letter-spacing:-0.02em;">Word</h2>
+              <span id="lf-modal-cefr" style="display:none; font-size:11px; font-weight:800; text-transform:uppercase; padding:2px 8px; border-radius:12px; background:rgba(56,189,248,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.3);"></span>
+            </div>
+            <div id="lf-modal-pronounce" style="display:none; font-size:12px; color:var(--color-text-light); font-family:monospace; margin-top:4px;"></div>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+            <button id="lf-btn-tts-word" type="button" aria-label="Ouvir palavra" style="width:38px; height:38px; border-radius:10px; background:var(--color-bg-alt); border:1px solid var(--color-border); color:var(--color-secondary); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:16px;" title="Ouvir">🔊</button>
+            <button id="lf-close-modal" type="button" aria-label="Fechar detalhes da palavra" style="width:38px; height:38px; border-radius:10px; background:none; border:none; font-size:22px; color:var(--color-text-light); cursor:pointer; display:flex; align-items:center; justify-content:center;">&times;</button>
+          </div>
         </div>
 
-        <button id="lf-btn-save-word" class="btn btn-primary lf-btn-bounce" style="width:100%; padding:12px; font-size:15px; display:none;">
-          💾 Salvar
-        </button>
+        <!-- Abas do Popup de Vídeos -->
+        <div role="tablist" style="display:flex; border-bottom:1px solid var(--color-border); background:var(--color-bg-alt); padding:0 8px;">
+          <button id="lf-tab-trans" role="tab" aria-selected="true" class="lf-story-tab active" data-tab="trans" style="flex:1; padding:10px 4px; font-size:12px; font-weight:800; border:none; background:none; color:var(--color-secondary); border-bottom:2px solid var(--color-secondary); cursor:pointer;">Tradução</button>
+          <button id="lf-tab-examples" role="tab" aria-selected="false" class="lf-story-tab" data-tab="examples" style="flex:1; padding:10px 4px; font-size:12px; font-weight:700; border:none; background:none; color:var(--color-text-light); border-bottom:2px solid transparent; cursor:pointer;">Exemplos</button>
+          <button id="lf-tab-youglish" role="tab" aria-selected="false" class="lf-story-tab" data-tab="youglish" style="flex:1; padding:10px 4px; font-size:12px; font-weight:700; border:none; background:none; color:var(--color-text-light); border-bottom:2px solid transparent; cursor:pointer;">🎬 YouGlish (Vídeos)</button>
+        </div>
+
+        <!-- Conteúdo com Scroll -->
+        <div style="padding:16px 18px 20px; overflow-y:auto; flex:1;">
+          <!-- Spinner de carregamento -->
+          <div id="lf-modal-loading" style="text-align:center; padding:20px; display:none;">
+            <div class="lf-spin" style="width:24px; height:24px; border:3px solid var(--color-border); border-top-color:var(--color-primary); border-radius:50%; margin:0 auto 8px;"></div>
+            <span style="font-size:12px; color:var(--color-text-light);">Carregando tradução e contexto…</span>
+          </div>
+
+          <!-- Painel 1: Tradução -->
+          <div id="lf-panel-trans">
+            <div id="lf-modal-trans-main" style="font-size:24px; font-weight:800; color:#4ade80; margin-bottom:8px; line-height:1.2;">…</div>
+            
+            <!-- Falso Cognato -->
+            <div id="lf-modal-false-friend" style="display:none; background:rgba(251,146,60,0.1); border:1px solid rgba(251,146,60,0.3); border-radius:10px; padding:9px 12px; margin-bottom:12px;">
+              <div style="font-size:10px; color:#fb923c; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:4px;">⚠️ Falso Cognato — Cuidado!</div>
+              <div id="lf-modal-false-friend-text" style="font-size:12px; color:#fcd34d; line-height:1.5;"></div>
+            </div>
+
+            <!-- Contexto na Frase -->
+            <div id="lf-modal-context-box" style="display:none; background:rgba(139,92,246,0.06); border:1px solid rgba(139,92,246,0.2); border-radius:10px; padding:10px 12px; margin-bottom:14px;">
+              <div style="font-size:10px; color:#a78bfa; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:4px; display:flex; align-items:center; gap:4px;">
+                <span>💡</span><span>Contexto nesta frase</span>
+              </div>
+              <div id="lf-modal-context-text" style="font-size:13px; color:var(--color-text); line-height:1.5;"></div>
+            </div>
+
+            <div id="lf-modal-explanation" style="display:none;"></div>
+            <div id="lf-modal-sentence-box" style="margin-bottom:16px;"></div>
+
+            <!-- Ações -->
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <button id="lf-btn-save-word" class="btn btn-primary lf-btn-bounce" style="width:100%; padding:11px; font-size:14px; font-weight:800; display:flex; justify-content:center; align-items:center; gap:6px;">
+                💾 Salvar no Cofre
+              </button>
+              <button id="lf-btn-known-word" class="btn lf-btn-bounce" style="width:100%; padding:9px; font-size:13px; font-weight:700; background:rgba(74,222,128,0.1); color:#4ade80; border:1px solid rgba(74,222,128,0.25); border-radius:8px; cursor:pointer;">
+                ✓ Já sei esta palavra
+              </button>
+            </div>
+          </div>
+
+          <!-- Painel 2: Exemplos / Linguee -->
+          <div id="lf-panel-examples" style="display:none; text-align:center;">
+            <p style="font-size:13px; color:var(--color-text-light); line-height:1.6; margin-bottom:14px;">
+              Veja o uso real dessa palavra em contextos bilíngues:
+            </p>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <button id="lf-btn-reverso" class="btn lf-btn-bounce" style="width:100%; padding:10px; font-size:13px; font-weight:700; background:rgba(3,105,161,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.3); border-radius:8px; cursor:pointer;">
+                🔄 Reverso Context — Frases Reais
+              </button>
+              <button id="lf-btn-linguee" class="btn lf-btn-bounce" style="width:100%; padding:10px; font-size:13px; font-weight:700; background:rgba(74,222,128,0.08); color:#4ade80; border:1px solid rgba(74,222,128,0.25); border-radius:8px; cursor:pointer;">
+                🔗 Linguee — EN ↔ PT
+              </button>
+              <button id="lf-btn-google-trans" class="btn lf-btn-bounce" style="width:100%; padding:10px; font-size:13px; font-weight:700; background:var(--color-bg-alt); color:var(--color-text); border:1px solid var(--color-border); border-radius:8px; cursor:pointer;">
+                🌐 Google Tradutor
+              </button>
+            </div>
+          </div>
+
+          <!-- Painel 3: YouGlish (Vídeos Reais) -->
+          <div id="lf-panel-youglish" style="display:none; text-align:center;">
+            <p style="font-size:13px; color:var(--color-text-light); line-height:1.6; margin-bottom:14px;">
+              Ouça como nativos pronunciam em vídeos reais do YouTube:
+            </p>
+            <button id="lf-btn-yg-all" class="btn lf-btn-bounce" style="width:100%; padding:12px; font-size:14px; font-weight:800; background:linear-gradient(135deg, #b91c1c, #dc2626); color:white; border:none; border-radius:10px; cursor:pointer; margin-bottom:10px; box-shadow:0 4px 12px rgba(220,38,38,0.25);">
+              🎬 Assistir no YouGlish (Qualquer sotaque)
+            </button>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+              <button id="lf-btn-yg-us" class="btn lf-btn-bounce" style="padding:10px; background:rgba(239,68,68,0.08); color:#f87171; border:1px solid rgba(239,68,68,0.2); border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">🇺🇸 Americano</button>
+              <button id="lf-btn-yg-uk" class="btn lf-btn-bounce" style="padding:10px; background:rgba(239,68,68,0.08); color:#f87171; border:1px solid rgba(239,68,68,0.2); border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">🇬🇧 Britânico</button>
+              <button id="lf-btn-yg-aus" class="btn lf-btn-bounce" style="padding:10px; background:rgba(239,68,68,0.08); color:#f87171; border:1px solid rgba(239,68,68,0.2); border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">🇦🇺 Australiano</button>
+              <button id="lf-btn-yg-acad" class="btn lf-btn-bounce" style="padding:10px; background:rgba(239,68,68,0.08); color:#f87171; border:1px solid rgba(239,68,68,0.2); border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">🎓 Acadêmico</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -294,6 +443,16 @@ export function renderStories(container, app) {
         line-height: 1.4;
         transition: opacity 0.12s ease;
       }
+      .lf-story-tab {
+        transition: color var(--motion-fast, 0.15s) ease, border-color var(--motion-fast, 0.15s) ease;
+      }
+      .lf-story-tab:hover {
+        color: var(--color-text) !important;
+      }
+      .lf-story-tab.active {
+        color: var(--color-secondary) !important;
+        border-bottom-color: var(--color-secondary) !important;
+      }
       .quiz-opt { display:block; width:100%; text-align:left; margin:6px 0; padding:10px 14px; border:2px solid var(--color-border); border-radius:8px; background:var(--color-surface); color:var(--color-text); font-family:var(--font-main); font-size:14px; font-weight:600; cursor:pointer; }
       .quiz-opt:hover, .quiz-opt:focus-visible { border-color: var(--color-secondary); }
       .quiz-opt.correct { border-color: var(--color-primary); background: rgba(88,204,2,0.15); }
@@ -342,14 +501,41 @@ export function renderStories(container, app) {
   const panelHistory = document.getElementById('panel-history');
   const historyList = document.getElementById('history-list');
 
-  // Modal elements
+  // Modal elements (Estilo Popup de Vídeos)
   const modal = document.getElementById('lf-story-word-modal');
   const btnCloseModal = document.getElementById('lf-close-modal');
   const modalWord = document.getElementById('lf-modal-word');
+  const modalCefr = document.getElementById('lf-modal-cefr');
+  const modalPronounce = document.getElementById('lf-modal-pronounce');
   const modalLoading = document.getElementById('lf-modal-loading');
+  const modalTransMain = document.getElementById('lf-modal-trans-main');
+  const modalFalseFriend = document.getElementById('lf-modal-false-friend');
+  const modalFalseFriendText = document.getElementById('lf-modal-false-friend-text');
+  const modalContextBox = document.getElementById('lf-modal-context-box');
+  const modalContextText = document.getElementById('lf-modal-context-text');
+  const modalSentenceBox = document.getElementById('lf-modal-sentence-box');
   const modalExplanation = document.getElementById('lf-modal-explanation');
   const btnSaveWord = document.getElementById('lf-btn-save-word');
+  const btnKnownWord = document.getElementById('lf-btn-known-word');
   const btnTtsWord = document.getElementById('lf-btn-tts-word');
+
+  // Abas do Modal
+  const tabTrans = document.getElementById('lf-tab-trans');
+  const tabExamples = document.getElementById('lf-tab-examples');
+  const tabYouglish = document.getElementById('lf-tab-youglish');
+  const panelTrans = document.getElementById('lf-panel-trans');
+  const panelExamples = document.getElementById('lf-panel-examples');
+  const panelYouglish = document.getElementById('lf-panel-youglish');
+
+  // Botões de Exemplos e YouGlish
+  const btnReverso = document.getElementById('lf-btn-reverso');
+  const btnLinguee = document.getElementById('lf-btn-linguee');
+  const btnGoogleTrans = document.getElementById('lf-btn-google-trans');
+  const btnYgAll = document.getElementById('lf-btn-yg-all');
+  const btnYgUs = document.getElementById('lf-btn-yg-us');
+  const btnYgUk = document.getElementById('lf-btn-yg-uk');
+  const btnYgAus = document.getElementById('lf-btn-yg-aus');
+  const btnYgAcad = document.getElementById('lf-btn-yg-acad');
 
   // Toolbar elements
   const floatingToolbar = document.getElementById('lf-floating-toolbar');
@@ -1056,19 +1242,8 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
       .replace(/\\n/g, '\n')
       .trim();
 
-    // Divide em parágrafos de livro (quebras duplas ou simples)
-    const hasDouble = /\n\s*\n/.test(normalized);
-    const rawParagraphs = hasDouble
-      ? normalized.split(/\n\s*\n/)
-      : normalized.split(/\n+/);
-
-    const paragraphs = rawParagraphs
-      .map(p => p.trim())
-      .filter(p => p.length > 0);
-
-    if (paragraphs.length === 0 && normalized.length > 0) {
-      paragraphs.push(normalized);
-    }
+    // Divide em parágrafos de livro (com segmentação literária de diálogos e narrativas)
+    const paragraphs = formatStoryAsBook(normalized);
     
     storyContent.innerHTML = '';
     
@@ -1161,6 +1336,24 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
       knownBadge.removeAttribute('title');
       knownBadge.style.display = 'inline';
     }
+
+    // Warm-up assíncrono suave de vocabulário no cache (elimina "tradução indisponível" no hover)
+    const uniqueTokens = new Set();
+    paragraphs.forEach(p => {
+      const tokens = p.split(/[\s.,!?;:"'()\[\]{}*#—–\-“”‘’]+/);
+      tokens.forEach(t => {
+        const c = t.replace(/[^a-zA-Z0-9'-]/g, '').toLowerCase();
+        if (c && c.length > 1 && !vaultTranslations.has(c)) {
+          uniqueTokens.add(c);
+        }
+      });
+    });
+    setTimeout(() => {
+      const list = Array.from(uniqueTokens).slice(0, 50);
+      list.forEach(token => {
+        translateText(token).catch(() => null);
+      });
+    }, 60);
   }
 
   function findSentenceForWord(rawWord) {
@@ -1170,6 +1363,30 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     }
     return '';
   }
+
+  function activateModalTab(tabKey) {
+    const tabs = [
+      { key: 'trans', btn: tabTrans, panel: panelTrans },
+      { key: 'examples', btn: tabExamples, panel: panelExamples },
+      { key: 'youglish', btn: tabYouglish, panel: panelYouglish },
+    ];
+    tabs.forEach(t => {
+      const active = t.key === tabKey;
+      if (t.btn) {
+        t.btn.classList.toggle('active', active);
+        t.btn.setAttribute('aria-selected', String(active));
+        t.btn.style.color = active ? 'var(--color-secondary)' : 'var(--color-text-light)';
+        t.btn.style.borderBottomColor = active ? 'var(--color-secondary)' : 'transparent';
+      }
+      if (t.panel) {
+        t.panel.style.display = active ? 'block' : 'none';
+      }
+    });
+  }
+
+  tabTrans?.addEventListener('click', () => activateModalTab('trans'));
+  tabExamples?.addEventListener('click', () => activateModalTab('examples'));
+  tabYouglish?.addEventListener('click', () => activateModalTab('youglish'));
 
   function handleWordClick(cleanWord, rawWord, spanEl) {
     if (!cleanWord) return;
@@ -1184,11 +1401,38 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     modal.style.display = 'flex';
     modalWord.textContent = rawWord;
     
+    // Reset para a aba Tradução ao abrir
+    activateModalTab('trans');
+    
     modalLoading.style.display = 'block';
-    modalExplanation.style.display = 'none';
-    modalExplanation.innerHTML = '';
-    btnSaveWord.style.display = 'none';
+    if (modalTransMain) modalTransMain.textContent = '…';
+    if (modalContextBox) modalContextBox.style.display = 'none';
+    if (modalContextText) modalContextText.textContent = '';
+    if (modalSentenceBox) modalSentenceBox.innerHTML = '';
+    if (btnSaveWord) btnSaveWord.style.display = 'none';
+    if (btnKnownWord) btnKnownWord.style.display = 'none';
     btnCloseModal.focus({ preventScroll: true });
+
+    // Falso Cognato
+    const ff = FALSE_FRIENDS[cleanWord.toLowerCase()];
+    if (ff && modalFalseFriend && modalFalseFriendText) {
+      modalFalseFriendText.textContent = ff;
+      modalFalseFriend.style.display = 'block';
+    } else if (modalFalseFriend) {
+      modalFalseFriend.style.display = 'none';
+    }
+
+    // Configuração dos botões do YouGlish (Vídeos reais do YouTube)
+    if (btnYgAll) btnYgAll.onclick = () => window.open(`https://youglish.com/pronounce/${encodeURIComponent(cleanWord)}/english`, '_blank');
+    if (btnYgUs) btnYgUs.onclick = () => window.open(`https://youglish.com/pronounce/${encodeURIComponent(cleanWord)}/english/us`, '_blank');
+    if (btnYgUk) btnYgUk.onclick = () => window.open(`https://youglish.com/pronounce/${encodeURIComponent(cleanWord)}/english/uk`, '_blank');
+    if (btnYgAus) btnYgAus.onclick = () => window.open(`https://youglish.com/pronounce/${encodeURIComponent(cleanWord)}/english/aus`, '_blank');
+    if (btnYgAcad) btnYgAcad.onclick = () => window.open(`https://youglish.com/pronounce/${encodeURIComponent(cleanWord)}/english/academic`, '_blank');
+
+    // Configuração dos botões de Exemplos / Contexto
+    if (btnReverso) btnReverso.onclick = () => window.open(`https://context.reverso.net/traducao/ingles-portugues/${encodeURIComponent(cleanWord)}`, '_blank');
+    if (btnLinguee) btnLinguee.onclick = () => window.open(`https://www.linguee.com.br/ingles-portugues/traducao/${encodeURIComponent(cleanWord)}.html`, '_blank');
+    if (btnGoogleTrans) btnGoogleTrans.onclick = () => window.open(`https://translate.google.com/?sl=en&tl=pt&text=${encodeURIComponent(cleanWord)}`, '_blank');
 
     const requestId = ++modalRequestId;
     const tokenLemma = lemma(cleanWord) || cleanWord;
@@ -1214,6 +1458,10 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
         if (contextual?.word_pt) {
           showModalContent(contextual.word_pt);
         }
+        if (contextual?.explanation && modalContextBox && modalContextText) {
+          modalContextText.textContent = contextual.explanation;
+          modalContextBox.style.display = 'block';
+        }
       }).catch(() => null);
     }
 
@@ -1221,37 +1469,57 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
       modalLoading.style.display = 'none';
       currentWordTranslation = wordTrans || '';
       if (wordTrans) {
-        modalExplanation.replaceChildren();
-        const label = document.createElement('strong');
-        label.textContent = 'Tradução: ';
-        modalExplanation.append(label, document.createTextNode(wordTrans));
-        if (currentSelectedSentence) {
+        if (modalTransMain) modalTransMain.textContent = wordTrans;
+        
+        if (currentSelectedSentence && modalSentenceBox) {
+          modalSentenceBox.replaceChildren();
           const reveal = document.createElement('button');
           reveal.type = 'button';
+          reveal.className = 'btn lf-btn-bounce';
           reveal.textContent = '👁 Ver tradução da frase';
-          reveal.style.cssText = 'display:block; margin-top:10px; background:none; border:none; color:var(--color-secondary); font-weight:700; font-size:13px; cursor:pointer; padding:0;';
+          reveal.style.cssText = 'width:100%; padding:8px 12px; background:var(--color-bg-alt); border:1px solid var(--color-border); border-radius:8px; color:var(--color-secondary); font-weight:700; font-size:12px; cursor:pointer; text-align:center;';
           reveal.addEventListener('click', async () => {
             reveal.disabled = true;
-            reveal.textContent = 'Traduzindo…';
+            reveal.textContent = 'Traduzindo frase…';
             const sentenceTranslation = await translateText(currentSelectedSentence);
             if (requestId !== modalRequestId || modal.style.display === 'none') return;
             const context = document.createElement('div');
-            context.style.cssText = 'margin-top:6px; font-size:0.9em; color:var(--color-text-light);';
-            context.textContent = `Contexto: “${sentenceTranslation || 'Erro ao traduzir.'}”`;
+            context.style.cssText = 'margin-top:6px; padding:10px 12px; background:var(--color-bg-alt); border-radius:8px; font-size:13px; color:var(--color-text); line-height:1.5; border-left:3px solid var(--color-secondary); text-align:left;';
+            context.textContent = `“${sentenceTranslation || 'Não foi possível traduzir a frase.'}”`;
             reveal.replaceWith(context);
           });
-          modalExplanation.appendChild(reveal);
+          modalSentenceBox.appendChild(reveal);
         }
-        modalExplanation.style.display = 'block';
-        btnSaveWord.style.display = 'block';
-        // Fase 5 (§4l.5): handler órfão de #lf-reveal-context removido — era a
-        // versão antiga do revelar-tradução, substituída por fluxo sem esse id.
+
+        if (btnSaveWord) btnSaveWord.style.display = 'flex';
+        if (btnKnownWord) btnKnownWord.style.display = 'block';
       } else {
-        modalExplanation.textContent = "Erro ao traduzir.";
-        modalExplanation.style.display = 'block';
+        if (modalTransMain) modalTransMain.textContent = "Erro ao traduzir.";
       }
     }
   }
+
+  btnKnownWord?.addEventListener('click', async () => {
+    if (!currentSelectedWord) return;
+    try {
+      const orig = btnKnownWord.textContent;
+      btnKnownWord.textContent = 'Gravando…';
+      await db.markAsKnown?.(currentSelectedWord, 'en');
+      const spans = document.querySelectorAll('.story-word');
+      spans.forEach(span => {
+        if (span.textContent.toLowerCase().includes(currentSelectedWord)) {
+          span.classList.remove('saved');
+          span.classList.add('known');
+        }
+      });
+      app.showToast(`"${currentSelectedWord}" marcada como conhecida! ✓`, 'success');
+      btnKnownWord.textContent = orig;
+      closeWordModal();
+    } catch (e) {
+      console.warn('[Stories] Falha ao marcar conhecida:', e);
+      app.showToast('Erro ao marcar palavra como conhecida', 'error');
+    }
+  });
 
   btnCloseModal.addEventListener('click', () => {
     closeWordModal();

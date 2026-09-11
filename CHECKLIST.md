@@ -3,6 +3,13 @@
 **Atualizado em:** 2026-09-08
 **Referência:** auditoria geral e robustez, build `3.0.43`
 
+## Cadastro sem confirmação — build 3.0.44
+
+- [x] Corrigir interpretação da sessão REST no cadastro sem confirmação de email.
+- [x] Reproduzir a falha em teste e validar persistência, cache e resposta sem token.
+- [x] Integrar regressão ao gate de autenticação e atualizar cache PWA para 3.0.44.
+
+
 ## CORS da tradução lateral — build 3.0.43
 
 - [x] Confirmar no console que Google Translate era bloqueado pelo origin do YouTube.

@@ -291,17 +291,18 @@ class Database {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error_description || data.msg || 'Erro ao cadastrar');
       
-      // Se já retornar sessão (email confirm off):
-      if (data.session && data.session.access_token) {
+      // REST retorna tokens na raiz; session é o envelope usado pelo SDK.
+      const session = data.access_token ? data : data.session;
+      if (session?.access_token) {
         await this._saveSession({
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
-          expires_at: Date.now() + ((data.session.expires_in || 3600) * 1000),
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+          expires_at: Date.now() + ((session.expires_in || 3600) * 1000),
           user: data.user,
         });
         this._invalidateReadCache();
       }
-      return { ok: true, user: data.user, session: data.session };
+      return { ok: true, user: data.user, session };
     } catch (e) {
       console.error('SignUp error:', e);
       return { ok: false, error: e.message };

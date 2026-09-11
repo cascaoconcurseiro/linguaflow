@@ -15,7 +15,7 @@ let selectedWordIds = new Set();
 let visibleCount = 50;
 let searchDebounceTimer = null;
 
-const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
+const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
 
 export async function renderLibrary(container, app) {
   visibleCount = 50;

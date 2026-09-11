@@ -803,8 +803,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
   async function measureAndShowLevel(text, requested) {
     try {
       if (!cefrMapCache) {
-        const isExt = typeof chrome !== 'undefined' && !!chrome.runtime?.id;
-        const base = isExt ? chrome.runtime.getURL('utils/') : '/utils/';
+        const base = isExtension ? chrome.runtime.getURL('utils/') : '/utils/';
         cefrMapCache = await fetch(`${base}cefr-wordlist.json`).then((r) => r.json());
       }
       const measured = measureStoryLevel(text, cefrMapCache);

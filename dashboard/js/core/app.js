@@ -27,7 +27,7 @@ if (db.reviewWriteMode !== 'rpc-atomic-v1' && 'caches' in window) {
 }
 
 // Register Service Worker for PWA (if not running as a Chrome Extension)
-if ('serviceWorker' in navigator && (!window.chrome || !window.chrome.runtime || !window.chrome.runtime.id)) {
+if ('serviceWorker' in navigator && (typeof location === 'undefined' || location.protocol !== 'chrome-extension:')) {
   let refreshingForWorker = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (refreshingForWorker || !navigator.serviceWorker.controller) return;

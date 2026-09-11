@@ -6,7 +6,7 @@ import { db as lfDb } from '../../../utils/db.js';
 import { buildStoryVarietyNote, buildLevelNote, levelSpecFor, recentStorySnippets } from '../../../utils/story-variety.js';
 
 const EDGE_URL = 'https://qnutoswrufznztoznlql.supabase.co/functions/v1/deepseek-chat';
-const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
+const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
 
 let _cefrCache;
 let _cefrCacheTs = 0;

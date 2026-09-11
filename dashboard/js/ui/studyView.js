@@ -7,7 +7,7 @@ import { deriveAdaptivePlan } from '../core/adaptiveLearning.js';
 import { loadVideo, playClip, replayClip, pausePlayer, setClipLoop, isClipPlaying, hidePlayer } from '../core/ytPlayer.js';
 import { hasSourcePhraseLeak } from '../../../utils/translation-quality.js';
 
-const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
+const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
 let dueQueue = [];
 let pendingLearning = []; // cards em learning steps que voltam DENTRO da sessão
 let currentCard = null;

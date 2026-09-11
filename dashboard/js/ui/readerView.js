@@ -13,7 +13,7 @@ import { renderViewState } from './viewState.js';
 import { bindReadingHeader, renderReadingHeader } from './readingHub.js';
 import { enrichCard } from '../core/ai.js';
 
-const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
+const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
 const TEXTS_KEY = 'lf_reader_texts';
 const READER_MIGRATION_KEY = 'lf_reader_texts_migrated';
 const URL_IMPORT_EDGE_URL = 'https://qnutoswrufznztoznlql.supabase.co/functions/v1/url-import';
@@ -42,19 +42,75 @@ let learningLemmas = new Set();
 let reviewLemmas = new Set(); // Onda 9: gradiente — card em 'review' (já graduou, ainda não é 'mature')
 let currentText = null; // { id, title, content, addedAt }
 let readerDocumentController = null;
+const vaultTranslations = new Map();
 
 async function translateText(text) {
+  if (!text || typeof text !== 'string') return null;
+  const clean = text.trim();
+  if (!clean) return null;
+
+  const cleanLower = clean.toLowerCase().replace(/[^a-zA-Z0-9'-]/g, '');
+  const tokenLemma = lemma(cleanLower) || cleanLower;
+
+  // 1. Cache imediato do cofre ou memória
+  if (vaultTranslations.has(cleanLower)) return vaultTranslations.get(cleanLower);
+  if (vaultTranslations.has(tokenLemma)) return vaultTranslations.get(tokenLemma);
+  const memoryKey = `en:pt:${cleanLower}`;
+  if (translator.memoryCache?.has(memoryKey)) return translator.memoryCache.get(memoryKey);
+
+  // 2. Extensão: se estiver dentro de página da extensão (chrome-extension:)
   if (isExtension) {
-    return new Promise((resolve) => {
-      chrome.runtime.sendMessage({ action: 'translate', text, from: 'en', to: 'pt' }, (res) => {
-        resolve(res?.translation || null);
-      });
+    const extTrans = await new Promise((resolve) => {
+      try {
+        chrome.runtime.sendMessage({ action: 'translate', text: clean, from: 'en', to: 'pt' }, (res) => {
+          if (chrome.runtime.lastError || !res?.translation) {
+            resolve(null);
+          } else {
+            resolve(res.translation);
+          }
+        });
+      } catch {
+        resolve(null);
+      }
     });
+    if (extTrans) {
+      vaultTranslations.set(cleanLower, extTrans);
+      return extTrans;
+    }
   }
+
+  // 3. Tradutor universal (Cache multinível, Dicionário offline, Google, MyMemory)
   try {
-    const res = await translator.translate(text, 'en', 'pt');
-    return res?.translation || null;
-  } catch { return null; }
+    const res = await translator.translate(clean, 'en', 'pt');
+    if (res?.translation) {
+      vaultTranslations.set(cleanLower, res.translation);
+      return res.translation;
+    }
+  } catch (e) {
+    console.warn('[Reader] translator.translate falhou:', e);
+  }
+
+  // 4. Fallback direto MyMemory (CORS liberado no ambiente web)
+  try {
+    const fallback = await translator._fetchMyMemory?.(clean, 'en', 'pt');
+    if (fallback) {
+      vaultTranslations.set(cleanLower, fallback);
+      return fallback;
+    }
+  } catch {}
+
+  // 5. Fallback por lema (ex.: "running" -> "correr")
+  if (tokenLemma && tokenLemma !== cleanLower) {
+    try {
+      const lemmaRes = await translator.translate(tokenLemma, 'en', 'pt');
+      if (lemmaRes?.translation) {
+        vaultTranslations.set(cleanLower, lemmaRes.translation);
+        return lemmaRes.translation;
+      }
+    } catch {}
+  }
+
+  return null;
 }
 
 function loadTexts() {
@@ -130,6 +186,10 @@ async function loadStatusSets() {
     (known || []).forEach(k => knownLemmas.add(lemma(k.word)));
     (words || []).forEach(w => {
       const l = lemma(w.word);
+      if (w.word && w.translation) {
+        vaultTranslations.set(w.word.toLowerCase(), w.translation);
+        if (l) vaultTranslations.set(l, w.translation);
+      }
       if (!l) return;
       // Onda 9 (auditoria de bugs): `st` vem `undefined` pra palavras SEM
       // card ainda (ex.: saveWord() salvou a palavra mas a criação do card
@@ -157,15 +217,24 @@ function wordStatus(word) {
   return 'new';
 }
 
-// Tokeniza preservando espaços/pontuação; palavras viram spans clicáveis
+// Tokeniza preservando espaços/pontuação; palavras viram spans clicáveis agrupadas em parágrafos de livro
 function renderTokens(content) {
-  const parts = content.split(/([a-zA-Z][a-zA-Z'-]*)/g);
-  return parts.map((p, i) => {
-    if (i % 2 === 1) { // grupos ímpares são as palavras capturadas
-      const st = wordStatus(p);
-      return `<span class="rw rw-${st}" data-w="${p}">${p}</span>`;
-    }
-    return p.replace(/\n/g, '<br>');
+  const raw = String(content || '').trim();
+  if (!raw) return '';
+  const paragraphs = raw.split(/\n\s*\n/).filter(p => p.trim().length > 0);
+  const list = paragraphs.length > 0 ? paragraphs : raw.split(/\n/).filter(p => p.trim().length > 0);
+  if (list.length === 0) return '';
+
+  return list.map(p => {
+    const parts = p.split(/([a-zA-Z][a-zA-Z'-]*)/g);
+    const inner = parts.map((part, i) => {
+      if (i % 2 === 1) {
+        const st = wordStatus(part);
+        return `<span class="rw rw-${st}" data-w="${part}" tabindex="0">${part}</span>`;
+      }
+      return part.replace(/\n/g, '<br>');
+    }).join('');
+    return `<p class="reader-paragraph">${inner}</p>`;
   }).join('');
 }
 
@@ -259,8 +328,10 @@ export async function renderReader(container, app) {
           <h2 id="rd-view-title" style="color:var(--color-text);"></h2>
           <div id="rd-view-stats" style="font-size:13px; font-weight:700; color:var(--color-text-light);"></div>
         </div>
-        <div id="rd-view-body" style="background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:28px; font-size:20px; line-height:2.0; color:var(--color-text);"></div>
+        <div id="rd-view-body" class="reader-container" style="background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:clamp(20px, 4vw, 36px); box-shadow:0 4px 20px rgba(0,0,0,0.04);"></div>
       </div>
+
+      <div id="rd-word-tooltip" role="tooltip" style="display:none; position:fixed; z-index:9998; background:rgba(15,23,42,0.92); color:#f8fafc; padding:5px 10px; border-radius:6px; font-size:12px; font-weight:700; pointer-events:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); max-width:240px; white-space:normal; line-height:1.4; transform:translate(-50%, -100%); margin-top:-8px; backdrop-filter:blur(4px); transition:opacity 0.15s ease;">…</div>
 
       <div id="rd-popup" class="hidden" style="position:fixed; z-index:9999; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:16px; width:260px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -287,6 +358,7 @@ export async function renderReader(container, app) {
 
   function hidePopup() {
     popup.classList.add('hidden');
+    hideTooltip?.();
   }
 
   function positionPopup(anchorRect) {
@@ -426,10 +498,62 @@ export async function renderReader(container, app) {
 
   document.getElementById('rd-back').addEventListener('click', () => renderReader(container, app));
 
+  const tooltipEl = document.getElementById('rd-word-tooltip');
+  let tooltipTimer = null;
+  let tooltipRequestId = 0;
+  let currentHoverEl = null;
+
+  function hideTooltip() {
+    if (tooltipTimer) clearTimeout(tooltipTimer);
+    if (tooltipEl) tooltipEl.style.display = 'none';
+    currentHoverEl = null;
+  }
+
+  function showTooltip(target) {
+    if (!tooltipEl || !popup.classList.contains('hidden')) return;
+    const word = target.dataset.w;
+    if (!word) return;
+    currentHoverEl = target;
+    const rect = target.getBoundingClientRect();
+    tooltipEl.style.left = `${Math.round(rect.left + rect.width / 2)}px`;
+    tooltipEl.style.top = `${Math.round(rect.top)}px`;
+    tooltipEl.textContent = '…';
+    tooltipEl.style.display = 'block';
+
+    const reqId = ++tooltipRequestId;
+    if (tooltipTimer) clearTimeout(tooltipTimer);
+    tooltipTimer = setTimeout(async () => {
+      let trans = await translateText(word);
+      if (reqId !== tooltipRequestId || currentHoverEl !== target) return;
+      if (trans) {
+        tooltipEl.textContent = trans;
+      } else {
+        tooltipEl.textContent = 'Tradução indisponível';
+      }
+    }, 100);
+  }
+
+  const viewBody = document.getElementById('rd-view-body');
+  viewBody.addEventListener('mouseover', (e) => {
+    const rw = e.target.closest('.rw');
+    if (rw && rw !== currentHoverEl) showTooltip(rw);
+  });
+  viewBody.addEventListener('mouseout', (e) => {
+    const related = e.relatedTarget;
+    if (related && related.closest && related.closest('.rw') === currentHoverEl) return;
+    hideTooltip();
+  });
+  viewBody.addEventListener('focusin', (e) => {
+    const rw = e.target.closest('.rw');
+    if (rw) showTooltip(rw);
+  });
+  viewBody.addEventListener('focusout', hideTooltip);
+
   // Clique numa palavra: popup com tradução + ações
-  document.getElementById('rd-view-body').addEventListener('click', async (e) => {
+  viewBody.addEventListener('click', async (e) => {
     const el = e.target.closest('.rw');
     if (!el) return;
+    hideTooltip();
     popupWord = el.dataset.w;
     document.getElementById('rdp-word').textContent = popupWord;
     document.getElementById('rdp-trans').textContent = '…';
@@ -461,6 +585,7 @@ export async function renderReader(container, app) {
     if (!popup.contains(e.target) && !e.target.closest('.rw')) hidePopup();
   }, { signal: documentController.signal });
   window.addEventListener('resize', hidePopup, { signal: documentController.signal });
+  window.addEventListener('scroll', hideTooltip, { signal: documentController.signal, passive: true });
   window.addEventListener('orientationchange', hidePopup, { signal: documentController.signal });
 
   document.getElementById('rdp-audio').addEventListener('click', () => {
@@ -512,8 +637,43 @@ function injectStyles() {
   const style = document.createElement('style');
   style.id = 'reader-styles';
   style.innerHTML = `
-    .rw { cursor: pointer; border-radius: 4px; padding: 0 2px; transition: background 0.15s; }
-    .rw:hover { outline: 2px solid var(--color-secondary); }
+    .reader-container {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .reader-paragraph {
+      margin: 0 0 22px 0;
+      line-height: 1.85;
+      font-size: 19px;
+      letter-spacing: -0.01em;
+      color: var(--color-text);
+      font-family: 'Newsreader', 'Merriweather', 'Charter', 'Georgia', serif, system-ui;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      word-break: break-word;
+    }
+    .reader-paragraph:last-child {
+      margin-bottom: 0;
+    }
+    #rd-view-body {
+      max-width: 720px;
+      margin: 0 auto;
+      background: var(--color-surface);
+      border: 2px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: clamp(20px, 4vw, 36px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+    }
+    .rw {
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 0 2px;
+      transition: background 0.15s, outline 0.15s;
+    }
+    .rw:hover, .rw:focus-visible {
+      outline: 2px solid var(--color-secondary);
+      outline-offset: 1px;
+    }
     .rw-new { background: rgba(28, 176, 246, 0.18); }
     .rw-learning { background: rgba(255, 200, 0, 0.25); }
     .rw-review { background: rgba(88, 204, 2, 0.16); }
@@ -522,7 +682,8 @@ function injectStyles() {
     :root[data-theme="dark"] .rw-learning { background: rgba(255, 200, 0, 0.22); }
     :root[data-theme="dark"] .rw-review { background: rgba(88, 204, 2, 0.2); }
     @media (max-width: 480px) {
-      #rd-view-body { padding: 16px !important; font-size: 17px !important; line-height: 1.8 !important; }
+      .reader-paragraph { font-size: 17px !important; line-height: 1.75 !important; margin-bottom: 16px !important; }
+      #rd-view-body { padding: 16px !important; }
     }
   `;
   document.head.appendChild(style);

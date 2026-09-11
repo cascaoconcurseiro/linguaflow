@@ -102,7 +102,7 @@ async function maybeRecalibrateLevel(db, reviewLog, cards, words, todayISO) {
     if (!db || (reviewLog || []).length < 50) return;
     const lastRun = await db.getSetting('lf_cefr_measured_at').catch(() => null);
     if (lastRun === todayISO) return;
-    const isExt = typeof chrome !== 'undefined' && !!chrome.runtime?.id;
+    const isExt = typeof chrome !== 'undefined' && !!chrome.runtime?.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
     const base = isExt ? chrome.runtime.getURL('utils/') : '/utils/';
     const cefrMap = await fetch(`${base}cefr-wordlist.json`).then((r) => r.json());
     const result = estimateLevelFromHistory(reviewLog, cards, words, cefrMap);

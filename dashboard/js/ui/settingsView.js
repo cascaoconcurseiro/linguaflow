@@ -10,7 +10,7 @@ import { playNaturalAudio, stopAudio, preloadKokoro } from '../core/tts.js';
 import { gradeWriting } from '../core/ai.js';
 import { bindViewStateAction, escapeHtml, renderViewState } from './viewState.js';
 
-const isExtensionCtx = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
+const isExtensionCtx = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
 
 // ── Teste de nivelamento CEFR em 3 FASES (modal) ─────────────────────────────
 // Fase 1: vocabulário (reconhecimento + pseudo-palavras anti-chute)

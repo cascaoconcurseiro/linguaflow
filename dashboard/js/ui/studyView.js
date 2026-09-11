@@ -1305,11 +1305,12 @@ function renderRichContextCard(wordData = {}, card = {}, word = '', context = ''
 
   return `
     <div class="rich-word-container">
-      <!-- Top header: Word + Audio + Badges -->
       <div class="rich-word-header">
         <div class="rich-word-meta">
           <div class="rich-word-title-row">
-            <h3 class="rich-word-title">${safeWord}</h3>
+            <span class="rich-word-title">${safeWord}</span>
+            <span class="rich-arrow" aria-hidden="true">→</span>
+            <span class="rich-trans-text">${trans || '—'}</span>
             ${cefrLabel ? `<span class="rich-badge-cefr">${cefrLabel}</span>` : ''}
           </div>
           <div class="rich-word-sub-row">
@@ -1320,32 +1321,21 @@ function renderRichContextCard(wordData = {}, card = {}, word = '', context = ''
               </span>
             ` : ''}
             ${posName ? `<span class="rich-badge-pos">${posName}</span>` : ''}
-            ${tagsList.filter(t => String(t).toLowerCase() !== 'palavra' && String(t).toLowerCase() !== posName.toLowerCase()).map(t => `<span class="rich-badge-tag">${escapeHtml(String(t))}</span>`).join('')}
+            ${def ? `<span class="rich-def-text">(${def})</span>` : ''}
           </div>
         </div>
         <button type="button" class="btn-iso-audio" data-word="${safeWord}" aria-label="Ouvir pronúncia de ${safeWord}">🔊</button>
       </div>
 
-      <!-- Contextual translation & definition -->
-      <div class="rich-trans-block">
-        <div class="rich-trans-text">${trans || '—'}</div>
-        ${def ? `<div class="rich-def-text">${def}</div>` : ''}
-      </div>
-
-      <!-- Context explanation box -->
       ${explanation ? `
         <div class="rich-explain-box">
-          <div class="rich-explain-kicker">
-            <span aria-hidden="true">💡</span><span>Contexto nesta frase</span>
-          </div>
           <div class="rich-explain-body">${escapeHtml(explanation).replace(/\n/g, '<br>')}</div>
         </div>
       ` : ''}
 
-      <!-- Quote Box -->
       ${highlightedContext ? `
         <div class="rich-quote-box">
-          ${highlightedContext}
+          <span class="rich-quote-label">Na frase:</span> "${highlightedContext}"
         </div>
       ` : ''}
     </div>
@@ -2562,45 +2552,44 @@ function injectStyles() {
     #iso-word { font-size:22px; font-weight:900; color:var(--color-primary); }
     #iso-trans { margin-top:3px; font-size:17px; font-weight:800; color:var(--color-text); }
     #iso-phonetics { margin-top:5px; color:var(--color-secondary); font-style:italic; }
-    .context-explanation-card { width:100%; max-width:720px; box-sizing:border-box; margin:16px auto 0; border:1.5px solid var(--color-border); border-radius:var(--radius-lg, 16px); background:var(--color-surface); text-align:left; overflow:hidden; box-shadow:0 4px 16px rgba(0,0,0,0.04); transition:border-color 0.2s ease, box-shadow 0.2s ease; }
+    .context-explanation-card { width:100%; max-width:720px; box-sizing:border-box; margin:12px auto 0; border:1.5px solid var(--color-border); border-radius:14px; background:var(--color-surface); text-align:left; overflow:hidden; box-shadow:0 4px 16px rgba(0,0,0,0.04); transition:border-color 0.2s ease, box-shadow 0.2s ease; }
     .context-explanation-card:hover { border-color:var(--color-secondary); }
-    .context-explanation-card[open] { border-color:var(--color-secondary); box-shadow:0 8px 24px rgba(0,0,0,0.08); }
-    .context-explanation-card > summary { min-height:48px; padding:12px 18px; display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; list-style:none; color:var(--color-text); font-size:14px; font-weight:800; background:var(--color-bg-alt); transition:background-color 0.15s ease; user-select:none; }
+    .context-explanation-card[open] { border-color:var(--color-secondary); box-shadow:0 6px 20px rgba(0,0,0,0.06); }
+    .context-explanation-card > summary { min-height:42px; padding:10px 16px; display:flex; align-items:center; justify-content:space-between; gap:10px; cursor:pointer; list-style:none; color:var(--color-text); font-size:13.5px; font-weight:800; background:var(--color-bg-alt); transition:background-color 0.15s ease; user-select:none; }
     .context-explanation-card > summary::-webkit-details-marker { display:none; }
     .context-explanation-card > summary:hover { background:color-mix(in srgb, var(--color-secondary) 8%, var(--color-bg-alt)); }
     .context-explanation-card[open] > summary { border-bottom:1px solid var(--color-border); }
     .context-explanation-card > summary > span:first-child { display:inline-flex; align-items:center; gap:8px; color:var(--color-secondary); }
-    .context-explanation-card > summary > span:last-child { color:var(--color-text-light); font-size:16px; font-weight:900; transition:transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+    .context-explanation-card > summary > span:last-child { color:var(--color-text-light); font-size:15px; font-weight:900; transition:transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
     .context-explanation-card[open] > summary > span:last-child { transform:rotate(180deg); }
-    #iso-context-explanation { padding:18px 20px; color:var(--color-text); font-size:14px; line-height:1.6; background:var(--color-surface); }
-    .rich-word-container { display:flex; flex-direction:column; gap:14px; }
-    .rich-word-header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
-    .rich-word-meta { flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; }
-    .rich-word-title-row { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
-    .rich-word-title { font-size:24px; font-weight:900; color:var(--color-text); margin:0; line-height:1.2; letter-spacing:-0.02em; }
-    .rich-badge-cefr { display:inline-block; border:1px solid rgba(202,138,4,0.3); background:rgba(202,138,4,0.12); color:#ca8a04; font-size:11px; font-weight:800; border-radius:999px; padding:2px 10px; letter-spacing:0.04em; }
-    .rich-word-sub-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-    .rich-phonetic { font-size:13px; color:var(--color-text-light); font-family:monospace; }
-    .rich-pronunciation-br { font-size:12px; font-weight:700; color:#d97706; font-family:monospace; background:rgba(217,119,6,0.12); padding:2px 8px; border-radius:6px; border:1px solid rgba(217,119,6,0.25); display:inline-flex; align-items:center; gap:4px; }
-    .rich-br-tag { font-size:9px; font-weight:900; opacity:0.85; }
-    .rich-badge-pos { background:rgba(28,176,246,0.1); color:var(--color-secondary); border:1px solid rgba(28,176,246,0.25); font-size:10px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; padding:2px 8px; border-radius:6px; }
-    .rich-badge-tag { background:var(--color-bg-alt); color:var(--color-text-light); border:1px solid var(--color-border); font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:2px 8px; border-radius:6px; }
-    .btn-iso-audio { width:40px; height:40px; background:rgba(28,176,246,0.1); border:1px solid rgba(28,176,246,0.25); border-radius:50%; color:var(--color-secondary); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; transition:transform 0.1s, background-color 0.15s; }
+    #iso-context-explanation { padding:12px 16px; color:var(--color-text); font-size:13.5px; line-height:1.55; background:var(--color-surface); }
+    .rich-word-container { display:flex; flex-direction:column; gap:8px; }
+    .rich-word-header { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .rich-word-meta { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+    .rich-word-title-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .rich-word-title { font-size:17px; font-weight:900; color:var(--color-text); line-height:1.2; }
+    .rich-arrow { color:var(--color-text-light); font-size:13px; font-weight:700; opacity:0.7; }
+    .rich-trans-text { font-size:17px; font-weight:800; color:var(--color-primary); line-height:1.2; }
+    .rich-badge-cefr { display:inline-block; border:1px solid rgba(202,138,4,0.3); background:rgba(202,138,4,0.12); color:#ca8a04; font-size:10px; font-weight:800; border-radius:999px; padding:1px 8px; letter-spacing:0.04em; }
+    .rich-word-sub-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+    .rich-phonetic { font-size:12px; color:var(--color-text-light); font-family:monospace; }
+    .rich-pronunciation-br { font-size:11px; font-weight:700; color:#d97706; font-family:monospace; background:rgba(217,119,6,0.12); padding:1px 6px; border-radius:5px; border:1px solid rgba(217,119,6,0.25); display:inline-flex; align-items:center; gap:3px; }
+    .rich-br-tag { font-size:8.5px; font-weight:900; opacity:0.85; }
+    .rich-badge-pos { background:rgba(28,176,246,0.1); color:var(--color-secondary); border:1px solid rgba(28,176,246,0.25); font-size:9.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; padding:1px 6px; border-radius:5px; }
+    .rich-def-text { font-size:12px; color:var(--color-text-light); font-style:italic; line-height:1.4; }
+    .btn-iso-audio { width:32px; height:32px; background:rgba(28,176,246,0.1); border:1px solid rgba(28,176,246,0.25); border-radius:50%; color:var(--color-secondary); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; transition:transform 0.1s, background-color 0.15s; }
     .btn-iso-audio:hover { background:rgba(28,176,246,0.2); transform:scale(1.05); }
     .btn-iso-audio:active { transform:scale(0.95); }
-    .rich-trans-block { border-top:1px solid var(--color-border); padding-top:12px; }
-    .rich-trans-text { font-size:20px; font-weight:800; color:var(--color-primary); line-height:1.25; }
-    .rich-def-text { font-size:13px; color:var(--color-text-light); font-style:italic; line-height:1.5; margin-top:4px; }
-    .rich-explain-box { background:color-mix(in srgb, var(--color-secondary) 8%, var(--color-surface)); border:1px solid color-mix(in srgb, var(--color-secondary) 25%, var(--color-border)); border-radius:12px; padding:12px 14px; }
-    .rich-explain-kicker { font-size:11px; color:var(--color-secondary); font-weight:800; letter-spacing:.06em; text-transform:uppercase; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
-    .rich-explain-body { font-size:13.5px; color:var(--color-text); line-height:1.6; }
-    .rich-quote-box { background:var(--color-bg-alt); border-left:3px solid var(--color-secondary); border-radius:0 10px 10px 0; padding:10px 14px; font-size:13.5px; color:var(--color-text); line-height:1.6; }
-    .context-word-highlight { color:#fb923c; font-weight:700; }
+    .rich-explain-box { background:color-mix(in srgb, var(--color-secondary) 7%, var(--color-surface)); border:1px solid color-mix(in srgb, var(--color-secondary) 20%, var(--color-border)); border-radius:10px; padding:10px 12px; }
+    .rich-explain-body { font-size:13.5px; color:var(--color-text); line-height:1.55; }
+    .rich-quote-box { background:var(--color-bg-alt); border-left:3px solid var(--color-secondary); border-radius:0 8px 8px 0; padding:8px 12px; font-size:13px; color:var(--color-text-light); line-height:1.5; font-style:italic; }
+    .rich-quote-label { font-weight:700; font-style:normal; color:var(--color-secondary); font-size:11px; text-transform:uppercase; letter-spacing:.04em; margin-right:4px; }
+    .context-word-highlight { color:#fb923c; font-weight:700; font-style:normal; }
     @media (max-width:640px) {
-      .context-explanation-card > summary { padding:10px 14px; font-size:13px; }
-      #iso-context-explanation { padding:14px 16px; }
-      .rich-word-title { font-size:20px; }
-      .rich-trans-text { font-size:18px; }
+      .context-explanation-card > summary { padding:9px 12px; font-size:13px; }
+      #iso-context-explanation { padding:10px 12px; }
+      .rich-word-title { font-size:15px; }
+      .rich-trans-text { font-size:15px; }
     }
     #iso-mnemonic-box { margin-top:10px; }
     #iso-mnemonic-btn { min-height:40px; padding:0; border:0; background:transparent; color:var(--color-secondary); font-weight:900; cursor:pointer; }

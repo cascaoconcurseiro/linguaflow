@@ -623,6 +623,10 @@ export class WordPopup {
       };
     });
 
+    if (this._keydownHandler) {
+      document.removeEventListener('keydown', this._keydownHandler, true);
+      this._keydownHandler = null;
+    }
     this._keydownHandler = (event) => {
       if (!this.popup || this.popup.style.display === 'none') return;
       const recall = this.popup.querySelector('#lfp-recall');

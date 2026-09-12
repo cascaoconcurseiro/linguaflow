@@ -3,6 +3,8 @@ import { db } from '../utils/db.js';
 import { translator } from '../utils/translator.js';
 import { OFFICIAL_SITE_URL, isLinguaFlowUrl } from '../utils/site-boundary.js';
 import { buildStoryVarietyNote, buildLevelNote, levelSpecFor, recentStorySnippets } from '../utils/story-variety.js';
+import { slangsDB } from '../utils/slangs-db.js';
+import { phrasalVerbsDB } from '../utils/phrasal-verbs.js';
 
 // Métodos que páginas da extensão podem chamar através do service worker.
 // A fronteira explícita impede acesso a helpers internos como db._fetch.
@@ -547,24 +549,28 @@ function classifyWordStatic(word) {
     return 'sentence';
   }
 
-  // Phrasal verbs: 2+ palavras onde a última é uma partícula comum
-  const phrasalParticles = ['up','out','in','off','on','away','back','down','over','through','into','around','along','apart','aside','forward','out','away'];
+  // 1. Gírias e contrações informais curadas
+  if (slangsDB && slangsDB.has(w)) return 'slang';
+
+  // 2. Phrasal verbs: verificação estruturada no banco curado e padrão verbo + partícula
   if (parts.length >= 2) {
+    const first = parts[0];
+    if (phrasalVerbsDB && phrasalVerbsDB[first]) {
+      const isKnownPhrasal = phrasalVerbsDB[first].some((entry) => entry.phrase?.toLowerCase() === w);
+      if (isKnownPhrasal) return 'phrasal';
+    }
+    const phrasalParticles = ['up','out','in','off','on','away','back','down','over','through','into','around','along','apart','aside','forward'];
     const lastWord = parts[parts.length - 1];
     if (phrasalParticles.includes(lastWord)) return 'phrasal';
     // Também verificar a segunda palavra se for 3 palavras
     if (parts.length === 3 && phrasalParticles.includes(parts[1])) return 'phrasal';
   }
 
-  // Idioms: expressões com palavras de conexão que formam figurações
+  // 3. Expressões idiomáticas
   const idiomMarkers = ['kick the', 'bite the', 'break a', 'hit the', 'bite off', 'cost an arm', 'piece of cake', 'under the weather', 'beat around', 'let the cat', 'once in a blue', 'the ball is', 'spill the beans', 'rule of thumb', 'on the fence', 'blessing in disguise'];
   for (const marker of idiomMarkers) {
     if (w.includes(marker)) return 'idiom';
   }
-
-  // Gírias: palavras/expressões informais comuns
-  const slangWords = ['gonna','wanna','gotta','kinda','sorta','ain\'t','y\'all','dunno','lemme','gimme','nope','yep','dude','bro','lit','vibe','legit','sketchy','lowkey','highkey','fomo','tldr','fyi','omg','lol','bruh','bestie','slay','ghosting','flex','goat','salty','extra','basic','stan','ship','tea','woke','receipts','mood','thirsty','triggered','bussin'];
-  if (slangWords.includes(w)) return 'slang';
 
   // Multi-word expressions que não são phrasal verbs
   if (parts.length >= 2) return 'idiom';
@@ -661,8 +667,12 @@ async function enqueueWordSave(payload) {
 
 async function refineSavedWord(id, word, currentCategory, currentTranslation) {
   const tasks = [];
+  const isSpecialized = ['slang', 'phrasal', 'idiom'].includes(currentCategory);
   tasks.push(classifyWordAI(word).then((category) => {
-    if (category && category !== currentCategory) return db.updateWord(id, { category });
+    if (!category) return;
+    // Impede rebaixamento silencioso: nunca converte uma gíria, phrasal ou expressão em palavra genérica
+    if (isSpecialized && category === 'word') return;
+    if (category !== currentCategory) return db.updateWord(id, { category });
   }));
   if (!currentTranslation) {
     tasks.push(translator.translate(word, 'en', 'pt').then((result) => {

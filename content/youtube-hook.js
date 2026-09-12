@@ -38,6 +38,7 @@
     };
 
     const originalFetch = window.fetch;
+    let currentSourceLang = 'en';
     let preloadedVideoKey = '';
 
     const getCaptionTracks = () => {
@@ -146,7 +147,6 @@
     };
 
     // ── GESTÃO DE TRILHA ORIGINAL (YouTube Player API) ──────────────────────
-    let currentSourceLang = 'en';
 
     const ensureOriginalTrack = () => {
         try {

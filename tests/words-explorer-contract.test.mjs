@@ -28,6 +28,8 @@ assert.match(engineSource, /_isProgrammaticScroll/, 'Engine must track programma
 // Looping button contract: visual active state and sync
 assert.match(engineSource, /_syncLoopButtons/, 'Engine must implement _syncLoopButtons');
 assert.match(engineSource, /_toggleCueLoopByCue/, 'Engine must implement _toggleCueLoopByCue');
+assert.match(engineSource, /_startPreciseLoopByCue/, 'Engine must implement _startPreciseLoopByCue for frame-accurate loop cutoff');
+assert.match(engineSource, /\.is-looping/, 'Engine must style looping phrase items and cards with .is-looping');
 assert.match(engineSource, /\.lf-se-loop-btn/, 'Loop sync must handle sentence explorer loop buttons');
 
 // Words tab contracts: tabs for Words, Phrasal verbs, Slangs
@@ -145,10 +147,17 @@ const mockDockBtn = createMockElement('button');
 mockDockBtn.dataset = { action: 'loop' };
 const mockSidebarLoopBtn = createMockElement('button');
 mockSidebarLoopBtn.className = 'lf-loop-cue';
-mockSidebarLoopBtn.closest = () => ({ dataset: { index: '1' } });
+const mockParentItem = createMockElement('div');
+mockParentItem.className = 'lf-subtitle-item';
+mockParentItem.dataset = { index: '1' };
+mockSidebarLoopBtn.closest = () => mockParentItem;
+
 const mockSeLoopBtn = createMockElement('button');
 mockSeLoopBtn.className = 'lf-se-loop-btn';
 mockSeLoopBtn.dataset = { cueStart: String(sampleCues[1].start) };
+const mockCard = createMockElement('div');
+mockCard.className = 'lf-sentence-card';
+mockSeLoopBtn.closest = () => mockCard;
 
 const explorerContainer = createMockElement('div');
 explorerContainer.id = 'lf-sentence-explorer';
@@ -232,7 +241,9 @@ testEngine._syncLoopButtons();
 
 assert.ok(mockDockBtn.classList.contains('is-active'), 'Dock loop button must have is-active class');
 assert.ok(mockSidebarLoopBtn.classList.contains('is-active'), 'Sidebar cue 1 loop button must have is-active class');
+assert.ok(mockParentItem.classList.contains('is-looping'), 'Sidebar cue 1 parent item must have is-looping class');
 assert.ok(mockSeLoopBtn.classList.contains('is-active'), 'Sentence explorer cue 1 loop button must have is-active class');
+assert.ok(mockCard.classList.contains('is-looping'), 'Sentence explorer card must have is-looping class');
 
 // When looping is deactivated
 testEngine.isLooping = false;
@@ -242,7 +253,9 @@ testEngine._syncLoopButtons();
 
 assert.ok(!mockDockBtn.classList.contains('is-active'), 'Dock loop button must not have is-active class when inactive');
 assert.ok(!mockSidebarLoopBtn.classList.contains('is-active'), 'Sidebar loop button must not have is-active class when inactive');
+assert.ok(!mockParentItem.classList.contains('is-looping'), 'Sidebar cue 1 parent item must not have is-looping class when inactive');
 assert.ok(!mockSeLoopBtn.classList.contains('is-active'), 'Sentence explorer loop button must not have is-active class when inactive');
+assert.ok(!mockCard.classList.contains('is-looping'), 'Sentence explorer card must not have is-looping class when inactive');
 
 // Verify Auto-scroll contracts and instant centering
 const mockList = createMockElement('div');

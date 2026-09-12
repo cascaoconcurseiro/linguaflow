@@ -370,15 +370,9 @@ class App {
       route = 'login';
       params = {};
     }
-    // Onda 9 (auditoria de bugs): views que abrem recursos (ex.: AudioContext
-    // do Jogo) só liberavam no "fim de partida" normal — trocar de aba pela
-    // nav bar no meio de uma partida deixava o recurso vazando pra sempre.
-    // Views podem registrar limpeza via app.onLeaveView(fn); rodamos ANTES
-    // de trocar de rota, e ela só dispara uma vez.
-    if (this._viewCleanup) {
-      try { this._viewCleanup(); } catch (e) { console.warn('[App] Erro na limpeza da view anterior:', e); }
-      this._viewCleanup = null;
-    }
+    // Onda 9 (auditoria de bugs) + Resiliência: views que abrem recursos (ex.: AudioContext
+    // do Jogo, timers de debounce) liberam antes de trocar de rota.
+    this._runCleanups();
     this.navigationEpoch += 1;
     this.currentRoute = route;
     this.routeParams = params || {};
@@ -451,9 +445,26 @@ class App {
 
   // Views com recursos que precisam ser liberados ao sair (ex.: AudioContext
   // do Jogo) registram uma função aqui; navigate() a chama automaticamente
-  // antes de trocar de rota. Só uma pendente por vez (a view atual).
+  // antes de trocar de rota.
   onLeaveView(fn) {
-    this._viewCleanup = typeof fn === 'function' ? fn : null;
+    this.registerCleanup(fn);
+  }
+
+  // Registra callbacks de limpeza que serão executados na próxima navegação
+  // ou descarte de ciclo de vida da view.
+  registerCleanup(fn) {
+    if (typeof fn !== 'function') return;
+    if (!this._cleanups) this._cleanups = new Set();
+    this._cleanups.add(fn);
+  }
+
+  _runCleanups() {
+    if (this._cleanups) {
+      for (const fn of this._cleanups) {
+        try { fn(); } catch (e) { console.warn('[App] Erro na limpeza da view anterior:', e); }
+      }
+      this._cleanups.clear();
+    }
   }
 
   renderRouteView(route, container, params = {}) {
@@ -565,7 +576,7 @@ class App {
 
   createGuardedApp(context) {
     const app = this;
-    const effectMethods = new Set(['navigate', 'logout', 'showToast', 'onLeaveView', 'updateFocusStatus', 'setAuthenticated']);
+    const effectMethods = new Set(['navigate', 'logout', 'showToast', 'onLeaveView', 'registerCleanup', 'updateFocusStatus', 'setAuthenticated']);
     return new Proxy(this, {
       get(target, property) {
         // Contrato opt-in para views novas: permite cancelar fetches/trabalho

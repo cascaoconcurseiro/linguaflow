@@ -18,6 +18,10 @@ let searchDebounceTimer = null;
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
 
 export async function renderLibrary(container, app) {
+  clearTimeout(searchDebounceTimer);
+  app.onLeaveView?.(() => {
+    clearTimeout(searchDebounceTimer);
+  });
   visibleCount = 50;
   selectedWordIds.clear();
   injectStyles();
@@ -26,6 +30,7 @@ export async function renderLibrary(container, app) {
 
   try {
     const [words, cards] = await Promise.all([lfDb.getAllWords(), lfDb.getAllCards()]);
+    if (app?.renderSignal?.aborted) return;
     cardByWordId = {};
     cards.forEach(c => { cardByWordId[c.word_id] = c; });
     // Default to 'words' if category doesn't exist to avoid empty states
@@ -34,6 +39,7 @@ export async function renderLibrary(container, app) {
       category: w.category || _inferCategory(w.word)
     })).filter(w => w.category !== 'sentence');
   } catch (err) {
+    if (app?.renderSignal?.aborted) return;
     console.error("Failed to load library", err);
     container.innerHTML = renderViewState({ kind: 'error', title: 'Não foi possível abrir seu Cofre', message: 'Suas frases continuam seguras. Verifique a conexão e tente novamente.', actionLabel: 'Tentar novamente', actionId: 'btn-library-retry' });
     bindViewStateAction(container, 'btn-library-retry', () => renderLibrary(container, app));
@@ -41,6 +47,7 @@ export async function renderLibrary(container, app) {
     return;
   }
 
+  if (app?.renderSignal?.aborted) return;
   container.setAttribute('aria-busy', 'false');
   renderUI(container, app);
 }
@@ -302,10 +309,12 @@ function renderUI(container, app) {
       const rawVal = event.currentTarget.value;
       clearTimeout(searchDebounceTimer);
       searchDebounceTimer = setTimeout(() => {
+        if (app?.renderSignal?.aborted) return;
         searchQuery = rawVal.trim();
         visibleCount = 50;
         renderUI(container, app);
         requestAnimationFrame(() => {
+          if (app?.renderSignal?.aborted) return;
           const next = document.getElementById('library-search');
           next?.focus({ preventScroll: true });
           next?.setSelectionRange(rawVal.length, rawVal.length);

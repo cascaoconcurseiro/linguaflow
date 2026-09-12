@@ -120,13 +120,28 @@ function makeComboTracker(container, state = { combo: 0, best: 0 }) {
   };
 }
 
+function safeCreateAudioContext() {
+  const AudioCtx = typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext);
+  if (!AudioCtx) return null;
+  try { return new AudioCtx(); } catch { return null; }
+}
+
+function shuffleArray(arr) {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 // Tom de acerto/erro (Onda 8): antes era um bip único; agora um arpejo de
 // 2 notas subindo no acerto (mais "recompensador", perto do "ding" de apps
 // de gamificação) e uma nota curta descendo no erro. Continua só osciladores
 // Web Audio — não há asset de áudio real disponível neste ambiente.
 function playChime(audioCtx, isCorrect) {
   if (!audioCtx) return;
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
   const notes = isCorrect ? [523.25, 659.25, 783.99] : [220, 164.81];
   const noteDur = isCorrect ? 0.09 : 0.16;
   notes.forEach((freq, i) => {
@@ -171,6 +186,7 @@ async function renderMatchGame(container, app) {
   container.innerHTML = renderViewState({ kind: 'loading', title: 'Preparando associação…', message: 'Selecionando expressões do seu Cofre.' });
 
   let words = await getPracticeWords(8);
+  if (app?.renderSignal?.aborted) return;
 
   if (words.length === 0) {
     container.setAttribute('aria-busy', 'false');
@@ -188,11 +204,11 @@ async function renderMatchGame(container, app) {
     </div>`;
   const combo = makeComboTracker(container.querySelector('.game-container'));
 
-  // Limitar a 8
+  // Limitar a 8 e embaralhar com Fisher-Yates para não enviesar colunas
   words = words.slice(0, 8);
 
-  const leftItems = words.map(w => ({ id: w.id, text: w.word, side: 'left' })).sort(() => 0.5 - Math.random());
-  const rightItems = words.map(w => ({ id: w.id, text: w.translation || w.word, side: 'right' })).sort(() => 0.5 - Math.random());
+  const leftItems = shuffleArray(words.map(w => ({ id: w.id, text: w.word, side: 'left' })));
+  const rightItems = shuffleArray(words.map(w => ({ id: w.id, text: w.translation || w.word, side: 'right' })));
 
   const board = document.getElementById('game-board');
   const leftCol = document.createElement('div'); leftCol.className = 'col';
@@ -202,13 +218,8 @@ async function renderMatchGame(container, app) {
   let selectedRight = null;
   let matchesLeft = words.length;
 
-  // AudioContext precisa ser inicializado apenas após iteração do user em alguns navegadores,
-  // mas como estamos criando após a ação que montou a tela, geralmente funciona.
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  // Onda 9 (auditoria de bugs): sem isto, sair do Jogo pela nav bar no meio
-  // de uma partida deixava o AudioContext aberto pra sempre (só era fechado
-  // no fim de partida normal).
-  app.onLeaveView?.(() => audioCtx.close().catch(() => {}));
+  const audioCtx = safeCreateAudioContext();
+  app.onLeaveView?.(() => audioCtx?.close().catch(() => {}));
 
   function handleSelection(btn, item) {
     if (btn.classList.contains('hidden') || btn.classList.contains('correct')) return;
@@ -311,6 +322,7 @@ async function renderListenGame(container, app) {
   container.innerHTML = renderViewState({ kind: 'loading', title: 'Preparando prática de escuta…', message: 'Selecionando expressões com tradução.' });
 
   let words = await getPracticeWords(16);
+  if (app?.renderSignal?.aborted) return;
   words = words.filter(w => w.word && w.translation).slice(0, 8);
 
   if (words.length < 4) {
@@ -321,12 +333,9 @@ async function renderListenGame(container, app) {
   }
   container.setAttribute('aria-busy', 'false');
 
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  // Onda 9 (auditoria de bugs): sem isto, sair do Jogo pela nav bar no meio
-  // de uma partida deixava o AudioContext aberto pra sempre (só era fechado
-  // no fim de partida normal).
-  app.onLeaveView?.(() => audioCtx.close().catch(() => {}));
-  const order = words.map((_, i) => i).sort(() => 0.5 - Math.random());
+  const audioCtx = safeCreateAudioContext();
+  app.onLeaveView?.(() => audioCtx?.close().catch(() => {}));
+  const order = shuffleArray(words.map((_, i) => i));
   let step = 0;
   let correctCount = 0;
   let answering = false;
@@ -335,9 +344,9 @@ async function renderListenGame(container, app) {
 
   function buildOptions(targetIdx) {
     const pool = words.filter((w, i) => i !== targetIdx && w.translation !== words[targetIdx].translation);
-    const distractors = pool.sort(() => 0.5 - Math.random()).slice(0, 3);
+    const distractors = shuffleArray(pool).slice(0, 3);
     const options = [...distractors.map(w => w.translation), words[targetIdx].translation];
-    return options.sort(() => 0.5 - Math.random());
+    return shuffleArray(options);
   }
 
   function renderQuestion() {
@@ -390,7 +399,7 @@ async function renderListenGame(container, app) {
   }
 
   function finishListenGame() {
-    audioCtx.close().catch(() => {}); // libera o AudioContext ao terminar a partida
+    audioCtx?.close().catch(() => {}); // libera o AudioContext ao terminar a partida
     container.innerHTML = `
       <div class="game-container">
         <h2 id="listen-result" tabindex="-1">Prática concluída</h2>
@@ -419,6 +428,7 @@ async function renderBuilderGame(container, app) {
   container.innerHTML = renderViewState({ kind: 'loading', title: 'Preparando frases…', message: 'Selecionando contextos completos do seu Cofre.' });
 
   let words = await getPracticeWords(24);
+  if (app?.renderSignal?.aborted) return;
   words = words.filter(w => w.context_sentence && w.context_sentence.trim().split(/\s+/).length >= 3).slice(0, 6);
 
   if (words.length < 3) {
@@ -429,11 +439,11 @@ async function renderBuilderGame(container, app) {
   }
   container.setAttribute('aria-busy', 'false');
 
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const audioCtx = safeCreateAudioContext();
   // Onda 9 (auditoria de bugs): sem isto, sair do Jogo pela nav bar no meio
   // de uma partida deixava o AudioContext aberto pra sempre (só era fechado
   // no fim de partida normal).
-  app.onLeaveView?.(() => audioCtx.close().catch(() => {}));
+  app.onLeaveView?.(() => audioCtx?.close().catch(() => {}));
   let step = 0;
   let correctCount = 0;
   let combo = null;
@@ -509,7 +519,7 @@ async function renderBuilderGame(container, app) {
   }
 
   function finishBuilderGame() {
-    audioCtx.close().catch(() => {});
+    audioCtx?.close().catch(() => {});
     container.innerHTML = `
       <div class="game-container">
         <h2 id="builder-result" tabindex="-1">Prática concluída</h2>

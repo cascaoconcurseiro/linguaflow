@@ -583,7 +583,7 @@ export class WordPopup {
           this.popup &&
           this.popup.style.display !== 'none' &&
           !this.popup.contains(e.target) &&
-          !e.target.classList?.contains('lf-word')
+          !e.target.closest?.('.lf-word')
         ) {
           this.hide(true);
         }

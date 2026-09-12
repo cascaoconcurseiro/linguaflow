@@ -94,7 +94,7 @@
     // Hook Fetch (Padrão moderno)
     window.fetch = async function(...args) {
         const url = args[0];
-        const urlStr = typeof url === 'string' ? url : (url instanceof URL ? url.href : '');
+        const urlStr = typeof url === 'string' ? url : (url instanceof URL ? url.href : (url && typeof url.url === 'string' ? url.url : ''));
 
         // Padrões Universais: YouTube (timedtext), Netflix (nflxvideo), HBO/Max (vtt/ttml)
         const isSubtitle = urlStr.includes('timedtext') || 

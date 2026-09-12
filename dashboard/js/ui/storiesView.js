@@ -1,6 +1,6 @@
 import { db } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio } from '../core/tts.js';
-import { generateStoryWeb, aiChat, enrichCard } from '../core/ai.js';
+import { generateStoryWeb, aiChat, enrichCard, safeParseJson } from '../core/ai.js';
 import { measureStoryLevel } from '../core/readability.js';
 import { translator } from '../../../utils/translator.js';
 import { lemma } from '../../../utils/lemma.js';
@@ -697,8 +697,8 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
       [{ role: 'system', content: system }, { role: 'user', content: `História:\n"""${storyText.slice(0, 2500)}"""\nVariação: ${Date.now() % 100000}` }],
       { temperature: 0.75, max_tokens: 600 }
     );
-    const clean = content.replace(/```json/g, '').replace(/```/g, '').trim();
-    const parsed = JSON.parse(clean);
+    const parsed = safeParseJson(content);
+    if (!parsed?.questions) throw new Error('Quiz inválido');
     const questions = normalizeQuiz(parsed.questions);
     if (!questions.length) throw new Error('Quiz inválido');
     previousQuizQuestions.push(...questions.map(question => question.q));

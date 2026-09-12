@@ -25,6 +25,7 @@ let reverseEnabled = false; // cartões reversos PT→EN (setting lf_reverse_car
 let variedEnabled = true;   // exercícios variados: montar frase/ditado (lf_varied_exercises, ON por padrão)
 let audioAutoFront = true;  // lf_audio_auto_front — agora respeitado de verdade
 let audioAutoBack = true;   // lf_audio_auto_back
+let cardFlipMode = 'anki_flip'; // lf_card_flip_mode: 'anki_flip' | 'classic_3step'
 let ygWidget = null;
 let ygQueuedWord = null;
 let youglishLoadTimer = null;
@@ -117,7 +118,7 @@ export async function renderStudy(container, app, params = {}) {
   gradeBusy = false;
   try {
     const [settingsMap, cefrNow, srs] = await Promise.all([
-      lfDb.getSettings(['lf_reverse_cards', 'lf_varied_exercises', 'lf_audio_auto_front', 'lf_audio_auto_back']).catch(() => ({})),
+      lfDb.getSettings(['lf_reverse_cards', 'lf_varied_exercises', 'lf_audio_auto_front', 'lf_audio_auto_back', 'lf_card_flip_mode']).catch(() => ({})),
       getCefrLevel().catch(() => null),
       lfDb.getSRSSettings(),
     ]);
@@ -125,11 +126,13 @@ export async function renderStudy(container, app, params = {}) {
     const variedRaw = settingsMap?.lf_varied_exercises ?? null;
     const audioFrontRaw = settingsMap?.lf_audio_auto_front ?? null;
     const audioBackRaw = settingsMap?.lf_audio_auto_back ?? null;
+    const flipModeRaw = settingsMap?.lf_card_flip_mode ?? localStorage.getItem('lf_card_flip_mode') ?? 'anki_flip';
     reverseEnabled = reverseRaw === true || reverseRaw === 'true';
     studentCefr = cefrNow || null;
     variedEnabled = variedRaw === null || variedRaw === true || variedRaw === 'true';
     audioAutoFront = audioFrontRaw === null || audioFrontRaw === true || audioFrontRaw === 'true';
     audioAutoBack = audioBackRaw === null || audioBackRaw === true || audioBackRaw === 'true';
+    cardFlipMode = flipModeRaw === 'classic_3step' ? 'classic_3step' : 'anki_flip';
 
     if (weakOnly) {
       // Reforço graduado respeita o relógio do SRS. Mostrar a resposta de um
@@ -241,8 +244,18 @@ export async function renderStudy(container, app, params = {}) {
 
         <div class="sentence-container">
           <div class="sentence-text" id="pump-sentence">Carregando...</div>
+          <div id="pump-context-hint" class="study-context-hint hidden" style="margin-top: 14px; font-size: 19px; line-height: 1.5; color: var(--color-text); background: var(--color-surface-2, rgba(255,255,255,0.05)); border: 1px solid var(--color-border); border-radius: 10px; padding: 12px 16px; text-align: left;"></div>
           <div id="pump-phonetics" style="font-size: 18px; color: var(--color-secondary); font-style: italic; margin-top: 12px;" class="hidden"></div>
           <div id="pump-translation" style="font-size: 20px; font-weight: 700; color: var(--color-text); margin-top: 12px; padding-top: 12px; border-top: 2px dashed var(--color-border);" class="hidden"></div>
+          <div id="pump-word-answer" class="study-word-answer-pill hidden" style="margin-top: 14px; padding: 10px 14px; background: var(--color-surface-2, rgba(255,255,255,0.04)); border: 1px solid var(--color-border); border-radius: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span id="pump-word-val" style="font-weight: 700; font-size: 17px; color: var(--color-primary, #6366f1);"></span>
+              <span style="opacity: 0.6;" aria-hidden="true">→</span>
+              <span id="pump-word-trans" style="font-weight: 600; font-size: 16px;"></span>
+              <span id="pump-word-phon" style="font-size: 14px; opacity: 0.75; font-style: italic;"></span>
+            </div>
+            <button type="button" id="pump-word-audio-btn" class="btn-iso-audio" style="background: none; border: 1px solid var(--color-border); border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 13px;" aria-label="Ouvir palavra isolada">🔊 Palavra</button>
+          </div>
           <details id="iso-context-details" class="context-explanation-card hidden">
             <summary id="iso-context-summary">
               <span><span aria-hidden="true">?</span> Por que significa isso nesta frase?</span>
@@ -251,7 +264,10 @@ export async function renderStudy(container, app, params = {}) {
             <div id="iso-context-explanation" role="region" aria-labelledby="iso-context-summary"></div>
           </details>
 
-          <button id="reveal-btn" class="btn btn-primary reveal-btn">Revelar (Espaço)</button>
+          <div class="study-front-actions" style="display: flex; gap: 10px; justify-content: center; align-items: center; margin-top: 16px; flex-wrap: wrap;">
+            <button id="hint-btn" type="button" class="btn btn-secondary hidden" style="font-size: 14px; padding: 8px 14px; border-radius: 8px;" title="Ver na frase antes de virar (Atalho: H)">💡 Ver na frase (H)</button>
+            <button id="reveal-btn" class="btn btn-primary reveal-btn">Revelar (Espaço)</button>
+          </div>
         </div>
 
         <!-- Anki Grading Buttons -->
@@ -473,6 +489,14 @@ function handleKeydown(e) {
     e.preventDefault();
     playCurrentAudio();
     return;
+  }
+  if (e.code === 'KeyH' && !e.ctrlKey && !e.metaKey && !e.altKey && currentCard) {
+    const hintBtn = document.getElementById('hint-btn');
+    if (hintBtn && !hintBtn.classList.contains('hidden') && !hintBtn.disabled) {
+      e.preventDefault();
+      hintBtn.click();
+      return;
+    }
   }
 
   if (e.code === 'Space') {
@@ -712,6 +736,19 @@ async function loadNextCard(app) {
   revealBtn.disabled = true;
   revealBtn.textContent = 'Revelar (Espaço)';
 
+  const hintBtn = document.getElementById('hint-btn');
+  if (hintBtn) {
+    hintBtn.classList.add('hidden');
+    hintBtn.disabled = false;
+    hintBtn.textContent = '💡 Ver na frase (H)';
+  }
+  const hintEl = document.getElementById('pump-context-hint');
+  if (hintEl) {
+    hintEl.classList.add('hidden');
+    hintEl.innerHTML = '';
+  }
+  document.getElementById('pump-word-answer')?.classList.add('hidden');
+
   document.getElementById('grading-area').classList.add('hidden');
   document.querySelectorAll('.grade-btn').forEach(btn => {
     btn.classList.remove('hidden');
@@ -898,10 +935,40 @@ function renderFront(card, word, context) {
   card._classicStage = 'word';
   sentenceEl.innerHTML = `<div class="study-word-only">${escapeHtml(word)}</div>`;
 
+  const hintBtn = document.getElementById('hint-btn');
+  const hasContextHint = Boolean(context && context.trim().toLowerCase() !== word.trim().toLowerCase());
+  if (hintBtn && hasContextHint) {
+    hintBtn.classList.remove('hidden');
+    hintBtn.disabled = false;
+    hintBtn.textContent = '💡 Ver na frase (H)';
+    hintBtn.onclick = () => {
+      showContextHint(card, context);
+    };
+  } else if (hintBtn) {
+    hintBtn.classList.add('hidden');
+  }
+
   const revealBtn = document.getElementById('reveal-btn');
   revealBtn.disabled = false;
-  revealBtn.textContent = 'Ver na frase (Espaço)';
+  if (cardFlipMode === 'classic_3step') {
+    revealBtn.textContent = 'Ver na frase (Espaço)';
+  } else {
+    revealBtn.textContent = 'Virar card (Espaço)';
+  }
+}
 
+function showContextHint(card, context) {
+  const hintEl = document.getElementById('pump-context-hint');
+  if (!hintEl) return;
+  hintEl.innerHTML = card._clozeHtml || escapeHtml(context);
+  hintEl.classList.remove('hidden');
+  card._classicStage = 'context';
+  if (presentationEvidence) presentationEvidence.helpCount = (presentationEvidence.helpCount || 0) + 1;
+  const hintBtn = document.getElementById('hint-btn');
+  if (hintBtn) {
+    hintBtn.textContent = '💡 Contexto visível';
+    hintBtn.disabled = true;
+  }
 }
 
 // ── Exercícios ativos (montar frase / ditado) ────────────────────────────────
@@ -1157,9 +1224,9 @@ async function revealCard() {
   const context = card._ctx || word;
   let chunks = card._chunks || [];
 
-  // A primeira ação não revela a resposta: troca da palavra isolada para o
-  // contexto. A segunda ação revela tradução, fonética e avaliação FSRS.
-  if (card._mode === 'classic' && !card._reverse && card._classicStage === 'word') {
+  // Modo clássico em 3 telas (opcional/legado): a primeira ação troca da
+  // palavra isolada para o contexto.
+  if (cardFlipMode === 'classic_3step' && card._mode === 'classic' && !card._reverse && card._classicStage === 'word') {
     card._classicStage = 'context';
     const sentenceEl = document.getElementById('pump-sentence');
     sentenceEl.innerHTML = card._clozeHtml || escapeHtml(context);
@@ -1171,20 +1238,23 @@ async function revealCard() {
     return;
   }
 
-  // 1. Revela a palavra na frase
-  if (card._reverse) {
-    // Reverso: a resposta é a frase em inglês inteira — mostra e toca o áudio agora
-    const sentenceEl = document.getElementById('pump-sentence');
-    try {
-      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      sentenceEl.innerHTML = context.toLowerCase() !== word.toLowerCase()
-        ? renderHighlightedText(context, escaped)
-        : `<span class="cloze-revealed">${escapeHtml(word)}</span>`;
-    } catch {
-      sentenceEl.innerHTML = `<span class="cloze-revealed">${escapeHtml(word)}</span>`;
-    }
-    if (audioAutoBack) playCurrentAudio(); // lf_audio_auto_back: config real
+  // No modo Anki Frente/Verso direto, a virada revela o verso completo
+  card._classicStage = 'context';
+  document.getElementById('hint-btn')?.classList.add('hidden');
+  document.getElementById('pump-context-hint')?.classList.add('hidden');
+
+  // 1. Revela a frase completa no verso com a palavra em destaque
+  const sentenceEl = document.getElementById('pump-sentence');
+  try {
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    sentenceEl.innerHTML = (context && context.toLowerCase() !== word.toLowerCase())
+      ? renderHighlightedText(context, escaped)
+      : `<span class="cloze-revealed">${escapeHtml(word)}</span>`;
+  } catch {
+    sentenceEl.innerHTML = `<span class="cloze-revealed">${escapeHtml(word)}</span>`;
   }
+  if (audioAutoBack) playCurrentAudio(); // lf_audio_auto_back: config real
+
   document.querySelectorAll('.cloze-blur').forEach(el => {
     el.classList.remove('cloze-blur');
     el.classList.add('cloze-revealed');
@@ -1361,6 +1431,29 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
   if (sentencePt || fallbackPt) {
     transEl.textContent = sentencePt || fallbackPt;
     transEl.classList.remove('hidden');
+  }
+
+  // Pílula da palavra isolada com tradução, fonética e áudio no verso do card
+  const wordAnswerEl = document.getElementById('pump-word-answer');
+  if (wordAnswerEl && word) {
+    const activeWordTrans = (wordEntry && wordEntry.pt) || wordData.translation || card.translation || '';
+    const activeWordPhon = (wordEntry && wordEntry.phon) || wordData.phonetic || '';
+    const wordValEl = document.getElementById('pump-word-val');
+    const wordTransEl = document.getElementById('pump-word-trans');
+    const wordPhonEl = document.getElementById('pump-word-phon');
+    if (wordValEl) wordValEl.textContent = word;
+    if (wordTransEl) wordTransEl.textContent = activeWordTrans ? `${activeWordTrans}` : '';
+    if (wordPhonEl) wordPhonEl.textContent = activeWordPhon ? `🗣️ ${activeWordPhon}` : '';
+    wordAnswerEl.classList.remove('hidden');
+
+    const wordAudioBtn = document.getElementById('pump-word-audio-btn');
+    if (wordAudioBtn) {
+      wordAudioBtn.onclick = (e) => {
+        e.stopPropagation();
+        const lang = localStorage.getItem('lf_tts_lang') || 'en-US';
+        playNaturalAudio(word, { lang });
+      };
+    }
   }
 
   const isoBox = document.getElementById('isolated-word-box');

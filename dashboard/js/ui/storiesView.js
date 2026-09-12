@@ -170,7 +170,35 @@ async function translateText(text) {
     }
   } catch {}
 
+  // 5. Fallback via IA para frases ou quando APIs externas forem bloqueadas
+  if (clean.includes(' ') || clean.length > 20) {
+    try {
+      const aiFallback = await translateSentenceWithAI(clean);
+      if (aiFallback) {
+        vaultTranslations.set(cleanLower, aiFallback);
+        return aiFallback;
+      }
+    } catch {}
+  }
+
   return null;
+}
+
+async function translateSentenceWithAI(sentence) {
+  if (!sentence || typeof sentence !== 'string') return '';
+  const clean = sentence.trim();
+  if (!clean) return '';
+  try {
+    const system = 'Você é um tradutor especialista de inglês para português brasileiro natural. Traduza a frase a seguir de forma direta e concisa, sem aspas, sem explicações e sem introduções.';
+    const res = await aiChat(
+      [{ role: 'system', content: system }, { role: 'user', content: clean }],
+      { temperature: 0.1, max_tokens: 300 }
+    );
+    return res ? res.trim().replace(/^["“']|["”']$/g, '') : '';
+  } catch (err) {
+    console.warn('[Stories] translateSentenceWithAI falhou:', err);
+    return '';
+  }
 }
 
 export function renderStories(container, app) {
@@ -1356,7 +1384,18 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     }, 60);
   }
 
-  function findSentenceForWord(rawWord) {
+  function findSentenceForWord(rawWord, spanEl = null) {
+    if (spanEl) {
+      const paragraph = spanEl.closest?.('.story-paragraph');
+      if (paragraph) {
+        const pText = paragraph.textContent || '';
+        const sentences = pText.match(/[^.!?]+[.!?]+["'”’]?/g) || [pText];
+        for (const s of sentences) {
+          if (s.toLowerCase().includes(rawWord.toLowerCase())) return s.trim();
+        }
+        if (pText.trim()) return pText.trim();
+      }
+    }
     if (!rawWord) return '';
     for (const sent of currentStorySentences) {
       if (sent.toLowerCase().includes(rawWord.toLowerCase())) return sent.trim();
@@ -1395,7 +1434,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     floatingToolbar.style.display = 'none';
 
     currentSelectedWord = cleanWord;
-    currentSelectedSentence = findSentenceForWord(rawWord);
+    currentSelectedSentence = findSentenceForWord(rawWord, spanEl);
     
     modalReturnFocus = spanEl;
     modal.style.display = 'flex';
@@ -1452,9 +1491,16 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
       });
     }
 
+    let cachedContextualSentence = '';
+    let contextualPromise = null;
+
     if (currentSelectedSentence) {
-      enrichCard(cleanWord, currentSelectedSentence).then((contextual) => {
-        if (requestId !== modalRequestId || modal.style.display === 'none') return;
+      contextualPromise = enrichCard(cleanWord, currentSelectedSentence).then((contextual) => {
+        if (contextual?.sentence_pt) {
+          cachedContextualSentence = contextual.sentence_pt.trim();
+          vaultTranslations.set(`sent_${currentSelectedSentence.trim().toLowerCase()}`, cachedContextualSentence);
+        }
+        if (requestId !== modalRequestId || modal.style.display === 'none') return contextual;
         if (contextual?.word_pt) {
           showModalContent(contextual.word_pt);
         }
@@ -1462,6 +1508,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
           modalContextText.textContent = contextual.explanation;
           modalContextBox.style.display = 'block';
         }
+        return contextual;
       }).catch(() => null);
     }
 
@@ -1481,7 +1528,23 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
           reveal.addEventListener('click', async () => {
             reveal.disabled = true;
             reveal.textContent = 'Traduzindo frase…';
-            const sentenceTranslation = await translateText(currentSelectedSentence);
+
+            let sentenceTranslation = cachedContextualSentence;
+            if (!sentenceTranslation && contextualPromise) {
+              try {
+                const res = await contextualPromise;
+                if (res?.sentence_pt) sentenceTranslation = res.sentence_pt.trim();
+              } catch {}
+            }
+
+            if (!sentenceTranslation) {
+              sentenceTranslation = await translateText(currentSelectedSentence);
+            }
+
+            if (!sentenceTranslation) {
+              sentenceTranslation = await translateSentenceWithAI(currentSelectedSentence);
+            }
+
             if (requestId !== modalRequestId || modal.style.display === 'none') return;
             const context = document.createElement('div');
             context.style.cssText = 'margin-top:6px; padding:10px 12px; background:var(--color-bg-alt); border-radius:8px; font-size:13px; color:var(--color-text); line-height:1.5; border-left:3px solid var(--color-secondary); text-align:left;';

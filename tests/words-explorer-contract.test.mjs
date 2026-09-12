@@ -1,8 +1,22 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { slangsDB } from '../utils/slangs-db.js';
-import { expressionsDB } from '../utils/expressions-db.js';
+import { expressionsDB, matchExpressionCandidate } from '../utils/expressions-db.js';
 import { SubtitleEngine } from '../content/subtitle-engine.js';
+
+// Verify inflected phrasal verb matcher
+const gaveUpMatch = matchExpressionCandidate(['gave', 'up']);
+assert.ok(gaveUpMatch, 'matchExpressionCandidate must match "gave up"');
+assert.equal(gaveUpMatch.canonical, 'give up');
+assert.equal(gaveUpMatch.matched, 'gave up');
+
+const gotOverMatch = matchExpressionCandidate(['got', 'over']);
+assert.ok(gotOverMatch, 'matchExpressionCandidate must match "got over"');
+assert.equal(gotOverMatch.canonical, 'get over');
+
+const separableMatch = matchExpressionCandidate(['give', 'it', 'up']);
+assert.ok(separableMatch, 'matchExpressionCandidate must match separable "give it up"');
+assert.equal(separableMatch.canonical, 'give up');
 
 // 1. Verify Slangs DB structure and sample keys
 assert.ok(slangsDB instanceof Set, 'slangsDB must be a Set');

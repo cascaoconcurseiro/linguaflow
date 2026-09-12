@@ -1,4 +1,5 @@
 import { expressionsDB } from '../utils/expressions-db.js';
+import { matchExpressionCandidate } from '../utils/expressions-db.js';
 import { slangsDB } from '../utils/slangs-db.js';
 import { videoUtils } from '../utils/video-utils.js';
 
@@ -4050,6 +4051,7 @@ export class SubtitleEngine {
       // o maior bloco conhecido. Assim clicar em "put" dentro de "put up with"
       // abre "put up with", não "put".
       let longestMatch = null;
+      let longestCanonical = null;
       let matchEndTokenIndex = i;
       let seenWords = [];
 
@@ -4059,17 +4061,25 @@ export class SubtitleEngine {
 
         if (seenWords.length < 2) continue;
 
-        const candidate = seenWords.join(' ');
-        if (expressionsDB.has(candidate)) {
-          longestMatch = candidate;
+        const exprMatch = matchExpressionCandidate(seenWords);
+        if (exprMatch) {
+          longestMatch = exprMatch.matched;
+          longestCanonical = exprMatch.canonical;
           matchEndTokenIndex = j;
+        } else {
+          const candidate = seenWords.join(' ');
+          if (expressionsDB.has(candidate)) {
+            longestMatch = candidate;
+            longestCanonical = candidate;
+            matchEndTokenIndex = j;
+          }
         }
       }
 
       if (longestMatch) {
         const matchText = tokens.slice(i, matchEndTokenIndex + 1).join('');
         const span = this._createWordSpan(matchText, true, disableHoverPause);
-        span.dataset.expression = longestMatch;
+        span.dataset.expression = longestCanonical || longestMatch;
         frag.appendChild(span);
         i = matchEndTokenIndex;
       } else {
@@ -4554,10 +4564,40 @@ export class SubtitleEngine {
     const cuesLower = cues.map((c) => ({ cue: c, textLower: (c.text || '').toLowerCase() }));
     const allTextJoined = ' ' + cuesLower.map((c) => c.textLower).join(' \n ') + ' ';
 
-    // 2. Detecção de Phrasal Verbs
+    // 2. Detecção de Phrasal Verbs (com suporte a formas flexionadas / conjugadas)
     const phrasalVerbsMap = new Map();
+
+    // 2.1 Escaneamento inteligente por janela deslizante nas legendas
+    cuesLower.forEach((item) => {
+      const words = (item.textLower || '')
+        .split(/[^a-z0-9']+/)
+        .map((w) => w.replace(/^'+|'+$/g, ''))
+        .filter(Boolean);
+      const cueSeenCanonicals = new Set();
+
+      for (let wIdx = 0; wIdx < words.length; wIdx++) {
+        for (let len = 2; len <= 4 && wIdx + len <= words.length; len++) {
+          const slice = words.slice(wIdx, wIdx + len);
+          const match = matchExpressionCandidate(slice);
+          if (match && match.canonical) {
+            if (!cueSeenCanonicals.has(match.canonical)) {
+              cueSeenCanonicals.add(match.canonical);
+              if (!phrasalVerbsMap.has(match.canonical)) {
+                phrasalVerbsMap.set(match.canonical, { term: match.canonical, count: 0, cues: [] });
+              }
+              const entry = phrasalVerbsMap.get(match.canonical);
+              entry.count += 1;
+              entry.cues.push(item.cue);
+            }
+          }
+        }
+      }
+    });
+
+    // 2.2 Fallback para expressões literais do expressionsDB
     expressionsDB.forEach((expr) => {
       if (!allTextJoined.includes(expr)) return;
+      if (phrasalVerbsMap.has(expr)) return;
       const escaped = expr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
       const regex = new RegExp('\\b' + escaped + '\\b', 'i');
       const matching = [];

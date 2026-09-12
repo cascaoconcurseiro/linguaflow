@@ -11,8 +11,10 @@ const popupSource = readFileSync(new URL('../content/word-popup.js', import.meta
 const dictMethod = popupSource.slice(popupSource.indexOf('  _dict(w) {'), popupSource.indexOf('  _convertIPAtoPT', popupSource.indexOf('  _dict(w) {')));
 assert.match(method, /fetchWithTimeout = async \(url, ms = 2000\)/,
   'cada provedor deve ter timeout finito compatível com o orçamento total');
-assert.match(dictMethod, /}, 7000\);/,
-  'o popup deve aguardar os três provedores antes de encerrar o dicionário');
+assert.match(dictMethod, /}, 3000\);/,
+  'o popup deve aguardar no máximo 3s — tempo suficiente para o service worker responder sem travar o usuário');
+assert.match(method, /isMultiWord/,
+  'fetchDictionary deve detectar phrasal verbs e pular o Tier 1 (DictionaryAPI não suporta multi-word)');
 
 const context = vm.createContext({
   encodeURIComponent,

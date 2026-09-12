@@ -1639,7 +1639,7 @@ export class WordPopup {
           settled = true;
           res({});
         }
-      }, 7000);
+      }, 3000);
       try {
         chrome.runtime.sendMessage({ action: 'dictionary', word: w }, (r) => {
           if (settled) return;

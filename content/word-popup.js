@@ -179,16 +179,14 @@ export class WordPopup {
       : '../utils/';
     this._phrasalPromise = (async () => {
       try {
-        const [mPhrasal, mExpr, mSlang] = await Promise.all([
-          import(BASE + 'phrasal-verbs.js').catch(() => null),
-          import(BASE + 'expressions-db.js').catch(() => null),
-          import(BASE + 'slangs-db.js').catch(() => null),
-        ]);
-        this._phrasalVerbsDB = mPhrasal?.phrasalVerbsDB || null;
-        this._expressionsDB = mExpr?.expressionsDB || null;
-        this._matchExpressionCandidate = mExpr?.matchExpressionCandidate || null;
-        this._getBaseVerbCandidates = mExpr?.getBaseVerbCandidates || null;
-        this._slangsDB = mSlang?.slangsDB || null;
+        const { phrasalVerbsDB } = await import(BASE + 'phrasal-verbs.js');
+        const { expressionsDB, matchExpressionCandidate, getBaseVerbCandidates } = await import(BASE + 'expressions-db.js');
+        const { slangsDB } = await import(BASE + 'slangs-db.js');
+        this._phrasalVerbsDB = phrasalVerbsDB || null;
+        this._expressionsDB = expressionsDB || null;
+        this._matchExpressionCandidate = matchExpressionCandidate || null;
+        this._getBaseVerbCandidates = getBaseVerbCandidates || null;
+        this._slangsDB = slangsDB || null;
         return this._phrasalVerbsDB;
       } catch {
         this._phrasalVerbsDB = null;

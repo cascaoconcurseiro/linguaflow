@@ -408,23 +408,44 @@ class Database {
     if (wordData.level !== undefined) payload.level = wordData.level;
     if (wordData.snapshot !== undefined) payload.snapshot = wordData.snapshot;
     
-    const res = await this._fetch('words?on_conflict=user_id,word,lang', {
-      method: 'POST',
-      headers: { 'Prefer': 'resolution=merge-duplicates,return=representation' },
-      body: payload
-    });
+    let savedWord = null;
+    let isNewCard = false;
 
-    if (!res || !res.length) return { ok: false };
-    const savedWord = res[0];
-
-    // isNew = a palavra ainda não tinha card ANTES deste save. A versão
-    // anterior testava `!card` depois de criar o card — sempre false (§3.4).
-    const existingCard = await this.getCardByWordId(savedWord.id);
-    if (!existingCard) {
-      await this._fetch('rpc/create_card_for_word', {
+    // Via atômica prioritária: save_word_with_card cria palavra e card juntos na mesma transação
+    try {
+      const atomicResult = await this._fetch('rpc/save_word_with_card', {
         method: 'POST',
-        body: { p_word_id: savedWord.id }
+        body: { p_word: payload }
       });
+      if (atomicResult?.ok && atomicResult.word) {
+        savedWord = atomicResult.word;
+        isNewCard = Boolean(atomicResult.is_new_card);
+      }
+    } catch (e) {
+      // Fallback para rollout resiliente caso RPC falhe
+      if (e?.status !== 404 && e?.code !== 'PGRST202') throw e;
+    }
+
+    if (!savedWord) {
+      const res = await this._fetch('words?on_conflict=user_id,word,lang', {
+        method: 'POST',
+        headers: { 'Prefer': 'resolution=merge-duplicates,return=representation' },
+        body: payload
+      });
+
+      if (!res || !res.length) return { ok: false };
+      savedWord = res[0];
+
+      const existingCard = await this.getCardByWordId(savedWord.id);
+      if (!existingCard) {
+        await this._fetch('rpc/create_card_for_word', {
+          method: 'POST',
+          body: { p_word_id: savedWord.id }
+        });
+        isNewCard = true;
+      } else {
+        isNewCard = false;
+      }
     }
 
     // A7 do backlog: TETO DO COFRE. Limite de novos/dia controla a
@@ -433,7 +454,7 @@ class Database {
     // lf:espera) e não gera revisão até o aluno abrir vaga aposentando uma
     // dominada — salvar vira escolha, não reflexo. lf_vault_cap=0 desliga.
     let waitingForSlot = false;
-    if (!existingCard) {
+    if (isNewCard) {
       try {
         const capRaw = await this.getSetting('lf_vault_cap');
         const cap = capRaw === null || capRaw === undefined || capRaw === ''
@@ -456,7 +477,7 @@ class Database {
       } catch { /* o teto nunca pode bloquear o save */ }
     }
 
-    return { ok: true, id: savedWord.id, isNew: !existingCard, waitingForSlot };
+    return { ok: true, id: savedWord.id, isNew: isNewCard, waitingForSlot };
   }
 
   async getWord(word, lang = 'en') {
@@ -1787,6 +1808,83 @@ class Database {
       }
     });
     return [...tagSet].sort();
+  }
+
+  // ── MÉTODOS DE AUDITORIA E HARDENING ─────────────────────────────────────
+
+  // Resumo analítico ultrarrápido calculado no Postgres (<1 KB)
+  async getDashboardSummary() {
+    if (this.isProxyMode) return this._proxy('getDashboardSummary', []);
+    return await this._fetch('rpc/get_dashboard_summary', { method: 'POST', body: {} });
+  }
+
+  // Sessões de vídeo / Histórico de imersão
+  async saveWatchSession(sessionData) {
+    if (this.isProxyMode) return this._proxy('saveWatchSession', [sessionData]);
+    const payload = {
+      platform: sessionData.platform || 'youtube',
+      video_url: String(sessionData.video_url || ''),
+      video_title: sessionData.video_title ? String(sessionData.video_title).slice(0, 300) : null,
+      duration_seconds: Math.max(0, Math.round(Number(sessionData.duration_seconds || 0))),
+      watched_at: sessionData.watched_at || new Date().toISOString(),
+    };
+    if (!payload.video_url) return { ok: false };
+    const res = await this._fetch('media_watch_sessions', {
+      method: 'POST',
+      headers: { 'Prefer': 'return=representation' },
+      body: payload,
+    });
+    return { ok: !!res?.[0], id: res?.[0]?.id };
+  }
+
+  async getWatchSessions(limit = 50) {
+    if (this.isProxyMode) return this._proxy('getWatchSessions', [limit]);
+    return (await this._fetch(`media_watch_sessions?select=*&order=watched_at.desc&limit=${limit}`)) || [];
+  }
+
+  // Progresso de leitura do Web Reader
+  async updateReaderProgress(textId, { lastReadPosition = 0, readingPercentage = 0, isCompleted = false } = {}) {
+    if (this.isProxyMode) return this._proxy('updateReaderProgress', [textId, { lastReadPosition, readingPercentage, isCompleted }]);
+    const body = {
+      last_read_position: Math.max(0, Math.floor(Number(lastReadPosition) || 0)),
+      reading_percentage: Math.min(100, Math.max(0, Number(readingPercentage) || 0)),
+      is_completed: Boolean(isCompleted),
+      updated_at: new Date().toISOString(),
+    };
+    await this._fetch(`reader_texts?id=eq.${encodeURIComponent(textId)}`, {
+      method: 'PATCH',
+      headers: { 'Prefer': 'return=minimal' },
+      body,
+    });
+    return { ok: true };
+  }
+
+  // Arquivamento nativo de histórias
+  async updateStoryArchive(storyId, archived = true) {
+    if (this.isProxyMode) return this._proxy('updateStoryArchive', [storyId, archived]);
+    await this._fetch(`stories?id=eq.${encodeURIComponent(storyId)}`, {
+      method: 'PATCH',
+      headers: { 'Prefer': 'return=minimal' },
+      body: { archived: Boolean(archived), updated_at: new Date().toISOString() },
+    });
+    return { ok: true };
+  }
+
+  // Conquistas normalizadas no banco
+  async saveAchievement(achievementId) {
+    if (this.isProxyMode) return this._proxy('saveAchievement', [achievementId]);
+    const res = await this._fetch('user_achievements?on_conflict=user_id,achievement_id', {
+      method: 'POST',
+      headers: { 'Prefer': 'resolution=merge-duplicates,return=representation' },
+      body: { achievement_id: String(achievementId) },
+    });
+    return !!res;
+  }
+
+  async getUserAchievements() {
+    if (this.isProxyMode) return this._proxy('getUserAchievements', []);
+    const rows = await this._fetch('user_achievements?select=achievement_id,unlocked_at');
+    return (rows || []).map(r => r.achievement_id);
   }
 }
 

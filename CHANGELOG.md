@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.0.46] - 2026-09-12
+
+### Corrigido
+- **Dicionário e Phrasal Verbs**: Termos compostos (ex.: "face off", "give up") não travam mais em `(Carregando dicionário...)`. Detecção prévia de termos com espaço pula a consulta inútil à DictionaryAPI e exibe a tradução contextual e análise em 3s em vez de travar por 7s.
+- **Auditoria de Banco e Telemetria**: Adicionada migração de hardening relacional e tabela `db_audit_telemetry`. Métodos de auditoria adicionados a `db.js`.
+- **Dashboard e Visualização**: Correções pontuais de rendering na visualização de cards, modais e gestão de filas de revisão.
+
+## [3.0.45] - 2026-09-11
+
+### Adicionado
+- **Reset de Card**: Funcionalidade para resetar card individual para o estado `new` mantendo integridade dos dados históricos de revisão.
+
+### Corrigido
+- **Auto-scroll de Legendas**: Corrigido scroll automático da lista lateral de legendas durante a reprodução no player.
+
 ## [3.0.44] - 2026-09-11
 
 ### Corrigido

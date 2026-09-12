@@ -7,7 +7,7 @@ memória de longo prazo e uso comunicativo verificável. O produto preserva o
 contexto da captura, agenda recuperação com FSRS e mantém avaliação
 comunicativa separada de atividade, competição e memória.
 
-Estado vigente: [`docs/ESTADO_ATUAL_2026-07-29.md`](docs/ESTADO_ATUAL_2026-07-29.md).
+Estado vigente: [`docs/ESTADO_ATUAL_2026-09-12.md`](docs/ESTADO_ATUAL_2026-09-12.md).
 
 ## Stack
 
@@ -46,8 +46,8 @@ Estado vigente: [`docs/ESTADO_ATUAL_2026-07-29.md`](docs/ESTADO_ATUAL_2026-07-29
 
 ## Decisões de arquitetura
 
-| Data | Decisão | Motivo |
-|---|---|---|
+| 2026-09-12 | Termos compostos e phrasal verbs ignoram chamadas à DictionaryAPI simples, delegando direto para a tradução e explicação contextual com timeout reduzido de 3s. | APIs de dicionário convencionais não possuem rotas simples para expressões de múltiplas palavras e causavam travamento indefinido na interface. |
+| 2026-09-12 | Migração de hardening relacional adiciona tabela `db_audit_telemetry` e validação estrita de integridade via métodos em `db.js`. | Monitoramento preventivo de anomalias sem overhead de escrita nas operações normais de estudo. |
 | 2026-09-09 | Requisições de tradução iniciadas por content scripts passam pelo service worker; páginas da extensão, service worker e PWA usam o transporte direto quando permitido. | `host_permissions` remove CORS no contexto da extensão, mas não concede essa exceção ao origin da página hospedeira. |
 | 2026-09-09 | Ao abrir um vídeo, a extensão busca a trilha completa disponível e antecipa a tradução de todas as cues da barra lateral em uma fila limitada, entregando resultados progressivamente. | A lista lateral deve estar disponível desde o começo do vídeo; limitar por viewport contradiz essa experiência, enquanto limitar concorrência protege rede e provedores. |
 | 2026-09-09 | Efeitos externos de Push e e-mail exigem claim atômico com lease no Postgres; provedores com suporte recebem chave de idempotência estável. Reutilizar um evento adaptativo com payload diferente é conflito. | Impede execuções concorrentes comuns de duplicarem notificações e evita que retries alterem silenciosamente o significado de um evento já aceito. |
@@ -86,7 +86,7 @@ Estado vigente: [`docs/ESTADO_ATUAL_2026-07-29.md`](docs/ESTADO_ATUAL_2026-07-29
 
 ## Gates atuais
 
-- build `3.0.43` autenticado no navegador;
+- build `3.0.46` autenticado no navegador;
 - `fluency_skill_profiles` HTTP 200 sem `42703`;
 - Check de comunicação sem captura de voz;
 - voz natural real na escuta;

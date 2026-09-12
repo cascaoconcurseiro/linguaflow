@@ -2446,6 +2446,7 @@ export class SubtitleEngine {
     let _scrollTimer = null;
 
     const markUserScroll = () => {
+      if (list._isProgrammaticScroll) return;
       list._userScrolling = true;
       clearTimeout(_scrollTimer);
       _scrollTimer = setTimeout(() => {
@@ -2453,16 +2454,32 @@ export class SubtitleEngine {
       }, 3500);
     };
 
+    // Detectar rolagem manual genuína do usuário sem falsos positivos causados por layout ou scrollTo
     list.addEventListener('wheel', markUserScroll, { passive: true });
     list.addEventListener('touchmove', markUserScroll, { passive: true });
-    list.addEventListener(
-      'scroll',
-      () => {
-        if (list._isProgrammaticScroll) return;
+    let isDraggingScrollbar = false;
+    list.addEventListener('pointerdown', (e) => {
+      if (e.offsetX >= list.clientWidth) {
+        isDraggingScrollbar = true;
         markUserScroll();
-      },
-      { passive: true },
-    );
+      }
+    }, { passive: true });
+    window.addEventListener('pointerup', () => {
+      if (isDraggingScrollbar) {
+        isDraggingScrollbar = false;
+        markUserScroll();
+      }
+    }, { passive: true });
+    window.addEventListener('pointermove', () => {
+      if (isDraggingScrollbar) {
+        markUserScroll();
+      }
+    }, { passive: true });
+    list.addEventListener('keydown', (e) => {
+      if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', 'Space'].includes(e.code)) {
+        markUserScroll();
+      }
+    }, { passive: true });
 
     this._rebuildSubtitleList(list);
 
@@ -2507,7 +2524,8 @@ export class SubtitleEngine {
         tabWords.style.color = '#64748B';
         tabSubtitles.classList.add('active');
         tabWords.classList.remove('active');
-        this._updateSubtitlePanelHighlight();
+        list._userScrolling = false;
+        this._updateSubtitlePanelHighlight(true);
       } else {
         subtitlePane.style.display = 'none';
         wordsPane.style.display = 'flex';
@@ -2539,7 +2557,7 @@ export class SubtitleEngine {
       autoScrollToggle.onchange = () => {
         if (autoScrollToggle.checked) {
           list._userScrolling = false;
-          this._updateSubtitlePanelHighlight();
+          this._updateSubtitlePanelHighlight(true);
         }
       };
     }
@@ -2552,11 +2570,16 @@ export class SubtitleEngine {
       list._userScrolling = false;
       const cb = document.getElementById('lf-autoscroll-panel');
       if (cb) cb.checked = true;
-      this._updateSubtitlePanelHighlight();
+      this._updateSubtitlePanelHighlight(true);
     };
 
     // Highlight Inicial e Loop de Sincronia
-    this._updateSubtitlePanelHighlight();
+    this._updateSubtitlePanelHighlight(true);
+    setTimeout(() => {
+      list._userScrolling = false;
+      this._updateSubtitlePanelHighlight(true);
+    }, 320);
+
     const panelSync = setInterval(() => {
       if (!document.getElementById('lf-subtitle-panel')) {
         clearInterval(panelSync);
@@ -4251,7 +4274,7 @@ export class SubtitleEngine {
 
     this._updateSubtitlePanelHighlight();
     this._syncLoopButtons();
-    if (previousScrollTop > 0 && !this._userScrolling) {
+    if (previousScrollTop > 0 && !container._userScrolling) {
       container.scrollTop = previousScrollTop;
     }
   }
@@ -4961,7 +4984,7 @@ export class SubtitleEngine {
     }
   }
 
-  _updateSubtitlePanelHighlight() {
+  _updateSubtitlePanelHighlight(forceInstant = false) {
     if (typeof document === 'undefined') return;
     const list = document.getElementById('lf-subtitle-list');
     if (!list) return;
@@ -4970,8 +4993,21 @@ export class SubtitleEngine {
     const items = list.querySelectorAll('.lf-subtitle-item') || [];
     const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
 
-    if (this.currentCueIndex < 0 && cues?.length && this.videoElement) {
-      this.currentCueIndex = this._binarySearchCue(cues, this.videoElement.currentTime);
+    if (this.videoElement && cues && cues.length > 0) {
+      const liveIdx = this._binarySearchCue(cues, this.videoElement.currentTime);
+      if (liveIdx >= 0) {
+        this.currentCueIndex = liveIdx;
+      } else if (this.currentCueIndex < 0) {
+        const t = this.videoElement.currentTime;
+        let lastPassedIdx = -1;
+        for (let i = cues.length - 1; i >= 0; i--) {
+          if (cues[i].start <= t) {
+            lastPassedIdx = i;
+            break;
+          }
+        }
+        this.currentCueIndex = lastPassedIdx >= 0 ? lastPassedIdx : 0;
+      }
     }
 
     let activeItem = null;
@@ -4993,15 +5029,25 @@ export class SubtitleEngine {
       }
     });
 
-    if (activeItem && autoScroll && !list._userScrolling) {
-      this._scrollSubtitleItemIntoView(list, activeItem);
+    if (activeItem && autoScroll && (!list._userScrolling || forceInstant)) {
+      this._scrollSubtitleItemIntoView(list, activeItem, forceInstant);
     }
   }
 
-  _scrollSubtitleItemIntoView(list, item) {
+  _scrollSubtitleItemIntoView(list, item, instant = false) {
     if (!list || !item) return;
     const itemOffset = item.offsetTop - list.offsetTop;
     const targetScrollTop = itemOffset - (list.clientHeight / 2) + (item.clientHeight / 2);
+
+    if (instant) {
+      list._isProgrammaticScroll = true;
+      list.scrollTop = Math.max(0, targetScrollTop);
+      clearTimeout(list._progScrollTimer);
+      list._progScrollTimer = setTimeout(() => {
+        list._isProgrammaticScroll = false;
+      }, 100);
+      return;
+    }
 
     if (Math.abs(list.scrollTop - targetScrollTop) > 15) {
       list._isProgrammaticScroll = true;
@@ -5016,7 +5062,7 @@ export class SubtitleEngine {
       clearTimeout(list._progScrollTimer);
       list._progScrollTimer = setTimeout(() => {
         list._isProgrammaticScroll = false;
-      }, 400);
+      }, 500);
     }
   }
 

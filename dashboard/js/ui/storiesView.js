@@ -1,6 +1,7 @@
 import { db } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio } from '../core/tts.js';
-import { generateStoryWeb, aiChat, enrichCard, safeParseJson } from '../core/ai.js';
+import { generateStoryWeb, aiChat, enrichCard } from '../core/ai.js';
+import { safeParseJson } from '../core/ai.js';
 import { measureStoryLevel } from '../core/readability.js';
 import { translator } from '../../../utils/translator.js';
 import { lemma } from '../../../utils/lemma.js';

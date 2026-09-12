@@ -28,6 +28,10 @@ function organizeHomeSections(container) {
     append(today, '.dashboard-header');
     append(today, '.home-data-warning');
     append(today, '#home-primary-plan');
+    append(today, '#home-vault-banner');
+    append(today, '#home-return-banner');
+    append(today, '#home-streak-banner');
+    append(today, '.stats-grid');
 
     const next = section('home-next', 'Depois', 'Continue em contexto real ou faça uma prática curta.');
     append(next, '#home-secondary-actions');
@@ -35,13 +39,11 @@ function organizeHomeSections(container) {
     const more = document.createElement('details');
     more.id = 'home-more';
     more.className = 'home-more';
-    // Pedido do dono (18/07): metas/memoria/conquistas EXPANDIDAS por padrao
-    more.open = true;
-    more.innerHTML = '<summary>Metas, memória e conquistas</summary><div class="home-more-body"></div>';
+    more.open = false;
+    more.innerHTML = '<summary>Métricas detalhadas, memória e conquistas</summary><div class="home-more-body"></div>';
     const moreBody = more.querySelector('.home-more-body');
-    append(moreBody, '.quests-card');
-    append(moreBody, '.stats-grid');
     append(moreBody, '#home-memory-insight');
+    append(moreBody, '.quests-card');
     append(moreBody, '.achievements-section');
     append(moreBody, '.heatmap-section');
 
@@ -535,49 +537,51 @@ export async function renderHome(container, app) {
                 </div>
 
                 ${vaultCap > 0 && (vaultWaiting.length > 0 || vaultActive >= vaultCap) ? `
-                <div id="home-vault-banner" style="display:flex; gap:12px; align-items:center; margin-bottom:16px; background:rgba(88,204,2,0.08); border:2px solid var(--color-primary); border-radius:var(--radius-md); padding:14px 18px;">
-                    <span style="font-size:28px;">🗄️</span>
-                    <div style="flex:1;">
-                        <div style="font-weight:900; color:var(--color-text);">Cofre ${vaultActive >= vaultCap ? 'cheio' : 'quase cheio'} (${vaultActive}/${vaultCap})${vaultWaiting.length ? ` · ${vaultWaiting.length} ${vaultWaiting.length === 1 ? 'frase esperando vaga' : 'frases esperando vaga'}` : ''}</div>
-                        <div style="font-size:13px; color:var(--color-text-light);">Aposentar uma expressão dominada abre espaço — ela sai da fila e continua no seu histórico.</div>
+                <div id="home-vault-banner" class="home-alert-banner home-alert-vault">
+                    <span class="home-alert-icon">🗄️</span>
+                    <div class="home-alert-content">
+                        <div class="home-alert-title">Cofre ${vaultActive >= vaultCap ? 'cheio' : 'quase cheio'} (${vaultActive}/${vaultCap})${vaultWaiting.length ? ` · ${vaultWaiting.length} ${vaultWaiting.length === 1 ? 'frase esperando vaga' : 'frases esperando vaga'}` : ''}</div>
+                        <div class="home-alert-desc">Aposentar uma expressão dominada abre espaço — ela sai da fila e continua no seu histórico.</div>
                     </div>
                     ${vaultRetireCandidate ? `<button class="btn btn-primary" id="btn-open-slot" style="padding:10px 18px; font-size:13px;">Abrir vaga</button>` : ''}
                 </div>` : ''}
                 ${isReturning ? `
-                <div id="home-return-banner" style="display:flex; gap:12px; align-items:center; margin-bottom:16px; background:rgba(28,176,246,0.1); border:2px solid var(--color-secondary); border-radius:var(--radius-md); padding:14px 18px;">
-                    <span style="font-size:28px;">👋</span>
-                    <div style="flex:1;">
-                        <div style="font-weight:900; color:var(--color-text);">Sentimos sua falta! Você ficou ${daysAway} dias fora.</div>
-                        <div style="font-size:13px; color:var(--color-text-light);">Seu plano de hoje é leve: só ${revTarget} revisões para voltar ao ritmo.</div>
+                <div id="home-return-banner" class="home-alert-banner home-alert-return">
+                    <span class="home-alert-icon">👋</span>
+                    <div class="home-alert-content">
+                        <div class="home-alert-title">Sentimos sua falta! Você ficou ${daysAway} dias fora.</div>
+                        <div class="home-alert-desc">Seu plano de hoje é leve: só ${revTarget} revisões para voltar ao ritmo.</div>
                     </div>
                     <button class="btn btn-primary" id="btn-comeback" style="padding:10px 18px; font-size:13px;">Voltar agora</button>
                 </div>` : ''}
                 ${streak > 0 && reviewsToday === 0 && !isReturning ? `
-                <div id="home-streak-banner" style="display:flex; gap:12px; align-items:center; margin-bottom:16px; background:rgba(255,150,0,0.1); border:2px solid #ff9600; border-radius:var(--radius-md); padding:14px 18px;">
-                    <span style="font-size:28px;">🔥</span>
-                    <div style="flex:1;">
-                        <div style="font-weight:900; color:var(--color-text);">Sua ofensiva de ${streak} ${streak === 1 ? 'dia' : 'dias'} está em risco!</div>
-                        <div style="font-size:13px; color:var(--color-text-light);">Conclua 1 revisão hoje para manter a ofensiva.</div>
+                <div id="home-streak-banner" class="home-alert-banner home-alert-streak">
+                    <span class="home-alert-icon">🔥</span>
+                    <div class="home-alert-content">
+                        <div class="home-alert-title">Sua ofensiva de ${streak} ${streak === 1 ? 'dia' : 'dias'} está em risco!</div>
+                        <div class="home-alert-desc">Conclua 1 revisão hoje para manter a ofensiva.</div>
                     </div>
                     <button class="btn btn-primary" id="btn-save-streak" style="padding:10px 18px; font-size:13px;">Salvar ofensiva</button>
                 </div>` : ''}
-                <div id="home-memory-insight" style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:24px; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:14px 18px; align-items:center;">
-                    <div style="font-weight:800; color:var(--color-text); font-size:14px;">📈 Memória:</div>
-                    <div style="font-size:14px; color:var(--color-text-light);">Itens familiares: <strong style="color:var(--color-primary);">${knownFamilies}</strong></div>
-                    <div style="font-size:14px; color:var(--color-text-light);">Retenção 30d: <strong style="color:${retention30 === null ? 'var(--color-text-light)' : retention30 >= 85 ? 'var(--color-primary)' : retention30 >= 70 ? '#ffc800' : 'var(--color-danger)'};">${retention30 === null ? '—' : retention30 + '%'}</strong></div>
-                    <div style="font-size:14px; color:var(--color-text-light);">Amanhã: <strong style="color:var(--color-text);">${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}</strong></div>
-                    <div style="font-size:14px; color:var(--color-text-light);">Próximos 7 dias: <strong style="color:var(--color-text);">${dueWeek}</strong></div>
-                    <div style="font-size:14px; color:var(--color-text-light);" title="Protege sua ofensiva se você pular 1 dia. Ganhe 1 a cada 7 dias de ofensiva.">🧊 Freezes: <strong style="color:var(--color-secondary);">${userStats?.streak_freezes ?? 1}</strong></div>
-                    <div style="flex-basis:100%; display:flex; align-items:flex-end; gap:4px; height:42px; margin-top:4px;" title="Previsão de revisões (estilo Anki): quantos cards vencem em cada um dos próximos 7 dias">
+                <div id="home-memory-insight" class="home-memory-insight-card">
+                    <div class="memory-insight-badges">
+                        <div class="memory-badge"><strong>📈 Memória:</strong></div>
+                        <div class="memory-badge">Itens familiares: <strong style="color:var(--color-primary);">${knownFamilies}</strong></div>
+                        <div class="memory-badge">Retenção 30d: <strong style="color:${retention30 === null ? 'var(--color-text-light)' : retention30 >= 85 ? 'var(--color-primary)' : retention30 >= 70 ? '#ffc800' : 'var(--color-danger)'};">${retention30 === null ? '—' : retention30 + '%'}</strong></div>
+                        <div class="memory-badge">Amanhã: <strong>${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}</strong></div>
+                        <div class="memory-badge">Próximos 7 dias: <strong>${dueWeek}</strong></div>
+                        <div class="memory-badge" title="Protege sua ofensiva se você pular 1 dia. Ganhe 1 a cada 7 dias de ofensiva.">🧊 Freezes: <strong style="color:var(--color-secondary);">${userStats?.streak_freezes ?? 1}</strong></div>
+                    </div>
+                    <div class="memory-forecast-bars" title="Previsão de revisões (estilo Anki): quantos cards vencem em cada um dos próximos 7 dias">
                         ${forecast.map((n, i) => {
                             const max = Math.max(...forecast, 1);
                             const h = Math.max(4, Math.round((n / max) * 34));
                             const d = addLocalDays(i + 1);
                             const label = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'][d.getDay()];
-                            return `<div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;">
-                                <div style="font-size:9px; color:var(--color-text-light); font-weight:700;">${n || ''}</div>
-                                <div style="width:100%; max-width:26px; height:${h}px; background:${n ? 'var(--color-secondary)' : 'var(--color-border)'}; border-radius:3px;"></div>
-                                <div style="font-size:9px; color:var(--color-text-light);">${label}</div>
+                            return `<div class="forecast-bar-col">
+                                <div class="forecast-bar-val">${n || ''}</div>
+                                <div class="forecast-bar-fill" style="height:${h}px; background:${n ? 'var(--color-secondary)' : 'var(--color-border)'};"></div>
+                                <div class="forecast-bar-lbl">${label}</div>
                             </div>`;
                         }).join('')}
                     </div>

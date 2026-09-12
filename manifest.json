@@ -100,6 +100,7 @@
         "utils/db.js",
         "utils/local-day.js",
         "utils/expressions-db.js",
+        "utils/slangs-db.js",
         "utils/video-utils.js",
         "utils/html.js",
         "utils/phrasal-verbs.js",

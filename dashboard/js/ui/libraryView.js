@@ -49,9 +49,14 @@ function _inferCategory(word) {
     const lower = (word||'').toLowerCase();
     const parts = lower.split(' ').filter(p => p.trim() !== '');
     if (parts.length > 4) return 'sentence';
-    if (parts.length === 1) return 'word';
-    const particles = ['up', 'out', 'in', 'off', 'on', 'down', 'away', 'over'];
+    const commonSlangs = ['lit', 'cap', 'flex', 'goat', 'sus', 'bussin', 'slay', 'shook', 'simp', 'yeet', 'salty', 'cringe'];
+    if (parts.length === 1) {
+      if (commonSlangs.includes(parts[0])) return 'slang';
+      return 'word';
+    }
+    const particles = ['up', 'out', 'in', 'off', 'on', 'down', 'away', 'over', 'by', 'through', 'back', 'around', 'into', 'across', 'after', 'along', 'ahead', 'forward'];
     if (parts.length === 2 && particles.includes(parts[1])) return 'phrasal';
+    if (parts.length === 3 && particles.includes(parts[1])) return 'phrasal';
     if (parts.length > 2) return 'idiom';
     return 'word';
 }
@@ -620,13 +625,15 @@ function renderUI(container, app) {
       let count = 0;
       
       for (const w of missing) {
-        bannerText.innerHTML = `Gerando para: <strong>${escapeHtml(w.word)}</strong> (${count + 1}/${missing.length})... Pode demorar um pouco.`;
+        if (app.currentRoute !== 'library') return;
+        if (bannerText) bannerText.innerHTML = `Gerando para: <strong>${escapeHtml(w.word)}</strong> (${count + 1}/${missing.length})... Pode demorar um pouco.`;
         try {
           const res = isExtension
             ? await new Promise(resolve => {
                 chrome.runtime.sendMessage({ action: 'ai_generate_chunks', word: w.word }, resolve);
               })
             : { chunks: await generateChunksWeb(w.word).catch(() => []) };
+          if (app.currentRoute !== 'library') return;
           if (res && res.chunks && res.chunks.length > 0) {
             const hasGoodVideoContext = w.context_sentence && w.context_sentence !== w.word && w.context_sentence.split(' ').length > 2;
             if (!hasGoodVideoContext) {
@@ -641,11 +648,15 @@ function renderUI(container, app) {
         count++;
         // Esperar 2 segundos para nao dar rate limit excessivo se o usuario forçou
         await new Promise(r => setTimeout(r, 2000));
+        if (app.currentRoute !== 'library') return;
       }
       
-      bannerText.innerHTML = '✨ Todas as frases foram geradas com sucesso!';
+      if (app.currentRoute !== 'library') return;
+      if (bannerText) bannerText.innerHTML = '✨ Todas as frases foram geradas com sucesso!';
       backfillBtn.style.display = 'none';
-      setTimeout(() => renderLibrary(container, app), 2000);
+      setTimeout(() => {
+        if (app.currentRoute === 'library') renderLibrary(container, app);
+      }, 2000);
     });
   }
 }
@@ -745,7 +756,7 @@ function openWordEditor(w, app, container) {
 }
 
 function renderStatus(card) {
-    if (!card) return `<span class="badge badge-new">Nova</span>`;
+    if (!card || card.status === 'new') return `<span class="badge badge-new">Nova</span>`;
     if (card.suspended) return `<span class="badge badge-paused">Revisões pausadas</span>`;
     if (card.due_date && new Date(card.due_date).getTime() <= Date.now()) return `<span class="badge badge-due">Revisar hoje</span>`;
     if (card.status === 'mature') return `<span class="badge badge-mature">Memória estável</span>`;

@@ -1375,12 +1375,18 @@ Frase/contexto: "${sentence}"
 Retorne exatamente:
 {
   "translation": "tradução curta da palavra/expressão NESTA frase",
-  "pronunciation_pt": "como um brasileiro leria o termo selecionado para se aproximar da pronúncia inglesa, com acento na sílaba forte",
+  "pronunciation_pt": "aproximação fonética abrasileirada da fala natural americana, com sílabas separadas por hífen e acento na sílaba forte",
   "explanation": "explicação didática, direta e concisa nesta frase (1-2 frases), reconhecendo o bloco completo quando houver expressão"
 }
 
 Em "translation", escreva somente o equivalente curto que serve como resposta de flashcard.
-Em "pronunciation_pt", use apenas letras e acentos do português brasileiro; não use IPA nem acrescente explicações.
+Em "pronunciation_pt", priorize como a palavra REALMENTE SOA para um brasileiro ouvindo um falante nativo americano:
+- NÃO faça conversão literal letra por letra.
+- Flap T / Flap D americano: T ou D entre vogais (ou antes de sílaba átona) vira som do "r" brando de "caro" (ex: "water" -> "uó-rer", "better" -> "bé-rer", "oxygenated" -> "ók-si-djâ-nêi-rid", "city" -> "sí-ri", "put it" -> "pú-rit").
+- Redução de vogais e schwa /ə/: represente com "â" ou som enfraquecido (ex: "banana" -> "bâ-né-nâ", "about" -> "â-báut").
+- Sons especiais familiares: W = "u", R inicial = "rr", TH = "f" ou "d" (ex: "think" -> "fink", "this" -> "dis"), L final = "u" (ex: "apple" -> "é-pou").
+- Em phrasal verbs e expressões, represente a ligação natural (connected speech, ex: "give up" -> "guí-vãp", "got over" -> "gó-rôu-ver").
+- Separe em sílabas com hífen e coloque acento gráfico na sílaba tônica. Use apenas letras e acentos do português brasileiro; não use IPA nem acrescente explicações.
 Exemplo: termo "gross", frase "This is gross" -> "nojento; repugnante", nunca "bruto".
 Exemplo: termo "got", frase "She finally got over her fear of flying" -> "superou". Na explicação, mostre que "got over" significa "superou" o medo; não traduza "got" isoladamente como "pegou".
 Se for phrasal verb, chunk, gíria ou expressão, traduza o bloco inteiro pelo sentido da frase.`;

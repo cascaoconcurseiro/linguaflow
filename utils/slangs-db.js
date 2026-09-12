@@ -16,12 +16,17 @@ export const slangsDB = new Set([
   'snack', 'fire', 'yeet', 'boujee', 'shook', 'ratio',
 
   // Expressões informais e gírias do dia a dia
-  'rip off', 'rip-off', 'ripped off', 'chill', 'chill out', 'chilling', 'hang out', 'hanging out',
-  'bummer', 'nuts', 'loaded', 'flaky', 'flake', 'shade', 'throw shade', 'throwing shade',
-  'blast', 'have a blast', 'crash', 'beat', 'dead tired', 'bail', 'bailed', 'hyped',
-  'zoned out', 'zoned', 'heads up', 'my bad', 'no worries', 'no biggie', 'big deal',
-  'for real', 'fr', 'deadass', 'props', 'peace out', 'tight', 'wicked', 'sweet',
-  'rad', 'shady', 'phoney', 'phony', 'screw up', 'screwed up', 'mess up', 'messed up',
-  'sucks', 'suck', 'piece of cake', 'spill the tea', 'spilling the tea', 'catch feelings',
-  'curve', 'curved', 'snooze', 'wheels off', 'on point', 'on fleek', 'glow up'
+  'rip off', 'rip-off', 'ripped off', 'ripping off', 'chill', 'chill out', 'chilling', 'chilled', 'chilled out',
+  'hang out', 'hanging out', 'hung out', 'hangs out',
+  'bummer', 'nuts', 'loaded', 'flaky', 'flake', 'shade', 'throw shade', 'throwing shade', 'threw shade', 'thrown shade',
+  'blast', 'have a blast', 'crash', 'crashed', 'crashing', 'beat', 'dead tired', 'bail', 'bailed', 'bailing', 'hyped',
+  'zoned out', 'zoning out', 'zoned', 'heads up', 'my bad', 'no worries', 'no biggie', 'big deal',
+  'for real', 'fr', 'deadass', 'dead ass', 'props', 'peace out', 'tight', 'wicked', 'sweet',
+  'rad', 'shady', 'phoney', 'phony', 'screw up', 'screwed up', 'screwing up', 'screws up',
+  'mess up', 'messed up', 'messing up', 'messes up',
+  'sucks', 'suck', 'sucked', 'sucking', 'piece of cake', 'spill the tea', 'spilling the tea', 'spilled the tea', 'spilt the tea',
+  'catch feelings', 'caught feelings', 'catching feelings',
+  'curve', 'curved', 'curving', 'snooze', 'wheels off', 'on point', 'on fleek', 'glow up', 'glowing up', 'glowed up',
+  'flexed', 'slayed', 'slaying', 'ghost', 'stanned', 'stans', 'capping', 'capped', 'simped', 'simps',
+  'freak out', 'freaked out', 'freaking out'
 ]);

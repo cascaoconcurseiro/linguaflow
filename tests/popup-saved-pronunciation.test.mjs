@@ -46,6 +46,9 @@ for (const savedFirst of [true, false]) {
   assert.equal(popup._lookupCEFR('Good'), 'B2', 'popup usa a mesma classificação CEFR do motor');
   assert.equal(popup._cefrLabel('A1'), 'CEFR A1 · Iniciante');
   assert.equal(popup._convertIPAtoPT('/ɡʊd/'), 'gud', 'converte o símbolo IPA ɡ para escrita brasileira');
+  assert.equal(popup._convertIPAtoPT('/ˈwɔːtər/'), 'uó-rer', 'aplica Flap T americano com som de r em water');
+  assert.equal(popup._convertIPAtoPT('/ˈbɛtər/'), 'bé-rer', 'aplica Flap T americano com som de r em better');
+  assert.equal(popup._convertIPAtoPT('/ˈɒksɪdʒəneɪtɪd/'), 'ók-si-djâ-nêi-rid', 'aplica Flap T e schwa em oxygenated');
 }
 const popupSource = readFileSync(new URL('../content/word-popup.js', import.meta.url), 'utf8');
 assert.match(popupSource, /q\('#fcefr-prog'\)\.style\.display = 'none'/, 'remove progresso CEFR da palavra anterior');

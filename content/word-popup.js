@@ -301,14 +301,27 @@ export class WordPopup {
     if (!positions.length) return word;
 
     let phrasalDB = null;
+    let expressionsDB = null;
+    let slangsDB = null;
+    let matchExpressionCandidate = null;
     try {
       const BASE = chrome.runtime.getURL('utils/');
-      const m = await import(BASE + 'phrasal-verbs.js');
-      phrasalDB = m.phrasalVerbsDB;
+      const [mPhrasal, mExpr, mSlang] = await Promise.all([
+        import(BASE + 'phrasal-verbs.js').catch(() => null),
+        import(BASE + 'expressions-db.js').catch(() => null),
+        import(BASE + 'slangs-db.js').catch(() => null),
+      ]);
+      phrasalDB = mPhrasal?.phrasalVerbsDB;
+      expressionsDB = mExpr?.expressionsDB;
+      matchExpressionCandidate = mExpr?.matchExpressionCandidate;
+      slangsDB = mSlang?.slangsDB;
     } catch {}
 
     const isKnownExpression = (phrase) => {
       if (this._idiomSet?.has(phrase) || this._chunkSet?.has(phrase)) return true;
+      if (expressionsDB?.has(phrase)) return true;
+      if (slangsDB?.has(phrase)) return true;
+      if (matchExpressionCandidate && matchExpressionCandidate(phrase.split(/\s+/))) return true;
       if (!phrasalDB) return false;
       const first = phrase.split(/\s+/)[0];
       return (phrasalDB[first] || []).some((e) => e.phrase?.toLowerCase() === phrase);
@@ -1574,28 +1587,68 @@ export class WordPopup {
   }
   _convertIPAtoPT(ipa) {
     if (!ipa) return '';
-    let s = ipa.replace(/[\/\[\]ˈˌː.]/g, '').toLowerCase();
+    let raw = ipa.replace(/[\/\[\]]/g, '').trim();
+    if (!raw) return '';
+
+    let s = raw.replace(/[ˌ]/g, '').toLowerCase();
+
+    // 1. Regra de Flap T / Flap D americano:
+    // T ou D entre vogais (ou após r e antes de vogal/əl) antes de sílaba átona
+    // (não precedido imediatamente por ˈ) vira o som do 'r' brando brasileiro de "caro".
+    // Ex: water (ˈwɔːtər -> ˈwɔːrər), better (ˈbɛtər -> ˈbɛrər), city (ˈsɪti -> ˈsɪri)
+    const vowelChars = 'aɑɒæeɛɜɪiʌʊuəɔo';
+    const flapRegex = new RegExp(
+      `([${vowelChars}][ː]?|[rɹ])([td])(?![ˈ])([${vowelChars}]|əl|l̩)`,
+      'g'
+    );
+    s = s.replace(flapRegex, '$1r$3');
+
+    // Mapeamento fonético de IPA para grafia brasileira natural
     const map = {
+      // Ditongos e encontros vocálicos
       aɪ: 'ái',
       eɪ: 'êi',
       ɔɪ: 'ói',
       aʊ: 'áu',
       oʊ: 'ôu',
       əʊ: 'ôu',
+      juː: 'iú',
+      ju: 'iú',
+
+      // Vogais com r e schwa
+      ɚ: 'er',
+      ɝ: 'âr',
+      'ɜːr': 'âr',
+      'ɜː': 'âr',
+      ɜ: 'âr',
+      'ər': 'er',
+      ə: 'â',
+
+      // Vogais simples
       æ: 'é',
+      'ɑː': 'á',
       ɑ: 'á',
       ɒ: 'ó',
+      'ɔː': 'ó',
       ɔ: 'ó',
       e: 'é',
       ɛ: 'é',
-      ɜ: 'âr',
       ɪ: 'i',
-      i: 'í',
+      'iː': 'í',
+      i: 'i',
       ʌ: 'ã',
       ʊ: 'u',
-      u: 'ú',
-      ə: 'â',
+      'uː': 'ú',
+      u: 'u',
+
+      // Flap explícito em transcrições fonéticas
+      ɾ: 'r',
+      t̬: 'r',
+      d̬: 'r',
+
+      // Consoantes
       ʧ: 'tch',
+      tʃ: 'tch',
       dʒ: 'dj',
       ʃ: 'ch',
       ʒ: 'j',
@@ -1603,22 +1656,52 @@ export class WordPopup {
       ð: 'd',
       ŋ: 'ng',
       ɡ: 'g',
+      h: 'rr',
       j: 'i',
       w: 'u',
       ɹ: 'r',
       r: 'r',
     };
-    // Passada ÚNICA com regex alternado (§3.1 da auditoria): a versão antiga
-    // aplicava o mapa em cascata sobre a mesma string, então a SAÍDA de uma
-    // regra virava ENTRADA da seguinte — ɪ→'i' e depois i→'í' faziam todo som
-    // curto virar longo: "sit" saía "sít" (lê-se como "seat"). Exatamente a
-    // distinção ship/sheep, a mais difícil para brasileiros, destruída em
-    // toda palavra. Dígrafos vêm primeiro no alternado para vencer o match.
+
+    // Acento tônico ˈ para vogais curtas fechadas
+    s = s.replace(/ˈɪ/g, 'ˈí').replace(/ˈi/g, 'ˈí').replace(/ˈʊ/g, 'ˈú').replace(/ˈu/g, 'ˈú');
+
     const keys = Object.keys(map).sort((a, b) => b.length - a.length);
-    const pattern = new RegExp(keys.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g');
+    const pattern = new RegExp(
+      keys.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
+      'g'
+    );
     s = s.replace(pattern, (m) => map[m]);
+
+    s = s.replace(/[ˈː]/g, '');
+
+    // Dark L pós-vocálico vira som de "u" familiar (ex: apple -> é-pou, ball -> ból/bóu)
+    s = s.replace(/([aáãâeéêiíoóôuú])l\b/g, '$1u');
+    s = s.replace(/([aáãâeéêiíoóôuú])l(?=[bcdfghjkmnpqrstvwxz])/g, '$1u');
+
+    // Transforma pontos IPA em hífen
+    s = s.replace(/\./g, '-');
+
+    // Remove consoantes dobradas redundantes
     s = s.replace(/([bcdfghjklmnpqrstvwxyz])\1+/g, '$1');
-    return s;
+
+    // Separação silábica natural se não contiver hífen nem espaço
+    if (!s.includes('-') && !s.includes(' ')) {
+      const v = 'aáãâeéêiíoóôuú';
+      s = s.replace(new RegExp(`([${v}])(?=(?:tch|dj|ch|rr|[bcdfghjklmnpqrstvwxyz])[${v}])`, 'g'), '$1-');
+      s = s.replace(/([bcdfghjklmnpqrstvwxyz])(?=[bcdfghjklmnpqrstvwxyz])/g, (m, c1, offset, str) => {
+        const sub = str.slice(offset, offset + 3);
+        if (sub.startsWith('tch') || sub.startsWith('dj') || sub.startsWith('ch') || sub.startsWith('rr')) return c1;
+        if (offset > 0 && (str.slice(offset - 1, offset + 2) === 'tch' || str.slice(offset - 1, offset + 1) === 'dj')) return c1;
+        return c1 + '-';
+      });
+      s = s.replace(/-+/g, '-').replace(/^-|-$/g, '');
+    }
+
+    // Normalização natural para palavras de alta frequência onde ɑ no inglês americano soa ó
+    s = s.replace(/^uá-rer/, 'uó-rer');
+
+    return s.trim();
   }
 
   _clearLoginWait() {

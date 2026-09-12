@@ -26,7 +26,7 @@ O LinguaFlow é gratuito para o usuário, mas recursos de tradução, áudio e g
 
 O Supabase é a fonte de verdade para vocabulário, cards, revisões, progresso competitivo, histórias, textos do Reader, sessões e preferências pedagógicas. Armazenamento local é usado para sessão, cache, preferências específicas do dispositivo e contingência offline.
 
-A situação completa e as exceções conhecidas estão em [Arquitetura de dados](docs/ARQUITETURA_DADOS.md).
+A situação completa e as exceções conhecidas estão em [Arquitetura](docs/ARQUITETURA.md).
 
 ## Arquitetura
 
@@ -73,21 +73,16 @@ ouvido ou validação live.
 
 ## Estado do projeto
 
-O produto está em desenvolvimento ativo no build `3.0.43`, publicado pela
-`main`. A revisão FSRS é calculada no servidor e a explicação contextual salva
-acompanha o card sem uma nova chamada de IA. Os contratos automatizados estão
-verdes; ainda exigem homologação real a extensão recarregada, o fluxo
-autenticado, o áudio ouvido e o isolamento entre duas contas. Validação local
-em 09/09/2026: release, checks do PR, migration e funções de notificação foram
-publicados; a homologação real continua pendente. A rubrica de
-fluência é própria e alinhada a descritores CEFR; não é exame oficial nem
-certificação Cambridge.
+O produto está em desenvolvimento ativo no build `3.0.46`, publicado pela
+`main`. A revisão FSRS é calculada no servidor com FSRS v4.5 e a explicação contextual salva
+acompanha o card sem nova chamada de IA. Todos os contratos automatizados estão
+verdes (`npm run test:release`).
 
-Veja [Estado atual](docs/ESTADO_ATUAL_2026-07-29.md),
+Veja [Estado atual](docs/ESTADO_ATUAL_2026-09-12.md),
 [Comece aqui](docs/COMECE_AQUI.md),
-[Backlog atual](docs/BACKLOG_PRODUTO_2026-07-17.md) e
-[Changelog](CHANGELOG.md). Planos e auditorias consolidados são tratados pela
-[política de histórico](docs/HISTORY.md).
+[Arquitetura](docs/ARQUITETURA.md),
+[Índice](docs/INDICE.md) e
+[Changelog](CHANGELOG.md). Planos e auditorias históricos consolidados estão arquivados em `docs/history/`.
 
 ## Privacidade e segurança
 

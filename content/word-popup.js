@@ -172,13 +172,23 @@ export class WordPopup {
   }
 
   async _getPhrasalVerbsDB() {
-    if (this._phrasalVerbsDB) return this._phrasalVerbsDB;
+    if (this._phrasalVerbsDB && this._expressionsDB && this._slangsDB) return this._phrasalVerbsDB;
     if (this._phrasalPromise) return this._phrasalPromise;
-    const BASE = chrome.runtime.getURL('utils/');
+    const BASE = (typeof chrome !== 'undefined' && chrome.runtime?.getURL)
+      ? chrome.runtime.getURL('utils/')
+      : '../utils/';
     this._phrasalPromise = (async () => {
       try {
-        const { phrasalVerbsDB } = await import(BASE + 'phrasal-verbs.js');
-        this._phrasalVerbsDB = phrasalVerbsDB || null;
+        const [mPhrasal, mExpr, mSlang] = await Promise.all([
+          import(BASE + 'phrasal-verbs.js').catch(() => null),
+          import(BASE + 'expressions-db.js').catch(() => null),
+          import(BASE + 'slangs-db.js').catch(() => null),
+        ]);
+        this._phrasalVerbsDB = mPhrasal?.phrasalVerbsDB || null;
+        this._expressionsDB = mExpr?.expressionsDB || null;
+        this._matchExpressionCandidate = mExpr?.matchExpressionCandidate || null;
+        this._getBaseVerbCandidates = mExpr?.getBaseVerbCandidates || null;
+        this._slangsDB = mSlang?.slangsDB || null;
         return this._phrasalVerbsDB;
       } catch {
         this._phrasalVerbsDB = null;
@@ -188,26 +198,65 @@ export class WordPopup {
     return this._phrasalPromise;
   }
 
-  // Detecta o tipo linguístico da expressão clicada
+  // Detecta o tipo linguístico da expressão clicada (suporta flexões e lematização)
   _detectExprType(word, phrasalVerbsDB) {
     const w = word.toLowerCase().trim();
     const tokens = w.split(/\s+/);
     const isMulti = tokens.length > 1;
 
+    // 1. Expressões idiomáticas e Chunks cadastrados
     if (this._idiomSet?.has(w)) return { type: 'idiom', label: '🌀 Idiom', cls: 'lfp-type-idiom' };
     if (this._chunkSet?.has(w)) return { type: 'chunk', label: '🧩 Chunk', cls: 'lfp-type-chunk' };
 
-    if (isMulti && phrasalVerbsDB) {
-      const verb = tokens[0];
-      const entries = phrasalVerbsDB[verb] || [];
-      if (entries.some((e) => e.phrase?.toLowerCase() === w)) {
+    // 2. Phrasal Verbs (com lematização, formas flexionadas e partículas separáveis)
+    if (isMulti) {
+      if (this._expressionsDB?.has(w)) {
         return { type: 'phrasal', label: '🔗 Phrasal Verb', cls: 'lfp-type-phrasal' };
       }
-      // Multi-word que não é idiom nem chunk nem phrasal → colocação
+      if (this._matchExpressionCandidate && this._matchExpressionCandidate(tokens)) {
+        return { type: 'phrasal', label: '🔗 Phrasal Verb', cls: 'lfp-type-phrasal' };
+      }
+
+      if (phrasalVerbsDB) {
+        const verbCandidates = this._getBaseVerbCandidates ? this._getBaseVerbCandidates(tokens[0]) : [tokens[0]];
+        for (const base of verbCandidates) {
+          const entries = phrasalVerbsDB[base] || [];
+          const canonical = [base, ...tokens.slice(1)].join(' ');
+          if (entries.some((e) => {
+            const ep = e.phrase?.toLowerCase();
+            return ep === w || ep === canonical;
+          })) {
+            return { type: 'phrasal', label: '🔗 Phrasal Verb', cls: 'lfp-type-phrasal' };
+          }
+        }
+      }
+    }
+
+    // 3. Gírias (tanto palavras únicas quanto expressões/gírias compostas ou flexionadas)
+    if (this._slangsDB?.has(w)) {
+      return { type: 'slang', label: '🔥 Gíria', cls: 'lfp-type-slang' };
+    }
+    if (this._getBaseVerbCandidates) {
+      const candidates = this._getBaseVerbCandidates(tokens[0]);
+      for (const base of candidates) {
+        if (tokens.length === 1 && this._slangsDB?.has(base)) {
+          return { type: 'slang', label: '🔥 Gíria', cls: 'lfp-type-slang' };
+        }
+        if (tokens.length > 1) {
+          const basePhrase = [base, ...tokens.slice(1)].join(' ');
+          if (this._slangsDB?.has(basePhrase)) {
+            return { type: 'slang', label: '🔥 Gíria', cls: 'lfp-type-slang' };
+          }
+        }
+      }
+    }
+
+    // 4. Multi-word que não é idiom nem chunk nem phrasal nem gíria → colocação
+    if (isMulti) {
       return { type: 'collocation', label: '🤝 Colocação', cls: 'lfp-type-collocation' };
     }
 
-    // Palavras simples: verificar registro pelo dicionário depois — placeholder
+    // 5. Palavras simples: verificar registro pelo dicionário depois — placeholder
     return { type: 'word', label: '📖 Palavra', cls: 'lfp-type-word' };
   }
 
@@ -300,22 +349,11 @@ export class WordPopup {
     const positions = lower.map((t, i) => (t === cleanWord ? i : -1)).filter((i) => i >= 0);
     if (!positions.length) return word;
 
-    let phrasalDB = null;
-    let expressionsDB = null;
-    let slangsDB = null;
-    let matchExpressionCandidate = null;
-    try {
-      const BASE = chrome.runtime.getURL('utils/');
-      const [mPhrasal, mExpr, mSlang] = await Promise.all([
-        import(BASE + 'phrasal-verbs.js').catch(() => null),
-        import(BASE + 'expressions-db.js').catch(() => null),
-        import(BASE + 'slangs-db.js').catch(() => null),
-      ]);
-      phrasalDB = mPhrasal?.phrasalVerbsDB;
-      expressionsDB = mExpr?.expressionsDB;
-      matchExpressionCandidate = mExpr?.matchExpressionCandidate;
-      slangsDB = mSlang?.slangsDB;
-    } catch {}
+    await this._getPhrasalVerbsDB();
+    const phrasalDB = this._phrasalVerbsDB;
+    const expressionsDB = this._expressionsDB;
+    const slangsDB = this._slangsDB;
+    const matchExpressionCandidate = this._matchExpressionCandidate;
 
     const isKnownExpression = (phrase) => {
       if (this._idiomSet?.has(phrase) || this._chunkSet?.has(phrase)) return true;
@@ -323,8 +361,16 @@ export class WordPopup {
       if (slangsDB?.has(phrase)) return true;
       if (matchExpressionCandidate && matchExpressionCandidate(phrase.split(/\s+/))) return true;
       if (!phrasalDB) return false;
-      const first = phrase.split(/\s+/)[0];
-      return (phrasalDB[first] || []).some((e) => e.phrase?.toLowerCase() === phrase);
+      const tokens = phrase.split(/\s+/);
+      const first = tokens[0];
+      const baseCandidates = this._getBaseVerbCandidates ? this._getBaseVerbCandidates(first) : [first];
+      for (const b of baseCandidates) {
+        if ((phrasalDB[b] || []).some((e) => {
+          const ep = e.phrase?.toLowerCase();
+          return ep === phrase || (tokens.length >= 2 && ep === [b, ...tokens.slice(1)].join(' '));
+        })) return true;
+      }
+      return false;
     };
 
     let best = '';
@@ -1033,6 +1079,7 @@ export class WordPopup {
         if (label && el.textContent === '📖 Palavra') {
           el.textContent = label;
           el.className = `lfp-badge ${cls}`;
+          this._exprType = { type: d.register, label, cls };
         }
       }
     }
@@ -1093,12 +1140,38 @@ export class WordPopup {
     const exprInfo = this._exprType || this._detectExprType(this.word, phrasalVerbsDB);
     const isExpr =
       this.word.includes(' ') ||
-      ['phrasal', 'idiom', 'chunk', 'collocation'].includes(exprInfo.type);
+      ['phrasal', 'idiom', 'chunk', 'collocation', 'slang'].includes(exprInfo.type);
     const lowerWord = this.word.toLowerCase();
-    const firstToken = lowerWord.split(/\s+/)[0];
-    const exactPhrasal = (phrasalVerbsDB[firstToken] || []).filter(
-      (e) => e.phrase?.toLowerCase() === lowerWord,
-    );
+    const tokens = lowerWord.split(/\s+/);
+    const firstToken = tokens[0];
+
+    const getBaseCandidates = this._getBaseVerbCandidates || ((w) => [w]);
+    const baseVerbs = getBaseCandidates(firstToken);
+    let exactPhrasal = [];
+    for (const b of baseVerbs) {
+      const found = (phrasalVerbsDB[b] || []).filter((e) => {
+        const ep = e.phrase?.toLowerCase();
+        if (ep === lowerWord) return true;
+        if (tokens.length >= 2) {
+          const canonical = [b, ...tokens.slice(1)].join(' ');
+          if (ep === canonical) return true;
+        }
+        return false;
+      });
+      if (found.length) {
+        exactPhrasal = found;
+        break;
+      }
+    }
+    if (!exactPhrasal.length && this._matchExpressionCandidate) {
+      const m = this._matchExpressionCandidate(tokens);
+      if (m?.canonical) {
+        const cTokens = m.canonical.split(/\s+/);
+        exactPhrasal = (phrasalVerbsDB[cTokens[0]] || []).filter(
+          (e) => e.phrase?.toLowerCase() === m.canonical,
+        );
+      }
+    }
     const phs =
       exprInfo.type === 'phrasal' ? exactPhrasal : !isExpr ? phrasalVerbsDB[lowerWord] || [] : [];
 
@@ -1192,7 +1265,7 @@ export class WordPopup {
   _usageChunks(exprInfo, phs) {
     if (phs?.length) return phs.slice(0, 3).map((p) => p.phrase);
     const w = this.word;
-    if (exprInfo.type === 'phrasal' || w.includes(' ')) return [w];
+    if (exprInfo.type === 'phrasal' || exprInfo.type === 'slang' || w.includes(' ')) return [w];
     const pos = (this.cache[this.word]?.partOfSpeech || '').toLowerCase();
     if (pos === 'verb') return [`to ${w}`, `${w} it`, `${w} with`];
     if (pos === 'noun') return [`a ${w}`, `the ${w}`, `${w} of`];

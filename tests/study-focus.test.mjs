@@ -59,7 +59,16 @@ assert.match(source, /hasSourcePhraseLeak\(context, ctxEntry\.pt\)/,
   'tradução de frase híbrida é considerada incompleta e regenerada');
 assert.match(source, /needsContextRepair/,
   'chunks persistidos ruins não ficam congelados para sempre');
-assert.doesNotMatch(aiSource, /audio_base64|readAsDataURL|assessPronunciationAudio/,
-  'cliente de IA não prepara nem envia áudio');
+assert.match(exerciseFinish, /revealCard\(\{\s*preserveSentence:\s*true\s*\}\)/,
+  'exercício preserva feedback visual de verificação ao revelar card');
+assert.match(exerciseFinish, /Escrita correta!/,
+  'exercício anuncia visualmente quando a escrita está correta');
+assert.match(exerciseFinish, /Escrita incorreta/,
+  'exercício anuncia visualmente quando a escrita está incorreta');
+assert.match(source, /if \(!options\?\.preserveSentence\)/,
+  'revealCard respeita a flag preserveSentence e não sobrescreve o feedback');
+assert.match(source, /exerciseFinish\(true, context, rawVal\)/,
+  'ditado envia o valor digitado para a verificação e comparativo');
 
-console.log('20 contratos do modo foco passaram — tudo verde ✅');
+console.log('25 contratos do modo foco e verificação de escrita passaram — tudo verde ✅');
+

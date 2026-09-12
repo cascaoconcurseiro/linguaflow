@@ -1009,30 +1009,60 @@ function levenshtein(a, b) {
 }
 
 // result: true (acertou) | 'almost' (typo — libera Dificil/Bom) | false (errou)
-function exerciseFinish(result, context) {
+function exerciseFinish(result, context, userTyped = '') {
   if (!currentCard || currentCard._exerciseFinished) return;
   currentCard._exerciseFinished = true;
   const correct = result === true;
   const almost = result === 'almost';
   const sentenceEl = document.getElementById('pump-sentence');
-  const feedback = correct
-    ? `<div style="color:var(--color-primary); font-weight:900; font-size:22px; margin-bottom:12px;">✅ Perfeito!</div>`
-    : almost
-      ? `<div style="color:var(--color-warning, #ff9600); font-weight:900; font-size:22px; margin-bottom:12px;">🟡 Quase! So a grafia:</div>`
-      : `<div style="color:var(--color-danger); font-weight:900; font-size:22px; margin-bottom:12px;">A resposta era:</div>`;
-  const nextInstruction = correct
-    ? 'Como foi? Escolha Difícil, Bom ou Fácil para continuar.'
-    : almost
-      ? 'Você entendeu — o erro foi de digitação, não de audição. Escolha Difícil ou Bom.'
-      : 'Confirme Errei para continuar.';
-  sentenceEl.innerHTML = `${feedback}<div style="font-size:26px;">${escapeHtml(context)}</div><div class="exercise-grade-prompt">${nextInstruction}</div>`;
+  const cleanTyped = (userTyped || '').trim();
+
+  let feedbackHtml = '';
+  if (correct) {
+    feedbackHtml = `
+      <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(46, 204, 113, 0.15); color:var(--color-primary, #2ecc71); border:1px solid rgba(46, 204, 113, 0.3); padding:8px 20px; border-radius:999px; font-weight:900; font-size:18px; margin-bottom:14px;">
+        <span>✅</span> Escrita correta!
+      </div>
+      <div style="font-size:26px; font-weight:700; color:var(--color-text); margin-bottom:12px; line-height:1.4;">${escapeHtml(context)}</div>
+      <div class="exercise-grade-prompt">Como foi? Escolha Difícil, Bom ou Fácil para continuar.</div>
+    `;
+  } else if (almost) {
+    feedbackHtml = `
+      <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(241, 196, 15, 0.15); color:var(--color-warning, #f39c12); border:1px solid rgba(241, 196, 15, 0.3); padding:8px 20px; border-radius:999px; font-weight:900; font-size:18px; margin-bottom:14px;">
+        <span>🟡</span> Quase lá! Pequeno erro de digitação
+      </div>
+      <div style="background:var(--color-bg-alt); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:16px; margin:0 auto 16px; text-align:left; max-width:540px;">
+        <div style="font-size:12px; font-weight:800; color:var(--color-text-light); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Você digitou:</div>
+        <div style="font-size:17px; color:var(--color-warning, #f39c12); font-weight:600; margin-bottom:12px; font-family:monospace;">${escapeHtml(cleanTyped)}</div>
+        <div style="font-size:12px; font-weight:800; color:var(--color-text-light); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Resposta correta:</div>
+        <div style="font-size:19px; color:var(--color-primary, #2ecc71); font-weight:700;">${escapeHtml(context)}</div>
+      </div>
+      <div class="exercise-grade-prompt">Você entendeu — o erro foi de digitação, não de audição. Escolha Difícil ou Bom.</div>
+    `;
+  } else {
+    feedbackHtml = `
+      <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(231, 76, 60, 0.15); color:var(--color-danger, #e74c3c); border:1px solid rgba(231, 76, 60, 0.3); padding:8px 20px; border-radius:999px; font-weight:900; font-size:18px; margin-bottom:14px;">
+        <span>❌</span> Escrita incorreta
+      </div>
+      <div style="background:var(--color-bg-alt); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:16px; margin:0 auto 16px; text-align:left; max-width:540px;">
+        ${cleanTyped ? `
+        <div style="font-size:12px; font-weight:800; color:var(--color-text-light); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Você digitou:</div>
+        <div style="font-size:17px; color:var(--color-danger, #e74c3c); text-decoration:line-through; font-weight:600; margin-bottom:12px; font-family:monospace;">${escapeHtml(cleanTyped)}</div>
+        ` : ''}
+        <div style="font-size:12px; font-weight:800; color:var(--color-text-light); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Resposta correta:</div>
+        <div style="font-size:19px; color:var(--color-primary, #2ecc71); font-weight:700;">${escapeHtml(context)}</div>
+      </div>
+      <div class="exercise-grade-prompt">Confirme Errei para continuar.</div>
+    `;
+  }
+
+  sentenceEl.innerHTML = feedbackHtml;
   const status = document.getElementById('study-status');
   if (status) status.textContent = correct
     ? 'Resposta correta. Escolha Difícil, Bom ou Fácil para continuar.'
     : 'Resposta incorreta. Avalie sua lembrança para continuar.';
-  // Reutiliza o mesmo verso e a mesma avaliação FSRS dos cards clássicos. A
-  // sessão nunca avança por timeout: a decisão continua nas mãos do aluno.
-  revealCard();
+  // Reutiliza o mesmo verso e a mesma avaliação FSRS dos cards clássicos, preservando o feedback visual do exercício
+  revealCard({ preserveSentence: true });
   document.querySelectorAll('.grade-btn').forEach(btn => {
     const grade = Number(btn.dataset.grade);
     let hide;
@@ -1107,9 +1137,10 @@ function renderBuilder(card, context) {
   });
 
   checkBtn.addEventListener('click', () => {
-    const got = normalizeAnswer(answer.map(a => a.t).join(' '));
+    const rawAnswer = answer.map(a => a.t).join(' ');
+    const got = normalizeAnswer(rawAnswer);
     const want = normalizeAnswer(tokens.join(' '));
-    exerciseFinish(got === want, context);
+    exerciseFinish(got === want, context, rawAnswer);
   });
 }
 
@@ -1134,13 +1165,14 @@ function renderDictation(card, context) {
   const input = document.getElementById('ex-input');
   scheduleStudyTask(() => input.focus(), 100);
   const check = () => {
-    const got = normalizeAnswer(input.value);
+    const rawVal = input.value;
+    const got = normalizeAnswer(rawVal);
     const want = normalizeAnswer(context);
-    if (got === want) return exerciseFinish(true, context);
+    if (got === want) return exerciseFinish(true, context, rawVal);
     const dist = levenshtein(got, want);
     // quase: <=2 edicoes OU <=10% do comprimento — typo nunca vira lapso (A2)
     const almost = dist > 0 && (dist <= 2 || dist <= Math.ceil(want.length * 0.1));
-    exerciseFinish(almost ? 'almost' : false, context);
+    exerciseFinish(almost ? 'almost' : false, context, rawVal);
   };
   document.getElementById('ex-check').addEventListener('click', check);
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') check(); });
@@ -1236,7 +1268,7 @@ function playCurrentAudio() {
 }
 
 // ── Revelação (verso do card) ────────────────────────────────────────────────
-async function revealCard() {
+async function revealCard(options = {}) {
   const card = currentCard;
   if (!card) return;
   if (presentationEvidence) presentationEvidence.engaged = true;
@@ -1264,17 +1296,19 @@ async function revealCard() {
   document.getElementById('hint-btn')?.classList.add('hidden');
   document.getElementById('pump-context-hint')?.classList.add('hidden');
 
-  // 1. Revela a frase completa no verso com a palavra em destaque
-  const sentenceEl = document.getElementById('pump-sentence');
-  try {
-    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    sentenceEl.innerHTML = (context && context.toLowerCase() !== word.toLowerCase())
-      ? renderHighlightedText(context, escaped)
-      : `<span class="cloze-revealed">${escapeHtml(word)}</span>`;
-  } catch {
-    sentenceEl.innerHTML = `<span class="cloze-revealed">${escapeHtml(word)}</span>`;
+  // 1. Revela a frase completa no verso com a palavra em destaque (preservando feedback quando for exercício)
+  if (!options?.preserveSentence) {
+    const sentenceEl = document.getElementById('pump-sentence');
+    try {
+      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      sentenceEl.innerHTML = (context && context.toLowerCase() !== word.toLowerCase())
+        ? renderHighlightedText(context, escaped)
+        : `<span class="cloze-revealed">${escapeHtml(word)}</span>`;
+    } catch {
+      sentenceEl.innerHTML = `<span class="cloze-revealed">${escapeHtml(word)}</span>`;
+    }
+    if (audioAutoBack) playCurrentAudio(); // lf_audio_auto_back: config real
   }
-  if (audioAutoBack) playCurrentAudio(); // lf_audio_auto_back: config real
 
   document.querySelectorAll('.cloze-blur').forEach(el => {
     el.classList.remove('cloze-blur');

@@ -3,6 +3,7 @@
 ## [3.0.46] - 2026-09-12
 
 ### Corrigido
+- **Ditado e Exercícios de Escrita**: O sistema agora valida e exibe explicitamente o resultado da digitação do aluno (Correto / Quase lá / Incorreto) com comparativo do texto digitado versus resposta correta, corrigindo o problema em que a revelação do verso sobrescrevia o feedback da verificação.
 - **Dicionário e Phrasal Verbs**: Termos compostos (ex.: "face off", "give up") não travam mais em `(Carregando dicionário...)`. Detecção prévia de termos com espaço pula a consulta inútil à DictionaryAPI e exibe a tradução contextual e análise em 3s em vez de travar por 7s.
 - **Auditoria de Banco e Telemetria**: Adicionada migração de hardening relacional e tabela `db_audit_telemetry`. Métodos de auditoria adicionados a `db.js`.
 - **Dashboard e Visualização**: Correções pontuais de rendering na visualização de cards, modais e gestão de filas de revisão.

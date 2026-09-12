@@ -795,6 +795,8 @@ async function fetchDictionary(word) {
   };
   if (!cleanWord) return emptyResult;
 
+  const isMultiWord = cleanWord.includes(' ');
+
   const fetchWithTimeout = async (url, ms = 2000) => {
     const hasAbort = typeof AbortController !== 'undefined';
     const hasTimeout = typeof setTimeout !== 'undefined';
@@ -808,8 +810,8 @@ async function fetchDictionary(word) {
     }
   };
 
-  // Tier 1: Free Dictionary API (api.dictionaryapi.dev)
-  try {
+  // Tier 1: Free Dictionary API (api.dictionaryapi.dev) — apenas palavras simples
+  if (!isMultiWord) try {
     const res = await fetchWithTimeout(
       `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(cleanWord)}`,
       2000,
@@ -841,9 +843,13 @@ async function fetchDictionary(word) {
   }
 
   // Tier 2: Datamuse API (CDN rápido, definições e fonética IPA confiáveis)
+  // Para phrasal verbs (multi-word), usa ml= (meaning like) que tem melhor cobertura
   try {
+    const datamuse_param = isMultiWord
+      ? `ml=${encodeURIComponent(cleanWord)}&max=1&md=d`
+      : `sp=${encodeURIComponent(cleanWord)}&md=dpr&ipa=1`;
     const res = await fetchWithTimeout(
-      `https://api.datamuse.com/words?sp=${encodeURIComponent(cleanWord)}&md=dpr&ipa=1`,
+      `https://api.datamuse.com/words?${datamuse_param}`,
       2000,
     );
     if (res && res.ok) {

@@ -5,6 +5,7 @@
   "type": "module",
   "description": "LinguaFlow - Chrome Extension + Web App",
   "scripts": {
+    "build:extension": "node scripts/package-extension.mjs",
     "test:engine": "node tests/engine.test.mjs",
     "test:local-day": "node tests/local-day.test.mjs",
     "test:video": "node tests/video-context.test.mjs",

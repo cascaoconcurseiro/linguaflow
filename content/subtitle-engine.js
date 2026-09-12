@@ -1,4 +1,5 @@
 import { expressionsDB } from '../utils/expressions-db.js';
+import { slangsDB } from '../utils/slangs-db.js';
 import { videoUtils } from '../utils/video-utils.js';
 
 import { escapeHTML } from '../utils/html.js';
@@ -1908,14 +1909,67 @@ export class SubtitleEngine {
 
   _syncLoopButtons() {
     const isLoop = this.isLooping === true;
-    const buttons = typeof document !== 'undefined' && typeof document.querySelectorAll === 'function'
-      ? document.querySelectorAll('button[data-action="loop"]')
-      : [];
-    for (const btn of buttons) {
+    const doc = typeof document !== 'undefined' ? document : null;
+    if (!doc || typeof doc.querySelectorAll !== 'function') return;
+
+    // 1. Botões da dock flutuante / player
+    const dockButtons = doc.querySelectorAll('button[data-action="loop"]') || [];
+    for (const btn of dockButtons) {
       btn.setAttribute?.('aria-pressed', String(isLoop));
       btn.classList?.toggle?.('is-active', isLoop);
       btn.title = isLoop ? 'Desativar loop da frase' : 'Ativar loop da frase';
       btn.setAttribute?.('aria-label', btn.title);
+    }
+
+    // 2. Botões nas legendas da barra lateral (.lf-loop-cue)
+    const cueButtons = doc.querySelectorAll('.lf-loop-cue') || [];
+    for (const btn of cueButtons) {
+      const parentItem = btn.closest?.('.lf-subtitle-item');
+      const idx = parentItem ? parseInt(parentItem.dataset.index, 10) : -1;
+      const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
+      const cue = cues?.[idx];
+      const isThisCueActive = isLoop && cue && Math.abs(cue.start - this.loopStartTime) < 0.1;
+
+      btn.setAttribute?.('aria-pressed', String(isThisCueActive));
+      btn.classList?.toggle?.('is-active', isThisCueActive);
+      if (btn.style) {
+        if (isThisCueActive) {
+          btn.style.background = '#0284c7';
+          btn.style.color = '#ffffff';
+          btn.style.borderRadius = '6px';
+          btn.style.boxShadow = '0 0 8px rgba(2, 132, 199, 0.7)';
+          btn.style.padding = '2px 6px';
+        } else {
+          btn.style.background = 'transparent';
+          btn.style.color = 'inherit';
+          btn.style.borderRadius = '';
+          btn.style.boxShadow = 'none';
+          btn.style.padding = '0 2px';
+        }
+      }
+      btn.title = isThisCueActive ? 'Desativar loop desta frase' : 'Repetir frase em loop';
+    }
+
+    // 3. Botões no explorador de frases (.lf-se-loop-btn)
+    const seButtons = doc.querySelectorAll('.lf-se-loop-btn') || [];
+    for (const btn of seButtons) {
+      const cueStart = parseFloat(btn.dataset.cueStart);
+      const isThisCueActive = isLoop && !isNaN(cueStart) && Math.abs(cueStart - this.loopStartTime) < 0.1;
+
+      btn.setAttribute?.('aria-pressed', String(isThisCueActive));
+      btn.classList?.toggle?.('is-active', isThisCueActive);
+      if (btn.style) {
+        if (isThisCueActive) {
+          btn.style.background = '#0284c7';
+          btn.style.color = '#ffffff';
+          btn.style.boxShadow = '0 0 8px rgba(2, 132, 199, 0.7)';
+        } else {
+          btn.style.background = 'rgba(255,255,255,0.06)';
+          btn.style.color = '#94A3B8';
+          btn.style.boxShadow = 'none';
+        }
+      }
+      btn.title = isThisCueActive ? 'Desativar loop' : 'Repetir em loop';
     }
   }
 
@@ -2378,15 +2432,24 @@ export class SubtitleEngine {
     list.style.cssText =
       'flex:1;overflow-y:auto;padding:10px;scrollbar-width:thin;scrollbar-color:#334155 transparent;';
     list._userScrolling = false;
+    list._isProgrammaticScroll = false;
     let _scrollTimer = null;
+
+    const markUserScroll = () => {
+      list._userScrolling = true;
+      clearTimeout(_scrollTimer);
+      _scrollTimer = setTimeout(() => {
+        list._userScrolling = false;
+      }, 3500);
+    };
+
+    list.addEventListener('wheel', markUserScroll, { passive: true });
+    list.addEventListener('touchmove', markUserScroll, { passive: true });
     list.addEventListener(
       'scroll',
       () => {
-        list._userScrolling = true;
-        clearTimeout(_scrollTimer);
-        _scrollTimer = setTimeout(() => {
-          list._userScrolling = false;
-        }, 3000);
+        if (list._isProgrammaticScroll) return;
+        markUserScroll();
       },
       { passive: true },
     );
@@ -2396,17 +2459,23 @@ export class SubtitleEngine {
     subtitlePane.appendChild(toolbar);
     subtitlePane.appendChild(list);
 
-    // ── Painel Words (Frequência estilo Lingosieve) ───────────────────────
+    // ── Painel Words (Frequência, Phrasal Verbs e Gírias) ─────────────────
     const wordsPane = document.createElement('div');
     wordsPane.id = 'lf-pane-words';
-    wordsPane.style.cssText = 'flex:1;display:none;flex-direction:column;overflow:hidden;';
+    wordsPane.style.cssText = 'flex:1;display:none;flex-direction:column;overflow:hidden;position:relative;';
 
     const wordsScroll = document.createElement('div');
     wordsScroll.id = 'lf-words-scroll';
     wordsScroll.style.cssText =
       'flex:1;overflow-y:auto;padding:14px;scrollbar-width:thin;scrollbar-color:#334155 transparent;';
 
+    const sentenceExplorer = document.createElement('div');
+    sentenceExplorer.id = 'lf-sentence-explorer';
+    sentenceExplorer.style.cssText =
+      'flex:1;display:none;flex-direction:column;overflow:hidden;background:#0f172a;';
+
     wordsPane.appendChild(wordsScroll);
+    wordsPane.appendChild(sentenceExplorer);
     this._rebuildWordsList(wordsScroll);
 
     // ── Monta painel ──────────────────────────────────────────────────────
@@ -2428,6 +2497,7 @@ export class SubtitleEngine {
         tabWords.style.color = '#64748B';
         tabSubtitles.classList.add('active');
         tabWords.classList.remove('active');
+        this._updateSubtitlePanelHighlight();
       } else {
         subtitlePane.style.display = 'none';
         wordsPane.style.display = 'flex';
@@ -2437,6 +2507,9 @@ export class SubtitleEngine {
         tabSubtitles.style.color = '#64748B';
         tabWords.classList.add('active');
         tabSubtitles.classList.remove('active');
+        if (sentenceExplorer.style.display !== 'flex') {
+          wordsScroll.style.display = 'block';
+        }
         this._rebuildWordsList();
       }
     };
@@ -2451,12 +2524,24 @@ export class SubtitleEngine {
       this._rebuildSubtitleList(list, document.getElementById('lf-panel-search').value);
     };
 
+    const autoScrollToggle = document.getElementById('lf-autoscroll-panel');
+    if (autoScrollToggle) {
+      autoScrollToggle.onchange = () => {
+        if (autoScrollToggle.checked) {
+          list._userScrolling = false;
+          this._updateSubtitlePanelHighlight();
+        }
+      };
+    }
+
     document.getElementById('lf-export-pdf').onclick = () => this._exportPDF();
     document.getElementById('lf-export-csv').onclick = () => this._exportCSV();
     document.getElementById('lf-export-anki').onclick = () => this._exportAnki();
 
     document.getElementById('lf-follow-btn').onclick = () => {
       list._userScrolling = false;
+      const cb = document.getElementById('lf-autoscroll-panel');
+      if (cb) cb.checked = true;
       this._updateSubtitlePanelHighlight();
     };
 
@@ -3548,9 +3633,15 @@ export class SubtitleEngine {
 
     // --- NOVO: Contexto Expandido (Melhor que o Lingosive) ---
     const cues = this.xhrCues && this.xhrCues.length ? this.xhrCues : this.cues;
-    const idx = cues.indexOf(cue);
+    let idx = cues ? cues.indexOf(cue) : -1;
+    if (idx === -1 && cues) {
+      idx = cues.findIndex((c) => Math.abs(c.start - cue.start) < 0.1 && c.text === cue.text);
+    }
+    this.currentCueIndex = idx;
+    this._updateSubtitlePanelHighlight();
+
     const prevText = idx > 0 ? cues[idx - 1].text : '';
-    const nextText = idx < cues.length - 1 ? cues[idx + 1].text : '';
+    const nextText = idx >= 0 && idx < cues.length - 1 ? cues[idx + 1].text : '';
 
     cue.fullContext = {
       prev: prevText,
@@ -4014,46 +4105,46 @@ export class SubtitleEngine {
 
   _toggleCueLoop(idx, btn) {
     const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
-    const cue = cues[idx];
+    const cue = cues?.[idx];
     if (!cue) return;
+    this._toggleCueLoopByCue(cue);
+  }
 
-    // Se já está em loop desta frase, desativa
-    if (this.isLooping && this.loopStartTime === cue.start) {
+  _toggleCueLoopByCue(cue) {
+    if (!cue) return;
+    const start = Number(cue.start);
+    const end = Number(cue.end);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
+
+    if (this.isLooping && Math.abs(this.loopStartTime - start) < 0.05) {
       this.isLooping = false;
-      if (this._loopInterval) clearInterval(this._loopInterval);
-      this._loopInterval = null;
-      btn.style.background = 'rgba(255,255,255,0.05)';
-      btn.style.color = '#94A3B8';
+      if (this._loopInterval) {
+        clearInterval(this._loopInterval);
+        this._loopInterval = null;
+      }
       this._showNotification('▶️ Loop Desativado');
+      this._syncLoopButtons();
     } else {
-      // Ativa loop para esta frase
       if (this._loopInterval) clearInterval(this._loopInterval);
 
       this.isLooping = true;
-      this.loopStartTime = cue.start;
-      this.loopEndTime = cue.end;
-
-      // Limpa outros botões de loop (estilo)
-      document.querySelectorAll('.lf-loop-cue').forEach((b) => {
-        b.style.background = 'rgba(255,255,255,0.05)';
-        b.style.color = '#94A3B8';
-      });
-
-      btn.style.background = 'rgba(56, 189, 248, 0.2)';
-      btn.style.color = '#38BDF8';
+      this.loopStartTime = start;
+      this.loopEndTime = end;
 
       if (this.videoElement) {
-        this.videoElement.currentTime = cue.start;
-        this.videoElement.play();
+        this.videoElement.currentTime = this.loopStartTime;
+        this.videoElement.play().catch(() => {});
       }
 
       this._loopInterval = setInterval(() => {
-        if (this.isLooping && this.videoElement.currentTime >= this.loopEndTime) {
+        if (this.isLooping && this.videoElement?.currentTime >= this.loopEndTime) {
           this.videoElement.currentTime = this.loopStartTime;
+          if (this.videoElement.paused) this.videoElement.play().catch(() => {});
         }
       }, 100);
 
       this._showNotification('🔁 Loop Ativado');
+      this._syncLoopButtons();
     }
   }
 
@@ -4149,6 +4240,7 @@ export class SubtitleEngine {
     });
 
     this._updateSubtitlePanelHighlight();
+    this._syncLoopButtons();
     if (previousScrollTop > 0 && !this._userScrolling) {
       container.scrollTop = previousScrollTop;
     }
@@ -4245,6 +4337,7 @@ export class SubtitleEngine {
     const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
     const previousScrollTop = typeof container.scrollTop === 'number' ? container.scrollTop : 0;
     this._collapsedBands = this._collapsedBands || new Set();
+    this._wordsSubTab = this._wordsSubTab || 'words';
     container.innerHTML = '';
 
     if (!cues || cues.length === 0) {
@@ -4255,6 +4348,7 @@ export class SubtitleEngine {
       return;
     }
 
+    // 1. Extração de palavras e frequência
     const freqMap = new Map();
     cues.forEach((cue) => {
       const cleanText = this._cleanSubtitleText ? this._cleanSubtitleText(cue.text || '') : (cue.text || '');
@@ -4263,38 +4357,56 @@ export class SubtitleEngine {
         .match(/[a-z\u00C0-\u024F][a-z\u00C0-\u024F'-]{1,}/gu)
         ?.forEach((w) => {
           const clean = w.replace(/^'+|'+$/g, '');
-          if (clean.length > 2 && !STOP_WORDS.has(clean))
+          if (clean.length > 2 && !STOP_WORDS.has(clean)) {
             freqMap.set(clean, (freqMap.get(clean) || 0) + 1);
+          }
         });
-    });
-
-    const bands = [];
-    for (let s = 1; s <= 5000; s += 100)
-      bands.push({ label: s + ' – ' + (s + 99), start: s, end: s + 99, words: [] });
-    const outOfTop = { label: 'Fora do top-5k', words: [] };
-
-    freqMap.forEach((count, word) => {
-      const rank = TOP5K_RANK_MAP.get(word);
-      if (rank) {
-        const bi = Math.floor((rank - 1) / 100);
-        if (bands[bi]) bands[bi].words.push({ word, count, rank });
-      } else outOfTop.words.push({ word, count, rank: 99999 });
     });
 
     const totalUnique = freqMap.size;
     const inTop5k = [...freqMap.keys()].filter((w) => TOP5K_RANK_MAP.has(w)).length;
 
-    // --- CÁLCULO DE EXPRESSÕES ---
-    const expressionsFound = new Set();
-    cues.forEach((cue) => {
-      const text = (cue.text || '').toLowerCase();
-      expressionsDB.forEach((expr) => {
-        if (text.includes(expr)) expressionsFound.add(expr);
-      });
-    });
-    const totalExpressions = expressionsFound.size;
+    // Prepara texto e índice de cues para detecção de Phrasal Verbs e Slangs
+    const cuesLower = cues.map((c) => ({ cue: c, textLower: (c.text || '').toLowerCase() }));
+    const allTextJoined = ' ' + cuesLower.map((c) => c.textLower).join(' \n ') + ' ';
 
-    // Stats card
+    // 2. Detecção de Phrasal Verbs
+    const phrasalVerbsMap = new Map();
+    expressionsDB.forEach((expr) => {
+      if (!allTextJoined.includes(expr)) return;
+      const escaped = expr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+      const regex = new RegExp('\\b' + escaped + '\\b', 'i');
+      const matching = [];
+      for (const item of cuesLower) {
+        if (regex.test(item.textLower)) {
+          matching.push(item.cue);
+        }
+      }
+      if (matching.length > 0) {
+        phrasalVerbsMap.set(expr, { term: expr, count: matching.length, cues: matching });
+      }
+    });
+    const totalPhrasal = phrasalVerbsMap.size;
+
+    // 3. Detecção de Gírias (Slangs)
+    const slangsMap = new Map();
+    slangsDB.forEach((slang) => {
+      if (!allTextJoined.includes(slang)) return;
+      const escaped = slang.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+      const regex = new RegExp('\\b' + escaped + '\\b', 'i');
+      const matching = [];
+      for (const item of cuesLower) {
+        if (regex.test(item.textLower)) {
+          matching.push(item.cue);
+        }
+      }
+      if (matching.length > 0) {
+        slangsMap.set(slang, { term: slang, count: matching.length, cues: matching });
+      }
+    });
+    const totalSlangs = slangsMap.size;
+
+    // 4. Stats card com compreensão e contadores interativos
     const statsDiv = document.createElement('div');
     statsDiv.style.cssText =
       'background:rgba(255,255,255,0.04);border-radius:10px;padding:14px 16px;margin-bottom:14px;';
@@ -4333,99 +4445,149 @@ export class SubtitleEngine {
               : 'Desafio';
 
       statsDiv.innerHTML = `
-                <div style="background:rgba(0,0,0,0.3);border:1px solid ${compColor}33;border-radius:14px;padding:14px 16px;margin-bottom:14px;text-align:center;">
-                  <div style="font-size:36px;font-weight:900;color:${compColor};line-height:1;letter-spacing:-1px;">${comprehension}%</div>
-                  <div style="font-size:11px;color:${compColor};font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">${compLabel}</div>
-                  <div style="font-size:10px;color:#475569;margin-top:4px;">Score de compreensão deste episódio</div>
-                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;margin-top:8px;">
-                    <div style="height:100%;width:${comprehension}%;background:linear-gradient(90deg,${compColor}88,${compColor});border-radius:6px;transition:width 0.8s;"></div>
-                  </div>
-                </div>
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
-                  <div style="display:flex;align-items:baseline;gap:8px;">
-                    <div style="font-size:28px;font-weight:800;color:#F1F5F9;line-height:1;">${totalUnique}</div>
-                    <div style="font-size:10px;color:#64748B;text-transform:uppercase;letter-spacing:0.8px;font-weight:700;">UNIQUE WORDS</div>
-                  </div>
-                  <div style="text-align:right;">
-                    <div style="font-size:18px;font-weight:800;color:#f472b6;line-height:1;">${totalExpressions}</div>
-                    <div style="font-size:9px;color:#f472b6;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">PHRASAL VERBS</div>
-                  </div>
-                </div>
+        <div style="background:rgba(0,0,0,0.3);border:1px solid ${compColor}33;border-radius:14px;padding:14px 16px;margin-bottom:14px;text-align:center;">
+          <div style="font-size:36px;font-weight:900;color:${compColor};line-height:1;letter-spacing:-1px;">${comprehension}%</div>
+          <div style="font-size:11px;color:${compColor};font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">${compLabel}</div>
+          <div style="font-size:10px;color:#475569;margin-top:4px;">Score de compreensão deste episódio</div>
+          <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;margin-top:8px;">
+            <div style="height:100%;width:${comprehension}%;background:linear-gradient(90deg,${compColor}88,${compColor});border-radius:6px;transition:width 0.8s;"></div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:8px;">
+          <div id="lf-stat-btn-words" style="cursor:pointer;flex:1;" title="Ver todas as palavras">
+            <div style="font-size:26px;font-weight:800;color:#F1F5F9;line-height:1;">${totalUnique}</div>
+            <div style="font-size:9px;color:#64748B;text-transform:uppercase;letter-spacing:0.8px;font-weight:700;margin-top:2px;">PALAVRAS</div>
+          </div>
+          <div id="lf-stat-btn-phrasal" style="cursor:pointer;text-align:center;flex:1;" title="Ver Phrasal Verbs">
+            <div style="font-size:20px;font-weight:800;color:#f472b6;line-height:1;">${totalPhrasal}</div>
+            <div style="font-size:9px;color:#f472b6;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-top:2px;">PHRASAL VERBS</div>
+          </div>
+          <div id="lf-stat-btn-slang" style="cursor:pointer;text-align:right;flex:1;" title="Ver Gírias (Slangs)">
+            <div style="font-size:20px;font-weight:800;color:#fb923c;line-height:1;">${totalSlangs}</div>
+            <div style="font-size:9px;color:#fb923c;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-top:2px;">GÍRIAS</div>
+          </div>
+        </div>
 
-                <div style="margin-bottom:9px;">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Top-5k frequência</span>
-                    <span style="font-size:11px;color:#FFD700;font-weight:700;">${inTop5k}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-                  </div>
-                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-                    <div style="height:100%;width:${pct(inTop5k)}%;background:linear-gradient(90deg,#FF8C00,#FFD700);border-radius:6px;transition:width 0.5s;"></div>
-                  </div>
-                </div>
+        <div style="margin-bottom:9px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:11px;color:#94A3B8;font-weight:600;">Top-5k frequência</span>
+            <span style="font-size:11px;color:#FFD700;font-weight:700;">${inTop5k}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
+          </div>
+          <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
+            <div style="height:100%;width:${pct(inTop5k)}%;background:linear-gradient(90deg,#FF8C00,#FFD700);border-radius:6px;transition:width 0.5s;"></div>
+          </div>
+        </div>
 
-                <div style="margin-bottom:9px;">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Novas (nunca vistas)</span>
-                    <span style="font-size:11px;color:#E2E8F0;font-weight:700;">${cNew}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-                  </div>
-                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-                    <div style="height:100%;width:${pct(cNew)}%;background:linear-gradient(90deg,#475569,#94A3B8);border-radius:6px;transition:width 0.5s;"></div>
-                  </div>
-                </div>
+        <div style="margin-bottom:9px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:11px;color:#94A3B8;font-weight:600;">Novas (nunca vistas)</span>
+            <span style="font-size:11px;color:#E2E8F0;font-weight:700;">${cNew}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
+          </div>
+          <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
+            <div style="height:100%;width:${pct(cNew)}%;background:linear-gradient(90deg,#475569,#94A3B8);border-radius:6px;transition:width 0.5s;"></div>
+          </div>
+        </div>
 
-                <div style="margin-bottom:9px;">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Salvas no deck</span>
-                    <span style="font-size:11px;color:#93C5FD;font-weight:700;">${cSaved}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-                  </div>
-                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-                    <div style="height:100%;width:${pct(cSaved)}%;background:linear-gradient(90deg,#2563EB,#93C5FD);border-radius:6px;transition:width 0.5s;"></div>
-                  </div>
-                </div>
+        <div style="margin-bottom:9px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:11px;color:#94A3B8;font-weight:600;">Salvas no deck</span>
+            <span style="font-size:11px;color:#93C5FD;font-weight:700;">${cSaved}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
+          </div>
+          <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
+            <div style="height:100%;width:${pct(cSaved)}%;background:linear-gradient(90deg,#2563EB,#93C5FD);border-radius:6px;transition:width 0.5s;"></div>
+          </div>
+        </div>
 
-                <div style="margin-bottom:9px;">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Aprendendo</span>
-                    <span style="font-size:11px;color:#FBBF24;font-weight:700;">${cLearning}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-                  </div>
-                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-                    <div style="height:100%;width:${pct(cLearning)}%;background:linear-gradient(90deg,#D97706,#FBBF24);border-radius:6px;transition:width 0.5s;"></div>
-                  </div>
-                </div>
+        <div style="margin-bottom:9px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:11px;color:#94A3B8;font-weight:600;">Aprendendo</span>
+            <span style="font-size:11px;color:#FBBF24;font-weight:700;">${cLearning}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
+          </div>
+          <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
+            <div style="height:100%;width:${pct(cLearning)}%;background:linear-gradient(90deg,#D97706,#FBBF24);border-radius:6px;transition:width 0.5s;"></div>
+          </div>
+        </div>
 
-                <div style="margin-bottom:9px;">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Revisando</span>
-                    <span style="font-size:11px;color:#38BDF8;font-weight:700;">${cReview}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-                  </div>
-                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-                    <div style="height:100%;width:${pct(cReview)}%;background:linear-gradient(90deg,#0284C7,#38BDF8);border-radius:6px;transition:width 0.5s;"></div>
-                  </div>
-                </div>
+        <div style="margin-bottom:9px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:11px;color:#94A3B8;font-weight:600;">Revisando</span>
+            <span style="font-size:11px;color:#38BDF8;font-weight:700;">${cReview}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
+          </div>
+          <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
+            <div style="height:100%;width:${pct(cReview)}%;background:linear-gradient(90deg,#0284C7,#38BDF8);border-radius:6px;transition:width 0.5s;"></div>
+          </div>
+        </div>
 
-                <div style="margin-bottom:9px;">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Dominadas</span>
-                    <span style="font-size:11px;color:#34D399;font-weight:700;">${cMature}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-                  </div>
-                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-                    <div style="height:100%;width:${pct(cMature)}%;background:linear-gradient(90deg,#059669,#34D399);border-radius:6px;transition:width 0.5s;"></div>
-                  </div>
-                </div>
+        <div style="margin-bottom:9px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:11px;color:#94A3B8;font-weight:600;">Dominadas</span>
+            <span style="font-size:11px;color:#34D399;font-weight:700;">${cMature}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
+          </div>
+          <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
+            <div style="height:100%;width:${pct(cMature)}%;background:linear-gradient(90deg,#059669,#34D399);border-radius:6px;transition:width 0.5s;"></div>
+          </div>
+        </div>
 
-                <div style="margin-bottom:0;">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-                    <span style="font-size:11px;color:#94A3B8;font-weight:600;">Conhecidas</span>
-                    <span style="font-size:11px;color:#86EFAC;font-weight:700;">${cKnown}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-                  </div>
-                  <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-                    <div style="height:100%;width:${pct(cKnown)}%;background:linear-gradient(90deg,#16A34A,#86EFAC);border-radius:6px;transition:width 0.5s;"></div>
-                  </div>
-                </div>
-            `;
+        <div style="margin-bottom:0;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:11px;color:#94A3B8;font-weight:600;">Conhecidas</span>
+            <span style="font-size:11px;color:#86EFAC;font-weight:700;">${cKnown}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
+          </div>
+          <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
+            <div style="height:100%;width:${pct(cKnown)}%;background:linear-gradient(90deg,#16A34A,#86EFAC);border-radius:6px;transition:width 0.5s;"></div>
+          </div>
+        </div>
+      `;
+
+      // Cliques nos botões de estatística para alternar subabas
+      const btnW = statsDiv.querySelector?.('#lf-stat-btn-words');
+      if (btnW) btnW.onclick = () => { this._wordsSubTab = 'words'; this._rebuildWordsList(container); };
+      const btnP = statsDiv.querySelector?.('#lf-stat-btn-phrasal');
+      if (btnP) btnP.onclick = () => { this._wordsSubTab = 'phrasal'; this._rebuildWordsList(container); };
+      const btnS = statsDiv.querySelector?.('#lf-stat-btn-slang');
+      if (btnS) btnS.onclick = () => { this._wordsSubTab = 'slang'; this._rebuildWordsList(container); };
     };
 
     renderStats(this.knownWords, this.savedWords);
     container.appendChild(statsDiv);
+
+    // 5. Barra de Navegação Interna da aba Words
+    const navBar = document.createElement('div');
+    navBar.style.cssText = 'display:flex;gap:6px;margin-bottom:14px;background:rgba(255,255,255,0.04);padding:4px;border-radius:10px;border:1px solid rgba(255,255,255,0.07);';
+
+    const tabsData = [
+      { id: 'words', label: `📚 Palavras (${totalUnique})`, activeColor: '#38BDF8', activeBg: 'rgba(56,189,248,0.15)' },
+      { id: 'phrasal', label: `⚡ Phrasal (${totalPhrasal})`, activeColor: '#F472B6', activeBg: 'rgba(244,114,182,0.15)' },
+      { id: 'slang', label: `🔥 Gírias (${totalSlangs})`, activeColor: '#FB923C', activeBg: 'rgba(251,146,60,0.15)' },
+    ];
+
+    tabsData.forEach((t) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      const isActive = this._wordsSubTab === t.id;
+      btn.style.cssText = `
+        flex: 1;
+        padding: 7px 8px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        border: 1px solid ${isActive ? t.activeColor : 'transparent'};
+        background: ${isActive ? t.activeBg : 'transparent'};
+        color: ${isActive ? t.activeColor : '#94A3B8'};
+        transition: all 0.15s ease;
+        text-align: center;
+        white-space: nowrap;
+      `;
+      btn.textContent = t.label;
+      btn.onclick = () => {
+        this._wordsSubTab = t.id;
+        this._rebuildWordsList(container);
+      };
+      navBar.appendChild(btn);
+    });
+
+    container.appendChild(navBar);
 
     import('../utils/db.js').then(async ({ db }) => {
       try {
@@ -4433,10 +4595,11 @@ export class SubtitleEngine {
         const words = await db.getAllWords();
         const cards = await db.getAllCards();
         const cardStatus = {};
-        if (cards)
+        if (cards) {
           cards.forEach((c) => {
             cardStatus[c.word_id] = c.status;
           });
+        }
         const freshSaved = new Map();
         const freshKnown = new Set(this.knownWords);
         words.forEach((w) => {
@@ -4450,167 +4613,414 @@ export class SubtitleEngine {
       }
     });
 
-    const allBands = [
-      ...bands.filter((b) => b.words.length > 0),
-      ...(outOfTop.words.length > 0 ? [outOfTop] : []),
-    ];
+    // 6. Renderização conforme a subaba ativa
+    if (this._wordsSubTab === 'phrasal') {
+      // --- SUBABA PHRASAL VERBS ---
+      const phrasalList = Array.from(phrasalVerbsMap.values()).sort((a, b) => b.count - a.count || a.term.localeCompare(b.term));
+      if (phrasalList.length === 0) {
+        const emptyP = document.createElement('div');
+        emptyP.style.cssText = 'text-align:center;color:#64748B;font-size:13px;padding:30px 15px;';
+        emptyP.textContent = 'Nenhum phrasal verb identificado nas legendas deste vídeo.';
+        container.appendChild(emptyP);
+      } else {
+        const gridP = document.createElement('div');
+        gridP.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:4px 2px 14px;';
+        phrasalList.forEach((item) => {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.style.cssText = 'background:rgba(244,114,182,0.1);border:1px solid rgba(244,114,182,0.3);color:#F472B6;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;transition:all 0.15s;';
+          chip.textContent = item.count > 1 ? `${item.term} ×${item.count}` : item.term;
+          chip.title = `Ver ${item.count} frase(s) com "${item.term}"`;
+          chip.addEventListener?.('mouseenter', () => { chip.style.transform = 'scale(1.06)'; });
+          chip.addEventListener?.('mouseleave', () => { chip.style.transform = ''; });
+          chip.addEventListener?.('click', () => {
+            this._showSentenceExplorer(item.term, 'phrasal', item.cues);
+          });
+          gridP.appendChild(chip);
+        });
+        container.appendChild(gridP);
+      }
+    } else if (this._wordsSubTab === 'slang') {
+      // --- SUBABA GÍRIAS (SLANGS) ---
+      const slangList = Array.from(slangsMap.values()).sort((a, b) => b.count - a.count || a.term.localeCompare(b.term));
+      if (slangList.length === 0) {
+        const emptyS = document.createElement('div');
+        emptyS.style.cssText = 'text-align:center;color:#64748B;font-size:13px;padding:30px 15px;';
+        emptyS.textContent = 'Nenhuma gíria identificada nas legendas deste vídeo.';
+        container.appendChild(emptyS);
+      } else {
+        const gridS = document.createElement('div');
+        gridS.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:4px 2px 14px;';
+        slangList.forEach((item) => {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.style.cssText = 'background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.3);color:#FB923C;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;transition:all 0.15s;';
+          chip.textContent = item.count > 1 ? `${item.term} ×${item.count}` : item.term;
+          chip.title = `Ver ${item.count} frase(s) com "${item.term}"`;
+          chip.addEventListener?.('mouseenter', () => { chip.style.transform = 'scale(1.06)'; });
+          chip.addEventListener?.('mouseleave', () => { chip.style.transform = ''; });
+          chip.addEventListener?.('click', () => {
+            this._showSentenceExplorer(item.term, 'slang', item.cues);
+          });
+          gridS.appendChild(chip);
+        });
+        container.appendChild(gridS);
+      }
+    } else {
+      // --- SUBABA PALAVRAS (PADRÃO) ---
+      const bands = [];
+      for (let s = 1; s <= 5000; s += 100)
+        bands.push({ label: s + ' – ' + (s + 99), start: s, end: s + 99, words: [] });
+      const outOfTop = { label: 'Fora do top-5k', words: [] };
 
-    if (allBands.length === 0) {
-      const empty = document.createElement('div');
-      empty.style.cssText = 'text-align:center;color:#475569;font-size:13px;padding:40px 20px;';
-      empty.textContent = 'Nenhuma palavra encontrada nas legendas deste vídeo.';
-      container.appendChild(empty);
-      return;
+      freqMap.forEach((count, word) => {
+        const rank = TOP5K_RANK_MAP.get(word);
+        if (rank) {
+          const bi = Math.floor((rank - 1) / 100);
+          if (bands[bi]) bands[bi].words.push({ word, count, rank });
+        } else outOfTop.words.push({ word, count, rank: 99999 });
+      });
+
+      const allBands = [
+        ...bands.filter((b) => b.words.length > 0),
+        ...(outOfTop.words.length > 0 ? [outOfTop] : []),
+      ];
+
+      if (allBands.length === 0) {
+        const empty = document.createElement('div');
+        empty.style.cssText = 'text-align:center;color:#475569;font-size:13px;padding:40px 20px;';
+        empty.textContent = 'Nenhuma palavra encontrada nas legendas deste vídeo.';
+        container.appendChild(empty);
+        return;
+      }
+
+      allBands.forEach((band) => {
+        band.words.sort((a, b) => (a.rank || 99999) - (b.rank || 99999));
+        const section = document.createElement('div');
+        section.style.cssText = 'margin-bottom:10px;';
+
+        const isTop1k = band.start && band.start <= 1000;
+        const hColor = isTop1k
+          ? '#FFD700'
+          : band.start <= 2000
+            ? '#FF8C00'
+            : band.start <= 3000
+              ? '#38BDF8'
+              : '#94A3B8';
+        const bandHeader = document.createElement('div');
+        bandHeader.style.cssText =
+          'display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:rgba(255,255,255,0.05);border-radius:7px;cursor:pointer;margin-bottom:6px;border-left:3px solid ' +
+          hColor +
+          ';';
+        bandHeader.innerHTML =
+          '<span style="font-size:12px;font-weight:700;color:' +
+          hColor +
+          '">' +
+          band.label +
+          '</span><span style="font-size:11px;color:#64748B;">' +
+          band.words.length +
+          ' palavras <span class="lf-band-arrow" style="margin-left:4px;">▼</span></span>';
+
+        const wordGrid = document.createElement('div');
+        wordGrid.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;padding:4px 2px 8px;';
+
+        band.words.forEach(({ word, count }) => {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          const isKnown = this.knownWords?.has?.(word);
+          const status = this.savedWords?.get?.(word);
+          let cc = '#94A3B8',
+            cb = 'rgba(255,255,255,0.05)',
+            cbo = 'rgba(255,255,255,0.1)';
+          if (isKnown) {
+            cc = '#86EFAC';
+            cb = 'rgba(134,239,172,0.1)';
+            cbo = 'rgba(134,239,172,0.25)';
+          } else if (status === 'mature') {
+            cc = '#34D399';
+            cb = 'rgba(52,211,153,0.1)';
+            cbo = 'rgba(52,211,153,0.25)';
+          } else if (status === 'learning') {
+            cc = '#FBBF24';
+            cb = 'rgba(251,191,36,0.1)';
+            cbo = 'rgba(251,191,36,0.25)';
+          } else if (status === 'new') {
+            cc = '#93C5FD';
+            cb = 'rgba(147,197,253,0.1)';
+            cbo = 'rgba(147,197,253,0.25)';
+          }
+          chip.style.cssText =
+            'background:' +
+            cb +
+            ';border:1px solid ' +
+            cbo +
+            ';color:' +
+            cc +
+            ';border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;transition:all 0.15s;';
+          chip.textContent = count > 1 ? word + ' ×' + count : word;
+          chip.title = `Ver ${count} frase(s) com "${word}"`;
+          chip.addEventListener?.('mouseenter', () => {
+            chip.style.transform = 'scale(1.08)';
+          });
+          chip.addEventListener?.('mouseleave', () => {
+            chip.style.transform = '';
+          });
+          chip.addEventListener?.('click', () => {
+            const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const wordRegex = new RegExp('\\b' + escaped + '\\b', 'i');
+            const matching = cues.filter((cue) => wordRegex.test(cue.text || ''));
+            this._showSentenceExplorer(word, 'word', matching);
+          });
+          wordGrid.appendChild(chip);
+        });
+
+        let collapsed = this._collapsedBands.has(band.label);
+        if (collapsed) {
+          wordGrid.style.display = 'none';
+          const arrow = bandHeader.querySelector?.('.lf-band-arrow');
+          if (arrow) arrow.textContent = '▶';
+        }
+        bandHeader.addEventListener?.('click', () => {
+          collapsed = !collapsed;
+          if (collapsed) {
+            this._collapsedBands.add(band.label);
+          } else {
+            this._collapsedBands.delete(band.label);
+          }
+          wordGrid.style.display = collapsed ? 'none' : 'flex';
+          const arrow = bandHeader.querySelector?.('.lf-band-arrow');
+          if (arrow) arrow.textContent = collapsed ? '▶' : '▼';
+        });
+
+        section.appendChild(bandHeader);
+        section.appendChild(wordGrid);
+        container.appendChild(section);
+      });
     }
 
-    allBands.forEach((band) => {
-      band.words.sort((a, b) => (a.rank || 99999) - (b.rank || 99999));
-      const section = document.createElement('div');
-      section.style.cssText = 'margin-bottom:10px;';
-
-      const isTop1k = band.start && band.start <= 1000;
-      const hColor = isTop1k
-        ? '#FFD700'
-        : band.start <= 2000
-          ? '#FF8C00'
-          : band.start <= 3000
-            ? '#38BDF8'
-            : '#94A3B8';
-      const bandHeader = document.createElement('div');
-      bandHeader.style.cssText =
-        'display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:rgba(255,255,255,0.05);border-radius:7px;cursor:pointer;margin-bottom:6px;border-left:3px solid ' +
-        hColor +
-        ';';
-      bandHeader.innerHTML =
-        '<span style="font-size:12px;font-weight:700;color:' +
-        hColor +
-        '">' +
-        band.label +
-        '</span><span style="font-size:11px;color:#64748B;">' +
-        band.words.length +
-        ' palavras <span class="lf-band-arrow" style="margin-left:4px;">▼</span></span>';
-
-      const wordGrid = document.createElement('div');
-      wordGrid.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;padding:4px 2px 8px;';
-
-      band.words.forEach(({ word, count }) => {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        const isKnown = this.knownWords.has(word);
-        const status = this.savedWords.get(word);
-        let cc = '#94A3B8',
-          cb = 'rgba(255,255,255,0.05)',
-          cbo = 'rgba(255,255,255,0.1)';
-        if (isKnown) {
-          cc = '#86EFAC';
-          cb = 'rgba(134,239,172,0.1)';
-          cbo = 'rgba(134,239,172,0.25)';
-        } else if (status === 'mature') {
-          cc = '#34D399';
-          cb = 'rgba(52,211,153,0.1)';
-          cbo = 'rgba(52,211,153,0.25)';
-        } else if (status === 'learning') {
-          cc = '#FBBF24';
-          cb = 'rgba(251,191,36,0.1)';
-          cbo = 'rgba(251,191,36,0.25)';
-        } else if (status === 'new') {
-          cc = '#93C5FD';
-          cb = 'rgba(147,197,253,0.1)';
-          cbo = 'rgba(147,197,253,0.25)';
-        }
-        chip.style.cssText =
-          'background:' +
-          cb +
-          ';border:1px solid ' +
-          cbo +
-          ';color:' +
-          cc +
-          ';border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;transition:all 0.15s;';
-        chip.textContent = count > 1 ? word + ' ×' + count : word;
-        chip.title = 'Ir para "' + word + '"';
-        chip.addEventListener('mouseenter', () => {
-          chip.style.transform = 'scale(1.08)';
-        });
-        chip.addEventListener('mouseleave', () => {
-          chip.style.transform = '';
-        });
-        chip.addEventListener('click', () => {
-          const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const fi = cues.findIndex((cue) =>
-            new RegExp('\\b' + escaped + '\\b', 'i').test(cue.text || ''),
-          );
-          const vid = this.videoElement || document.querySelector('video');
-          if (fi >= 0 && vid) {
-            vid.currentTime = cues[fi].start;
-            vid.play().catch(() => {});
-            document.getElementById('lf-tab-subtitles')?.click();
-          }
-        });
-        wordGrid.appendChild(chip);
-      });
-
-      let collapsed = this._collapsedBands.has(band.label);
-      if (collapsed) {
-        wordGrid.style.display = 'none';
-        const arrow = bandHeader.querySelector('.lf-band-arrow');
-        if (arrow) arrow.textContent = '▶';
-      }
-      bandHeader.addEventListener('click', () => {
-        collapsed = !collapsed;
-        if (collapsed) {
-          this._collapsedBands.add(band.label);
-        } else {
-          this._collapsedBands.delete(band.label);
-        }
-        wordGrid.style.display = collapsed ? 'none' : 'flex';
-        const arrow = bandHeader.querySelector('.lf-band-arrow');
-        if (arrow) arrow.textContent = collapsed ? '▶' : '▼';
-      });
-
-      section.appendChild(bandHeader);
-      section.appendChild(wordGrid);
-      container.appendChild(section);
-    });
-
-    if (previousScrollTop > 0) {
+    if (previousScrollTop > 0 && typeof container.scrollTop === 'number') {
       container.scrollTop = previousScrollTop;
     }
   }
 
+  _showSentenceExplorer(term, category, matchingCues) {
+    const explorer = document.getElementById('lf-sentence-explorer');
+    const wordsScroll = document.getElementById('lf-words-scroll');
+    if (!explorer || !wordsScroll) return;
+
+    wordsScroll.style.display = 'none';
+    explorer.style.display = 'flex';
+    explorer.innerHTML = '';
+
+    // Eager translation das frases se alguma não estiver traduzida ainda
+    if (matchingCues && matchingCues.length) {
+      this._translateAllSidebarCues(matchingCues);
+    }
+
+    const categoryLabels = {
+      word: { label: 'Palavra', color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.15)', border: 'rgba(56, 189, 248, 0.3)' },
+      phrasal: { label: 'Phrasal Verb', color: '#F472B6', bg: 'rgba(244, 114, 182, 0.15)', border: 'rgba(244, 114, 182, 0.3)' },
+      slang: { label: 'Gíria', color: '#FB923C', bg: 'rgba(251, 146, 60, 0.15)', border: 'rgba(251, 146, 60, 0.3)' },
+    };
+    const cat = categoryLabels[category] || categoryLabels.word;
+    const count = matchingCues ? matchingCues.length : 0;
+
+    // 1. Header do Explorador
+    const header = document.createElement('div');
+    header.style.cssText = 'padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); background: #0f172a; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px;';
+
+    header.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <button id="lf-se-back-btn" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:#E2E8F0; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px; transition:all 0.15s;">
+          <span>←</span> Voltar
+        </button>
+        <span style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; padding:3px 8px; border-radius:6px; background:${cat.bg}; color:${cat.color}; border:1px solid ${cat.border};">
+          ${cat.label}
+        </span>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:baseline;">
+        <div style="font-size:18px; font-weight:800; color:#F8FAFC; letter-spacing:-0.02em;">
+          ${escapeHTML(term)}
+        </div>
+        <div style="font-size:11px; color:#94A3B8; font-weight:600;">
+          ${count} ${count === 1 ? 'frase no vídeo' : 'frases no vídeo'}
+        </div>
+      </div>
+      <div style="display:flex; gap:6px; padding-top:4px;">
+        <button id="lf-se-export-pdf" style="flex:1; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:#CBD5E1; padding:6px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px;">
+          📄 PDF
+        </button>
+        <button id="lf-se-export-csv" style="flex:1; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:#CBD5E1; padding:6px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px;">
+          📊 Excel
+        </button>
+        <button id="lf-se-export-anki" style="flex:1; background:rgba(56,189,248,0.15); border:1px solid rgba(56,189,248,0.3); color:#38BDF8; padding:6px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px;">
+          🗂️ Anki
+        </button>
+      </div>
+    `;
+
+    // 2. Lista com scroll de ocorrências
+    const list = document.createElement('div');
+    list.id = 'lf-se-sentences-list';
+    list.style.cssText = 'flex:1; overflow-y:auto; padding:12px; scrollbar-width:thin; scrollbar-color:#334155 transparent; display:flex; flex-direction:column; gap:8px;';
+
+    if (!matchingCues || matchingCues.length === 0) {
+      list.innerHTML = `<div style="text-align:center; color:#64748B; font-size:13px; padding:30px 10px;">Nenhuma frase encontrada para "${escapeHTML(term)}".</div>`;
+    } else {
+      const termEscaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+      const termRegex = new RegExp(`\\b(${termEscaped})\\b`, 'gi');
+
+      matchingCues.forEach((cue) => {
+        const item = document.createElement('div');
+        item.style.cssText = 'background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; transition:all 0.15s;';
+
+        const startTime = cue.start > 100000 ? cue.start / 1000 : cue.start;
+        const formattedTime = this._formatTime(startTime);
+        const highlighted = escapeHTML(cue.text || '').replace(termRegex, (m) => `<mark style="background:${cat.bg}; color:${cat.color}; padding:1px 4px; border-radius:3px; font-weight:800;">${m}</mark>`);
+        const isLoopingThis = this.isLooping && Math.abs(this.loopStartTime - cue.start) < 0.1;
+
+        item.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <button class="lf-se-time-btn" data-time="${startTime}" style="background:rgba(56,189,248,0.1); border:none; color:#38BDF8; font-family:'Nunito',monospace; font-size:11px; font-weight:700; padding:2px 6px; border-radius:4px; cursor:pointer;" title="Pular para ${formattedTime}">
+              ⏱️ ${formattedTime}
+            </button>
+            <div style="display:flex; gap:6px;">
+              <button class="lf-se-play-btn" data-time="${startTime}" style="background:rgba(255,255,255,0.06); border:none; color:#E2E8F0; font-size:12px; padding:2px 6px; border-radius:4px; cursor:pointer;" title="Tocar frase">
+                ▶
+              </button>
+              <button class="lf-se-loop-btn ${isLoopingThis ? 'is-active' : ''}" data-cue-start="${cue.start}" style="background:${isLoopingThis ? '#0284c7' : 'rgba(255,255,255,0.06)'}; border:none; color:${isLoopingThis ? '#fff' : '#94A3B8'}; font-size:12px; padding:2px 6px; border-radius:4px; cursor:pointer;" title="${isLoopingThis ? 'Desativar loop' : 'Repetir em loop'}">
+                🔁
+              </button>
+            </div>
+          </div>
+          <div style="font-size:14px; font-weight:700; color:#F1F5F9; line-height:1.4;">
+            ${highlighted}
+          </div>
+          <div class="lf-se-trans-line" style="font-size:12.5px; font-weight:600; color:#94A3B8; line-height:1.4;">
+            ${cue.translatedText ? escapeHTML(cue.translatedText) : '<span style="opacity:0.6; font-style:italic;">traduzindo...</span>'}
+          </div>
+        `;
+
+        const playBtn = item.querySelector?.('.lf-se-play-btn');
+        const timeBtn = item.querySelector?.('.lf-se-time-btn');
+        const playHandler = () => {
+          if (this.videoElement) {
+            this.videoElement.currentTime = startTime;
+            this.videoElement.play().catch(() => {});
+          }
+        };
+        if (playBtn) playBtn.onclick = playHandler;
+        if (timeBtn) timeBtn.onclick = playHandler;
+
+        const loopBtn = item.querySelector?.('.lf-se-loop-btn');
+        if (loopBtn) {
+          loopBtn.onclick = () => {
+            this._toggleCueLoopByCue(cue);
+          };
+        }
+
+        list.appendChild(item);
+      });
+    }
+
+    explorer.appendChild(header);
+    explorer.appendChild(list);
+
+    // Eventos do Header
+    const backBtn = header.querySelector?.('#lf-se-back-btn');
+    if (backBtn) {
+      backBtn.onclick = () => {
+        explorer.style.display = 'none';
+        wordsScroll.style.display = 'block';
+      };
+    }
+
+    const pdfBtn = header.querySelector?.('#lf-se-export-pdf');
+    if (pdfBtn) {
+      pdfBtn.onclick = () => this._exportPDF(matchingCues, `${term} (${cat.label})`);
+    }
+
+    const csvBtn = header.querySelector?.('#lf-se-export-csv');
+    if (csvBtn) {
+      csvBtn.onclick = () => this._exportCSV(matchingCues, `${term}_${category}`);
+    }
+
+    const ankiBtn = header.querySelector?.('#lf-se-export-anki');
+    if (ankiBtn) {
+      ankiBtn.onclick = () => this._exportAnki(matchingCues, `${term}_${category}`);
+    }
+  }
+
   _updateSubtitlePanelHighlight() {
+    if (typeof document === 'undefined') return;
     const list = document.getElementById('lf-subtitle-list');
     if (!list) return;
 
     const autoScroll = document.getElementById('lf-autoscroll-panel')?.checked ?? true;
-    const items = list.querySelectorAll('.lf-subtitle-item');
+    const items = list.querySelectorAll('.lf-subtitle-item') || [];
+    const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
 
+    if (this.currentCueIndex < 0 && cues?.length && this.videoElement) {
+      this.currentCueIndex = this._binarySearchCue(cues, this.videoElement.currentTime);
+    }
+
+    let activeItem = null;
     items.forEach((item) => {
-      const idx = parseInt(item.dataset.index);
+      const idx = parseInt(item.dataset.index, 10);
       if (idx === this.currentCueIndex) {
-        item.classList.add('active');
-        item.style.background = 'rgba(56, 189, 248, 0.12)';
-        item.style.borderLeftColor = '#38BDF8';
-
-        if (autoScroll && !list._userScrolling) {
-          item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        activeItem = item;
+        item.classList?.add?.('active');
+        if (item.style) {
+          item.style.background = 'rgba(56, 189, 248, 0.15)';
+          item.style.borderLeft = '3px solid #38BDF8';
         }
       } else {
-        item.classList.remove('active');
-        item.style.background = '';
-        item.style.borderLeftColor = '';
+        item.classList?.remove?.('active');
+        if (item.style) {
+          item.style.background = '';
+          item.style.borderLeft = '';
+        }
       }
     });
+
+    if (activeItem && autoScroll && !list._userScrolling) {
+      this._scrollSubtitleItemIntoView(list, activeItem);
+    }
   }
 
-  _exportPDF() {
-    this._showPdfExportModal();
+  _scrollSubtitleItemIntoView(list, item) {
+    if (!list || !item) return;
+    const itemOffset = item.offsetTop - list.offsetTop;
+    const targetScrollTop = itemOffset - (list.clientHeight / 2) + (item.clientHeight / 2);
+
+    if (Math.abs(list.scrollTop - targetScrollTop) > 15) {
+      list._isProgrammaticScroll = true;
+      if (typeof list.scrollTo === 'function') {
+        list.scrollTo({
+          top: Math.max(0, targetScrollTop),
+          behavior: 'smooth',
+        });
+      } else {
+        list.scrollTop = Math.max(0, targetScrollTop);
+      }
+      clearTimeout(list._progScrollTimer);
+      list._progScrollTimer = setTimeout(() => {
+        list._isProgrammaticScroll = false;
+      }, 400);
+    }
   }
 
-  _showPdfExportModal() {
+  _exportPDF(customCues = null, customTitle = null) {
+    this._showPdfExportModal(customCues, customTitle);
+  }
+
+  _showPdfExportModal(customCues = null, customTitle = null) {
     const existing = document.getElementById('lf-pdf-modal-overlay');
     if (existing) existing.remove();
 
-    const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
+    const cues = customCues && customCues.length > 0
+      ? customCues
+      : (this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues);
     if (!cues || cues.length === 0) {
       alert('Nenhuma legenda carregada ainda para exportar.');
       return;
@@ -4775,14 +5185,15 @@ export class SubtitleEngine {
       const fontSize = overlay.querySelector('#lf-pdf-font-size')?.value || 'small';
 
       closeModal();
-      this._generatePDF({ layout, content, timestamps, fontSize });
+      this._generatePDF({ layout, content, timestamps, fontSize }, cues, customTitle);
     };
   }
 
-  _generatePDF(options = {}) {
-    const videoTitle = document.title || 'Legendas';
+  _generatePDF(options = {}, customCues = null, customTitle = null) {
+    const baseVideoTitle = document.title || 'Legendas';
+    const videoTitle = customTitle ? `${baseVideoTitle} - ${customTitle}` : baseVideoTitle;
     const safeVideoTitle = escapeHTML(videoTitle);
-    const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
+    const cues = customCues && customCues.length > 0 ? customCues : (this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues);
 
     if (!cues || cues.length === 0) return;
 
@@ -4956,9 +5367,9 @@ export class SubtitleEngine {
     }, 400);
   }
 
-  _exportCSV() {
-    const videoTitle = document.title || 'Legendas';
-    const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
+  _exportCSV(customCues = null, customTitle = null) {
+    const baseTitle = customTitle || document.title || 'Legendas';
+    const cues = customCues && customCues.length > 0 ? customCues : (this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues);
     let csv = 'Timestamp;Original;Translation\n';
 
     cues.forEach((c) => {
@@ -4972,13 +5383,13 @@ export class SubtitleEngine {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `${videoTitle.replace(/[^a-z0-9]/gi, '_')}_LinguaFlow.csv`;
+    link.download = `${baseTitle.replace(/[^a-z0-9]/gi, '_')}_LinguaFlow.csv`;
     link.click();
   }
 
-  _exportAnki() {
-    const videoTitle = document.title || 'Legendas';
-    const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
+  _exportAnki(customCues = null, customTitle = null) {
+    const baseTitle = customTitle || document.title || 'Legendas';
+    const cues = customCues && customCues.length > 0 ? customCues : (this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues);
     let content = '';
 
     cues.forEach((c) => {
@@ -4992,7 +5403,7 @@ export class SubtitleEngine {
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `${videoTitle.replace(/[^a-z0-9]/gi, '_')}_Anki.txt`;
+    link.download = `${baseTitle.replace(/[^a-z0-9]/gi, '_')}_Anki.txt`;
     link.click();
   }
 

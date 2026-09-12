@@ -1875,14 +1875,9 @@ export class SubtitleEngine {
     if (!this.videoElement) return false;
 
     if (this.isLooping) {
-      this.isLooping = false;
-      if (this._loopInterval) {
-        clearInterval(this._loopInterval);
-        this._loopInterval = null;
-      }
+      this._stopLoop();
       console.debug('[LinguaFlow] Loop DESATIVADO');
       this._showNotification('▶️ Loop Desativado');
-      this._syncLoopButtons();
       return false;
     }
 
@@ -1895,26 +1890,131 @@ export class SubtitleEngine {
       return false;
     }
 
+    const res = this._startPreciseLoopByCue(currentCue);
+    if (res) {
+      this._showNotification('🔁 Loop da frase ativado');
+    }
+    return res;
+  }
+
+  _startPreciseLoopByCue(cue) {
+    if (!cue) return false;
+    const start = Number(cue.start);
+    let end = Number(cue.end);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return false;
+
+    // Aumentar precisão de corte: evitar que o vídeo invada a fala seguinte
+    const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
+    let cueIdx = -1;
+    if (cues && cues.length > 0) {
+      cueIdx = cues.indexOf(cue);
+      if (cueIdx === -1) {
+        cueIdx = cues.findIndex((c) => Math.abs(c.start - start) < 0.05 && c.text === cue.text);
+      }
+    }
+    const nextCue = (cues && cueIdx >= 0 && cueIdx < cues.length - 1) ? cues[cueIdx + 1] : null;
+
+    // Se houver legenda subsequente colada, cortar 0.08s antes da próxima fala para não vazar sílabas
+    if (nextCue && Number.isFinite(nextCue.start) && nextCue.start <= end + 0.15) {
+      end = Math.max(start + 0.2, Math.min(end, nextCue.start - 0.08));
+    }
+
+    this._stopLoop();
+
     this.isLooping = true;
     this.loopStartTime = start;
     this.loopEndTime = end;
 
-    if (this._loopInterval) clearInterval(this._loopInterval);
-    this.videoElement.currentTime = this.loopStartTime;
-    this.videoElement.play().catch(() => {});
-    this._loopInterval = setInterval(() => {
-      if (this.isLooping && this.videoElement?.currentTime >= this.loopEndTime) {
+    if (this.videoElement) {
+      this.videoElement.currentTime = this.loopStartTime;
+      this.videoElement.play().catch(() => {});
+    }
+
+    // Monitoramento de alta precisão (por frame via requestVideoFrameCallback / requestAnimationFrame)
+    const checkFrame = () => {
+      if (!this.isLooping || !this.videoElement) return;
+      const cur = this.videoElement.currentTime;
+      const rate = this.videoElement.playbackRate || 1;
+      // Margem preditiva de buffer de decode de áudio proporcional à velocidade
+      const leadBuffer = Math.min(0.06, 0.03 * rate);
+
+      if (cur >= this.loopEndTime - leadBuffer || cur < this.loopStartTime - 1.5) {
         this.videoElement.currentTime = this.loopStartTime;
-        if (this.videoElement.paused) this.videoElement.play().catch(() => {});
       }
-    }, 100);
+
+      if (this.isLooping && this.videoElement) {
+        if ('requestVideoFrameCallback' in this.videoElement) {
+          this._loopRvfcId = this.videoElement.requestVideoFrameCallback(checkFrame);
+        } else if (typeof requestAnimationFrame === 'function') {
+          this._loopRafId = requestAnimationFrame(checkFrame);
+        }
+      }
+    };
+
+    if (this.videoElement) {
+      if ('requestVideoFrameCallback' in this.videoElement) {
+        this._loopRvfcId = this.videoElement.requestVideoFrameCallback(checkFrame);
+      } else if (typeof requestAnimationFrame === 'function') {
+        this._loopRafId = requestAnimationFrame(checkFrame);
+      }
+
+      if (typeof this.videoElement.addEventListener === 'function') {
+        this._loopTimeUpdateHandler = () => {
+          if (!this.isLooping || !this.videoElement) return;
+          const cur = this.videoElement.currentTime;
+          const rate = this.videoElement.playbackRate || 1;
+          const leadBuffer = Math.min(0.06, 0.03 * rate);
+          if (cur >= this.loopEndTime - leadBuffer) {
+            this.videoElement.currentTime = this.loopStartTime;
+          }
+        };
+        this.videoElement.addEventListener('timeupdate', this._loopTimeUpdateHandler);
+      }
+    }
+
+    // Fallback timer rápido (25ms) caso o vídeo pause ou o RAF fique em background
+    this._loopInterval = setInterval(() => {
+      if (this.isLooping && this.videoElement) {
+        const cur = this.videoElement.currentTime;
+        const rate = this.videoElement.playbackRate || 1;
+        const leadBuffer = Math.min(0.06, 0.03 * rate);
+        if (cur >= this.loopEndTime - leadBuffer) {
+          this.videoElement.currentTime = this.loopStartTime;
+          if (this.videoElement.paused) this.videoElement.play().catch(() => {});
+        }
+      }
+    }, 25);
 
     console.debug(
       `[LinguaFlow] Loop ATIVADO: ${this.loopStartTime.toFixed(2)}s - ${this.loopEndTime.toFixed(2)}s`,
     );
-    this._showNotification('🔁 Loop da frase ativado');
     this._syncLoopButtons();
     return true;
+  }
+
+  _stopLoop() {
+    this.isLooping = false;
+    this.loopStartTime = null;
+    this.loopEndTime = null;
+
+    if (this._loopInterval) {
+      clearInterval(this._loopInterval);
+      this._loopInterval = null;
+    }
+    if (this._loopRafId && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(this._loopRafId);
+      this._loopRafId = null;
+    }
+    if (this._loopRvfcId && this.videoElement && 'cancelVideoFrameCallback' in this.videoElement) {
+      this.videoElement.cancelVideoFrameCallback(this._loopRvfcId);
+      this._loopRvfcId = null;
+    }
+    if (this._loopTimeUpdateHandler && this.videoElement && typeof this.videoElement.removeEventListener === 'function') {
+      this.videoElement.removeEventListener('timeupdate', this._loopTimeUpdateHandler);
+      this._loopTimeUpdateHandler = null;
+    }
+
+    this._syncLoopButtons();
   }
 
   _syncLoopButtons() {
@@ -1929,9 +2029,22 @@ export class SubtitleEngine {
       btn.classList?.toggle?.('is-active', isLoop);
       btn.title = isLoop ? 'Desativar loop da frase' : 'Ativar loop da frase';
       btn.setAttribute?.('aria-label', btn.title);
+      if (btn.style) {
+        if (isLoop) {
+          btn.style.background = '#0284c7';
+          btn.style.color = '#ffffff';
+          btn.style.borderColor = '#38bdf8';
+          btn.style.boxShadow = '0 0 12px rgba(56, 189, 248, 0.8)';
+        } else {
+          btn.style.background = '';
+          btn.style.color = '';
+          btn.style.borderColor = '';
+          btn.style.boxShadow = '';
+        }
+      }
     }
 
-    // 2. Botões nas legendas da barra lateral (.lf-loop-cue)
+    // 2. Botões nas legendas da barra lateral (.lf-loop-cue) e card da frase (.lf-subtitle-item)
     const cueButtons = doc.querySelectorAll('.lf-loop-cue') || [];
     for (const btn of cueButtons) {
       const parentItem = btn.closest?.('.lf-subtitle-item');
@@ -1947,7 +2060,7 @@ export class SubtitleEngine {
           btn.style.background = '#0284c7';
           btn.style.color = '#ffffff';
           btn.style.borderRadius = '6px';
-          btn.style.boxShadow = '0 0 8px rgba(2, 132, 199, 0.7)';
+          btn.style.boxShadow = '0 0 10px rgba(56, 189, 248, 0.85)';
           btn.style.padding = '2px 6px';
         } else {
           btn.style.background = 'transparent';
@@ -1958,13 +2071,34 @@ export class SubtitleEngine {
         }
       }
       btn.title = isThisCueActive ? 'Desativar loop desta frase' : 'Repetir frase em loop';
+
+      // Destacar visualmente o card da frase inteira
+      if (parentItem) {
+        parentItem.classList?.toggle?.('is-looping', isThisCueActive);
+        if (parentItem.style) {
+          if (isThisCueActive) {
+            parentItem.style.background = 'rgba(2, 132, 199, 0.28)';
+            parentItem.style.borderLeft = '4px solid #38bdf8';
+            parentItem.style.boxShadow = 'inset 0 0 16px rgba(56, 189, 248, 0.25), 0 4px 12px rgba(0,0,0,0.35)';
+          } else if (parentItem.classList?.contains?.('active')) {
+            parentItem.style.background = 'rgba(56, 189, 248, 0.15)';
+            parentItem.style.borderLeft = '3px solid #38BDF8';
+            parentItem.style.boxShadow = '';
+          } else {
+            parentItem.style.background = '';
+            parentItem.style.borderLeft = '';
+            parentItem.style.boxShadow = '';
+          }
+        }
+      }
     }
 
-    // 3. Botões no explorador de frases (.lf-se-loop-btn)
+    // 3. Botões no explorador de frases (.lf-se-loop-btn) e card (.lf-sentence-card)
     const seButtons = doc.querySelectorAll('.lf-se-loop-btn') || [];
     for (const btn of seButtons) {
       const cueStart = parseFloat(btn.dataset.cueStart);
       const isThisCueActive = isLoop && !isNaN(cueStart) && Math.abs(cueStart - this.loopStartTime) < 0.1;
+      const card = btn.closest?.('.lf-sentence-card');
 
       btn.setAttribute?.('aria-pressed', String(isThisCueActive));
       btn.classList?.toggle?.('is-active', isThisCueActive);
@@ -1972,7 +2106,7 @@ export class SubtitleEngine {
         if (isThisCueActive) {
           btn.style.background = '#0284c7';
           btn.style.color = '#ffffff';
-          btn.style.boxShadow = '0 0 8px rgba(2, 132, 199, 0.7)';
+          btn.style.boxShadow = '0 0 10px rgba(56, 189, 248, 0.85)';
         } else {
           btn.style.background = 'rgba(255,255,255,0.06)';
           btn.style.color = '#94A3B8';
@@ -1980,6 +2114,21 @@ export class SubtitleEngine {
         }
       }
       btn.title = isThisCueActive ? 'Desativar loop' : 'Repetir em loop';
+
+      if (card) {
+        card.classList?.toggle?.('is-looping', isThisCueActive);
+        if (card.style) {
+          if (isThisCueActive) {
+            card.style.borderColor = '#38bdf8';
+            card.style.background = 'rgba(2, 132, 199, 0.2)';
+            card.style.boxShadow = '0 0 14px rgba(56, 189, 248, 0.25)';
+          } else {
+            card.style.borderColor = 'rgba(255,255,255,0.07)';
+            card.style.background = 'rgba(255,255,255,0.03)';
+            card.style.boxShadow = 'none';
+          }
+        }
+      }
     }
   }
 
@@ -2281,10 +2430,35 @@ export class SubtitleEngine {
                 z-index: 10;
                 box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             }
+            #lf-subtitle-panel .lf-subtitle-item.is-looping {
+                background: rgba(2, 132, 199, 0.28) !important;
+                border-left-color: #38bdf8 !important;
+                border-left-width: 4px !important;
+                transform: scale(1.02);
+                z-index: 12;
+                box-shadow: inset 0 0 16px rgba(56, 189, 248, 0.3), 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+            }
+            #lf-subtitle-panel.theme-light .lf-subtitle-item.is-looping {
+                background: rgba(2, 132, 199, 0.16) !important;
+                border-left-color: #0284c7 !important;
+                box-shadow: inset 0 0 12px rgba(2, 132, 199, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+            }
+            #lf-subtitle-panel .lf-loop-cue.is-active {
+                background: #0284c7 !important;
+                color: #ffffff !important;
+                border-radius: 6px !important;
+                box-shadow: 0 0 10px rgba(56, 189, 248, 0.85) !important;
+                padding: 2px 6px !important;
+                animation: lf-loop-pulse 2s infinite ease-in-out;
+            }
+            @keyframes lf-loop-pulse {
+                0%, 100% { box-shadow: 0 0 8px rgba(56, 189, 248, 0.6); }
+                50% { box-shadow: 0 0 16px rgba(56, 189, 248, 1); transform: scale(1.08); }
+            }
             #lf-subtitle-panel .lf-subtitle-item {
                 transition: all 0.1s;
             }
-            #lf-subtitle-panel .lf-subtitle-item:not(.active) {
+            #lf-subtitle-panel .lf-subtitle-item:not(.active):not(.is-looping) {
                 opacity: 0.8;
             }
 
@@ -4150,34 +4324,11 @@ export class SubtitleEngine {
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
 
     if (this.isLooping && Math.abs(this.loopStartTime - start) < 0.05) {
-      this.isLooping = false;
-      if (this._loopInterval) {
-        clearInterval(this._loopInterval);
-        this._loopInterval = null;
-      }
+      this._stopLoop();
       this._showNotification('▶️ Loop Desativado');
-      this._syncLoopButtons();
     } else {
-      if (this._loopInterval) clearInterval(this._loopInterval);
-
-      this.isLooping = true;
-      this.loopStartTime = start;
-      this.loopEndTime = end;
-
-      if (this.videoElement) {
-        this.videoElement.currentTime = this.loopStartTime;
-        this.videoElement.play().catch(() => {});
-      }
-
-      this._loopInterval = setInterval(() => {
-        if (this.isLooping && this.videoElement?.currentTime >= this.loopEndTime) {
-          this.videoElement.currentTime = this.loopStartTime;
-          if (this.videoElement.paused) this.videoElement.play().catch(() => {});
-        }
-      }, 100);
-
+      this._startPreciseLoopByCue(cue);
       this._showNotification('🔁 Loop Ativado');
-      this._syncLoopButtons();
     }
   }
 
@@ -4904,13 +5055,16 @@ export class SubtitleEngine {
       const termRegex = new RegExp(`\\b(${termEscaped})\\b`, 'gi');
 
       matchingCues.forEach((cue) => {
+        const isLoopingThis = this.isLooping && Math.abs(this.loopStartTime - cue.start) < 0.1;
         const item = document.createElement('div');
-        item.style.cssText = 'background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; transition:all 0.15s;';
+        item.className = `lf-sentence-card ${isLoopingThis ? 'is-looping' : ''}`;
+        item.style.cssText = isLoopingThis
+          ? 'background:rgba(2,132,199,0.2); border:1px solid #38bdf8; box-shadow:0 0 14px rgba(56,189,248,0.25); border-radius:8px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; transition:all 0.15s;'
+          : 'background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; transition:all 0.15s;';
 
         const startTime = cue.start > 100000 ? cue.start / 1000 : cue.start;
         const formattedTime = this._formatTime(startTime);
         const highlighted = escapeHTML(cue.text || '').replace(termRegex, (m) => `<mark style="background:${cat.bg}; color:${cat.color}; padding:1px 4px; border-radius:3px; font-weight:800;">${m}</mark>`);
-        const isLoopingThis = this.isLooping && Math.abs(this.loopStartTime - cue.start) < 0.1;
 
         item.innerHTML = `
           <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
@@ -5017,14 +5171,22 @@ export class SubtitleEngine {
         activeItem = item;
         item.classList?.add?.('active');
         if (item.style) {
-          item.style.background = 'rgba(56, 189, 248, 0.15)';
-          item.style.borderLeft = '3px solid #38BDF8';
+          if (item.classList?.contains?.('is-looping')) {
+            item.style.background = 'rgba(2, 132, 199, 0.28)';
+            item.style.borderLeft = '4px solid #38bdf8';
+            item.style.boxShadow = 'inset 0 0 16px rgba(56, 189, 248, 0.25), 0 4px 12px rgba(0,0,0,0.35)';
+          } else {
+            item.style.background = 'rgba(56, 189, 248, 0.15)';
+            item.style.borderLeft = '3px solid #38BDF8';
+            item.style.boxShadow = '';
+          }
         }
       } else {
         item.classList?.remove?.('active');
-        if (item.style) {
+        if (item.style && !item.classList?.contains?.('is-looping')) {
           item.style.background = '';
           item.style.borderLeft = '';
+          item.style.boxShadow = '';
         }
       }
     });
@@ -5492,7 +5654,7 @@ export class SubtitleEngine {
       if (v && v.cancelVideoFrameCallback) v.cancelVideoFrameCallback(this._syncTimer);
       else cancelAnimationFrame(this._syncTimer);
     }
-    if (this._loopInterval) clearInterval(this._loopInterval);
+    this._stopLoop();
     if (this._watchdogInterval) clearInterval(this._watchdogInterval);
     if (this._videoWaitInterval) clearInterval(this._videoWaitInterval);
     this._stopSyncLoop();

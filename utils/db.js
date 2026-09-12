@@ -1007,11 +1007,14 @@ class Database {
   }
 
   _fsrsRetrievability(elapsedDays, stability) {
-    return Math.pow(1 + Database.FSRS_FACTOR * elapsedDays / stability, Database.FSRS_DECAY);
+    const s = Math.max(0.1, Number(stability) || 0.1);
+    return Math.pow(1 + Database.FSRS_FACTOR * elapsedDays / s, Database.FSRS_DECAY);
   }
 
   _fsrsInterval(stability, retention) {
-    return (stability / Database.FSRS_FACTOR) * (Math.pow(retention, 1 / Database.FSRS_DECAY) - 1);
+    const s = Math.max(0.1, Number(stability) || 0.1);
+    const ret = Math.min(0.99, Math.max(0.7, Number(retention) || 0.9));
+    return (s / Database.FSRS_FACTOR) * (Math.pow(ret, 1 / Database.FSRS_DECAY) - 1);
   }
 
   _fsrsNextDifficulty(d, q) {
@@ -1048,8 +1051,8 @@ class Database {
     const nextReps = (card.reps || 0) + 1;
 
     // Estado FSRS: semeia a partir do histórico se o card veio do SM-2 antigo
-    let stability = card.stability || null;
-    let difficulty = card.difficulty || null;
+    let stability = (Number.isFinite(Number(card.stability)) && Number(card.stability) > 0) ? Number(card.stability) : null;
+    let difficulty = (Number.isFinite(Number(card.difficulty)) && Number(card.difficulty) > 0) ? Number(card.difficulty) : null;
 
     const elapsedDays = card.last_review
       ? Math.max(0, (now - new Date(card.last_review).getTime()) / 86400000)

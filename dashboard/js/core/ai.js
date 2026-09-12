@@ -158,6 +158,36 @@ export function grammarInitialQuestion(sentence, word) {
   return `Me explica essa frase: "${sentence}". O que ela quer dizer de verdade, e qual é a estrutura mais importante nela (se "${word}" fizer parte disso, foque nela)? Bem curto e didático.`;
 }
 
+export function safeParseJson(text) {
+  if (!text || typeof text !== 'string') return null;
+  const clean = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+  try {
+    return JSON.parse(clean);
+  } catch {}
+
+  const firstBrace = clean.indexOf('{');
+  const firstBracket = clean.indexOf('[');
+  let startIdx = -1;
+  let endIdx = -1;
+
+  if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+    startIdx = firstBrace;
+    endIdx = clean.lastIndexOf('}');
+  } else if (firstBracket !== -1) {
+    startIdx = firstBracket;
+    endIdx = clean.lastIndexOf(']');
+  }
+
+  if (startIdx !== -1 && endIdx > startIdx) {
+    try {
+      const extracted = clean.slice(startIdx, endIdx + 1);
+      return JSON.parse(extracted);
+    } catch {}
+  }
+
+  return null;
+}
+
 // Fonética BR + traduções da frase e da palavra em UMA chamada só (economiza rate-limit).
 export async function enrichCard(word, sentence) {
   const system = `Você é um professor de inglês para brasileiros. Responda APENAS com JSON válido, sem nenhum texto extra.
@@ -183,12 +213,7 @@ Retorne exatamente este JSON:
     [{ role: 'system', content: system }, { role: 'user', content: user }],
     { temperature: 0.1, max_tokens: 500 }
   );
-  const clean = content.replace(/```json/g, '').replace(/```/g, '').trim();
-  try {
-    return JSON.parse(clean);
-  } catch {
-    return null;
-  }
+  return safeParseJson(content);
 }
 
 // Geração de história na web (na extensão o service worker tem 'ai_generate_story').
@@ -259,8 +284,7 @@ Responda APENAS com JSON válido:
     [{ role: 'system', content: system }, { role: 'user', content: user }],
     { temperature: 0.3, max_tokens: 300 }
   );
-  const clean = content.replace(/```json/g, '').replace(/```/g, '').trim();
-  const parsed = JSON.parse(clean);
+  const parsed = safeParseJson(content) || {};
   const adjust = [-1, 0, 1].includes(parsed.adjust) ? parsed.adjust : 0;
   const feedback = typeof parsed.feedback === 'string' ? parsed.feedback.slice(0, 400) : '';
   return { adjust, feedback };
@@ -280,8 +304,7 @@ Responda APENAS com JSON válido: {"mnemonic": "1-2 frases em português, direto
     [{ role: 'system', content: system }, { role: 'user', content: user }],
     { temperature: 0.8, max_tokens: 200 }
   );
-  const clean = content.replace(/```json/g, '').replace(/```/g, '').trim();
-  const parsed = JSON.parse(clean);
+  const parsed = safeParseJson(content) || {};
   const mnemonic = typeof parsed.mnemonic === 'string' ? parsed.mnemonic.trim().slice(0, 400) : '';
   if (!mnemonic) throw new Error('IA não retornou um mnemônico válido.');
   return mnemonic;
@@ -308,14 +331,10 @@ Responda ÚNICA E EXCLUSIVAMENTE com um objeto JSON válido contendo uma chave "
     [{ role: 'system', content: system }, { role: 'user', content: `Gere os 3 chunks para a palavra/expressão: "${word}"` }],
     { temperature: 0.7, max_tokens: 1000 }
   );
-  const clean = content.replace(/```json/g, '').replace(/```/g, '').trim();
-  try {
-    const parsed = JSON.parse(clean);
-    if (Array.isArray(parsed)) return parsed;
-    const firstKey = Object.keys(parsed)[0];
-    if (Array.isArray(parsed[firstKey])) return parsed[firstKey];
-    return [];
-  } catch {
-    return [];
-  }
+  const parsed = safeParseJson(content);
+  if (!parsed) return [];
+  if (Array.isArray(parsed)) return parsed;
+  const firstKey = Object.keys(parsed)[0];
+  if (Array.isArray(parsed[firstKey])) return parsed[firstKey];
+  return [];
 }

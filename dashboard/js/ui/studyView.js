@@ -78,6 +78,8 @@ export async function renderStudy(container, app, params = {}) {
     studyTimers.clear();
     feedbackAudioContexts.forEach(ctx => { try { ctx.close(); } catch { /* já fechado */ } });
     feedbackAudioContexts.clear();
+    document.getElementById('anki-quick-edit-dialog')?.remove();
+    document.getElementById('anki-card-info-dialog')?.remove();
     if (window.currentKeydownHandler) {
       document.removeEventListener('keydown', window.currentKeydownHandler);
       window.currentKeydownHandler = null;
@@ -461,7 +463,13 @@ function handleKeydown(e) {
   const revealBtn = document.getElementById('reveal-btn');
   const gradingArea = document.getElementById('grading-area');
 
-  if (e.target.closest('button, a, summary, input, textarea, select, [contenteditable="true"]')) return;
+  const inInteractiveControl = e.target.closest('button, a, summary, input, textarea, select, [contenteditable="true"]');
+  if (inInteractiveControl) {
+    const isTextInput = e.target.closest('input, textarea, select, [contenteditable="true"]');
+    const isLinkOrSummary = e.target.closest('a, summary');
+    const isButtonActivation = e.target.closest('button') && (e.code === 'Space' || e.code === 'Enter');
+    if (isTextInput || isLinkOrSummary || isButtonActivation) return;
+  }
   if (e.target.closest('.anki-modal-overlay')) return;
 
   // Atalhos rápidos do Anki
@@ -670,7 +678,8 @@ function renderSessionComplete(app) {
 // Tela de espera: há cards em learning voltando no futuro. Countdown real;
 // quando zera, o card entra sozinho sem antecipar o step.
 function renderWaitingScreen(app, nextAt) {
-  const rootContainer = studyContainer || document.body;
+  const rootContainer = studyContainer;
+  if (!rootContainer || !studyViewActive) return;
   rootContainer.innerHTML = `
     <div style="display:flex; height:100%; align-items:center; justify-content:center; background:var(--color-bg-alt);">
       <div style="text-align:center; padding:60px; background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-border); max-width:500px;">
@@ -689,7 +698,7 @@ function renderWaitingScreen(app, nextAt) {
     if (el) el.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     if (ms <= 0) {
       clearInterval(waitTimer); waitTimer = null;
-      loadNextCard(app);
+      if (studyViewActive) loadNextCard(app);
     }
   };
   waitTimer = setInterval(tick, 1000);
@@ -704,6 +713,7 @@ function renderWaitingScreen(app, nextAt) {
 
 // ── Fluxo do card ────────────────────────────────────────────────────────────
 async function loadNextCard(app) {
+  if (!studyViewActive) return;
   stopAudio();
   audioUiToken += 1;
   pauseYouglish();
@@ -1046,12 +1056,14 @@ function renderBuilder(card, context) {
   // B2: Fisher-Yates + rejeita permutacao identica (o sort enviesado as
   // vezes entregava a frase ja na ordem certa).
   const shuffled = [...tokens];
+  let attempts = 0;
   do {
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-  } while (tokens.length > 2 && shuffled.join(' ') === tokens.join(' '));
+    attempts++;
+  } while (attempts < 10 && tokens.length > 2 && shuffled.join(' ') === tokens.join(' '));
 
   sentenceEl.innerHTML = `
     <div style="font-size:14px; font-weight:800; color:var(--color-secondary); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">🧩 Monte a frase em inglês</div>
@@ -1141,14 +1153,23 @@ async function improveSentence(app) {
   const word = wordData.word || card.word || '';
 
   const btn = document.getElementById('improve-btn');
-  btn.disabled = true;
-  btn.textContent = '✨ Gerando frase nova...';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '✨ Gerando frase nova...';
+  }
 
-  const generated = await generateChunksForWord(word);
+  let generated = [];
+  try {
+    generated = await generateChunksForWord(word);
+  } catch (err) {
+    console.warn('[Study] improveSentence falhou:', err);
+  } finally {
+    if (btn && currentCard === card) {
+      btn.disabled = false;
+      btn.textContent = '✨ Frase estranha? Gerar uma melhor com IA';
+    }
+  }
   if (currentCard !== card) return;
-
-  btn.disabled = false;
-  btn.textContent = '✨ Frase estranha? Gerar uma melhor com IA';
 
   if (generated.length === 0) {
     app.showToast('Não consegui gerar uma frase agora. Tente de novo.', 'error');

@@ -807,22 +807,15 @@ export class SubtitleEngine {
     this.usingXhr = false;
     this._lastOrig = '';
     this.isLooping = false;
-    if (this._loopInterval) {
-      clearInterval(this._loopInterval);
-      this._loopInterval = null;
-    }
+    // Encerra completamente o loop anterior (cancela timers, RAF, RVFC e timeupdate)
+    this._stopLoop();
+
     // Limpa intervalos de espera de vídeo anteriores
     if (this._videoWaitInterval) {
       clearInterval(this._videoWaitInterval);
       this._videoWaitInterval = null;
     }
     this._stopSyncLoop();
-
-    // Limpa intervalos e timers pendentes para evitar vazamento de memória
-    if (this._videoWaitInterval) {
-      clearInterval(this._videoWaitInterval);
-      this._videoWaitInterval = null;
-    }
 
     // Esconde a interface atual
     this.renderDual('', '');
@@ -2531,11 +2524,12 @@ export class SubtitleEngine {
       panel.style.transform = 'translateX(0)';
     });
 
+    const panelAbort = new AbortController();
     const closePanel = () => {
+      panelAbort.abort();
       overlay.style.opacity = '0';
       panel.style.transform = 'translateX(100%)';
       setTimeout(() => wrapper.remove(), 300);
-
     };
 
     overlay.onclick = closePanel;
@@ -2644,12 +2638,12 @@ export class SubtitleEngine {
         isDraggingScrollbar = false;
         markUserScroll();
       }
-    }, { passive: true });
+    }, { passive: true, signal: panelAbort.signal });
     window.addEventListener('pointermove', () => {
       if (isDraggingScrollbar) {
         markUserScroll();
       }
-    }, { passive: true });
+    }, { passive: true, signal: panelAbort.signal });
     list.addEventListener('keydown', (e) => {
       if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', 'Space'].includes(e.code)) {
         markUserScroll();

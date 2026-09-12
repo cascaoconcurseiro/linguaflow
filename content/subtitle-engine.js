@@ -1370,7 +1370,7 @@ export class SubtitleEngine {
     this._drag = { active: false, startY: 0, startBottom: 0, wrap };
 
     wrap.addEventListener('mousedown', (e) => {
-      if (e.target.classList.contains('lf-word')) return;
+      if (e.target.closest?.('.lf-word')) return;
       const liveHost = document.getElementById('linguaflow-subtitle-host');
       if (!liveHost) return;
       this._drag.active = true;

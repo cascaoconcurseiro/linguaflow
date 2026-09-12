@@ -244,5 +244,49 @@ assert.ok(!mockDockBtn.classList.contains('is-active'), 'Dock loop button must n
 assert.ok(!mockSidebarLoopBtn.classList.contains('is-active'), 'Sidebar loop button must not have is-active class when inactive');
 assert.ok(!mockSeLoopBtn.classList.contains('is-active'), 'Sentence explorer loop button must not have is-active class when inactive');
 
+// Verify Auto-scroll contracts and instant centering
+const mockList = createMockElement('div');
+mockList.id = 'lf-subtitle-list';
+mockList.offsetTop = 0;
+mockList.clientHeight = 500;
+mockList.scrollTop = 0;
+mockList._userScrolling = false;
+
+const mockAutoScrollToggle = createMockElement('input');
+mockAutoScrollToggle.id = 'lf-autoscroll-panel';
+mockAutoScrollToggle.checked = true;
+
+const mockSubtitleItem0 = createMockElement('div');
+mockSubtitleItem0.className = 'lf-subtitle-item';
+mockSubtitleItem0.dataset = { index: '0' };
+mockSubtitleItem0.offsetTop = 0;
+mockSubtitleItem0.clientHeight = 60;
+
+const mockSubtitleItem1 = createMockElement('div');
+mockSubtitleItem1.className = 'lf-subtitle-item';
+mockSubtitleItem1.dataset = { index: '1' };
+mockSubtitleItem1.offsetTop = 300;
+mockSubtitleItem1.clientHeight = 60;
+
+mockList.children.push(mockSubtitleItem0, mockSubtitleItem1);
+
+const origGetElementById = globalThis.document.getElementById;
+globalThis.document.getElementById = (id) => {
+  if (id === 'lf-subtitle-list') return mockList;
+  if (id === 'lf-autoscroll-panel') return mockAutoScrollToggle;
+  return origGetElementById(id);
+};
+
+// Simulate videoElement playing at cue 1 time
+testEngine.videoElement = { currentTime: sampleCues[1].start + 0.1, play: () => {} };
+testEngine.currentCueIndex = -1;
+
+testEngine._updateSubtitlePanelHighlight(true);
+assert.equal(testEngine.currentCueIndex, 1, 'Highlight sync must compute active cue index from videoElement.currentTime');
+assert.ok(mockSubtitleItem1.classList.contains('active'), 'Matching subtitle item must be marked active');
+assert.ok(mockList.scrollTop > 0, 'Instant scroll must center the active cue in the list');
+
+globalThis.document.getElementById = origGetElementById;
+
 console.log('All words explorer, slangs, phrasal verbs, auto-scroll and loop contracts passed successfully!');
 process.exit(0);

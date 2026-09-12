@@ -837,6 +837,7 @@ export class SubtitleEngine {
 
     // Re-inicializa captura específica da plataforma
     if (this.platform === 'youtube') {
+      this._injectYouTubeControls();
       this._scheduleForNavigation((nav) => this._fetchYoutubeSubtitles(nav), 1000, navigation);
     }
   }
@@ -1477,7 +1478,13 @@ export class SubtitleEngine {
 
     const tryInject = () => {
       const rightCtrl = document.querySelector('.ytp-right-controls');
-      if (!rightCtrl || document.getElementById('lf-yt-horizontal-dock')) return false;
+      if (!rightCtrl) return false;
+
+      const existing = document.getElementById('lf-yt-horizontal-dock');
+      if (existing) {
+        if (rightCtrl.contains(existing)) return true;
+        existing.remove();
+      }
 
       // Injeta CSS para a dock horizontal e botões (apenas uma vez)
       if (!document.getElementById('lf-yt-styles')) {
@@ -1795,6 +1802,9 @@ export class SubtitleEngine {
       this.toggleSubtitles(isSubVisible);
       return true;
     };
+
+    // Tenta imediatamente
+    if (tryInject()) return;
 
     // Tenta por no máximo 30 segundos (20 tentativas de 1.5s)
     let attempts = 0;

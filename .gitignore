@@ -39,6 +39,10 @@ temp/
 
 # Backups
 backups/
+**/backups/
+*.backup.*
+*.original.*
+*.bak
 
 # Temp path directory
 path/

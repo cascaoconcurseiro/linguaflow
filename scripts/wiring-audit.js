@@ -9,7 +9,7 @@ import path from 'node:path';
 // A auditoria faz parte do fluxo oficial e precisa rodar também no Windows.
 // O antigo shell `find` era resolvido como FIND.EXE e abortava antes de ler
 // qualquer arquivo. A travessia em Node é determinística e multiplataforma.
-const ignoredDirs = new Set(['node_modules', 'tests', 'scripts', '.git']);
+const ignoredDirs = new Set(['node_modules', 'tests', 'scripts', '.git', 'backups']);
 const files = [];
 function walk(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -49,6 +49,7 @@ for (const [f, s] of CODE) {
   // caminhos importados (estático, dinâmico, e o padrão chrome.runtime.getURL)
   rx(s, /from\s+['"]([^'"]+)['"]/g).forEach(p => importedPaths.add(p));
   rx(s, /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g).forEach(p => importedPaths.add(p));
+  rx(s, /import\s*\(\s*`([^`]+)`\s*\)/g).forEach(p => importedPaths.add(p.split('?')[0].replace(/\$\{.*?\}/g, '')));
   rx(s, /import\s*\(\s*\w+\s*\+\s*['"]([^'"]+)['"]\s*\)/g).forEach(p => importedPaths.add(p));
   rx(s, /getURL\(\s*['"]([^'"]+)['"]\s*\)/g).forEach(p => importedPaths.add(p));
   // símbolos importados
@@ -67,7 +68,7 @@ for (const [f, s] of ALL.filter(([f]) => f.endsWith('.html'))) {
 const mf = fs.existsSync('manifest.json') ? fs.readFileSync('manifest.json', 'utf8') : '';
 rx(mf, /"([^"]+\.js)"/g).forEach(p => importedPaths.add(p));
 
-const base = p => p.split('/').pop();
+const base = p => p.split('/').pop().split('?')[0];
 const isImported = f => [...importedPaths].some(p => base(p) === base(f));
 
 // Módulos que são contratos de especificação/seed e intencionalmente

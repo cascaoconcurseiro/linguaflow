@@ -42,6 +42,7 @@
     "test:eager-sidebar": "node tests/eager-sidebar-translations.test.mjs",
     "test:extension-translation-proxy": "node tests/extension-translation-proxy.test.mjs",
     "test:audit-fixes": "node tests/audit-fixes-p0.test.mjs",
+    "test:admin": "node tests/admin-authority.test.mjs",
     "test:untrusted-content": "node tests/untrusted-html-security.test.mjs && node tests/subtitle-saved-status.test.mjs && node tests/wiring-audit.test.mjs && node tests/audit-fixes-p0.test.mjs",
     "test:context-explanation": "node tests/context-explanation-persistence.test.mjs",
     "test:contextual-translation": "node tests/contextual-translation-contract.test.mjs",

@@ -26,6 +26,8 @@ const DB_PROXY_METHODS = new Set([
   'saveStory', 'saveWord', 'setCardSuspended', 'setEmailOptIn', 'setSetting',
   'setSRSCategoryOverride', 'setTranslationCache', 'signUp', 'submitFluencyTask',
   'suspendCard', 'undoReview', 'updateWord', 'resetCardToNew',
+  'getCurrentUser', 'adminGetMetrics', 'adminListUsers', 'adminResetUserDeck',
+  'adminResetAllDecks', 'adminDeleteUser', 'adminClearErrors',
 ]);
 
 // Garbage Collector para limpar dicionários velhos e liberar espaço (QuotaExceeded)

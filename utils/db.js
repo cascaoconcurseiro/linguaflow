@@ -333,6 +333,52 @@ class Database {
     return session?.user?.id || null;
   }
 
+  async getCurrentUser() {
+    if (this.isProxyMode) return this._proxy('getCurrentUser', []);
+    const session = await this._readSession();
+    return session?.user || null;
+  }
+
+  // ── ADMIN AUTHORITY ────────────────────────────────────────────────────────
+  async adminGetMetrics() {
+    if (this.isProxyMode) return this._proxy('adminGetMetrics', []);
+    return await this._fetch('rpc/admin_get_system_metrics', { method: 'POST' });
+  }
+
+  async adminListUsers() {
+    if (this.isProxyMode) return this._proxy('adminListUsers', []);
+    return await this._fetch('rpc/admin_list_users', { method: 'POST' }) || [];
+  }
+
+  async adminResetUserDeck(targetUserId) {
+    if (this.isProxyMode) return this._proxy('adminResetUserDeck', [targetUserId]);
+    this._invalidateReadCache();
+    return await this._fetch('rpc/admin_reset_user_deck', {
+      method: 'POST',
+      body: { p_target_user_id: targetUserId },
+    });
+  }
+
+  async adminResetAllDecks() {
+    if (this.isProxyMode) return this._proxy('adminResetAllDecks', []);
+    this._invalidateReadCache();
+    return await this._fetch('rpc/admin_reset_all_decks', { method: 'POST' });
+  }
+
+  async adminDeleteUser(targetUserId) {
+    if (this.isProxyMode) return this._proxy('adminDeleteUser', [targetUserId]);
+    this._invalidateReadCache();
+    return await this._fetch('rpc/admin_delete_user', {
+      method: 'POST',
+      body: { p_target_user_id: targetUserId },
+    });
+  }
+
+  async adminClearErrors() {
+    if (this.isProxyMode) return this._proxy('adminClearErrors', []);
+    return await this._fetch('rpc/admin_clear_client_errors', { method: 'POST' });
+  }
+
   // ── CONFIGURAÇÕES ─────────────────────────────────────────────────────────
   _normalizeSettingValue(value) {
     if (value === 'true') return true;

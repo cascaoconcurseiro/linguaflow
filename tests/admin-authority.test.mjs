@@ -109,3 +109,25 @@ test('Security Hardening: Service Worker blocks admin calls from untrusted web c
   assert.match(content, /startsWith\(chrome\.runtime\.getURL\(''\)\)/, 'Must verify internal extension origin for admin methods');
 });
 
+test('Security Architecture: Server-enforced admin session tokens and zero credential seed in migrations', () => {
+  const migPath = path.join(ROOT, 'supabase', 'migrations', '20260913113000_admin_session_token_and_lockout_fix.sql');
+  assert.ok(fs.existsSync(migPath), 'Session token fix migration must exist');
+
+  const migContent = fs.readFileSync(migPath, 'utf8');
+  assert.match(migContent, /public\.admin_sessions/, 'Must create admin_sessions table');
+  assert.match(migContent, /admin_assert_session/, 'Must implement admin_assert_session helper');
+  assert.match(migContent, /REVOKE ALL ON FUNCTION public\.admin_reset_all_decks\(uuid\) FROM PUBLIC, anon;/i, 'Must revoke all on admin_reset_all_decks(uuid)');
+
+  // Verify zero credential seeds in 20260913100000_admin_authority_rpcs.sql
+  const initialMigPath = path.join(ROOT, 'supabase', 'migrations', '20260913100000_admin_authority_rpcs.sql');
+  const initialContent = fs.readFileSync(initialMigPath, 'utf8');
+  assert.doesNotMatch(initialContent, /INSERT INTO public\.admin_config/i, 'Must not seed credentials in initial migration');
+
+  // Verify utils/db.js passes session token
+  const dbPath = path.join(ROOT, 'utils', 'db.js');
+  const dbContent = fs.readFileSync(dbPath, 'utf8');
+  assert.match(dbContent, /_getAdminSessionToken\(\)/, 'db.js must retrieve admin session token');
+  assert.match(dbContent, /p_session_token:\s*this\._getAdminSessionToken\(\)/, 'db.js must pass p_session_token to admin RPCs');
+});
+
+

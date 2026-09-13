@@ -1316,20 +1316,20 @@ function openAdminPinModal(app) {
       const data = encoder.encode(pin);
       const hashBuffer = await crypto.subtle.digest('SHA-256', data);
       const hashHex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-      const isValid = await lfDb.adminVerifyPin(hashHex);
+      const verifyRes = await lfDb.adminVerifyPin(hashHex);
 
-      if (isValid) {
+      if (verifyRes && verifyRes.ok) {
         closePinModal();
         app.showToast('Identidade confirmada. Bem-vindo, Administrador! 👑', 'success');
         app.navigate('admin');
       } else {
-        errorMsg.textContent = 'Senha incorreta. Tente novamente.';
+        errorMsg.textContent = verifyRes?.message || 'Senha incorreta. Tente novamente.';
         input.value = '';
         input.style.borderColor = 'var(--color-danger)';
         input.focus();
       }
-    } catch {
-      errorMsg.textContent = 'Erro ao validar senha. Tente novamente.';
+    } catch (err) {
+      errorMsg.textContent = err?.message || 'Erro ao validar senha. Tente novamente.';
     } finally {
       if (submitBtn) {
         submitBtn.disabled = false;

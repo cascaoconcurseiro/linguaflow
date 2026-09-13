@@ -386,7 +386,10 @@ export class SettingsPanel {
             .panel.theme-dark .color-label { color: #f8fafc; }
 
             .panel {
-                width: 360px; height: 100%;
+                width: 360px;
+                max-width: 100vw;
+                box-sizing: border-box;
+                height: 100%;
                 font-family: 'Nunito', sans-serif;
                 box-shadow: -10px 0 30px rgba(0,0,0,0.5);
                 display: flex; flex-direction: column;

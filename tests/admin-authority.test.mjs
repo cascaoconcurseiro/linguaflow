@@ -89,3 +89,23 @@ test('dashboard/js/ui/adminView.js protects against unauthorized access with zer
 
   assert.doesNotMatch(content, /@gmail\.com/i, 'adminView.js must not contain personal email');
 });
+
+test('Security Hardening: Migration revokes public/anon and implements lockout', () => {
+  const migPath = path.join(ROOT, 'supabase', 'migrations', '20260913110000_harden_admin_security.sql');
+  assert.ok(fs.existsSync(migPath), 'Hardening migration must exist');
+
+  const content = fs.readFileSync(migPath, 'utf8');
+  assert.match(content, /REVOKE ALL ON FUNCTION public\.admin_verify_pin\(text\) FROM PUBLIC, anon;/i, 'Must revoke public/anon execution on admin_verify_pin');
+  assert.match(content, /REVOKE ALL ON FUNCTION public\.admin_reset_all_decks\(\) FROM PUBLIC, anon;/i, 'Must revoke public/anon execution on admin_reset_all_decks');
+  assert.match(content, /admin_pin_attempts/, 'Must create admin_pin_attempts table for rate limiting');
+  assert.match(content, /locked_until/, 'Must track locked_until for lockout');
+});
+
+test('Security Hardening: Service Worker blocks admin calls from untrusted web contexts', () => {
+  const swPath = path.join(ROOT, 'background', 'service-worker.js');
+  const content = fs.readFileSync(swPath, 'utf8');
+
+  assert.match(content, /ADMIN_SCOPE_VIOLATION/, 'Service worker must reject admin methods from non-extension pages');
+  assert.match(content, /startsWith\(chrome\.runtime\.getURL\(''\)\)/, 'Must verify internal extension origin for admin methods');
+});
+

@@ -198,6 +198,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
       return false;
     }
+    if (method.startsWith('admin')) {
+      const isInternalPage = sender?.url?.startsWith(chrome.runtime.getURL(''));
+      if (!isInternalPage) {
+        sendResponse({
+          error: 'Operações administrativas são restritas ao painel interno da extensão.',
+          errorCode: 'ADMIN_SCOPE_VIOLATION',
+          errorRetryable: false,
+        });
+        return false;
+      }
+    }
     if (typeof db[method] === 'function') {
       (async () => {
         try {

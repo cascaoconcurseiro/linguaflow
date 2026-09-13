@@ -340,6 +340,29 @@ class Database {
   }
 
   // ── ADMIN AUTHORITY ────────────────────────────────────────────────────────
+  async isAdmin() {
+    if (this.isProxyMode) return this._proxy('isAdmin', []);
+    try {
+      const res = await this._fetch('admin_users?select=user_id&limit=1');
+      return Array.isArray(res) && res.length > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  async adminVerifyPin(pinHash) {
+    if (this.isProxyMode) return this._proxy('adminVerifyPin', [pinHash]);
+    try {
+      const res = await this._fetch('rpc/admin_verify_pin', {
+        method: 'POST',
+        body: { p_pin_hash: pinHash },
+      });
+      return res === true;
+    } catch {
+      return false;
+    }
+  }
+
   async adminGetMetrics() {
     if (this.isProxyMode) return this._proxy('adminGetMetrics', []);
     return await this._fetch('rpc/admin_get_system_metrics', { method: 'POST' });

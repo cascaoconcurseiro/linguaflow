@@ -10,10 +10,10 @@ export async function renderAdmin(container, app) {
     message: 'Consultando métricas e dados de usuários com autoridade segura.',
   });
 
+  const isAdmin = await lfDb.isAdmin().catch(() => false);
   const currentUser = await lfDb.getCurrentUser().catch(() => null);
-  const adminEmail = 'wesley.diaslima@gmail.com';
 
-  if (!currentUser || (currentUser.email || '').toLowerCase() !== adminEmail) {
+  if (!isAdmin) {
     container.setAttribute('aria-busy', 'false');
     container.innerHTML = renderViewState({
       kind: 'error',
@@ -79,7 +79,7 @@ export async function renderAdmin(container, app) {
               <h1 style="font-size:26px; font-weight:900; color:var(--color-text); margin:0;">Painel do Administrador</h1>
             </div>
             <p style="font-size:13px; color:var(--color-text-light); margin:4px 0 0 0;">
-              Sessão autorizada para <strong style="color:var(--color-primary);">${escapeHtml(currentUser.email)}</strong>
+              Sessão de administração autenticada
             </p>
           </div>
           <div style="display:flex; gap:10px; align-items:center;">
@@ -199,7 +199,7 @@ export async function renderAdmin(container, app) {
     }
 
     return userList.map(u => {
-      const isSelf = u.id === currentUser.id || (u.email || '').toLowerCase() === adminEmail;
+      const isSelf = !!(currentUser && u.id === currentUser.id);
       const createdDate = u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '-';
       const xp = Number(u.xp_total) || 0;
       const streak = Number(u.streak) || 0;

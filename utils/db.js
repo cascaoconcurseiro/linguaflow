@@ -350,6 +350,16 @@ class Database {
     }
   }
 
+  _getAdminSessionToken() {
+    if (this._adminSessionToken) return this._adminSessionToken;
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        return sessionStorage.getItem('lf_admin_token') || null;
+      }
+    } catch {}
+    return null;
+  }
+
   async adminVerifyPin(pinHash) {
     if (this.isProxyMode) return this._proxy('adminVerifyPin', [pinHash]);
     try {
@@ -357,20 +367,39 @@ class Database {
         method: 'POST',
         body: { p_pin_hash: pinHash },
       });
-      return res === true;
-    } catch {
-      return false;
+      if (res && res.ok && res.session_token) {
+        this._adminSessionToken = res.session_token;
+        try {
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem('lf_admin_token', res.session_token);
+          }
+        } catch {}
+        return { ok: true, session_token: res.session_token };
+      }
+      return {
+        ok: false,
+        locked: Boolean(res?.locked),
+        message: res?.message || 'Senha incorreta.',
+      };
+    } catch (err) {
+      return { ok: false, error: err?.message || 'Erro ao validar senha.' };
     }
   }
 
   async adminGetMetrics() {
     if (this.isProxyMode) return this._proxy('adminGetMetrics', []);
-    return await this._fetch('rpc/admin_get_system_metrics', { method: 'POST' });
+    return await this._fetch('rpc/admin_get_system_metrics', {
+      method: 'POST',
+      body: { p_session_token: this._getAdminSessionToken() },
+    });
   }
 
   async adminListUsers() {
     if (this.isProxyMode) return this._proxy('adminListUsers', []);
-    return await this._fetch('rpc/admin_list_users', { method: 'POST' }) || [];
+    return await this._fetch('rpc/admin_list_users', {
+      method: 'POST',
+      body: { p_session_token: this._getAdminSessionToken() },
+    }) || [];
   }
 
   async adminResetUserDeck(targetUserId) {
@@ -378,14 +407,20 @@ class Database {
     this._invalidateReadCache();
     return await this._fetch('rpc/admin_reset_user_deck', {
       method: 'POST',
-      body: { p_target_user_id: targetUserId },
+      body: {
+        p_session_token: this._getAdminSessionToken(),
+        p_target_user_id: targetUserId,
+      },
     });
   }
 
   async adminResetAllDecks() {
     if (this.isProxyMode) return this._proxy('adminResetAllDecks', []);
     this._invalidateReadCache();
-    return await this._fetch('rpc/admin_reset_all_decks', { method: 'POST' });
+    return await this._fetch('rpc/admin_reset_all_decks', {
+      method: 'POST',
+      body: { p_session_token: this._getAdminSessionToken() },
+    });
   }
 
   async adminDeleteUser(targetUserId) {
@@ -393,13 +428,19 @@ class Database {
     this._invalidateReadCache();
     return await this._fetch('rpc/admin_delete_user', {
       method: 'POST',
-      body: { p_target_user_id: targetUserId },
+      body: {
+        p_session_token: this._getAdminSessionToken(),
+        p_target_user_id: targetUserId,
+      },
     });
   }
 
   async adminClearErrors() {
     if (this.isProxyMode) return this._proxy('adminClearErrors', []);
-    return await this._fetch('rpc/admin_clear_client_errors', { method: 'POST' });
+    return await this._fetch('rpc/admin_clear_client_errors', {
+      method: 'POST',
+      body: { p_session_token: this._getAdminSessionToken() },
+    });
   }
 
   // ── CONFIGURAÇÕES ─────────────────────────────────────────────────────────

@@ -32,10 +32,7 @@ CREATE TABLE IF NOT EXISTS public.admin_config (
 ALTER TABLE public.admin_config ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.admin_config FROM public, anon, authenticated;
 
--- Armazena o hash SHA-256 do PIN mestre (o PIN nunca vive em texto puro no código)
-INSERT INTO public.admin_config (key, value)
-VALUES ('pin_hash', '99f56fb64e3f0eefd31db691f887eea5db220fa78b75845473f411eaa560f17e')
-ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+-- Tabela de configuração administrativa (pin_hash configurado via console/servidor seguro, sem seed em código)
 
 -- ── 3. Função Auxiliar de Assertiva de Autoridade ─────────────────────────────
 CREATE OR REPLACE FUNCTION public.admin_assert_authority()

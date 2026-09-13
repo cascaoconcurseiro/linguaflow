@@ -107,6 +107,7 @@ test('Security Hardening: Service Worker blocks admin calls from untrusted web c
   const content = fs.readFileSync(swPath, 'utf8');
 
   assert.match(content, /ADMIN_SCOPE_VIOLATION/, 'Service worker must reject admin methods from non-extension pages');
+  assert.match(content, /method === 'isAdmin' \|\| method\.startsWith\('admin'\)/, 'Must block both isAdmin and admin* methods from external pages');
   assert.match(content, /startsWith\(chrome\.runtime\.getURL\(''\)\)/, 'Must verify internal extension origin for admin methods');
 });
 

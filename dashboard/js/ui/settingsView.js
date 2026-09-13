@@ -284,11 +284,11 @@ export async function renderSettings(container, app) {
   container.setAttribute('aria-busy', 'true');
   container.innerHTML = renderViewState({ kind: 'loading', title: 'Carregando suas configurações…', message: 'Lendo suas preferências sem alterar nenhum valor.' });
   let settings;
-  let currentUser = null;
+  let isAdmin = false;
   try {
-    [settings, currentUser] = await Promise.all([
+    [settings, isAdmin] = await Promise.all([
       lfDb.getSettings(settingKeys),
-      lfDb.getCurrentUser().catch(() => null),
+      lfDb.isAdmin().catch(() => false),
     ]);
   } catch (error) {
     console.error('[Settings] Não foi possível carregar preferências:', error);
@@ -298,7 +298,6 @@ export async function renderSettings(container, app) {
     return;
   }
   container.setAttribute('aria-busy', 'false');
-  const isAdmin = (currentUser?.email || '').toLowerCase() === 'wesley.diaslima@gmail.com';
   const [savedCefr, savedTtsLang, savedTtsSpeed, srsGradInt, srsMaxInt, srsIntMod,
     srsLeech, srsLeechAction, srsRetentionRaw, srsSteps, srsRelearningSteps, srsNewPerDay, srsMaxRev,
     srsVaultCap, srsReverseRaw, srsVariedRaw, audioFrontRaw, audioBackRaw, srsNewOrderRaw, srsReviewOrderRaw] = settingKeys.map(key => settings[key] ?? null);
@@ -1301,18 +1300,41 @@ function openAdminPinModal(app) {
     if (e.key === 'Escape') closePinModal();
   });
 
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const pin = input.value.trim();
-    if (pin === '909496') {
-      closePinModal();
-      app.showToast('Identidade confirmada. Bem-vindo, Administrador! 👑', 'success');
-      app.navigate('admin');
-    } else {
-      errorMsg.textContent = 'Senha incorreta. Tente novamente.';
-      input.value = '';
-      input.style.borderColor = 'var(--color-danger)';
-      input.focus();
+    if (!pin) return;
+
+    const submitBtn = overlay.querySelector('#admin-pin-submit');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Verificando…';
+    }
+
+    try {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(pin);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashHex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+      const isValid = await lfDb.adminVerifyPin(hashHex);
+
+      if (isValid) {
+        closePinModal();
+        app.showToast('Identidade confirmada. Bem-vindo, Administrador! 👑', 'success');
+        app.navigate('admin');
+      } else {
+        errorMsg.textContent = 'Senha incorreta. Tente novamente.';
+        input.value = '';
+        input.style.borderColor = 'var(--color-danger)';
+        input.focus();
+      }
+    } catch {
+      errorMsg.textContent = 'Erro ao validar senha. Tente novamente.';
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Entrar';
+      }
     }
   });
 

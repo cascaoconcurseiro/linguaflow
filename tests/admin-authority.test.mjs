@@ -6,39 +6,46 @@ import path from 'node:path';
 
 const ROOT = process.cwd();
 
-test('Migration 20260913100000_admin_authority_rpcs.sql contains authoritative security checks', () => {
+test('Migration 20260913100000_admin_authority_rpcs.sql contains role-based checks and zero PII', () => {
   const migPath = path.join(ROOT, 'supabase', 'migrations', '20260913100000_admin_authority_rpcs.sql');
   assert.ok(fs.existsSync(migPath), 'Migration file must exist');
 
   const content = fs.readFileSync(migPath, 'utf8');
+  assert.match(content, /public\.admin_users/, 'Must define admin_users role table');
   assert.match(content, /admin_assert_authority/, 'Must define admin authority assertion helper');
-  assert.match(content, /wesley\.diaslima@gmail\.com/, 'Must assert exact admin email');
+  assert.match(content, /admin_verify_pin/, 'Must define admin_verify_pin RPC');
   assert.match(content, /admin_get_system_metrics/, 'Must define system metrics RPC');
   assert.match(content, /admin_list_users/, 'Must define list users RPC');
   assert.match(content, /admin_reset_user_deck/, 'Must define reset user deck RPC');
   assert.match(content, /admin_reset_all_decks/, 'Must define reset all decks RPC');
   assert.match(content, /admin_delete_user/, 'Must define delete user RPC');
-  assert.match(content, /p_target_user_id = auth\.uid\(\)/, 'Must protect admin from self-deletion');
+
+  // Strict PII checks: no emails in migration!
+  assert.doesNotMatch(content, /@gmail\.com|@hotmail\.com|@yahoo\.com/i, 'Migration must not contain personal email addresses');
 });
 
-test('utils/db.js exposes all required admin and user session methods', () => {
+test('utils/db.js exposes all required admin methods without hardcoding PII', () => {
   const dbPath = path.join(ROOT, 'utils', 'db.js');
   const content = fs.readFileSync(dbPath, 'utf8');
 
-  assert.match(content, /getCurrentUser\(\)/, 'Must expose getCurrentUser()');
+  assert.match(content, /isAdmin\(\)/, 'Must expose isAdmin()');
+  assert.match(content, /adminVerifyPin\(/, 'Must expose adminVerifyPin()');
   assert.match(content, /adminGetMetrics\(\)/, 'Must expose adminGetMetrics()');
   assert.match(content, /adminListUsers\(\)/, 'Must expose adminListUsers()');
   assert.match(content, /adminResetUserDeck\(/, 'Must expose adminResetUserDeck()');
   assert.match(content, /adminResetAllDecks\(\)/, 'Must expose adminResetAllDecks()');
   assert.match(content, /adminDeleteUser\(/, 'Must expose adminDeleteUser()');
   assert.match(content, /adminClearErrors\(\)/, 'Must expose adminClearErrors()');
+
+  assert.doesNotMatch(content, /@gmail\.com/i, 'db.js must not contain hardcoded email');
 });
 
 test('background/service-worker.js whitelists admin methods in DB_PROXY_METHODS', () => {
   const swPath = path.join(ROOT, 'background', 'service-worker.js');
   const content = fs.readFileSync(swPath, 'utf8');
 
-  assert.match(content, /'getCurrentUser'/, 'DB_PROXY_METHODS must include getCurrentUser');
+  assert.match(content, /'isAdmin'/, 'DB_PROXY_METHODS must include isAdmin');
+  assert.match(content, /'adminVerifyPin'/, 'DB_PROXY_METHODS must include adminVerifyPin');
   assert.match(content, /'adminGetMetrics'/, 'DB_PROXY_METHODS must include adminGetMetrics');
   assert.match(content, /'adminListUsers'/, 'DB_PROXY_METHODS must include adminListUsers');
   assert.match(content, /'adminResetUserDeck'/, 'DB_PROXY_METHODS must include adminResetUserDeck');
@@ -55,24 +62,30 @@ test('dashboard/js/core/app.js registers admin route', () => {
   assert.match(content, /admin:\s*renderAdmin/, 'Must register admin in renderers map');
 });
 
-test('dashboard/js/ui/settingsView.js validates admin email and 909496 PIN', () => {
+test('dashboard/js/ui/settingsView.js validates admin role and hashes PIN (zero PII/plain password)', () => {
   const settingsPath = path.join(ROOT, 'dashboard', 'js', 'ui', 'settingsView.js');
   const content = fs.readFileSync(settingsPath, 'utf8');
 
-  assert.match(content, /wesley\.diaslima@gmail\.com/, 'Must check wesley.diaslima@gmail.com for admin gate button');
+  assert.match(content, /lfDb\.isAdmin\(\)/, 'Must use lfDb.isAdmin() instead of hardcoded email');
   assert.match(content, /btn-admin-gate/, 'Must render btn-admin-gate');
-  assert.match(content, /909496/, 'Must check master PIN 909496');
-  assert.match(content, /app\.navigate\(['"]admin['"]\)/, 'Must navigate to admin view on PIN success');
+  assert.match(content, /SHA-256/, 'Must hash PIN using SHA-256');
+  assert.match(content, /lfDb\.adminVerifyPin\(/, 'Must verify PIN hash via server RPC');
+
+  // Zero PII and zero plain PIN checks
+  assert.doesNotMatch(content, /@gmail\.com/i, 'settingsView.js must not contain personal email');
+  assert.doesNotMatch(content, /\b\d{6}\b/, 'settingsView.js must not contain hardcoded 6-digit PIN');
 });
 
-test('dashboard/js/ui/adminView.js protects against unauthorized access and provides admin capabilities', () => {
+test('dashboard/js/ui/adminView.js protects against unauthorized access with zero PII', () => {
   const adminViewPath = path.join(ROOT, 'dashboard', 'js', 'ui', 'adminView.js');
   assert.ok(fs.existsSync(adminViewPath), 'adminView.js must exist');
 
   const content = fs.readFileSync(adminViewPath, 'utf8');
-  assert.match(content, /wesley\.diaslima@gmail\.com/, 'adminView must verify wesley.diaslima@gmail.com');
+  assert.match(content, /lfDb\.isAdmin\(\)/, 'adminView must verify isAdmin()');
   assert.match(content, /btn-admin-reset-my-deck/, 'Must have button to reset own deck');
   assert.match(content, /btn-admin-reset-all-decks/, 'Must have button to reset all decks');
   assert.match(content, /LIMPAR TUDO/, 'Must require typed confirmation phrase for resetting all decks');
   assert.match(content, /admin-user-search/, 'Must have user search input');
+
+  assert.doesNotMatch(content, /@gmail\.com/i, 'adminView.js must not contain personal email');
 });

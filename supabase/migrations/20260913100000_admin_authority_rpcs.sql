@@ -1,32 +1,79 @@
 -- Migration: 20260913100000_admin_authority_rpcs.sql
 -- Autoridade Administrativa do LinguaFlow:
--- Funções com SECURITY DEFINER protegidas por verificação rigorosa de e-mail
--- do administrador (wesley.diaslima@gmail.com).
+-- Funções com SECURITY DEFINER protegidas por tabela privada de papéis (admin_users)
+-- sem expor e-mails ou senhas em texto puro no repositório.
 
--- ── 1. Função Auxiliar de Assertiva de Autoridade ─────────────────────────────
+-- ── 1. Tabela de Administradores Autorizados ──────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.admin_users (
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.admin_users FROM public, anon;
+GRANT SELECT ON public.admin_users TO authenticated;
+
+DROP POLICY IF EXISTS "Users check own admin status" ON public.admin_users;
+CREATE POLICY "Users check own admin status" ON public.admin_users
+  FOR SELECT TO authenticated
+  USING (user_id = auth.uid());
+
+-- Registra o primeiro usuário criado no sistema (proprietário) como admin inicial
+INSERT INTO public.admin_users (user_id)
+SELECT id FROM auth.users ORDER BY created_at ASC LIMIT 1
+ON CONFLICT (user_id) DO NOTHING;
+
+-- ── 2. Configurações de Segurança do Admin (Hash do PIN) ──────────────────────
+CREATE TABLE IF NOT EXISTS public.admin_config (
+  key text PRIMARY KEY,
+  value text NOT NULL
+);
+
+ALTER TABLE public.admin_config ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.admin_config FROM public, anon, authenticated;
+
+-- Armazena o hash SHA-256 do PIN mestre (o PIN nunca vive em texto puro no código)
+INSERT INTO public.admin_config (key, value)
+VALUES ('pin_hash', '99f56fb64e3f0eefd31db691f887eea5db220fa78b75845473f411eaa560f17e')
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+
+-- ── 3. Função Auxiliar de Assertiva de Autoridade ─────────────────────────────
 CREATE OR REPLACE FUNCTION public.admin_assert_authority()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, auth, pg_temp
 AS $$
-DECLARE
-  v_email text;
 BEGIN
-  -- Obtém o e-mail do JWT ou da tabela auth.users pelo auth.uid()
-  v_email := COALESCE(
-    auth.jwt() ->> 'email',
-    (SELECT email FROM auth.users WHERE id = auth.uid())
-  );
-
-  IF v_email IS DISTINCT FROM 'wesley.diaslima@gmail.com' THEN
-    RAISE EXCEPTION 'Acesso negado: apenas o administrador tem permissão para esta operação.'
+  IF NOT EXISTS (SELECT 1 FROM public.admin_users WHERE user_id = auth.uid()) THEN
+    RAISE EXCEPTION 'Acesso negado: privilégios administrativos insuficientes.'
       USING ERRCODE = '42501';
   END IF;
 END;
 $$;
 
--- ── 2. Métricas do Sistema ───────────────────────────────────────────────────
+-- ── 4. Verificação de PIN no Servidor via Hash ────────────────────────────────
+CREATE OR REPLACE FUNCTION public.admin_verify_pin(p_pin_hash text)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, pg_temp
+AS $$
+DECLARE
+  v_stored_hash text;
+BEGIN
+  PERFORM public.admin_assert_authority();
+
+  SELECT value INTO v_stored_hash FROM public.admin_config WHERE key = 'pin_hash';
+  IF v_stored_hash IS NULL THEN
+    RETURN true;
+  END IF;
+
+  RETURN p_pin_hash = v_stored_hash;
+END;
+$$;
+
+-- ── 5. Métricas do Sistema ───────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.admin_get_system_metrics()
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -47,7 +94,7 @@ BEGIN
 END;
 $$;
 
--- ── 3. Listagem de Usuários ──────────────────────────────────────────────────
+-- ── 6. Listagem de Usuários ──────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.admin_list_users()
 RETURNS TABLE (
   id uuid,
@@ -88,7 +135,7 @@ BEGIN
 END;
 $$;
 
--- ── 4. Limpar Deck de um Usuário Específico (ou do Admin) ─────────────────────
+-- ── 7. Limpar Deck de um Usuário Específico (ou do Admin) ─────────────────────
 CREATE OR REPLACE FUNCTION public.admin_reset_user_deck(p_target_user_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -127,7 +174,7 @@ BEGIN
 END;
 $$;
 
--- ── 5. Limpar Decks de Todos os Usuários ─────────────────────────────────────
+-- ── 8. Limpar Decks de Todos os Usuários ─────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.admin_reset_all_decks()
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -161,7 +208,7 @@ BEGIN
 END;
 $$;
 
--- ── 6. Excluir Conta de Usuário ──────────────────────────────────────────────
+-- ── 9. Excluir Conta de Usuário ──────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.admin_delete_user(p_target_user_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -182,10 +229,12 @@ BEGIN
     RAISE EXCEPTION 'Operação cancelada: o administrador não pode excluir a própria conta.';
   END IF;
 
-  SELECT email INTO v_target_email FROM auth.users WHERE id = p_target_user_id;
-  IF v_target_email = 'wesley.diaslima@gmail.com' THEN
-    RAISE EXCEPTION 'Operação cancelada: a conta principal de administrador não pode ser excluída.';
+  -- Proteção contra exclusão de outros administradores
+  IF EXISTS (SELECT 1 FROM public.admin_users WHERE user_id = p_target_user_id) THEN
+    RAISE EXCEPTION 'Operação cancelada: contas de administradores não podem ser excluídas por esta via.';
   END IF;
+
+  SELECT email INTO v_target_email FROM auth.users WHERE id = p_target_user_id;
 
   -- Exclui da tabela auth.users (as FKs ON DELETE CASCADE limpam as tabelas públicas)
   DELETE FROM auth.users WHERE id = p_target_user_id;
@@ -198,7 +247,7 @@ BEGIN
 END;
 $$;
 
--- ── 7. Limpeza de Logs de Erros ──────────────────────────────────────────────
+-- ── 10. Limpeza de Logs de Erros ─────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.admin_clear_client_errors()
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -219,8 +268,9 @@ BEGIN
 END;
 $$;
 
--- ── 8. Concessão de Privilégios de Execução ──────────────────────────────────
+-- ── 11. Concessão de Privilégios de Execução ─────────────────────────────────
 GRANT EXECUTE ON FUNCTION public.admin_assert_authority() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_verify_pin(text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_get_system_metrics() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_list_users() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_reset_user_deck(uuid) TO authenticated;

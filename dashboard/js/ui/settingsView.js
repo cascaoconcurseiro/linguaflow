@@ -284,8 +284,12 @@ export async function renderSettings(container, app) {
   container.setAttribute('aria-busy', 'true');
   container.innerHTML = renderViewState({ kind: 'loading', title: 'Carregando suas configurações…', message: 'Lendo suas preferências sem alterar nenhum valor.' });
   let settings;
+  let currentUser = null;
   try {
-    settings = await lfDb.getSettings(settingKeys);
+    [settings, currentUser] = await Promise.all([
+      lfDb.getSettings(settingKeys),
+      lfDb.getCurrentUser().catch(() => null),
+    ]);
   } catch (error) {
     console.error('[Settings] Não foi possível carregar preferências:', error);
     container.setAttribute('aria-busy', 'false');
@@ -294,6 +298,7 @@ export async function renderSettings(container, app) {
     return;
   }
   container.setAttribute('aria-busy', 'false');
+  const isAdmin = (currentUser?.email || '').toLowerCase() === 'wesley.diaslima@gmail.com';
   const [savedCefr, savedTtsLang, savedTtsSpeed, srsGradInt, srsMaxInt, srsIntMod,
     srsLeech, srsLeechAction, srsRetentionRaw, srsSteps, srsRelearningSteps, srsNewPerDay, srsMaxRev,
     srsVaultCap, srsReverseRaw, srsVariedRaw, audioFrontRaw, audioBackRaw, srsNewOrderRaw, srsReviewOrderRaw] = settingKeys.map(key => settings[key] ?? null);
@@ -575,6 +580,13 @@ export async function renderSettings(container, app) {
         <button id="btn-logout" class="btn" style="background-color: var(--color-danger); border-bottom: 4px solid var(--color-danger-shadow); width: 100%;">
           🚪 Sair da Conta
         </button>
+        ${isAdmin ? `
+          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px dashed var(--color-border); text-align: center;">
+            <button id="btn-admin-gate" type="button" class="btn btn-outline" style="font-size: 13px; font-weight: 700; padding: 8px 18px; opacity: 0.75; border-color: var(--color-border); color: var(--color-text-light); cursor: pointer; border-radius: 8px; transition: all 0.2s;" title="Painel Administrativo">
+              🔐 Administração do Sistema
+            </button>
+          </div>
+        ` : ''}
       </div>
       
       <div style="text-align:right;">
@@ -1237,4 +1249,72 @@ export async function renderSettings(container, app) {
       }
     });
   }
+
+  if (isAdmin) {
+    document.getElementById('btn-admin-gate')?.addEventListener('click', () => {
+      openAdminPinModal(app);
+    });
+  }
+}
+
+function openAdminPinModal(app) {
+  const existing = document.getElementById('admin-pin-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'admin-pin-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-labelledby', 'admin-pin-title');
+  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(2,6,23,0.75); z-index:99999; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(3px);';
+
+  overlay.innerHTML = `
+    <div style="background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-border); max-width:380px; width:100%; padding:28px; text-align:center; box-shadow:0 20px 40px rgba(0,0,0,0.3);">
+      <div style="font-size:40px; margin-bottom:12px;">🔐</div>
+      <h2 id="admin-pin-title" style="color:var(--color-text); font-size:20px; font-weight:800; margin-bottom:8px;">Acesso Administrativo</h2>
+      <p style="color:var(--color-text-light); font-size:13px; margin-bottom:20px;">Digite a senha de segurança de 6 dígitos para acessar a área restrita.</p>
+      
+      <form id="admin-pin-form" style="margin:0;">
+        <input type="password" id="admin-pin-input" maxlength="6" inputmode="numeric" placeholder="••••••" autocomplete="off" style="width:100%; text-align:center; font-size:26px; letter-spacing:10px; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-bg-alt); color:var(--color-text); margin-bottom:12px; font-weight:900;" autofocus required>
+        <p id="admin-pin-error" role="alert" style="color:var(--color-danger); font-size:12px; font-weight:700; min-height:18px; margin-bottom:14px;"></p>
+        <div style="display:flex; gap:10px;">
+          <button type="button" id="admin-pin-cancel" class="btn btn-outline" style="flex:1; padding:12px;">Cancelar</button>
+          <button type="submit" id="admin-pin-submit" class="btn btn-primary" style="flex:1; padding:12px;">Entrar</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  const input = overlay.querySelector('#admin-pin-input');
+  const errorMsg = overlay.querySelector('#admin-pin-error');
+  const form = overlay.querySelector('#admin-pin-form');
+  const cancelBtn = overlay.querySelector('#admin-pin-cancel');
+
+  const closePinModal = () => overlay.remove();
+
+  cancelBtn.addEventListener('click', closePinModal);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closePinModal();
+  });
+  overlay.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closePinModal();
+  });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const pin = input.value.trim();
+    if (pin === '909496') {
+      closePinModal();
+      app.showToast('Identidade confirmada. Bem-vindo, Administrador! 👑', 'success');
+      app.navigate('admin');
+    } else {
+      errorMsg.textContent = 'Senha incorreta. Tente novamente.';
+      input.value = '';
+      input.style.borderColor = 'var(--color-danger)';
+      input.focus();
+    }
+  });
+
+  setTimeout(() => input.focus(), 50);
 }

@@ -14,6 +14,7 @@ const renderLogin = (...args) => import('../ui/loginView.js').then((m) => m.rend
 const renderStats = (...args) => import('../ui/statsView.js').then((m) => m.renderStats(...args));
 const renderLearn = (...args) => import('../ui/learnView.js').then((m) => m.renderLearn(...args));
 const renderProgress = (...args) => import('../ui/progressView.js').then((m) => m.renderProgress(...args));
+const renderAdmin = (...args) => import('../ui/adminView.js').then((m) => m.renderAdmin(...args));
 
 const CLIENT_BUILD = '3.0.46';
 
@@ -482,6 +483,7 @@ class App {
       learn: renderLearn,
       progress: renderProgress,
       'fluency-check': renderFluencyCheck,
+      admin: renderAdmin,
     };
     const renderer = renderers[route] || renderHome;
     this.activeRender?.controller.abort('render-superseded');

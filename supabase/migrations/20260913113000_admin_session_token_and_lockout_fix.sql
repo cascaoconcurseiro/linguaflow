@@ -81,6 +81,14 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
+  -- Se o bloqueio temporário anterior já expirou, reseta o contador de tentativas
+  IF v_locked_until IS NOT NULL AND v_locked_until <= now() THEN
+    v_attempts := 0;
+  END IF;
+
+  -- Higiene: purga sessões administrativas expiradas
+  DELETE FROM public.admin_sessions WHERE expires_at < now();
+
   SELECT value INTO v_stored_hash FROM public.admin_config WHERE key = 'pin_hash';
 
   -- 3. Validação do PIN

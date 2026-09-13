@@ -198,7 +198,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
       return false;
     }
-    if (method.startsWith('admin')) {
+    if (method === 'isAdmin' || method.startsWith('admin')) {
       const isInternalPage = sender?.url?.startsWith(chrome.runtime.getURL(''));
       if (!isInternalPage) {
         sendResponse({

@@ -82,6 +82,7 @@ test('dashboard/js/ui/adminView.js protects against unauthorized access with zer
 
   const content = fs.readFileSync(adminViewPath, 'utf8');
   assert.match(content, /lfDb\.isAdmin\(\)/, 'adminView must verify isAdmin()');
+  assert.match(content, /lfDb\._getAdminSessionToken\(\)/, 'adminView must verify active session token before rendering');
   assert.match(content, /btn-admin-reset-my-deck/, 'Must have button to reset own deck');
   assert.match(content, /btn-admin-reset-all-decks/, 'Must have button to reset all decks');
   assert.match(content, /LIMPAR TUDO/, 'Must require typed confirmation phrase for resetting all decks');

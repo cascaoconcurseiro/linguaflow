@@ -2,3 +2,29 @@ project_id = "linguaflow"
 
 [functions.fluency-assessment]
 verify_jwt = true
+
+[auth]
+additional_redirect_urls = []
+site_url = "https://linguaflow-web-tau.vercel.app"
+
+[auth.email]
+max_frequency = "1m0s"
+otp_length = 8
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[db.pooler]
+default_pool_size = 15
+max_client_conn = 200
+
+[db.ssl_enforcement]
+enabled = true
+
+[storage.analytics]
+enabled = true
+max_namespaces = 10
+
+[storage.image_transformation]
+enabled = true

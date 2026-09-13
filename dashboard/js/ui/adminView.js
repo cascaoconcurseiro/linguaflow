@@ -26,6 +26,20 @@ export async function renderAdmin(container, app) {
     return;
   }
 
+  const hasToken = !!lfDb._getAdminSessionToken();
+  if (!hasToken) {
+    container.setAttribute('aria-busy', 'false');
+    container.innerHTML = renderViewState({
+      kind: 'empty',
+      title: 'PIN Administrativo Necessário',
+      message: 'Por motivos de segurança, insira seu PIN mestre em Configurações para iniciar uma sessão administrativa.',
+      actionLabel: 'Ir para Configurações',
+      actionId: 'btn-admin-go-settings',
+    });
+    bindViewStateAction(container, 'btn-admin-go-settings', () => app.navigate('settings'));
+    return;
+  }
+
   let metrics = null;
   let users = [];
 
@@ -47,14 +61,21 @@ export async function renderAdmin(container, app) {
     await loadData();
   } catch (error) {
     container.setAttribute('aria-busy', 'false');
+    const isSessionError = /sessão administrativa expirada|revalide o pin|42501/i.test(error?.message || '');
     container.innerHTML = renderViewState({
       kind: 'error',
-      title: 'Não foi possível carregar os dados administrativos',
-      message: error?.message || 'Verifique a conexão com o banco e tente novamente.',
-      actionLabel: 'Tentar novamente',
-      actionId: 'btn-admin-retry',
+      title: isSessionError ? 'Sessão Administrativa Expirada' : 'Não foi possível carregar os dados administrativos',
+      message: isSessionError
+        ? 'Sua sessão segura de 30 minutos expirou. Por favor, revalide seu PIN nas Configurações.'
+        : (error?.message || 'Verifique a conexão com o banco e tente novamente.'),
+      actionLabel: isSessionError ? 'Revalidar PIN nas Configurações' : 'Tentar novamente',
+      actionId: isSessionError ? 'btn-admin-reauth' : 'btn-admin-retry',
     });
-    bindViewStateAction(container, 'btn-admin-retry', () => renderAdmin(container, app));
+    if (isSessionError) {
+      bindViewStateAction(container, 'btn-admin-reauth', () => app.navigate('settings'));
+    } else {
+      bindViewStateAction(container, 'btn-admin-retry', () => renderAdmin(container, app));
+    }
     return;
   }
 

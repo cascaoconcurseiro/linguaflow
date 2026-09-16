@@ -7,7 +7,7 @@
 - [x] Confirmar que existem referências locais de backup.
 - [ ] Revalidar `git ls-remote origin main` quando as credenciais do GitHub estiverem disponíveis.
 - [ ] Preservar as 8 alterações locais; não executar reset ou limpeza destrutiva.
-- [ ] Separar as alterações locais em branch/commit revisável antes do release.
+- [x] Separar as alterações locais em branch/commit revisável antes do release.
 
 ## 1. Correção imediata do Reader
 
@@ -120,9 +120,9 @@
 - [ ] RLS real com dois usuários passa.
 - [ ] Artefato publicado foi escaneado.
 - [ ] Revisar status, diff e log antes do commit.
-- [ ] Criar commit separado e descritivo.
-- [ ] Fazer push para `main`.
-- [ ] Confirmar SHA remoto pós-push.
+- [x] Criar commit separado e descritivo (`a686fce`).
+- [x] Fazer push para `main` (GitHub aceitou `0c33b26..a686fce`).
+- [ ] Confirmar SHA remoto pós-push por consulta independente; bloqueado por credencial Schannel.
 - [ ] Atualizar `HANDOFF.md`.
 
 ## Bloqueios conhecidos

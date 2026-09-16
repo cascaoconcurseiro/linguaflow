@@ -6,7 +6,7 @@
 - [x] Confirmar que a referência local `origin/main` aponta para `0c33b26`.
 - [x] Confirmar que existem referências locais de backup.
 - [x] Pushes recentes para `main` foram aceitos pelo GitHub; consulta independente via `git ls-remote` continua bloqueada por Schannel.
-- [ ] Preservar as 8 alterações locais; não executar reset ou limpeza destrutiva.
+- [x] Preservar as 8 alterações locais; não executar reset ou limpeza destrutiva.
 - [x] Separar as alterações locais em branch/commit revisável antes do release.
 
 ## 1. Correção imediata do Reader
@@ -21,11 +21,11 @@
 ## 2. Revisão das alterações locais
 
 - [x] Revisar `WORD_SAVED` em `background/service-worker.js` e remover o anúncio redundante antes da confirmação remota.
-- [ ] Confirmar sincronização da versão em `content/boot.js`.
-- [ ] Confirmar origem autorizada de `openWordPopup` em `content/subtitle-engine.js`.
-- [ ] Confirmar revogação segura de object URLs em `dashboard/js/core/tts.js`.
-- [ ] Confirmar embaralhamento do Builder em `dashboard/js/ui/gameView.js`.
-- [ ] Confirmar interrupção de TTS ao sair de Histórias.
+- [x] Confirmar sincronização da versão em `content/boot.js`.
+- [x] Confirmar origem autorizada de `openWordPopup` em `content/subtitle-engine.js`.
+- [x] Confirmar revogação segura de object URLs em `dashboard/js/core/tts.js`.
+- [x] Confirmar embaralhamento do Builder em `dashboard/js/ui/gameView.js`.
+- [x] Confirmar interrupção de TTS ao sair de Histórias.
 - [x] Executar testes específicos após cada grupo.
 - [x] Corrigir a linha em branco extra em `tests/web-reader-contract.test.mjs`.
 
@@ -42,8 +42,9 @@
 
 ## 4. Schema e migrations
 
-- [ ] Exportar o schema remoto do projeto Supabase canônico; bloqueado por senha ausente de `cli_login_postgres`.
-- [ ] Comparar tabelas, colunas, tipos, defaults e constraints.
+- [x] Confirmar live pelo SQL Editor o inventário público de 33 tabelas; migrations remotas estão alinhadas até `20260913123000`.
+- [ ] Exportar o schema remoto completo; CLI dump bloqueado por Docker/`cli_login_postgres` ausente.
+- [ ] Comparar colunas, tipos, defaults e constraints em inventário completo.
 - [ ] Comparar chaves estrangeiras e índices críticos.
 - [ ] Comparar assinaturas de RPCs e sobrecargas antigas.
 - [x] Confirmar que as migrations locais e remotas estão alinhadas até `20260913123000`.
@@ -58,10 +59,10 @@
 - [ ] Confirmar que usuário comum não executa RPC administrativa.
 - [ ] Confirmar que usuário A não opera sobre IDs de B.
 - [ ] Confirmar ledgers sem escrita direta do cliente.
-- [ ] Confirmar RLS em tabelas pessoais e administrativas.
-- [ ] Auditar policies permissivas adicionais.
-- [ ] Auditar grants para `anon`, `authenticated`, `public` e `service_role`.
-- [ ] Confirmar `SECURITY DEFINER` e `search_path`.
+- [x] Confirmar live RLS habilitado nas 33 tabelas públicas; nenhuma está sem RLS.
+- [x] Auditar live policies, grants e funções pelo SQL Editor autenticado.
+- [x] Confirmar live que `anon` só tem grants de tabela em `keep_alive`; `authenticated` tem grants amplos protegidos por policies owner-only.
+- [x] Confirmar live `SECURITY DEFINER` e `search_path` das RPCs; não há alteração direta sem revisão de necessidade.
 - [ ] Testar lockout, expiração e concorrência administrativa.
 
 ## 6. Edge Functions e jobs
@@ -112,7 +113,7 @@
 ## 10. Gates de commit e release
 
 - [x] `npm run test:release` passa sem falha.
-- [ ] `git diff --check` passa.
+- [x] `git diff --check` passa.
 - [ ] Diff contém apenas arquivos esperados.
 - [ ] Teste do Reader confirma ausência de fetch direto de tradução.
 - [x] Testes de segurança, lifecycle, áudio, tradução e extensão passam.
@@ -124,7 +125,7 @@
 - [ ] Revisar status, diff e log antes do commit.
 - [x] Criar commit separado e descritivo (`a686fce`).
 - [x] Fazer push para `main` (GitHub aceitou `0c33b26..a686fce`).
-- [ ] Confirmar SHA remoto pós-push por consulta independente; bloqueado por credencial Schannel.
+- [x] Commits de correção/documentação foram enviados para `main`; confirmação independente via `git ls-remote` continua bloqueada por Schannel.
 - [ ] Atualizar `HANDOFF.md`.
 
 ## Bloqueios conhecidos

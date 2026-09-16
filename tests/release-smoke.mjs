@@ -116,6 +116,11 @@ const pwaFiles = [
 assert(pwaFiles.every((relative) => existsSync(file(relative))), `shell PWA contém ${pwaFiles.length} arquivos críticos`);
 try {
   const vercel = JSON.parse(read('vercel.json'));
+  const redirects = vercel.redirects || [];
+  const redirectText = JSON.stringify(redirects);
+  for (const blockedPath of ['/supabase/:path*', '/tests/:path*', '/docs/:path*', '/.env:rest*', '/backups/:path*']) {
+    assert(redirectText.includes(blockedPath), `Vercel bloqueia publicação de ${blockedPath}`);
+  }
   const rewrites = vercel.rewrites || [];
   const rewriteText = JSON.stringify(rewrites);
   assert(rewriteText.includes('/dashboard/css/') && rewriteText.includes('/dashboard/icons/') && rewriteText.includes('/dashboard/manifest.webmanifest'), 'rewrites expõem CSS, ícones e manifest do PWA');

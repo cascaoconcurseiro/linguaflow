@@ -32,6 +32,13 @@
       ]
     }
   ],
+  "redirects": [
+    { "source": "/supabase/:path*", "destination": "/404", "permanent": false },
+    { "source": "/tests/:path*", "destination": "/404", "permanent": false },
+    { "source": "/docs/:path*", "destination": "/404", "permanent": false },
+    { "source": "/.env:rest*", "destination": "/404", "permanent": false },
+    { "source": "/backups/:path*", "destination": "/404", "permanent": false }
+  ],
   "rewrites": [
     { "source": "/css/(.*)", "destination": "/dashboard/css/$1" },
     { "source": "/js/(.*)", "destination": "/dashboard/js/$1" },

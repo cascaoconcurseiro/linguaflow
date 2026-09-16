@@ -222,6 +222,8 @@ export class SubtitleEngine {
         this._loadSavedWords();
       } else if (request.action === 'LF_TOGGLE_SETTINGS') {
         window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
+      } else if (request.action === 'openWordPopup' && request.payload?.word) {
+        this.wordPopup?.showForWord?.(request.payload.word, request.payload.word, null, null);
       }
     };
     chrome.runtime.onMessage.addListener(this._runtimeMessageListener);

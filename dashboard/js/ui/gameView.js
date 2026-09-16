@@ -457,7 +457,12 @@ async function renderBuilderGame(container, app) {
     // fantasma sem texto que o jogador precisava encontrar pra liberar o
     // "Verificar". Filtrar tokens vazios resolve na raiz.
     const tokens = word.context_sentence.trim().replace(/[.!?,;:]+$/, '').trim().split(/\s+/).filter(Boolean);
-    const shuffled = [...tokens].sort(() => 0.5 - Math.random());
+    let shuffled = shuffleArray(tokens);
+    let attempts = 0;
+    while (attempts < 10 && tokens.length > 2 && shuffled.join(' ') === tokens.join(' ')) {
+      shuffled = shuffleArray(tokens);
+      attempts++;
+    }
     const answer = [];
 
     container.innerHTML = `

@@ -88,19 +88,22 @@
       return entry.def;
     }
 
-    // 2. Google Translate
+    // 2. Google Translate via background proxy (evita bloqueio de CSP na página hospedeira)
     try {
-      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=pt&dt=t&q=${encodeURIComponent(word)}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      const translation = data?.[0]?.map((s) => s[0]).join('') || '';
-      if (translation) {
-        translateCache.set(key, translation);
+      const proxied = await chrome.runtime.sendMessage({
+        action: 'translate',
+        text: word,
+        from: 'en',
+        to: 'pt',
+      });
+      if (proxied?.translation) {
+        translateCache.set(key, proxied.translation);
         if (translateCache.size > TRANSLATE_CACHE_MAX) translateCache.clear();
-        return translation;
+        return proxied.translation;
       }
-    } catch (e) {
-      /* fallthrough */
+    } catch {
+      // Content scripts não fazem fetch direto: a página hospedeira pode bloquear
+      // a origem por CORS/CSP. O chamador exibirá o estado de indisponibilidade.
     }
 
     return null;
@@ -270,8 +273,6 @@
         btn.disabled = false;
       }, 1500);
 
-      // Notifica outras abas
-      chrome.runtime.sendMessage({ type: 'WORD_SAVED' }).catch(() => {});
     } catch (e) {
       if (!isActive() || epochAtStart !== lifecycle.interactionEpoch || !btn?.isConnected) return;
       btn.textContent = '❌ Erro';
@@ -280,38 +281,14 @@
   }
 
   // ── Interação com Texto ───────────────────────────────────────────────────
-  async function handleWordClick(e) {
+  async function triggerWordPopup(rawWord, contextText, x, y) {
     if (!isActive()) return;
-    // Ignora inputs, textareas, contenteditable
-    if (e.target.closest('input, textarea, [contenteditable="true"], #lf-reader-popup')) return;
-
-    const selection = window.getSelection();
-    let word = '';
-
-    if (selection.toString().trim()) {
-      // Usuário selecionou texto manualmente
-      word = selection.toString().trim().split(/\s+/)[0]; // primeira palavra
-      currentContext = selection.toString().trim();
-    } else if (e.target.nodeType === Node.TEXT_NODE || e.target.tagName === 'SPAN') {
-      // Duplo-clique em palavra
-      word = getWordAtPoint(e.clientX, e.clientY);
-      // Pega contexto (+/- 60 chars ao redor)
-      const node = e.target;
-      const text = node.textContent || '';
-      const idx = text.indexOf(word);
-      if (idx >= 0) {
-        currentContext = text.substring(
-          Math.max(0, idx - 40),
-          Math.min(text.length, idx + word.length + 40),
-        );
-      }
-    }
-
-    word = word.replace(/[^a-zA-ZÀ-ÖØ-öø-ÿ'’-]/g, '').trim();
+    let word = (rawWord || '').split(/\s+/)[0].replace(/[^a-zA-ZÀ-ÖØ-öø-ÿ'’-]/g, '').trim();
     if (!word || word.length < 2 || word.length > 40) return;
 
+    currentContext = contextText || word;
     const interactionEpoch = ++lifecycle.interactionEpoch;
-    showPopup(e.clientX, e.clientY, word, null);
+    showPopup(x, y, word, null);
 
     // Tradução assíncrona
     const contextAtStart = currentContext;
@@ -330,6 +307,37 @@
       transEl.classList.remove('lf-r-loading');
       if (saveBtn) saveBtn.style.display = '';
     }
+  }
+
+  async function handleWordClick(e) {
+    if (!isActive()) return;
+    // Ignora inputs, textareas, contenteditable e elementos interativos (botões, links, etc.)
+    if (e.target.closest('button, [role="button"], a, input, textarea, select, [contenteditable="true"], #lf-reader-popup')) return;
+
+    const selection = window.getSelection();
+    let word = '';
+    let context = '';
+
+    if (selection && selection.toString().trim()) {
+      // Usuário selecionou texto manualmente
+      word = selection.toString().trim().split(/\s+/)[0]; // primeira palavra
+      context = selection.toString().trim();
+    } else if (e.target.nodeType === Node.TEXT_NODE || e.target.tagName === 'SPAN') {
+      // Duplo-clique em palavra
+      word = getWordAtPoint(e.clientX, e.clientY);
+      // Pega contexto (+/- 60 chars ao redor)
+      const node = e.target;
+      const text = node.textContent || '';
+      const idx = text.indexOf(word);
+      if (idx >= 0) {
+        context = text.substring(
+          Math.max(0, idx - 40),
+          Math.min(text.length, idx + word.length + 40),
+        );
+      }
+    }
+
+    await triggerWordPopup(word, context, e.clientX, e.clientY);
   }
 
   function getWordAtPoint(x, y) {
@@ -355,16 +363,49 @@
   }
 
   // ── Event Listeners ───────────────────────────────────────────────────────
+  let lastContextMenuPos = { x: 120, y: 120 };
+  const handleContextMenu = (e) => {
+    lastContextMenuPos = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleRuntimeMessage = (request) => {
+    if (!isActive()) return;
+    if (request?.action === 'openWordPopup' && request?.payload?.word) {
+      let x = lastContextMenuPos.x;
+      let y = lastContextMenuPos.y;
+      const sel = window.getSelection();
+      let context = request.payload.word;
+      if (sel && sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        if (rect.width > 0 || rect.height > 0) {
+          x = rect.left;
+          y = rect.bottom;
+        }
+        if (sel.toString().trim()) {
+          context = sel.toString().trim();
+        }
+      }
+      triggerWordPopup(request.payload.word, context, x, y);
+    }
+  };
+
   const handleDoubleClick = (e) => {
     // O segundo mouseup do duplo-clique já deixou um callback agendado.
     // Cancelá-lo garante uma única seleção/tradução por gesto.
     clearTimeout(lifecycle.selectionTimer);
     lifecycle.selectionTimer = null;
+    if (e.target.closest('button, [role="button"], a, input, textarea, select, [contenteditable="true"], #lf-reader-popup')) return;
     handleWordClick(e);
   };
 
   const handleMouseUp = (e) => {
-    // Se houve seleção de texto com o mouse, mostra popup após 300ms
+    // Opção 1: Não abre popup automático em seleção simples de botão esquerdo para não
+    // conflitar com calendários, botões e navegação normal de páginas dinâmicas.
+    // Requer Alt pressionado durante a seleção com botão esquerdo, ou botão direito (menu de contexto).
+    if (!e.altKey) return;
+    if (e.target.closest('button, [role="button"], a, input, textarea, select, [contenteditable="true"], #lf-reader-popup')) return;
+
     const sel = window.getSelection();
     if (sel && sel.toString().trim().length > 1 && sel.toString().trim().length < 200) {
       clearTimeout(lifecycle.selectionTimer);
@@ -396,6 +437,10 @@
     document.removeEventListener('mouseup', handleMouseUp);
     document.removeEventListener('click', handleDocumentClick);
     document.removeEventListener('keydown', handleKeyDown);
+    document.removeEventListener('contextmenu', handleContextMenu);
+    try {
+      chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
+    } catch { /* listener cleanup best-effort */ }
     popupEl?.remove();
     popupEl = null;
     try { tts?.stop?.(); } catch { /* lifecycle cleanup best-effort */ }
@@ -410,7 +455,9 @@
   document.addEventListener('mouseup', handleMouseUp);
   document.addEventListener('click', handleDocumentClick);
   document.addEventListener('keydown', handleKeyDown);
+  document.addEventListener('contextmenu', handleContextMenu);
+  chrome.runtime.onMessage.addListener(handleRuntimeMessage);
   window.addEventListener('pagehide', dispose, { once: true });
 
-  console.debug('[LinguaFlow Reader] ✅ Pronto — duplo-clique em qualquer palavra para traduzir.');
+  console.debug('[LinguaFlow Reader] ✅ Pronto — selecione e clique com botão direito ou Alt+seleção para traduzir.');
 })();

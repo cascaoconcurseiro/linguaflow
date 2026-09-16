@@ -184,6 +184,8 @@ export async function getAudioBlob(text, lang) {
   return null;
 }
 
+const MEM_CACHE_MAX = 100;
+
 async function getAudioUrl(text, lang) {
   const key = `${kokoroEnabled() ? 'kk' : 'g'}|${lang}|${text}`;
   if (memCache.has(key)) return memCache.get(key);
@@ -192,6 +194,12 @@ async function getAudioUrl(text, lang) {
     const blob = await getAudioBlob(text, lang);
     if (!blob) return null;
     const url = URL.createObjectURL(blob);
+    if (memCache.size >= MEM_CACHE_MAX) {
+      const oldestKey = memCache.keys().next().value;
+      const oldestUrl = memCache.get(oldestKey);
+      memCache.delete(oldestKey);
+      try { URL.revokeObjectURL(oldestUrl); } catch {}
+    }
     memCache.set(key, url);
     return url;
   })().finally(() => pendingAudio.delete(key));

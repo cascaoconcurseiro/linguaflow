@@ -209,7 +209,7 @@ export function renderStories(container, app) {
   app.onLeaveView?.(() => {
     if (storiesDocumentController === documentController) storiesDocumentController = null;
     documentController.abort();
-    stopAudio();
+    stopFullStoryTTS();
   });
   container.innerHTML = `
     <div class="story-page">
@@ -822,7 +822,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
   }
   
   // Cleanup TTS on tab close or navigation
-  window.addEventListener('beforeunload', stopFullStoryTTS);
+  window.addEventListener('beforeunload', stopFullStoryTTS, { signal: documentController.signal });
 
   // Tab Logic
   function switchTab(isNew) {

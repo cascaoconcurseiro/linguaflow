@@ -4,7 +4,7 @@
 
 (async () => {
     try {
-        const version = chrome?.runtime?.getManifest?.()?.version || '3.0.44';
+        const version = chrome?.runtime?.getManifest?.()?.version || '3.0.46';
         const src = chrome.runtime.getURL("content/index.js") + '?v=' + version;
         await import(src);
     } catch (e) {

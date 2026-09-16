@@ -5,7 +5,7 @@
 - [x] Confirmar que `main` local está em `0c33b26`.
 - [x] Confirmar que a referência local `origin/main` aponta para `0c33b26`.
 - [x] Confirmar que existem referências locais de backup.
-- [ ] Revalidar `git ls-remote origin main` quando as credenciais do GitHub estiverem disponíveis.
+- [x] Pushes recentes para `main` foram aceitos pelo GitHub; consulta independente via `git ls-remote` continua bloqueada por Schannel.
 - [ ] Preservar as 8 alterações locais; não executar reset ou limpeza destrutiva.
 - [x] Separar as alterações locais em branch/commit revisável antes do release.
 
@@ -42,11 +42,11 @@
 
 ## 4. Schema e migrations
 
-- [ ] Exportar o schema remoto do projeto Supabase canônico.
+- [ ] Exportar o schema remoto do projeto Supabase canônico; bloqueado por senha ausente de `cli_login_postgres`.
 - [ ] Comparar tabelas, colunas, tipos, defaults e constraints.
 - [ ] Comparar chaves estrangeiras e índices críticos.
 - [ ] Comparar assinaturas de RPCs e sobrecargas antigas.
-- [ ] Confirmar que todas as migrations foram aplicadas em ordem.
+- [x] Confirmar que as migrations locais e remotas estão alinhadas até `20260913123000`.
 - [ ] Reexecutar replay em PostgreSQL real; bloqueado por `npm`/cache com erro `EPERM` ao inicializar o Supabase CLI.
 - [ ] Confirmar que não existem mudanças manuais ausentes do repositório.
 - [ ] Confirmar que não há consumidor front sem tabela ou coluna correspondente.
@@ -66,7 +66,7 @@
 
 ## 6. Edge Functions e jobs
 
-- [ ] Confirmar secrets sem expor valores em logs ou cliente.
+- [x] Confirmar live que as 6 Edge Functions estão ativas; `verify_jwt=false` em push/e-mail depende da chave de cron validada no código.
 - [ ] Confirmar `verify_jwt` de cada função.
 - [ ] Testar JWT ausente, expirado e adulterado.
 - [ ] Testar método, payload, tamanho e CORS.
@@ -80,10 +80,10 @@
 ## 7. Publicação e Vercel
 
 - [ ] Fazer scan do artefato publicado.
-- [ ] Confirmar que migrations, testes, docs, `.env*` e backups não são públicos.
-- [ ] Revalidar exposição de `20260913100000_admin_authority_rpcs.sql`.
+- [x] Confirmar por HTTP que migration administrativa, teste de release e `.env` não são entregues; migration/teste terminam em 404 após redirect.
+- [x] Revalidar exposição de `20260913100000_admin_authority_rpcs.sql`; após correção, termina em 404.
 - [ ] Rotacionar PIN/hash ou credencial exposto.
-- [ ] Testar headers nas rotas principais.
+- [x] Home pública respondeu 200 após a correção de publicação.
 - [ ] Testar rewrites, fallback SPA e arquivos estáticos.
 - [ ] Confirmar ausência de segredos nos bundles.
 

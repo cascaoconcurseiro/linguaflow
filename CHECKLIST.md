@@ -47,7 +47,7 @@
 - [ ] Comparar chaves estrangeiras e índices críticos.
 - [ ] Comparar assinaturas de RPCs e sobrecargas antigas.
 - [ ] Confirmar que todas as migrations foram aplicadas em ordem.
-- [ ] Reexecutar replay em PostgreSQL real.
+- [ ] Reexecutar replay em PostgreSQL real; bloqueado por `npm`/cache com erro `EPERM` ao inicializar o Supabase CLI.
 - [ ] Confirmar que não existem mudanças manuais ausentes do repositório.
 - [ ] Confirmar que não há consumidor front sem tabela ou coluna correspondente.
 
@@ -111,13 +111,15 @@
 
 ## 10. Gates de commit e release
 
-- [ ] `npm run test:release` passa sem falha.
+- [x] `npm run test:release` passa sem falha.
 - [ ] `git diff --check` passa.
 - [ ] Diff contém apenas arquivos esperados.
 - [ ] Teste do Reader confirma ausência de fetch direto de tradução.
-- [ ] Testes de segurança, lifecycle, áudio, tradução e extensão passam.
+- [x] Testes de segurança, lifecycle, áudio, tradução e extensão passam.
 - [ ] Replay SQL real passa.
 - [ ] RLS real com dois usuários passa.
+- [x] Build local da extensão passou e o ZIP de v3.0.46 contém os 33 arquivos esperados.
+- [x] `npm audit --omit=dev` encontrou 0 vulnerabilidades.
 - [ ] Artefato publicado foi escaneado.
 - [ ] Revisar status, diff e log antes do commit.
 - [x] Criar commit separado e descritivo (`a686fce`).

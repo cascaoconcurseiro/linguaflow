@@ -9,14 +9,14 @@ import path from 'node:path';
 // A auditoria faz parte do fluxo oficial e precisa rodar também no Windows.
 // O antigo shell `find` era resolvido como FIND.EXE e abortava antes de ler
 // qualquer arquivo. A travessia em Node é determinística e multiplataforma.
-const ignoredDirs = new Set(['node_modules', 'tests', 'scripts', '.git', 'backups']);
+const ignoredDirs = new Set(['node_modules', 'scripts', '.git', 'backups']);
 const files = [];
 function walk(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.isDirectory() && ignoredDirs.has(entry.name)) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) walk(full);
-    else if (/\.(js|ts|html)$/.test(entry.name)) files.push(full.replace(/^[.]?[\\/]/, '').replaceAll('\\', '/'));
+    else if (/\.(js|mjs|ts|html)$/.test(entry.name)) files.push(full.replace(/^[.]?[\\/]/, '').replaceAll('\\', '/'));
   }
 }
 walk('.');
@@ -24,7 +24,10 @@ walk('.');
 const src = {};
 files.forEach(f => { src[f] = fs.readFileSync(f, 'utf8'); });
 const ALL = Object.entries(src);
-const CODE = ALL.filter(([f]) => /\.(js|ts)$/.test(f));
+// Testes são consumidores válidos de utilitários, mas não módulos de produção.
+// Artefatos em dist/ também não devem duplicar os exports da fonte.
+const CODE = ALL.filter(([f]) => /\.(js|mjs|ts)$/.test(f) && !f.startsWith('tests/') && !f.startsWith('dist/'));
+const SCANNED = ALL.filter(([f]) => /\.(js|mjs|ts)$/.test(f));
 
 const rx = (s, re) => [...s.matchAll(re)].map(m => m[1]).filter(Boolean);
 const uniq = a => [...new Set(a)];
@@ -33,9 +36,11 @@ const uniq = a => [...new Set(a)];
 // Um arquivo que exporta algo e que ninguém importa = código que não roda.
 const exportsOf = {};
 const importedPaths = new Set();
+const dynamicImportPaths = new Set();
+const namespaceImportPaths = new Set();
 const importedSymbols = new Set();
 
-for (const [f, s] of CODE) {
+for (const [f, s] of SCANNED) {
   const ex = [
     ...rx(s, /export\s+(?:async\s+)?function\s+(\w+)/g),
     ...rx(s, /export\s+(?:const|let|var)\s+(\w+)/g),
@@ -48,14 +53,20 @@ for (const [f, s] of CODE) {
 
   // caminhos importados (estático, dinâmico, e o padrão chrome.runtime.getURL)
   rx(s, /from\s+['"]([^'"]+)['"]/g).forEach(p => importedPaths.add(p));
-  rx(s, /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g).forEach(p => importedPaths.add(p));
-  rx(s, /import\s*\(\s*`([^`]+)`\s*\)/g).forEach(p => importedPaths.add(p.split('?')[0].replace(/\$\{.*?\}/g, '')));
+  rx(s, /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g).forEach(p => { importedPaths.add(p); dynamicImportPaths.add(p); });
+  rx(s, /import\s*\(\s*`([^`]+)`\s*\)/g).forEach(p => {
+    const normalized = p.split('?')[0].replace(/\$\{.*?\}/g, '');
+    importedPaths.add(normalized);
+    dynamicImportPaths.add(normalized);
+  });
   rx(s, /import\s*\(\s*\w+\s*\+\s*['"]([^'"]+)['"]\s*\)/g).forEach(p => importedPaths.add(p));
   rx(s, /getURL\(\s*['"]([^'"]+)['"]\s*\)/g).forEach(p => importedPaths.add(p));
   // símbolos importados
   [...s.matchAll(/import\s*\{([^}]+)\}\s*from/g)]
     .flatMap(m => m[1].split(',').map(x => x.trim().split(/\s+as\s+/)[0].trim()))
     .forEach(x => x && importedSymbols.add(x));
+  rx(s, /import\s*\*\s*as\s+\w+\s+from\s+['"]([^'"]+)['"]/g)
+    .forEach(p => namespaceImportPaths.add(p));
   rx(s, /const\s*\{([^}]+)\}\s*=\s*await\s+import/g)
     .flatMap(g => g.split(',').map(x => x.trim().split(':')[0].trim()))
     .forEach(x => x && importedSymbols.add(x));
@@ -70,6 +81,8 @@ rx(mf, /"([^"]+\.js)"/g).forEach(p => importedPaths.add(p));
 
 const base = p => p.split('/').pop().split('?')[0];
 const isImported = f => [...importedPaths].some(p => base(p) === base(f));
+const isDynamicallyImported = f => [...dynamicImportPaths].some(p => base(p) === base(f));
+const hasNamespaceImport = f => [...namespaceImportPaths].some(p => base(p) === base(f));
 
 // Módulos que são contratos de especificação/seed e intencionalmente
 // não entram no bundle do cliente para não expor critérios/rubricas:
@@ -84,6 +97,8 @@ const orphanFiles = CODE
 const orphanSymbols = [];
 for (const [f] of CODE) {
   if (!isImported(f)) continue; // já contado acima
+  if (offlineContracts.has(f)) continue;
+  if (isDynamicallyImported(f) || hasNamespaceImport(f)) continue;
   exportsOf[f].forEach(sym => {
     if (!importedSymbols.has(sym)) orphanSymbols.push(`${f} → ${sym}`);
   });

@@ -148,3 +148,14 @@
 - [x] Atualizar o auditor de wiring para considerar consumidores `.mjs`, imports por namespace e imports dinâmicos.
 - [x] Adicionar regressão para não reportar `utils/schema.js` como módulo órfão.
 - [x] Entregar e fazer merge do PR #83 na `main`.
+- [x] Criar Issue #84 para os gates de qualidade e observabilidade aplicada.
+- [x] Integrar Biome e validar `npm run lint:biome`.
+- [x] Integrar Commitlint e validar a mensagem do commit de entrega.
+- [x] Integrar Knip e validar `npm run lint:knip`.
+- [x] Integrar Playwright com smoke E2E do shell PWA.
+- [x] Integrar c8/Codecov; registrar cobertura estrutural atual de 8,86% sem declarar cobertura funcional completa.
+- [x] Integrar Stryker em modo focado/manual; registrar score de 62,77% e mutantes sobreviventes.
+- [x] Adicionar contrato de observabilidade com eventos, erros, spans e exportação opcional OTLP/events.
+- [x] Adicionar skeleton, `aria-busy`, animação de entrada de rota e reduced motion no shell do dashboard.
+- [x] Entregar e fazer merge do PR #85 na `main`.
+- [x] Atualizar `HANDOFF.md` com o estado real pós-merge.

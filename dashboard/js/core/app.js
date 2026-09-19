@@ -2,6 +2,7 @@ import { renderHome } from '../ui/homeView.js';
 import { renderFluencyCheck } from '../ui/fluencyCheckView.js';
 import { bindViewStateAction, renderViewState } from '../ui/viewState.js';
 import { db } from '../../../utils/db.js';
+import { observe, observeError, startSpan } from '../../../utils/observability.js';
 
 const renderLibrary = (...args) => import('../ui/libraryView.js').then((m) => m.renderLibrary(...args));
 const renderStudy = (...args) => import(`../ui/studyView.js?v=${CLIENT_BUILD}`).then((m) => m.renderStudy(...args));
@@ -111,6 +112,7 @@ class App {
     if (this._reportedErrors.has(key)) return;
     this._reportedErrors.add(key);
     this.db.reportClientError(source, name, this.currentRoute, CLIENT_BUILD);
+    observeError(error, { source, route: this.currentRoute, appVersion: CLIENT_BUILD });
   }
 
   async init() {
@@ -376,6 +378,7 @@ class App {
     this._runCleanups();
     this.navigationEpoch += 1;
     this.currentRoute = route;
+    observe('navigation.start', { route, navigationEpoch: this.navigationEpoch });
     this.routeParams = params || {};
     this.syncShellForRoute(route);
     const routeTitles = {
@@ -424,10 +427,11 @@ class App {
       targetContainer.style.display = 'block';
       
       targetContainer.innerHTML = `
-        <div role="status" aria-live="polite" style="display:flex;height:100%;width:100%;justify-content:center;align-items:center;flex-direction:column;color:var(--color-text-light);">
-          <div style="width:40px;height:40px;border:4px solid var(--color-border);border-top-color:var(--color-primary);border-radius:50%;animation:lf-spin 1s linear infinite;"></div>
+        <div class="lf-route-skeleton" role="status" aria-live="polite" aria-busy="true" aria-label="Carregando ${routeTitles[route] || 'tela'}">
+          <div class="lf-skeleton-block lf-skeleton-block--title"></div>
+          <div class="lf-skeleton-block lf-skeleton-block--line"></div>
+          <div class="lf-skeleton-block lf-skeleton-block--line lf-skeleton-block--short"></div>
           <span class="sr-only">Carregando ${routeTitles[route] || 'tela'}…</span>
-          <style>@keyframes lf-spin { to { transform: rotate(360deg); } }</style>
         </div>
       `;
       
@@ -486,6 +490,9 @@ class App {
       admin: renderAdmin,
     };
     const renderer = renderers[route] || renderHome;
+    const span = startSpan(`route.${route}`, { route });
+    container.classList.add('lf-route-container', 'lf-route-loading');
+    container.setAttribute('aria-busy', 'true');
     this.activeRender?.controller.abort('render-superseded');
     const controller = new AbortController();
     const context = Object.freeze({
@@ -512,12 +519,20 @@ class App {
         console.error(`[App] Falha ao renderizar ${route}:`, error);
         this.reportUnexpectedError(`render.${route}`, error);
         this.renderRouteFailure(context);
+      }).finally(() => {
+        if (!this.isRenderCurrent(context)) return;
+        container.classList.remove('lf-route-loading');
+        container.classList.add('lf-route-enter');
+        container.removeAttribute('aria-busy');
+        span.end('ok');
+        observe('navigation.ready', { route });
       });
     } catch (error) {
       if (!this.isRenderCurrent(context)) return;
       console.error(`[App] Falha ao renderizar ${route}:`, error);
       this.reportUnexpectedError(`render.${route}`, error);
       this.renderRouteFailure(context);
+      span.end('error', { error: error?.name || 'Error' });
     }
   }
 

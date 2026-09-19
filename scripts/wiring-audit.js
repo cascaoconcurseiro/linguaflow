@@ -9,7 +9,7 @@ import path from 'node:path';
 // A auditoria faz parte do fluxo oficial e precisa rodar também no Windows.
 // O antigo shell `find` era resolvido como FIND.EXE e abortava antes de ler
 // qualquer arquivo. A travessia em Node é determinística e multiplataforma.
-const ignoredDirs = new Set(['node_modules', 'scripts', '.git', 'backups']);
+const ignoredDirs = new Set(['node_modules', 'scripts', '.git', 'backups', '.stryker-tmp', 'reports', 'coverage']);
 const files = [];
 function walk(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -22,15 +22,17 @@ function walk(dir) {
 walk('.');
 
 const src = {};
-files.forEach(f => { src[f] = fs.readFileSync(f, 'utf8'); });
+files.forEach((f) => {
+  src[f] = fs.readFileSync(f, 'utf8');
+});
 const ALL = Object.entries(src);
 // Testes são consumidores válidos de utilitários, mas não módulos de produção.
 // Artefatos em dist/ também não devem duplicar os exports da fonte.
 const CODE = ALL.filter(([f]) => /\.(js|mjs|ts)$/.test(f) && !f.startsWith('tests/') && !f.startsWith('dist/'));
 const SCANNED = ALL.filter(([f]) => /\.(js|mjs|ts)$/.test(f));
 
-const rx = (s, re) => [...s.matchAll(re)].map(m => m[1]).filter(Boolean);
-const uniq = a => [...new Set(a)];
+const rx = (s, re) => [...s.matchAll(re)].map((m) => m[1]).filter(Boolean);
+const uniq = (a) => [...new Set(a)];
 
 // ── 1. MÓDULOS ÓRFÃOS ────────────────────────────────────────────────────────
 // Um arquivo que exporta algo e que ninguém importa = código que não roda.
@@ -47,59 +49,74 @@ for (const [f, s] of SCANNED) {
     ...rx(s, /export\s+class\s+(\w+)/g),
   ];
   const braced = [...s.matchAll(/export\s*\{([^}]+)\}/g)]
-    .flatMap(m => m[1].split(',').map(x => x.trim().split(/\s+as\s+/).pop().trim()))
-    .filter(x => x && x !== 'default');
+    .flatMap((m) =>
+      m[1].split(',').map((x) =>
+        x
+          .trim()
+          .split(/\s+as\s+/)
+          .pop()
+          .trim(),
+      ),
+    )
+    .filter((x) => x && x !== 'default');
   exportsOf[f] = uniq([...ex, ...braced]);
 
   // caminhos importados (estático, dinâmico, e o padrão chrome.runtime.getURL)
-  rx(s, /from\s+['"]([^'"]+)['"]/g).forEach(p => importedPaths.add(p));
-  rx(s, /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g).forEach(p => { importedPaths.add(p); dynamicImportPaths.add(p); });
-  rx(s, /import\s*\(\s*`([^`]+)`\s*\)/g).forEach(p => {
+  rx(s, /from\s+['"]([^'"]+)['"]/g).forEach((p) => importedPaths.add(p));
+  rx(s, /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g).forEach((p) => {
+    importedPaths.add(p);
+    dynamicImportPaths.add(p);
+  });
+  rx(s, /import\s*\(\s*`([^`]+)`\s*\)/g).forEach((p) => {
     const normalized = p.split('?')[0].replace(/\$\{.*?\}/g, '');
     importedPaths.add(normalized);
     dynamicImportPaths.add(normalized);
   });
-  rx(s, /import\s*\(\s*\w+\s*\+\s*['"]([^'"]+)['"]\s*\)/g).forEach(p => importedPaths.add(p));
-  rx(s, /getURL\(\s*['"]([^'"]+)['"]\s*\)/g).forEach(p => importedPaths.add(p));
+  rx(s, /import\s*\(\s*\w+\s*\+\s*['"]([^'"]+)['"]\s*\)/g).forEach((p) => importedPaths.add(p));
+  rx(s, /getURL\(\s*['"]([^'"]+)['"]\s*\)/g).forEach((p) => importedPaths.add(p));
   // símbolos importados
   [...s.matchAll(/import\s*\{([^}]+)\}\s*from/g)]
-    .flatMap(m => m[1].split(',').map(x => x.trim().split(/\s+as\s+/)[0].trim()))
-    .forEach(x => x && importedSymbols.add(x));
-  rx(s, /import\s*\*\s*as\s+\w+\s+from\s+['"]([^'"]+)['"]/g)
-    .forEach(p => namespaceImportPaths.add(p));
+    .flatMap((m) =>
+      m[1].split(',').map((x) =>
+        x
+          .trim()
+          .split(/\s+as\s+/)[0]
+          .trim(),
+      ),
+    )
+    .forEach((x) => x && importedSymbols.add(x));
+  rx(s, /import\s*\*\s*as\s+\w+\s+from\s+['"]([^'"]+)['"]/g).forEach((p) => namespaceImportPaths.add(p));
   rx(s, /const\s*\{([^}]+)\}\s*=\s*await\s+import/g)
-    .flatMap(g => g.split(',').map(x => x.trim().split(':')[0].trim()))
-    .forEach(x => x && importedSymbols.add(x));
+    .flatMap((g) => g.split(',').map((x) => x.trim().split(':')[0].trim()))
+    .forEach((x) => x && importedSymbols.add(x));
 }
 // html <script src>
-for (const [f, s] of ALL.filter(([f]) => f.endsWith('.html'))) {
-  rx(s, /<script[^>]+src=['"]([^'"]+)['"]/g).forEach(p => importedPaths.add(p));
+for (const [_f, s] of ALL.filter(([f]) => f.endsWith('.html'))) {
+  rx(s, /<script[^>]+src=['"]([^'"]+)['"]/g).forEach((p) => importedPaths.add(p));
 }
 // manifest.json entra como "importador" (content_scripts / background)
 const mf = fs.existsSync('manifest.json') ? fs.readFileSync('manifest.json', 'utf8') : '';
-rx(mf, /"([^"]+\.js)"/g).forEach(p => importedPaths.add(p));
+rx(mf, /"([^"]+\.js)"/g).forEach((p) => importedPaths.add(p));
 
-const base = p => p.split('/').pop().split('?')[0];
-const isImported = f => [...importedPaths].some(p => base(p) === base(f));
-const isDynamicallyImported = f => [...dynamicImportPaths].some(p => base(p) === base(f));
-const hasNamespaceImport = f => [...namespaceImportPaths].some(p => base(p) === base(f));
+const base = (p) => p.split('/').pop().split('?')[0];
+const isImported = (f) => [...importedPaths].some((p) => base(p) === base(f));
+const isDynamicallyImported = (f) => [...dynamicImportPaths].some((p) => base(p) === base(f));
+const hasNamespaceImport = (f) => [...namespaceImportPaths].some((p) => base(p) === base(f));
 
 // Módulos que são contratos de especificação/seed e intencionalmente
 // não entram no bundle do cliente para não expor critérios/rubricas:
-const offlineContracts = new Set([
-  'dashboard/js/core/fluencyTaskCatalog.js',
-]);
+const offlineContracts = new Set(['dashboard/js/core/fluencyTaskCatalog.js']);
 
-const orphanFiles = CODE
-  .filter(([f]) => exportsOf[f].length > 0 && !isImported(f) && !offlineContracts.has(f))
-  .map(([f]) => f);
+const orphanFiles = CODE.filter(([f]) => exportsOf[f].length > 0 && !isImported(f) && !offlineContracts.has(f)).map(
+  ([f]) => f,
+);
 
 const orphanSymbols = [];
 for (const [f] of CODE) {
   if (!isImported(f)) continue; // já contado acima
   if (offlineContracts.has(f)) continue;
   if (isDynamicallyImported(f) || hasNamespaceImport(f)) continue;
-  exportsOf[f].forEach(sym => {
+  exportsOf[f].forEach((sym) => {
     if (!importedSymbols.has(sym)) orphanSymbols.push(`${f} → ${sym}`);
   });
 }
@@ -108,20 +125,22 @@ for (const [f] of CODE) {
 // getElementById('x') onde 'x' nunca é criado = feature sem container.
 const idsCreated = new Set();
 const idsRead = {};
-for (const [f, s] of ALL) {
-  rx(s, /id=["']([\w-]+)["']/g).forEach(i => idsCreated.add(i));
-  rx(s, /\.id\s*=\s*['"]([\w-]+)['"]/g).forEach(i => idsCreated.add(i));
-  rx(s, /createElement\([^)]*\)[^;]*?id\s*=\s*['"]([\w-]+)['"]/g).forEach(i => idsCreated.add(i));
-  rx(s, /actionId\s*:\s*['"]([\w-]+)['"]/g).forEach(i => idsCreated.add(i));
+for (const [_f, s] of ALL) {
+  rx(s, /id=["']([\w-]+)["']/g).forEach((i) => idsCreated.add(i));
+  rx(s, /\.id\s*=\s*['"]([\w-]+)['"]/g).forEach((i) => idsCreated.add(i));
+  rx(s, /createElement\([^)]*\)[^;]*?id\s*=\s*['"]([\w-]+)['"]/g).forEach((i) => idsCreated.add(i));
+  rx(s, /actionId\s*:\s*['"]([\w-]+)['"]/g).forEach((i) => idsCreated.add(i));
 }
 // IDs pertencentes ao DOM do host ou removidos apenas por compatibilidade.
-['movie_player', 'study-styles'].forEach(i => idsCreated.add(i));
+['movie_player', 'study-styles'].forEach((i) => idsCreated.add(i));
 for (const [f, s] of CODE) {
   const read = uniq([
     ...rx(s, /getElementById\(\s*['"]([\w-]+)['"]/g),
     ...rx(s, /querySelector(?:All)?\(\s*['"]#([\w-]+)['"]/g),
   ]);
-  read.forEach(i => { (idsRead[i] ||= new Set()).add(f); });
+  read.forEach((i) => {
+    (idsRead[i] ||= new Set()).add(f);
+  });
 }
 const deadIds = Object.entries(idsRead)
   .filter(([i]) => !idsCreated.has(i))
@@ -129,22 +148,27 @@ const deadIds = Object.entries(idsRead)
 
 // ── 3. EVENTOS ÓRFÃOS ────────────────────────────────────────────────────────
 // Escutado e nunca emitido (LF_WORD_KNOWN), ou emitido e nunca escutado.
-const listened = {}, dispatched = {};
+const listened = {},
+  dispatched = {};
 for (const [f, s] of CODE) {
-  uniq(rx(s, /addEventListener\(\s*['"](LF_[\w-]+|lf_[\w-]+)['"]/g))
-    .forEach(e => { (listened[e] ||= new Set()).add(f); });
+  uniq(rx(s, /addEventListener\(\s*['"](LF_[\w-]+|lf_[\w-]+)['"]/g)).forEach((e) => {
+    (listened[e] ||= new Set()).add(f);
+  });
   if (/addEventListener\(\s*['"]message['"]/.test(s)) {
-    uniq(rx(s, /(?:data|e\.data)\.type\s*={2,3}\s*['"](LF_[\w-]+)['"]/g))
-      .forEach(e => { (listened[e] ||= new Set()).add(f); });
+    uniq(rx(s, /(?:data|e\.data)\.type\s*={2,3}\s*['"](LF_[\w-]+)['"]/g)).forEach((e) => {
+      (listened[e] ||= new Set()).add(f);
+    });
   }
   uniq([
     ...rx(s, /CustomEvent\(\s*['"](LF_[\w-]+|lf_[\w-]+)['"]/g),
     ...rx(s, /postMessage\(\s*\{\s*type:\s*['"](LF_[\w-]+)['"]/g),
     ...rx(s, /type:\s*['"](LF_[\w-]+)['"]/g),
-  ]).forEach(e => { (dispatched[e] ||= new Set()).add(f); });
+  ]).forEach((e) => {
+    (dispatched[e] ||= new Set()).add(f);
+  });
 }
-const neverFired = Object.keys(listened).filter(e => !dispatched[e]);
-const neverHeard = Object.keys(dispatched).filter(e => !listened[e]);
+const neverFired = Object.keys(listened).filter((e) => !dispatched[e]);
+const neverHeard = Object.keys(dispatched).filter((e) => !listened[e]);
 
 // ── 4. SUPERFÍCIE: o que o app diz ao usuário ────────────────────────────────
 const shortcuts = [];
@@ -153,12 +177,12 @@ for (const [f, s] of CODE) {
     ...rx(s, /case\s+['"](Key\w|Digit\d|Space|Arrow\w+)['"]/g),
     ...rx(s, /e\.key\s*===?\s*['"]([\w ])['"]/g),
     ...rx(s, /e\.code\s*===?\s*['"](Key\w|Digit\d|Space)['"]/g),
-  ]).forEach(k => shortcuts.push(`${k.padEnd(8)} ${f}`));
+  ]).forEach((k) => shortcuts.push(`${k.padEnd(8)} ${f}`));
 }
 
 const out = (t, arr) => {
   console.log('\n' + '='.repeat(72) + '\n' + t + '  [' + arr.length + ']\n' + '='.repeat(72));
-  arr.length ? arr.forEach(x => console.log('  ' + x)) : console.log('  (nenhum)');
+  arr.length ? arr.forEach((x) => console.log('  ' + x)) : console.log('  (nenhum)');
 };
 out('🔴 MÓDULOS ÓRFÃOS — exportam e ninguém importa', orphanFiles);
 out('🟡 SÍMBOLOS ÓRFÃOS — exportados de arquivo vivo, nunca importados', orphanSymbols);

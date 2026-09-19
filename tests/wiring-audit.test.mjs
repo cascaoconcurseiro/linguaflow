@@ -26,6 +26,9 @@ for (const falsePositive of [
   assert.ok(!output.includes(falsePositive), `auditoria não deve reportar falso positivo: ${falsePositive}`);
 }
 
-assert.ok(!output.includes('utils/schema.js'), 'auditoria não deve tratar utilitário usado por testes como módulo órfão');
+assert.ok(
+  !output.includes('utils/schema.js'),
+  'auditoria não deve tratar utilitário usado por testes como módulo órfão',
+);
 
 console.log('Auditoria de fiação distingue integrações dinâmicas e DOM externo.');

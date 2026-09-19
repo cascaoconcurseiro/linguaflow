@@ -2,9 +2,11 @@
 
 Brief description of what this PR does.
 
-## 🔗 Related Issue
+## 🔗 Related Issue (required)
 
-Closes #(issue number)
+Closes #(issue number) / Refs #(issue number)
+
+> Every Correção, Melhoria or Nova função must link an existing GitHub Issue. Do not merge a functional change without this reference.
 
 ## 🎯 Type of Change
 
@@ -18,6 +20,14 @@ Closes #(issue number)
 - [ ] ✅ Test addition/update
 
 ## 🧪 Testing
+
+### Quality gates
+- [ ] Unit/contract tests
+- [ ] Integration tests
+- [ ] End-to-end/Playwright tests (or reason not applicable)
+- [ ] Lint/format/type/static checks (or reason not applicable)
+- [ ] Observability updated and exercised (or reason not applicable)
+- [ ] Skeleton/lazy loading/motion/reduced-motion states reviewed for UI changes
 
 ### Platforms Tested
 - [ ] YouTube
@@ -59,6 +69,7 @@ If applicable, add screenshots to demonstrate the changes.
 - [ ] I have tested my changes on at least 2 platforms
 - [ ] I have updated the CHANGELOG.md (if applicable)
 - [ ] I have added tests that prove my fix is effective or that my feature works (if applicable)
+- [ ] I have documented any unverified live, browser, visual, deployment, or external-service validation
 
 ## 🔍 Additional Notes
 

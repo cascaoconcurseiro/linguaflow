@@ -134,3 +134,14 @@
 - [ ] Ambiente seguro Supabase para schema, grants e RLS live.
 - [ ] Navegador autenticado para reproduzir o hover de Histórias.
 - [ ] Não declarar produção concluída sem evidência desses itens.
+
+## 11. Governança criada em 2026-09-19
+
+- [x] Criar Issue #77 para a investigação do hover de tradução em Histórias.
+- [x] Criar Issue #78 para o fluxo obrigatório Issue → branch → PR → deploy.
+- [x] Criar Issue #79 para motion, skeleton, lazy loading e progresso.
+- [x] Criar Issue #80 para observabilidade com OpenTelemetry e backend de erros.
+- [x] Criar Issue #81 para lint, análise estrutural, mutation testing e testes.
+- [x] Adicionar `AGENTS.md` com instruções persistentes para agentes.
+- [x] Reforçar o template de PR com Issue, gates e limites de validação.
+- [x] Entregar e fazer merge do PR #82 na `main`.

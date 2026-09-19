@@ -59,6 +59,10 @@ key.pem
 # Test files
 coverage/
 .nyc_output/
+playwright-report/
+test-results/
+reports/
+.stryker-tmp/
 
 # Generated documentation/tool caches
 .openai-docs-cache/

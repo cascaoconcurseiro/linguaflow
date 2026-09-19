@@ -1,0 +1,7 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["background/**/*.js", "content/**/*.js", "dashboard/**/*.js", "popup/**/*.js", "utils/**/*.js", "scripts/**/*.js", "tests/**/*.mjs", "supabase/functions/**/*.ts", "playwright.config.mjs", "stryker.config.mjs"],
+  "project": ["background/**/*.js", "content/**/*.js", "dashboard/**/*.js", "popup/**/*.js", "utils/**/*.js", "scripts/**/*.js", "tests/**/*.mjs", "supabase/functions/**/*.ts"],
+  "ignore": ["dist/**", "node_modules/**", "backups/**"],
+  "ignoreDependencies": ["@playwright/test", "@stryker-mutator/core", "@stryker-mutator/command-runner", "knip", "@biomejs/biome", "@commitlint/cli", "@commitlint/config-conventional", "http-server", "jsr", "npm"]
+}

@@ -145,3 +145,6 @@
 - [x] Adicionar `AGENTS.md` com instruções persistentes para agentes.
 - [x] Reforçar o template de PR com Issue, gates e limites de validação.
 - [x] Entregar e fazer merge do PR #82 na `main`.
+- [x] Atualizar o auditor de wiring para considerar consumidores `.mjs`, imports por namespace e imports dinâmicos.
+- [x] Adicionar regressão para não reportar `utils/schema.js` como módulo órfão.
+- [x] Entregar e fazer merge do PR #83 na `main`.

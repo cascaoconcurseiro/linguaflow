@@ -2642,10 +2642,11 @@ function injectStyles() {
     .anki-badge-learn { background:#fff7ed; color:#ea580c; border:1px solid #fed7aa; }
     .anki-badge-review { background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; }
     .anki-card-quick-actions { display:flex; align-items:center; gap:6px; }
-    .anki-card-timer { display:inline-flex; align-items:center; gap:4px; font-family:var(--font-main, monospace); font-size:12px; font-weight:800; color:var(--color-secondary); background:rgba(28, 176, 246, 0.1); border:1px solid rgba(28, 176, 246, 0.25); padding:4px 10px; border-radius:8px; }
+    .anki-card-timer { display:inline-flex; align-items:center; gap:4px; font-family:var(--font-main, monospace); font-variant-numeric:tabular-nums; letter-spacing:0.5px; font-size:12px; font-weight:800; color:var(--color-secondary); background:rgba(28, 176, 246, 0.1); border:1px solid rgba(28, 176, 246, 0.25); padding:4px 10px; border-radius:8px; transition:opacity 0.2s ease; }
     .anki-action-btn { min-height:36px; padding:6px 12px; border-radius:8px; border:1px solid var(--color-border); background:var(--color-surface); color:var(--color-text); font-family:var(--font-main); font-size:12px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:transform 0.1s, background-color 0.2s; }
     .anki-action-btn:hover { background:var(--color-bg-alt); }
     .anki-action-btn:active { transform:translateY(2px); }
+    .anki-action-btn:focus-visible { outline: 2px solid var(--color-secondary); outline-offset: 2px; }
 
     .anki-modal-overlay { position:fixed; z-index:9999; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(3px); display:flex; justify-content:center; align-items:center; padding:16px; }
     .anki-modal-box { background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-lg); width:min(520px, 100%); max-height:90vh; overflow-y:auto; box-shadow:var(--shadow-lg); padding:24px; }
@@ -2688,7 +2689,7 @@ function injectStyles() {
     .btn-play-audio { background: var(--color-secondary); color: white; border: none; border-bottom: 4px solid var(--color-secondary-shadow); width: 44px; height: 44px; border-radius: 22px; font-size: 18px; cursor: pointer; margin-left: 16px; display:flex; align-items:center; justify-content:center;}
     .btn-play-audio:active { transform: translateY(4px); border-bottom-width: 0; }
 
-    .sentence-container { text-align:center; max-width:720px; width:100%; margin-bottom:24px; }
+    .sentence-container { text-align:center; max-width:720px; width:100%; margin-bottom:24px; transition:transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease; }
     .sentence-text { font-size: 32px; font-weight: 800; color: var(--color-text); line-height: 1.5; margin-bottom: 32px; }
 
     .cloze-blur { background: var(--color-border); color: transparent; padding: 0 16px; border-radius: var(--radius-md); user-select: none; transition: all 0.3s; display: inline-block; min-width: 60px;}
@@ -2699,12 +2700,15 @@ function injectStyles() {
     .ex-chip:active { transform: translateY(2px); }
     .ex-chip-used { background: rgba(28,176,246,0.12); border-color: var(--color-secondary); }
 
-    .reveal-btn { font-size: 20px; padding: 16px 40px; width:100%; max-width: 320px; margin: 0 auto; display: block; box-shadow: 0 4px 0 var(--color-primary-shadow);}
+    .reveal-btn { font-size: 20px; padding: 16px 40px; width:100%; max-width: 320px; margin: 0 auto; display: block; box-shadow: 0 4px 0 var(--color-primary-shadow); transition: transform 0.1s, box-shadow 0.1s; }
+    .reveal-btn:hover:not(:disabled) { filter: brightness(1.05); }
+    .reveal-btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 0 0 transparent !important; }
     .reveal-btn:disabled { opacity: 0.6; cursor: default; }
 
     .grading-buttons { margin-top:16px; width:100%; max-width:720px; }
     .grading-row { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; width:100%; }
-    .grade-btn { flex: 1; font-family: var(--font-main); font-weight: 800; font-size: 18px; padding: 16px 8px; border-radius: var(--radius-md); border: none; cursor: pointer; color: white; display: flex; flex-direction: column; align-items: center; gap: 6px; transition: transform 0.1s, box-shadow 0.1s; }
+    .grade-btn { flex: 1; font-family: var(--font-main); font-weight: 800; font-size: 18px; padding: 16px 8px; border-radius: var(--radius-md); border: none; cursor: pointer; color: white; display: flex; flex-direction: column; align-items: center; gap: 6px; transition: transform 0.1s, box-shadow 0.1s, filter 0.15s; }
+    .grade-btn:hover:not(:disabled) { filter: brightness(1.06); }
     .grade-btn:active { transform: translateY(4px); box-shadow: 0 0 0 transparent !important; }
     button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--color-secondary); outline-offset: 3px; }
     .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
@@ -2854,6 +2858,7 @@ function injectStyles() {
 
     @media (prefers-reduced-motion: reduce) {
       .wave-bar { animation:none !important; }
+      .sentence-container, .grade-btn, .reveal-btn, .anki-action-btn, .btn-skill-option, .btn-duration-chip { transition:none !important; transform:none !important; }
       * { scroll-behavior:auto !important; }
     }
 

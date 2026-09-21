@@ -2,46 +2,87 @@
 
 ## Última sessão
 
-**Data:** 2026-09-21
+**Data:** 2026-09-21  
+**Versão:** 3.0.51  
+**Branch:** `main` (todos os commits foram pushed para o GitHub)
 
-**O que foi feito:**
+---
 
-- Criada a Issue #89 e a branch `codex/89-multimodal-study-hours` para o controle total de horas de estudo por idioma.
-- Criada a migration append-only `supabase/migrations/20260921160000_multimodal_study_and_language_tracking.sql`:
-  - Adicionado suporte a `language` na tabela `public.sessions` com chave única `(user_id, date, source, language)`.
-  - Ampliadas as fontes válidas de estudo para habilidades manuais (`manual_reading`, `manual_speaking`, `manual_listening`, `manual_writing`).
-  - Atualizada a RPC `public.log_study_time` para aceitar `p_language` com fallback seguro para chamadas legadas.
-  - Criada a RPC `public.log_manual_study` para registro manual seguro e auditável de horas de estudo externo.
-  - Adicionada coluna `response_time_ms` em `public.review_log`.
-- No player da extensão (`content/subtitle-engine.js`):
-  - Passado `this.sourceLang` nos heartbeats de `db.logSession(10, this.platform, this.sourceLang || 'en')` para computar horas de listening específicas do idioma do vídeo.
-- No popup da extensão (`popup/popup.html`, `popup/popup.js`):
-  - Criado widget moderno e minimalista ("Menos é mais"): badge do idioma (`🇺🇸 Inglês`), listening hoje e acumulado (`45 min hoje • Total: 104h`), cards pendentes e ofensiva real.
-- Na biblioteca de dados (`utils/db.js`):
-  - Implementados `getStudyStats(language)`, `formatStudyTime(seconds)` e `logManualStudy()`.
-  - Adicionadas permissões no `DB_PROXY_METHODS` do service worker.
-- No Dashboard (`dashboard/js/ui/homeView.js`, `dashboard/css/globals.css`):
-  - Adicionado card "Horas de Estudo" com breakdown por habilidade (Listening, Cards, Leitura, Speaking) no idioma ativo.
-  - Implementado modal de registro rápido de estudo externo (+15m, +30m, +45m, +1h) com feedback em toast.
-- Na tela de Flashcards (`dashboard/js/ui/studyView.js`):
-  - Adicionado badge de cronômetro ao vivo (`⏱️ 00:00`) no cabeçalho de estudo (`#anki-card-timer` / `#card-live-timer`), cronometrando os segundos de cada card em tempo real.
-  - Adicionada métrica de tempo médio de resposta / hesitação e coluna de tempo por revisão no modal "Info (I)" do card.
-- Na agregação de estudo (`utils/db.js`):
-  - Restringido o cálculo de listening estritamente para `video` e `manual_listening` (removido `extension` geral para não inflar tempo ocioso).
-- Cache Busting do PWA:
-  - Bump de versão para `v3.0.47` em `sw.js`, `app.js`, `dashboard.html`, `package.json` e `manifest.json`, forçando o navegador a invalidar caches locais e renderizar imediatamente a interface atualizada.
-- Integrado o guia canônico de Anti-padrões de IA e Metodologia Sênior em `AGENTS.md` (anti-padrões visuais, UX, animação, produto gerado por IA, engenharia e perguntas obrigatórias de cada feature).
-- Sincronização dos switches do player Max/YouTube (Issue #87, PR #88) incorporada e validada.
-- Criado teste de contrato TDD `tests/multimodal-study-hours.test.mjs`, suíte 100% verde sem regressões.
+## O que foi feito nesta sessão
 
-## Próximo passo
+### 1. Auditoria de Segurança Completa (OWASP Top 10)
 
-**Arquivo:** Pull Request para `main`
+Varredura estática de toda a base de código (extensão, dashboard, utils):
 
-**Ação:** Merge do PR com a versão `v3.0.47` e validação no navegador e Vercel.
+- **XSS confirmado e corrigido** em `dashboard/js/ui/studyView.js`:
+  - L957: `${pt || word}` injetado em `innerHTML` sem escape — `pt` vem da coluna `translation` do banco, podia conter `<>&`. **Corrigido com `escapeHtml()`.**
+  - L974: `context.replace(regex, '<span>...')` aplicado sobre o texto cru — span inserido em texto com `<>` não escapados. **Corrigido: context e word são escapados antes do regex cloze.**
+  - L1837: `escapeHtml` redefinida localmente (7 linhas idênticas) sem usar o import centralizado de `viewState.js`. **Removida a cópia local; adicionado `import { escapeHtml } from './viewState.js'`.**
+
+- **Confirmado OK** (sem vulnerabilidades ativas):
+  - `readerView.js` — usa `escapeText()` em todos os pontos de `innerHTML` com dados externos.
+  - `storiesView.js` — importa `escapeHTML` de `utils/html.js` (implementação correta).
+  - `gameView.js`, `libraryView.js`, `settingsView.js` — importam de `viewState.js` e sanitizam antes de injetar.
+  - RLS ativo em todas as 25+ tabelas do Supabase.
+  - Nenhum segredo exposto no código do cliente (chave publicável do Supabase é intencional).
+  - RPCs com `SECURITY DEFINER` e `search_path = ''` — padrão correto.
+  - Nenhuma coluna `USING (true)` em tabelas com dados de usuário.
+
+### 2. Verificação Banco × Código (100% alinhado)
+
+Cruzamento completo de todas as tabelas, colunas e RPCs usadas em `utils/db.js` contra as 55 migrations em `supabase/migrations/`:
+
+- **25 tabelas** — todas existem no banco.
+- **29 RPCs** — todas existem no banco, incluindo as mais recentes (`log_manual_study`, `log_study_time` com `p_language`).
+- **Colunas específicas** confirmadas: `sessions.language`, `review_log.response_time_ms`, `reader_texts.last_read_position/reading_percentage/is_completed`, `stories.archived`.
+
+> Observação: `updateReaderProgress` e `updateStoryArchive` em `db.js` estão prontos no banco, mas ainda sem entrada UI conectada. Não é bug — é feature aguardando implementação da tela.
+
+### 3. Correções UX/Design (commits anteriores desta sessão, PR #96 e #97)
+
+- Eliminados anti-padrões visuais de IA (gradientes, cards genéricos, animações ornamentais).
+- Micro-interações humanas: hover com `box-shadow` direcional, estado `pressed`, ripple nos botões primários, `prefers-reduced-motion` respeitado.
+- Sanitização de cartões no modo de estudo: `context_sentence` e `translation` escapados em todos os pontos de `innerHTML`.
+- Correção de cálculo de weekday com DST.
+- Remoção de classes mortas detectadas na auditoria de wiring.
+
+### 4. Commits desta sessão (em `main`)
+
+```
+2162c7b  fix(security): escape pt|word no cartao reverso e context no cloze; importa escapeHtml de viewState
+fbaadea  fix(sec, ux): sanitize critical cards, align edge cors, fix dst weekday calculation and remove dead classes (#97)
+59ca808  feat(ux): eliminate AI design patterns and add human tactile interaction (#96)
+b4b709c  docs: reconcile quality gate handoff (#86)
+bcfb376  feat: adicionar cronometro ao vivo nos cards, info de hesitacao e bump v3.0.47 (#91)
+ac4aaba  feat: controle multimodal de horas de estudo por idioma e listening no popup (#90)
+```
+
+---
+
+## Estado atual dos testes
+
+```
+npm run test:untrusted-content  → ✅ 5 testes passando
+npm run test:engine             → ✅ 40 testes passando
+npm run test:product-ux         → ✅ passando
+npm run test:pedagogy           → ✅ 19 contratos passando
+```
+
+Todos os testes de `test:release` continuam verdes.
+
+---
+
+## Próximos passos prioritários
+
+1. **QA autenticada no navegador** — ainda pendente. Não declarar validação concluída sem abrir a PWA com uma conta real.
+2. **`updateReaderProgress` na UI** — o banco tem as colunas (`last_read_position`, `reading_percentage`, `is_completed`), mas nenhuma tela chama o método ainda. Pode ser próxima feature.
+3. **Bug de hover de Histórias (Issue #77)** — reproduzir no navegador autenticado e confirmar a causa raiz antes de editar `storiesView.js`.
+4. **RLS real com dois usuários** — validação de isolamento entre contas ainda não executada em ambiente real.
+
+---
 
 ## Bloqueios
 
-- QA autenticada no navegador ainda não foi executada.
-- Schema/RLS remoto, Edge Functions e observabilidade real continuam sem validação completa.
-
+- QA autenticada no navegador não executada nesta sessão.
+- Schema/RLS remoto, Edge Functions e observabilidade real sem validação ao vivo.
+- Confirmação independente de `git ls-remote` bloqueada por Schannel (não impede os pushes — GitHub aceitou normalmente).

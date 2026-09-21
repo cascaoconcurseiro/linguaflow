@@ -126,7 +126,7 @@
 - [x] Criar commit separado e descritivo (`a686fce`).
 - [x] Fazer push para `main` (GitHub aceitou `0c33b26..a686fce`).
 - [x] Commits de correção/documentação foram enviados para `main`; confirmação independente via `git ls-remote` continua bloqueada por Schannel.
-- [ ] Atualizar `HANDOFF.md`.
+- [x] Atualizar `HANDOFF.md`.
 
 ## Bloqueios conhecidos
 
@@ -159,3 +159,22 @@
 - [x] Adicionar skeleton, `aria-busy`, animação de entrada de rota e reduced motion no shell do dashboard.
 - [x] Entregar e fazer merge do PR #85 na `main`.
 - [x] Atualizar `HANDOFF.md` com o estado real pós-merge.
+
+## 12. Auditoria e hardening — 2026-09-21
+
+- [x] Auditoria OWASP Top 10 completa na base de código (extensão + dashboard + utils).
+- [x] Corrigir XSS em `studyView.js` L957: `pt|word` sem escape no cartão reverso.
+- [x] Corrigir XSS em `studyView.js` L974: `context` sem escape antes do regex cloze.
+- [x] Remover `escapeHtml` duplicada local em `studyView.js` L1837; importar de `viewState.js`.
+- [x] Confirmar `readerView.js`, `storiesView.js`, `gameView.js`, `libraryView.js` sem injeções inseguras.
+- [x] Confirmar RLS ativo em todas as 25+ tabelas do Supabase.
+- [x] Confirmar 0 vulnerabilidades em `npm audit --omit=dev`.
+- [x] Mapear 100% das tabelas/RPCs do `db.js` contra as 55 migrations — tudo presente.
+- [x] Confirmar colunas específicas: `sessions.language`, `review_log.response_time_ms`, `reader_texts.*`, `stories.archived`.
+- [x] Commitar correções e fazer push para `main` (commit `2162c7b`).
+- [x] Executar `test:untrusted-content`, `test:engine`, `test:product-ux`, `test:pedagogy` — todos verdes.
+- [x] Criar `docs/ESTADO_ATUAL_2026-09-21.md` com snapshot completo do sistema.
+- [x] Atualizar `HANDOFF.md`, `CHECKLIST.md` e `docs/PROMPT_PROXIMA_SESSAO.md`.
+- [ ] QA autenticada no navegador (bloqueada — sem navegador nesta sessão).
+- [ ] Validar `updateReaderProgress` na UI (banco pronto, UI sem entrada).
+- [ ] RLS real com dois usuários (bloqueado — sem ambiente Supabase real).

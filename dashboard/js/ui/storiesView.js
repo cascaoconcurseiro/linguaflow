@@ -1282,26 +1282,15 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     // Clean sentences slightly for better TTS
     currentStorySentences = currentStorySentences.map(s => s.trim()).filter(s => s.length > 0);
 
-    const pElements = [];
     paragraphs.forEach(p => {
       const pEl = document.createElement('p');
       pEl.className = 'story-paragraph';
       const delimRegex = /([\s.,!?;:"'()\[\]{}*#—–\-“”‘’]+)/;
       const tokens = p.split(delimRegex);
-      const tokenNodes = [];
 
       tokens.forEach(token => {
         if (/^[\s.,!?;:"'()\[\]{}*#—–\-“”‘’]+$/.test(token) || token.trim() === '') {
-          const textNode = document.createTextNode(token);
-          if (animate) {
-            const wrapper = document.createElement('span');
-            wrapper.style.opacity = '0';
-            wrapper.appendChild(textNode);
-            tokenNodes.push(wrapper);
-            pEl.appendChild(wrapper);
-          } else {
-            pEl.appendChild(textNode);
-          }
+          pEl.appendChild(document.createTextNode(token));
         } else {
           const span = document.createElement('span');
           span.className = 'story-word';
@@ -1326,32 +1315,12 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
               handleWordClick(cleanToken, token, span);
             }
           });
-          
-          if (animate) {
-            span.style.opacity = '0';
-            tokenNodes.push(span);
-          }
           pEl.appendChild(span);
         }
       });
-      
-      storyContent.appendChild(pEl);
-      pElements.push({ pEl, tokenNodes });
-    });
 
-    if (animate) {
-      let delay = 0;
-      const baseDelay = 15;
-      pElements.forEach(({ tokenNodes }) => {
-        tokenNodes.forEach(node => {
-          setTimeout(() => {
-            node.style.transition = 'opacity 0.1s ease-in';
-            node.style.opacity = '1';
-          }, delay);
-          delay += baseDelay;
-        });
-      });
-    }
+      storyContent.appendChild(pEl);
+    });
 
     // Badge "% conhecido" (LingQ): mede o quão compreensível a história é pra VOCÊ
     const knownBadge = document.getElementById('story-known-badge');

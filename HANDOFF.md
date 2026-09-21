@@ -30,6 +30,7 @@
   - Restringido o cálculo de listening estritamente para `video` e `manual_listening` (removido `extension` geral para não inflar tempo ocioso).
 - Cache Busting do PWA:
   - Bump de versão para `v3.0.47` em `sw.js`, `app.js`, `dashboard.html`, `package.json` e `manifest.json`, forçando o navegador a invalidar caches locais e renderizar imediatamente a interface atualizada.
+- Integrado o guia canônico de Anti-padrões de IA e Metodologia Sênior em `AGENTS.md` (anti-padrões visuais, UX, animação, produto gerado por IA, engenharia e perguntas obrigatórias de cada feature).
 - Sincronização dos switches do player Max/YouTube (Issue #87, PR #88) incorporada e validada.
 - Criado teste de contrato TDD `tests/multimodal-study-hours.test.mjs`, suíte 100% verde sem regressões.
 

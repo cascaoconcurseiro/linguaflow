@@ -37,16 +37,15 @@ function corsHeadersFor(origin: string | null): Record<string, string> {
     Deno.env.get("LINGUAFLOW_APP_ORIGIN"),
     Deno.env.get("LINGUAFLOW_EXTENSION_ORIGIN"),
   ].filter((value): value is string => Boolean(value));
-  const allowedOrigins = new Set([
-    "https://linguaflow-web-tau.vercel.app",
-    "http://localhost:3000",
-    "http://localhost:5173",
-    ...configuredOrigins,
-  ]);
+  const isAllowed = !!origin && (
+    origin.startsWith("chrome-extension://") ||
+    /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.vercel\.app$/.test(origin) ||
+    origin === "http://localhost:3000" ||
+    origin === "http://localhost:5173" ||
+    configuredOrigins.includes(origin)
+  );
   return {
-    "Access-Control-Allow-Origin": origin && allowedOrigins.has(origin)
-      ? origin
-      : "null",
+    "Access-Control-Allow-Origin": isAllowed ? origin! : "null",
     "Access-Control-Allow-Headers":
       "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",

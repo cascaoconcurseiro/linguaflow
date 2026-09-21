@@ -11,6 +11,7 @@ import {
   forecastByDay,
   summarize,
 } from '../core/statsEngine.js';
+import { dateFromLocalKey } from '../../../utils/local-day.js';
 import { bindViewStateAction, renderViewState } from './viewState.js';
 
 function injectStylesOnce() {
@@ -70,7 +71,7 @@ function summaryCard(icon, value, label, primary = false) {
 }
 
 function weekdayLabel(dateKey) {
-  const d = new Date(`${dateKey}T00:00:00`);
+  const d = dateFromLocalKey(dateKey);
   return ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'][d.getDay()];
 }
 

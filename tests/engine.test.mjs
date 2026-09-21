@@ -15,6 +15,7 @@ assert.match(dbSource, /const previousDifficulty = difficulty;[\s\S]*_fsrsNextSt
 assert.match(dbSource, /Number\.isFinite\(parsedNewPerDay\)[\s\S]*Number\.isFinite\(parsedMaxRevPerDay\)/,
   'limites SRS inválidos devem cair em defaults finitos');
 const tmp = mkdtempSync(join(tmpdir(), 'lf-test-'));
+writeFileSync(join(tmp, 'package.json'), JSON.stringify({ type: 'module' }));
 copyFileSync(join(root, 'utils/db.js'), join(tmp, 'db.mjs'));
 copyFileSync(join(root, 'utils/local-day.js'), join(tmp, 'local-day.js'));
 copyFileSync(join(root, 'dashboard/js/core/placement.js'), join(tmp, 'placement.mjs'));

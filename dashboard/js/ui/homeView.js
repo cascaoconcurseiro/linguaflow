@@ -2,7 +2,7 @@ import { lemma } from '../../../utils/lemma.js';
 import { addLocalDays, daysBetweenLocalKeys, localDateKey } from '../../../utils/local-day.js';
 import { runPlacementTest } from './settingsView.js';
 import { computeAchievements, newlyUnlocked } from '../core/achievements.js';
-import { bindViewStateAction, renderViewState } from './viewState.js';
+import { bindViewStateAction, escapeHtml, renderViewState } from './viewState.js';
 import { estimateLevelFromHistory } from '../core/levelEstimator.js';
 import { isFluencyCheckDue } from '../core/fluencyCheck.js';
 
@@ -632,8 +632,8 @@ export async function renderHome(container, app) {
                         ${criticalCards.map(c => `
                             <div class="critical-card-item">
                                 <div class="critical-card-main">
-                                    <strong class="critical-card-word">${c.word}</strong>
-                                    <span class="critical-card-trans">${c.translation}</span>
+                                    <strong class="critical-card-word">${escapeHtml(c.word)}</strong>
+                                    <span class="critical-card-trans">${escapeHtml(c.translation)}</span>
                                 </div>
                                 <div class="critical-card-tags">
                                     ${c.lapses > 0 ? `<span class="badge-lapse">${c.lapses} ${c.lapses === 1 ? 'esquecimento' : 'esquecimentos'}</span>` : ''}

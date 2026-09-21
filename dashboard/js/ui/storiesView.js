@@ -222,7 +222,7 @@ export function renderStories(container, app) {
       </div>
 
       <!-- Control Panel (New Story) -->
-      <div id="panel-new" role="tabpanel" aria-labelledby="tab-new" class="story-create-panel lf-card-hover">
+      <div id="panel-new" role="tabpanel" aria-labelledby="tab-new" class="story-create-panel">
         <h2 style="font-size:20px; color:var(--color-text); margin:0 0 6px;">Criar uma história</h2>
         <p style="color:var(--color-text-light); margin:0 0 16px; font-size:14px;">O texto usa seu nível e prioriza reencontros úteis.</p>
         <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;" for="story-genre">Tema</label>
@@ -381,7 +381,7 @@ export function renderStories(container, app) {
             <p style="font-size:13px; color:var(--color-text-light); line-height:1.6; margin-bottom:14px;">
               Ouça como nativos pronunciam em vídeos reais do YouTube:
             </p>
-            <button id="lf-btn-yg-all" class="btn lf-btn-bounce" style="width:100%; padding:12px; font-size:14px; font-weight:800; background:linear-gradient(135deg, #b91c1c, #dc2626); color:white; border:none; border-radius:10px; cursor:pointer; margin-bottom:10px; box-shadow:0 4px 12px rgba(220,38,38,0.25);">
+            <button id="lf-btn-yg-all" class="btn lf-btn-bounce" style="width:100%; padding:12px; font-size:14px; font-weight:800; background:#dc2626; box-shadow:0 3px 0 #991b1b; color:white; border:none; border-radius:10px; cursor:pointer; margin-bottom:10px; transition:transform 0.1s, filter 0.15s;">
               🎬 Assistir no YouGlish (Qualquer sotaque)
             </button>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
@@ -398,8 +398,8 @@ export function renderStories(container, app) {
     <!-- Floating Selection Toolbar -->
     <div id="lf-floating-toolbar" style="display:none; position:absolute; z-index:9000; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-sm); padding:6px; box-shadow:0 4px 12px rgba(0,0,0,0.1); flex-direction:column; gap:4px; animation:fadeIn 0.15s ease-out;">
       <div style="display:flex; gap:6px;">
-        <button id="lf-tb-translate" style="background:var(--color-bg); border:1px solid var(--color-border); border-radius:4px; padding:6px 12px; cursor:pointer; font-weight:bold; color:var(--color-text); display:flex; align-items:center; gap:6px; font-size:14px;" class="lf-card-hover">🇧🇷 Traduzir</button>
-        <button id="lf-tb-tts" style="background:var(--color-bg); border:1px solid var(--color-border); border-radius:4px; padding:6px 12px; cursor:pointer; font-weight:bold; color:var(--color-text); display:flex; align-items:center; gap:6px; font-size:14px;" class="lf-card-hover">🔊 Ouvir</button>
+        <button id="lf-tb-translate" style="background:var(--color-bg); border:1px solid var(--color-border); border-radius:6px; padding:6px 12px; cursor:pointer; font-weight:bold; color:var(--color-text); display:flex; align-items:center; gap:6px; font-size:14px; transition:transform 0.1s;">🇧🇷 Traduzir</button>
+        <button id="lf-tb-tts" style="background:var(--color-bg); border:1px solid var(--color-border); border-radius:6px; padding:6px 12px; cursor:pointer; font-weight:bold; color:var(--color-text); display:flex; align-items:center; gap:6px; font-size:14px; transition:transform 0.1s;">🔊 Ouvir</button>
       </div>
       <div id="lf-tb-translation-result" style="display:none; padding:8px; background:var(--color-bg); border-radius:4px; font-size:14px; color:var(--color-text); max-width:250px; line-height:1.4;"></div>
     </div>

@@ -23,7 +23,7 @@
     "test:subtitle-lifecycle": "node tests/subtitle-lifecycle.test.mjs && node tests/subtitle-bridge-security.test.mjs",
     "test:subtitle-display": "node tests/subtitle-display-mode.test.mjs",
     "test:word-popup-hover": "node tests/word-popup-hover-race.test.mjs && node tests/word-popup-accessibility.test.mjs",
-    "test:max-ui": "node tests/max-player-ui.test.mjs",
+    "test:max-ui": "node tests/max-player-ui.test.mjs && node tests/player-controls-sync.test.mjs",
     "test:words-explorer": "node tests/words-explorer-contract.test.mjs && node tests/popup-phrasal-slang-detector.test.mjs",
     "test:focus-shell": "node tests/focus-shell.test.mjs",
     "test:study-focus": "node tests/study-focus.test.mjs",

@@ -1522,7 +1522,7 @@ class Database {
       const isToday = s.date === today;
       const src = String(s.source || '').toLowerCase();
 
-      if (src === 'video' || src === 'extension' || src === 'manual_listening') {
+      if (src === 'video' || src === 'manual_listening') {
         listeningTotal += sec;
         if (isToday) listeningToday += sec;
       } else if (src === 'review' || src === 'study') {

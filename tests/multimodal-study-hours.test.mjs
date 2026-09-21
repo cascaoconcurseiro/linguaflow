@@ -51,4 +51,8 @@ assert.match(popupJs, /getStudyStats/, 'popup.js deve chamar getStudyStats');
 const engineContent = readFileSync('content/subtitle-engine.js', 'utf8');
 assert.match(engineContent, /db\.logSession\s*\(\s*10\s*,\s*this\.platform\s*,\s*this\.sourceLang/i, 'subtitle-engine deve passar this.sourceLang no logSession');
 
+// 5. Contrato do Dashboard (Cards Críticos)
+const homeViewContent = readFileSync('dashboard/js/ui/homeView.js', 'utf8');
+assert.match(homeViewContent, /home-critical-cards|criticalCards/, 'homeView deve mapear e renderizar cards críticos');
+
 console.log('✅ Todos os testes de contrato passaram com sucesso!');

@@ -331,6 +331,7 @@ export async function renderHome(container, app) {
     let supplementaryDataAvailable = true;
     let sourceLang = 'en';
     let studyStats = null;
+    let criticalCards = [];
     const langFlags = {
         en: '🇺🇸', es: '🇪🇸', fr: '🇫🇷', de: '🇩🇪', it: '🇮🇹', ja: '🇯🇵', pt: '🇧🇷'
     };
@@ -414,6 +415,24 @@ export async function renderHome(container, app) {
 
         const wordById = {};
         (allWords || []).forEach(w => { wordById[w.id] = w; });
+
+        // Cards Críticos / Maior Dificuldade (mais lapsos ou alta dificuldade FSRS)
+        criticalCards = (allCards || [])
+            .filter(c => !c.suspended && (Number(c.lapses) > 0 || Number(c.difficulty) >= 7))
+            .sort((a, b) => (Number(b.lapses || 0) * 10 + Number(b.difficulty || 5)) - (Number(a.lapses || 0) * 10 + Number(a.difficulty || 5)))
+            .slice(0, 5)
+            .map(c => {
+                const w = wordById[c.word_id] || {};
+                return {
+                    id: c.id,
+                    wordId: c.word_id,
+                    word: w.word || 'Expressão',
+                    translation: w.translation || '',
+                    lapses: Number(c.lapses || 0),
+                    difficulty: Number(c.difficulty || 0).toFixed(1),
+                    isLeech: Boolean(c.is_leech),
+                };
+            });
 
         // FRAQUEZA DA SEMANA (Onda 1.2): categoria com pior retenção nos 30d.
         // O diagnóstico do linguista, transformado em missão acionável.
@@ -595,6 +614,33 @@ export async function renderHome(container, app) {
                         </div>
                     </div>
                 </div>
+
+                ${criticalCards.length > 0 ? `
+                <div id="home-critical-cards" class="home-critical-cards-card">
+                    <div class="critical-cards-header">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:20px;">⚠️</span>
+                            <div>
+                                <h3 class="critical-cards-title">Cards Críticos (Maior Dificuldade)</h3>
+                                <span class="critical-cards-subtitle">Expressões com maior hesitação ou esquecimentos recentes</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="critical-cards-list">
+                        ${criticalCards.map(c => `
+                            <div class="critical-card-item">
+                                <div class="critical-card-main">
+                                    <strong class="critical-card-word">${c.word}</strong>
+                                    <span class="critical-card-trans">${c.translation}</span>
+                                </div>
+                                <div class="critical-card-tags">
+                                    ${c.lapses > 0 ? `<span class="badge-lapse">${c.lapses} ${c.lapses === 1 ? 'esquecimento' : 'esquecimentos'}</span>` : ''}
+                                    ${Number(c.difficulty) > 0 ? `<span class="badge-diff">Dificuldade ${c.difficulty}/10</span>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>` : ''}
 
                 ${vaultCap > 0 && (vaultWaiting.length > 0 || vaultActive >= vaultCap) ? `
                 <div id="home-vault-banner" class="home-alert-banner home-alert-vault">

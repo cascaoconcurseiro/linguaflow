@@ -765,6 +765,18 @@ async function loadNextCard(app) {
   cardPresentationIds.set(card, ++nextCardPresentationId);
   chatHistory = [];
 
+  const sentenceContainer = document.querySelector('.sentence-container');
+  if (sentenceContainer) {
+    sentenceContainer.classList.remove('card-discard-fail', 'card-discard-pass');
+    const prefersReduced = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!prefersReduced) {
+      sentenceContainer.classList.add('card-enter-next');
+      setTimeout(() => {
+        sentenceContainer?.classList.remove('card-enter-next');
+      }, 160);
+    }
+  }
+
   // Reset UI
   const revealBtn = document.getElementById('reveal-btn');
   revealBtn.classList.remove('hidden');
@@ -2176,6 +2188,12 @@ async function handleGrade(grade, app) {
         dueAt: res.nextDue,
       });
     }
+    const sentenceContainer = document.querySelector('.sentence-container');
+    const prefersReduced = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (sentenceContainer && !prefersReduced) {
+      sentenceContainer.classList.add(operation.grade === 1 ? 'card-discard-fail' : 'card-discard-pass');
+      await new Promise(resolve => setTimeout(resolve, 110));
+    }
     loadNextCard(app);
   } catch (e) {
     console.error('Failed to log review:', e);
@@ -2689,7 +2707,14 @@ function injectStyles() {
     .btn-play-audio { background: var(--color-secondary); color: white; border: none; border-bottom: 4px solid var(--color-secondary-shadow); width: 44px; height: 44px; border-radius: 22px; font-size: 18px; cursor: pointer; margin-left: 16px; display:flex; align-items:center; justify-content:center;}
     .btn-play-audio:active { transform: translateY(4px); border-bottom-width: 0; }
 
-    .sentence-container { text-align:center; max-width:720px; width:100%; margin-bottom:24px; transition:transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease; }
+    .sentence-container { text-align:center; max-width:720px; width:100%; margin-bottom:24px; transition:transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.12s ease; }
+    .sentence-container.card-discard-pass { transform: translateY(-14px); opacity: 0; }
+    .sentence-container.card-discard-fail { transform: translateX(-16px) rotate(-1deg); opacity: 0; }
+    .sentence-container.card-enter-next { animation: cardEnter 0.14s cubic-bezier(0.16, 1, 0.3, 1) both; }
+    @keyframes cardEnter {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
     .sentence-text { font-size: 32px; font-weight: 800; color: var(--color-text); line-height: 1.5; margin-bottom: 32px; }
 
     .cloze-blur { background: var(--color-border); color: transparent; padding: 0 16px; border-radius: var(--radius-md); user-select: none; transition: all 0.3s; display: inline-block; min-width: 60px;}
@@ -2858,7 +2883,7 @@ function injectStyles() {
 
     @media (prefers-reduced-motion: reduce) {
       .wave-bar { animation:none !important; }
-      .sentence-container, .grade-btn, .reveal-btn, .anki-action-btn, .btn-skill-option, .btn-duration-chip { transition:none !important; transform:none !important; }
+      .sentence-container, .sentence-container.card-discard-pass, .sentence-container.card-discard-fail, .sentence-container.card-enter-next, .grade-btn, .reveal-btn, .anki-action-btn, .btn-skill-option, .btn-duration-chip { transition:none !important; transform:none !important; animation:none !important; opacity: 1 !important; }
       * { scroll-behavior:auto !important; }
     }
 

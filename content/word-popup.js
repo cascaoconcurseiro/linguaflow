@@ -419,7 +419,7 @@ export class WordPopup {
     if (!document.getElementById('lfp-k')) {
       const s = document.createElement('style');
       s.id = 'lfp-k';
-      s.textContent = `@keyframes lfpIn{from{opacity:0;transform:translateY(10px) scale(0.93)}to{opacity:1;transform:translateY(0) scale(1)}}@keyframes lfpSpin{to{transform:rotate(360deg)}}.lfp-spin{width:18px;height:18px;border:2px solid rgba(255,255,255,.1);border-top-color:#a78bfa;border-radius:50%;animation:lfpSpin .6s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px}#lfp *{box-sizing:border-box;margin:0;padding:0}#lfp button,#lfp select,#lfp input{font-family:'Outfit','Segoe UI',sans-serif}.lfp-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:3px 10px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .12s;display:inline-block}.lfp-chip:hover{color:#7dd3fc;border-color:rgba(125,209,252,.35)}.lfp-chip.red{background:rgba(248,113,113,.06);border-color:rgba(248,113,113,.15);color:#f87171}.lfp-panels::-webkit-scrollbar{width:3px}.lfp-panels::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}.lfp-ph{background:rgba(244,114,182,.06);border:1px solid rgba(244,114,182,.15);border-radius:9px;padding:9px 12px;margin-bottom:7px}.lfp-ex{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 13px;margin-bottom:8px}.ai-res{white-space:pre-wrap;word-break:break-word}.lfp-btn-bounce{transition:transform 0.2s cubic-bezier(0.175,0.885,0.32,1.275)}.lfp-btn-bounce:active{transform:scale(0.95)}
+      s.textContent = `@keyframes lfpIn{from{opacity:0;transform:translateY(10px) scale(0.93)}to{opacity:1;transform:translateY(0) scale(1)}}@keyframes lfpSpin{to{transform:rotate(360deg)}}.lfp-spin{width:18px;height:18px;border:2px solid rgba(255,255,255,.1);border-top-color:#a78bfa;border-radius:50%;animation:lfpSpin .6s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px}#lfp *{box-sizing:border-box;margin:0;padding:0}#lfp button,#lfp select,#lfp input{font-family:'Outfit','Segoe UI',sans-serif}.lfp-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:3px 10px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .12s;display:inline-block}.lfp-chip:hover{color:#7dd3fc;border-color:rgba(125,209,252,.35)}.lfp-chip.red{background:rgba(248,113,113,.06);border-color:rgba(248,113,113,.15);color:#f87171}.lfp-panels::-webkit-scrollbar{width:3px}.lfp-panels::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}.lfp-ph{background:rgba(244,114,182,.06);border:1px solid rgba(244,114,182,.15);border-radius:9px;padding:9px 12px;margin-bottom:7px}.lfp-ex{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 13px;margin-bottom:8px}.ai-res{white-space:pre-wrap;word-break:break-word}.lfp-btn-bounce{transition:transform 0.12s cubic-bezier(0.175,0.885,0.32,1.275)}.lfp-btn-bounce:active{transform:scale(0.96)}#fsave:hover:not(:disabled){filter:brightness(1.06)}#fsave:active:not(:disabled){transform:translateY(2px);box-shadow:0 1px 0 #46a302 !important}
 /* CEFR badges */
 .lfp-badge{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:20px;line-height:1.6}
 .lfp-a1{background:rgba(${rA1},.12);color:${cA1};border:1px solid rgba(${rA1},.25)}
@@ -467,10 +467,10 @@ export class WordPopup {
     Object.assign(this.popup.style, {
       position: 'absolute',
       zIndex: '2147483647',
-      background: 'rgba(13, 17, 28, 0.85)',
+      background: 'rgba(13, 17, 28, 0.96)',
       backdropFilter: 'blur(20px) saturate(160%)',
       WebkitBackdropFilter: 'blur(20px) saturate(160%)',
-      border: '1px solid rgba(255, 255, 255, 0.1)',
+      border: '1px solid rgba(255, 255, 255, 0.14)',
       borderRadius: '24px',
       width: '400px',
       maxWidth: '95vw',
@@ -521,7 +521,7 @@ export class WordPopup {
     <div id="fant" style="display:none;margin-bottom:12px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px;">Antônimos</div><div id="fants" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
     <div style="height:1px;background:rgba(255,255,255,.06);margin-bottom:12px;"></div>
 
-    <button id="fsave" class="lfp-btn-bounce" style="display:block;width:100%;padding:11px;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;transition:all .15s;margin-bottom:8px;letter-spacing:.01em;">+ Salvar nos Flashcards</button>
+    <button id="fsave" class="lfp-btn-bounce" style="display:block;width:100%;padding:11px;background:#58cc02;box-shadow:0 3px 0 #46a302;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;transition:transform .1s, filter .15s, background .15s;margin-bottom:8px;letter-spacing:.01em;">+ Salvar nos Flashcards</button>
     <button id="fknown" class="lfp-btn-bounce" style="display:block;width:100%;padding:9px;background:rgba(134,239,172,.08);color:#86efac;border:1px solid rgba(134,239,172,.25);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;margin-bottom:8px;">✓ Já sei esta palavra</button>
     <button id="faisent" class="lfp-btn-bounce" style="display:none;width:100%;padding:9px;background:rgba(251,191,36,.08);color:#fbbf24;border:1px solid rgba(251,191,36,.22);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;margin-bottom:10px;">🔍 Analisar Frase Completa</button>
     <div id="fair-container" style="display:none;position:relative;">
@@ -952,9 +952,8 @@ export class WordPopup {
       q('#fsave').textContent = saved ? '✅ Já salvo nos Flashcards' : '+ Salvar nos Flashcards';
       q('#fsave').disabled = !!saved;
       q('#fsave').title = saved ? 'Já está no seu Cofre — re-salvar sobrescreveria a cena original' : '';
-      q('#fsave').style.background = saved
-        ? 'linear-gradient(135deg,#15803d,#16a34a)'
-        : 'linear-gradient(135deg,#1d4ed8,#2563eb)';
+      q('#fsave').style.background = saved ? '#16a34a' : '#58cc02';
+      q('#fsave').style.boxShadow = saved ? '0 3px 0 #15803d' : '0 3px 0 #46a302';
     })();
 
     this.popup.style.display = 'block';
@@ -1387,10 +1386,12 @@ export class WordPopup {
       const localSession = await db._readSession();
       if (!localSession?.access_token) {
         btn.textContent = '🔒 Faça login no Dashboard';
-        btn.style.background = 'linear-gradient(135deg,#b45309,#d97706)';
+        btn.style.background = '#d97706';
+        btn.style.boxShadow = '0 3px 0 #b45309';
         setTimeout(() => {
           btn.textContent = '+ Salvar nos Flashcards';
-          btn.style.background = 'linear-gradient(135deg,#1d4ed8,#2563eb)';
+          btn.style.background = '#58cc02';
+          btn.style.boxShadow = '0 3px 0 #46a302';
           btn.disabled = false;
         }, 3000);
         return;
@@ -1478,7 +1479,8 @@ export class WordPopup {
       // Fica verde, desabilitado e explicado; showForWord reavalia o estado
       // na próxima palavra/abertura.
       btn.textContent = '✅ Salvo nos Flashcards';
-      btn.style.background = 'linear-gradient(135deg,#15803d,#16a34a)';
+      btn.style.background = '#16a34a';
+      btn.style.boxShadow = '0 3px 0 #15803d';
       btn.title = 'Já está no seu Cofre — re-salvar sobrescreveria a cena original';
       btn.disabled = true;
 

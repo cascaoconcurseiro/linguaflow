@@ -32,6 +32,8 @@ function organizeHomeSections(container) {
     append(today, '#home-return-banner');
     append(today, '#home-streak-banner');
     append(today, '.stats-grid');
+    append(today, '#home-study-hours-card');
+    append(today, '#home-critical-cards');
 
     const next = section('home-next', 'Depois', 'Continue em contexto real ou faça uma prática curta.');
     append(next, '#home-secondary-actions');
@@ -1256,7 +1258,14 @@ function showLogStudyModal(db, app, sourceLang = 'en', onSaved) {
         });
     });
 
-    const close = () => modalOverlay.remove();
+    const close = () => {
+        document.removeEventListener('keydown', onKeyDown);
+        modalOverlay.remove();
+    };
+    const onKeyDown = (e) => {
+        if (e.key === 'Escape') close();
+    };
+    document.addEventListener('keydown', onKeyDown);
     modalOverlay.querySelector('#btn-close-modal').addEventListener('click', close);
     modalOverlay.addEventListener('click', (e) => {
         if (e.target === modalOverlay) close();

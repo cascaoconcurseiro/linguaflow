@@ -1469,18 +1469,136 @@ class Database {
     return data || [];
   }
 
-  async logSession(seconds, platform) {
-    if (this.isProxyMode) return this._proxy('logSession', [seconds, platform]);
+  async logSession(seconds, platform, language = 'en') {
+    if (this.isProxyMode) return this._proxy('logSession', [seconds, platform, language]);
     const date = localDateKey();
     const source = this._sessionSource(platform);
+    const lang = String(language || 'en').toLowerCase().trim();
     await this._fetch('rpc/log_study_time', {
       method: 'POST',
-      body: { p_seconds: Math.max(1, Math.min(300, Math.round(seconds))), p_date: date, p_source: source },
+      body: {
+        p_seconds: Math.max(1, Math.min(300, Math.round(seconds))),
+        p_date: date,
+        p_source: source,
+        p_language: lang,
+      },
     });
 
     // Tempo assistido continua sendo métrica de atividade. Ele não concede XP:
     // duração enviada pelo cliente não é evidência competitiva verificável.
     return true;
+  }
+
+  formatStudyTime(seconds) {
+    const s = Math.max(0, Math.round(Number(seconds) || 0));
+    if (s < 60) return s > 0 ? '< 1m' : '0m';
+    const totalMinutes = Math.floor(s / 60);
+    if (totalMinutes < 60) return `${totalMinutes} min`;
+    const hours = Math.floor(totalMinutes / 60);
+    const remainingMinutes = totalMinutes % 60;
+    if (remainingMinutes === 0) return `${hours}h`;
+    return `${hours}h ${remainingMinutes}m`;
+  }
+
+  async getStudyStats(language = 'en') {
+    if (this.isProxyMode) return this._proxy('getStudyStats', [language]);
+    const lang = String(language || 'en').toLowerCase().trim();
+    const today = localDateKey();
+    const sessions = await this.getSessions(365);
+
+    let listeningToday = 0;
+    let listeningTotal = 0;
+    let cardsToday = 0;
+    let cardsTotal = 0;
+    let readingToday = 0;
+    let readingTotal = 0;
+    let speakingToday = 0;
+    let speakingTotal = 0;
+
+    for (const s of sessions) {
+      const sLang = String(s.language || 'en').toLowerCase().trim();
+      if (sLang !== lang) continue;
+      const sec = Math.max(0, Number(s.seconds) || 0);
+      const isToday = s.date === today;
+      const src = String(s.source || '').toLowerCase();
+
+      if (src === 'video' || src === 'extension' || src === 'manual_listening') {
+        listeningTotal += sec;
+        if (isToday) listeningToday += sec;
+      } else if (src === 'review' || src === 'study') {
+        cardsTotal += sec;
+        if (isToday) cardsToday += sec;
+      } else if (src === 'reader' || src === 'manual_reading') {
+        readingTotal += sec;
+        if (isToday) readingToday += sec;
+      } else if (src === 'manual_speaking') {
+        speakingTotal += sec;
+        if (isToday) speakingToday += sec;
+      }
+    }
+
+    const totalSecondsToday = listeningToday + cardsToday + readingToday + speakingToday;
+    const totalSecondsAllTime = listeningTotal + cardsTotal + readingTotal + speakingTotal;
+    const totalHoursFloat = (totalSecondsAllTime / 3600).toFixed(1);
+
+    return {
+      language: lang,
+      listening: {
+        todaySeconds: listeningToday,
+        totalSeconds: listeningTotal,
+        todayFormatted: this.formatStudyTime(listeningToday),
+        totalFormatted: this.formatStudyTime(listeningTotal),
+        totalHours: Math.round(listeningTotal / 3600),
+      },
+      cards: {
+        todaySeconds: cardsToday,
+        totalSeconds: cardsTotal,
+        todayFormatted: this.formatStudyTime(cardsToday),
+        totalFormatted: this.formatStudyTime(cardsTotal),
+      },
+      reading: {
+        todaySeconds: readingToday,
+        totalSeconds: readingTotal,
+        todayFormatted: this.formatStudyTime(readingToday),
+        totalFormatted: this.formatStudyTime(readingTotal),
+      },
+      speaking: {
+        todaySeconds: speakingToday,
+        totalSeconds: speakingTotal,
+        todayFormatted: this.formatStudyTime(speakingToday),
+        totalFormatted: this.formatStudyTime(speakingTotal),
+      },
+      summary: {
+        totalSecondsToday,
+        totalSecondsAllTime,
+        todayFormatted: this.formatStudyTime(totalSecondsToday),
+        totalFormatted: this.formatStudyTime(totalSecondsAllTime),
+        totalHours: totalHoursFloat,
+      },
+    };
+  }
+
+  async logManualStudy({ skill, minutes, date, language, notes }) {
+    if (this.isProxyMode) return this._proxy('logManualStudy', [{ skill, minutes, date, language, notes }]);
+    const validSkills = ['reading', 'speaking', 'listening', 'writing'];
+    const safeSkill = String(skill || '').toLowerCase().trim();
+    if (!validSkills.includes(safeSkill)) {
+      throw new Error(`Habilidade de estudo inválida: ${skill}`);
+    }
+    const safeMinutes = Math.max(1, Math.min(720, Math.round(Number(minutes) || 0)));
+    const safeDate = date || localDateKey();
+    const safeLang = String(language || 'en').toLowerCase().trim();
+
+    return await this._fetch('rpc/log_manual_study', {
+      method: 'POST',
+      body: {
+        p_skill: safeSkill,
+        p_minutes: safeMinutes,
+        p_date: safeDate,
+        p_language: safeLang,
+        p_notes: notes ? String(notes).slice(0, 500) : null,
+      },
+    });
   }
 
   _sessionSource(platform) {

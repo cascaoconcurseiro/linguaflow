@@ -329,6 +329,12 @@ export async function renderHome(container, app) {
     let storiesCount = 0;
     let vaultCap = 0, vaultActive = 0, vaultWaiting = [], vaultRetireCandidate = null, vaultWordById = {};      // Onda 8: usado nas conquistas ("1ª história" etc.)
     let supplementaryDataAvailable = true;
+    let sourceLang = 'en';
+    let studyStats = null;
+    const langFlags = {
+        en: '🇺🇸', es: '🇪🇸', fr: '🇫🇷', de: '🇩🇪', it: '🇮🇹', ja: '🇯🇵', pt: '🇧🇷'
+    };
+    let currentFlag = '🇺🇸';
     try {
         // Onda 7 (perf): getStats() (wave 1, acima) já buscou 30 dias de
         // review_log inteiro (stats.reviewLog) — pedir de novo aqui era uma
@@ -337,13 +343,21 @@ export async function renderHome(container, app) {
         // 100% redundante. Achado da auditoria de performance do painel:
         // "Início" fazia 5 buscas na 2ª leva, 2 delas repetindo dados que a
         // 1ª leva já tinha. Agora reaproveita — zero rede a mais aqui.
-        const [allWords, allCards, knownWords, stories, capRaw] = await Promise.all([
+        const [allWords, allCards, knownWords, stories, capRaw, sourceLangVal, studyStatsVal] = await Promise.all([
             db ? db.getAllWords() : [],
             db ? db.getAllCards() : [],
             knownWordsPromise,
             storiesPromise,
             vaultCapPromise,
+            db?.getSetting ? db.getSetting('sourceLang').catch(() => 'en') : 'en',
+            db?.getStudyStats ? db.getStudyStats('en').catch(() => null) : null,
         ]);
+        sourceLang = sourceLangVal || 'en';
+        studyStats = studyStatsVal;
+        if (sourceLang !== 'en' && db?.getStudyStats) {
+            studyStats = await db.getStudyStats(sourceLang).catch(() => null);
+        }
+        currentFlag = langFlags[sourceLang.toLowerCase()] || '🌐';
         const log30 = stats.reviewLog || [];
         const activityDate = (row) => row?.ts ? localDateKey(row.ts) : row?.date;
         const logToday = log30.filter(r => activityDate(r) === todayISO);
@@ -536,6 +550,52 @@ export async function renderHome(container, app) {
                     </div>
                 </div>
 
+                <div id="home-study-hours-card" class="home-study-hours-card">
+                    <div class="study-hours-header">
+                        <div class="study-hours-title-wrap">
+                            <span class="study-hours-flag">${currentFlag}</span>
+                            <div>
+                                <h3 class="study-hours-title">Horas de Estudo (${sourceLang.toUpperCase()})</h3>
+                                <span class="study-hours-subtitle">Total acumulado: <strong>${studyStats?.summary?.totalHours || 0}h</strong></span>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-secondary" id="btn-open-log-study" style="padding: 10px 16px; font-size: 13px; font-weight: 800;">
+                            + Registrar Estudo
+                        </button>
+                    </div>
+
+                    <div class="study-skills-grid">
+                        <div class="study-skill-pill">
+                            <span class="skill-icon">🎧</span>
+                            <div class="skill-info">
+                                <span class="skill-name">Listening</span>
+                                <strong class="skill-time">${studyStats?.listening?.totalFormatted || '0h'} <span style="font-size:11px; font-weight:600; color:var(--color-text-light);">(${studyStats?.listening?.todayFormatted || '0m'} hoje)</span></strong>
+                            </div>
+                        </div>
+                        <div class="study-skill-pill">
+                            <span class="skill-icon">🗂️</span>
+                            <div class="skill-info">
+                                <span class="skill-name">Flashcards</span>
+                                <strong class="skill-time">${studyStats?.cards?.totalFormatted || '0m'} <span style="font-size:11px; font-weight:600; color:var(--color-text-light);">(${studyStats?.cards?.todayFormatted || '0m'} hoje)</span></strong>
+                            </div>
+                        </div>
+                        <div class="study-skill-pill">
+                            <span class="skill-icon">📖</span>
+                            <div class="skill-info">
+                                <span class="skill-name">Leitura</span>
+                                <strong class="skill-time">${studyStats?.reading?.totalFormatted || '0m'}</strong>
+                            </div>
+                        </div>
+                        <div class="study-skill-pill">
+                            <span class="skill-icon">🗣️</span>
+                            <div class="skill-info">
+                                <span class="skill-name">Speaking</span>
+                                <strong class="skill-time">${studyStats?.speaking?.totalFormatted || '0m'}</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 ${vaultCap > 0 && (vaultWaiting.length > 0 || vaultActive >= vaultCap) ? `
                 <div id="home-vault-banner" class="home-alert-banner home-alert-vault">
                     <span class="home-alert-icon">🗄️</span>
@@ -698,6 +758,12 @@ export async function renderHome(container, app) {
 
     document.getElementById('btn-play-match')?.addEventListener('click', () => {
         if (app && app.navigate) app.navigate('game');
+    });
+
+    document.getElementById('btn-open-log-study')?.addEventListener('click', () => {
+        showLogStudyModal(db, app, sourceLang, () => {
+            renderHome(container, app);
+        });
     });
 
     const heatmapGrid = container.querySelector('#heatmap-grid');
@@ -1068,3 +1134,108 @@ function injectStyles() {
     `;
     document.head.appendChild(style);
 }
+
+function showLogStudyModal(db, app, sourceLang = 'en', onSaved) {
+    const existing = document.getElementById('log-study-modal-overlay');
+    if (existing) existing.remove();
+
+    let selectedSkill = 'reading';
+    let selectedMinutes = 30;
+
+    const modalOverlay = document.createElement('div');
+    modalOverlay.id = 'log-study-modal-overlay';
+    modalOverlay.className = 'modal-overlay';
+    modalOverlay.innerHTML = `
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modal-study-title">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modal-study-title">Registrar Estudo Externo</h3>
+                <button type="button" id="btn-close-modal" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--color-text-light);">✕</button>
+            </div>
+
+            <p style="font-size:13px; color:var(--color-text-light); margin:0;">Adicione minutos estudados fora da extensão para controle total das suas horas.</p>
+
+            <div>
+                <label style="font-size:12px; font-weight:800; color:var(--color-text); display:block; margin-bottom:8px;">Habilidade:</label>
+                <div class="skill-options-grid">
+                    <button type="button" class="btn-skill-option active" data-skill="reading">
+                        <span style="font-size:22px;">📖</span>
+                        <span>Leitura</span>
+                    </button>
+                    <button type="button" class="btn-skill-option" data-skill="speaking">
+                        <span style="font-size:22px;">🗣️</span>
+                        <span>Conversação</span>
+                    </button>
+                    <button type="button" class="btn-skill-option" data-skill="listening">
+                        <span style="font-size:22px;">🎧</span>
+                        <span>Listening</span>
+                    </button>
+                    <button type="button" class="btn-skill-option" data-skill="writing">
+                        <span style="font-size:22px;">✍️</span>
+                        <span>Escrita</span>
+                    </button>
+                </div>
+            </div>
+
+            <div>
+                <label style="font-size:12px; font-weight:800; color:var(--color-text); display:block; margin-bottom:8px;">Duração:</label>
+                <div class="duration-chips">
+                    <button type="button" class="btn-duration-chip" data-min="15">15m</button>
+                    <button type="button" class="btn-duration-chip active" data-min="30">30m</button>
+                    <button type="button" class="btn-duration-chip" data-min="45">45m</button>
+                    <button type="button" class="btn-duration-chip" data-min="60">1h</button>
+                </div>
+            </div>
+
+            <button type="button" class="btn btn-primary" id="btn-save-manual-study" style="padding:14px; font-size:15px; font-weight:800; margin-top:6px;">
+                SALVAR ESTUDO 🚀
+            </button>
+        </div>
+    `;
+
+    document.body.appendChild(modalOverlay);
+
+    modalOverlay.querySelectorAll('.btn-skill-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            modalOverlay.querySelectorAll('.btn-skill-option').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedSkill = btn.dataset.skill;
+        });
+    });
+
+    modalOverlay.querySelectorAll('.btn-duration-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            modalOverlay.querySelectorAll('.btn-duration-chip').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedMinutes = Number(btn.dataset.min);
+        });
+    });
+
+    const close = () => modalOverlay.remove();
+    modalOverlay.querySelector('#btn-close-modal').addEventListener('click', close);
+    modalOverlay.addEventListener('click', (e) => {
+        if (e.target === modalOverlay) close();
+    });
+
+    modalOverlay.querySelector('#btn-save-manual-study').addEventListener('click', async () => {
+        const btn = modalOverlay.querySelector('#btn-save-manual-study');
+        btn.disabled = true;
+        btn.textContent = 'Salvando…';
+        try {
+            if (db?.logManualStudy) {
+                await db.logManualStudy({
+                    skill: selectedSkill,
+                    minutes: selectedMinutes,
+                    language: sourceLang,
+                });
+            }
+            app?.showToast?.(`+${selectedMinutes}m de ${selectedSkill} registrados!`, 'success');
+            close();
+            if (onSaved) onSaved();
+        } catch (e) {
+            btn.disabled = false;
+            btn.textContent = 'SALVAR ESTUDO 🚀';
+            app?.showToast?.('Erro ao salvar estudo. Tente novamente.', 'error');
+        }
+    });
+}
+

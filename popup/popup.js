@@ -48,18 +48,62 @@ async function renderLoggedIn() {
     }
     return;
   }
+  // Configurações de idioma e métricas multimodais
+  const langFlags = {
+    en: '🇺🇸 Inglês',
+    es: '🇪🇸 Espanhol',
+    fr: '🇫🇷 Francês',
+    de: '🇩🇪 Alemão',
+    it: '🇮🇹 Italiano',
+    ja: '🇯🇵 Japonês',
+    pt: '🇧🇷 Português',
+  };
+
   try {
-    const dueCount = typeof lfDb.getCardsDueCount === 'function'
-      ? await lfDb.getCardsDueCount(0)
-      : (await lfDb.getCardsDue(1000, false))?.length || 0;
-    if (dueCount > 0) {
-      statsText.innerHTML = `Você tem <strong style="color:var(--color-secondary);">${dueCount}</strong> ${dueCount === 1 ? 'frase pendente' : 'frases pendentes'}.<br>Abra o Dashboard para estudar!`;
-    } else {
-      statsText.innerHTML = 'Você não tem cartas atrasadas!<br>Continue assistindo vídeos e salvando frases.';
+    const sourceLang = (await lfDb.getSetting?.('sourceLang')) || 'en';
+    const langBadge = document.getElementById('study-lang-badge');
+    if (langBadge) {
+      langBadge.textContent = langFlags[sourceLang.toLowerCase()] || `🌐 ${sourceLang.toUpperCase()}`;
+    }
+
+    const [studyStats, userStats, dueCount] = await Promise.all([
+      lfDb.getStudyStats?.(sourceLang).catch(() => null),
+      lfDb.getUserStats?.().catch(() => null),
+      typeof lfDb.getCardsDueCount === 'function'
+        ? lfDb.getCardsDueCount(0).catch(() => 0)
+        : (lfDb.getCardsDue?.(1000, false).then(cards => cards?.length || 0).catch(() => 0)),
+    ]);
+
+    // Listening Hoje e Total
+    const listeningTodayEl = document.getElementById('listening-today');
+    const listeningTotalEl = document.getElementById('listening-total');
+    if (listeningTodayEl && studyStats?.listening) {
+      listeningTodayEl.textContent = studyStats.listening.todayFormatted || '0m';
+    }
+    if (listeningTotalEl && studyStats?.listening) {
+      const totalHours = studyStats.listening.totalHours || 0;
+      listeningTotalEl.textContent = totalHours >= 1 ? `${totalHours}h` : (studyStats.listening.totalFormatted || '0m');
+    }
+
+    // Streak
+    const streakCountEl = document.getElementById('streak-count');
+    if (streakCountEl) {
+      streakCountEl.textContent = userStats?.streak ?? 0;
+    }
+
+    // Cards Devidos
+    const dueCardsCountEl = document.getElementById('due-cards-count');
+    const dueCardsTextEl = document.getElementById('due-cards-text');
+    if (dueCardsCountEl) dueCardsCountEl.textContent = dueCount;
+    if (dueCardsTextEl) {
+      if (dueCount > 0) {
+        dueCardsTextEl.innerHTML = `Você tem <strong id="due-cards-count" style="color:var(--color-secondary);">${dueCount}</strong> ${dueCount === 1 ? 'frase para revisar' : 'frases para revisar'}`;
+      } else {
+        dueCardsTextEl.innerHTML = `Nenhuma frase atrasada! Continue imergindo.`;
+      }
     }
   } catch (e) {
-    console.warn('[Popup] Erro ao ler cards devidos:', e);
-    statsText.textContent = 'Pronto para evoluir?';
+    console.warn('[Popup] Erro ao carregar métricas de estudo:', e);
   }
 }
 

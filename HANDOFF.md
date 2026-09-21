@@ -2,22 +2,28 @@
 
 ## Última sessão
 
-**Data:** 2026-09-19
+**Data:** 2026-09-21
 
 **O que foi feito:**
 
-- Criadas as Issues #77–#81 para separar o bug de Histórias, governança de entrega, motion/loading, observabilidade e qualidade/testes.
-- Criado `AGENTS.md` na raiz com o padrão obrigatório Issue → branch → PR → deploy, requisitos de UI, observabilidade e qualidade.
-- Reforçado `.github/pull_request_template.md` para exigir Issue vinculada, gates e registro de limitações de validação.
-- Alterações entregues no PR #82, vinculado à Issue #78, e mergeadas na `main` com sucesso.
-- A Issue #77 foi encerrada como concluída conforme confirmação do responsável; contratos locais de Stories/hover continuam verdes.
-- O auditor de wiring foi corrigido no PR #83, vinculado à Issue #81: passou a reconhecer consumidores `.mjs`, imports por namespace/dinâmicos e deixou de analisar `dist/` como fonte.
-- A referência `github.com/kylezantos/design-principles` retornou 404; a limitação foi registrada e os princípios locais verificáveis de motion foram usados como base.
-- Criada a Issue #84 para os gates de qualidade e entregue o PR #85 na `main`.
-- Integrados Biome, Commitlint, Knip, Playwright, c8/Codecov e Stryker; o smoke E2E do shell PWA passou.
-- Adicionado `utils/observability.js` com eventos, exceções, spans e exportação opcional para endpoint OTLP/events; a instrumentação nunca bloqueia a aplicação.
-- Adicionados skeleton acessível e transição de entrada no roteamento do dashboard, mantendo o lazy loading existente e respeitando reduced motion.
-- O auditor de wiring agora ignora artefatos temporários de cobertura/mutação; `npm run test:release` e `npm run build:extension` passaram após o merge.
+- Criada a Issue #89 e a branch `codex/89-multimodal-study-hours` para o controle total de horas de estudo por idioma.
+- Criada a migration append-only `supabase/migrations/20260921160000_multimodal_study_and_language_tracking.sql`:
+  - Adicionado suporte a `language` na tabela `public.sessions` com chave única `(user_id, date, source, language)`.
+  - Ampliadas as fontes válidas de estudo para habilidades manuais (`manual_reading`, `manual_speaking`, `manual_listening`, `manual_writing`).
+  - Atualizada a RPC `public.log_study_time` para aceitar `p_language` com fallback seguro para chamadas legadas.
+  - Criada a RPC `public.log_manual_study` para registro manual seguro e auditável de horas de estudo externo.
+  - Adicionada coluna `response_time_ms` em `public.review_log`.
+- No player da extensão (`content/subtitle-engine.js`):
+  - Passado `this.sourceLang` nos heartbeats de `db.logSession(10, this.platform, this.sourceLang || 'en')` para computar horas de listening específicas do idioma do vídeo.
+- No popup da extensão (`popup/popup.html`, `popup/popup.js`):
+  - Criado widget moderno e minimalista ("Menos é mais"): badge do idioma (`🇺🇸 Inglês`), listening hoje e acumulado (`45 min hoje • Total: 104h`), cards pendentes e ofensiva real.
+- Na biblioteca de dados (`utils/db.js`):
+  - Implementados `getStudyStats(language)`, `formatStudyTime(seconds)` e `logManualStudy()`.
+  - Adicionadas permissões no `DB_PROXY_METHODS` do service worker.
+- No Dashboard (`dashboard/js/ui/homeView.js`, `dashboard/css/globals.css`):
+  - Adicionado card "Horas de Estudo" com breakdown por habilidade (Listening, Cards, Leitura, Speaking) no idioma ativo.
+  - Implementado modal de registro rápido de estudo externo (+15m, +30m, +45m, +1h) com feedback em toast.
+- Criado teste de contrato TDD `tests/multimodal-study-hours.test.mjs`, suíte 100% verde sem regressões.
 
 ## Próximo passo
 

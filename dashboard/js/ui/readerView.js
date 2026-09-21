@@ -434,7 +434,16 @@ export async function renderReader(container, app) {
   document.getElementById('rd-url-fetch').addEventListener('click', async () => {
     const urlInput = document.getElementById('rd-url');
     const url = urlInput.value.trim();
-    if (!url) { app.showToast('Cole uma URL primeiro.', 'info'); return; }
+    if (!url) {
+      urlInput.focus();
+      app.showToast('Cole uma URL primeiro.', 'info');
+      return;
+    }
+    if (!/^https?:\/\//i.test(url)) {
+      urlInput.focus();
+      app.showToast('A URL deve começar com http:// ou https://', 'info');
+      return;
+    }
     const btn = document.getElementById('rd-url-fetch');
     btn.disabled = true;
     importStatus.textContent = '⏳ Buscando e extraindo o texto…';

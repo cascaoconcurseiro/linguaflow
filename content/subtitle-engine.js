@@ -843,10 +843,11 @@ export class SubtitleEngine {
     // Remove painel de legendas se aberto
     document.getElementById('lf-subtitle-panel')?.remove();
 
-    // Inicia sempre DESLIGADO por padrão (conforme pedido do usuário)
+    // Atualiza a UI das legendas preservando o estado de ativação do usuário
     await this._injectSubtitleUI();
     if (!this._isNavigationCurrent(navigation)) return;
-    this.toggleSubtitles(false);
+    this.toggleSubtitles(this.isActivated);
+    this._hboAutoEnableTried = false;
     this._waitForVideo();
 
     // Re-inicializa captura específica da plataforma
@@ -2020,8 +2021,8 @@ export class SubtitleEngine {
         document.head.appendChild(style);
       }
 
-      // Wrapper do Switch (inicia desligado por padrão)
-      const isSubVisible = false;
+      // Wrapper do Switch: inicializa respeitando o estado real de ativação
+      const isSubVisible = this.isActivated;
 
       const dock = document.createElement('div');
       dock.id = 'lf-yt-horizontal-dock';
@@ -2029,9 +2030,9 @@ export class SubtitleEngine {
       dock.setAttribute('role', 'toolbar');
       dock.setAttribute('aria-label', 'Controles LinguaFlow');
       dock.innerHTML = `
-        <button type="button" id="lf-yt-toggle-wrapper" data-action="toggle" class="lf-dock-toggle" aria-pressed="false" title="Ativar LinguaFlow (C)">
+        <button type="button" id="lf-yt-toggle-wrapper" data-action="toggle" class="lf-dock-toggle${isSubVisible ? ' active' : ''}" aria-pressed="${isSubVisible}" title="${isSubVisible ? 'Desativar LinguaFlow (C)' : 'Ativar LinguaFlow (C)'}">
           <span class="lf-toggle-text">LF</span>
-          <span class="lf-switch-track" id="lf-yt-switch" aria-hidden="true"><span class="lf-switch-thumb"></span></span>
+          <span class="lf-switch-track${isSubVisible ? ' active' : ''}" id="lf-yt-switch" aria-hidden="true"><span class="lf-switch-thumb"></span></span>
         </button>
         <span class="lf-dock-sep" aria-hidden="true"></span>
         <button type="button" data-action="previous" class="lf-dock-btn" title="Legenda anterior (A)" aria-label="Legenda anterior">‹</button>
@@ -3533,10 +3534,13 @@ export class SubtitleEngine {
 
       // Injeta botões e controles
       this._injectYouTubeControls();
+      this._ensureNativeSubtitlesActive();
       vid.addEventListener('play', () => {
         this._injectYouTubeControls();
+        this._ensureNativeSubtitlesActive();
         this._wasPausedByHover = false;
       });
+      setTimeout(() => this._ensureNativeSubtitlesActive(), 800);
       vid.addEventListener('seeking', () => {
         this.lastText = '';
         this._lastFoundIdx = -1; // Reset do índice otimizado
@@ -4515,17 +4519,17 @@ export class SubtitleEngine {
     } else {
       // Se chamado sem argumentos (ex: tecla C), alterna o estado atual
       isVisible = !this.isActivated;
-      try {
-        localStorage.setItem('lf_sub_visible', String(isVisible));
-      } catch {}
     }
+    try {
+      localStorage.setItem('lf_sub_visible', String(isVisible));
+    } catch {}
 
     host.style.visibility = isVisible ? 'visible' : 'hidden';
     host.style.opacity = isVisible ? '1' : '0';
     host.style.transition = 'opacity 0.2s ease, visibility 0.2s';
     this.isActivated = isVisible;
 
-    // Sincroniza os switches visuais da interface
+    // Sincroniza os switches visuais da interface (YouTube)
     const swYt = document.getElementById('lf-yt-switch');
     if (swYt) swYt.classList.toggle('active', isVisible);
     const toggleBtn = document.getElementById('lf-yt-toggle-wrapper');
@@ -4533,6 +4537,18 @@ export class SubtitleEngine {
       toggleBtn.setAttribute('aria-pressed', String(isVisible));
       toggleBtn.classList.toggle('active', isVisible);
       toggleBtn.title = isVisible ? 'Desativar LinguaFlow (C)' : 'Ativar LinguaFlow (C)';
+    }
+
+    // Sincroniza os switches visuais da interface (HBO/Max)
+    const maxToggleBtn =
+      document.querySelector('#lf-max-controls [data-action="toggle"]') ||
+      document.querySelector('#lf-max-controls button[data-action="toggle"]');
+    if (maxToggleBtn) {
+      maxToggleBtn.setAttribute('aria-pressed', String(isVisible));
+      maxToggleBtn.title = isVisible ? 'Ocultar legendas LinguaFlow (C)' : 'Ativar legendas LinguaFlow (C)';
+    }
+    if (typeof window !== 'undefined' && window.__lfMaxPlayerUI?.syncActiveState) {
+      window.__lfMaxPlayerUI.syncActiveState(isVisible);
     }
 
     // Sincronização Automática com o botão de Legendas Ocultas (CC) do YouTube
@@ -4550,6 +4566,24 @@ export class SubtitleEngine {
     if (this.platform === 'max') {
       const s = document.getElementById('lf-native-hide');
       if (s) s.disabled = !isVisible;
+      if (isVisible) this._autoEnableHBOSubtitles();
+    }
+  }
+
+  _ensureNativeSubtitlesActive() {
+    if (!this.isActivated) return;
+
+    if (this.platform === 'youtube') {
+      const ytSubBtn = document.querySelector('.ytp-subtitles-button');
+      if (ytSubBtn) {
+        const isYtSubActive = ytSubBtn.getAttribute('aria-pressed') === 'true';
+        if (!isYtSubActive) {
+          ytSubBtn.click();
+          console.debug('[LinguaFlow] Sincronização: CC nativo do YouTube engatilhado com sucesso');
+        }
+      }
+    } else if (this.platform === 'max') {
+      this._autoEnableHBOSubtitles();
     }
   }
 

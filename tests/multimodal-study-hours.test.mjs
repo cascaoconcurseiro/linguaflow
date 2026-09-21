@@ -51,8 +51,19 @@ assert.match(popupJs, /getStudyStats/, 'popup.js deve chamar getStudyStats');
 const engineContent = readFileSync('content/subtitle-engine.js', 'utf8');
 assert.match(engineContent, /db\.logSession\s*\(\s*10\s*,\s*this\.platform\s*,\s*this\.sourceLang/i, 'subtitle-engine deve passar this.sourceLang no logSession');
 
-// 5. Contrato do Dashboard (Cards Críticos)
+// 5. Contrato do Dashboard (Cards Críticos e Cronômetro de Card)
 const homeViewContent = readFileSync('dashboard/js/ui/homeView.js', 'utf8');
 assert.match(homeViewContent, /home-critical-cards|criticalCards/, 'homeView deve mapear e renderizar cards críticos');
+
+const studyViewContent = readFileSync('dashboard/js/ui/studyView.js', 'utf8');
+assert.match(studyViewContent, /card-live-timer/, 'studyView deve conter o cronômetro do card #card-live-timer');
+assert.match(studyViewContent, /startCardTimer/, 'studyView deve iniciar startCardTimer()');
+
+// 6. Contrato de Cache Busting (PWA / Service Worker v3.0.47)
+const swContent = readFileSync('dashboard/sw.js', 'utf8');
+assert.match(swContent, /linguaflow-v3\.0\.47/, 'sw.js deve usar a versão de cache 3.0.47');
+
+const dashboardHtml = readFileSync('dashboard/dashboard.html', 'utf8');
+assert.match(dashboardHtml, /app\.js\?v=3\.0\.47/, 'dashboard.html deve importar app.js?v=3.0.47');
 
 console.log('✅ Todos os testes de contrato passaram com sucesso!');

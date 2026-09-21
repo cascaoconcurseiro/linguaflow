@@ -41,7 +41,29 @@ const cardPresentationIds = new WeakMap();
 let nextCardPresentationId = 0;
 let audioUiToken = 0;
 let studentCefr = null;      // nivel CEFR (trava de ditado longo p/ A1-A2)
+let cardTimerInterval = null; // cronômetro visual em tempo real do card
 const TOPIC_LABELS = { word: 'Palavras', phrasal: 'Phrasal Verbs', slang: 'Gírias', idiom: 'Expressões' };
+
+function startCardTimer() {
+  stopCardTimer();
+  const timerEl = document.getElementById('card-live-timer');
+  if (timerEl) timerEl.textContent = '00:00';
+  cardTimerInterval = setInterval(() => {
+    if (!studyViewActive || !presentationEvidence) return;
+    const elapsedSec = Math.floor((Date.now() - presentationEvidence.startedAt) / 1000);
+    const m = String(Math.floor(elapsedSec / 60)).padStart(2, '0');
+    const s = String(elapsedSec % 60).padStart(2, '0');
+    const el = document.getElementById('card-live-timer');
+    if (el) el.textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+function stopCardTimer() {
+  if (cardTimerInterval) {
+    clearInterval(cardTimerInterval);
+    cardTimerInterval = null;
+  }
+}
 
 function scheduleStudyTask(callback, delay = 0) {
   const generation = studyViewGeneration;
@@ -73,6 +95,7 @@ export async function renderStudy(container, app, params = {}) {
     pauseYouglish();
     hidePlayer();
     setClipLoop(false);
+    stopCardTimer();
     if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
     studyTimers.forEach(clearTimeout);
     studyTimers.clear();
@@ -226,6 +249,7 @@ export async function renderStudy(container, app, params = {}) {
             <span class="anki-counter-badge anki-badge-review" title="A Revisar"><strong id="anki-count-review">0</strong> a revisar</span>
           </div>
           <div class="anki-card-quick-actions">
+            <span class="anki-card-timer" id="anki-card-timer" title="Tempo neste card">⏱️ <span id="card-live-timer">00:00</span></span>
             <button type="button" class="anki-action-btn" id="btn-quick-edit" title="Editar card (E)" aria-label="Editar card (E)">✏️ <span class="action-btn-text">Editar (E)</span></button>
             <button type="button" class="anki-action-btn" id="btn-card-info" title="Informações FSRS (I)" aria-label="Informações FSRS (I)">ℹ️ <span class="action-btn-text">Info (I)</span></button>
             <button type="button" class="anki-action-btn" id="btn-card-suspend" title="Pausar este card (@)" aria-label="Pausar este card (@)">⏸️ <span class="action-btn-text">Pausar (@)</span></button>
@@ -736,6 +760,7 @@ async function loadNextCard(app) {
   currentCard = dueQueue[0];
   const card = currentCard;
   presentationEvidence = { startedAt: Date.now(), audioPlays: 0, helpCount: 0 };
+  startCardTimer();
   delete card._exerciseFinished;
   cardPresentationIds.set(card, ++nextCardPresentationId);
   chatHistory = [];
@@ -2504,6 +2529,10 @@ async function openCardInfoModal(app) {
             <span class="cell-label">Lapsos / Erros</span>
             <span class="cell-value">${card.lapses || 0}</span>
           </div>
+          <div class="card-info-cell">
+            <span class="cell-label">Hesitação / Tempo</span>
+            <span class="cell-value" id="card-info-avg-time">Carregando…</span>
+          </div>
           <div class="card-info-cell full-width">
             <span class="cell-label">Próximo Vencimento</span>
             <span class="cell-value">${nextDue}</span>
@@ -2540,6 +2569,19 @@ async function openCardInfoModal(app) {
   dialog.addEventListener('click', (e) => { if (e.target === dialog) closeDialog(); });
 
   lfDb.getCardStats(card.id).then((history) => {
+    const avgTimeEl = dialog.querySelector('#card-info-avg-time');
+    if (avgTimeEl) {
+      const times = (history || [])
+        .map(h => Number(h.response_time_ms || h.responseMs || 0))
+        .filter(t => t > 100);
+      if (times.length > 0) {
+        const avgMs = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
+        avgTimeEl.textContent = avgMs < 1000 ? `${avgMs}ms` : `${(avgMs / 1000).toFixed(1)}s`;
+      } else {
+        avgTimeEl.textContent = '—';
+      }
+    }
+
     const listEl = dialog.querySelector('#card-info-history-list');
     if (!listEl) return;
     if (!history || history.length === 0) {
@@ -2554,6 +2596,7 @@ async function openCardInfoModal(app) {
           <tr>
             <th>Data</th>
             <th>Avaliação</th>
+            <th>Tempo</th>
             <th>Intervalo</th>
           </tr>
         </thead>
@@ -2563,9 +2606,12 @@ async function openCardInfoModal(app) {
             const gradeName = gradeLabels[h.quality] || h.quality;
             const color = gradeColors[h.quality] || 'var(--color-text)';
             const ivl = h.interval ? formatInterval(h.interval) : '—';
+            const tMs = Number(h.response_time_ms || h.responseMs || 0);
+            const timeStr = tMs > 100 ? (tMs < 1000 ? `${tMs}ms` : `${(tMs / 1000).toFixed(1)}s`) : '—';
             return `<tr>
               <td>${d}</td>
               <td style="color:${color};font-weight:700;">${gradeName}</td>
+              <td style="color:var(--color-text-light);font-size:12px;">${timeStr}</td>
               <td>${ivl}</td>
             </tr>`;
           }).join('')}
@@ -2573,6 +2619,8 @@ async function openCardInfoModal(app) {
       </table>
     `;
   }).catch(() => {
+    const avgTimeEl = dialog.querySelector('#card-info-avg-time');
+    if (avgTimeEl) avgTimeEl.textContent = '—';
     const listEl = dialog.querySelector('#card-info-history-list');
     if (listEl) listEl.innerHTML = '<p class="empty-history">Histórico indisponível.</p>';
   });
@@ -2594,6 +2642,7 @@ function injectStyles() {
     .anki-badge-learn { background:#fff7ed; color:#ea580c; border:1px solid #fed7aa; }
     .anki-badge-review { background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; }
     .anki-card-quick-actions { display:flex; align-items:center; gap:6px; }
+    .anki-card-timer { display:inline-flex; align-items:center; gap:4px; font-family:var(--font-main, monospace); font-size:12px; font-weight:800; color:var(--color-secondary); background:rgba(28, 176, 246, 0.1); border:1px solid rgba(28, 176, 246, 0.25); padding:4px 10px; border-radius:8px; }
     .anki-action-btn { min-height:36px; padding:6px 12px; border-radius:8px; border:1px solid var(--color-border); background:var(--color-surface); color:var(--color-text); font-family:var(--font-main); font-size:12px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:transform 0.1s, background-color 0.2s; }
     .anki-action-btn:hover { background:var(--color-bg-alt); }
     .anki-action-btn:active { transform:translateY(2px); }

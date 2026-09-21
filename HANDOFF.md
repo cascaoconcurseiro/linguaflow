@@ -23,14 +23,21 @@
 - No Dashboard (`dashboard/js/ui/homeView.js`, `dashboard/css/globals.css`):
   - Adicionado card "Horas de Estudo" com breakdown por habilidade (Listening, Cards, Leitura, Speaking) no idioma ativo.
   - Implementado modal de registro rápido de estudo externo (+15m, +30m, +45m, +1h) com feedback em toast.
+- Na tela de Flashcards (`dashboard/js/ui/studyView.js`):
+  - Adicionado badge de cronômetro ao vivo (`⏱️ 00:00`) no cabeçalho de estudo (`#anki-card-timer` / `#card-live-timer`), cronometrando os segundos de cada card em tempo real.
+  - Adicionada métrica de tempo médio de resposta / hesitação e coluna de tempo por revisão no modal "Info (I)" do card.
+- Na agregação de estudo (`utils/db.js`):
+  - Restringido o cálculo de listening estritamente para `video` e `manual_listening` (removido `extension` geral para não inflar tempo ocioso).
+- Cache Busting do PWA:
+  - Bump de versão para `v3.0.47` em `sw.js`, `app.js`, `dashboard.html`, `package.json` e `manifest.json`, forçando o navegador a invalidar caches locais e renderizar imediatamente a interface atualizada.
 - Sincronização dos switches do player Max/YouTube (Issue #87, PR #88) incorporada e validada.
 - Criado teste de contrato TDD `tests/multimodal-study-hours.test.mjs`, suíte 100% verde sem regressões.
 
 ## Próximo passo
 
-**Arquivo:** Pull Request #90 para `main`
+**Arquivo:** Pull Request para `main`
 
-**Ação:** Merge do PR #90 na branch `main` e validação do deploy no Vercel.
+**Ação:** Merge do PR com a versão `v3.0.47` e validação no navegador e Vercel.
 
 ## Bloqueios
 

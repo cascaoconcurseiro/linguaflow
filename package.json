@@ -1,6 +1,6 @@
 {
   "name": "linguaflow",
-  "version": "3.0.46",
+  "version": "3.0.47",
   "private": true,
   "type": "module",
   "description": "LinguaFlow - Chrome Extension + Web App",

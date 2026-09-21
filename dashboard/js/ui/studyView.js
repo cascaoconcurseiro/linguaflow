@@ -6,6 +6,7 @@ import { buildSessionQueue, isWeakCard, prioritizeDueLearning } from '../core/se
 import { deriveAdaptivePlan } from '../core/adaptiveLearning.js';
 import { loadVideo, playClip, replayClip, pausePlayer, setClipLoop, isClipPlaying, hidePlayer } from '../core/ytPlayer.js';
 import { hasSourcePhraseLeak } from '../../../utils/translation-quality.js';
+import { escapeHtml } from './viewState.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
 let dueQueue = [];
@@ -956,7 +957,7 @@ function renderFront(card, word, context) {
     const pt = (ctxEntry && ctxEntry.pt) || (card.wordData && card.wordData.translation) || '';
     sentenceEl.innerHTML = `
       <div style="font-size:14px; font-weight:800; color:var(--color-secondary); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">🇧🇷 → 🇺🇸 Como se diz em inglês?</div>
-      <div>${pt || word}</div>`;
+      <div>${escapeHtml(pt || word)}</div>`;
     document.getElementById('reveal-btn').disabled = false;
     return;
   }
@@ -971,12 +972,17 @@ function renderFront(card, word, context) {
     const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(`(${escaped})`, 'gi');
     if (context.toLowerCase().includes(word.toLowerCase()) && context.toLowerCase() !== word.toLowerCase()) {
-      clozeHtml = context.replace(regex, '<span class="cloze-blur">$1</span>');
+      // Escapar o context ANTES de aplicar o regex, para que < > do banco
+      // não quebrem o HTML. O regex opera sobre o texto já escapado.
+      const safeContext = escapeHtml(context);
+      const safeWord = escapeHtml(word);
+      const safeEscaped = safeWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      clozeHtml = safeContext.replace(new RegExp(`(${safeEscaped})`, 'gi'), '<span class="cloze-blur">$1</span>');
     } else {
-      clozeHtml = `<span class="cloze-blur">${word}</span>`;
+      clozeHtml = `<span class="cloze-blur">${escapeHtml(word)}</span>`;
     }
   } catch {
-    clozeHtml = `<span class="cloze-blur">${word}</span>`;
+    clozeHtml = `<span class="cloze-blur">${escapeHtml(word)}</span>`;
   }
   card._clozeHtml = clozeHtml;
   card._classicStage = 'word';
@@ -1834,14 +1840,7 @@ function resetChat() {
   document.querySelectorAll('[data-tutor-prompt]').forEach(button => { button.disabled = true; });
 }
 
-function escapeHtml(str = '') {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
+// escapeHtml importado de viewState.js — não duplicar aqui.
 
 function renderHighlightedText(text, escapedWordPattern) {
   const regex = new RegExp(`(${escapedWordPattern})`, 'gi');

@@ -105,7 +105,7 @@ export class MaxPlayerUI {
     this.dock = null;
     this.frame = 0;
     this.lastLayout = '';
-    this.visible = true;
+    this.visible = typeof engine?.isActivated === 'boolean' ? engine.isActivated : true;
     this.playbackRate = this._readPlaybackRate();
     this.video = null;
     this.rateChangeHandler = null;
@@ -160,6 +160,15 @@ export class MaxPlayerUI {
     button.setAttribute('aria-pressed', String(active));
     button.title = active ? 'Desativar loop da frase' : 'Ativar loop da frase';
     button.setAttribute('aria-label', button.title);
+  }
+
+  syncActiveState(active) {
+    this.visible = Boolean(active);
+    const button = this.dock?.querySelector('button[data-action="toggle"]');
+    if (button) {
+      button.setAttribute('aria-pressed', String(this.visible));
+      button.title = this.visible ? 'Ocultar legendas LinguaFlow (C)' : 'Ativar legendas LinguaFlow (C)';
+    }
   }
 
   _setPlaybackRate(rate, { persist = true } = {}) {
@@ -225,7 +234,7 @@ export class MaxPlayerUI {
     dock.setAttribute('role', 'toolbar');
     dock.setAttribute('aria-label', 'Controles LinguaFlow');
     dock.innerHTML = `
-      <button type="button" data-action="toggle" class="lf-dock-toggle" aria-pressed="true" title="Ativar ou ocultar legendas LinguaFlow (C)">
+      <button type="button" data-action="toggle" class="lf-dock-toggle" aria-pressed="${this.visible}" title="Ativar ou ocultar legendas LinguaFlow (C)">
         <span class="lf-toggle-text">LF</span>
         <span class="lf-switch-track" aria-hidden="true"><span class="lf-switch-thumb"></span></span>
       </button>

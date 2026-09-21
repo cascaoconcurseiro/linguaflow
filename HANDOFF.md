@@ -6,21 +6,31 @@
 
 **O que foi feito:**
 
-- Investigada e corrigida a discrepância de estado do controle LinguaFlow (switch LF) e a falta de exibição de legendas ao iniciar vídeos no YouTube e HBO Max (Issue #87).
-- Identificada a causa raiz:
-  - Na Max, `MaxPlayerUI` iniciava com switch `aria-pressed="true"` hardcoded enquanto `_onUrlChange` forçava `this.toggleSubtitles(false)` e `toggleSubtitles` não sincronizava a UI da Max.
-  - No YouTube, quando o vídeo começava, o botão CC nativo (`.ytp-subtitles-button`) iniciava desativado e o LinguaFlow não engatilhava o CC nativo para disparar a requisição de `timedtext`.
-  - Em `_onUrlChange`, a preferência de ativação do usuário estava sendo sobrescrita por `this.toggleSubtitles(false)`.
-- Implementada a sincronização bidirecional completa em `SubtitleEngine.prototype.toggleSubtitles`, atualizando tanto YouTube (`#lf-yt-toggle-wrapper`) quanto Max (`#lf-max-controls [data-action="toggle"]` e `window.__lfMaxPlayerUI`).
-- Criado o método `_ensureNativeSubtitlesActive` para engatilhar as legendas nativas automaticamente no início de reprodução do vídeo (`play`) quando o LinguaFlow estiver ativado.
-- Criado o teste de contrato `tests/player-controls-sync.test.mjs` cobrindo os 4 cenários (RED → GREEN).
-- Todos os testes unitários, contratuais, linters e o empacotamento da extensão (`npm run build:extension`) passaram verdes.
+- Criada a Issue #89 e a branch `codex/89-multimodal-study-hours` para o controle total de horas de estudo por idioma.
+- Criada a migration append-only `supabase/migrations/20260921160000_multimodal_study_and_language_tracking.sql`:
+  - Adicionado suporte a `language` na tabela `public.sessions` com chave única `(user_id, date, source, language)`.
+  - Ampliadas as fontes válidas de estudo para habilidades manuais (`manual_reading`, `manual_speaking`, `manual_listening`, `manual_writing`).
+  - Atualizada a RPC `public.log_study_time` para aceitar `p_language` com fallback seguro para chamadas legadas.
+  - Criada a RPC `public.log_manual_study` para registro manual seguro e auditável de horas de estudo externo.
+  - Adicionada coluna `response_time_ms` em `public.review_log`.
+- No player da extensão (`content/subtitle-engine.js`):
+  - Passado `this.sourceLang` nos heartbeats de `db.logSession(10, this.platform, this.sourceLang || 'en')` para computar horas de listening específicas do idioma do vídeo.
+- No popup da extensão (`popup/popup.html`, `popup/popup.js`):
+  - Criado widget moderno e minimalista ("Menos é mais"): badge do idioma (`🇺🇸 Inglês`), listening hoje e acumulado (`45 min hoje • Total: 104h`), cards pendentes e ofensiva real.
+- Na biblioteca de dados (`utils/db.js`):
+  - Implementados `getStudyStats(language)`, `formatStudyTime(seconds)` e `logManualStudy()`.
+  - Adicionadas permissões no `DB_PROXY_METHODS` do service worker.
+- No Dashboard (`dashboard/js/ui/homeView.js`, `dashboard/css/globals.css`):
+  - Adicionado card "Horas de Estudo" com breakdown por habilidade (Listening, Cards, Leitura, Speaking) no idioma ativo.
+  - Implementado modal de registro rápido de estudo externo (+15m, +30m, +45m, +1h) com feedback em toast.
+- Sincronização dos switches do player Max/YouTube (Issue #87, PR #88) incorporada e validada.
+- Criado teste de contrato TDD `tests/multimodal-study-hours.test.mjs`, suíte 100% verde sem regressões.
 
 ## Próximo passo
 
-**Arquivo:** Pull Request para `main` vinculado à Issue #87
+**Arquivo:** Pull Request #90 para `main`
 
-**Ação:** Enviar a branch `codex/87-sync-player-controls`, abrir o PR mencionando `Closes #87` e seguir com a esteira de validação.
+**Ação:** Merge do PR #90 na branch `main` e validação do deploy no Vercel.
 
 ## Bloqueios
 

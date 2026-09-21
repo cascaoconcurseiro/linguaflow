@@ -328,7 +328,7 @@ export class SubtitleEngine {
 
           await chrome.storage.local.set({ last_lf_immersion: now });
           const { db } = await import('../utils/db.js');
-          await db.logSession(10, this.platform);
+          await db.logSession(10, this.platform, this.sourceLang || 'en');
         } catch (e) {}
       }
     }, 10000);

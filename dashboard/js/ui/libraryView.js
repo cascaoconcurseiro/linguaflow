@@ -881,6 +881,7 @@ function injectStyles() {
         .deck-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(290px, 1fr)); gap:18px; margin-top:20px; }
         .deck-card { background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-lg); padding:20px; display:flex; flex-direction:column; justify-content:space-between; gap:16px; box-shadow:0 4px 12px rgba(0,0,0,0.03); transition:transform 0.15s, border-color 0.15s; }
         .deck-card:hover { transform:translateY(-2px); border-color:var(--color-secondary); }
+        .deck-card:focus-within { border-color:var(--color-secondary); box-shadow:0 0 0 2px var(--color-secondary); }
         .deck-card-top { display:flex; align-items:center; gap:12px; }
         .deck-icon { font-size:30px; width:46px; height:46px; display:grid; place-items:center; background:var(--color-bg-alt); border-radius:12px; }
         .deck-info { min-width:0; flex:1; }
@@ -890,8 +891,10 @@ function injectStyles() {
         .deck-badge { font-size:11px; font-weight:800; padding:4px 8px; border-radius:12px; display:inline-flex; align-items:center; gap:4px; }
         .deck-badge .badge-num { font-size:13px; font-weight:900; }
         .deck-actions { display:flex; gap:8px; }
-        .btn-study-deck { flex:1; padding:10px; font-size:14px; font-weight:900; }
-        .btn-filter-deck { padding:10px 14px; font-size:13px; }
+        .btn-study-deck { flex:1; padding:10px; font-size:14px; font-weight:900; transition:transform 0.1s, box-shadow 0.1s; }
+        .btn-study-deck:active { transform:translateY(2px); }
+        .btn-filter-deck { padding:10px 14px; font-size:13px; transition:transform 0.1s; }
+        .btn-filter-deck:active { transform:translateY(2px); }
 
         /* Batch Selection Header & Bar */
         .batch-select-header { display:flex; align-items:center; justify-content:space-between; padding:8px 4px; margin-bottom:8px; }

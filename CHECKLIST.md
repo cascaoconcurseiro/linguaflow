@@ -202,6 +202,7 @@
 - [x] Preservar o chunk contextual e o painel progressivo “Entender melhor”.
 - [x] Adicionar contrato `tests/human-interface-pass.test.mjs` e script `test:human-interface`.
 - [x] Executar `node --check`, `test:human-interface`, `test:product-ux`, `test:study-focus`, `test:design-system`, P0-A/B/C, P1-C, auth/lifecycle e build da extensão.
+- [x] Executar `npm run test:release`; gates funcionais passaram, e o `release-smoke` ficou limitado às três divergências preexistentes de versão `3.0.49`/`3.0.51`.
 - [x] `git diff --check` passou.
 - [ ] QA autenticada da Home e do estudo em navegador desktop/mobile.
 - [ ] Disponibilidade do Biome para executar o lint completo.

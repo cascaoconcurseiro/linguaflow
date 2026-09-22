@@ -16,6 +16,7 @@
 - Adicionado `tests/human-interface-pass.test.mjs` e script `test:human-interface`.
 - Não houve alteração de schema, RPC, RLS ou Edge Function; Supabase não era necessário para este passe visual.
 - QA visual local do popup deslogado passou por navegador; Home autenticada e card real continuam pendentes porque a rota local exibiu login.
+- `npm run test:release` executou todos os gates funcionais; o `release-smoke` terminou com apenas três divergências preexistentes de versão `3.0.49` contra o build `3.0.51`.
 
 ### Próximo passo concreto
 
@@ -24,6 +25,7 @@ Abrir a PWA com uma conta autenticada e revisar Home e Estudo em desktop e celul
 ### Bloqueios pendentes
 
 - `npm run lint:biome` não executou porque o binário `biome` não está disponível neste worktree.
+- O check remoto do PR falhou no commitlint por faixa de commits inválida no workflow; não chegou a apontar falha de código desta branch.
 - Não houve validação real de Supabase/RLS/Edge Function; nenhuma migration foi necessária.
 - O branch está pronto para commit/PR, mas não deve ser mergeado/deployado antes da revisão e QA autenticada.
 

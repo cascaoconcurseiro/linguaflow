@@ -31,7 +31,7 @@ function injectStylesOnce() {
       background: var(--color-surface); border: 2px solid var(--color-border);
       border-radius: var(--radius-md, 12px); padding: 16px; text-align: center;
     }
-    .stats-summary-card .icon { font-size: 22px; }
+    .stats-summary-card .icon { display: none; }
     .stats-summary-card .value { font-size: 24px; font-weight: 900; color: var(--color-text); margin: 4px 0; }
     .stats-summary-card .label { font-size: 12px; color: var(--color-text-light); }
     .stats-summary-card-primary { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 7%, var(--color-surface)); }
@@ -58,6 +58,12 @@ function injectStylesOnce() {
     .stats-activity-details { margin-top: 4px; }
     .stats-activity-details > summary { cursor: pointer; color: var(--color-text); font-weight: 800; padding: 14px 2px; }
     .stats-activity-details > p { margin: 0 0 12px; color: var(--color-text-light); font-size: 13px; }
+    .stats-summary-card, .stats-panel { border-width: 1px; border-radius: 6px; box-shadow: none; }
+    .stats-summary-card { text-align: left; border-top: 3px solid var(--color-border); }
+    .stats-summary-card-primary { border-top-color: var(--color-primary); }
+    @media (prefers-reduced-motion: reduce) {
+      .stats-page *, .stats-page *::before, .stats-page *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    }
   `;
   document.head.appendChild(style);
 }
@@ -168,15 +174,15 @@ export async function renderStats(container, app) {
   container.innerHTML = `
     <div class="stats-page">
       <div class="stats-header">
-        <h2>📊 Progresso</h2>
+        <h2>Progresso</h2>
         <p>Memória, constância e carga das próximas revisões.</p>
       </div>
 
       <div class="stats-summary-grid">
-        ${summaryCard('🎯', summary.overallRetention === null ? '—' : summary.overallRetention + '%', 'Lembradas nas revisões · pelas suas notas', true)}
-        ${summaryCard('📚', summary.totalCards, 'Expressões na revisão')}
-        ${summaryCard('🔁', summary.totalReviews, 'Revisões (60d)')}
-        ${summaryCard('⏱️', summary.todayMinutes, 'Minutos de estudo hoje')}
+        ${summaryCard('', summary.overallRetention === null ? '—' : summary.overallRetention + '%', 'Lembradas nas revisões · pelas suas notas', true)}
+        ${summaryCard('', summary.totalCards, 'Expressões na revisão')}
+        ${summaryCard('', summary.totalReviews, 'Revisões (60d)')}
+        ${summaryCard('', summary.todayMinutes, 'Minutos de estudo hoje')}
       </div>
       <p class="stats-evidence-note">O percentual de lembrança é uma estimativa baseada nas suas notas em ${summary.totalReviews} revisões. Estado da memória e agenda ajudam a orientar a próxima sessão. Tempo e volume mostram atividade — não comprovam domínio do idioma.</p>
 

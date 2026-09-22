@@ -106,7 +106,6 @@ function renderUI(container, app) {
     bannerHtml = `
       <div id="ai-backfill-banner" style="background: var(--color-primary); color: white; padding: 12px 20px; border-radius: var(--radius-md); margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(88,204,2,0.3);">
         <div style="font-weight: 600; display:flex; align-items:center; gap:8px;">
-          <span style="font-size:20px;">✨</span> 
           <span><strong>${missingContext.length} itens antigos</strong> estão sem detalhes de apoio. Complete-os antes da próxima revisão.</span>
         </div>
         <button id="btn-run-backfill" style="background: var(--color-surface); color: var(--color-success-text); border: none; padding: 8px 16px; border-radius: var(--radius-sm); font-weight: 800; cursor: pointer; transition: color var(--motion-fast), background-color var(--motion-fast);">Completar detalhes</button>
@@ -115,10 +114,10 @@ function renderUI(container, app) {
   }
 
   const categoryMeta = {
-    'word': { label: 'Vocabulário Geral', icon: '📖' },
-    'phrasal': { label: 'Phrasal Verbs', icon: '⚡' },
-    'slang': { label: 'Gírias & Expressões', icon: '💬' },
-    'idiom': { label: 'Expressões Idiomáticas', icon: '💡' },
+    'word': { label: 'Vocabulário Geral' },
+    'phrasal': { label: 'Phrasal Verbs' },
+    'slang': { label: 'Gírias & Expressões' },
+    'idiom': { label: 'Expressões Idiomáticas' },
   };
 
   const decksMap = {};
@@ -128,7 +127,7 @@ function renderUI(container, app) {
       decksMap[cat] = {
         key: cat,
         label: categoryMeta[cat]?.label || (cat.charAt(0).toUpperCase() + cat.slice(1)),
-        icon: categoryMeta[cat]?.icon || '🗂️',
+        icon: categoryMeta[cat]?.label?.charAt(0) || '•',
         words: [],
         newCount: 0,
         learnCount: 0,
@@ -157,8 +156,8 @@ function renderUI(container, app) {
         </div>
         <div class="lib-header-right">
           <div class="lib-mode-switch" role="tablist" aria-label="Modo de visualização">
-            <button type="button" class="lib-mode-btn ${currentViewMode === 'words' ? 'active' : ''}" id="btn-mode-words" role="tab" aria-selected="${currentViewMode === 'words'}">📋 Frases (${filteredWords.length})</button>
-            <button type="button" class="lib-mode-btn ${currentViewMode === 'decks' ? 'active' : ''}" id="btn-mode-decks" role="tab" aria-selected="${currentViewMode === 'decks'}">🗂️ Baralhos (${decksList.length})</button>
+            <button type="button" class="lib-mode-btn ${currentViewMode === 'words' ? 'active' : ''}" id="btn-mode-words" role="tab" aria-selected="${currentViewMode === 'words'}">Frases (${filteredWords.length})</button>
+            <button type="button" class="lib-mode-btn ${currentViewMode === 'decks' ? 'active' : ''}" id="btn-mode-decks" role="tab" aria-selected="${currentViewMode === 'decks'}">Baralhos (${decksList.length})</button>
           </div>
           <div class="lib-stats">
             <div class="stat-number">${filteredWords.length}</div>
@@ -173,7 +172,7 @@ function renderUI(container, app) {
           ${decksList.map(deck => `
             <div class="deck-card" data-topic="${deck.key}">
               <div class="deck-card-top">
-                <span class="deck-icon">${deck.icon}</span>
+                <span class="deck-index" aria-hidden="true">${escapeHtml(deck.icon)}</span>
                 <div class="deck-info">
                   <h3 class="deck-title">${escapeHtml(deck.label)}</h3>
                   <span class="deck-meta">${deck.words.length} ${deck.words.length === 1 ? 'frase' : 'frases'}</span>
@@ -205,7 +204,7 @@ function renderUI(container, app) {
           <button type="button" class="cat-tab ${currentCategory === 'phrasal' ? 'active' : ''}" aria-pressed="${currentCategory === 'phrasal'}" data-cat="phrasal">Phrasal Verbs</button>
           <button type="button" class="cat-tab ${currentCategory === 'slang' ? 'active' : ''}" aria-pressed="${currentCategory === 'slang'}" data-cat="slang">Gírias</button>
           <button type="button" class="cat-tab ${currentCategory === 'idioms' ? 'active' : ''}" aria-pressed="${currentCategory === 'idioms'}" data-cat="idioms">Expressões</button>
-          ${currentCategory !== 'all' ? `<button class="btn btn-secondary" id="btn-review-topic" style="margin-left:auto; padding:8px 16px; font-size:13px;" title="Revisar apenas os itens desta categoria">🧠 Revisar este tópico</button>` : ''}
+          ${currentCategory !== 'all' ? `<button class="btn btn-secondary" id="btn-review-topic" style="margin-left:auto; padding:8px 16px; font-size:13px;" title="Revisar apenas os itens desta categoria">Revisar este tópico</button>` : ''}
         </div>
 
         <details class="lib-filters" ${currentLetter || currentStatus !== 'all' ? 'open' : ''}>
@@ -280,11 +279,11 @@ function renderUI(container, app) {
             <strong id="batch-selected-count">${selectedWordIds.size}</strong> selecionada(s)
           </div>
           <div class="batch-bar-actions">
-            <button type="button" class="btn btn-sm btn-outline" id="batch-btn-pause">⏸️ Pausar</button>
-            <button type="button" class="btn btn-sm btn-outline" id="batch-btn-resume">▶️ Retomar</button>
-            <button type="button" class="btn btn-sm btn-warning" id="batch-btn-reset">🔄 Esquecer (Reset)</button>
-            <button type="button" class="btn btn-sm btn-secondary" id="batch-btn-cat">🏷️ Categoria</button>
-            <button type="button" class="btn btn-sm btn-danger" id="batch-btn-del">🗑️ Excluir</button>
+            <button type="button" class="btn btn-sm btn-outline" id="batch-btn-pause">Pausar</button>
+            <button type="button" class="btn btn-sm btn-outline" id="batch-btn-resume">Retomar</button>
+            <button type="button" class="btn btn-sm btn-warning" id="batch-btn-reset">Esquecer (resetar)</button>
+            <button type="button" class="btn btn-sm btn-secondary" id="batch-btn-cat">Categoria</button>
+            <button type="button" class="btn btn-sm btn-danger" id="batch-btn-del">Excluir</button>
             <button type="button" class="btn btn-sm btn-outline" id="batch-btn-clear" title="Limpar seleção">✕</button>
           </div>
         </div>
@@ -422,7 +421,7 @@ function renderUI(container, app) {
             card.last_review = null;
             card.introduced_at = null;
             renderUI(container, app);
-            app.showToast('Card resetado para Novo (progresso zerado) 🔄', 'info');
+            app.showToast('Card resetado para Novo (progresso zerado).', 'info');
           } catch (err) {
             console.error(err);
             app.showToast('Não foi possível resetar o card. Tente novamente.', 'error');
@@ -516,7 +515,7 @@ function renderUI(container, app) {
     }
     selectedWordIds.clear();
     renderUI(container, app);
-    app.showToast(`${count} card(s) pausados. ⏸️`, 'info');
+    app.showToast(`${count} card(s) pausados.`, 'info');
   });
 
   document.getElementById('batch-btn-resume')?.addEventListener('click', async () => {
@@ -538,7 +537,7 @@ function renderUI(container, app) {
     }
     selectedWordIds.clear();
     renderUI(container, app);
-    app.showToast(`${count} card(s) retomados. ▶️`, 'info');
+    app.showToast(`${count} card(s) retomados.`, 'info');
   });
 
   document.getElementById('batch-btn-reset')?.addEventListener('click', async () => {
@@ -568,7 +567,7 @@ function renderUI(container, app) {
     }
     selectedWordIds.clear();
     renderUI(container, app);
-    app.showToast(`${count} card(s) resetados para Novo. 🔄`, 'info');
+    app.showToast(`${count} card(s) resetados para Novo.`, 'info');
   });
 
   document.getElementById('batch-btn-cat')?.addEventListener('click', async () => {
@@ -661,7 +660,7 @@ function renderUI(container, app) {
       }
       
       if (app.currentRoute !== 'library') return;
-      if (bannerText) bannerText.innerHTML = '✨ Todas as frases foram geradas com sucesso!';
+      if (bannerText) bannerText.innerHTML = 'Todos os detalhes foram gerados com sucesso.';
       backfillBtn.style.display = 'none';
       setTimeout(() => {
         if (app.currentRoute === 'library') renderLibrary(container, app);
@@ -690,7 +689,7 @@ function openWordEditor(w, app, container) {
   modal.innerHTML = `
     <div style="background:var(--color-surface); border-radius:var(--radius-md); width:90%; max-width:420px; padding:24px; position:relative; box-shadow:0 8px 24px rgba(0,0,0,0.15); max-height:85vh; overflow-y:auto;">
       <button id="lf-edit-close" type="button" aria-label="Fechar editor" style="position:absolute; top:12px; right:12px; background:none; border:none; font-size:20px; color:var(--color-text-light); cursor:pointer; padding:4px;">&times;</button>
-      <h2 id="lf-edit-title" style="font-size:20px; font-weight:800; color:var(--color-text); margin:0 0 16px 0;">✏️ ${escapeHtml(w.word)}</h2>
+      <h2 id="lf-edit-title" style="font-size:20px; font-weight:800; color:var(--color-text); margin:0 0 16px 0;">Editar: ${escapeHtml(w.word)}</h2>
 
       <label for="lf-edit-translation" style="display:block; font-size:12px; font-weight:700; color:var(--color-text-light); margin-bottom:4px;">Tradução</label>
       <input id="lf-edit-translation" type="text" value="${escapeHtml(w.translation || '')}" style="width:100%; padding:10px; border:2px solid var(--color-border); border-radius:8px; background:var(--color-bg); color:var(--color-text); font-size:14px; margin-bottom:14px;" />
@@ -713,7 +712,7 @@ function openWordEditor(w, app, container) {
         </div>
       </div>
 
-      <button id="lf-edit-save" class="btn btn-primary" style="width:100%; padding:12px; font-size:15px;">💾 Salvar</button>
+      <button id="lf-edit-save" class="btn btn-primary" style="width:100%; padding:12px; font-size:15px;">Salvar</button>
     </div>
   `;
   document.body.appendChild(modal);
@@ -759,7 +758,7 @@ function openWordEditor(w, app, container) {
       console.error(err);
       app.showToast('Erro ao salvar as alterações.', 'error');
       saveBtn.disabled = false;
-      saveBtn.textContent = '💾 Salvar';
+      saveBtn.textContent = 'Salvar';
     }
   });
 }
@@ -996,6 +995,25 @@ function injectStyles() {
             .word-card { flex-wrap: wrap; gap: 10px; }
             .word-actions { gap: 10px; }
             .empty-state { padding: 32px 16px; }
+        }
+
+        /* Segunda revisão: coleção editorial, sem transformar cada elemento em um card. */
+        .library-container { padding-top: 28px; }
+        .lib-stats, .deck-card, .word-card, .az-grid { box-shadow: none; border-width: 1px; }
+        .cat-tab, .status-chip, .deck-badge, .selected-count-badge { border-radius: 4px; }
+        .cat-tab { padding: 9px 14px; }
+        .cat-tab.active { background: var(--color-text); border-color: var(--color-text); }
+        .lib-mode-switch { background: transparent; border: 0; padding: 0; gap: 14px; }
+        .lib-mode-btn { padding: 8px 0; border-radius: 0; border-bottom: 2px solid transparent; }
+        .lib-mode-btn.active { background: transparent; box-shadow: none; border-bottom-color: var(--color-primary); }
+        .deck-card { border-radius: 6px; border-top: 3px solid var(--color-border); }
+        .deck-card:hover { transform: none; border-top-color: var(--color-secondary); }
+        .deck-index { width: 32px; height: 32px; display: grid; place-items: center; border-left: 3px solid var(--color-secondary); color: var(--color-text); font-weight: 900; font-size: 18px; }
+        .deck-badge { padding: 3px 6px; }
+        .batch-bar { border-width: 1px; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+        .word-card:hover { transform: none; box-shadow: none; }
+        @media (prefers-reduced-motion: reduce) {
+            .library-container *, .library-container *::before, .library-container *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
         }
     `;
     document.head.appendChild(style);

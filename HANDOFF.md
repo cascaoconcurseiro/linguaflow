@@ -9,6 +9,12 @@
 
 ### Feito nesta sessão
 
+- O passe foi ampliado para o restante do dashboard: Cofre, Histórias, Leitor, Prática, Progresso, Ligas, Configurações e Administração.
+- Ações antes apresentadas como emoji agora têm rótulos humanos e explícitos; ícones decorativos, bandeiras e medalhas foram retirados das decisões de estudo e operação.
+- Reduzi superfícies empilhadas, sombras, bordas arredondadas e controles com aparência de cápsula; a hierarquia passou a depender de texto, separadores e bordas de seção.
+- A prática livre perdeu confete e pulso de combo; o feedback continua no resultado e no contador local, sem transformar toda interação em recompensa visual.
+- Estados compartilhados de carregamento, feedback do vídeo, status de importação e toasts também foram revisados para não depender de símbolos gráficos.
+- O contrato `tests/human-interface-pass.test.mjs` agora cobre todas as telas do dashboard; a regressão de segurança do editor foi atualizada para o novo título textual.
 - Popup, Home, barra superior e estudo receberam uma direção editorial mais contida: menos cápsulas, sombras, bordas arredondadas, gradientes, caixa por métrica e emoji como ícone.
 - A Home mantém a próxima ação como decisão dominante; métricas, memória, conquistas e missões ficaram em segundo plano e com separadores.
 - O estudo preserva o card contextual da Issue #98, mas usa rótulos verbais para ouvir/salvar, explicação contextual sem clipping e aprofundamento progressivo sem animação ornamental.
@@ -20,7 +26,7 @@
 
 ### Próximo passo concreto
 
-Abrir a PWA com uma conta autenticada e revisar Home e Estudo em desktop e celular; conferir especialmente o topo da Home, o painel “Entender melhor”, os botões de áudio dos chunks e a barra superior em viewport estreita.
+Abrir a PWA com uma conta autenticada e revisar o sistema completo em desktop e celular; conferir Cofre, Histórias, Leitor, Prática, Progresso, Configurações e Administração, além do topo da Home, do painel “Entender melhor”, dos botões de áudio dos chunks e da barra superior em viewport estreita.
 
 ### Bloqueios pendentes
 

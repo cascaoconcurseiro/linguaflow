@@ -96,7 +96,6 @@ export async function renderAdmin(container, app) {
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:28px; padding-bottom:16px; border-bottom:2px solid var(--color-border);">
           <div>
             <div style="display:flex; align-items:center; gap:10px;">
-              <span style="font-size:28px;">👑</span>
               <h1 style="font-size:26px; font-weight:900; color:var(--color-text); margin:0;">Painel do Administrador</h1>
             </div>
             <p style="font-size:13px; color:var(--color-text-light); margin:4px 0 0 0;">
@@ -105,7 +104,7 @@ export async function renderAdmin(container, app) {
           </div>
           <div style="display:flex; gap:10px; align-items:center;">
             <button id="btn-admin-refresh" type="button" class="btn btn-outline" style="padding:10px 16px; font-size:13px; font-weight:700;" title="Recarregar dados">
-              🔄 Atualizar
+              Atualizar
             </button>
             <button id="btn-admin-back" type="button" class="btn btn-outline" style="padding:10px 16px; font-size:13px; font-weight:700;">
               ← Configurações
@@ -116,27 +115,27 @@ export async function renderAdmin(container, app) {
         <!-- Metric Cards -->
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:28px;">
           <div style="background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:20px; text-align:center;">
-            <div style="font-size:30px; margin-bottom:6px;">👥</div>
+            <div class="admin-tile-mark" aria-hidden="true">U</div>
             <div style="font-size:28px; font-weight:900; color:var(--color-text);">${totalUsers}</div>
             <div style="font-size:13px; color:var(--color-text-light); font-weight:700;">Usuários Cadastrados</div>
           </div>
           <div style="background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:20px; text-align:center;">
-            <div style="font-size:30px; margin-bottom:6px;">📖</div>
+            <div class="admin-tile-mark" aria-hidden="true">C</div>
             <div style="font-size:28px; font-weight:900; color:var(--color-primary);">${totalWords}</div>
             <div style="font-size:13px; color:var(--color-text-light); font-weight:700;">Palavras no Acervo</div>
           </div>
           <div style="background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:20px; text-align:center;">
-            <div style="font-size:30px; margin-bottom:6px;">🗂️</div>
+            <div class="admin-tile-mark" aria-hidden="true">B</div>
             <div style="font-size:28px; font-weight:900; color:var(--color-secondary);">${totalCards}</div>
             <div style="font-size:13px; color:var(--color-text-light); font-weight:700;">Flashcards FSRS</div>
           </div>
           <div style="background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:20px; text-align:center;">
-            <div style="font-size:30px; margin-bottom:6px;">🎯</div>
+            <div class="admin-tile-mark" aria-hidden="true">M</div>
             <div style="font-size:28px; font-weight:900; color:#ff9600;">${totalReviews}</div>
             <div style="font-size:13px; color:var(--color-text-light); font-weight:700;">Revisões Registradas</div>
           </div>
           <div style="background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:20px; text-align:center;">
-            <div style="font-size:30px; margin-bottom:6px;">⚡</div>
+            <div class="admin-tile-mark" aria-hidden="true">E</div>
             <div style="font-size:28px; font-weight:900; color:${totalErrors > 0 ? 'var(--color-danger)' : 'var(--color-text)'};">${totalErrors}</div>
             <div style="font-size:13px; color:var(--color-text-light); font-weight:700;">Erros (24h)</div>
           </div>
@@ -145,7 +144,7 @@ export async function renderAdmin(container, app) {
         <!-- Quick System Actions (Card com Ações Frequentes) -->
         <div style="background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:24px; margin-bottom:28px;">
           <h2 style="font-size:18px; font-weight:800; color:var(--color-text); margin-bottom:8px; display:flex; align-items:center; gap:8px;">
-            <span>⚡</span> Ações Globais de Manutenção
+            Ações globais de manutenção
           </h2>
           <p style="font-size:13px; color:var(--color-text-light); margin-bottom:20px;">
             Ações de limpeza e redefinição de acervo. Execute com atenção.
@@ -154,19 +153,18 @@ export async function renderAdmin(container, app) {
           <div style="display:flex; flex-wrap:wrap; gap:16px;">
             <!-- Limpar só o meu deck -->
             <button id="btn-admin-reset-my-deck" type="button" class="btn" style="flex:1; min-width:260px; background:#1cb0f6; color:#fff; border-bottom:4px solid #148cc4; padding:16px 20px; font-size:14px; font-weight:800; display:flex; align-items:center; justify-content:center; gap:8px;">
-              <span>🧹</span>
               <span>Limpar Só o Meu Deck (Admin)</span>
             </button>
 
             <!-- Limpar decks de todos -->
             <button id="btn-admin-reset-all-decks" type="button" class="btn" style="flex:1; min-width:260px; background:var(--color-danger); color:#fff; border-bottom:4px solid var(--color-danger-shadow); padding:16px 20px; font-size:14px; font-weight:800; display:flex; align-items:center; justify-content:center; gap:8px;">
-              <span>⚠️</span>
+              <span>Alerta</span>
               <span>Limpar Decks de TODO MUNDO</span>
             </button>
 
             ${totalErrors > 0 ? `
               <button id="btn-admin-clear-errors" type="button" class="btn btn-outline" style="min-width:200px; padding:16px 20px; font-size:14px; font-weight:800;">
-                <span>🧹</span> Limpar Logs de Erro (${totalErrors})
+                Limpar logs de erro (${totalErrors})
               </button>
             ` : ''}
           </div>
@@ -177,14 +175,14 @@ export async function renderAdmin(container, app) {
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px;">
             <div>
               <h2 style="font-size:18px; font-weight:800; color:var(--color-text); margin:0;">
-                👥 Gestão de Usuários (${users.length})
+                Gestão de usuários (${users.length})
               </h2>
               <p style="font-size:12px; color:var(--color-text-light); margin:4px 0 0 0;">
                 Gerencie contas, decks e atividades individuais.
               </p>
             </div>
             <div style="position:relative; width:100%; max-width:280px;">
-              <input type="text" id="admin-user-search" placeholder="🔍 Buscar usuário por e-mail…" style="width:100%; padding:10px 14px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-size:13px; background:var(--color-bg-alt); color:var(--color-text);">
+              <input type="text" id="admin-user-search" placeholder="Buscar usuário por e-mail…" style="width:100%; padding:10px 14px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-size:13px; background:var(--color-bg-alt); color:var(--color-text);">
             </div>
           </div>
 
@@ -240,15 +238,15 @@ export async function renderAdmin(container, app) {
           <td style="padding:12px 8px; text-align:center; font-weight:700; color:var(--color-text);">${u.total_reviews ?? 0}</td>
           <td style="padding:12px 8px; text-align:center;">
             <span style="font-weight:800; color:var(--color-primary);">${xp} XP</span>
-            ${streak > 0 ? `<span style="margin-left:4px; font-size:12px;">🔥 ${streak}</span>` : ''}
+            ${streak > 0 ? `<span style="margin-left:4px; font-size:12px;">Sequência ${streak}</span>` : ''}
           </td>
           <td style="padding:12px 8px; text-align:right; white-space:nowrap;">
             <button class="btn btn-outline btn-reset-deck" data-user-id="${escapeHtml(u.id)}" data-user-email="${escapeHtml(u.email || '')}" style="padding:6px 10px; font-size:12px; font-weight:700; margin-right:6px;" title="Limpar deck deste usuário">
-              🧹 Limpar Deck
+              Limpar deck
             </button>
             ${!isSelf ? `
               <button class="btn btn-delete-user" data-user-id="${escapeHtml(u.id)}" data-user-email="${escapeHtml(u.email || '')}" style="padding:6px 10px; font-size:12px; font-weight:800; background:var(--color-danger); color:#fff;" title="Excluir conta definitivamente">
-                ❌ Excluir
+                Excluir
               </button>
             ` : ''}
           </td>
@@ -269,7 +267,7 @@ export async function renderAdmin(container, app) {
       try {
         await loadData();
         drawView();
-        app.showToast('Dados atualizados! ✅', 'success');
+        app.showToast('Dados atualizados.', 'success');
       } catch {
         app.showToast('Falha ao atualizar dados.', 'error');
       }
@@ -303,7 +301,7 @@ export async function renderAdmin(container, app) {
       if (confirm('Deseja limpar todos os registros de erros do sistema?')) {
         try {
           await lfDb.adminClearErrors();
-          app.showToast('Logs de erro limpos! 🧹', 'success');
+          app.showToast('Logs de erro limpos.', 'success');
           metrics.total_errors = 0;
           drawView();
         } catch (e) {
@@ -348,7 +346,7 @@ export async function renderAdmin(container, app) {
 
   function promptResetAllDecks() {
     openConfirmModal({
-      title: '⚠️ ATENÇÃO: Limpar Decks de TODO MUNDO',
+      title: 'ATENÇÃO: limpar decks de todo mundo',
       message: 'Esta ação é DESTRUTIVA e IRREVERSÍVEL. Todas as palavras, flashcards e histórico de estudo de TODOS os alunos cadastrados serão apagados. As contas de usuário continuarão existindo.',
       confirmPhrase: 'LIMPAR TUDO',
       confirmButtonText: 'Sim, Limpar Todos os Decks',
@@ -369,7 +367,7 @@ export async function renderAdmin(container, app) {
 
   function promptDeleteUser(userId, userEmail) {
     openConfirmModal({
-      title: `❌ Excluir Conta: ${userEmail}`,
+      title: `Excluir conta: ${userEmail}`,
       message: `Tem certeza que deseja excluir permanentemente o usuário "${userEmail}"? Todos os dados (estatísticas, progresso, palavras e cards) serão apagados em definitivo do banco de dados.`,
       confirmPhrase: 'EXCLUIR',
       confirmButtonText: 'Excluir Conta Definitivamente',
@@ -400,7 +398,7 @@ export async function renderAdmin(container, app) {
 
     overlay.innerHTML = `
       <div style="background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-danger); max-width:480px; width:100%; padding:30px; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
-        <div style="font-size:44px; margin-bottom:12px;">🚨</div>
+        <div style="font-size:13px; margin-bottom:12px; color:var(--color-danger);">Ação irreversível</div>
         <h2 style="color:var(--color-danger); font-size:20px; font-weight:900; margin-bottom:12px;">${escapeHtml(title)}</h2>
         <p style="color:var(--color-text-light); font-size:14px; line-height:1.5; margin-bottom:20px;">${escapeHtml(message)}</p>
         

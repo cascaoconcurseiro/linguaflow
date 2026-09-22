@@ -204,6 +204,11 @@
 - [x] Executar `node --check`, `test:human-interface`, `test:product-ux`, `test:study-focus`, `test:design-system`, P0-A/B/C, P1-C, auth/lifecycle e build da extensão.
 - [x] Executar `npm run test:release`; gates funcionais passaram, e o `release-smoke` ficou limitado às três divergências preexistentes de versão `3.0.49`/`3.0.51`.
 - [x] `git diff --check` passou.
+- [x] Completar a mesma linguagem visual no Cofre, Histórias, Leitor, Prática, Progresso e Ligas.
+- [x] Revisar Configurações e Administração: rótulos explícitos, menos superfícies e sem emoji como substituto de ação.
+- [x] Remover celebrações ornamentais da prática e manter sequência/acerto como feedback textual local.
+- [x] Ampliar o contrato de interface humana para todas as telas do dashboard e ajustar regressão de segurança do editor do Cofre.
+- [x] Confirmar `test:human-interface`, `test:product-ux`, `test:untrusted-content`, P0-A/B/C e P1-C após a segunda etapa.
 - [ ] QA autenticada da Home e do estudo em navegador desktop/mobile.
 - [ ] Disponibilidade do Biome para executar o lint completo.
 - [ ] Revisão do PR e merge para a branch contextual/main.

@@ -50,23 +50,20 @@ export async function renderGame(container, app) {
   injectGameStyles();
   container.innerHTML = `
     <div class="game-container">
-      <h2>🎮 Prática</h2>
+      <h2>Prática</h2>
       <p>Escolha uma habilidade para treinar nesta rodada.</p>
       <div class="practice-mode-grid" aria-label="Habilidades disponíveis">
         <button class="practice-mode-card" id="mode-match" type="button">
-          <span class="practice-mode-icon" aria-hidden="true">🔗</span>
           <strong>Ligar colunas</strong>
           <span>Reconhecimento</span>
           <small>Associe expressões e significados.</small>
         </button>
         <button class="practice-mode-card" id="mode-listen" type="button">
-          <span class="practice-mode-icon" aria-hidden="true">🎧</span>
           <strong>Ouça e escolha</strong>
           <span>Escuta</span>
           <small>Identifique a expressão pelo áudio.</small>
         </button>
         <button class="practice-mode-card" id="mode-builder" type="button">
-          <span class="practice-mode-icon" aria-hidden="true">🧩</span>
           <strong>Monte a frase</strong>
           <span>Reconstrução de frase</span>
           <small>Reconstrua a frase na ordem correta.</small>
@@ -92,15 +89,8 @@ export async function renderGame(container, app) {
 function makeComboTracker(container, state = { combo: 0, best: 0 }) {
   const badge = document.createElement('div');
   badge.className = 'combo-badge' + (state.combo >= 2 ? '' : ' hidden');
-  if (state.combo >= 2) badge.textContent = `🔥 Combo x${state.combo}`;
+  if (state.combo >= 2) badge.textContent = `Combo x${state.combo}`;
   container.appendChild(badge);
-
-  function pulse() {
-    badge.classList.remove('combo-pulse');
-    // reflow força a animação a reiniciar mesmo em acertos consecutivos rápidos
-    void badge.offsetWidth;
-    badge.classList.add('combo-pulse');
-  }
 
   return {
     hit() {
@@ -108,8 +98,7 @@ function makeComboTracker(container, state = { combo: 0, best: 0 }) {
       state.best = Math.max(state.best, state.combo);
       if (state.combo >= 2) {
         badge.classList.remove('hidden');
-        badge.textContent = `🔥 Combo x${state.combo}`;
-        pulse();
+        badge.textContent = `Combo x${state.combo}`;
       }
     },
     miss() {
@@ -160,26 +149,6 @@ function playChime(audioCtx, isCorrect) {
   });
 }
 
-// Celebração final (Onda 8): confete leve em CSS puro, sem biblioteca —
-// substitui o "fim de jogo" seco por algo que dá vontade de jogar de novo.
-function celebrate(container) {
-  const colors = ['#58cc02', '#1cb0f6', '#ffc800', '#ff4b4b', '#ce82ff'];
-  const burst = document.createElement('div');
-  burst.className = 'confetti-burst';
-  for (let i = 0; i < 24; i++) {
-    const piece = document.createElement('span');
-    piece.className = 'confetti-piece';
-    piece.style.setProperty('--dx', `${(Math.random() - 0.5) * 320}px`);
-    piece.style.setProperty('--dy', `${Math.random() * -260 - 40}px`);
-    piece.style.setProperty('--rot', `${Math.random() * 720 - 360}deg`);
-    piece.style.setProperty('--delay', `${Math.random() * 0.15}s`);
-    piece.style.background = colors[i % colors.length];
-    burst.appendChild(piece);
-  }
-  container.appendChild(burst);
-  setTimeout(() => burst.remove(), 1400);
-}
-
 async function renderMatchGame(container, app) {
   injectGameStyles();
   container.setAttribute('aria-busy', 'true');
@@ -198,7 +167,7 @@ async function renderMatchGame(container, app) {
   container.setAttribute('aria-busy', 'false');
   container.innerHTML = `
     <div class="game-container">
-      <h2>🔗 Ligar Colunas</h2>
+      <h2>Ligar colunas</h2>
       <p>Combine o inglês com o português.</p>
       <div id="game-board" class="game-board"></div>
     </div>`;
@@ -357,9 +326,9 @@ async function renderListenGame(container, app) {
 
     container.innerHTML = `
       <div class="game-container">
-        <h2>🎧 Ouça e Escolha</h2>
+        <h2>Ouça e escolha</h2>
         <div class="listen-progress">Palavra ${step + 1} de ${order.length} · Acertos: ${correctCount}</div>
-        <button class="listen-play-btn" id="listen-play-btn" title="Ouvir de novo" aria-label="Ouvir a palavra">🔊</button>
+        <button class="listen-play-btn" id="listen-play-btn" title="Ouvir de novo" aria-label="Ouvir a palavra">Ouvir</button>
         <div class="listen-options" id="listen-options">
           ${options.map(opt => `<button class="match-btn" data-option="${escapeHtml(opt)}">${escapeHtml(opt)}</button>`).join('')}
         </div>
@@ -467,7 +436,7 @@ async function renderBuilderGame(container, app) {
 
     container.innerHTML = `
       <div class="game-container">
-        <h2>🧩 Monte a Frase</h2>
+        <h2>Monte a frase</h2>
         <div class="listen-progress">Frase ${step + 1} de ${words.length} · Acertos: ${correctCount}</div>
         <div style="font-size:13px; color:var(--color-text-light); margin-bottom:10px;">Use "<strong>${escapeHtml(word.word)}</strong>" na ordem certa</div>
         <div id="ex-answer" class="builder-answer"></div>
@@ -514,7 +483,7 @@ async function renderBuilderGame(container, app) {
       if (isCorrect) { correctCount++; combo.hit(); } else { combo.miss(); }
       answerEl.querySelectorAll('.ex-chip').forEach(c => c.classList.add(isCorrect ? 'correct' : 'wrong'));
       checkBtn.disabled = true;
-      checkBtn.textContent = isCorrect ? '✅ Certo!' : `❌ Era: "${word.context_sentence.trim()}"`;
+      checkBtn.textContent = isCorrect ? 'Certo!' : `Era: "${word.context_sentence.trim()}"`;
       setTimeout(() => {
         step++;
         if (step >= words.length) finishBuilderGame();
@@ -533,7 +502,6 @@ async function renderBuilderGame(container, app) {
         <button type="button" class="btn btn-primary" data-game-finish>Voltar ao início</button>
       </div>
     `;
-    celebrate(document.querySelector('.game-container'));
     const msg = 'Prática concluída';
     const el = document.getElementById('builder-result');
     if (el) { el.textContent = msg; el.focus({ preventScroll: true }); }
@@ -695,19 +663,15 @@ function injectGameStyles() {
       100% { transform: scale(1) rotate(0); }
     }
 
-    /* Confete (Onda 8): celebração leve em CSS puro ao terminar uma partida */
-    .confetti-burst {
-      position: absolute; left: 50%; top: 40%; width: 0; height: 0; pointer-events: none;
-    }
-    .confetti-piece {
-      position: absolute; width: 8px; height: 14px; border-radius: 2px;
-      animation: confetti-fly 1.1s cubic-bezier(0.15, 0.7, 0.3, 1) forwards;
-      animation-delay: var(--delay, 0s);
-      opacity: 0;
-    }
-    @keyframes confetti-fly {
-      0% { transform: translate(0, 0) rotate(0); opacity: 1; }
-      100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; }
+    /* Prática é feedback, não espetáculo: a sequência fica legível e local. */
+    .game-container { border: 0; border-top: 3px solid var(--color-secondary); border-radius: 0; box-shadow: none; background: transparent; }
+    .practice-mode-card { border-radius: 4px; border-bottom-width: 1px; background: var(--color-surface); }
+    .practice-mode-card:active, .match-btn:active, .ex-chip:active { transform: none; }
+    .listen-play-btn { width: auto; height: 44px; border-radius: 4px; border: 1px solid var(--color-secondary); padding: 0 18px; font-size: 14px; font-weight: 800; }
+    .listen-play-btn:hover { transform: none; }
+    .combo-badge { border-radius: 4px; box-shadow: none; border: 1px solid var(--color-warning); }
+    @media (prefers-reduced-motion: reduce) {
+      .game-container *, .game-container *::before, .game-container *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
     }
   `;
   document.head.appendChild(style);

@@ -73,7 +73,7 @@ export function renderVideoContext(wordData = {}, id) {
   const safeEmbed = context.embedUrl ? escapeHtml(context.embedUrl) : '';
   return `
     <section class="video-context" aria-label="Contexto do vídeo">
-      <span class="video-context-label">🎬 Salvo de ${platform}</span>
+      <span class="video-context-label">Salvo de ${platform}</span>
       <span class="video-context-title" title="${title}">${title}</span>
       <div class="video-context-actions">
         ${safeEmbed ? `<button type="button" class="video-context-embed" data-video-embed="${safeEmbed}" aria-expanded="false" aria-controls="${id}">Ver aqui</button>` : ''}

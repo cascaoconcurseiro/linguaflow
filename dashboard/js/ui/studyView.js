@@ -1231,7 +1231,7 @@ async function improveSentence(app) {
   const btn = document.getElementById('improve-btn');
   if (btn) {
     btn.disabled = true;
-    btn.textContent = '✨ Gerando frase nova...';
+    btn.textContent = 'Gerando frase nova...';
   }
 
   let generated = [];
@@ -1242,7 +1242,7 @@ async function improveSentence(app) {
   } finally {
     if (btn && currentCard === card) {
       btn.disabled = false;
-      btn.textContent = '✨ Frase estranha? Gerar uma melhor com IA';
+      btn.textContent = 'Frase estranha? Gerar uma melhor com IA';
     }
   }
   if (currentCard !== card) return;

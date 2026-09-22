@@ -1197,3 +1197,27 @@ body.lf-auth-pending #app-root { visibility: hidden; }
 @media (max-width: 420px) {
   .logo-text { display: none; }
 }
+
+/* Passe transversal da Issue #102: menos molduras, mais hierarquia editorial. */
+.settings-page > div[style*="background: var(--color-surface)"],
+.admin-view > div[style*="background:var(--color-surface)"] {
+  border-width:1px !important;
+  border-radius:6px !important;
+  box-shadow:none !important;
+}
+.settings-page > div[style*="background: var(--color-surface)"] {
+  border-top:3px solid var(--color-border) !important;
+}
+.settings-page > div[style*="background: var(--color-surface)"]:focus-within {
+  border-top-color:var(--color-secondary) !important;
+}
+.settings-page .btn, .admin-view .btn { border-radius:4px; }
+.settings-page .settings-page-title, .admin-view h1 { letter-spacing:-0.02em; }
+.admin-tile-mark { margin-bottom:6px; color:var(--color-secondary); font-weight:900; font-size:18px; letter-spacing:.08em; }
+@media (prefers-reduced-motion: reduce) {
+  .settings-page *, .settings-page *::before, .settings-page *::after,
+  .admin-view *, .admin-view *::before, .admin-view *::after {
+    animation-duration:0.01ms !important;
+    transition-duration:0.01ms !important;
+  }
+}

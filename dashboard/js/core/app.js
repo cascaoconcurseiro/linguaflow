@@ -630,10 +630,10 @@ class App {
   setTheme(theme) {
     if (theme === 'dark') {
       document.documentElement.setAttribute('data-theme', 'dark');
-      if (this.themeToggleBtn) this.themeToggleBtn.textContent = '☀️';
+      if (this.themeToggleBtn) this.themeToggleBtn.textContent = 'Usar tema claro';
     } else {
       document.documentElement.removeAttribute('data-theme');
-      if (this.themeToggleBtn) this.themeToggleBtn.textContent = '🌙';
+      if (this.themeToggleBtn) this.themeToggleBtn.textContent = 'Usar tema escuro';
     }
     localStorage.setItem('lf_theme', theme);
   }

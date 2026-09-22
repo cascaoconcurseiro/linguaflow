@@ -1,5 +1,34 @@
 # Handoff — LinguaFlow
 
+## Atualização da Issue #102 — Human Interface Pass
+
+**Data:** 2026-09-21
+**Branch:** `codex/102-human-interface-pass`
+**Worktree:** `C:\Users\Wesley\.codex\worktrees\issue-102-human-interface-pass\linguaflow`
+**Issue:** https://github.com/cascaoconcurseiro/linguaflow/issues/102
+
+### Feito nesta sessão
+
+- Popup, Home, barra superior e estudo receberam uma direção editorial mais contida: menos cápsulas, sombras, bordas arredondadas, gradientes, caixa por métrica e emoji como ícone.
+- A Home mantém a próxima ação como decisão dominante; métricas, memória, conquistas e missões ficaram em segundo plano e com separadores.
+- O estudo preserva o card contextual da Issue #98, mas usa rótulos verbais para ouvir/salvar, explicação contextual sem clipping e aprofundamento progressivo sem animação ornamental.
+- Estados de tema, popup, idioma, áudio, loading e feedback foram mantidos com nomes explícitos; `prefers-reduced-motion` continua coberto.
+- Adicionado `tests/human-interface-pass.test.mjs` e script `test:human-interface`.
+- Não houve alteração de schema, RPC, RLS ou Edge Function; Supabase não era necessário para este passe visual.
+- QA visual local do popup deslogado passou por navegador; Home autenticada e card real continuam pendentes porque a rota local exibiu login.
+
+### Próximo passo concreto
+
+Abrir a PWA com uma conta autenticada e revisar Home e Estudo em desktop e celular; conferir especialmente o topo da Home, o painel “Entender melhor”, os botões de áudio dos chunks e a barra superior em viewport estreita.
+
+### Bloqueios pendentes
+
+- `npm run lint:biome` não executou porque o binário `biome` não está disponível neste worktree.
+- Não houve validação real de Supabase/RLS/Edge Function; nenhuma migration foi necessária.
+- O branch está pronto para commit/PR, mas não deve ser mergeado/deployado antes da revisão e QA autenticada.
+
+---
+
 ## Atualização da Issue #98 — card contextual e experiência editorial
 
 **Data:** 2026-09-21

@@ -218,7 +218,7 @@ export async function renderStudy(container, app, params = {}) {
 
   if (dueQueue.length === 0) {
     const topicLabel = topicFilter ? (TOPIC_LABELS[topicFilter] || topicFilter) : null;
-    const emptyTitle = weakOnly ? 'Nenhum termo fraco vencido agora 🎉' : (topicLabel ? `Nada de "${topicLabel}" pra revisar agora 🎉` : 'Tudo feito por hoje! 🎉');
+    const emptyTitle = weakOnly ? 'Nenhum termo fraco vencido agora.' : (topicLabel ? `Nada de "${topicLabel}" para revisar agora.` : 'Tudo feito por hoje.');
     const emptyMsg = weakOnly ? 'Os termos que precisam de reforço ainda não chegaram ao horário de revisão. Eles voltarão no momento programado.' : (topicLabel ? `Todos os cards de ${topicLabel} já estão em dia.` : 'Você revisou todas as suas frases pendentes.');
     container.innerHTML = `
       <div class="study-layout" style="display: flex; height: 100%; width: 100%; justify-content: center; align-items: center; background-color: var(--color-bg-alt);">
@@ -251,7 +251,7 @@ export async function renderStudy(container, app, params = {}) {
             <span class="anki-counter-badge anki-badge-review" title="A Revisar"><strong id="anki-count-review">0</strong> a revisar</span>
           </div>
           <div class="anki-card-quick-actions">
-            <span class="anki-card-timer" id="anki-card-timer" title="Tempo neste card">⏱️ <span id="card-live-timer">00:00</span></span>
+            <span class="anki-card-timer" id="anki-card-timer" title="Tempo neste card"><span class="timer-label">Tempo</span> <span id="card-live-timer">00:00</span></span>
           </div>
         </div>
 
@@ -279,7 +279,7 @@ export async function renderStudy(container, app, params = {}) {
               <span id="pump-word-trans" style="font-weight: 600; font-size: 16px;"></span>
               <span id="pump-word-phon" style="font-size: 14px; opacity: 0.75; font-style: italic;"></span>
             </div>
-            <button type="button" id="pump-word-audio-btn" class="btn-iso-audio" style="background: none; border: 1px solid var(--color-border); border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 13px;" aria-label="Ouvir palavra isolada">🔊 Palavra</button>
+            <button type="button" id="pump-word-audio-btn" class="btn-iso-audio" style="background: none; border: 1px solid var(--color-border); border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 13px;" aria-label="Ouvir palavra isolada">Ouvir palavra</button>
           </div>
           <details id="iso-context-details" class="context-explanation-card hidden">
             <summary id="iso-context-summary">
@@ -290,7 +290,7 @@ export async function renderStudy(container, app, params = {}) {
           </details>
 
           <div class="study-front-actions" style="display: flex; gap: 10px; justify-content: center; align-items: center; margin-top: 16px; flex-wrap: wrap;">
-            <button id="hint-btn" type="button" class="btn btn-secondary hidden" style="font-size: 14px; padding: 8px 14px; border-radius: 8px;" title="Ver na frase antes de virar (Atalho: H)">💡 Ver na frase (H)</button>
+            <button id="hint-btn" type="button" class="btn btn-secondary hidden" style="font-size: 14px; padding: 8px 14px; border-radius: 8px;" title="Ver na frase antes de virar (Atalho: H)">Ver na frase (H)</button>
             <button id="reveal-btn" class="btn btn-primary reveal-btn">Revelar (Espaço)</button>
           </div>
         </div>
@@ -385,9 +385,9 @@ export async function renderStudy(container, app, params = {}) {
                 </div>` : ''}
                 <div class="study-card-actions">
                   <button id="btn-undo" style="display:none">Desfazer última (Z)</button>
-                  <button id="menu-quick-edit-btn">✏️ Editar card (E)</button>
-                  <button id="menu-card-info-btn">ℹ️ Informações FSRS (I)</button>
-                  <button id="menu-suspend-btn" title="Pausa as revisões deste card">⏸️ Pausar revisões (@)</button>
+                  <button id="menu-quick-edit-btn">Editar card (E)</button>
+                  <button id="menu-card-info-btn">Informações de intervalo (I)</button>
+                  <button id="menu-suspend-btn" title="Pausa as revisões deste card">Pausar revisões (@)</button>
                   <button id="improve-btn" class="hidden">Editar ou regenerar frase</button>
                   <button id="bury-btn" title="Adia este card para amanhã sem afetar o agendamento">Deixar para amanhã</button>
                 </div>
@@ -665,7 +665,7 @@ function renderSessionComplete(app) {
   rootContainer.innerHTML = `
     <div style="display:flex; height:100%; align-items:center; justify-content:center; background:var(--color-bg-alt);">
       <div style="text-align:center; padding:60px; background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-border); box-shadow:0 10px 40px rgba(0,0,0,0.08); max-width:500px;">
-        <div style="font-size:64px; margin-bottom:16px;">🎉</div>
+        <div class="study-empty-mark" aria-hidden="true">—</div>
         <h2 style="color:var(--color-primary); font-size:32px; margin-bottom:8px;">Sessão Concluída!</h2>
         <p style="color:var(--color-text-light); margin-bottom:32px;">Sua sessão de revisão foi registrada. Volte quando houver novas frases vencidas.</p>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:${laterCount ? '16px' : '32px'};">
@@ -682,7 +682,7 @@ function renderSessionComplete(app) {
             <div style="font-size:13px; color:var(--color-text-light);">Tempo</div>
           </div>
         </div>
-        ${laterCount ? `<p style="font-size:13px; color:var(--color-text-light); margin-bottom:24px;">💤 ${laterCount} ${laterCount === 1 ? 'card em aprendizado volta' : 'cards em aprendizado voltam'} mais tarde — o agendamento continua valendo.</p>` : ''}
+        ${laterCount ? `<p style="font-size:13px; color:var(--color-text-light); margin-bottom:24px;">${laterCount} ${laterCount === 1 ? 'card em aprendizado volta' : 'cards em aprendizado voltam'} mais tarde — o agendamento continua valendo.</p>` : ''}
         <button id="session-done-btn" class="btn btn-primary" style="padding:16px 48px; font-size:18px;">Continuar →</button>
       </div>
     </div>
@@ -703,7 +703,7 @@ function renderWaitingScreen(app, nextAt) {
   rootContainer.innerHTML = `
     <div style="display:flex; height:100%; align-items:center; justify-content:center; background:var(--color-bg-alt);">
       <div style="text-align:center; padding:60px; background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-border); max-width:500px;">
-        <div style="font-size:56px; margin-bottom:16px;">⏳</div>
+        <div class="study-empty-mark" aria-hidden="true">—</div>
         <h2 style="color:var(--color-text); font-size:26px; margin-bottom:8px;">Cards em aprendizado</h2>
         <p style="color:var(--color-text-light); margin-bottom:8px;">${pendingLearning.length} ${pendingLearning.length === 1 ? 'card volta' : 'cards voltam'} em</p>
         <div id="wait-countdown" style="font-size:40px; font-weight:900; color:var(--color-primary); margin-bottom:24px;">--:--</div>
@@ -783,7 +783,7 @@ async function loadNextCard(app) {
   if (hintBtn) {
     hintBtn.classList.add('hidden');
     hintBtn.disabled = false;
-    hintBtn.textContent = '💡 Ver na frase (H)';
+    hintBtn.textContent = 'Ver na frase (H)';
   }
   const hintEl = document.getElementById('pump-context-hint');
   if (hintEl) {
@@ -956,7 +956,7 @@ function renderFront(card, word, context) {
     const ctxEntry = (card._chunks || []).find(c => c.is_context && c.pt);
     const pt = (ctxEntry && ctxEntry.pt) || (card.wordData && card.wordData.translation) || '';
     sentenceEl.innerHTML = `
-      <div style="font-size:14px; font-weight:800; color:var(--color-secondary); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">🇧🇷 → 🇺🇸 Como se diz em inglês?</div>
+      <div style="font-size:14px; font-weight:800; color:var(--color-secondary); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Como se diz em inglês?</div>
       <div>${escapeHtml(pt || word)}</div>`;
     document.getElementById('reveal-btn').disabled = false;
     return;
@@ -993,7 +993,7 @@ function renderFront(card, word, context) {
   if (hintBtn && hasContextHint) {
     hintBtn.classList.remove('hidden');
     hintBtn.disabled = false;
-    hintBtn.textContent = '💡 Ver na frase (H)';
+    hintBtn.textContent = 'Ver na frase (H)';
     hintBtn.onclick = () => {
       showContextHint(card, context);
     };
@@ -1019,7 +1019,7 @@ function showContextHint(card, context) {
   if (presentationEvidence) presentationEvidence.helpCount = (presentationEvidence.helpCount || 0) + 1;
   const hintBtn = document.getElementById('hint-btn');
   if (hintBtn) {
-    hintBtn.textContent = '💡 Contexto visível';
+    hintBtn.textContent = 'Contexto visível';
     hintBtn.disabled = true;
   }
 }
@@ -1064,7 +1064,7 @@ function exerciseFinish(result, context, userTyped = '') {
   if (correct) {
     feedbackHtml = `
       <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(46, 204, 113, 0.15); color:var(--color-primary, #2ecc71); border:1px solid rgba(46, 204, 113, 0.3); padding:8px 20px; border-radius:999px; font-weight:900; font-size:18px; margin-bottom:14px;">
-        <span>✅</span> Escrita correta!
+        Escrita correta!
       </div>
       <div style="font-size:26px; font-weight:700; color:var(--color-text); margin-bottom:12px; line-height:1.4;">${escapeHtml(context)}</div>
       <div class="exercise-grade-prompt">Como foi? Escolha Difícil, Bom ou Fácil para continuar.</div>
@@ -1072,7 +1072,7 @@ function exerciseFinish(result, context, userTyped = '') {
   } else if (almost) {
     feedbackHtml = `
       <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(241, 196, 15, 0.15); color:var(--color-warning, #f39c12); border:1px solid rgba(241, 196, 15, 0.3); padding:8px 20px; border-radius:999px; font-weight:900; font-size:18px; margin-bottom:14px;">
-        <span>🟡</span> Quase lá! Pequeno erro de digitação
+        Quase lá. Pequeno erro de digitação
       </div>
       <div style="background:var(--color-bg-alt); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:16px; margin:0 auto 16px; text-align:left; max-width:540px;">
         <div style="font-size:12px; font-weight:800; color:var(--color-text-light); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Você digitou:</div>
@@ -1085,7 +1085,7 @@ function exerciseFinish(result, context, userTyped = '') {
   } else {
     feedbackHtml = `
       <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(231, 76, 60, 0.15); color:var(--color-danger, #e74c3c); border:1px solid rgba(231, 76, 60, 0.3); padding:8px 20px; border-radius:999px; font-weight:900; font-size:18px; margin-bottom:14px;">
-        <span>❌</span> Escrita incorreta
+        Escrita incorreta
       </div>
       <div style="background:var(--color-bg-alt); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:16px; margin:0 auto 16px; text-align:left; max-width:540px;">
         ${cleanTyped ? `
@@ -1139,7 +1139,7 @@ function renderBuilder(card, context) {
   } while (attempts < 10 && tokens.length > 2 && shuffled.join(' ') === tokens.join(' '));
 
   sentenceEl.innerHTML = `
-    <div style="font-size:14px; font-weight:800; color:var(--color-secondary); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">🧩 Monte a frase em inglês</div>
+    <div style="font-size:14px; font-weight:800; color:var(--color-secondary); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Monte a frase em inglês</div>
     ${pt ? `<div style="font-size:18px; color:var(--color-text-light); margin-bottom:16px;">"${escapeHtml(pt)}"</div>` : ''}
     <div id="ex-answer" role="status" aria-live="polite" aria-label="Sua resposta" style="min-height:52px; border-bottom:2px solid var(--color-border); margin-bottom:16px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding:8px;"></div>
     <div id="ex-bank" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:16px;">
@@ -1193,8 +1193,8 @@ function renderDictation(card, context) {
   document.getElementById('reveal-btn').classList.add('hidden');
 
   sentenceEl.innerHTML = `
-    <div style="font-size:14px; font-weight:800; color:var(--color-secondary); margin-bottom:16px; text-transform:uppercase; letter-spacing:0.5px;">🎧 Escute e escreva em inglês</div>
-    <button id="ex-replay" class="btn btn-secondary" style="padding:10px 24px; font-size:14px; margin-bottom:16px;">🔊 Ouvir de novo</button>
+    <div style="font-size:14px; font-weight:800; color:var(--color-secondary); margin-bottom:16px; text-transform:uppercase; letter-spacing:0.5px;">Escute e escreva em inglês</div>
+    <button id="ex-replay" class="btn btn-secondary" style="padding:10px 24px; font-size:14px; margin-bottom:16px;">Ouvir de novo</button>
     <label for="ex-input" class="sr-only">Digite a frase que você ouviu em inglês</label>
     <input id="ex-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Digite o que você ouviu…"
       style="width:100%; max-width:560px; padding:14px; font-size:18px; border:2px solid var(--color-border); border-radius:var(--radius-md); font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text); text-align:center;">
@@ -1402,7 +1402,7 @@ async function revealCard(options = {}) {
   const needsWordRepair = !wordEntry || !wordEntry.pt;
   if (needsContextRepair || needsWordRepair) {
     const phonEl = document.getElementById('pump-phonetics');
-    phonEl.textContent = '🗣️ Gerando pronúncia...';
+    phonEl.textContent = 'Gerando pronúncia…';
     phonEl.classList.remove('hidden');
 
     enrichCard(word, context).then(async (data) => {
@@ -1461,7 +1461,7 @@ function renderRichContextCard(wordData = {}, card = {}, word = '', context = ''
           </div>
           ${pronunciationPt ? `<div class="rich-pronunciation-br">Como soa: ${pronunciationPt}</div>` : ''}
         </div>
-        <button type="button" class="btn-iso-audio" data-word="${safeWord}" aria-label="Ouvir pronúncia de ${safeWord}">🔊</button>
+        <button type="button" class="btn-iso-audio" data-word="${safeWord}" aria-label="Ouvir pronúncia de ${safeWord}">Ouvir</button>
       </div>
 
       ${explanation ? `
@@ -1487,7 +1487,7 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
     && cardPresentationIds.get(card) === presentationId;
   const phonEl = document.getElementById('pump-phonetics');
   if (ctxEntry && ctxEntry.phon) {
-    phonEl.textContent = `🗣️ ${ctxEntry.phon}`;
+    phonEl.textContent = ctxEntry.phon;
     phonEl.classList.remove('hidden');
   } else {
     phonEl.classList.add('hidden');
@@ -1511,7 +1511,7 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
     const wordPhonEl = document.getElementById('pump-word-phon');
     if (wordValEl) wordValEl.textContent = word;
     if (wordTransEl) wordTransEl.textContent = activeWordTrans ? `${activeWordTrans}` : '';
-    if (wordPhonEl) wordPhonEl.textContent = activeWordPhon ? `🗣️ ${activeWordPhon}` : '';
+    if (wordPhonEl) wordPhonEl.textContent = activeWordPhon || '';
     wordAnswerEl.classList.remove('hidden');
 
     const wordAudioBtn = document.getElementById('pump-word-audio-btn');
@@ -1549,11 +1549,11 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
   mnemonicText.classList.add('hidden');
   mnemonicText.textContent = '';
   if (wordData.mnemonic) {
-    mnemonicText.textContent = `💡 ${wordData.mnemonic}`;
+    mnemonicText.textContent = wordData.mnemonic;
     mnemonicText.classList.remove('hidden');
-    mnemonicBtn.textContent = '💡 Gerar outro truque';
+    mnemonicBtn.textContent = 'Gerar outro truque';
   } else {
-    mnemonicBtn.textContent = '💡 Me dá um truque pra lembrar';
+    mnemonicBtn.textContent = 'Me dê um truque para lembrar';
   }
   mnemonicBtn.onclick = async () => {
     mnemonicBtn.disabled = true;
@@ -1561,9 +1561,9 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
     try {
       const translation = (wordEntry && wordEntry.pt) || wordData.translation || card.translation || '';
       const mnemonic = await generateMnemonic(word, translation, context);
-      mnemonicText.textContent = `💡 ${mnemonic}`;
+      mnemonicText.textContent = mnemonic;
       mnemonicText.classList.remove('hidden');
-      mnemonicBtn.textContent = '💡 Gerar outro truque';
+      mnemonicBtn.textContent = 'Gerar outro truque';
       if (wordData.id) {
         wordData.mnemonic = mnemonic;
         lfDb.updateWord(wordData.id, { mnemonic }).catch(() => {});
@@ -1571,7 +1571,7 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
     } catch (e) {
       console.warn('[Study] Mnemônico falhou:', e);
       exerciseApp?.showToast?.('Não consegui gerar um truque agora. Tente de novo.', 'error');
-      mnemonicBtn.textContent = '💡 Me dá um truque pra lembrar';
+      mnemonicBtn.textContent = 'Me dê um truque para lembrar';
     } finally {
       mnemonicBtn.disabled = false;
     }
@@ -1606,7 +1606,7 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
     const platform = escapeHtml(wordData.platform || 'YouTube');
     videoContainer.innerHTML = `
       <section class="video-context" aria-label="Contexto do vídeo">
-        <span class="video-context-label">🎬 Salvo de ${platform}</span>
+        <span class="video-context-label">Trecho salvo de ${platform}</span>
         <span class="video-context-title" title="${title}">${title}</span>
         <div class="video-context-actions">
           <button type="button" class="video-context-embed clip-control" id="play-saved-clip" aria-pressed="false">▶ Ouvir trecho (${clipDuration} s)</button>
@@ -1749,7 +1749,7 @@ function renderChunkCard(c, i) {
       ? '<div class="chunk-label">Unidade para guardar</div>'
       : '';
   return `
-    <div class="chunk-card" style="animation: slideIn 0.3s ease forwards; animation-delay: ${i * 0.1}s; opacity:0;">
+    <div class="chunk-card">
       ${label}
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
         <div style="flex:1;">
@@ -1758,8 +1758,8 @@ function renderChunkCard(c, i) {
           <div class="chunk-pt">${escapeHtml(c.pt || '')}</div>
         </div>
         <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0; margin-left:8px;">
-          <button class="chunk-action-btn chunk-audio-btn" data-text="${safeEng}" aria-label="Ouvir: ${safeEng}" title="Ouvir">🔊</button>
-          <button class="chunk-action-btn chunk-save-btn" data-text="${safeEng}" aria-label="Salvar áudio de: ${safeEng}" title="Salvar áudio (MP3)">⬇️</button>
+          <button class="chunk-action-btn chunk-audio-btn" data-text="${safeEng}" aria-label="Ouvir: ${safeEng}" title="Ouvir">Ouvir</button>
+          <button class="chunk-action-btn chunk-save-btn" data-text="${safeEng}" aria-label="Salvar áudio de: ${safeEng}" title="Salvar áudio (MP3)">Salvar</button>
         </div>
       </div>
     </div>
@@ -1779,7 +1779,7 @@ function attachChunkAudioListeners() {
       const text = btn.dataset.text;
       if (!text) return;
       const original = btn.textContent;
-      btn.textContent = '⏳';
+      btn.textContent = 'Salvando…';
       btn.disabled = true;
       try {
         await downloadAudio(text, { lang });
@@ -1798,7 +1798,7 @@ function resetChat() {
   chatBusy = false;
   const messagesEl = document.getElementById('grammar-messages');
   if (messagesEl) {
-    messagesEl.innerHTML = '<div class="chat-bubble-ai chat-placeholder">Revele o card e eu te explico a frase — depois pergunte o que quiser. 😉</div>';
+  messagesEl.innerHTML = '<div class="chat-bubble-ai chat-placeholder">Revele o card e eu te explico a frase — depois pergunte o que quiser.</div>';
   }
   const input = document.getElementById('grammar-input');
   const send = document.getElementById('grammar-send');
@@ -1913,7 +1913,7 @@ function updateYouglish(word) {
   if (!box) return;
   box.classList.remove('hidden');
   fallback.href = `https://youglish.com/pronounce/${encodeURIComponent(word)}/english`;
-  fallback.textContent = `📺 Abrir no YouGlish: “${word}”`;
+  fallback.textContent = `Abrir no YouGlish: “${word}”`;
   // Em iOS/Android o widget de terceiros pode ser bloqueado sem disparar erro.
   // O link oficial permanece sempre disponível; o embed continua sendo tentado.
   if (isMobileVoiceDevice()) fallback.classList.remove('hidden');
@@ -2120,11 +2120,11 @@ async function handleGrade(grade, app) {
       // XP real vem SÓ do backend (trigger no review_log). Nada de contador
       // paralelo em localStorage — era uma segunda fonte de verdade divergente.
       consecutiveCorrect++;
-      if (consecutiveCorrect === 5) app.showToast('🔥 5 em sequência! Continue!', 'info');
-      if (consecutiveCorrect === 10) app.showToast('🚀 Você está em chamas! 10 seguidos!', 'info');
+      if (consecutiveCorrect === 5) app.showToast('5 respostas certas em sequência. Continue.', 'info');
+      if (consecutiveCorrect === 10) app.showToast('10 respostas certas em sequência.', 'info');
     } else {
       consecutiveCorrect = 0;
-      showXPAnimation('Próxima vez! 💪', false);
+      showXPAnimation('Próxima vez.', false);
     }
 
     lastReview = {
@@ -2222,7 +2222,7 @@ async function handleUndo(app) {
   }
   pendingLearning = pendingLearning.filter(p => p.card.id !== card.id);
   dueQueue.unshift(restoredCard);
-  app.showToast('Revisão desfeita ↩️', 'info');
+  app.showToast('Revisão desfeita.', 'info');
   loadNextCard(app);
 }
 
@@ -2253,7 +2253,7 @@ async function buryCard(app) {
     updateUndoButton();
     if (dueQueue[0] === card) dueQueue.shift();
     else dueQueue = dueQueue.filter(queued => queued.id !== card.id);
-    app.showToast('Card adiado pra amanhã 💤', 'info');
+    app.showToast('Card adiado para amanhã.', 'info');
     loadNextCard(app);
   } catch (e) {
     console.error('Falha ao enterrar:', e);
@@ -2288,7 +2288,7 @@ async function suspendCurrentCard(app) {
     updateUndoButton();
     if (dueQueue[0] === card) dueQueue.shift();
     else dueQueue = dueQueue.filter(queued => queued.id !== card.id);
-    app.showToast('Card pausado (suspenso) ⏸️', 'info');
+    app.showToast('Card pausado.', 'info');
     loadNextCard(app);
   } catch (e) {
     console.error('Falha ao suspender:', e);
@@ -2348,7 +2348,7 @@ function openQuickEditModal(app) {
   dialog.innerHTML = `
     <div class="anki-modal-box">
       <div class="anki-modal-header">
-        <h3 id="quick-edit-title">✏️ Editar Card (Atalho E)</h3>
+        <h3 id="quick-edit-title">Editar card (atalho E)</h3>
         <button type="button" class="anki-modal-close" id="quick-edit-close" aria-label="Fechar">✕</button>
       </div>
       <form id="quick-edit-form" class="anki-modal-form">
@@ -2424,7 +2424,7 @@ function openQuickEditModal(app) {
       }
       const transEl = document.getElementById('pump-translation');
       if (transEl) transEl.textContent = newTrans;
-      app.showToast('Card atualizado com sucesso! ✅', 'info');
+      app.showToast('Card atualizado com sucesso.', 'info');
       closeDialog();
     } catch (err) {
       console.error('[QuickEdit] Erro ao salvar:', err);
@@ -2474,7 +2474,7 @@ async function openCardInfoModal(app) {
   dialog.innerHTML = `
     <div class="anki-modal-box card-info-modal-box">
       <div class="anki-modal-header">
-        <h3 id="card-info-title">ℹ️ Informações FSRS do Card (Atalho I)</h3>
+        <h3 id="card-info-title">Informações de intervalo (atalho I)</h3>
         <button type="button" class="anki-modal-close" id="card-info-close" aria-label="Fechar">✕</button>
       </div>
       <div class="card-info-content">
@@ -2878,6 +2878,53 @@ function injectStyles() {
       animation: spin 1s linear infinite;
     }
     @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    /* Issue #102: study is a quiet instrument, not a stack of promotional cards. */
+    .study-layout { background: var(--color-bg); }
+    .study-main { padding-top: 24px; }
+    .anki-session-counters { gap: 14px; }
+    .anki-counter-badge { padding: 3px 0; border: 0; border-radius: 0; background: transparent; color: var(--color-text-light); font-size: 11px; }
+    .anki-counter-badge strong { color: var(--color-text); font-size: 14px; }
+    .anki-card-timer { padding: 3px 0; border: 0; border-radius: 0; background: transparent; color: var(--color-text-light); }
+    .timer-label { font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
+    .media-container { min-height: 72px; border: 0; border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); border-radius: 0; background: transparent; }
+    .btn-play-audio { width: auto; height: auto; min-height: 44px; margin-left: 14px; padding: 8px 14px; border: 1px solid var(--color-secondary); border-radius: 5px; background: transparent; color: var(--color-secondary); font-size: 14px; }
+    .btn-play-audio:active { transform: none; border-bottom-width: 1px; }
+    .sentence-container { transition: opacity .12s ease; }
+    .sentence-text { max-width: 780px; font-size: clamp(26px, 4vw, 34px); letter-spacing: -.01em; }
+    .cloze-blur { border-radius: 3px; }
+    .reveal-btn { max-width: 360px; border-radius: 6px; box-shadow: none; transition: background-color .16s ease, border-color .16s ease; }
+    .reveal-btn:active:not(:disabled) { transform: none; box-shadow: none !important; }
+    .study-explore { margin-top: 28px; }
+    .study-resources > summary { border-top: 0; font-size: 14px; }
+    .study-card-menu > summary { width: 44px; height: 44px; border: 1px solid var(--color-border); border-radius: 5px; font-size: 20px; }
+    .study-card-menu-content { border-radius: 5px; box-shadow: 0 8px 24px rgba(27,45,54,.12); }
+    .study-card-actions button { border-radius: 4px; }
+    .study-tutor { border: 0; border-top: 1px solid var(--color-border); border-radius: 0; background: transparent; padding: 14px 0 0; }
+    .tutor-prompts button { min-height: 44px; border-radius: 4px; background: transparent; }
+    .context-explanation-card { border-left: 0; border-top: 2px solid var(--color-secondary); border-radius: 0; }
+    .context-explanation-card > summary { padding-left: 0; padding-right: 0; background: transparent; }
+    .context-explanation-card > summary:hover { background: transparent; }
+    #iso-context-explanation { padding-left: 0; padding-right: 0; background: transparent; }
+    .btn-iso-audio { width: auto; min-width: 44px; height: 44px; padding: 8px 10px; border-radius: 5px; background: transparent; font-size: 12px; transition: background-color .16s ease, border-color .16s ease; }
+    .btn-iso-audio:hover, .btn-iso-audio:active { background: var(--color-bg-alt); transform: none; }
+    .rich-quote-box { border-radius: 0; background: transparent; padding-left: 10px; }
+    #iso-mnemonic-text { border-radius: 4px; background: transparent; }
+    .chunk-card { border-left-width: 3px; border-radius: 0; padding: 16px 0 16px 14px; }
+    .chunk-pt { border-radius: 0; background: transparent; padding-left: 0; }
+    .chunk-action-btn { width: auto; height: 44px; min-width: 64px; border: 1px solid var(--color-border); border-radius: 4px; background: transparent; color: var(--color-secondary); font-size: 11px; font-weight: 800; }
+    .chunk-action-btn:hover { background: var(--color-bg-alt); }
+    .chunk-save-btn { background: transparent; color: var(--color-primary-dark, var(--color-primary)); }
+    #grammar-chat { border: 1px solid var(--color-border); border-radius: 4px; box-shadow: none; }
+    .chat-bubble-ai, .chat-bubble-user { border-radius: 4px; }
+    .video-context-frame, #study-yt-mount { border-radius: 4px; }
+    .video-context-actions .clip-control { border-radius: 4px; background: transparent; }
+    .learning-resource-video { background: transparent; border-color: var(--color-border); }
+    .study-empty-mark { color: var(--color-text-light); font-size: 36px; line-height: 1; margin-bottom: 16px; }
+    @media (prefers-reduced-motion: reduce) {
+      .sentence-container, .reveal-btn, .btn-iso-audio { transition: none !important; }
+      .wave-bar { animation: none !important; }
+    }
   `;
   document.head.appendChild(style);
 }

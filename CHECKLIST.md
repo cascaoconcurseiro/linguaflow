@@ -192,3 +192,17 @@
 - [ ] QA autenticada no navegador (bloqueada — sem navegador nesta sessão).
 - [ ] Validar `updateReaderProgress` na UI (banco pronto, UI sem entrada).
 - [ ] RLS real com dois usuários (bloqueado — sem ambiente Supabase real).
+
+## 14. Issue #102 — Human Interface Pass
+
+- [x] Criar Issue #102 e branch isolada `codex/102-human-interface-pass` baseada na implementação contextual da Issue #98.
+- [x] Auditar popup, barra superior, Home e Estudo procurando cartões homogêneos, cápsulas, emoji como ícone, gradientes e motion ornamental.
+- [x] Reduzir superfícies e badges sem remover estado, foco, alvo de toque ou ação principal.
+- [x] Substituir ações de áudio e status visuais por rótulos verbais no fluxo de estudo.
+- [x] Preservar o chunk contextual e o painel progressivo “Entender melhor”.
+- [x] Adicionar contrato `tests/human-interface-pass.test.mjs` e script `test:human-interface`.
+- [x] Executar `node --check`, `test:human-interface`, `test:product-ux`, `test:study-focus`, `test:design-system`, P0-A/B/C, P1-C, auth/lifecycle e build da extensão.
+- [x] `git diff --check` passou.
+- [ ] QA autenticada da Home e do estudo em navegador desktop/mobile.
+- [ ] Disponibilidade do Biome para executar o lint completo.
+- [ ] Revisão do PR e merge para a branch contextual/main.

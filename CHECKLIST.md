@@ -135,6 +135,20 @@
 - [ ] Navegador autenticado para reproduzir o hover de Histórias.
 - [ ] Não declarar produção concluída sem evidência desses itens.
 
+## 13. Issue #98 — card contextual e experiência editorial de revisão
+
+- [x] Criar Issue #98 e branch isolada `codex/98-contextual-card-experience`.
+- [x] Persistir ocorrência real, unidade de aprendizagem e variações no contrato JSONB `ai_chunks` existente.
+- [x] Enviar o contexto do vídeo para a geração de chunks na extensão e no dashboard Web.
+- [x] Tornar a explicação principal contextual, curta e sem badges técnicos no primeiro contato.
+- [x] Remover duplicidade da palavra isolada no painel de aprofundamento e manter o mnemônico acessível.
+- [x] Transformar o painel lateral em aprofundamento inline, sem estreitar o card principal.
+- [x] Adicionar contratos para merge, persistência e renderização dos chunks contextuais.
+- [x] Executar `npm run test:release`; gates funcionais passaram, mas o `release-smoke` ficou bloqueado por worktree sujo durante o comando e divergência preexistente de versão `3.0.49`/`3.0.51`.
+- [x] Gerar o ZIP local da extensão com 33 arquivos.
+- [ ] Validar o card em navegador autenticado com dados reais.
+- [ ] Validar Supabase/RLS/Edge Function ao vivo; nenhuma migration foi necessária nesta implementação.
+
 ## 11. Governança criada em 2026-09-19
 
 - [x] Criar Issue #77 para a investigação do hover de tradução em Histórias.

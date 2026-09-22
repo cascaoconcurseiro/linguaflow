@@ -1,10 +1,38 @@
 # Handoff — LinguaFlow
 
+## Atualização da Issue #98 — card contextual e experiência editorial
+
+**Data:** 2026-09-21
+**Branch:** `codex/98-contextual-card-experience`
+**Worktree:** `C:\Users\Wesley\.gemini\antigravity\scratch\linguaflow-issue-98`
+**Issue:** https://github.com/cascaoconcurseiro/linguaflow/issues/98
+
+### Feito nesta sessão
+
+- O contexto do vídeo passou a acompanhar a geração de chunks na extensão e no dashboard Web.
+- O contrato existente `words.ai_chunks` foi reaproveitado: `is_context` representa o trecho original e `is_learning_unit` representa a unidade lexical que merece ser guardada.
+- O salvamento inicial e o enriquecimento tardio preservam tradução, fonética, contexto e chunks sem exigir migration do Supabase.
+- O card revela primeiro uma explicação contextual editorial; CEFR, POS, tags e definição técnica deixaram de competir com a resposta.
+- O antigo painel lateral foi transformado em aprofundamento inline; vídeo, tutor, mnemônico, prática e fontes continuam disponíveis em sequência.
+- Foram adicionados contratos para merge, integração e persistência dos chunks contextuais.
+- `npm run test:release` executou os gates; testes funcionais passaram. O `release-smoke` ainda acusa worktree sujo durante a execução e divergência preexistente de build `3.0.49`/`3.0.51`.
+- `npm run build:extension` passou e gerou o ZIP local com 33 arquivos.
+
+### Próximo passo concreto
+
+Abrir a PWA local ou o preview da PR com uma conta autenticada, revelar um card salvo de vídeo e conferir em viewport desktop e móvel: frase completa, explicação contextual, ausência de corte lateral, ordem do aprofundamento e expansão do tutor.
+
+### Bloqueios pendentes
+
+- Não houve QA autenticada no navegador da branch; a rota local exibiu login.
+- Não houve validação ao vivo de Supabase, RLS ou Edge Function; não foi necessária migration.
+- O `release-smoke` permanece bloqueado pela divergência de versão já existente e pela exigência de worktree limpo.
+
 ## Última sessão
 
 **Data:** 2026-09-21  
 **Versão:** 3.0.51  
-**Branch:** `main` (todos os commits foram pushed para o GitHub)
+**Branch de referência:** `main` (histórico anterior; a Issue #98 está na branch isolada acima)
 
 ---
 

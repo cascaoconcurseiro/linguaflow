@@ -6,6 +6,7 @@ import { buildSessionQueue, isWeakCard, prioritizeDueLearning } from '../core/se
 import { deriveAdaptivePlan } from '../core/adaptiveLearning.js';
 import { loadVideo, playClip, replayClip, pausePlayer, setClipLoop, isClipPlaying, hidePlayer } from '../core/ytPlayer.js';
 import { hasSourcePhraseLeak } from '../../../utils/translation-quality.js';
+import { mergeContextualChunks } from '../../../utils/context-chunks.js';
 import { escapeHtml } from './viewState.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
@@ -251,9 +252,6 @@ export async function renderStudy(container, app, params = {}) {
           </div>
           <div class="anki-card-quick-actions">
             <span class="anki-card-timer" id="anki-card-timer" title="Tempo neste card">⏱️ <span id="card-live-timer">00:00</span></span>
-            <button type="button" class="anki-action-btn" id="btn-quick-edit" title="Editar card (E)" aria-label="Editar card (E)">✏️ <span class="action-btn-text">Editar (E)</span></button>
-            <button type="button" class="anki-action-btn" id="btn-card-info" title="Informações FSRS (I)" aria-label="Informações FSRS (I)">ℹ️ <span class="action-btn-text">Info (I)</span></button>
-            <button type="button" class="anki-action-btn" id="btn-card-suspend" title="Pausar este card (@)" aria-label="Pausar este card (@)">⏸️ <span class="action-btn-text">Pausar (@)</span></button>
           </div>
         </div>
 
@@ -285,7 +283,7 @@ export async function renderStudy(container, app, params = {}) {
           </div>
           <details id="iso-context-details" class="context-explanation-card hidden">
             <summary id="iso-context-summary">
-              <span><span aria-hidden="true">?</span> Por que significa isso nesta frase?</span>
+              <span><span aria-hidden="true">?</span> Por que esse sentido aparece aqui?</span>
               <span aria-hidden="true">⌄</span>
             </summary>
             <div id="iso-context-explanation" role="region" aria-labelledby="iso-context-summary"></div>
@@ -315,7 +313,7 @@ export async function renderStudy(container, app, params = {}) {
               <summary><span>Entender melhor</span><span aria-hidden="true">⌄</span></summary>
               <div class="study-resources-content">
                 <div class="study-resource-panel-header">
-                  <strong>Entender melhor</strong>
+                  <strong>Aprofundar o card</strong>
                   <button id="close-study-resources" type="button">Fechar</button>
                 </div>
                 <section id="video-resource-section" class="learning-resource-section learning-resource-video hidden" aria-labelledby="video-resource-title">
@@ -326,20 +324,12 @@ export async function renderStudy(container, app, params = {}) {
                   <div id="study-yt-mount" class="hidden" aria-label="Trecho do vídeo salvo"></div>
                 </section>
 
-                <section class="learning-resource-section" aria-labelledby="understand-resource-title">
-                  <p class="learning-resource-kicker">ENTENDER</p>
-                  <h3 id="understand-resource-title">Significado nesta frase</h3>
-                  <div id="isolated-word-box" class="isolated-word-summary hidden">
-                    <div id="iso-word"></div>
-                    <div id="iso-trans"></div>
-                    <div id="iso-phonetics"></div>
-                    <div id="iso-mnemonic-box">
-                      <button id="iso-mnemonic-btn">Criar um truque para lembrar</button>
-                      <div id="iso-mnemonic-text" class="hidden"></div>
-                    </div>
-                  </div>
+                <section class="learning-resource-section" aria-labelledby="tutor-resource-title">
+                  <p class="learning-resource-kicker">PERGUNTAR</p>
+                  <h3 id="tutor-resource-title">Ficou alguma dúvida?</h3>
+                  <p class="learning-resource-description">Pergunte sobre o uso desta fala, sem sair do card.</p>
                   <details id="tutor-details" class="study-tutor">
-                    <summary>Explicar com o tutor <span>(sob demanda)</span></summary>
+                    <summary>Conversar sobre a frase <span>(sob demanda)</span></summary>
                     <div class="tutor-prompts" aria-label="Perguntas sugeridas">
                       <button type="button" data-tutor-prompt="Por que esta palavra foi usada nesta frase?" disabled>Por que usaram assim?</button>
                       <button type="button" data-tutor-prompt="Explique esta expressão de forma simples e contextual." disabled>Explique a expressão</button>
@@ -355,6 +345,10 @@ export async function renderStudy(container, app, params = {}) {
                       </form>
                     </div>
                   </details>
+                  <div id="iso-mnemonic-box" class="study-mnemonic">
+                    <button id="iso-mnemonic-btn" type="button">Criar um truque para lembrar</button>
+                    <div id="iso-mnemonic-text" class="hidden"></div>
+                  </div>
                 </section>
 
                 <section class="learning-resource-section" aria-labelledby="practice-resource-title">
@@ -563,6 +557,7 @@ function normChunk(c) {
     pt: c.pt || c.portugues || c.portuguese || '',
     phon: c.phon || c.fonetica || c.phonetics || '',
     is_context: !!c.is_context,
+    is_learning_unit: !!c.is_learning_unit || !!c.is_target,
     is_word: !!c.is_word,
   };
 }
@@ -596,11 +591,11 @@ async function persistChunks(card, chunks, context, { updateRuntime = true } = {
   await lfDb.saveWord(wordPayload).catch(console.error);
 }
 
-async function generateChunksForWord(word) {
+async function generateChunksForWord(word, context = '') {
   if (isExtension) {
     const res = await new Promise((resolve) => {
       try {
-        chrome.runtime.sendMessage({ action: 'ai_generate_chunks', word }, (r) => resolve(r));
+        chrome.runtime.sendMessage({ action: 'ai_generate_chunks', word, context }, (r) => resolve(r));
       } catch {
         resolve(null);
       }
@@ -609,7 +604,7 @@ async function generateChunksForWord(word) {
     return [];
   }
   try {
-    const chunks = await generateChunksWeb(word);
+    const chunks = await generateChunksWeb(word, context);
     return chunks.map(normChunk).filter(c => c.eng);
   } catch (e) {
     console.warn('[Study] Falha ao gerar chunks na web:', e);
@@ -824,7 +819,6 @@ async function loadNextCard(app) {
   contextDetails.classList.add('hidden');
   contextDetails.open = false;
   contextExplanation.textContent = '';
-  document.getElementById('isolated-word-box').classList.add('hidden');
   document.getElementById('saved-video-context').replaceChildren();
   document.getElementById('video-resource-section')?.classList.add('hidden');
   document.getElementById('study-yt-mount').classList.add('hidden');
@@ -844,16 +838,22 @@ async function loadNextCard(app) {
   // que restava — esperar a IA gerar chunks antes de mostrar). A geração roda
   // em segundo plano e atualiza a frente se o usuário ainda estiver no card.
   if (chunks.filter(c => !c.is_context && !c.is_word).length === 0 || looksBroken(context, word)) {
-    generateChunksForWord(word).then(async (generated) => {
+    generateChunksForWord(word, context).then(async (generated) => {
       if (currentCard !== card || generated.length === 0) return;
 
-      const specials = (card._chunks || []).filter(c => c.is_context || c.is_word);
-      let newChunks = [...specials, ...generated];
+      const specials = (card._chunks || []).filter(c => c.is_context || c.is_word || c.is_learning_unit);
+      let newChunks = mergeContextualChunks([...specials, ...generated], {
+        context,
+        learningUnit: generated.find(c => c.is_learning_unit)?.eng || word,
+        learningTranslation: generated.find(c => c.is_learning_unit)?.pt || '',
+        learningPhonetic: generated.find(c => c.is_learning_unit)?.phon || '',
+      });
       let newContext = card._ctx;
       if (looksBroken(newContext, word)) {
-        newContext = generated[0].eng;
+        newContext = generated.find(c => c.is_context)?.eng || generated[0].eng;
         newChunks = newChunks.filter(c => !c.is_context);
-        newChunks.unshift({ ...generated[0], is_context: true });
+        const generatedContext = generated.find(c => c.is_context) || generated[0];
+        newChunks.unshift({ ...generatedContext, eng: newContext, is_context: true });
       }
       // O prompt exibido é imutável até a avaliação. O enriquecimento é salvo
       // para o próximo encontro com o card, mas não troca texto, chunks nem
@@ -1226,6 +1226,7 @@ async function improveSentence(app) {
   if (!card) return;
   const wordData = card.wordData || {};
   const word = wordData.word || card.word || '';
+  const existingContext = wordData.context_sentence || card._ctx || card.context || '';
 
   const btn = document.getElementById('improve-btn');
   if (btn) {
@@ -1235,7 +1236,7 @@ async function improveSentence(app) {
 
   let generated = [];
   try {
-    generated = await generateChunksForWord(word);
+    generated = await generateChunksForWord(word, existingContext);
   } catch (err) {
     console.warn('[Study] improveSentence falhou:', err);
   } finally {
@@ -1251,9 +1252,17 @@ async function improveSentence(app) {
     return;
   }
 
-  const context = generated[0].eng;
-  let chunks = (card._chunks || []).filter(c => !c.is_context && !c.is_word);
-  chunks = [{ ...generated[0], is_context: true }, ...generated.slice(1), ...chunks];
+  const generatedContext = generated.find(c => c.is_context) || generated[0];
+  const generatedUnit = generated.find(c => c.is_learning_unit);
+  const context = generatedContext.eng || existingContext;
+  const chunks = mergeContextualChunks([...(card._chunks || []), ...generated], {
+    context,
+    contextTranslation: generatedContext.pt || '',
+    contextPhonetic: generatedContext.phon || '',
+    learningUnit: generatedUnit?.eng || word,
+    learningTranslation: generatedUnit?.pt || '',
+    learningPhonetic: generatedUnit?.phon || '',
+  });
   card._ctx = context;
   card._chunks = chunks;
   await persistChunks(card, chunks, context);
@@ -1262,7 +1271,8 @@ async function improveSentence(app) {
   const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   document.getElementById('pump-sentence').innerHTML = renderHighlightedText(context, escapedWord);
   const ctxEntry = chunks.find(c => c.is_context) || generated[0];
-  const wordEntry = chunks.find(c => c.is_word || c.eng?.toLowerCase() === word.toLowerCase());
+  const wordEntry = chunks.find(c => c.is_learning_unit)
+    || chunks.find(c => c.is_word || c.eng?.toLowerCase() === word.toLowerCase());
   renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { renderVideo: false });
   renderChunksList(chunks, context);
   // O trecho salvo pertence à frase anterior; escondê-lo evita ensinar uma
@@ -1369,7 +1379,8 @@ async function revealCard(options = {}) {
   // 2. Fonética e tradução DA FRASE DO CARD (não de outra frase — bug antigo)
   let ctxEntry = chunks.find(c => c.is_context && c.eng.toLowerCase() === context.toLowerCase())
     || chunks.find(c => !c.is_word && c.eng.toLowerCase() === context.toLowerCase());
-  let wordEntry = chunks.find(c => c.is_word)
+  let wordEntry = chunks.find(c => c.is_learning_unit)
+    || chunks.find(c => c.is_word)
     || chunks.find(c => c.eng.toLowerCase() === word.toLowerCase());
 
   if (wordEntry?.pt && wordData.id && wordData.translation !== wordEntry.pt) {
@@ -1426,40 +1437,8 @@ async function revealCard(options = {}) {
 function renderRichContextCard(wordData = {}, card = {}, word = '', context = '', translation = '') {
   const safeWord = escapeHtml(word || wordData.word || card.word || '');
   const trans = escapeHtml(translation || wordData.translation || card.translation || '');
-  const def = escapeHtml(wordData.definition || '');
   const explanation = String(wordData.explanation || '').trim();
-  const phonetic = escapeHtml(wordData.phonetic || '');
   const pronunciationPt = escapeHtml(wordData.pronunciation_pt || '');
-  const level = String(wordData.level || '').toUpperCase().trim();
-  const cefrNames = {
-    A1: 'INICIANTE',
-    A2: 'BÁSICO',
-    B1: 'INTERMEDIÁRIO',
-    B2: 'INTERMEDIÁRIO ALTO',
-    C1: 'AVANÇADO',
-    C2: 'PROFICIÊNCIA',
-  };
-  const cefrLabel = cefrNames[level] ? `CEFR ${level} · ${cefrNames[level]}` : (level ? `CEFR ${level}` : '');
-
-  const posMap = {
-    noun: 'SUBSTANTIVO',
-    verb: 'VERBO',
-    adjective: 'ADJETIVO',
-    adverb: 'ADVÉRBIO',
-    preposition: 'PREPOSIÇÃO',
-    conjunction: 'CONJUNÇÃO',
-    pronoun: 'PRONOME',
-    interjection: 'INTERJEIÇÃO',
-  };
-  const categoryRaw = String(wordData.category || '').toLowerCase();
-  const posName = posMap[categoryRaw] || (categoryRaw ? categoryRaw.toUpperCase() : '');
-
-  let tagsList = Array.isArray(wordData.tags) ? wordData.tags : [];
-  if (typeof wordData.tags === 'string' && wordData.tags) {
-    tagsList = wordData.tags.split(',').map(t => t.trim()).filter(Boolean);
-  }
-
-  // Quote highlight
   const safeContext = escapeHtml(context || wordData.context_sentence || '');
   let highlightedContext = safeContext;
   if (safeWord && safeContext) {
@@ -1478,25 +1457,16 @@ function renderRichContextCard(wordData = {}, card = {}, word = '', context = ''
           <div class="rich-word-title-row">
             <span class="rich-word-title">${safeWord}</span>
             <span class="rich-arrow" aria-hidden="true">→</span>
-            <span class="rich-trans-text">${trans || '—'}</span>
-            ${cefrLabel ? `<span class="rich-badge-cefr">${cefrLabel}</span>` : ''}
+            <span class="rich-trans-text">${trans || 'Sentido contextual'}</span>
           </div>
-          <div class="rich-word-sub-row">
-            ${phonetic ? `<span class="rich-phonetic">${phonetic}</span>` : ''}
-            ${pronunciationPt ? `
-              <span class="rich-pronunciation-br">
-                <span class="rich-br-tag">BR</span> ${pronunciationPt}
-              </span>
-            ` : ''}
-            ${posName ? `<span class="rich-badge-pos">${posName}</span>` : ''}
-            ${def ? `<span class="rich-def-text">(${def})</span>` : ''}
-          </div>
+          ${pronunciationPt ? `<div class="rich-pronunciation-br">Como soa: ${pronunciationPt}</div>` : ''}
         </div>
         <button type="button" class="btn-iso-audio" data-word="${safeWord}" aria-label="Ouvir pronúncia de ${safeWord}">🔊</button>
       </div>
 
       ${explanation ? `
         <div class="rich-explain-box">
+          <div class="rich-context-label">O sentido aqui</div>
           <div class="rich-explain-body">${escapeHtml(explanation).replace(/\n/g, '<br>')}</div>
         </div>
       ` : ''}
@@ -1554,21 +1524,13 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
     }
   }
 
-  const isoBox = document.getElementById('isolated-word-box');
-  document.getElementById('iso-word').textContent = word;
-  document.getElementById('iso-trans').textContent = (wordEntry && wordEntry.pt) || wordData.translation || card.translation || '';
-  const isoPhon = document.getElementById('iso-phonetics');
-  if (wordEntry && wordEntry.phon) {
-    isoPhon.textContent = `🗣️ Como falam: ${wordEntry.phon}`;
-    isoPhon.style.display = 'inline-block';
-  } else {
-    isoPhon.style.display = 'none';
-  }
   const contextDetails = document.getElementById('iso-context-details');
   const contextExplanation = document.getElementById('iso-context-explanation');
   const savedExplanation = String(wordData.explanation || '').trim();
   contextExplanation.textContent = savedExplanation;
-  contextDetails.open = false;
+  // A explicação essencial fica visível no verso; o aprofundamento adicional
+  // continua progressivo no painel abaixo.
+  contextDetails.open = Boolean(savedExplanation);
   contextDetails.classList.toggle('hidden', !savedExplanation);
   if (savedExplanation) {
     const activeTrans = (wordEntry && wordEntry.pt) || wordData.translation || card.translation || '';
@@ -1579,8 +1541,6 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
       playNaturalAudio(word, { lang });
     });
   }
-  isoBox.classList.remove('hidden');
-
   // Onda 3.3: mnemônico por IA — gerado uma vez e salvo no card
   // (words.mnemonic), pra não custar uma chamada de IA toda vez que o
   // aluno reabre a mesma palavra.
@@ -1760,7 +1720,10 @@ function renderChunksList(chunks, context) {
   const container = document.getElementById('chunks-container');
   const visible = chunks.filter(c => !c.is_word);
   // A frase do card sempre primeiro
-  visible.sort((a, b) => (b.is_context ? 1 : 0) - (a.is_context ? 1 : 0));
+  visible.sort((a, b) => {
+    const rank = (chunk) => chunk.is_context ? 0 : chunk.is_learning_unit ? 1 : 2;
+    return rank(a) - rank(b);
+  });
 
   if (visible.length === 0) {
     container.innerHTML = `<div class="chunk-card" style="opacity:1;"><div class="chunk-en">${escapeHtml(context)}</div></div>`;
@@ -1780,7 +1743,11 @@ function renderChunksList(chunks, context) {
 
 function renderChunkCard(c, i) {
   const safeEng = escapeHtml(c.eng || '');
-  const label = c.is_context ? '<div style="font-size:11px; font-weight:800; color:var(--color-primary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">📌 A frase do card</div>' : '';
+  const label = c.is_context
+    ? '<div class="chunk-label">Trecho original</div>'
+    : c.is_learning_unit
+      ? '<div class="chunk-label">Unidade para guardar</div>'
+      : '';
   return `
     <div class="chunk-card" style="animation: slideIn 0.3s ease forwards; animation-delay: ${i * 0.1}s; opacity:0;">
       ${label}
@@ -2457,11 +2424,6 @@ function openQuickEditModal(app) {
       }
       const transEl = document.getElementById('pump-translation');
       if (transEl) transEl.textContent = newTrans;
-      const isoWord = document.getElementById('iso-word');
-      if (isoWord) isoWord.textContent = newWord;
-      const isoTrans = document.getElementById('iso-trans');
-      if (isoTrans) isoTrans.textContent = newTrans;
-
       app.showToast('Card atualizado com sucesso! ✅', 'info');
       closeDialog();
     } catch (err) {
@@ -2743,18 +2705,18 @@ function injectStyles() {
 
     .study-explore { width:min(100%, 720px); margin-top:20px; }
     .study-explore-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:start; }
-    .study-resources { width:100%; border:2px solid var(--color-border); border-radius:var(--radius-lg); background:var(--color-surface); }
-    .study-resources > summary { min-height:52px; padding:0 18px; cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between; color:var(--color-text); font-weight:900; }
+    .study-resources { width:100%; border:0; border-top:1px solid var(--color-border); background:transparent; }
+    .study-resources > summary { min-height:52px; padding:0 4px; cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between; color:var(--color-text); font-weight:800; }
     .study-resources > summary::-webkit-details-marker { display:none; }
     .study-resources > summary > span:last-child { color:var(--color-text-light); transition:transform .15s ease; }
     .study-resources[open] > summary > span:last-child { transform:rotate(180deg); }
-    .study-resources-content { position:fixed; z-index:42; right:0; top:var(--topbar-height); bottom:0; width:min(440px, 100vw); padding:0 20px 28px; overflow-y:auto; border-left:1px solid var(--color-border); background:var(--color-surface); box-shadow:-18px 0 50px rgba(0,0,0,.14); }
-    .study-resource-panel-header { position:sticky; top:0; z-index:2; min-height:58px; margin:0 -20px 18px; padding:0 18px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--color-border); background:var(--color-surface); }
+    .study-resources-content { width:100%; max-width:720px; box-sizing:border-box; margin:0 auto; padding:0 0 28px; overflow:visible; background:transparent; }
+    .study-resource-panel-header { min-height:52px; margin:0 0 12px; padding:0; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--color-border); background:transparent; }
     .study-resource-panel-header strong { font-size:18px; }
     .study-resource-panel-header button { min-height:44px; border:0; background:transparent; color:var(--color-secondary); font-weight:900; cursor:pointer; }
-    .learning-resource-section { margin:0 0 18px; padding:18px; border:1px solid var(--color-border); border-radius:16px; background:var(--color-surface); }
+    .learning-resource-section { margin:0 0 18px; padding:18px 0; border:0; border-top:1px solid var(--color-border); background:transparent; }
     .learning-resource-section h3 { margin:4px 0 6px; font-size:20px; }
-    .learning-resource-kicker { margin:0; color:var(--color-primary); font-size:11px; font-weight:900; letter-spacing:.1em; }
+    .learning-resource-kicker { margin:0; color:var(--color-primary); font-size:11px; font-weight:800; letter-spacing:.08em; }
     .learning-resource-description { margin:0 0 14px; color:var(--color-text-light); font-size:13px; line-height:1.5; }
     .learning-resource-video { border-color:var(--color-secondary); background:color-mix(in srgb, var(--color-secondary) 6%, var(--color-surface)); }
     .study-session-context { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:16px 0; padding:10px 12px; border-radius:10px; background:var(--color-bg-alt); color:var(--color-text-light); font-size:13px; }
@@ -2766,28 +2728,23 @@ function injectStyles() {
     .study-card-actions { display:grid; gap:4px; }
     .study-card-actions button { width:100%; text-align:left; padding:8px 10px; border-radius:9px; }
     .study-card-actions button:hover, .study-card-actions button:focus-visible { background:var(--color-bg-alt); }
-    .study-tutor { width:100%; box-sizing:border-box; margin:14px auto 0; text-align:left; border:1px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-surface); padding:12px; }
+    .study-tutor { width:100%; box-sizing:border-box; margin:14px auto 0; text-align:left; border:1px solid var(--color-border); border-radius:10px; background:var(--color-surface); padding:12px; }
     .study-tutor summary { cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px; }
     .study-tutor summary::-webkit-details-marker { display:none; }
     .study-tutor summary span { font-size:12px; color:var(--color-text-light); font-weight:600; }
     .tutor-prompts { display:flex; flex-wrap:wrap; gap:7px; margin:12px 0; }
     .tutor-prompts button { min-height:40px; padding:7px 10px; border:1px solid var(--color-border); border-radius:999px; background:var(--color-bg-alt); color:var(--color-text); font:800 12px var(--font-main); cursor:pointer; }
     .tutor-prompts button:disabled { opacity:.55; cursor:default; }
-    .isolated-word-summary { margin:12px 0; padding:14px; border-radius:14px; background:var(--color-bg-alt); text-align:left; }
-    #iso-word { font-size:22px; font-weight:900; color:var(--color-primary); }
-    #iso-trans { margin-top:3px; font-size:17px; font-weight:800; color:var(--color-text); }
-    #iso-phonetics { margin-top:5px; color:var(--color-secondary); font-style:italic; }
-    .context-explanation-card { width:100%; max-width:720px; box-sizing:border-box; margin:12px auto 0; border:1.5px solid var(--color-border); border-radius:14px; background:var(--color-surface); text-align:left; overflow:hidden; box-shadow:0 4px 16px rgba(0,0,0,0.04); transition:border-color 0.2s ease, box-shadow 0.2s ease; }
-    .context-explanation-card:hover { border-color:var(--color-secondary); }
-    .context-explanation-card[open] { border-color:var(--color-secondary); box-shadow:0 6px 20px rgba(0,0,0,0.06); }
-    .context-explanation-card > summary { min-height:42px; padding:10px 16px; display:flex; align-items:center; justify-content:space-between; gap:10px; cursor:pointer; list-style:none; color:var(--color-text); font-size:13.5px; font-weight:800; background:var(--color-bg-alt); transition:background-color 0.15s ease; user-select:none; }
+    .study-mnemonic { margin-top:14px; }
+    .context-explanation-card { width:100%; max-width:720px; box-sizing:border-box; margin:12px auto 0; border-left:3px solid var(--color-secondary); background:transparent; text-align:left; overflow:hidden; }
+    .context-explanation-card > summary { min-height:42px; padding:8px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px; cursor:pointer; list-style:none; color:var(--color-text); font-size:13.5px; font-weight:800; background:var(--color-bg-alt); user-select:none; }
     .context-explanation-card > summary::-webkit-details-marker { display:none; }
     .context-explanation-card > summary:hover { background:color-mix(in srgb, var(--color-secondary) 8%, var(--color-bg-alt)); }
     .context-explanation-card[open] > summary { border-bottom:1px solid var(--color-border); }
     .context-explanation-card > summary > span:first-child { display:inline-flex; align-items:center; gap:8px; color:var(--color-secondary); }
     .context-explanation-card > summary > span:last-child { color:var(--color-text-light); font-size:15px; font-weight:900; transition:transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
     .context-explanation-card[open] > summary > span:last-child { transform:rotate(180deg); }
-    #iso-context-explanation { padding:12px 16px; color:var(--color-text); font-size:13.5px; line-height:1.55; background:var(--color-surface); }
+    #iso-context-explanation { padding:12px 14px 12px 16px; color:var(--color-text); font-size:14px; line-height:1.6; background:var(--color-surface); }
     .rich-word-container { display:flex; flex-direction:column; gap:8px; }
     .rich-word-header { display:flex; align-items:center; justify-content:space-between; gap:10px; }
     .rich-word-meta { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
@@ -2795,17 +2752,12 @@ function injectStyles() {
     .rich-word-title { font-size:17px; font-weight:900; color:var(--color-text); line-height:1.2; }
     .rich-arrow { color:var(--color-text-light); font-size:13px; font-weight:700; opacity:0.7; }
     .rich-trans-text { font-size:17px; font-weight:800; color:var(--color-primary); line-height:1.2; }
-    .rich-badge-cefr { display:inline-block; border:1px solid rgba(202,138,4,0.3); background:rgba(202,138,4,0.12); color:#ca8a04; font-size:10px; font-weight:800; border-radius:999px; padding:1px 8px; letter-spacing:0.04em; }
-    .rich-word-sub-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-    .rich-phonetic { font-size:12px; color:var(--color-text-light); font-family:monospace; }
-    .rich-pronunciation-br { font-size:11px; font-weight:700; color:#d97706; font-family:monospace; background:rgba(217,119,6,0.12); padding:1px 6px; border-radius:5px; border:1px solid rgba(217,119,6,0.25); display:inline-flex; align-items:center; gap:3px; }
-    .rich-br-tag { font-size:8.5px; font-weight:900; opacity:0.85; }
-    .rich-badge-pos { background:rgba(28,176,246,0.1); color:var(--color-secondary); border:1px solid rgba(28,176,246,0.25); font-size:9.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; padding:1px 6px; border-radius:5px; }
-    .rich-def-text { font-size:12px; color:var(--color-text-light); font-style:italic; line-height:1.4; }
+    .rich-pronunciation-br { font-size:12px; color:var(--color-text-light); line-height:1.4; }
     .btn-iso-audio { width:32px; height:32px; background:rgba(28,176,246,0.1); border:1px solid rgba(28,176,246,0.25); border-radius:50%; color:var(--color-secondary); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; transition:transform 0.1s, background-color 0.15s; }
     .btn-iso-audio:hover { background:rgba(28,176,246,0.2); transform:scale(1.05); }
     .btn-iso-audio:active { transform:scale(0.95); }
-    .rich-explain-box { background:color-mix(in srgb, var(--color-secondary) 7%, var(--color-surface)); border:1px solid color-mix(in srgb, var(--color-secondary) 20%, var(--color-border)); border-radius:10px; padding:10px 12px; }
+    .rich-explain-box { padding:8px 0 2px; }
+    .rich-context-label { margin-bottom:4px; color:var(--color-secondary); font-size:11px; font-weight:900; letter-spacing:.06em; text-transform:uppercase; }
     .rich-explain-body { font-size:13.5px; color:var(--color-text); line-height:1.55; }
     .rich-quote-box { background:var(--color-bg-alt); border-left:3px solid var(--color-secondary); border-radius:0 8px 8px 0; padding:8px 12px; font-size:13px; color:var(--color-text-light); line-height:1.5; font-style:italic; }
     .rich-quote-label { font-weight:700; font-style:normal; color:var(--color-secondary); font-size:11px; text-transform:uppercase; letter-spacing:.04em; margin-right:4px; }
@@ -2829,8 +2781,8 @@ function injectStyles() {
     .chunk-more > summary { min-height:44px; display:flex; align-items:center; color:var(--color-secondary); font-weight:900; cursor:pointer; }
     .chunk-more > div { display:flex; flex-direction:column; gap:16px; padding-top:8px; }
 
-    .chunk-card { background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); position: relative; overflow: hidden;}
-    .chunk-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--color-primary);}
+    .chunk-card { background: var(--color-surface); border: 1px solid var(--color-border); border-left:4px solid var(--color-primary); border-radius:4px 10px 10px 4px; padding:16px 18px; position:relative; overflow:hidden;}
+    .chunk-label { margin-bottom:6px; color:var(--color-primary); font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
     .chunk-en { font-weight: 900; font-size: 18px; color: var(--color-text); margin-bottom: 6px; }
     .chunk-br { font-size: 15px; color: var(--color-secondary); font-weight: 800; margin-bottom: 8px; }
     .chunk-pt { font-size: 14px; color: var(--color-text-light); font-style: italic; background: var(--color-bg-alt); display: inline-block; padding: 4px 10px; border-radius: 12px;}
@@ -2876,9 +2828,6 @@ function injectStyles() {
     .exercise-grade-prompt { margin-top:14px; color:var(--color-text-light); font-size:15px; font-weight:700; }
     #bury-btn, #btn-undo, .clip-control, .ex-chip { min-height:44px; }
 
-    @media (min-width: 1100px) {
-      .study-layout:has(.study-resources[open]) .study-main { padding-right:460px; }
-    }
 
     @media (prefers-reduced-motion: reduce) {
       .wave-bar { animation:none !important; }
@@ -2892,8 +2841,8 @@ function injectStyles() {
       .study-layout { min-height:100dvh; }
       .study-main { min-height:calc(100dvh - var(--topbar-height)); padding:18px 14px 28px; justify-content:flex-start; }
       .study-layout.is-revealed .study-main { padding-bottom:calc(92px + env(safe-area-inset-bottom)); }
-      .study-resources-content { top:auto; left:0; right:0; bottom:calc(82px + env(safe-area-inset-bottom)); width:100%; height:min(72dvh, 680px); padding:0 14px 22px; border-left:0; border-top:1px solid var(--color-border); border-radius:22px 22px 0 0; box-shadow:0 -18px 50px rgba(0,0,0,.18); }
-      .study-resource-panel-header { margin-left:-14px; margin-right:-14px; }
+      .study-resources-content { width:100%; max-width:none; padding:0 0 22px; }
+      .study-resource-panel-header { margin-left:0; margin-right:0; }
       .study-card-menu-content { position:fixed; left:10px; right:10px; top:auto; bottom:calc(82px + env(safe-area-inset-bottom)); width:auto; }
       .grading-buttons { position:fixed; z-index:20; left:0; right:0; bottom:0; margin:0; padding:10px 12px calc(10px + env(safe-area-inset-bottom)); background:var(--color-surface); border-top:2px solid var(--color-border); box-shadow:0 -8px 24px rgba(0,0,0,.10); }
       .grading-row { grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; max-width:680px; margin:0 auto; }

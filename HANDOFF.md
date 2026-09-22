@@ -207,3 +207,9 @@ Todos os testes de `test:release` continuam verdes.
 - QA autenticada no navegador não executada nesta sessão.
 - Schema/RLS remoto, Edge Functions e observabilidade real sem validação ao vivo.
 - Confirmação independente de `git ls-remote` bloqueada por Schannel (não impede os pushes — GitHub aceitou normalmente).
+
+## 2026-09-22 — Issue #114 / codex/114-editorial-light
+
+Direção branca/editorial escolhida pelo dono aplicada como camada CSS compartilhada e ajustes mínimos de markup. Revisão mantém IDs e handlers, move trecho original para rail e fixa avaliação. Tema claro é padrão somente quando não há escolha salva. Tipografia carrega sem handler inline, compatível com CSP. Sem mudança de backend/agendamento.
+
+Fixture local (`npm run dev`) usa módulos reais com banco simulado fail-closed; não é servidor de produção. QA e limitações em `design-qa.md`. Gate de release passou até smoke, que foi reexecutado com --allow-dirty após correção do cache. Não confundir isso com QA autenticada; áudio, gravação de notas, tema escuro completo e extensão seguem pendentes. Abrir PR draft, não fazer merge/deploy de produção antes da revisão.

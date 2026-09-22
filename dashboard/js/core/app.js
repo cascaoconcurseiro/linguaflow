@@ -169,7 +169,7 @@ class App {
     }
 
     // --- Theme Logic ---
-    const savedTheme = localStorage.getItem('lf_theme') || 'dark';
+    const savedTheme = localStorage.getItem('lf_theme') || 'light';
     this.setTheme(savedTheme);
 
     document.getElementById('topbar-search-btn')?.addEventListener('click', () => {

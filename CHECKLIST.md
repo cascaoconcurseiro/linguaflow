@@ -241,3 +241,12 @@
 - [ ] Commitar e fazer push da branch para disparar o preview da Vercel.
 - [ ] QA visual autenticada no preview da Vercel em desktop e celular.
 - [ ] Revisão humana e merge da PR.
+
+## 17. Issue #114 — Direção editorial clara
+
+- [x] Issue e branch isolada; tema claro padrão respeita preferência existente.
+- [x] Tokens, tipografia, navegação e estilos compartilhados; revisão com dock de avaliação.
+- [x] Prévia local sem gravações; QA desktop e viewport móvel documentada em design-qa.md.
+- [x] Contratos de release e smoke com --allow-dirty.
+- [ ] QA autenticada completa, áudio, persistência, offline e extensão.
+- [ ] Aprovação visual e merge; produção não alterada.

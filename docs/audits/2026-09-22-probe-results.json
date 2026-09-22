@@ -1,0 +1,55 @@
+{
+  "cefrFromFiveRepeatedWords": {
+    "distinctWords": 5,
+    "reviews": 50,
+    "estimatedLevel": "C1"
+  },
+  "platformClassification": {
+    "youtube": "video",
+    "max": "extension",
+    "netflix": "video",
+    "video": "video"
+  },
+  "activityTotals": {
+    "inputSeconds": 360,
+    "reportedTotal": 60,
+    "listeningSeconds": 60
+  },
+  "draftSurvivesLogout": true,
+  "fluencyError": "Identificador de submissão inválido.",
+  "fluencyRecordKeys": [
+    "clientAttemptId",
+    "attempt"
+  ],
+  "immersion": {
+    "normal": [
+      [
+        10,
+        "youtube",
+        "en"
+      ]
+    ],
+    "muted": [
+      [
+        10,
+        "youtube",
+        "en"
+      ]
+    ],
+    "buffering": [
+      [
+        10,
+        "youtube",
+        "en"
+      ]
+    ],
+    "wrongAudioLanguage": [
+      [
+        10,
+        "youtube",
+        "en"
+      ]
+    ],
+    "paused": []
+  }
+}

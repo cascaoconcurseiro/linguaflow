@@ -213,3 +213,9 @@ Todos os testes de `test:release` continuam verdes.
 Direção branca/editorial escolhida pelo dono aplicada como camada CSS compartilhada e ajustes mínimos de markup. Revisão mantém IDs e handlers, move trecho original para rail e fixa avaliação. Tema claro é padrão somente quando não há escolha salva. Tipografia carrega sem handler inline, compatível com CSP. Sem mudança de backend/agendamento.
 
 Fixture local (`npm run dev`) usa módulos reais com banco simulado fail-closed; não é servidor de produção. QA e limitações em `design-qa.md`. Gate de release passou até smoke, que foi reexecutado com --allow-dirty após correção do cache. Não confundir isso com QA autenticada; áudio, gravação de notas, tema escuro completo e extensão seguem pendentes. Abrir PR draft, não fazer merge/deploy de produção antes da revisão.
+
+## 2026-09-22 — Auditoria integrada / Issue #116
+
+Auditoria de main 3aed6ce, com metadados read-only do Supabase e probes sem rede. Relatório em `docs/audits/2026-09-22-project-review.md`. Confirmado: migration multimodal não aplicada remotamente; contador usa idioma configurado; Max fora de listening; payload UI/DB de fluência incompatível; rascunho global persiste após logout; estimador CEFR pode dar C1 com cinco palavras repetidas. Testes de contrato atuais passam apesar dessas falhas.
+
+Sem correção funcional ou escrita no banco nesta sessão. Priorizar rollout compatível de schema e isolamento local, depois listening e validade da avaliação. Não aplicar migration sem verificar overloads, dados legados e rollback. Advisors têm avisos, não prova automática de vulnerabilidade. Ver limitações e matriz de aceite no relatório.

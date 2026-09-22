@@ -250,3 +250,12 @@
 - [x] Contratos de release e smoke com --allow-dirty.
 - [ ] QA autenticada completa, áudio, persistência, offline e extensão.
 - [ ] Aprovação visual e merge; produção não alterada.
+
+## 18. Issue #116 — Auditoria integrada do projeto
+
+- [x] Código de main e metadados do Supabase examinandos sem dados pessoais.
+- [x] Provas isoladas de listening, Max, payload de fluência, rascunho e estimador CEFR.
+- [x] Diagnóstico priorizado e critérios de correção documentados.
+- [ ] Corrigir schema publicado com rollout validado.
+- [ ] Corrigir isolamento de rascunhos, listening e integração de fluência.
+- [ ] Validar RLS A/B, extensão real e critérios pedagógicos antes de ampliar escopo.

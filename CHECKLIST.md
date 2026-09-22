@@ -213,3 +213,31 @@
 - [ ] QA autenticada da Home e do estudo em navegador desktop/mobile.
 - [ ] Disponibilidade do Biome para executar o lint completo.
 - [ ] Revisão do PR e merge para a branch contextual/main.
+
+## 15. Issue #107 — Remover jogos do produto
+
+- [x] Criar Issue #107 e branch `codex/107-remove-games` baseada na `origin/main`.
+- [x] Remover o botão de prática livre da Home e o destino de jogos de “Aprender”.
+- [x] Retirar a importação dinâmica, renderer e rota funcional de `gameView.js`.
+- [x] Redirecionar bookmarks antigos de `game` para “Aprender” sem iniciar rodada ou registrar evento.
+- [x] Remover rewrites específicos de `game` no Vercel.
+- [x] Excluir `dashboard/js/ui/gameView.js` e atualizar contratos que dependiam da tela.
+- [x] Preservar migrations, RPCs e histórico `game_match` para compatibilidade de dados.
+- [x] Adicionar `test:game-removal` ao gate de regressão.
+- [x] Abrir PR #108 e passar CI de release e preview da Vercel.
+- [ ] QA de navegador para bookmark antigo `/game` e navegação principal.
+- [ ] Revisão humana e merge da PR.
+
+## 16. Issue #109 — Atualizar Home e Sessão de estudo conforme referência visual — 2026-09-22
+
+- [x] Criar Issue #109 e branch isolada `codex/109-reference-designs` baseada em `origin/main`.
+- [x] Aplicar a direção visual atualizada na Home: tema escuro, navegação enxuta, próxima ação dominante, métricas em linha e painel de horas.
+- [x] Aplicar a direção visual atualizada na Sessão de estudo: frase em destaque, áudio, tradução, sentido contextual, avaliação e recursos progressivos.
+- [x] Remover o tutor da superfície do card e manter “Mais exemplos e fontes” como aprofundamento.
+- [x] Não reintroduzir jogos apesar da referência conter uma ação de prática livre; a retirada da Issue #107 permanece válida.
+- [x] Atualizar contratos da interface e do painel contextual.
+- [x] Executar os testes focados e o gate completo; o único bloqueio do `release-smoke` durante a execução foi o worktree sem commit.
+- [x] Confirmar que nenhuma alteração de Supabase é necessária para este passe de UI.
+- [ ] Commitar e fazer push da branch para disparar o preview da Vercel.
+- [ ] QA visual autenticada no preview da Vercel em desktop e celular.
+- [ ] Revisão humana e merge da PR.

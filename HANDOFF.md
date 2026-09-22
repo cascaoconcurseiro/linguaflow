@@ -1,5 +1,61 @@
 # Handoff — LinguaFlow
 
+## Atualização da Issue #109 — Referência visual atualizada da Home e do estudo
+
+**Data:** 2026-09-22
+**Branch:** `codex/109-reference-designs`
+**Worktree:** `C:\Users\Wesley\.codex\worktrees\issue-102-human-interface-pass\linguaflow`
+**Issue:** https://github.com/cascaoconcurseiro/linguaflow/issues/109
+
+### Feito nesta sessão
+
+- A Home foi alinhada à referência fornecida: tema escuro azul-marinho, topbar enxuta, data, próxima ação dominante, métricas em linha, horas de estudo, cards críticos e uma continuação editorial sem jogos.
+- A Sessão de estudo foi alinhada à referência: frase e palavra em destaque, áudio, tradução, bloco “Sobre esta palavra”, sentido contextual, quatro avaliações e recursos progressivos.
+- O tutor foi retirado da superfície; “Mais exemplos e fontes” permanece como aprofundamento.
+- O padrão de busca do topo foi preservado, e o perfil concentrou configurações/tema sem duplicar controles na barra.
+- Os contratos de interface e do painel contextual foram atualizados.
+- Não houve alteração de schema, RPC, RLS ou Edge Function; o Supabase não é necessário para a mudança.
+- A referência continha “Prática livre — sem placar”, mas essa ação não foi reintroduzida porque os jogos foram retirados na Issue #107.
+
+### Próximo passo concreto
+
+Fazer commit e push de `codex/109-reference-designs`, abrir a PR vinculada à Issue #109 e conferir o preview que a Vercel gerar em `https://linguaflow-web-tau.vercel.app/` com autenticação, em desktop e celular.
+
+### Bloqueios pendentes
+
+- A execução completa dos gates passou nos contratos funcionais; o `release-smoke` foi interrompido apenas porque a alteração ainda estava sem commit.
+- A Vercel está publicando a versão atualmente conectada ao GitHub; a tela pública já responde, mas a rota direta `/dashboard.html` nesse domínio retorna 404 e exige uso da entrada `/`/rewrites configurados.
+- QA autenticada real, revisão humana e merge ainda pendentes.
+
+## Atualização da Issue #107 — Remover jogos do produto
+
+**Data:** 2026-09-21
+**Branch:** `codex/107-remove-games`
+**Worktree:** `C:\Users\Wesley\.codex\worktrees\issue-102-human-interface-pass\linguaflow`
+**Issue:** https://github.com/cascaoconcurseiro/linguaflow/issues/107
+
+### Feito nesta sessão
+
+- O botão de prática livre foi removido da Home e os mini-jogos foram retirados de “Aprender”.
+- O roteador deixou de importar e registrar `gameView.js`; a rota antiga `game` redireciona para `learn` sem iniciar jogo ou evento.
+- Os rewrites específicos de `game` foram removidos do Vercel.
+- `dashboard/js/ui/gameView.js` foi excluído e os contratos de navegação, UX, segurança, pedagogia e auditoria foram atualizados.
+- Migrations, RPCs e histórico `game_match` do Supabase foram preservados; não houve migration destrutiva.
+- Foi adicionado o contrato `tests/game-removal-contract.test.mjs` e o script `test:game-removal`.
+
+### Próximo passo concreto
+
+Validar no navegador a navegação normal e um bookmark antigo `/game`; depois fazer a revisão humana e decidir o merge da [PR #108](https://github.com/cascaoconcurseiro/linguaflow/pull/108).
+
+### Bloqueios pendentes
+
+- QA visual/autenticada ainda não executada.
+- PR #108 aberta com `Closes #107`; CI de release e preview da Vercel passaram.
+- Revisão humana, QA autenticada/visual e merge ainda pendentes.
+- Histórico de banco preservado de propósito; remover `game_match` do schema exigiria uma decisão separada sobre retenção e migração.
+
+---
+
 ## Atualização da Issue #102 — Human Interface Pass
 
 **Data:** 2026-09-21

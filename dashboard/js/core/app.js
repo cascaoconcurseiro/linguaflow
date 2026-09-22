@@ -10,7 +10,6 @@ const renderSettings = (...args) => import('../ui/settingsView.js').then((m) => 
 const renderLeagues = (...args) => import('../ui/leaguesView.js').then((m) => m.renderLeagues(...args));
 const renderStories = (...args) => import('../ui/storiesView.js').then((m) => m.renderStories(...args));
 const renderReader = (...args) => import('../ui/readerView.js').then((m) => m.renderReader(...args));
-const renderGame = (...args) => import('../ui/gameView.js').then((m) => m.renderGame(...args));
 const renderLogin = (...args) => import('../ui/loginView.js').then((m) => m.renderLogin(...args));
 const renderStats = (...args) => import('../ui/statsView.js').then((m) => m.renderStats(...args));
 const renderLearn = (...args) => import('../ui/learnView.js').then((m) => m.renderLearn(...args));
@@ -170,15 +169,16 @@ class App {
     }
 
     // --- Theme Logic ---
-    const savedTheme = localStorage.getItem('lf_theme') || 'light';
+    const savedTheme = localStorage.getItem('lf_theme') || 'dark';
     this.setTheme(savedTheme);
 
-    // Botões diretos da topbar (queixa 17/07: tema/config escondidos no "◉")
-    document.getElementById('topbar-theme-btn')?.addEventListener('click', () => {
-      const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-      this.setTheme(current === 'light' ? 'dark' : 'light');
+    document.getElementById('topbar-search-btn')?.addEventListener('click', () => {
+      this.navigate('library');
+      setTimeout(() => document.getElementById('library-search')?.focus(), 0);
     });
-    document.getElementById('topbar-settings-btn')?.addEventListener('click', () => this.navigate('settings'));
+
+    // Tema e configurações continuam disponíveis no menu do perfil, sem
+    // competir visualmente com as quatro áreas principais do produto.
     if (this.themeToggleBtn) {
       this.themeToggleBtn.addEventListener('click', () => {
         const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
@@ -366,6 +366,12 @@ class App {
   }
 
   navigate(route, params = {}) {
+    // A rota de jogos foi aposentada. Bookmarks antigos continuam seguros,
+    // mas nunca carregam o módulo nem iniciam uma rodada.
+    if (route === 'game') {
+      route = 'learn';
+      params = {};
+    }
     // Toda rota de produto exige uma sessão confirmada. Esta guarda central
     // evita que atalhos, navegação móvel ou eventos tardios abram views
     // autenticadas depois de logout/expiração.
@@ -383,14 +389,14 @@ class App {
     this.syncShellForRoute(route);
     const routeTitles = {
       home: 'Hoje', learn: 'Aprender', library: 'O Cofre', progress: 'Progresso',
-      study: 'Sessão de estudo', stories: 'Histórias', reader: 'Leitor', game: 'Prática',
+      study: 'Sessão de estudo', stories: 'Histórias', reader: 'Leitor',
       stats: 'Estatísticas', leagues: 'Ligas', settings: 'Configurações', login: 'Entrar',
       'fluency-check': 'Check de comunicação',
     };
     document.title = `${routeTitles[route] || 'LinguaFlow'} · LinguaFlow`;
 
     // Update active state on buttons
-    const learnRoutes = new Set(['learn', 'stories', 'reader', 'game']);
+    const learnRoutes = new Set(['learn', 'stories', 'reader']);
     const progressRoutes = new Set(['progress', 'fluency-check', 'stats', 'leagues']);
     this.navBtns.forEach(btn => {
       const active = btn.dataset.route === route
@@ -480,7 +486,6 @@ class App {
       study: renderStudy,
       settings: renderSettings,
       leagues: renderLeagues,
-      game: renderGame,
       stories: renderStories,
       reader: renderReader,
       stats: renderStats,

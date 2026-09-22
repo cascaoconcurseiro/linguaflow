@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
-const [popup, popupJs, html, css, home, study, library, stories, reader, settings, game, stats, leagues, admin] = await Promise.all([
+const [popup, popupJs, html, css, home, study, library, stories, reader, settings, stats, leagues, admin] = await Promise.all([
   read('popup/popup.html'),
   read('popup/popup.js'),
   read('dashboard/dashboard.html'),
@@ -13,7 +13,6 @@ const [popup, popupJs, html, css, home, study, library, stories, reader, setting
   read('dashboard/js/ui/storiesView.js'),
   read('dashboard/js/ui/readerView.js'),
   read('dashboard/js/ui/settingsView.js'),
-  read('dashboard/js/ui/gameView.js'),
   read('dashboard/js/ui/statsView.js'),
   read('dashboard/js/ui/leaguesView.js'),
   read('dashboard/js/ui/adminView.js'),
@@ -26,7 +25,7 @@ const emoji = /[\u{1F300}-\u{1FAFF}]/u;
 for (const [name, source] of [
   ['popup', popup], ['popup.js', popupJs], ['Home', home], ['estudo', study],
   ['Cofre', library], ['Histórias', stories], ['Leitor', reader], ['Configurações', settings],
-  ['Prática', game], ['Progresso', stats], ['Ligas', leagues], ['Administração', admin],
+  ['Progresso', stats], ['Ligas', leagues], ['Administração', admin],
 ]) {
   assert.doesNotMatch(source, emoji, `${name} não deve depender de emoji na interface`);
 }
@@ -34,18 +33,24 @@ for (const [name, source] of [
 assert.match(popup, /id="btn-dash" class="btn btn-primary">Abrir dashboard<\/button>/);
 assert.match(popup, /id="listening-today"/);
 assert.match(popupJs, /getStudyStats\?\.\(sourceLang\)/);
-assert.match(html, /<span class="stat-label">Ofensiva<\/span>/);
-assert.match(html, /<button id="topbar-settings-btn"[^>]*>Configurações<\/button>/);
+assert.match(html, /id="topbar-search-btn"[^>]*aria-label="Buscar no cofre"/);
+assert.match(html, /class="logo-mark"/);
+assert.match(html, /class="profile-status"/);
 
 assert.match(home, /id="home-primary-plan"/);
 assert.match(home, /class="study-hours-language"/);
 assert.match(home, /class="quest-mark"/);
+assert.match(home, /class="home-primary-visual"/);
+assert.match(home, /class="stat-symbol"/);
 assert.match(css, /\.home-primary-plan \{ border: 0; border-left: 4px solid/);
-assert.match(css, /\.stat-card \{ background: transparent; border: 0;/);
+assert.match(home, /Issue #109: referência visual atualizada/);
 
 assert.match(study, /id="study-resources" class="study-resources hidden"/);
 assert.match(study, /class="chunk-action-btn chunk-audio-btn"[^>]*>Ouvir<\/button>/);
 assert.match(study, /class="chunk-action-btn chunk-save-btn"[^>]*>Salvar<\/button>/);
+assert.match(study, /class="study-card-meta"/);
+assert.match(study, /id="study-card-position"/);
+assert.doesNotMatch(study, /tutor|grammar-chat|data-tutor-prompt/i);
 assert.match(study, /prefers-reduced-motion: reduce/);
 assert.doesNotMatch(study, /animation: slideIn/);
 

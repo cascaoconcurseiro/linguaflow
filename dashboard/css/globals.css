@@ -55,15 +55,19 @@
 
 :root[data-theme="dark"] {
   --color-bg: #020617;
-  --color-bg-alt: #0f172a;
-  --color-surface: #0f172a;
+  --color-bg-alt: #0b1a2e;
+  --color-surface: #0c1c31;
   
   --color-text: #f8fafc;
   --color-text-light: #94a3b8;
-  --color-border: #1e293b;
-  --color-link: #65c8f5;
-  --color-focus: #65c8f5;
-  --color-success-text: #80db45;
+  --color-border: #1f3a58;
+  --color-link: #70c8ff;
+  --color-focus: #70c8ff;
+  --color-primary: #61ed32;
+  --color-primary-shadow: #36a817;
+  --color-secondary: #25a9ff;
+  --color-secondary-shadow: #087bc2;
+  --color-success-text: #9bf37a;
 }
 
 :root[data-theme="dark"] .logo-icon {
@@ -210,13 +214,32 @@ a { color:var(--color-link); }
 
 .topbar-icon-btn { width:auto; min-width:44px; height:44px; padding:0 10px; border:1px solid var(--color-border); border-radius:5px; background:var(--color-surface); color:var(--color-text); font:800 12px var(--font-main); line-height:1; cursor:pointer; }
 .topbar-icon-btn:hover, .topbar-icon-btn:focus-visible { background:var(--color-bg-alt); }
+.topbar-icon-btn svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.topbar-actions { display:flex; align-items:center; gap:16px; }
+.topbar-divider { width:1px; height:28px; background:var(--color-border); }
+.logo-mark { display:grid; place-items:center; width:42px; height:42px; color:var(--color-secondary); }
+.logo-mark svg { width:34px; height:34px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
 .profile-menu-wrap { position:relative; }
-.profile-menu-toggle { width:44px; height:44px; border:1px solid var(--color-border); border-radius:50%; background:var(--color-surface); color:var(--color-text); font:900 18px var(--font-main); cursor:pointer; }
+.profile-menu-toggle { position:relative; width:46px; height:46px; border:1px solid var(--color-border); border-radius:50%; background:#173151; color:#cfe7ff; font:900 17px var(--font-main); cursor:pointer; }
+.profile-status { position:absolute; right:0; bottom:1px; width:10px; height:10px; border:2px solid var(--color-surface); border-radius:50%; background:var(--color-primary); }
 .profile-menu { position:absolute; right:0; top:calc(100% + 8px); z-index:140; min-width:210px; padding:8px; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); box-shadow:var(--shadow-md); }
 .profile-menu[hidden] { display:none; }
 .profile-menu button { width:100%; min-height:44px; padding:10px 12px; border:0; border-radius:10px; text-align:left; background:transparent; color:var(--color-text); font:800 14px var(--font-main); cursor:pointer; }
 .profile-menu button:hover, .profile-menu button:focus-visible { background:var(--color-bg-alt); }
 .profile-menu .btn-logout { color:var(--color-danger); }
+
+@media (max-width: 720px) {
+  .topbar { height:62px; padding:0 14px; }
+  .logo-mark { width:36px; height:36px; }
+  .logo-mark svg { width:30px; height:30px; }
+  .nav-links { gap:0; }
+  .nav-btn { padding:8px 9px; font-size:13px; }
+  .nav-btn:nth-child(n+4) { display:none; }
+  .topbar-actions { gap:8px; }
+  .topbar-divider { height:22px; }
+  .topbar-icon-btn { min-width:40px; width:40px; padding:0; border:0; background:transparent; }
+  .profile-menu-toggle { width:40px; height:40px; }
+}
 
 .stat {
   display: flex;
@@ -358,20 +381,6 @@ a { color:var(--color-link); }
   transform: translateY(2px);
   box-shadow: none;
 }
-.home-secondary-actions .btn-game {
-  background: var(--color-surface);
-  color: #a561cf;
-  border: 2px solid #ce82ff;
-  box-shadow: 0 3px 0 rgba(165, 97, 207, 0.25);
-}
-.home-secondary-actions .btn-game:hover {
-  background: rgba(206, 130, 255, 0.08);
-}
-.home-secondary-actions .btn-game:active {
-  transform: translateY(2px);
-  box-shadow: none;
-}
-
 /* Alertas modernos da Home */
 .home-alert-banner {
   display: flex;
@@ -1058,7 +1067,6 @@ body.lf-auth-pending #app-root { visibility: hidden; }
 .home-secondary-actions { gap: 12px; }
 .home-secondary-actions .btn-action { border-radius: 7px; box-shadow: none; transition: background-color .16s ease, border-color .16s ease; }
 .home-secondary-actions .btn-action:active { transform: none; box-shadow: none; }
-.home-secondary-actions .btn-game { color: var(--color-text); border-color: var(--color-border); }
 .quests-card { background: transparent; border: 0; border-top: 1px solid var(--color-border); border-radius: 0; padding: 22px 0; }
 .quest-item { gap: 12px; }
 .quest-mark { width: 10px; height: 10px; flex: 0 0 10px; border: 2px solid var(--color-border); border-radius: 50%; }
@@ -1116,7 +1124,6 @@ body.lf-auth-pending #app-root { visibility: hidden; }
   .mobile-nav-btn.active { color:var(--color-link); background:rgba(28,176,246,.1); }
   .home-flow-section { margin-bottom:24px; }
   .home-flow-section .action-buttons { display:grid; grid-template-columns:1fr; }
-  .home-flow-section .action-buttons .btn-game { background:var(--color-surface); color:var(--color-text); border:2px solid var(--color-border); box-shadow:none; }
   .home-primary-plan { padding:22px 18px; border-radius:20px; }
   .home-primary-plan .btn-action { width:100%; min-width:0; }
   .product-hub { padding:24px 16px; }

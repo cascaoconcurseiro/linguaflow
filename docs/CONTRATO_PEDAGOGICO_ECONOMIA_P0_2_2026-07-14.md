@@ -4,8 +4,13 @@
 **Estado:** contrato canônico implementado e promovido. Os gates permanecem
 obrigatórios e devem impedir regressão; detalhes de rollout são históricos.
 **Escopo:** elegibilidade server-side de card review, FSRS autoritativo, XP
-qualificado, prática livre, feedback e CTAs. Não redefine mastery, ligas por
-coorte ou novos jogos.
+qualificado, prática livre, feedback e CTAs. Não redefine mastery nem ligas por
+coorte.
+
+**Atualização de produto (21/09/2026):** a superfície de jogos/mini-jogos foi
+retirada. A prática atual permanece contextual e ligada ao ciclo de estudo;
+migrations e eventos históricos `game_match` continuam somente para
+compatibilidade e retenção de dados antigos.
 
 ## Regra de produto
 
@@ -81,7 +86,7 @@ Mensagem canônica do cap:
 
 ## Prática livre
 
-Card futuro, replay, jogo repetido e exploração voluntária pertencem ao modo Prática. Prática:
+Card futuro, replay e exploração voluntária pertencem ao modo Prática. Prática:
 
 - não altera o FSRS de um card futuro;
 - não sustenta streak;
@@ -140,7 +145,7 @@ CTA primário:
 
 > Continuar seu plano
 
-Ele deve informar reviews vencidos e estimativa de duração. Não deve competir com liga, streak, histórias e jogos por atenção.
+Ele deve informar reviews vencidos e estimativa de duração. Não deve competir com liga, streak, histórias e outras superfícies de aprendizagem por atenção.
 
 Depois da sessão:
 
@@ -194,7 +199,6 @@ Este contrato é bloqueante, não apenas uma recomendação de UX. A promoção 
 pode ocorrer quando `tests/pedagogy-economy-contract.test.mjs` estiver verde e
 o teste fizer parte da suíte de release. O gate reprova explicitamente:
 
-- `recordEvent('game_match')` em qualquer modo apresentado como Prática livre;
 - `recordEvent('quests_complete')` ou prêmio adicional por completar missões
   cujos eventos já foram contabilizados;
 - meta ou recompensa semanal definida por quantidade de XP;
@@ -218,7 +222,7 @@ XP como aproximação temporária.
 - XP por vídeo/checkpoint;
 - ligas em coortes;
 - recompensas semanais;
-- novos jogos.
+- novas superfícies de prática desconectadas do contexto.
 
 Esses itens só entram depois que o review v2 reconciliar evento, ledger, projeção e UX sem dupla escrita.
 

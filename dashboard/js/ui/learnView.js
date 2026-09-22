@@ -13,13 +13,6 @@ const LEARN_DESTINATIONS = [
     description: 'Importe um texto, descubra vocabulário no contexto e guarde somente o que vale revisar.',
     action: 'Abrir leitor',
   },
-  {
-    route: 'game',
-    eyebrow: 'PRATICAR UMA FRAQUEZA',
-    title: 'Prática',
-    description: 'Treine escuta, associação ou ordem de frase sem transformar repetição livre em domínio.',
-    action: 'Escolher prática',
-  },
 ];
 
 export function renderLearn(container, app) {

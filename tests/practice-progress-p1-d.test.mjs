@@ -2,21 +2,16 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
-const game = read('dashboard/js/ui/gameView.js');
+const app = read('dashboard/js/core/app.js');
+const home = read('dashboard/js/ui/homeView.js');
 const stats = read('dashboard/js/ui/statsView.js');
 const progress = read('dashboard/js/ui/progressView.js');
 const css = read('dashboard/css/globals.css');
 const ai = read('dashboard/js/core/ai.js');
 const dbSource = read('utils/db.js');
 
-assert.match(game, /Reconhecimento/);
-assert.match(game, /Escuta/);
-assert.match(game, /Reconstrução de frase/);
-assert.match(game, /resultado fica nesta rodada e não altera agendamento, XP, ofensiva ou liga/);
-assert.doesNotMatch(game, /acertos em sequência aumentam o XP/);
-assert.match(game, /async function getPracticeWords/);
-assert.match(game, /dueWordIds\.has\(String\(word\.id\)\)/);
-assert.doesNotMatch(game, /let cards = await lfDb\.getCardsDue/);
+assert.doesNotMatch(app + home, /gameView\.js|btn-play-match|navigate\(['"]game['"]\)/,
+  'o produto não oferece jogos como caminho de prática');
 assert.doesNotMatch(stats + ai + dbSource + read('dashboard/js/ui/homeView.js'),
   /Diagnóstico semanal do linguista|generateWeeklyDiagnosis|getDiagnosisData|lf_weekly_diagnosis|home-today-plan/,
   'análise semanal textual e seu cache devem permanecer removidos');

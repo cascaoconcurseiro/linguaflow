@@ -1,6 +1,6 @@
 import { db as lfDb, createOperationId } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio, downloadAudio, preloadNaturalAudio } from '../core/tts.js';
-import { aiChat, aiChatStream, getCefrLevel, grammarTutorPersona, grammarInitialQuestion, enrichCard, generateChunksWeb, generateMnemonic } from '../core/ai.js';
+import { getCefrLevel, enrichCard, generateChunksWeb, generateMnemonic } from '../core/ai.js';
 import { attachVideoContext, renderVideoContext, getVideoContext } from '../core/videoContext.js';
 import { buildSessionQueue, isWeakCard, prioritizeDueLearning } from '../core/sessionQueue.js';
 import { deriveAdaptivePlan } from '../core/adaptiveLearning.js';
@@ -20,8 +20,6 @@ let sessionCards = 0;
 let sessionXp = 0;
 let sessionStart = Date.now();
 let sessionCardIds = new Set();
-let chatHistory = [];
-let chatBusy = false;
 let lastReview = null; // { prevCard, card, grade, isCorrect } para o undo
 let reverseEnabled = false; // cartões reversos PT→EN (setting lf_reverse_cards)
 let variedEnabled = true;   // exercícios variados: montar frase/ditado (lf_varied_exercises, ON por padrão)
@@ -113,8 +111,6 @@ export async function renderStudy(container, app, params = {}) {
     ygQueuedWord = null;
     ygWidget = null;
     currentCard = null;
-    chatHistory = [];
-    chatBusy = false;
     exerciseApp = null;
     studyContainer = null;
   });
@@ -255,20 +251,26 @@ export async function renderStudy(container, app, params = {}) {
           </div>
         </div>
 
-        <div class="media-container">
-          <div class="audio-wave-placeholder" id="audio-wave">
-            <span class="wave-bar"></span>
-            <span class="wave-bar"></span>
-            <span class="wave-bar"></span>
-            <span class="wave-bar"></span>
-            <span class="wave-bar"></span>
-            <button class="btn-play-audio" id="play-audio-btn" aria-label="Ouvir a frase">▶</button>
-            <span id="audio-status" class="sr-only" role="status" aria-live="polite"></span>
-          </div>
-        </div>
-
         <div class="sentence-container">
+          <div class="study-card-meta">
+            <div>
+              <strong>INGLÊS</strong>
+              <span>Leia a frase e estude a palavra em destaque</span>
+            </div>
+            <span id="study-card-position" aria-live="polite">1 de —</span>
+          </div>
           <div class="sentence-text" id="pump-sentence">Carregando...</div>
+          <div class="media-container">
+            <div class="audio-wave-placeholder" id="audio-wave">
+              <span class="wave-bar"></span>
+              <span class="wave-bar"></span>
+              <span class="wave-bar"></span>
+              <span class="wave-bar"></span>
+              <span class="wave-bar"></span>
+              <button class="btn-play-audio" id="play-audio-btn" aria-label="Ouvir a frase">Ouvir</button>
+              <span id="audio-status" class="sr-only" role="status" aria-live="polite"></span>
+            </div>
+          </div>
           <div id="pump-context-hint" class="study-context-hint hidden" style="margin-top: 14px; font-size: 19px; line-height: 1.5; color: var(--color-text); background: var(--color-surface-2, rgba(255,255,255,0.05)); border: 1px solid var(--color-border); border-radius: 10px; padding: 12px 16px; text-align: left;"></div>
           <div id="pump-phonetics" style="font-size: 18px; color: var(--color-secondary); font-style: italic; margin-top: 12px;" class="hidden"></div>
           <div id="pump-translation" style="font-size: 20px; font-weight: 700; color: var(--color-text); margin-top: 12px; padding-top: 12px; border-top: 2px dashed var(--color-border);" class="hidden"></div>
@@ -313,7 +315,7 @@ export async function renderStudy(container, app, params = {}) {
               <summary><span>Entender melhor</span><span aria-hidden="true">⌄</span></summary>
               <div class="study-resources-content">
                 <div class="study-resource-panel-header">
-                  <strong>Aprofundar o card</strong>
+                  <strong>Mais recursos</strong>
                   <button id="close-study-resources" type="button">Fechar</button>
                 </div>
                 <section id="video-resource-section" class="learning-resource-section learning-resource-video hidden" aria-labelledby="video-resource-title">
@@ -322,33 +324,6 @@ export async function renderStudy(container, app, params = {}) {
                   <p class="learning-resource-description">Volte ao instante em que a frase foi falada e repita sem sair do card.</p>
                   <div id="saved-video-context" class="study-video-context"></div>
                   <div id="study-yt-mount" class="hidden" aria-label="Trecho do vídeo salvo"></div>
-                </section>
-
-                <section class="learning-resource-section" aria-labelledby="tutor-resource-title">
-                  <p class="learning-resource-kicker">PERGUNTAR</p>
-                  <h3 id="tutor-resource-title">Ficou alguma dúvida?</h3>
-                  <p class="learning-resource-description">Pergunte sobre o uso desta fala, sem sair do card.</p>
-                  <details id="tutor-details" class="study-tutor">
-                    <summary>Conversar sobre a frase <span>(sob demanda)</span></summary>
-                    <div class="tutor-prompts" aria-label="Perguntas sugeridas">
-                      <button type="button" data-tutor-prompt="Por que esta palavra foi usada nesta frase?" disabled>Por que usaram assim?</button>
-                      <button type="button" data-tutor-prompt="Explique esta expressão de forma simples e contextual." disabled>Explique a expressão</button>
-                      <button type="button" data-tutor-prompt="Mostre uma variação natural desta frase sem mudar o sentido." disabled>Outra forma natural</button>
-                    </div>
-                    <div id="grammar-chat">
-                      <div id="grammar-messages" role="log" aria-live="polite">
-                        <div class="chat-bubble-ai chat-placeholder">Revele o card e escolha uma pergunta ou escreva sua dúvida.</div>
-                      </div>
-                      <form id="grammar-form">
-                        <input id="grammar-input" type="text" placeholder="Revele o card primeiro…" aria-label="Pergunte sua dúvida sobre a frase" autocomplete="off" maxlength="140" disabled />
-                        <button type="submit" id="grammar-send" aria-label="Enviar pergunta" disabled>➤</button>
-                      </form>
-                    </div>
-                  </details>
-                  <div id="iso-mnemonic-box" class="study-mnemonic">
-                    <button id="iso-mnemonic-btn" type="button">Criar um truque para lembrar</button>
-                    <div id="iso-mnemonic-text" class="hidden"></div>
-                  </div>
                 </section>
 
                 <section class="learning-resource-section" aria-labelledby="practice-resource-title">
@@ -430,27 +405,8 @@ export async function renderStudy(container, app, params = {}) {
   document.getElementById('study-resources')?.addEventListener('toggle', (event) => {
     if (event.isTrusted && event.currentTarget.open && presentationEvidence) presentationEvidence.helpCount += 1;
   });
-  document.getElementById('tutor-details')?.addEventListener('toggle', (event) => {
-    if (event.isTrusted && event.currentTarget.open && presentationEvidence) presentationEvidence.helpCount += 1;
-  });
   document.getElementById('close-study-resources')?.addEventListener('click', () => {
     document.getElementById('study-resources').open = false;
-  });
-
-  document.getElementById('grammar-form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const input = document.getElementById('grammar-input');
-    const text = (input.value || '').trim();
-    if (!text || chatBusy) return;
-    input.value = '';
-    sendGrammarQuestion(text);
-  });
-  document.querySelectorAll('[data-tutor-prompt]').forEach(button => {
-    button.addEventListener('click', () => {
-      if (button.disabled || chatBusy) return;
-      if (presentationEvidence) presentationEvidence.helpCount += 1;
-      sendGrammarQuestion(button.dataset.tutorPrompt || 'Explique esta frase.');
-    });
   });
 
   document.querySelectorAll('.grade-btn').forEach(btn => {
@@ -755,11 +711,15 @@ async function loadNextCard(app) {
 
   currentCard = dueQueue[0];
   const card = currentCard;
+  const positionEl = document.getElementById('study-card-position');
+  if (positionEl) {
+    const totalCards = Math.max(sessionCards + dueQueue.length + pendingLearning.length, sessionCards + 1);
+    positionEl.textContent = `${sessionCards + 1} de ${totalCards}`;
+  }
   presentationEvidence = { startedAt: Date.now(), audioPlays: 0, helpCount: 0 };
   startCardTimer();
   delete card._exerciseFinished;
   cardPresentationIds.set(card, ++nextCardPresentationId);
-  chatHistory = [];
 
   const sentenceContainer = document.querySelector('.sentence-container');
   if (sentenceContainer) {
@@ -804,8 +764,6 @@ async function loadNextCard(app) {
   const cardMenu = document.getElementById('study-card-menu');
   cardMenu?.classList.add('hidden');
   if (cardMenu) cardMenu.open = false;
-  const tutorDetails = document.getElementById('tutor-details');
-  if (tutorDetails) tutorDetails.open = false;
   const wave = document.getElementById('audio-wave');
   wave?.classList.remove('is-playing');
   const audioButton = document.getElementById('play-audio-btn');
@@ -826,7 +784,6 @@ async function loadNextCard(app) {
   document.getElementById('youglish-box').classList.add('hidden');
   document.getElementById('improve-btn').classList.add('hidden');
   document.getElementById('chunks-container').innerHTML = '';
-  resetChat();
 
   const wordData = card.wordData || {};
   const word = wordData.word || card.word || 'Erro';
@@ -1394,7 +1351,6 @@ async function revealCard(options = {}) {
   renderReveal(word, context, ctxEntry, wordEntry, wordData, card);
   renderChunksList(chunks, context);
   updateYouglish(word);
-  startGrammarChat(card, word, context);
 
   // 3. Conteúdo antigo pode existir e ainda estar quebrado. Uma expressão
   // inglesa copiada para o PT ("fist bump", por exemplo) também exige reparo.
@@ -1792,21 +1748,6 @@ function attachChunkAudioListeners() {
   });
 }
 
-// ── Tutor de gramática (chat) ────────────────────────────────────────────────
-function resetChat() {
-  chatHistory = [];
-  chatBusy = false;
-  const messagesEl = document.getElementById('grammar-messages');
-  if (messagesEl) {
-  messagesEl.innerHTML = '<div class="chat-bubble-ai chat-placeholder">Revele o card e eu te explico a frase — depois pergunte o que quiser.</div>';
-  }
-  const input = document.getElementById('grammar-input');
-  const send = document.getElementById('grammar-send');
-  if (input) input.disabled = true;
-  if (send) send.disabled = true;
-  document.querySelectorAll('[data-tutor-prompt]').forEach(button => { button.disabled = true; });
-}
-
 // escapeHtml importado de viewState.js — não duplicar aqui.
 
 function renderHighlightedText(text, escapedWordPattern) {
@@ -1816,89 +1757,6 @@ function renderHighlightedText(text, escapedWordPattern) {
       ? `<span class="cloze-revealed">${escapeHtml(part)}</span>`
       : escapeHtml(part)
   ).join('');
-}
-
-function appendChatBubble(role, htmlOrText) {
-  const messagesEl = document.getElementById('grammar-messages');
-  if (!messagesEl) return null;
-  messagesEl.querySelector('.chat-placeholder')?.remove();
-  const div = document.createElement('div');
-  div.className = role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai';
-  div.textContent = htmlOrText;
-  messagesEl.appendChild(div);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
-  return div;
-}
-
-function showTyping() {
-  const messagesEl = document.getElementById('grammar-messages');
-  if (!messagesEl) return null;
-  const div = document.createElement('div');
-  div.className = 'chat-bubble-ai chat-typing';
-  div.textContent = 'digitando...';
-  messagesEl.appendChild(div);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
-  return div;
-}
-
-async function startGrammarChat(card, word, sentence) {
-  // SOB DEMANDA: o tutor NÃO explica nada sozinho — só responde quando o
-  // aluno pergunta (pedido do dono + economia real de tokens: antes, TODA
-  // revelação de card gastava uma chamada de IA que ninguém pediu).
-  const input = document.getElementById('grammar-input');
-  const send = document.getElementById('grammar-send');
-  chatBusy = false;
-
-  const level = await getCefrLevel().catch(() => null);
-  chatHistory = [{ role: 'system', content: grammarTutorPersona(sentence, word, level) }];
-
-  if (input) {
-    input.disabled = false;
-    input.placeholder = 'Ficou com dúvida? Pergunte aqui…';
-  }
-  if (send) send.disabled = false;
-  document.querySelectorAll('[data-tutor-prompt]').forEach(button => { button.disabled = false; });
-}
-
-async function sendGrammarQuestion(text) {
-  const card = currentCard;
-  if (!card || chatHistory.length === 0) return;
-  text = text.slice(0, 140); // pergunta curta = resposta focada e barata
-  const input = document.getElementById('grammar-input');
-  const send = document.getElementById('grammar-send');
-
-  appendChatBubble('user', text);
-  chatHistory.push({ role: 'user', content: text });
-  chatBusy = true;
-  if (send) send.disabled = true;
-  const typing = showTyping();
-
-  try {
-    let liveBubble = null;
-    const answer = await aiChatStream(chatHistory, { temperature: 0.6, max_tokens: 320 }, (_delta, full) => {
-      if (currentCard !== card) return;
-      if (!liveBubble) { typing?.remove(); liveBubble = appendChatBubble('ai', ''); }
-      if (liveBubble) {
-        liveBubble.textContent = full;
-        liveBubble.parentElement.scrollTop = liveBubble.parentElement.scrollHeight;
-      }
-    });
-    if (currentCard !== card) return;
-    chatHistory.push({ role: 'assistant', content: answer });
-    typing?.remove();
-    if (!liveBubble) appendChatBubble('ai', answer);
-  } catch (e) {
-    if (currentCard !== card) return;
-    chatHistory.pop(); // não deixa a pergunta órfã no histórico
-    typing?.remove();
-    appendChatBubble('ai', e.message || 'Falha ao falar com o tutor.');
-  } finally {
-    if (currentCard === card) {
-      chatBusy = false;
-      if (send) send.disabled = false;
-      input?.focus();
-    }
-  }
 }
 
 function isMobileVoiceDevice() {
@@ -2728,13 +2586,6 @@ function injectStyles() {
     .study-card-actions { display:grid; gap:4px; }
     .study-card-actions button { width:100%; text-align:left; padding:8px 10px; border-radius:9px; }
     .study-card-actions button:hover, .study-card-actions button:focus-visible { background:var(--color-bg-alt); }
-    .study-tutor { width:100%; box-sizing:border-box; margin:14px auto 0; text-align:left; border:1px solid var(--color-border); border-radius:10px; background:var(--color-surface); padding:12px; }
-    .study-tutor summary { cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px; }
-    .study-tutor summary::-webkit-details-marker { display:none; }
-    .study-tutor summary span { font-size:12px; color:var(--color-text-light); font-weight:600; }
-    .tutor-prompts { display:flex; flex-wrap:wrap; gap:7px; margin:12px 0; }
-    .tutor-prompts button { min-height:40px; padding:7px 10px; border:1px solid var(--color-border); border-radius:999px; background:var(--color-bg-alt); color:var(--color-text); font:800 12px var(--font-main); cursor:pointer; }
-    .tutor-prompts button:disabled { opacity:.55; cursor:default; }
     .study-mnemonic { margin-top:14px; }
     .context-explanation-card { width:100%; max-width:720px; box-sizing:border-box; margin:12px auto 0; border-left:3px solid var(--color-secondary); background:transparent; text-align:left; overflow:hidden; }
     .context-explanation-card > summary { min-height:42px; padding:8px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px; cursor:pointer; list-style:none; color:var(--color-text); font-size:13.5px; font-weight:800; background:var(--color-bg-alt); user-select:none; }
@@ -2792,19 +2643,6 @@ function injectStyles() {
     .chunk-action-btn:disabled { opacity: 0.5; cursor: default; }
     .chunk-save-btn { background: var(--color-primary); }
 
-    #grammar-chat { background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    #grammar-messages { padding: 16px; max-height: 340px; min-height: 80px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; font-size: 14px; line-height: 1.55; }
-    .chat-bubble-ai { background: var(--color-bg-alt); border-radius: 12px 12px 12px 4px; padding: 10px 12px; color: var(--color-text); }
-    .chat-bubble-ai p { margin: 0 0 8px 0; }
-    .chat-bubble-ai p:last-child { margin-bottom: 0; }
-    .chat-bubble-ai ul { margin: 4px 0; padding-left: 18px; }
-    .chat-bubble-user { background: rgba(28, 176, 246, 0.15); align-self: flex-end; border-radius: 12px 12px 4px 12px; padding: 10px 12px; color: var(--color-text); max-width: 85%; }
-    .chat-typing { font-style: italic; color: var(--color-text-light); }
-    #grammar-form { display: flex; border-top: 2px solid var(--color-border); }
-    #grammar-input { flex: 1; border: none; padding: 12px; background: transparent; color: var(--color-text); font-family: var(--font-main); font-size: 14px; outline: none; }
-    #grammar-input:disabled { opacity: 0.6; }
-    #grammar-send { background: var(--color-primary); color: #fff; border: none; width: 44px; cursor: pointer; font-size: 16px; }
-    #grammar-send:disabled { opacity: 0.5; cursor: default; }
 
     #youglish-box { padding:10px; border-radius:12px; background:var(--color-bg-alt); }
     #youglish-box .btn { width:100%; min-height:44px; padding:9px; font-size:13px; }
@@ -2848,7 +2686,6 @@ function injectStyles() {
       .grading-row { grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; max-width:680px; margin:0 auto; }
       .grade-btn { min-width:0; min-height:58px; padding:7px 2px; font-size:13px; gap:2px; }
       .grade-btn span:last-child { font-size:10px !important; }
-      .study-tutor { margin-top:18px; }
       .study-video-context { margin-top:16px; }
       .sentence-text { font-size: 26px; }
     }
@@ -2900,8 +2737,6 @@ function injectStyles() {
     .study-card-menu > summary { width: 44px; height: 44px; border: 1px solid var(--color-border); border-radius: 5px; font-size: 20px; }
     .study-card-menu-content { border-radius: 5px; box-shadow: 0 8px 24px rgba(27,45,54,.12); }
     .study-card-actions button { border-radius: 4px; }
-    .study-tutor { border: 0; border-top: 1px solid var(--color-border); border-radius: 0; background: transparent; padding: 14px 0 0; }
-    .tutor-prompts button { min-height: 44px; border-radius: 4px; background: transparent; }
     .context-explanation-card { border-left: 0; border-top: 2px solid var(--color-secondary); border-radius: 0; }
     .context-explanation-card > summary { padding-left: 0; padding-right: 0; background: transparent; }
     .context-explanation-card > summary:hover { background: transparent; }
@@ -2915,7 +2750,6 @@ function injectStyles() {
     .chunk-action-btn { width: auto; height: 44px; min-width: 64px; border: 1px solid var(--color-border); border-radius: 4px; background: transparent; color: var(--color-secondary); font-size: 11px; font-weight: 800; }
     .chunk-action-btn:hover { background: var(--color-bg-alt); }
     .chunk-save-btn { background: transparent; color: var(--color-primary-dark, var(--color-primary)); }
-    #grammar-chat { border: 1px solid var(--color-border); border-radius: 4px; box-shadow: none; }
     .chat-bubble-ai, .chat-bubble-user { border-radius: 4px; }
     .video-context-frame, #study-yt-mount { border-radius: 4px; }
     .video-context-actions .clip-control { border-radius: 4px; background: transparent; }
@@ -2924,6 +2758,88 @@ function injectStyles() {
     @media (prefers-reduced-motion: reduce) {
       .sentence-container, .reveal-btn, .btn-iso-audio { transition: none !important; }
       .wave-bar { animation: none !important; }
+    }
+
+    /* Issue #109: a study card with the hierarchy from the new reference. */
+    .study-layout { background:var(--color-bg); }
+    .study-main { width:min(100%, 1160px); min-height:calc(100dvh - var(--topbar-height)); margin:0 auto; padding:24px 28px 40px; }
+    .anki-study-header { width:100%; max-width:none; margin:0 0 18px; padding:0 4px 14px; border-bottom:1px solid var(--color-border); }
+    .anki-session-counters { gap:0; }
+    .anki-counter-badge { min-width:116px; padding:0 22px; border:0; border-right:1px solid var(--color-border); border-radius:0; background:transparent; color:var(--color-text-light); font-size:13px; }
+    .anki-counter-badge:first-child { padding-left:0; }
+    .anki-counter-badge:last-child { border-right:0; }
+    .anki-counter-badge strong { display:block; color:var(--color-text); font-size:24px; line-height:1; }
+    .anki-card-timer { padding:0; border:0; background:transparent; color:var(--color-secondary); font-size:16px; }
+    .timer-label { display:block; font-size:11px; color:var(--color-text-light); }
+    .sentence-container { max-width:none; margin:0 0 14px; padding:25px 48px 28px; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); text-align:center; }
+    .study-card-meta { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:28px; text-align:left; }
+    .study-card-meta > div { display:grid; gap:3px; }
+    .study-card-meta strong { color:var(--color-text); font-size:14px; letter-spacing:.06em; }
+    .study-card-meta span { color:var(--color-text-light); font-size:13px; }
+    .study-card-meta > span { padding:8px 12px; border:1px solid var(--color-border); border-radius:999px; white-space:nowrap; }
+    .sentence-text { max-width:980px; margin:0 auto 18px; font-size:clamp(30px, 4.3vw, 54px); line-height:1.16; letter-spacing:-.035em; }
+    .media-container { width:auto; max-width:none; min-height:56px; margin:0 auto 12px; border:0; background:transparent; border-radius:0; }
+    .audio-wave-placeholder { gap:7px; }
+    .wave-bar { width:5px; height:22px; border-radius:4px; background:var(--color-secondary); }
+    .wave-bar:nth-child(2) { height:34px; }
+    .wave-bar:nth-child(3) { height:17px; }
+    .wave-bar:nth-child(4) { height:29px; }
+    .wave-bar:nth-child(5) { height:22px; }
+    .btn-play-audio { display:inline-flex; align-items:center; justify-content:center; width:auto; min-width:92px; height:44px; margin-left:14px; padding:0 14px; border:1px solid var(--color-secondary); border-radius:8px; border-bottom-width:1px; background:rgba(37,169,255,.14); color:var(--color-secondary); font-size:13px; font-weight:800; }
+    .btn-play-audio:active { transform:none; border-bottom-width:1px; }
+    #pump-phonetics { margin-top:6px !important; font-size:16px !important; color:var(--color-text-light) !important; }
+    #pump-translation { margin:18px auto 0 !important; padding-top:18px !important; border-top:1px solid var(--color-border) !important; font-size:22px !important; font-weight:800 !important; }
+    #pump-word-answer { max-width:920px; margin:18px auto 0 !important; padding:16px 0 0 !important; border:0 !important; border-top:1px solid var(--color-border) !important; border-radius:0 !important; background:transparent !important; justify-content:flex-start !important; }
+    #pump-word-answer::before { content:'Sobre esta palavra'; display:block; width:100%; margin-bottom:10px; color:var(--color-text); font-size:15px; font-weight:900; text-align:left; }
+    #pump-word-answer > div { flex:1; justify-content:flex-start; }
+    #pump-word-val { color:var(--color-primary) !important; font-size:22px !important; }
+    #pump-word-trans { font-size:21px !important; }
+    .btn-iso-audio { width:auto; min-width:44px; height:44px; padding:0 12px; border:1px solid var(--color-secondary); border-radius:8px; background:transparent; color:var(--color-secondary); }
+    .context-explanation-card { max-width:920px; margin:18px auto 0; border:0; border-top:1px solid var(--color-border); }
+    .context-explanation-card > summary { min-height:52px; padding:0; background:transparent; font-size:15px; }
+    .context-explanation-card > summary:hover { background:transparent; }
+    #iso-context-explanation { padding:12px 0 0; background:transparent; text-align:left; }
+    .rich-word-title { font-size:21px; }
+    .rich-trans-text { font-size:21px; }
+    .rich-explain-body { font-size:15px; line-height:1.6; }
+    .rich-context-label { color:var(--color-primary); }
+    .rich-quote-box { margin-top:12px; background:transparent; border-left:2px solid var(--color-secondary); border-radius:0; }
+    .grading-buttons { max-width:none; margin-top:16px; }
+    .grading-row { gap:12px; }
+    .grade-btn { min-height:88px; border-radius:12px; border:0; font-size:18px; box-shadow:none; }
+    .grade-btn:hover:not(:disabled) { filter:brightness(1.06); }
+    .grade-btn:active { transform:translateY(2px); box-shadow:none !important; }
+    .btn-danger { background:#ff3f4b; }
+    .btn-warning { background:#ff9819; }
+    .btn-secondary { background:#169de8; }
+    .btn-primary { background:var(--color-primary); color:#06120a; }
+    .study-explore { width:100%; max-width:none; margin-top:20px; }
+    .study-resources > summary { min-height:56px; padding:0 4px; border-top:0; font-size:16px; }
+    .study-resources-content { max-width:none; }
+    .study-resource-panel-header { min-height:56px; }
+    .learning-resource-section { padding:18px 0; }
+    .more-contexts { border:1px solid var(--color-border); border-radius:10px; background:var(--color-surface); }
+    .more-contexts > summary { min-height:52px; padding:0 16px; }
+    @media (max-width: 720px) {
+      .study-main { padding:16px 12px calc(104px + env(safe-area-inset-bottom)); }
+      .anki-study-header { align-items:flex-start; }
+      .anki-session-counters { width:100%; justify-content:space-between; }
+      .anki-counter-badge { min-width:0; padding:0 10px; font-size:11px; }
+      .anki-counter-badge:first-child { padding-left:0; }
+      .anki-card-quick-actions { width:100%; justify-content:flex-end; margin-top:-4px; }
+      .sentence-container { padding:20px 14px 22px; border-radius:12px; }
+      .study-card-meta { margin-bottom:22px; }
+      .study-card-meta > div span { max-width:210px; }
+      .sentence-text { font-size:clamp(26px, 8vw, 36px); }
+      #pump-translation { font-size:18px !important; }
+      #pump-word-val, .rich-word-title { font-size:18px !important; }
+      #pump-word-trans, .rich-trans-text { font-size:18px !important; }
+      .grading-row { gap:6px; }
+      .grade-btn { min-height:72px; padding:8px 3px; font-size:14px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .home-note-card, .sentence-container { transform:none !important; }
+      .wave-bar { animation:none !important; }
     }
   `;
   document.head.appendChild(style);

@@ -520,13 +520,22 @@ export async function renderHome(container, app) {
         ...fluencyState,
     });
 
+    const todayLabel = new Intl.DateTimeFormat('pt-BR', {
+        weekday: 'short', day: '2-digit', month: 'short',
+    }).format(new Date()).replace(/\./g, '');
+
     if (myGen !== _homeRenderGen || app?.renderSignal?.aborted) return;
     container.innerHTML = `
         <div class="gamified-home">
             <div class="dashboard-main">
-                <div class="dashboard-header">
-                    <h2>Hoje</h2>
-                    <p>Uma próxima ação clara, escolhida pelo estado real da sua memória.</p>
+                    <div class="dashboard-header">
+                    <div class="dashboard-header-row">
+                        <div>
+                            <h2>Hoje</h2>
+                            <p>Uma próxima ação clara, escolhida pelo estado real da sua memória.</p>
+                        </div>
+                        <span class="home-date-label" aria-label="Data de hoje">${todayLabel}</span>
+                    </div>
                 </div>
 
                 ${supplementaryDataAvailable ? '' : `
@@ -537,28 +546,38 @@ export async function renderHome(container, app) {
                 </div>`}
 
                 <section id="home-primary-plan" class="home-primary-plan" data-plan-kind="${todayAction.kind}" aria-labelledby="home-primary-title">
-                    <p class="product-kicker">PRÓXIMO PASSO</p>
-                    <h1 id="home-primary-title">${todayAction.title}</h1>
-                    <p class="home-primary-reason">${todayAction.reason}</p>
-                    <p class="home-primary-meta">${todayAction.meta}</p>
-                    <button class="btn-action btn-study" id="btn-study-now" type="button">${todayAction.label}</button>
+                    <div class="home-primary-copy">
+                        <p class="product-kicker">PRÓXIMO PASSO</p>
+                        <h1 id="home-primary-title">${todayAction.title}</h1>
+                        <p class="home-primary-reason">${todayAction.reason}</p>
+                        <p class="home-primary-meta">${todayAction.meta}</p>
+                        <button class="btn-action btn-study" id="btn-study-now" type="button">${todayAction.label}<span aria-hidden="true">→</span></button>
+                    </div>
+                    <div class="home-primary-visual" aria-hidden="true">
+                        <div class="home-note-card"><span>Small<br>steps.</span><i></i></div>
+                        <span class="home-note-caption">Você consegue.</span>
+                    </div>
                 </section>
                 
                 <div class="stats-grid">
                     <div class="stat-card">
+                        <span class="stat-symbol" aria-hidden="true">▤</span>
                         <div class="stat-value">${safeStats.dueCards || 0}</div>
                         <div class="stat-label">Revisões de hoje</div>
                         ${dueLearningNow > 0 ? `<div class="stat-note" title="Frases começando voltam em minutos dentro desta sessão">${dueLearningNow} começando</div>` : ''}
                     </div>
                     <div class="stat-card">
+                        <span class="stat-symbol" aria-hidden="true">⌂</span>
                         <div class="stat-value">${safeStats.byStatus?.mature || 0}</div>
                         <div class="stat-label">Memória estável</div>
                     </div>
                     <div class="stat-card">
+                        <span class="stat-symbol" aria-hidden="true">↗</span>
                         <div class="stat-value">${xpToday}</div>
                         <div class="stat-label">XP Hoje</div>
                     </div>
                     <div class="stat-card">
+                        <span class="stat-symbol" aria-hidden="true">◔</span>
                         <div class="stat-value" id="stat-streak">${streak}</div>
                         <div class="stat-label">Dias de Ofensiva</div>
                     </div>
@@ -1186,6 +1205,81 @@ function injectStyles() {
         .home-more > summary { padding-left: 0; padding-right: 0; }
         .home-more-body { padding-left: 0; padding-right: 0; }
         @media (prefers-reduced-motion: reduce) { .home-primary-plan .btn-action, .home-secondary-actions .btn-action, .progress-fill { transition: none !important; } }
+
+        /* Issue #109: referência visual atualizada — azul de estudo, bordas
+           finas e uma composição de leitura, não uma parede de cards. */
+        .gamified-home { max-width: 1240px; padding: 26px clamp(16px, 4vw, 34px) 44px; gap: 0; }
+        .gamified-home .dashboard-main { width:100%; }
+        .dashboard-header { margin-bottom: 2px; }
+        .dashboard-header-row { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; }
+        .dashboard-header h2 { font-size:clamp(32px, 4vw, 44px); letter-spacing:-.035em; line-height:1; margin-bottom:10px; }
+        .dashboard-header p { font-size:16px; font-weight:600; color:var(--color-text-light); }
+        .home-date-label { flex:0 0 auto; min-height:44px; display:inline-flex; align-items:center; padding:0 14px; border:1px solid var(--color-border); border-radius:10px; color:var(--color-text); font-weight:800; font-size:13px; white-space:nowrap; }
+        .home-primary-plan { position:relative; min-height:230px; display:grid; grid-template-columns:minmax(0, 1fr) 280px; gap:24px; align-items:center; overflow:hidden; padding:26px; border:1px solid color-mix(in srgb, var(--color-secondary) 45%, var(--color-border)); border-radius:14px; background:linear-gradient(110deg, color-mix(in srgb, var(--color-secondary) 12%, var(--color-surface)), var(--color-surface)); }
+        .home-primary-copy { position:relative; z-index:1; }
+        .home-primary-plan h1 { max-width:620px; margin:8px 0 12px; font-size:clamp(28px, 4vw, 40px); letter-spacing:-.035em; }
+        .home-primary-reason { max-width:650px; color:var(--color-text-light); }
+        .home-primary-meta { margin:12px 0 20px; }
+        .home-primary-plan .btn-action { display:inline-flex; align-items:center; gap:14px; min-width:228px; min-height:48px; padding:12px 16px; border:0; border-radius:9px; background:var(--color-primary); color:#06120a; font-size:16px; letter-spacing:0; }
+        .home-primary-plan .btn-action span { font-size:24px; line-height:1; }
+        .home-primary-plan .btn-action:hover { background:color-mix(in srgb, var(--color-primary) 86%, white); }
+        .home-primary-visual { position:relative; min-height:170px; display:grid; place-items:center; }
+        .home-note-card { position:relative; width:168px; min-height:110px; padding:20px; border:1px solid #2e6ba5; border-radius:12px; background:#13375d; color:#d7edff; transform:rotate(-7deg); box-shadow:14px 10px 0 rgba(22,75,123,.35); font:italic 18px/1.15 Georgia, serif; }
+        .home-note-card::before, .home-note-card::after { content:''; position:absolute; inset:7px -20px -7px 20px; border:1px solid rgba(37,169,255,.35); border-radius:12px; z-index:-1; }
+        .home-note-card::after { inset:14px -32px -14px 32px; opacity:.55; }
+        .home-note-card i { display:block; width:62px; height:6px; margin-top:16px; border-radius:3px; background:var(--color-secondary); }
+        .home-note-caption { position:absolute; right:6px; bottom:16px; color:var(--color-secondary); font-size:13px; font-weight:900; transform:rotate(-6deg); }
+        .stats-grid { grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; margin-top:16px; border:0; }
+        .stat-card { position:relative; min-height:94px; padding:16px 16px 14px 56px; border:1px solid var(--color-border); border-radius:11px; background:color-mix(in srgb, var(--color-surface) 92%, var(--color-secondary)); }
+        .stat-card:last-child { border-right:1px solid var(--color-border); }
+        .stat-symbol { position:absolute; top:17px; left:16px; display:grid; place-items:center; width:30px; height:30px; border-radius:50%; background:rgba(37,169,255,.16); color:var(--color-secondary); font-size:20px; font-weight:800; }
+        .stat-value { font-size:24px; line-height:1; }
+        .stat-label { margin-top:7px; font-size:13px; font-weight:700; }
+        .home-study-hours-card { margin-top:16px; padding:18px; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); }
+        .study-hours-header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:14px; }
+        .study-hours-title-wrap { display:flex; align-items:center; gap:12px; }
+        .study-hours-language { min-width:38px; min-height:38px; border:0; border-radius:50%; background:rgba(37,169,255,.16); color:var(--color-secondary); }
+        .study-hours-title { font-size:16px; }
+        .study-hours-subtitle { font-size:12px; color:var(--color-text-light); }
+        .study-skills-grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:0; padding:14px 0 0; border:1px solid var(--color-border); border-radius:11px; background:color-mix(in srgb, var(--color-bg) 55%, var(--color-surface)); }
+        .study-skill-pill { min-width:0; padding:0 16px 14px; border:0; border-right:1px solid var(--color-border); border-radius:0; background:transparent; }
+        .study-skill-pill:last-child { border-right:0; }
+        .study-skill-pill .skill-name { display:block; margin-bottom:5px; color:var(--color-text-light); font-size:13px; font-weight:600; }
+        .study-skill-pill .skill-time { font-size:16px; }
+        .home-critical-cards-card { margin-top:16px; padding:18px; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); }
+        .critical-cards-header { margin-bottom:14px; }
+        .critical-cards-title { font-size:16px; }
+        .critical-cards-subtitle { display:block; margin-top:4px; color:var(--color-text-light); font-size:12px; }
+        .critical-cards-list { display:grid; gap:1px; border:1px solid var(--color-border); border-radius:11px; overflow:hidden; }
+        .critical-card-item { min-height:52px; display:flex; align-items:center; justify-content:space-between; gap:14px; padding:9px 14px; background:color-mix(in srgb, var(--color-bg) 48%, var(--color-surface)); }
+        .critical-card-main { min-width:0; display:grid; gap:2px; }
+        .critical-card-word { font-size:14px; }
+        .critical-card-trans { color:var(--color-text-light); font-size:12px; }
+        .critical-card-tags { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+        .badge-lapse, .badge-diff { border-radius:999px; padding:5px 9px; font-size:11px; font-weight:800; white-space:nowrap; }
+        .badge-lapse { color:#ffb5b5; background:rgba(255,75,75,.16); border:1px solid rgba(255,75,75,.4); }
+        .badge-diff { color:#2b1b00; background:#ffd977; }
+        .home-secondary-actions { margin-top:18px; grid-template-columns:minmax(0, 1fr); }
+        .home-secondary-actions .btn-action { justify-content:space-between; padding:0 18px; border:1px solid var(--color-secondary); border-radius:9px; background:transparent; color:var(--color-secondary); }
+        .home-secondary-actions .btn-action::after { content:'›'; font-size:24px; line-height:1; }
+        .home-more { margin-top:22px; }
+        @media (max-width: 760px) {
+            .gamified-home { padding:18px 14px 34px; }
+            .dashboard-header-row { display:block; }
+            .home-date-label { margin-top:12px; }
+            .home-primary-plan { grid-template-columns:1fr; min-height:0; padding:22px 18px; }
+            .home-primary-visual { display:none; }
+            .stats-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+            .study-hours-header { align-items:flex-start; flex-direction:column; }
+            .study-hours-header #btn-open-log-study { width:100%; }
+            .study-skills-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+            .study-skill-pill:nth-child(2) { border-right:0; }
+            .study-skill-pill:nth-child(-n+2) { border-bottom:1px solid var(--color-border); padding-bottom:12px; }
+            .study-skill-pill:nth-child(n+3) { padding-top:12px; }
+            .critical-card-item { align-items:flex-start; flex-direction:column; gap:7px; }
+            .critical-card-tags { justify-content:flex-start; }
+        }
+        @media (prefers-reduced-motion: reduce) { .home-note-card { transform:none; } }
     `;
     document.head.appendChild(style);
 }

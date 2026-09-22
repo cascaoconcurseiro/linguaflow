@@ -169,15 +169,16 @@ class App {
     }
 
     // --- Theme Logic ---
-    const savedTheme = localStorage.getItem('lf_theme') || 'light';
+    const savedTheme = localStorage.getItem('lf_theme') || 'dark';
     this.setTheme(savedTheme);
 
-    // Botões diretos da topbar (queixa 17/07: tema/config escondidos no "◉")
-    document.getElementById('topbar-theme-btn')?.addEventListener('click', () => {
-      const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-      this.setTheme(current === 'light' ? 'dark' : 'light');
+    document.getElementById('topbar-search-btn')?.addEventListener('click', () => {
+      this.navigate('library');
+      setTimeout(() => document.getElementById('library-search')?.focus(), 0);
     });
-    document.getElementById('topbar-settings-btn')?.addEventListener('click', () => this.navigate('settings'));
+
+    // Tema e configurações continuam disponíveis no menu do perfil, sem
+    // competir visualmente com as quatro áreas principais do produto.
     if (this.themeToggleBtn) {
       this.themeToggleBtn.addEventListener('click', () => {
         const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';

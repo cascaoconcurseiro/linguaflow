@@ -33,18 +33,24 @@ for (const [name, source] of [
 assert.match(popup, /id="btn-dash" class="btn btn-primary">Abrir dashboard<\/button>/);
 assert.match(popup, /id="listening-today"/);
 assert.match(popupJs, /getStudyStats\?\.\(sourceLang\)/);
-assert.match(html, /<span class="stat-label">Ofensiva<\/span>/);
-assert.match(html, /<button id="topbar-settings-btn"[^>]*>Configurações<\/button>/);
+assert.match(html, /id="topbar-search-btn"[^>]*aria-label="Buscar no cofre"/);
+assert.match(html, /class="logo-mark"/);
+assert.match(html, /class="profile-status"/);
 
 assert.match(home, /id="home-primary-plan"/);
 assert.match(home, /class="study-hours-language"/);
 assert.match(home, /class="quest-mark"/);
+assert.match(home, /class="home-primary-visual"/);
+assert.match(home, /class="stat-symbol"/);
 assert.match(css, /\.home-primary-plan \{ border: 0; border-left: 4px solid/);
-assert.match(css, /\.stat-card \{ background: transparent; border: 0;/);
+assert.match(home, /Issue #109: referência visual atualizada/);
 
 assert.match(study, /id="study-resources" class="study-resources hidden"/);
 assert.match(study, /class="chunk-action-btn chunk-audio-btn"[^>]*>Ouvir<\/button>/);
 assert.match(study, /class="chunk-action-btn chunk-save-btn"[^>]*>Salvar<\/button>/);
+assert.match(study, /class="study-card-meta"/);
+assert.match(study, /id="study-card-position"/);
+assert.doesNotMatch(study, /tutor|grammar-chat|data-tutor-prompt/i);
 assert.match(study, /prefers-reduced-motion: reduce/);
 assert.doesNotMatch(study, /animation: slideIn/);
 

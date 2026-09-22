@@ -18,12 +18,13 @@
 
 ### Próximo passo concreto
 
-Executar os contratos afetados e a bateria de release, revisar o diff, abrir PR com `Closes #107` e validar no navegador a navegação normal e um bookmark antigo `/game`.
+Validar no navegador a navegação normal e um bookmark antigo `/game`; depois fazer a revisão humana e decidir o merge da [PR #108](https://github.com/cascaoconcurseiro/linguaflow/pull/108).
 
 ### Bloqueios pendentes
 
 - QA visual/autenticada ainda não executada.
-- CI, PR e merge ainda pendentes.
+- PR #108 aberta com `Closes #107`; CI de release e preview da Vercel passaram.
+- Revisão humana, QA autenticada/visual e merge ainda pendentes.
 - Histórico de banco preservado de propósito; remover `game_match` do schema exigiria uma decisão separada sobre retenção e migração.
 
 ---

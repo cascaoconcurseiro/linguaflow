@@ -224,5 +224,6 @@
 - [x] Excluir `dashboard/js/ui/gameView.js` e atualizar contratos que dependiam da tela.
 - [x] Preservar migrations, RPCs e histórico `game_match` para compatibilidade de dados.
 - [x] Adicionar `test:game-removal` ao gate de regressão.
+- [x] Abrir PR #108 e passar CI de release e preview da Vercel.
 - [ ] QA de navegador para bookmark antigo `/game` e navegação principal.
-- [ ] PR/CI e revisão antes de merge.
+- [ ] Revisão humana e merge da PR.

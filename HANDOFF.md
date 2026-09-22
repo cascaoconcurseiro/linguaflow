@@ -1,5 +1,33 @@
 # Handoff — LinguaFlow
 
+## Atualização da Issue #107 — Remover jogos do produto
+
+**Data:** 2026-09-21
+**Branch:** `codex/107-remove-games`
+**Worktree:** `C:\Users\Wesley\.codex\worktrees\issue-102-human-interface-pass\linguaflow`
+**Issue:** https://github.com/cascaoconcurseiro/linguaflow/issues/107
+
+### Feito nesta sessão
+
+- O botão de prática livre foi removido da Home e os mini-jogos foram retirados de “Aprender”.
+- O roteador deixou de importar e registrar `gameView.js`; a rota antiga `game` redireciona para `learn` sem iniciar jogo ou evento.
+- Os rewrites específicos de `game` foram removidos do Vercel.
+- `dashboard/js/ui/gameView.js` foi excluído e os contratos de navegação, UX, segurança, pedagogia e auditoria foram atualizados.
+- Migrations, RPCs e histórico `game_match` do Supabase foram preservados; não houve migration destrutiva.
+- Foi adicionado o contrato `tests/game-removal-contract.test.mjs` e o script `test:game-removal`.
+
+### Próximo passo concreto
+
+Executar os contratos afetados e a bateria de release, revisar o diff, abrir PR com `Closes #107` e validar no navegador a navegação normal e um bookmark antigo `/game`.
+
+### Bloqueios pendentes
+
+- QA visual/autenticada ainda não executada.
+- CI, PR e merge ainda pendentes.
+- Histórico de banco preservado de propósito; remover `game_match` do schema exigiria uma decisão separada sobre retenção e migração.
+
+---
+
 ## Atualização da Issue #102 — Human Interface Pass
 
 **Data:** 2026-09-21

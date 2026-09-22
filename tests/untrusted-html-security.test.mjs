@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [study, game, db, vercel, library, stories, wordPopup, youtubeHook, settingsPanel, pwaWorker, subtitleEngine] = await Promise.all([
+const [study, db, vercel, library, stories, wordPopup, youtubeHook, settingsPanel, pwaWorker, subtitleEngine] = await Promise.all([
   readFile(new URL('../dashboard/js/ui/studyView.js', import.meta.url), 'utf8'),
-  readFile(new URL('../dashboard/js/ui/gameView.js', import.meta.url), 'utf8'),
   readFile(new URL('../utils/db.js', import.meta.url), 'utf8'),
   readFile(new URL('../vercel.json', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/js/ui/libraryView.js', import.meta.url), 'utf8'),
@@ -23,8 +22,6 @@ assert.doesNotMatch(study, /liveBubble\.innerHTML\s*=\s*full/,
   'stream da IA não pode ser tratado como HTML confiável');
 assert.doesNotMatch(study, /div\.innerHTML\s*=\s*htmlOrText/,
   'bolha da IA deve renderizar texto, não HTML arbitrário');
-assert.doesNotMatch(game, /\$\{a\.t\}<\/button>/,
-  'tokens persistidos do jogo não podem entrar crus em innerHTML');
 assert.match(library, /<strong>\$\{escapeHtml\(w\.word\)\}<\/strong>/,
   'backfill do Cofre deve escapar a palavra persistida');
 assert.match(library, /Editar: \$\{escapeHtml\(w\.word\)\}/,

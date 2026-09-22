@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const study = read('dashboard/js/ui/studyView.js');
-const game = read('dashboard/js/ui/gameView.js');
+const app = read('dashboard/js/core/app.js');
+const learn = read('dashboard/js/ui/learnView.js');
 const stories = read('dashboard/js/ui/storiesView.js');
 const leagues = read('dashboard/js/ui/leaguesView.js');
 const db = read('utils/db.js');
@@ -21,13 +22,10 @@ assert.match(study, /renderStudy\(container, app, params\)/,
   'falha de banco oferece retry com os mesmos parâmetros');
 assert.doesNotMatch(study, /você será fluente/i);
 
-const practiceStart = game.indexOf('async function getPracticeWords');
-const practiceEnd = game.indexOf('\n}', practiceStart) + 2;
-const practice = game.slice(practiceStart, practiceEnd);
-assert.match(practice, /getAllCards\(\)/);
-assert.match(practice, /new Date\(card\.due_date\)\.getTime\(\) <= now/);
-assert.doesNotMatch(practice, /getCardsDue\(|500/,
-  'prática exclui todo vencido sem truncar o backlog');
+assert.doesNotMatch(app, /gameView\.js|game:\s*renderGame/,
+  'o roteador não carrega nem registra a view de jogos');
+assert.doesNotMatch(learn, /route:\s*'game'/,
+  'Aprender não oferece mais mini-jogos como destino');
 
 assert.doesNotMatch(stories, /recordEvent\(/,
   'história e quiz gerados no cliente não concedem XP competitivo');

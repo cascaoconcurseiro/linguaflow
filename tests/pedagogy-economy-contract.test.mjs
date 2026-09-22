@@ -3,12 +3,11 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [contract, home, library, study, game] = await Promise.all([
+const [contract, home, library, study] = await Promise.all([
   readFile(new URL('../docs/CONTRATO_PEDAGOGICO_ECONOMIA_P0_2_2026-07-14.md', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/js/ui/homeView.js', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/js/ui/libraryView.js', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/js/ui/studyView.js', import.meta.url), 'utf8'),
-  readFile(new URL('../dashboard/js/ui/gameView.js', import.meta.url), 'utf8'),
 ]);
 
 let passed = 0;
@@ -58,10 +57,8 @@ check(!/bônus (?:de XP )?do primeiro estudo|primeiro estudo do dia dá bônus/i
 check(!/>Consolidados</.test(library),
   'Cofre não chama estado mature de domínio consolidado');
 
-check(!/recordEvent\(['"]game_match['"]/.test(game),
-  'prática livre repetível não alimenta XP, streak ou liga');
-check(/Prática livre[^\n]+sem alterar seu placar/i.test(game),
-  'Jogo explica explicitamente a separação entre prática e placar');
+check(!/btn-play-match|navigate\(['"]game['"]\)/.test(home),
+  'Home não oferece mais uma entrada para jogos');
 
 const gradeMarkup = study.slice(study.indexOf('id="grading-buttons"'), study.indexOf('</div>', study.indexOf('id="grading-buttons"')) + 6);
 check(!/XP/i.test(gradeMarkup),

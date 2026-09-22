@@ -15,6 +15,7 @@
 - A prática livre perdeu confete e pulso de combo; o feedback continua no resultado e no contador local, sem transformar toda interação em recompensa visual.
 - Estados compartilhados de carregamento, feedback do vídeo, status de importação e toasts também foram revisados para não depender de símbolos gráficos.
 - O contrato `tests/human-interface-pass.test.mjs` agora cobre todas as telas do dashboard; a regressão de segurança do editor foi atualizada para o novo título textual.
+- O `CLIENT_BUILD` foi alinhado à versão `3.0.51` do aplicativo e o workflow de release passou a buscar o histórico completo, corrigindo os três falsos bloqueios de versão e a faixa inválida do commitlint.
 - Popup, Home, barra superior e estudo receberam uma direção editorial mais contida: menos cápsulas, sombras, bordas arredondadas, gradientes, caixa por métrica e emoji como ícone.
 - A Home mantém a próxima ação como decisão dominante; métricas, memória, conquistas e missões ficaram em segundo plano e com separadores.
 - O estudo preserva o card contextual da Issue #98, mas usa rótulos verbais para ouvir/salvar, explicação contextual sem clipping e aprofundamento progressivo sem animação ornamental.
@@ -30,8 +31,7 @@ Abrir a PWA com uma conta autenticada e revisar o sistema completo em desktop e 
 
 ### Bloqueios pendentes
 
-- `npm run lint:biome` não executou porque o binário `biome` não está disponível neste worktree.
-- O check remoto do PR falhou no commitlint por faixa de commits inválida no workflow; não chegou a apontar falha de código desta branch.
+- `npm run lint:biome` não executou porque o binário `biome` não está disponível neste worktree; o CI remoto deve validar esse gate no ambiente oficial.
 - Não houve validação real de Supabase/RLS/Edge Function; nenhuma migration foi necessária.
 - O branch está pronto para commit/PR, mas não deve ser mergeado/deployado antes da revisão e QA autenticada.
 

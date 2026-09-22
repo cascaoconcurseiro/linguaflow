@@ -209,6 +209,7 @@
 - [x] Remover celebrações ornamentais da prática e manter sequência/acerto como feedback textual local.
 - [x] Ampliar o contrato de interface humana para todas as telas do dashboard e ajustar regressão de segurança do editor do Cofre.
 - [x] Confirmar `test:human-interface`, `test:product-ux`, `test:untrusted-content`, P0-A/B/C e P1-C após a segunda etapa.
+- [x] Corrigir a consistência do `CLIENT_BUILD` para `3.0.51` e garantir histórico completo no checkout do workflow para o commitlint.
 - [ ] QA autenticada da Home e do estudo em navegador desktop/mobile.
 - [ ] Disponibilidade do Biome para executar o lint completo.
 - [ ] Revisão do PR e merge para a branch contextual/main.

@@ -17,7 +17,7 @@ const renderLearn = (...args) => import('../ui/learnView.js').then((m) => m.rend
 const renderProgress = (...args) => import('../ui/progressView.js').then((m) => m.renderProgress(...args));
 const renderAdmin = (...args) => import('../ui/adminView.js').then((m) => m.renderAdmin(...args));
 
-const CLIENT_BUILD = '3.0.49';
+const CLIENT_BUILD = '3.0.51';
 
 // Uma versão antiga do PWA podia misturar HTML/app novo com db.js antigo.
 // Antes de inicializar qualquer tela, elimina esse estado e recarrega uma vez.

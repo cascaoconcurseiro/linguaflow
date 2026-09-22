@@ -25,16 +25,20 @@ for (const nav of [desktopNav, mobileNav]) {
 assert.match(html, /id="profile-menu-toggle"[^>]*aria-haspopup="menu"[^>]*aria-expanded="false"/);
 assert.match(html, /id="profile-menu"[^>]*role="menu"[^>]*hidden/);
 assert.match(html, /id="study-focus-header"[^>]*hidden/);
-for (const route of ['home','learn','library','progress','study','stories','reader','game','stats','leagues','settings','login']) {
+for (const route of ['home','learn','library','progress','study','stories','reader','stats','leagues','settings','login']) {
   assert.match(app, new RegExp(`${route}: render`));
 }
 assert.match(app, /'fluency-check': renderFluencyCheck/);
-assert.match(app, /const learnRoutes = new Set\(\['learn', 'stories', 'reader', 'game'\]\)/);
+assert.match(app, /const learnRoutes = new Set\(\['learn', 'stories', 'reader'\]\)/);
+assert.doesNotMatch(app, /import\('\.\.\/ui\/gameView\.js'\)|game:\s*renderGame/);
+assert.match(app, /if \(route === 'game'\)[\s\S]*?route = 'learn'/,
+  'bookmark antigo de jogos é redirecionado para Aprender sem carregar o módulo');
 assert.match(app, /const progressRoutes = new Set\(\['progress', 'fluency-check', 'stats', 'leagues'\]\)/);
 assert.match(app, /setProfileMenuOpen\(false, true\)/);
 assert.match(css, /\.profile-menu\[hidden\] \{ display:none; \}/);
 assert.match(css, /\.profile-menu button \{[^}]*min-height:44px/);
-for (const route of ['stories', 'reader', 'game']) assert.match(learn, new RegExp(`route: '${route}'`));
+for (const route of ['stories', 'reader']) assert.match(learn, new RegExp(`route: '${route}'`));
+assert.doesNotMatch(learn, /route: 'game'/);
 for (const route of ['fluency-check', 'stats', 'leagues']) assert.match(progress, new RegExp(`route: '${route}'`));
 assert.match(learn, /data-learn-route="\$\{item\.route\}"/);
 assert.match(progress, /data-progress-route="\$\{item\.route\}"/);

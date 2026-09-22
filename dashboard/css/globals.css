@@ -358,20 +358,6 @@ a { color:var(--color-link); }
   transform: translateY(2px);
   box-shadow: none;
 }
-.home-secondary-actions .btn-game {
-  background: var(--color-surface);
-  color: #a561cf;
-  border: 2px solid #ce82ff;
-  box-shadow: 0 3px 0 rgba(165, 97, 207, 0.25);
-}
-.home-secondary-actions .btn-game:hover {
-  background: rgba(206, 130, 255, 0.08);
-}
-.home-secondary-actions .btn-game:active {
-  transform: translateY(2px);
-  box-shadow: none;
-}
-
 /* Alertas modernos da Home */
 .home-alert-banner {
   display: flex;
@@ -1058,7 +1044,6 @@ body.lf-auth-pending #app-root { visibility: hidden; }
 .home-secondary-actions { gap: 12px; }
 .home-secondary-actions .btn-action { border-radius: 7px; box-shadow: none; transition: background-color .16s ease, border-color .16s ease; }
 .home-secondary-actions .btn-action:active { transform: none; box-shadow: none; }
-.home-secondary-actions .btn-game { color: var(--color-text); border-color: var(--color-border); }
 .quests-card { background: transparent; border: 0; border-top: 1px solid var(--color-border); border-radius: 0; padding: 22px 0; }
 .quest-item { gap: 12px; }
 .quest-mark { width: 10px; height: 10px; flex: 0 0 10px; border: 2px solid var(--color-border); border-radius: 50%; }
@@ -1116,7 +1101,6 @@ body.lf-auth-pending #app-root { visibility: hidden; }
   .mobile-nav-btn.active { color:var(--color-link); background:rgba(28,176,246,.1); }
   .home-flow-section { margin-bottom:24px; }
   .home-flow-section .action-buttons { display:grid; grid-template-columns:1fr; }
-  .home-flow-section .action-buttons .btn-game { background:var(--color-surface); color:var(--color-text); border:2px solid var(--color-border); box-shadow:none; }
   .home-primary-plan { padding:22px 18px; border-radius:20px; }
   .home-primary-plan .btn-action { width:100%; min-width:0; }
   .product-hub { padding:24px 16px; }

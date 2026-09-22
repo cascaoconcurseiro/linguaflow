@@ -46,12 +46,13 @@
     { "source": "/icons/(.*)", "destination": "/dashboard/icons/$1" },
     { "source": "/sw.js", "destination": "/dashboard/sw.js" },
     { "source": "/manifest.webmanifest", "destination": "/dashboard/manifest.webmanifest" },
-    { "source": "/:route(login|home|library|study|leagues|settings|game|stories|reader|stats|learn|progress|admin|fluency-check)/css/(.*)", "destination": "/dashboard/css/$2" },
-    { "source": "/:route(login|home|library|study|leagues|settings|game|stories|reader|stats|learn|progress|admin|fluency-check)/js/(.*)", "destination": "/dashboard/js/$2" },
-    { "source": "/:route(login|home|library|study|leagues|settings|game|stories|reader|stats|learn|progress|admin|fluency-check)/assets/(.*)", "destination": "/dashboard/assets/$2" },
-    { "source": "/:route(login|home|library|study|leagues|settings|game|stories|reader|stats|learn|progress|admin|fluency-check)/icons/(.*)", "destination": "/dashboard/icons/$2" },
-    { "source": "/:route(login|home|library|study|leagues|settings|game|stories|reader|stats|learn|progress|admin|fluency-check)/utils/(.*)", "destination": "/utils/$2" },
+    { "source": "/:route(login|home|library|study|leagues|settings|stories|reader|stats|learn|progress|admin|fluency-check)/css/(.*)", "destination": "/dashboard/css/$2" },
+    { "source": "/:route(login|home|library|study|leagues|settings|stories|reader|stats|learn|progress|admin|fluency-check)/js/(.*)", "destination": "/dashboard/js/$2" },
+    { "source": "/:route(login|home|library|study|leagues|settings|stories|reader|stats|learn|progress|admin|fluency-check)/assets/(.*)", "destination": "/dashboard/assets/$2" },
+    { "source": "/:route(login|home|library|study|leagues|settings|stories|reader|stats|learn|progress|admin|fluency-check)/icons/(.*)", "destination": "/dashboard/icons/$2" },
+    { "source": "/:route(login|home|library|study|leagues|settings|stories|reader|stats|learn|progress|admin|fluency-check)/utils/(.*)", "destination": "/utils/$2" },
     { "source": "/", "destination": "/dashboard/dashboard.html" },
-    { "source": "/(login|home|library|study|leagues|settings|game|stories|reader|stats|learn|progress|admin|fluency-check)", "destination": "/dashboard/dashboard.html" }
+    { "source": "/game", "destination": "/dashboard/dashboard.html" },
+    { "source": "/(login|home|library|study|leagues|settings|stories|reader|stats|learn|progress|admin|fluency-check)", "destination": "/dashboard/dashboard.html" }
   ]
 }

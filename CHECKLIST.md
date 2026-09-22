@@ -213,3 +213,16 @@
 - [ ] QA autenticada da Home e do estudo em navegador desktop/mobile.
 - [ ] Disponibilidade do Biome para executar o lint completo.
 - [ ] Revisão do PR e merge para a branch contextual/main.
+
+## 15. Issue #107 — Remover jogos do produto
+
+- [x] Criar Issue #107 e branch `codex/107-remove-games` baseada na `origin/main`.
+- [x] Remover o botão de prática livre da Home e o destino de jogos de “Aprender”.
+- [x] Retirar a importação dinâmica, renderer e rota funcional de `gameView.js`.
+- [x] Redirecionar bookmarks antigos de `game` para “Aprender” sem iniciar rodada ou registrar evento.
+- [x] Remover rewrites específicos de `game` no Vercel.
+- [x] Excluir `dashboard/js/ui/gameView.js` e atualizar contratos que dependiam da tela.
+- [x] Preservar migrations, RPCs e histórico `game_match` para compatibilidade de dados.
+- [x] Adicionar `test:game-removal` ao gate de regressão.
+- [ ] QA de navegador para bookmark antigo `/game` e navegação principal.
+- [ ] PR/CI e revisão antes de merge.

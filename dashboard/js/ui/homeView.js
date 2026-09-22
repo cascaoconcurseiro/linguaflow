@@ -684,9 +684,6 @@ export async function renderHome(container, app) {
                     <button class="btn-action btn-study" id="btn-open-learning">
                         EXPLORAR CONTEÚDO
                     </button>
-                    <button class="btn-action btn-game" id="btn-play-match">
-                        PRÁTICA LIVRE · SEM PLACAR
-                    </button>
                 </div>
 
                 <div class="achievements-section">
@@ -787,10 +784,6 @@ export async function renderHome(container, app) {
         renderHome(container, app);
     });
     document.getElementById('btn-open-learning')?.addEventListener('click', () => app?.navigate?.('learn'));
-
-    document.getElementById('btn-play-match')?.addEventListener('click', () => {
-        if (app && app.navigate) app.navigate('game');
-    });
 
     document.getElementById('btn-open-log-study')?.addEventListener('click', () => {
         showLogStudyModal(db, app, sourceLang, () => {
@@ -1028,20 +1021,6 @@ function injectStyles() {
             box-shadow: 0 0 0 #58a700;
         }
 
-        .btn-game {
-            background: #ce82ff;
-            box-shadow: 0 6px 0 #a561cf;
-        }
-
-        .btn-game:hover {
-            background: #d694ff;
-        }
-
-        .btn-game:active {
-            transform: translateY(6px);
-            box-shadow: 0 0 0 #a561cf;
-        }
-
         .btn-icon {
             font-size: 24px;
         }
@@ -1190,7 +1169,6 @@ function injectStyles() {
         .memory-badge { font-size: 12px; }
         .home-secondary-actions .btn-action { border-radius: 7px; box-shadow: none; transition: background-color .16s ease, border-color .16s ease; }
         .home-secondary-actions .btn-action:active { transform: none; box-shadow: none; }
-        .home-secondary-actions .btn-game { color: var(--color-text); border-color: var(--color-border); }
         .quests-card { background: transparent; border: 0; border-top: 1px solid var(--color-border); border-radius: 0; padding: 22px 0; }
         .quest-mark { width: 10px; height: 10px; flex: 0 0 10px; border: 2px solid var(--color-border); border-radius: 50%; }
         .quest-done .quest-mark { background: var(--color-primary); border-color: var(--color-primary); }

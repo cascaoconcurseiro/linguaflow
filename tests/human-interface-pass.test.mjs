@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
-const [popup, popupJs, html, css, home, study, library, stories, reader, settings, game, stats, leagues, admin] = await Promise.all([
+const [popup, popupJs, html, css, home, study, library, stories, reader, settings, stats, leagues, admin] = await Promise.all([
   read('popup/popup.html'),
   read('popup/popup.js'),
   read('dashboard/dashboard.html'),
@@ -13,7 +13,6 @@ const [popup, popupJs, html, css, home, study, library, stories, reader, setting
   read('dashboard/js/ui/storiesView.js'),
   read('dashboard/js/ui/readerView.js'),
   read('dashboard/js/ui/settingsView.js'),
-  read('dashboard/js/ui/gameView.js'),
   read('dashboard/js/ui/statsView.js'),
   read('dashboard/js/ui/leaguesView.js'),
   read('dashboard/js/ui/adminView.js'),
@@ -26,7 +25,7 @@ const emoji = /[\u{1F300}-\u{1FAFF}]/u;
 for (const [name, source] of [
   ['popup', popup], ['popup.js', popupJs], ['Home', home], ['estudo', study],
   ['Cofre', library], ['Histórias', stories], ['Leitor', reader], ['Configurações', settings],
-  ['Prática', game], ['Progresso', stats], ['Ligas', leagues], ['Administração', admin],
+  ['Progresso', stats], ['Ligas', leagues], ['Administração', admin],
 ]) {
   assert.doesNotMatch(source, emoji, `${name} não deve depender de emoji na interface`);
 }

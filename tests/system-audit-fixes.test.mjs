@@ -11,7 +11,6 @@ const youtubeHook = read('content/youtube-hook.js');
 const wordPopup = read('content/word-popup.js');
 const subtitleEngine = read('content/subtitle-engine.js');
 const libraryView = read('dashboard/js/ui/libraryView.js');
-const gameView = read('dashboard/js/ui/gameView.js');
 
 // 1. Stories quiz parsing
 assert.match(storiesView, /import\s*\{[^}]*safeParseJson[^}]*\}\s*from\s*'\.\.\/core\/ai\.js'/,
@@ -35,12 +34,4 @@ assert.match(libraryView, /app\.onLeaveView\?\.[\s\S]*clearTimeout\(searchDeboun
 assert.match(libraryView, /if\s*\(app\?\.renderSignal\?\.aborted\)\s*return;/,
   'libraryView descarta renders obsoletos quando a rota mudou');
 
-// 5. Game view audio context safety & uniform shuffle
-assert.match(gameView, /function\s*safeCreateAudioContext/,
-  'gameView define safeCreateAudioContext defensivo contra ambientes sem AudioContext');
-assert.match(gameView, /function\s*shuffleArray/,
-  'gameView define shuffleArray com Fisher-Yates');
-assert.match(gameView, /shuffleArray\(words\.map/,
-  'gameView usa shuffleArray uniforme para associar colunas');
-
-console.log('✓ 7 contratos de auditoria profunda e hardening do sistema passaram com sucesso!');
+console.log('✓ 4 contratos de auditoria profunda e hardening do sistema passaram com sucesso!');

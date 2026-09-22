@@ -24,7 +24,6 @@ const surfaces = [
   'dashboard/js/ui/libraryView.js',
   'dashboard/js/ui/statsView.js',
   'dashboard/js/ui/readerView.js',
-  'dashboard/js/ui/gameView.js',
   'dashboard/js/ui/storiesView.js',
 ].map(read).join('\n');
 
@@ -43,12 +42,11 @@ for (const oldCopy of [
   'Está logado?',
 ]) assert.ok(!surfaces.includes(oldCopy), `microcopy antiga removida: ${oldCopy}`);
 
-for (const file of ['homeView.js', 'libraryView.js', 'statsView.js', 'readerView.js', 'gameView.js', 'storiesView.js']) {
+for (const file of ['homeView.js', 'libraryView.js', 'statsView.js', 'readerView.js', 'storiesView.js']) {
   assert.match(read(`dashboard/js/ui/${file}`), /renderViewState/, `${file} usa estados compartilhados`);
 }
 
 assert.match(read('dashboard/js/ui/statsView.js'), /btn-stats-retry/);
-assert.match(read('dashboard/js/ui/gameView.js'), /Não foi possível preparar esta prática/);
 assert.match(read('dashboard/js/ui/storiesView.js'), /remoteFailed && stories\.length === 0/);
 assert.match(read('dashboard/js/ui/storiesView.js'), /btn-stories-retry/);
 assert.match(read('dashboard/css/globals.css'), /\.view-state-error/);

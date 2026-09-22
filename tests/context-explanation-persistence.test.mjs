@@ -34,8 +34,14 @@ assert.match(worker, /queuedAt: Math\.max\(Date\.now\(\), Number\(queue\[id\]\?\
   'cada versão da mesma palavra recebe marcador estritamente crescente');
 assert.match(db, /if \(wordData\.explanation !== undefined\) payload\.explanation = wordData\.explanation/,
   'campo atravessa o cliente e chega à linha words do usuário');
-assert.match(study, /id="pump-translation"[\s\S]*?<details id="iso-context-details" class="context-explanation-card hidden">[\s\S]*?<summary id="iso-context-summary">[\s\S]*?Por que esse sentido aparece aqui\?[\s\S]*?role="region" aria-labelledby="iso-context-summary"/,
+assert.match(study, /id="pump-translation"[\s\S]*?<details id="iso-context-details" class="context-explanation-card hidden">[\s\S]*?<summary id="iso-context-summary">[\s\S]*?O sentido aqui[\s\S]*?role="region" aria-labelledby="iso-context-summary"/,
   'a explicação contextual fica associada ao seu rótulo acessível');
+assert.match(study, /function renderContextExplanation\(explanation = ''\)/,
+  'o painel contextual renderiza somente o texto da explicação');
+assert.doesNotMatch(study, /renderRichContextCard|rich-word-header|rich-quote-box/,
+  'o painel contextual não repete palavra, áudio, pronúncia ou frase');
+assert.doesNotMatch(study, /id="tutor-details"|data-tutor-prompt|grammar-form/,
+  'o tutor não aparece no card de estudo');
 assert.match(study, /contextDetails\.open = false/,
   'cada card começa com a explicação recolhida');
 assert.match(study, /contextDetails\.open = Boolean\(savedExplanation\)/,

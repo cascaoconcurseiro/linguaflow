@@ -135,6 +135,17 @@
 - [ ] Navegador autenticado para reproduzir o hover de Histórias.
 - [ ] Não declarar produção concluída sem evidência desses itens.
 
+## 15. Issue #104 — Registro manual de estudo personalizado
+
+- [x] Criar Issue #104 e branch isolada `codex/104-custom-study-log` baseada na `main` publicada.
+- [x] Mapear o fluxo existente: atalhos fixos no modal, `logManualStudy`, limite de 720 minutos e idioma-alvo.
+- [x] Permitir duração inteira personalizada de 1 a 720 minutos, mantendo atalhos rápidos como sugestão.
+- [x] Validar entrada vazia, decimal, negativa e acima do limite antes de enviar ao Supabase.
+- [x] Preservar habilidade, idioma-alvo, foco do modal e confirmação da duração efetivamente salva.
+- [x] Adicionar contrato `tests/manual-study-log-ux.test.mjs` e script `test:manual-study-log`.
+- [ ] QA autenticada do modal em desktop/mobile e confirmação real no Supabase.
+- [ ] Abrir PR, passar CI e mergear na `main`.
+
 ## 13. Issue #98 — card contextual e experiência editorial de revisão
 
 - [x] Criar Issue #98 e branch isolada `codex/98-contextual-card-experience`.
@@ -213,3 +224,15 @@
 - [ ] QA autenticada da Home e do estudo em navegador desktop/mobile.
 - [ ] Disponibilidade do Biome para executar o lint completo.
 - [ ] Revisão do PR e merge para a branch contextual/main.
+
+## 16. Issue #105 — Explicação contextual sem repetição
+
+- [x] Registrar o feedback sobre palavra/tradução/áudio/pronúncia/frase repetidos no painel contextual.
+- [x] Manter “Mais exemplos e fontes → Ouvir em outros contextos”.
+- [x] Reduzir “O sentido aqui” ao texto da explicação contextual persistida.
+- [x] Remover o tutor, atalhos de perguntas e mnemônico da área “Entender melhor”.
+- [x] Preservar trecho original do vídeo, chunks de prática e YouGlish.
+- [x] Atualizar contratos do painel e da persistência da explicação.
+- [x] Executar `node --check`, contratos contextuais, painel P0-B e `git diff --check`.
+- [ ] QA visual autenticada em desktop/mobile.
+- [ ] PR/CI e revisão antes de merge.

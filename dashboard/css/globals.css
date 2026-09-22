@@ -617,6 +617,40 @@ a { color:var(--color-link); }
   background: rgba(28, 176, 246, 0.08);
   color: var(--color-secondary-shadow);
 }
+.manual-study-duration-input {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  color:var(--color-text-light);
+  font-size:13px;
+  font-weight:700;
+}
+.manual-study-duration-input input {
+  width:120px;
+  min-height:44px;
+  padding:10px 12px;
+  border:2px solid var(--color-border);
+  border-radius:var(--radius-sm);
+  background:var(--color-bg);
+  color:var(--color-text);
+  font:800 16px var(--font-main);
+}
+.manual-study-duration-input input:focus-visible {
+  outline:2px solid var(--color-secondary);
+  outline-offset:2px;
+}
+.manual-study-duration-input input[aria-invalid="true"] { border-color:var(--color-danger); }
+.manual-study-field-error {
+  min-height:18px;
+  margin:6px 0 0;
+  color:var(--color-danger);
+  font-size:12px;
+  font-weight:700;
+}
+@media (max-width: 480px) {
+  .manual-study-duration-input input { width:100%; }
+  .manual-study-duration-input { align-items:flex-start; flex-direction:column; gap:4px; }
+}
 
 /* Cards Críticos */
 .home-critical-cards-card {

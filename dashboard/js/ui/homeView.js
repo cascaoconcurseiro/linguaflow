@@ -1216,6 +1216,7 @@ function showLogStudyModal(db, app, sourceLang = 'en', onSaved) {
     const existing = document.getElementById('log-study-modal-overlay');
     if (existing) existing.remove();
 
+    const returnFocus = document.activeElement;
     let selectedSkill = 'reading';
     let selectedMinutes = 30;
 
@@ -1231,7 +1232,7 @@ function showLogStudyModal(db, app, sourceLang = 'en', onSaved) {
 
             <p style="font-size:13px; color:var(--color-text-light); margin:0;">Adicione minutos estudados fora da extensão para controle total das suas horas.</p>
 
-            <div>
+            <form id="manual-study-form" novalidate>
                 <label style="font-size:12px; font-weight:800; color:var(--color-text); display:block; margin-bottom:8px;">Habilidade:</label>
                 <div class="skill-options-grid">
                     <button type="button" class="btn-skill-option active" data-skill="reading">
@@ -1247,21 +1248,28 @@ function showLogStudyModal(db, app, sourceLang = 'en', onSaved) {
                         <span>Escrita</span>
                     </button>
                 </div>
-            </div>
-
-            <div>
-                <label style="font-size:12px; font-weight:800; color:var(--color-text); display:block; margin-bottom:8px;">Duração:</label>
-                <div class="duration-chips">
-                    <button type="button" class="btn-duration-chip" data-min="15">15m</button>
-                    <button type="button" class="btn-duration-chip active" data-min="30">30m</button>
-                    <button type="button" class="btn-duration-chip" data-min="45">45m</button>
-                    <button type="button" class="btn-duration-chip" data-min="60">1h</button>
                 </div>
-            </div>
 
-            <button type="button" class="btn btn-primary" id="btn-save-manual-study" style="padding:14px; font-size:15px; font-weight:800; margin-top:6px;">
+                <div class="manual-study-duration">
+                    <label for="manual-study-minutes" style="font-size:12px; font-weight:800; color:var(--color-text); display:block; margin-bottom:8px;">Quanto tempo você estudou?</label>
+                    <div class="manual-study-duration-input">
+                        <input id="manual-study-minutes" name="minutes" type="number" min="1" max="720" step="1" value="30" inputmode="numeric" required aria-describedby="manual-study-minutes-help manual-study-minutes-error">
+                        <span aria-hidden="true">minutos</span>
+                    </div>
+                    <p id="manual-study-minutes-help" style="font-size:12px; color:var(--color-text-light); margin:6px 0 10px;">Informe de 1 a 720 minutos. Os atalhos abaixo são apenas sugestões.</p>
+                    <div class="duration-chips" aria-label="Sugestões de duração">
+                        <button type="button" class="btn-duration-chip" data-min="15">15 min</button>
+                        <button type="button" class="btn-duration-chip active" data-min="30">30 min</button>
+                        <button type="button" class="btn-duration-chip" data-min="45">45 min</button>
+                        <button type="button" class="btn-duration-chip" data-min="60">1 hora</button>
+                    </div>
+                    <p id="manual-study-minutes-error" class="manual-study-field-error" role="alert" aria-live="polite"></p>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="btn-save-manual-study" style="padding:14px; font-size:15px; font-weight:800; margin-top:6px;">
                 Salvar estudo
-            </button>
+                </button>
+            </form>
         </div>
     `;
 
@@ -1275,17 +1283,40 @@ function showLogStudyModal(db, app, sourceLang = 'en', onSaved) {
         });
     });
 
+    const minutesInput = modalOverlay.querySelector('#manual-study-minutes');
+    const minutesError = modalOverlay.querySelector('#manual-study-minutes-error');
+    const saveButton = modalOverlay.querySelector('#btn-save-manual-study');
+
+    const readMinutes = () => {
+        const value = Number(minutesInput.value);
+        const valid = Number.isInteger(value) && value >= 1 && value <= 720;
+        selectedMinutes = valid ? value : null;
+        minutesInput.setAttribute('aria-invalid', valid ? 'false' : 'true');
+        minutesError.textContent = valid ? '' : 'Informe um número inteiro entre 1 e 720 minutos.';
+        saveButton.disabled = !valid;
+        return valid;
+    };
+
+    minutesInput.addEventListener('input', () => {
+        modalOverlay.querySelectorAll('.btn-duration-chip').forEach(b => b.classList.toggle('active', Number(b.dataset.min) === Number(minutesInput.value)));
+        readMinutes();
+    });
+    minutesInput.focus();
+
     modalOverlay.querySelectorAll('.btn-duration-chip').forEach(btn => {
         btn.addEventListener('click', () => {
             modalOverlay.querySelectorAll('.btn-duration-chip').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            selectedMinutes = Number(btn.dataset.min);
+            minutesInput.value = btn.dataset.min;
+            readMinutes();
+            minutesInput.focus();
         });
     });
 
     const close = () => {
         document.removeEventListener('keydown', onKeyDown);
         modalOverlay.remove();
+        returnFocus?.focus?.();
     };
     const onKeyDown = (e) => {
         if (e.key === 'Escape') close();
@@ -1296,7 +1327,12 @@ function showLogStudyModal(db, app, sourceLang = 'en', onSaved) {
         if (e.target === modalOverlay) close();
     });
 
-    modalOverlay.querySelector('#btn-save-manual-study').addEventListener('click', async () => {
+    modalOverlay.querySelector('#manual-study-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!readMinutes()) {
+            minutesInput.focus();
+            return;
+        }
         const btn = modalOverlay.querySelector('#btn-save-manual-study');
         btn.disabled = true;
         btn.textContent = 'Salvando…';

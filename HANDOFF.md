@@ -1,5 +1,58 @@
 # Handoff — LinguaFlow
 
+## Atualização da Issue #105 — Explicação contextual sem repetição
+
+**Data:** 2026-09-22
+**Branch:** `codex/104-custom-study-log`
+**Worktree:** `C:\Users\Wesley\.codex\worktrees\issue-102-human-interface-pass\linguaflow`
+**Issue:** https://github.com/cascaoconcurseiro/linguaflow/issues/105
+
+### Feito nesta sessão
+
+- O painel “O sentido aqui” agora mostra somente a explicação contextual persistida; palavra, tradução, pronúncia, áudio e frase não são renderizados novamente dentro dele.
+- O tutor de gramática, atalhos de perguntas e mnemônico foram removidos da área “Entender melhor”, reduzindo a aparência de chat/IA e a carga cognitiva do card.
+- “Mais exemplos e fontes → Ouvir em outros contextos”, o trecho original do vídeo e os chunks de prática foram preservados.
+- O código morto do tutor e do cartão rico duplicado foi removido, incluindo listeners, importações e estilos sem consumidores.
+- Os contratos de explicação contextual e do painel P0-B foram atualizados para a nova estrutura.
+
+### Próximo passo concreto
+
+Executar a bateria final da branch, abrir PR referenciando as Issues #104 e #105 e fazer QA autenticada do card em desktop/mobile, conferindo uma palavra com explicação, um card com vídeo e “Ouvir em outros contextos”.
+
+### Bloqueios pendentes
+
+- QA visual autenticada e confirmação de dados reais ainda não executadas.
+- Nenhuma migration foi necessária; não houve mudança em Supabase/RLS/RPC.
+- PR/CI/merge continuam pendentes.
+
+---
+
+## Atualização da Issue #104 — Registro manual de estudo personalizado
+
+**Data:** 2026-09-22
+**Branch:** `codex/104-custom-study-log`
+**Worktree:** `C:\Users\Wesley\.codex\worktrees\issue-102-human-interface-pass\linguaflow`
+**Issue:** https://github.com/cascaoconcurseiro/linguaflow/issues/104
+
+### Feito nesta sessão
+
+- O modal “Registrar Estudo Externo” deixou de depender apenas de 15m, 30m, 45m e 1h.
+- O usuário agora pode informar qualquer número inteiro entre 1 e 720 minutos; os botões rápidos continuam como atalhos, não como limite.
+- A entrada possui mensagem de erro, `aria-invalid`, submissão por teclado, foco inicial e retorno do foco ao botão que abriu o modal.
+- A habilidade e o idioma-alvo continuam sendo enviados pelo contrato existente `logManualStudy`; nenhuma migration foi necessária.
+- Adicionado `tests/manual-study-log-ux.test.mjs` e script `test:manual-study-log`.
+
+### Próximo passo concreto
+
+Executar a bateria de release, abrir PR para `main` e validar o modal com uma conta autenticada em desktop/mobile, incluindo um valor personalizado e a confirmação real no Supabase.
+
+### Bloqueios pendentes
+
+- QA autenticada e confirmação operacional de persistência ainda não executadas.
+- PR/CI/merge desta Issue #104 ainda pendentes.
+
+---
+
 ## Atualização da Issue #102 — Human Interface Pass
 
 **Data:** 2026-09-21

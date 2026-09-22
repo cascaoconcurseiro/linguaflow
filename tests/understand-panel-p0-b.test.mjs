@@ -7,18 +7,17 @@ assert.match(study, /<summary><span>Entender melhor<\/span>/);
 assert.doesNotMatch(study, /<summary><span>Explorar esta frase<\/span>/);
 
 const video = study.indexOf('id="video-resource-section"');
-const understand = study.indexOf('id="tutor-resource-title"');
 const practice = study.indexOf('id="practice-resource-title"');
 const more = study.indexOf('class="more-contexts"');
-assert.ok(video > 0 && video < understand && understand < practice && practice < more,
-  'painel segue Ouvir no contexto → Entender → Praticar → Mais contextos');
+assert.ok(video > 0 && video < practice && practice < more,
+  'painel segue Ouvir no contexto → Praticar → Mais contextos');
 
 const menu = study.indexOf('id="study-card-menu"');
 assert.ok(menu > more, 'ações administrativas ficam fora do conteúdo pedagógico');
 for (const id of ['btn-undo', 'improve-btn', 'bury-btn']) assert.ok(study.indexOf(`id="${id}"`, menu) > menu);
 
-assert.equal((study.match(/data-tutor-prompt=/g) || []).length, 3);
-assert.match(study, /document\.querySelectorAll\('\[data-tutor-prompt\]'\)/);
+assert.doesNotMatch(study, /data-tutor-prompt|tutor-resource-title|grammar-chat/,
+  'painel não expõe tutor de IA');
 assert.match(study, /button\.disabled = true/);
 assert.match(study, /button\.disabled = false/);
 
@@ -32,7 +31,7 @@ assert.match(study, /id="close-study-resources"/);
 
 // IDs dos recursos e contratos do player continuam intactos.
 // (tatoeba-box saiu do contrato em 18/07: recurso removido a pedido do dono)
-for (const id of ['saved-video-context','study-yt-mount','grammar-chat','youglish-box','chunks-container']) {
+for (const id of ['saved-video-context','study-yt-mount','youglish-box','chunks-container']) {
   assert.match(study, new RegExp('id="' + id + '"'));
 }
 assert.doesNotMatch(study, /id="isolated-word-box"/);

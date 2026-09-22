@@ -66,6 +66,7 @@
     "test:p0-3": "node tests/user-stats-security-p0-3.test.mjs",
   "test:design-system": "node tests/design-system-stage5.test.mjs",
   "test:human-interface": "node tests/human-interface-pass.test.mjs",
+  "test:manual-study-log": "node tests/manual-study-log-ux.test.mjs",
     "test:stage3": "npm run test:focus-shell && npm run test:study-focus",
     "test:dashboard-cards": "node tests/dashboard-cards-audit.test.mjs",
     "test:study-video": "node tests/study-video-race.test.mjs",

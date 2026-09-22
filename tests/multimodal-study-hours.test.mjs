@@ -37,6 +37,8 @@ assert.match(dbContent, /getStudyStats\s*\(/, 'utils/db.js deve implementar getS
 assert.match(dbContent, /formatStudyTime\s*\(/, 'utils/db.js deve implementar formatStudyTime');
 assert.match(dbContent, /logManualStudy\s*\(/, 'utils/db.js deve implementar logManualStudy');
 assert.match(dbContent, /logSession\s*\([\s\S]*language/, 'logSession em utils/db.js deve aceitar language');
+assert.match(dbContent, /src === 'video' \|\| src === 'extension' \|\| src === 'manual_listening'/,
+  'getStudyStats deve contabilizar imersão automática da extensão como listening');
 
 // 3. Contrato do Popup
 const popupHtml = readFileSync('popup/popup.html', 'utf8');

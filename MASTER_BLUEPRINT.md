@@ -46,6 +46,7 @@ Estado vigente: [`docs/ESTADO_ATUAL_2026-09-12.md`](docs/ESTADO_ATUAL_2026-09-12
 
 ## Decisões de arquitetura
 
+| 2026-09-21 | O listening automático aceita sessões `video` e `extension` quando o idioma da sessão coincide com o idioma-alvo solicitado; revisão, leitor, PWA e outras habilidades permanecem separados. | A extensão pode registrar o mesmo vídeo por fontes técnicas diferentes, mas o popup não pode misturar idiomas nem transformar atividade geral em escuta. |
 | 2026-09-12 | Termos compostos e phrasal verbs ignoram chamadas à DictionaryAPI simples, delegando direto para a tradução e explicação contextual com timeout reduzido de 3s. | APIs de dicionário convencionais não possuem rotas simples para expressões de múltiplas palavras e causavam travamento indefinido na interface. |
 | 2026-09-12 | Migração de hardening relacional adiciona tabela `db_audit_telemetry` e validação estrita de integridade via métodos em `db.js`. | Monitoramento preventivo de anomalias sem overhead de escrita nas operações normais de estudo. |
 | 2026-09-09 | Requisições de tradução iniciadas por content scripts passam pelo service worker; páginas da extensão, service worker e PWA usam o transporte direto quando permitido. | `host_permissions` remove CORS no contexto da extensão, mas não concede essa exceção ao origin da página hospedeira. |

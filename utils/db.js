@@ -1522,7 +1522,10 @@ class Database {
       const isToday = s.date === today;
       const src = String(s.source || '').toLowerCase();
 
-      if (src === 'video' || src === 'manual_listening') {
+      // A extensão registra a imersão automática como `extension` em alguns
+      // caminhos e como `video` nos players identificados. Ambos são escuta;
+      // o idioma já foi filtrado acima para não misturar outras línguas.
+      if (src === 'video' || src === 'extension' || src === 'manual_listening') {
         listeningTotal += sec;
         if (isToday) listeningToday += sec;
       } else if (src === 'review' || src === 'study') {

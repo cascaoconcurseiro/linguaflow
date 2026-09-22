@@ -135,6 +135,16 @@
 - [ ] Navegador autenticado para reproduzir o hover de Histórias.
 - [ ] Não declarar produção concluída sem evidência desses itens.
 
+## 14. Issue #100 — listening diário por idioma-alvo
+
+- [x] Criar Issue #100 e branch isolada `codex/100-listening-language-filter`.
+- [x] Corrigir a classificação de sessões `extension` como listening automático.
+- [x] Manter filtro estrito pelo idioma solicitado pelo popup.
+- [x] Garantir que review, reader, pwa e outros idiomas não entrem no listening de inglês.
+- [x] Adicionar teste de fonte, dia e idioma para `getStudyStats`.
+- [x] Executar testes multimodais, de estudo/áudio e UX relacionados.
+- [ ] Validar com uma conta real após a publicação da PR e confirmar o registro no Supabase ao vivo.
+
 ## 11. Governança criada em 2026-09-19
 
 - [x] Criar Issue #77 para a investigação do hover de tradução em Histórias.

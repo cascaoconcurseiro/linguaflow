@@ -1,5 +1,30 @@
 # Handoff — LinguaFlow
 
+## Atualização da Issue #100 — listening diário por idioma-alvo
+
+**Data:** 2026-09-21
+**Branch:** `codex/100-listening-language-filter`
+**Worktree:** `C:\Users\Wesley\.codex\worktrees\issue-100-listening-language-filter\linguaflow`
+**Issue:** https://github.com/cascaoconcurseiro/linguaflow/issues/100
+
+### Feito nesta sessão
+
+- `getStudyStats()` passou a classificar `extension` como listening automático, além de `video` e `manual_listening`.
+- O filtro por idioma continua sendo aplicado antes da soma: o popup de inglês só soma sessões com `language = en`.
+- `review`, `reader`, `pwa` e sessões de outras línguas continuam fora do listening.
+- Foi adicionado teste cobrindo fonte, dia, idioma e separação das demais habilidades.
+- Nenhuma migration ou alteração de Supabase foi necessária; o contrato atual de `sessions` já possui `source` e `language`.
+
+### Próximo passo concreto
+
+Após a PR entrar no preview/publicação, abrir um vídeo em inglês com a extensão ativa, deixar uma legenda real visível por pelo menos 10 segundos, fechar e reabrir o popup. Confirmar que `Listening hoje` aumenta e que um vídeo em outro idioma não altera o valor do painel de inglês.
+
+### Bloqueios pendentes
+
+- Ainda falta validação autenticada ao vivo com a conta da imagem.
+- A sessão já gravada antes da correção não será reconstruída automaticamente; o ajuste corrige novos registros `extension`.
+- RLS, RPC e Supabase ao vivo não foram alterados nem exercitados nesta sessão.
+
 ## Última sessão
 
 **Data:** 2026-09-21  

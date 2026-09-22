@@ -8,7 +8,7 @@ export function escapeHtml(value) {
 }
 
 const STATE_META = {
-  loading: { icon: '⏳', role: 'status', live: 'polite' },
+  loading: { icon: '', role: 'status', live: 'polite' },
   empty: { icon: '◇', role: 'status', live: 'polite' },
   error: { icon: '!', role: 'alert', live: 'assertive' },
 };

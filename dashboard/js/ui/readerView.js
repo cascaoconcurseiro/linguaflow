@@ -287,7 +287,7 @@ export async function renderReader(container, app) {
           <strong>2.</strong> Leia — cada palavra ganha uma cor pelo estágio real na memória: <span class="rw rw-new" style="cursor:default;">azul = nunca viu</span> · <span class="rw rw-learning" style="cursor:default;">amarela = aprendendo</span> · <span class="rw rw-review" style="cursor:default;">verde clara = já graduou, ainda fixando</span> · sem cor = consolidada.<br>
           <strong>3.</strong> Clique num termo para ver a tradução, ouvir, <strong>salvar no Cofre para revisar</strong> ou marcar <strong>"já sei"</strong>. Quanto mais você lê, mais o app conhece seu vocabulário real.
         </p>
-        <button id="rd-try-sample" style="margin-top:12px; background:none; border:none; color:var(--color-secondary); font-family:var(--font-main); font-weight:800; font-size:14px; cursor:pointer; text-decoration:underline;">✨ Experimentar com um texto de exemplo</button>
+        <button id="rd-try-sample" style="margin-top:12px; background:none; border:none; color:var(--color-secondary); font-family:var(--font-main); font-weight:800; font-size:14px; cursor:pointer; text-decoration:underline;">Experimentar com um texto de exemplo</button>
       </details>
 
       <div id="reader-import" style="background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:24px; margin-bottom:24px;">
@@ -295,9 +295,9 @@ export async function renderReader(container, app) {
 
         <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
           <input id="rd-url" type="url" placeholder="Colar uma URL (artigo, notícia…)" style="flex:1; min-width:220px; padding:10px 12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
-          <button id="rd-url-fetch" class="btn btn-secondary" style="padding:10px 16px; white-space:nowrap;">🔗 Buscar da URL</button>
+          <button id="rd-url-fetch" class="btn btn-secondary" style="padding:10px 16px; white-space:nowrap;">Buscar da URL</button>
           <label class="btn btn-secondary" style="padding:10px 16px; white-space:nowrap; cursor:pointer; margin:0; display:inline-flex; align-items:center;">
-            📖 Importar EPUB
+            Importar EPUB
             <input id="rd-epub" type="file" accept=".epub" style="display:none;">
           </label>
         </div>
@@ -317,7 +317,7 @@ export async function renderReader(container, app) {
                 <div style="font-weight:800; color:var(--color-text);">${escapeText(t.title)}</div>
                 <div style="font-size:12px; color:var(--color-text-light);">${(t.content.match(/[a-zA-Z][a-zA-Z'-]*/g) || []).length} palavras · ${new Date(t.addedAt).toLocaleDateString('pt-BR')}</div>
               </div>
-              <button class="rd-del" data-id="${t.id}" style="background:none; border:none; cursor:pointer; font-size:16px;" title="Excluir texto">🗑️</button>
+              <button class="rd-del" data-id="${t.id}" style="background:none; border:none; cursor:pointer; font-size:16px;" title="Excluir texto">Excluir</button>
             </div>`).join('')}
         </div>
       </div>
@@ -336,7 +336,7 @@ export async function renderReader(container, app) {
       <div id="rd-popup" class="hidden" style="position:fixed; z-index:9999; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:16px; width:260px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
           <strong id="rdp-word" style="color:var(--color-text); font-size:18px;"></strong>
-          <button id="rdp-audio" style="background:none; border:none; cursor:pointer; font-size:18px;" title="Ouvir">🔊</button>
+          <button id="rdp-audio" style="background:none; border:none; cursor:pointer; font-size:14px; font-weight:800;" title="Ouvir">Ouvir</button>
         </div>
         <div id="rdp-trans" style="color:var(--color-text-light); font-size:14px; margin-bottom:12px; min-height:18px;">…</div>
         <div style="display:flex; gap:8px;">
@@ -446,13 +446,13 @@ export async function renderReader(container, app) {
     }
     const btn = document.getElementById('rd-url-fetch');
     btn.disabled = true;
-    importStatus.textContent = '⏳ Buscando e extraindo o texto…';
+    importStatus.textContent = 'Buscando e extraindo o texto…';
     try {
       const { title, text } = await importFromUrl(url);
       document.getElementById('rd-title').value = title || '';
       document.getElementById('rd-content').value = text || '';
       pendingImportSource = 'url';
-      importStatus.textContent = `✅ Texto importado (${(text.match(/[a-zA-Z][a-zA-Z'-]*/g) || []).length} palavras). Revise abaixo e clique em "Salvar texto".`;
+      importStatus.textContent = `Texto importado (${(text.match(/[a-zA-Z][a-zA-Z'-]*/g) || []).length} palavras). Revise abaixo e clique em "Salvar texto".`;
       urlInput.value = '';
     } catch (err) {
       importStatus.textContent = '';
@@ -467,14 +467,14 @@ export async function renderReader(container, app) {
   document.getElementById('rd-epub').addEventListener('change', async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    importStatus.textContent = '⏳ Lendo o EPUB…';
+    importStatus.textContent = 'Lendo o EPUB…';
     try {
       const buffer = await file.arrayBuffer();
       const { title, content } = await parseEpub(buffer);
       document.getElementById('rd-title').value = title || file.name.replace(/\.epub$/i, '');
       document.getElementById('rd-content').value = content || '';
       pendingImportSource = 'epub';
-      importStatus.textContent = `✅ EPUB importado (${(content.match(/[a-zA-Z][a-zA-Z'-]*/g) || []).length} palavras). Revise abaixo e clique em "Salvar texto".`;
+      importStatus.textContent = `EPUB importado (${(content.match(/[a-zA-Z][a-zA-Z'-]*/g) || []).length} palavras). Revise abaixo e clique em "Salvar texto".`;
     } catch (err) {
       importStatus.textContent = '';
       app.showToast(err.message || 'Erro ao ler o EPUB.', 'error');
@@ -693,6 +693,11 @@ function injectStyles() {
     @media (max-width: 480px) {
       .reader-paragraph { font-size: 17px !important; line-height: 1.75 !important; margin-bottom: 16px !important; }
       #rd-view-body { padding: 16px !important; }
+    }
+    #rd-view-body { border: 0; border-top: 3px solid var(--color-secondary); border-radius: 0; box-shadow: none; }
+    .rd-del { color: var(--color-danger); font-weight: 800; }
+    @media (prefers-reduced-motion: reduce) {
+      .reader-container *, .reader-container *::before, .reader-container *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
     }
   `;
   document.head.appendChild(style);

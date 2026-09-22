@@ -311,9 +311,11 @@ Responda APENAS com JSON válido: {"mnemonic": "1-2 frases em português, direto
 }
 
 // Geração de chunks na web (na extensão o service worker já tem essa rotina).
-export async function generateChunksWeb(word) {
+export async function generateChunksWeb(word, context = '') {
   const system = `Você é um professor de inglês para brasileiros focando no aprendizado por 'chunks' (blocos léxicos).
-Seu objetivo é criar 3 frases curtas e muito úteis do dia a dia contendo a palavra ou expressão fornecida.
+Seu objetivo é identificar a unidade que vale aprender na ocorrência real e só depois sugerir no máximo 2 variações úteis.
+
+Quando houver uma frase de origem, ela é a autoridade. Não substitua a ocorrência por uma frase genérica e não escolha um sentido que não esteja sustentado por ela.
 
 Para cada frase (chunk), você deve fornecer:
 1. "eng": A frase em inglês.
@@ -325,10 +327,19 @@ REGRAS CRÍTICAS PARA "phon":
 - Exemplo: "I think you should call her" -> "Ai fink iú xud cól râr".
 - Dê bastante ênfase (acentuação) na sílaba tônica.
 
-Responda ÚNICA E EXCLUSIVAMENTE com um objeto JSON válido contendo uma chave "chunks" que guarda o array com os 3 objetos. Nada de texto antes ou depois.`;
+O primeiro objeto deve ser a frase de origem, com "is_context": true.
+O segundo deve ser a unidade lexical principal, com "is_learning_unit": true.
+Os próximos objetos, se houver, são variações curtas e naturais, nunca desconectadas do sentido encontrado.
+
+Responda ÚNICA E EXCLUSIVAMENTE com um objeto JSON válido contendo uma chave "chunks". Nada de texto antes ou depois.`;
 
   const content = await aiChat(
-    [{ role: 'system', content: system }, { role: 'user', content: `Gere os 3 chunks para a palavra/expressão: "${word}"` }],
+    [{ role: 'system', content: system }, {
+      role: 'user',
+      content: context
+        ? `Palavra ou expressão selecionada: "${word}"\nFrase de origem do vídeo: "${context}"\nIdentifique a unidade lexical que deve ser aprendida nesta ocorrência.`
+        : `Palavra ou expressão: "${word}"\nNão há frase de origem disponível. Gere uma ocorrência curta e deixe claro o sentido da unidade.`,
+    }],
     { temperature: 0.7, max_tokens: 1000 }
   );
   const parsed = safeParseJson(content);

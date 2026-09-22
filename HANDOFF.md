@@ -1,10 +1,75 @@
 # Handoff — LinguaFlow
 
+## Atualização da Issue #102 — Human Interface Pass
+
+**Data:** 2026-09-21
+**Branch:** `codex/102-human-interface-pass`
+**Worktree:** `C:\Users\Wesley\.codex\worktrees\issue-102-human-interface-pass\linguaflow`
+**Issue:** https://github.com/cascaoconcurseiro/linguaflow/issues/102
+
+### Feito nesta sessão
+
+- O passe foi ampliado para o restante do dashboard: Cofre, Histórias, Leitor, Prática, Progresso, Ligas, Configurações e Administração.
+- Ações antes apresentadas como emoji agora têm rótulos humanos e explícitos; ícones decorativos, bandeiras e medalhas foram retirados das decisões de estudo e operação.
+- Reduzi superfícies empilhadas, sombras, bordas arredondadas e controles com aparência de cápsula; a hierarquia passou a depender de texto, separadores e bordas de seção.
+- A prática livre perdeu confete e pulso de combo; o feedback continua no resultado e no contador local, sem transformar toda interação em recompensa visual.
+- Estados compartilhados de carregamento, feedback do vídeo, status de importação e toasts também foram revisados para não depender de símbolos gráficos.
+- O contrato `tests/human-interface-pass.test.mjs` agora cobre todas as telas do dashboard; a regressão de segurança do editor foi atualizada para o novo título textual.
+- O `CLIENT_BUILD` foi alinhado à versão `3.0.51` do aplicativo e o workflow de release passou a buscar o histórico completo, corrigindo os três falsos bloqueios de versão e a faixa inválida do commitlint.
+- Popup, Home, barra superior e estudo receberam uma direção editorial mais contida: menos cápsulas, sombras, bordas arredondadas, gradientes, caixa por métrica e emoji como ícone.
+- A Home mantém a próxima ação como decisão dominante; métricas, memória, conquistas e missões ficaram em segundo plano e com separadores.
+- O estudo preserva o card contextual da Issue #98, mas usa rótulos verbais para ouvir/salvar, explicação contextual sem clipping e aprofundamento progressivo sem animação ornamental.
+- Estados de tema, popup, idioma, áudio, loading e feedback foram mantidos com nomes explícitos; `prefers-reduced-motion` continua coberto.
+- Adicionado `tests/human-interface-pass.test.mjs` e script `test:human-interface`.
+- Não houve alteração de schema, RPC, RLS ou Edge Function; Supabase não era necessário para este passe visual.
+- QA visual local do popup deslogado passou por navegador; Home autenticada e card real continuam pendentes porque a rota local exibiu login.
+- `npm run test:release` executou todos os gates funcionais; o `release-smoke` terminou com apenas três divergências preexistentes de versão `3.0.49` contra o build `3.0.51`.
+
+### Próximo passo concreto
+
+Abrir a PWA com uma conta autenticada e revisar o sistema completo em desktop e celular; conferir Cofre, Histórias, Leitor, Prática, Progresso, Configurações e Administração, além do topo da Home, do painel “Entender melhor”, dos botões de áudio dos chunks e da barra superior em viewport estreita.
+
+### Bloqueios pendentes
+
+- `npm run lint:biome` não executou porque o binário `biome` não está disponível neste worktree; o CI remoto deve validar esse gate no ambiente oficial.
+- Não houve validação real de Supabase/RLS/Edge Function; nenhuma migration foi necessária.
+- O branch está pronto para commit/PR, mas não deve ser mergeado/deployado antes da revisão e QA autenticada.
+
+---
+
+## Atualização da Issue #98 — card contextual e experiência editorial
+
+**Data:** 2026-09-21
+**Branch:** `codex/98-contextual-card-experience`
+**Worktree:** `C:\Users\Wesley\.gemini\antigravity\scratch\linguaflow-issue-98`
+**Issue:** https://github.com/cascaoconcurseiro/linguaflow/issues/98
+
+### Feito nesta sessão
+
+- O contexto do vídeo passou a acompanhar a geração de chunks na extensão e no dashboard Web.
+- O contrato existente `words.ai_chunks` foi reaproveitado: `is_context` representa o trecho original e `is_learning_unit` representa a unidade lexical que merece ser guardada.
+- O salvamento inicial e o enriquecimento tardio preservam tradução, fonética, contexto e chunks sem exigir migration do Supabase.
+- O card revela primeiro uma explicação contextual editorial; CEFR, POS, tags e definição técnica deixaram de competir com a resposta.
+- O antigo painel lateral foi transformado em aprofundamento inline; vídeo, tutor, mnemônico, prática e fontes continuam disponíveis em sequência.
+- Foram adicionados contratos para merge, integração e persistência dos chunks contextuais.
+- `npm run test:release` executou os gates; testes funcionais passaram. O `release-smoke` ainda acusa worktree sujo durante a execução e divergência preexistente de build `3.0.49`/`3.0.51`.
+- `npm run build:extension` passou e gerou o ZIP local com 33 arquivos.
+
+### Próximo passo concreto
+
+Abrir a PWA local ou o preview da PR com uma conta autenticada, revelar um card salvo de vídeo e conferir em viewport desktop e móvel: frase completa, explicação contextual, ausência de corte lateral, ordem do aprofundamento e expansão do tutor.
+
+### Bloqueios pendentes
+
+- Não houve QA autenticada no navegador da branch; a rota local exibiu login.
+- Não houve validação ao vivo de Supabase, RLS ou Edge Function; não foi necessária migration.
+- O `release-smoke` permanece bloqueado pela divergência de versão já existente e pela exigência de worktree limpo.
+
 ## Última sessão
 
 **Data:** 2026-09-21  
 **Versão:** 3.0.51  
-**Branch:** `main` (todos os commits foram pushed para o GitHub)
+**Branch de referência:** `main` (histórico anterior; a Issue #98 está na branch isolada acima)
 
 ---
 

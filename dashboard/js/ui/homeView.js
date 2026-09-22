@@ -193,7 +193,7 @@ function renderOnboarding(container, app, initial = {}) {
             <div class="onboarding-options" role="radiogroup" aria-label="Nível atual de inglês">
                 ${levels.map(([value, title, description]) => `<button type="button" class="onboarding-option ${level === value ? 'selected' : ''}" role="radio" aria-checked="${level === value}" data-level="${value}"><strong>${title}</strong><span>${description}</span></button>`).join('')}
             </div>
-            <button type="button" class="onboarding-back" id="btn-onboarding-placement" style="margin-top:12px;">🎯 Prefiro estimar com um teste curto (~4 min)</button>` : step === 2 ? `
+            <button type="button" class="onboarding-back" id="btn-onboarding-placement" style="margin-top:12px;">Prefiro estimar com um teste curto (~4 min)</button>` : step === 2 ? `
             <p class="onboarding-kicker">PASSO 2 DE 3</p>
             <h2 id="onboarding-title">Com que carga você quer começar?</h2>
             <p>Comece leve. Expressões novas geram revisões futuras, e você pode ajustar isso depois.</p>
@@ -334,10 +334,7 @@ export async function renderHome(container, app) {
     let sourceLang = 'en';
     let studyStats = null;
     let criticalCards = [];
-    const langFlags = {
-        en: '🇺🇸', es: '🇪🇸', fr: '🇫🇷', de: '🇩🇪', it: '🇮🇹', ja: '🇯🇵', pt: '🇧🇷'
-    };
-    let currentFlag = '🇺🇸';
+    let currentFlag = 'EN';
     try {
         // Onda 7 (perf): getStats() (wave 1, acima) já buscou 30 dias de
         // review_log inteiro (stats.reviewLog) — pedir de novo aqui era uma
@@ -360,7 +357,7 @@ export async function renderHome(container, app) {
         if (sourceLang !== 'en' && db?.getStudyStats) {
             studyStats = await db.getStudyStats(sourceLang).catch(() => null);
         }
-        currentFlag = langFlags[sourceLang.toLowerCase()] || '🌐';
+        currentFlag = sourceLang.toUpperCase();
         const log30 = stats.reviewLog || [];
         const activityDate = (row) => row?.ts ? localDateKey(row.ts) : row?.date;
         const logToday = log30.filter(r => activityDate(r) === todayISO);
@@ -492,7 +489,7 @@ export async function renderHome(container, app) {
     // objetivos pedagógicos: podem acontecer sem que o aluno recupere nada.
     const coreQuests = [
         isReturning
-            ? { id: 'comeback', text: `De volta! Revise ${revTarget} cartas pra reacender o fogo 🔥`, target: revTarget, current: Math.min(reviewsToday, revTarget) }
+            ? { id: 'comeback', text: `De volta. Revise ${revTarget} cartas para retomar o ritmo.`, target: revTarget, current: Math.min(reviewsToday, revTarget) }
             : { id: 'rev', text: `Revisar ${revTarget} cartas`, target: revTarget, current: Math.min(reviewsToday, revTarget) },
     ].map(q => ({ ...q, done: q.current >= q.target }));
 
@@ -503,7 +500,7 @@ export async function renderHome(container, app) {
         const current = Math.min(weakCatReviewsToday, target);
         return {
             id: 'focus', focus: true,
-            text: `🎯 Foco da semana: revise ${target} de ${CAT_LABEL[weakCategory.cat] || weakCategory.cat} (sua retenção aí está em ${weakCategory.retention}%)`,
+            text: `Foco da semana: revise ${target} de ${CAT_LABEL[weakCategory.cat] || weakCategory.cat} (retenção atual: ${weakCategory.retention}%)`,
             target, current, done: current >= target,
         };
     })() : null;
@@ -549,23 +546,19 @@ export async function renderHome(container, app) {
                 
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-icon" style="color:var(--color-primary)">📚</div>
                         <div class="stat-value">${safeStats.dueCards || 0}</div>
                         <div class="stat-label">Revisões de hoje</div>
-                        ${dueLearningNow > 0 ? `<div style="font-size:11px; color:var(--color-text-light); margin-top:2px;" title="Frases começando voltam em minutos dentro desta sessão">💭 ${dueLearningNow} começando</div>` : ''}
+                        ${dueLearningNow > 0 ? `<div class="stat-note" title="Frases começando voltam em minutos dentro desta sessão">${dueLearningNow} começando</div>` : ''}
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon" style="color:var(--color-secondary)">⭐</div>
                         <div class="stat-value">${safeStats.byStatus?.mature || 0}</div>
                         <div class="stat-label">Memória estável</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon" style="color:#ffc800">⚡</div>
                         <div class="stat-value">${xpToday}</div>
                         <div class="stat-label">XP Hoje</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon" style="color:#ff9600">🔥</div>
                         <div class="stat-value" id="stat-streak">${streak}</div>
                         <div class="stat-label">Dias de Ofensiva</div>
                     </div>
@@ -574,7 +567,7 @@ export async function renderHome(container, app) {
                 <div id="home-study-hours-card" class="home-study-hours-card">
                     <div class="study-hours-header">
                         <div class="study-hours-title-wrap">
-                            <span class="study-hours-flag">${currentFlag}</span>
+                            <span class="study-hours-language">${currentFlag}</span>
                             <div>
                                 <h3 class="study-hours-title">Horas de Estudo (${sourceLang.toUpperCase()})</h3>
                                 <span class="study-hours-subtitle">Total acumulado: <strong>${studyStats?.summary?.totalHours || 0}h</strong></span>
@@ -587,28 +580,24 @@ export async function renderHome(container, app) {
 
                     <div class="study-skills-grid">
                         <div class="study-skill-pill">
-                            <span class="skill-icon">🎧</span>
                             <div class="skill-info">
                                 <span class="skill-name">Listening</span>
                                 <strong class="skill-time">${studyStats?.listening?.totalFormatted || '0h'} <span style="font-size:11px; font-weight:600; color:var(--color-text-light);">(${studyStats?.listening?.todayFormatted || '0m'} hoje)</span></strong>
                             </div>
                         </div>
                         <div class="study-skill-pill">
-                            <span class="skill-icon">🗂️</span>
                             <div class="skill-info">
                                 <span class="skill-name">Flashcards</span>
                                 <strong class="skill-time">${studyStats?.cards?.totalFormatted || '0m'} <span style="font-size:11px; font-weight:600; color:var(--color-text-light);">(${studyStats?.cards?.todayFormatted || '0m'} hoje)</span></strong>
                             </div>
                         </div>
                         <div class="study-skill-pill">
-                            <span class="skill-icon">📖</span>
                             <div class="skill-info">
                                 <span class="skill-name">Leitura</span>
                                 <strong class="skill-time">${studyStats?.reading?.totalFormatted || '0m'}</strong>
                             </div>
                         </div>
                         <div class="study-skill-pill">
-                            <span class="skill-icon">🗣️</span>
                             <div class="skill-info">
                                 <span class="skill-name">Speaking</span>
                                 <strong class="skill-time">${studyStats?.speaking?.totalFormatted || '0m'}</strong>
@@ -621,7 +610,6 @@ export async function renderHome(container, app) {
                 <div id="home-critical-cards" class="home-critical-cards-card">
                     <div class="critical-cards-header">
                         <div style="display:flex; align-items:center; gap:8px;">
-                            <span style="font-size:20px;">⚠️</span>
                             <div>
                                 <h3 class="critical-cards-title">Cards Críticos (Maior Dificuldade)</h3>
                                 <span class="critical-cards-subtitle">Expressões com maior hesitação ou esquecimentos recentes</span>
@@ -646,8 +634,7 @@ export async function renderHome(container, app) {
 
                 ${vaultCap > 0 && (vaultWaiting.length > 0 || vaultActive >= vaultCap) ? `
                 <div id="home-vault-banner" class="home-alert-banner home-alert-vault">
-                    <span class="home-alert-icon">🗄️</span>
-                    <div class="home-alert-content">
+                            <div class="home-alert-content">
                         <div class="home-alert-title">Cofre ${vaultActive >= vaultCap ? 'cheio' : 'quase cheio'} (${vaultActive}/${vaultCap})${vaultWaiting.length ? ` · ${vaultWaiting.length} ${vaultWaiting.length === 1 ? 'frase esperando vaga' : 'frases esperando vaga'}` : ''}</div>
                         <div class="home-alert-desc">Aposentar uma expressão dominada abre espaço — ela sai da fila e continua no seu histórico.</div>
                     </div>
@@ -655,7 +642,6 @@ export async function renderHome(container, app) {
                 </div>` : ''}
                 ${isReturning ? `
                 <div id="home-return-banner" class="home-alert-banner home-alert-return">
-                    <span class="home-alert-icon">👋</span>
                     <div class="home-alert-content">
                         <div class="home-alert-title">Sentimos sua falta! Você ficou ${daysAway} dias fora.</div>
                         <div class="home-alert-desc">Seu plano de hoje é leve: só ${revTarget} revisões para voltar ao ritmo.</div>
@@ -664,7 +650,6 @@ export async function renderHome(container, app) {
                 </div>` : ''}
                 ${streak > 0 && reviewsToday === 0 && !isReturning ? `
                 <div id="home-streak-banner" class="home-alert-banner home-alert-streak">
-                    <span class="home-alert-icon">🔥</span>
                     <div class="home-alert-content">
                         <div class="home-alert-title">Sua ofensiva de ${streak} ${streak === 1 ? 'dia' : 'dias'} está em risco!</div>
                         <div class="home-alert-desc">Conclua 1 revisão hoje para manter a ofensiva.</div>
@@ -673,12 +658,12 @@ export async function renderHome(container, app) {
                 </div>` : ''}
                 <div id="home-memory-insight" class="home-memory-insight-card">
                     <div class="memory-insight-badges">
-                        <div class="memory-badge"><strong>📈 Memória:</strong></div>
+                        <div class="memory-badge"><strong>Memória</strong></div>
                         <div class="memory-badge">Itens familiares: <strong style="color:var(--color-primary);">${knownFamilies}</strong></div>
                         <div class="memory-badge">Retenção 30d: <strong style="color:${retention30 === null ? 'var(--color-text-light)' : retention30 >= 85 ? 'var(--color-primary)' : retention30 >= 70 ? '#ffc800' : 'var(--color-danger)'};">${retention30 === null ? '—' : retention30 + '%'}</strong></div>
                         <div class="memory-badge">Amanhã: <strong>${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}</strong></div>
                         <div class="memory-badge">Próximos 7 dias: <strong>${dueWeek}</strong></div>
-                        <div class="memory-badge" title="Protege sua ofensiva se você pular 1 dia. Ganhe 1 a cada 7 dias de ofensiva.">🧊 Freezes: <strong style="color:var(--color-secondary);">${userStats?.streak_freezes ?? 1}</strong></div>
+                        <div class="memory-badge" title="Protege sua ofensiva se você pular 1 dia. Ganhe 1 a cada 7 dias de ofensiva.">Proteções de ofensiva: <strong style="color:var(--color-secondary);">${userStats?.streak_freezes ?? 1}</strong></div>
                     </div>
                     <div class="memory-forecast-bars" title="Previsão de revisões (estilo Anki): quantos cards vencem em cada um dos próximos 7 dias">
                         ${forecast.map((n, i) => {
@@ -705,11 +690,10 @@ export async function renderHome(container, app) {
                 </div>
 
                 <div class="achievements-section">
-                    <h3 style="margin:0 0 12px 0; font-size:16px; color:var(--color-text);">🏆 Conquistas</h3>
+                    <h3 style="margin:0 0 12px 0; font-size:16px; color:var(--color-text);">Conquistas</h3>
                     <div class="achievements-grid">
                         ${achievements.map(a => `
                             <div class="achv-badge ${a.unlocked ? 'unlocked' : 'locked'}" title="${a.label}${a.unlocked ? '' : ' (ainda não desbloqueada)'}">
-                                <div class="achv-icon">${a.icon}</div>
                                 <div class="achv-label">${a.label}</div>
                             </div>
                         `).join('')}
@@ -732,7 +716,7 @@ export async function renderHome(container, app) {
                     <div class="quests-list">
                         ${quests.map(q => `
                             <div class="quest-item ${q.done ? 'quest-done' : ''}" ${q.focus ? 'style="background:rgba(255,150,0,0.08); border-radius:10px; padding:8px; margin:-8px -8px 0;"' : ''}>
-                                <div class="quest-icon">${q.done ? '✅' : (q.focus ? '🔬' : '🎯')}</div>
+                                <div class="quest-mark" aria-hidden="true"></div>
                                 <div class="quest-details">
                                     <div class="quest-text">${q.text}</div>
                                     <div class="quest-progress">
@@ -851,7 +835,7 @@ export async function renderHome(container, app) {
                 const fresh = newlyUnlocked(achievements, seenIds);
                 if (fresh.length) {
                     fresh.forEach((a, i) => {
-                        setTimeout(() => app.showToast?.(`🏆 Conquista desbloqueada: ${a.icon} ${a.label}!`, 'info'), i * 600);
+                        setTimeout(() => app.showToast?.(`Conquista desbloqueada: ${a.label}.`, 'info'), i * 600);
                     });
                     const updated = [...new Set([...seenIds, ...fresh.map(a => a.id)])];
                     await db.setSetting('lf_achievements_seen', JSON.stringify(updated));
@@ -1179,6 +1163,51 @@ function injectStyles() {
         .heatmap-cell[data-level="2"] { background: #40c463; }
         .heatmap-cell[data-level="3"] { background: #30a14e; }
         .heatmap-cell[data-level="4"] { background: #216e39; }
+
+        /* Issue #102: a Home editorial, with one clear action and quieter data. */
+        .gamified-home { gap: 40px; background: var(--color-bg); }
+        .gamified-home .dashboard-main { background: transparent; border: 0; border-radius: 0; box-shadow: none; padding: 0; }
+        .home-primary-plan { border: 0; border-left: 4px solid var(--color-primary); border-radius: 0; background: var(--color-surface); box-shadow: none; }
+        .home-primary-plan .btn-action { border-radius: 7px; box-shadow: none; transition: background-color .16s ease, border-color .16s ease; }
+        .home-primary-plan .btn-action:hover { filter: none; background: var(--color-primary-shadow); }
+        .home-primary-plan .btn-action:active { transform: none; box-shadow: none; }
+        .stats-grid { gap: 0; border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); }
+        .stat-card { background: transparent; border: 0; border-right: 1px solid var(--color-border); border-radius: 0; padding: 18px 14px; align-items: flex-start; text-align: left; }
+        .stat-card:last-child { border-right: 0; }
+        .stat-icon { display: none; }
+        .stat-value { font-size: 28px; margin-bottom: 2px; }
+        .stat-label { font-size: 12px; font-weight: 700; }
+        .stat-note { margin-top: 3px; color: var(--color-text-light); font-size: 11px; }
+        .home-study-hours-card, .home-memory-insight-card { background: transparent; border: 0; border-top: 1px solid var(--color-border); border-radius: 0; padding: 22px 0; }
+        .study-hours-language { display: inline-grid; place-items: center; min-width: 38px; min-height: 38px; border: 1px solid var(--color-border); color: var(--color-secondary); font-size: 12px; font-weight: 900; letter-spacing: .06em; }
+        .study-hours-flag { display: none; }
+        .study-skills-grid { gap: 0; border-top: 1px solid var(--color-border); }
+        .study-skill-pill { background: transparent; border: 0; border-bottom: 1px solid var(--color-border); border-radius: 0; padding: 12px 0; }
+        .skill-icon { display: none; }
+        .study-skill-pill .skill-name { text-transform: none; letter-spacing: 0; }
+        .home-alert-banner { border-width: 1px; border-radius: 0; box-shadow: none; }
+        .home-alert-icon { display: none; }
+        .memory-badge { font-size: 12px; }
+        .home-secondary-actions .btn-action { border-radius: 7px; box-shadow: none; transition: background-color .16s ease, border-color .16s ease; }
+        .home-secondary-actions .btn-action:active { transform: none; box-shadow: none; }
+        .home-secondary-actions .btn-game { color: var(--color-text); border-color: var(--color-border); }
+        .quests-card { background: transparent; border: 0; border-top: 1px solid var(--color-border); border-radius: 0; padding: 22px 0; }
+        .quest-mark { width: 10px; height: 10px; flex: 0 0 10px; border: 2px solid var(--color-border); border-radius: 50%; }
+        .quest-done .quest-mark { background: var(--color-primary); border-color: var(--color-primary); }
+        .quest-item[style] { background: transparent !important; border-radius: 0 !important; padding: 8px 0 !important; margin: 0 !important; border-left: 3px solid #bd5b12; }
+        .progress-bar { height: 5px; border-radius: 0; }
+        .progress-fill { border-radius: 0; transition: width .2s ease; }
+        .achv-badge { border-width: 1px; border-radius: 4px; background: transparent; }
+        .achv-badge.unlocked { border-color: var(--color-primary); background: transparent; }
+        .achv-badge.unlocked:hover { transform: none; }
+        .heatmap-section { background: transparent; border: 0; border-top: 1px solid var(--color-border); border-radius: 0; padding: 22px 0; }
+        .heatmap-cell { border-radius: 1px; transition: none; }
+        .heatmap-cell:hover { transform: none; }
+        .home-more { border: 0; border-top: 1px solid var(--color-border); border-radius: 0; background: transparent; }
+        .home-more[open] { border-color: var(--color-border); }
+        .home-more > summary { padding-left: 0; padding-right: 0; }
+        .home-more-body { padding-left: 0; padding-right: 0; }
+        @media (prefers-reduced-motion: reduce) { .home-primary-plan .btn-action, .home-secondary-actions .btn-action, .progress-fill { transition: none !important; } }
     `;
     document.head.appendChild(style);
 }
@@ -1206,19 +1235,15 @@ function showLogStudyModal(db, app, sourceLang = 'en', onSaved) {
                 <label style="font-size:12px; font-weight:800; color:var(--color-text); display:block; margin-bottom:8px;">Habilidade:</label>
                 <div class="skill-options-grid">
                     <button type="button" class="btn-skill-option active" data-skill="reading">
-                        <span style="font-size:22px;">📖</span>
                         <span>Leitura</span>
                     </button>
                     <button type="button" class="btn-skill-option" data-skill="speaking">
-                        <span style="font-size:22px;">🗣️</span>
                         <span>Conversação</span>
                     </button>
                     <button type="button" class="btn-skill-option" data-skill="listening">
-                        <span style="font-size:22px;">🎧</span>
                         <span>Listening</span>
                     </button>
                     <button type="button" class="btn-skill-option" data-skill="writing">
-                        <span style="font-size:22px;">✍️</span>
                         <span>Escrita</span>
                     </button>
                 </div>
@@ -1235,7 +1260,7 @@ function showLogStudyModal(db, app, sourceLang = 'en', onSaved) {
             </div>
 
             <button type="button" class="btn btn-primary" id="btn-save-manual-study" style="padding:14px; font-size:15px; font-weight:800; margin-top:6px;">
-                SALVAR ESTUDO 🚀
+                Salvar estudo
             </button>
         </div>
     `;
@@ -1288,9 +1313,8 @@ function showLogStudyModal(db, app, sourceLang = 'en', onSaved) {
             if (onSaved) onSaved();
         } catch (e) {
             btn.disabled = false;
-            btn.textContent = 'SALVAR ESTUDO 🚀';
+            btn.textContent = 'Salvar estudo';
             app?.showToast?.('Erro ao salvar estudo. Tente novamente.', 'error');
         }
     });
 }
-

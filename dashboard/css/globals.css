@@ -208,7 +208,7 @@ a { color:var(--color-link); }
   gap: 16px;
 }
 
-.topbar-icon-btn { width:44px; height:44px; border:1px solid var(--color-border); border-radius:50%; background:var(--color-surface); color:var(--color-text); font-size:18px; line-height:1; cursor:pointer; }
+.topbar-icon-btn { width:auto; min-width:44px; height:44px; padding:0 10px; border:1px solid var(--color-border); border-radius:5px; background:var(--color-surface); color:var(--color-text); font:800 12px var(--font-main); line-height:1; cursor:pointer; }
 .topbar-icon-btn:hover, .topbar-icon-btn:focus-visible { background:var(--color-bg-alt); }
 .profile-menu-wrap { position:relative; }
 .profile-menu-toggle { width:44px; height:44px; border:1px solid var(--color-border); border-radius:50%; background:var(--color-surface); color:var(--color-text); font:900 18px var(--font-main); cursor:pointer; }
@@ -1031,6 +1031,56 @@ body.lf-auth-pending #app-root { visibility: hidden; }
   z-index: 1000;
 }
 
+/* Issue #102 — interface editorial: cada área tem uma função clara. A Home
+   prioriza a próxima ação; métricas e histórico ficam em segundo plano. */
+.gamified-home { max-width: 1120px; gap: 40px; padding: clamp(16px, 4vw, 32px); background: var(--color-bg); }
+.gamified-home .dashboard-main { background: transparent; border: 0; border-radius: 0; box-shadow: none; padding: 0; }
+.home-primary-plan { border: 0; border-left: 4px solid var(--color-primary); border-radius: 0; background: var(--color-surface); box-shadow: none; padding: clamp(22px, 4vw, 34px); }
+.home-primary-plan h1 { font-size: clamp(25px, 3.8vw, 36px); }
+.home-primary-plan .btn-action { border-radius: 7px; box-shadow: none; transition: background-color .16s ease, border-color .16s ease; }
+.home-primary-plan .btn-action:hover { filter: none; background: var(--color-primary-dark, #2f6900); }
+.home-primary-plan .btn-action:active { transform: none; box-shadow: none; }
+.stats-grid { gap: 0; border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); }
+.stat-card { background: transparent; border: 0; border-right: 1px solid var(--color-border); border-radius: 0; padding: 18px 14px; align-items: flex-start; text-align: left; }
+.stat-card:last-child { border-right: 0; }
+.stat-value { font-size: 28px; margin-bottom: 2px; }
+.stat-label { font-size: 12px; font-weight: 700; }
+.stat-note { margin-top: 3px; color: var(--color-text-light); font-size: 11px; }
+.home-study-hours-card, .home-memory-insight-card { background: transparent; border: 0; border-top: 1px solid var(--color-border); border-radius: 0; padding: 22px 0; }
+.study-hours-language { display: inline-grid; place-items: center; min-width: 38px; min-height: 38px; border: 1px solid var(--color-border); color: var(--color-secondary); font-size: 12px; font-weight: 900; letter-spacing: .06em; }
+.study-skills-grid { gap: 0; border-top: 1px solid var(--color-border); }
+.study-skill-pill { background: transparent; border: 0; border-bottom: 1px solid var(--color-border); border-radius: 0; padding: 12px 0; }
+.study-skill-pill .skill-name { text-transform: none; letter-spacing: 0; }
+.home-alert-banner { border-width: 1px; border-radius: 0; box-shadow: none; margin: 14px 0; }
+.home-alert-icon { display: none; }
+.memory-insight-badges { gap: 8px 24px; }
+.memory-badge { font-size: 12px; }
+.home-secondary-actions { gap: 12px; }
+.home-secondary-actions .btn-action { border-radius: 7px; box-shadow: none; transition: background-color .16s ease, border-color .16s ease; }
+.home-secondary-actions .btn-action:active { transform: none; box-shadow: none; }
+.home-secondary-actions .btn-game { color: var(--color-text); border-color: var(--color-border); }
+.quests-card { background: transparent; border: 0; border-top: 1px solid var(--color-border); border-radius: 0; padding: 22px 0; }
+.quest-item { gap: 12px; }
+.quest-mark { width: 10px; height: 10px; flex: 0 0 10px; border: 2px solid var(--color-border); border-radius: 50%; }
+.quest-done .quest-mark { background: var(--color-primary); border-color: var(--color-primary); }
+.quest-item[style] { background: transparent !important; border-radius: 0 !important; padding: 8px 0 !important; margin: 0 !important; border-left: 3px solid #bd5b12; }
+.progress-bar { height: 5px; border-radius: 0; }
+.progress-fill { border-radius: 0; transition: width .2s ease; }
+.achv-badge { border-width: 1px; border-radius: 4px; background: transparent; }
+.achv-badge.unlocked { border-color: var(--color-primary); background: transparent; }
+.achv-badge.unlocked:hover { transform: none; }
+.heatmap-section { background: transparent; border: 0; border-top: 1px solid var(--color-border); border-radius: 0; padding: 22px 0; }
+.heatmap-cell { border-radius: 1px; transition: none; }
+.heatmap-cell:hover { transform: none; }
+.home-more { border: 0; border-top: 1px solid var(--color-border); border-radius: 0; background: transparent; }
+.home-more[open] { border-color: var(--color-border); }
+.home-more > summary { padding-left: 0; padding-right: 0; }
+.home-more-body { padding-left: 0; padding-right: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .home-primary-plan .btn-action, .home-secondary-actions .btn-action, .progress-fill { transition: none !important; }
+}
+
 .btn-outline {
   background-color: transparent;
   color: var(--color-text);
@@ -1146,4 +1196,28 @@ body.lf-auth-pending #app-root { visibility: hidden; }
 
 @media (max-width: 420px) {
   .logo-text { display: none; }
+}
+
+/* Passe transversal da Issue #102: menos molduras, mais hierarquia editorial. */
+.settings-page > div[style*="background: var(--color-surface)"],
+.admin-view > div[style*="background:var(--color-surface)"] {
+  border-width:1px !important;
+  border-radius:6px !important;
+  box-shadow:none !important;
+}
+.settings-page > div[style*="background: var(--color-surface)"] {
+  border-top:3px solid var(--color-border) !important;
+}
+.settings-page > div[style*="background: var(--color-surface)"]:focus-within {
+  border-top-color:var(--color-secondary) !important;
+}
+.settings-page .btn, .admin-view .btn { border-radius:4px; }
+.settings-page .settings-page-title, .admin-view h1 { letter-spacing:-0.02em; }
+.admin-tile-mark { margin-bottom:6px; color:var(--color-secondary); font-weight:900; font-size:18px; letter-spacing:.08em; }
+@media (prefers-reduced-motion: reduce) {
+  .settings-page *, .settings-page *::before, .settings-page *::after,
+  .admin-view *, .admin-view *::before, .admin-view *::after {
+    animation-duration:0.01ms !important;
+    transition-duration:0.01ms !important;
+  }
 }

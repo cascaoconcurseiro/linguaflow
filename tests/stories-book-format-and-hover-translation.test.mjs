@@ -100,7 +100,7 @@ assert.match(
 );
 assert.match(
   stories,
-  /id="lf-tab-youglish"[^>]*>🎬 YouGlish \(Vídeos\)</,
+  /id="lf-tab-youglish"[^>]*>YouGlish \(vídeos\)</,
   'popup de histórias deve conter a aba YouGlish para ouvir vídeos reais'
 );
 assert.match(

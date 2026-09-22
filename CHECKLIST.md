@@ -135,6 +135,20 @@
 - [ ] Navegador autenticado para reproduzir o hover de Histórias.
 - [ ] Não declarar produção concluída sem evidência desses itens.
 
+## 13. Issue #98 — card contextual e experiência editorial de revisão
+
+- [x] Criar Issue #98 e branch isolada `codex/98-contextual-card-experience`.
+- [x] Persistir ocorrência real, unidade de aprendizagem e variações no contrato JSONB `ai_chunks` existente.
+- [x] Enviar o contexto do vídeo para a geração de chunks na extensão e no dashboard Web.
+- [x] Tornar a explicação principal contextual, curta e sem badges técnicos no primeiro contato.
+- [x] Remover duplicidade da palavra isolada no painel de aprofundamento e manter o mnemônico acessível.
+- [x] Transformar o painel lateral em aprofundamento inline, sem estreitar o card principal.
+- [x] Adicionar contratos para merge, persistência e renderização dos chunks contextuais.
+- [x] Executar `npm run test:release`; gates funcionais passaram, mas o `release-smoke` ficou bloqueado por worktree sujo durante o comando e divergência preexistente de versão `3.0.49`/`3.0.51`.
+- [x] Gerar o ZIP local da extensão com 33 arquivos.
+- [ ] Validar o card em navegador autenticado com dados reais.
+- [ ] Validar Supabase/RLS/Edge Function ao vivo; nenhuma migration foi necessária nesta implementação.
+
 ## 11. Governança criada em 2026-09-19
 
 - [x] Criar Issue #77 para a investigação do hover de tradução em Histórias.
@@ -178,3 +192,24 @@
 - [ ] QA autenticada no navegador (bloqueada — sem navegador nesta sessão).
 - [ ] Validar `updateReaderProgress` na UI (banco pronto, UI sem entrada).
 - [ ] RLS real com dois usuários (bloqueado — sem ambiente Supabase real).
+
+## 14. Issue #102 — Human Interface Pass
+
+- [x] Criar Issue #102 e branch isolada `codex/102-human-interface-pass` baseada na implementação contextual da Issue #98.
+- [x] Auditar popup, barra superior, Home e Estudo procurando cartões homogêneos, cápsulas, emoji como ícone, gradientes e motion ornamental.
+- [x] Reduzir superfícies e badges sem remover estado, foco, alvo de toque ou ação principal.
+- [x] Substituir ações de áudio e status visuais por rótulos verbais no fluxo de estudo.
+- [x] Preservar o chunk contextual e o painel progressivo “Entender melhor”.
+- [x] Adicionar contrato `tests/human-interface-pass.test.mjs` e script `test:human-interface`.
+- [x] Executar `node --check`, `test:human-interface`, `test:product-ux`, `test:study-focus`, `test:design-system`, P0-A/B/C, P1-C, auth/lifecycle e build da extensão.
+- [x] Executar `npm run test:release`; gates funcionais passaram, e o `release-smoke` ficou limitado às três divergências preexistentes de versão `3.0.49`/`3.0.51`.
+- [x] `git diff --check` passou.
+- [x] Completar a mesma linguagem visual no Cofre, Histórias, Leitor, Prática, Progresso e Ligas.
+- [x] Revisar Configurações e Administração: rótulos explícitos, menos superfícies e sem emoji como substituto de ação.
+- [x] Remover celebrações ornamentais da prática e manter sequência/acerto como feedback textual local.
+- [x] Ampliar o contrato de interface humana para todas as telas do dashboard e ajustar regressão de segurança do editor do Cofre.
+- [x] Confirmar `test:human-interface`, `test:product-ux`, `test:untrusted-content`, P0-A/B/C e P1-C após a segunda etapa.
+- [x] Corrigir a consistência do `CLIENT_BUILD` para `3.0.51` e garantir histórico completo no checkout do workflow para o commitlint.
+- [ ] QA autenticada da Home e do estudo em navegador desktop/mobile.
+- [ ] Disponibilidade do Biome para executar o lint completo.
+- [ ] Revisão do PR e merge para a branch contextual/main.

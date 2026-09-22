@@ -8,7 +8,7 @@ export async function renderLeagues(container, app) {
   // a rede de segurança (idempotente no banco). Fim do "Simular Fim da Semana".
   const rollover = await lfDb.maybeLeagueRollover().catch(() => null);
   if (rollover?.ran) {
-    app.showToast?.('🏆 Nova semana de liga começou! Placar semanal zerado.', 'info');
+    app.showToast?.('Nova semana de liga começou. O placar semanal foi zerado.', 'info');
   }
 
   // Ensure user has a profile
@@ -51,8 +51,9 @@ export async function renderLeagues(container, app) {
       margin: 0 auto;
       padding: 20px;
       background: var(--color-surface);
+      border-top: 3px solid var(--color-secondary);
       border-radius: 16px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      box-shadow: none;
     }
     .league-header {
       text-align: center;
@@ -194,7 +195,7 @@ export async function renderLeagues(container, app) {
   container.innerHTML = `
     <div class="league-container">
       <div class="league-header">
-        <h2 class="league-title">🏆 Liga ${currentLeague}</h2>
+        <h2 class="league-title">Liga ${currentLeague}</h2>
         <p class="league-subtitle">Top 5 avançam para a próxima liga</p>
         <p class="league-context"><strong>Liga opcional:</strong> XP registra diferentes atividades no app e não mede domínio. Prática livre não pontua nem altera sua revisão.</p>
       </div>
@@ -204,9 +205,7 @@ export async function renderLeagues(container, app) {
         ${allEntries.map((entry, index) => {
           let rankHtml = index + 1;
           let rankClasses = 'rank-number';
-          if (index === 0) { rankHtml = '🥇'; rankClasses += ' top-1 top-3'; }
-          else if (index === 1) { rankHtml = '🥈'; rankClasses += ' top-3'; }
-          else if (index === 2) { rankHtml = '🥉'; rankClasses += ' top-3'; }
+          if (index < 3) rankClasses += ' top-3';
 
           const initial = entry.name.charAt(0).toUpperCase();
 
@@ -227,7 +226,7 @@ export async function renderLeagues(container, app) {
       </div>
 
       <div class="league-nav" style="flex-direction:column; align-items:center; gap:6px;">
-          <div style="font-size:13px; color:var(--color-text-light); font-weight:bold;">⏰ A semana vira automaticamente toda segunda-feira</div>
+          <div style="font-size:13px; color:var(--color-text-light); font-weight:bold;">A semana vira automaticamente toda segunda-feira</div>
           <div id="league-countdown" style="font-size:13px; color:var(--color-text-light);"></div>
       </div>
     </div>

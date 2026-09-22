@@ -34,10 +34,12 @@ assert.match(worker, /queuedAt: Math\.max\(Date\.now\(\), Number\(queue\[id\]\?\
   'cada versão da mesma palavra recebe marcador estritamente crescente');
 assert.match(db, /if \(wordData\.explanation !== undefined\) payload\.explanation = wordData\.explanation/,
   'campo atravessa o cliente e chega à linha words do usuário');
-assert.match(study, /id="pump-translation"[\s\S]*?<details id="iso-context-details" class="context-explanation-card hidden">[\s\S]*?<summary id="iso-context-summary">[\s\S]*?Por que significa isso nesta frase\?[\s\S]*?role="region" aria-labelledby="iso-context-summary"/,
-  'a explicação fica recolhida no verso principal e associada ao seu rótulo acessível');
+assert.match(study, /id="pump-translation"[\s\S]*?<details id="iso-context-details" class="context-explanation-card hidden">[\s\S]*?<summary id="iso-context-summary">[\s\S]*?Por que esse sentido aparece aqui\?[\s\S]*?role="region" aria-labelledby="iso-context-summary"/,
+  'a explicação contextual fica associada ao seu rótulo acessível');
 assert.match(study, /contextDetails\.open = false/,
   'cada card começa com a explicação recolhida');
+assert.match(study, /contextDetails\.open = Boolean\(savedExplanation\)/,
+  'ao revelar, a explicação persistida fica disponível sem exigir uma segunda ação');
 assert.match(study, /contextDetails\.classList\.toggle\('hidden', !savedExplanation\)/,
   'o controle só aparece após revelar quando existe explicação persistida');
 assert.match(study, /contextDetails\.classList\.add\('hidden'\)[\s\S]*?contextExplanation\.textContent = ''/,

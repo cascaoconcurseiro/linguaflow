@@ -2,6 +2,7 @@
 
 import { computeMaxPopupLayout } from './max-player-ui.js';
 import { db } from '../utils/db.js';
+import { mergeContextualChunks } from '../utils/context-chunks.js';
 
 function cleanContextExplanation(value) {
   return String(value || '')
@@ -1415,6 +1416,16 @@ export class WordPopup {
         ? videoUtils.getVideoClip(this.currentCue)
         : { video_url: await this._getVideoUrlWithTimestamp(), video_start_ms: null, video_end_ms: null };
 
+      // O card nasce com a ocorrência real e a unidade que o aluno deve
+      // guardar. A explicação/tradução pode chegar depois, mas não voltamos a
+      // criar três frases genéricas desconectadas do vídeo.
+      const contextualChunks = mergeContextualChunks(this.generatedChunks, {
+        context: this.saveContext || this.context,
+        learningUnit: this.word,
+        learningTranslation: translation,
+        learningPhonetic: d.pronunciation_pt || this._convertIPAtoPT(d.phonetic || '') || '',
+      });
+
       // Capture tags
       const tags = [];
       if (this._exprType?.label) tags.push(this._exprType.label);
@@ -1453,7 +1464,7 @@ export class WordPopup {
         synonyms: (d.synonyms || []).join(','),
         antonyms: (d.antonyms || []).join(','),
         snapshot: null,
-        chunks: this.generatedChunks || null,
+        chunks: contextualChunks.length ? contextualChunks : null,
       };
 
       const savePromise = chrome.runtime.sendMessage({ type: 'QUEUE_WORD_SAVE', payload });
@@ -1528,6 +1539,12 @@ export class WordPopup {
         context_sentence: contextSession.saveContext || contextSession.context || '',
         explanation: contextSession.explanation || '',
         pronunciation_pt: contextSession.pronunciation_pt || currentPayload.pronunciation_pt || '',
+        chunks: mergeContextualChunks(currentPayload.chunks, {
+          context: contextSession.saveContext || contextSession.context,
+          learningUnit: contextSession.word,
+          learningTranslation: contextSession.translation || currentPayload.translation || '',
+          learningPhonetic: contextSession.pronunciation_pt || currentPayload.pronunciation_pt || '',
+        }),
       };
       if (
         nextPayload.translation === currentPayload.translation
@@ -1535,6 +1552,7 @@ export class WordPopup {
         nextPayload.context_sentence === currentPayload.context_sentence
         && nextPayload.explanation === currentPayload.explanation
         && nextPayload.pronunciation_pt === currentPayload.pronunciation_pt
+        && JSON.stringify(nextPayload.chunks) === JSON.stringify(currentPayload.chunks)
       ) return;
 
       const result = await chrome.runtime.sendMessage({
@@ -2575,6 +2593,7 @@ export class WordPopup {
           {
             action: 'ai_generate_chunks',
             word: this.word,
+            context: this.saveContext || this.context || '',
           },
           (r) => {
             if (chrome.runtime.lastError) reject(chrome.runtime.lastError);

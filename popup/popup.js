@@ -33,7 +33,7 @@ async function renderLoggedIn() {
   if (new URLSearchParams(window.location.search).get('login') === '1') {
     statsText.innerHTML = `
       <div style="margin: 8px 0 16px;">
-        <span style="display:inline-block; background:rgba(88, 204, 2, 0.15); color:var(--color-primary-shadow); font-size:24px; width:48px; height:48px; line-height:48px; border-radius:50%; margin-bottom:8px;">✓</span>
+        <span style="display:block; color:var(--color-primary-dark); font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; margin-bottom:8px;">Tudo pronto</span>
         <h2 style="font-size: 18px; color: var(--color-text); margin-bottom: 4px;">Login realizado!</h2>
         <p style="font-size: 14px; color: var(--color-text-light); line-height: 1.5;">Você entrou na extensão. A explicação do professor continuará no vídeo.</p>
       </div>
@@ -50,20 +50,20 @@ async function renderLoggedIn() {
   }
   // Configurações de idioma e métricas multimodais
   const langFlags = {
-    en: '🇺🇸 Inglês',
-    es: '🇪🇸 Espanhol',
-    fr: '🇫🇷 Francês',
-    de: '🇩🇪 Alemão',
-    it: '🇮🇹 Italiano',
-    ja: '🇯🇵 Japonês',
-    pt: '🇧🇷 Português',
+    en: 'Inglês',
+    es: 'Espanhol',
+    fr: 'Francês',
+    de: 'Alemão',
+    it: 'Italiano',
+    ja: 'Japonês',
+    pt: 'Português',
   };
 
   try {
     const sourceLang = (await lfDb.getSetting?.('sourceLang')) || 'en';
     const langBadge = document.getElementById('study-lang-badge');
     if (langBadge) {
-      langBadge.textContent = langFlags[sourceLang.toLowerCase()] || `🌐 ${sourceLang.toUpperCase()}`;
+      langBadge.textContent = langFlags[sourceLang.toLowerCase()] || sourceLang.toUpperCase();
     }
 
     const [studyStats, userStats, dueCount] = await Promise.all([
@@ -99,7 +99,7 @@ async function renderLoggedIn() {
       if (dueCount > 0) {
         dueCardsTextEl.innerHTML = `Você tem <strong id="due-cards-count" style="color:var(--color-secondary);">${dueCount}</strong> ${dueCount === 1 ? 'frase para revisar' : 'frases para revisar'}`;
       } else {
-        dueCardsTextEl.innerHTML = `Nenhuma frase atrasada! Continue imergindo.`;
+        dueCardsTextEl.textContent = 'Nenhuma frase para revisar agora.';
       }
     }
   } catch (e) {

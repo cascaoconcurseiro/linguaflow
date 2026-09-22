@@ -27,7 +27,7 @@ assert.doesNotMatch(game, /\$\{a\.t\}<\/button>/,
   'tokens persistidos do jogo não podem entrar crus em innerHTML');
 assert.match(library, /<strong>\$\{escapeHtml\(w\.word\)\}<\/strong>/,
   'backfill do Cofre deve escapar a palavra persistida');
-assert.match(library, /✏️ \$\{escapeHtml\(w\.word\)\}/,
+assert.match(library, /Editar: \$\{escapeHtml\(w\.word\)\}/,
   'editor do Cofre deve escapar a palavra persistida');
 assert.match(library, /value="\$\{escapeHtml\(w\.translation \|\| ''\)\}"/,
   'editor do Cofre deve escapar tradução em atributo');

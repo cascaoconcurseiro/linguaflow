@@ -343,8 +343,8 @@ Sentido: [Uma única frase super curta explicando o sentido neste contexto]
 
   // Gerador de Chunks com IA (Inglês, Tradução, Fonética Brasileira)
   if (request.action === 'ai_generate_chunks') {
-    const { word } = request;
-    generateChunksWithAI(word)
+    const { word, context } = request;
+    generateChunksWithAI(word, context)
       .then((chunks) => sendResponse({ chunks }))
       .catch((err) => sendResponse({ chunks: null, error: err.message }));
     return true;
@@ -1170,7 +1170,7 @@ async function aiChatPassthrough(messages, options = {}) {
   return content;
 }
 
-async function generateChunksWithAI(word) {
+async function generateChunksWithAI(word, context = '') {
   try {
     if (!word) return [];
     const config = await getApiConfig();
@@ -1180,7 +1180,9 @@ async function generateChunksWithAI(word) {
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     const chunksPersona = `Você é um professor de inglês para brasileiros focando no aprendizado por 'chunks' (blocos léxicos).
-Seu objetivo é criar 3 frases curtas e muito úteis do dia a dia contendo a palavra ou expressão fornecida.
+Seu objetivo é identificar a unidade que vale aprender na ocorrência real e só depois sugerir no máximo 2 variações úteis.
+
+Quando houver uma frase de origem, ela é a autoridade. Não substitua a ocorrência por uma frase genérica e não escolha um sentido que não esteja sustentado por ela.
 
 Para cada frase (chunk), você deve fornecer:
 1. "eng": A frase em inglês.
@@ -1192,15 +1194,26 @@ REGRAS CRÍTICAS PARA "phon":
 - Exemplo: "I think you should call her" -> "Ai fink iú xud cól râr".
 - Dê bastante ênfase (acentuação) na sílaba tônica.
 
-Responda ÚNICA E EXCLUSIVAMENTE com um objeto JSON válido contendo uma chave "chunks" que guarda o array com os 3 objetos. Nada de texto antes ou depois.
+O primeiro objeto deve ser a frase de origem, com "is_context": true.
+O segundo deve ser a unidade lexical principal, com "is_learning_unit": true. Pode ser a palavra, phrasal verb, expressão, collocation ou bloco completo que realmente funciona como uma ideia na frase.
+Os próximos objetos, se houver, são variações curtas e naturais, nunca desconectadas do sentido encontrado.
+
+Responda ÚNICA E EXCLUSIVAMENTE com um objeto JSON válido contendo uma chave "chunks". Nada de texto antes ou depois.
 Exemplo de formato esperado:
 {
   "chunks": [
-    { "eng": "I want to go", "pt": "Eu quero ir", "phon": "Ai uánt tchu gou" }
+    { "eng": "I can't get over what happened.", "pt": "Eu não consigo superar o que aconteceu.", "phon": "Ai kent get ôuver uót répennd", "is_context": true },
+    { "eng": "get over", "pt": "superar / conseguir deixar para trás", "phon": "get ôuver", "is_learning_unit": true },
+    { "eng": "I still haven't gotten over it.", "pt": "Eu ainda não consegui superar isso.", "phon": "Ai stil révent góten ôuver it" }
   ]
 }`;
 
-    const userPrompt = `Gere os 3 chunks para a palavra/expressão: "${word}"`;
+    const userPrompt = context
+      ? `Palavra ou expressão selecionada: "${word}"
+Frase de origem do vídeo: "${context}"
+Identifique a unidade lexical que deve ser aprendida nesta ocorrência.`
+      : `Palavra ou expressão: "${word}"
+Não há frase de origem disponível. Gere uma ocorrência curta e deixe claro o sentido da unidade.`;
 
     let response;
     
@@ -1756,7 +1769,7 @@ async function backfillMissingSentences() {
     for (const w of missing) {
       try {
         await new Promise(r => setTimeout(r, 6000)); // Espera 6s para respeitar limites da API (Rate Limit)
-        const chunks = await generateChunksWithAI(w.word);
+        const chunks = await generateChunksWithAI(w.word, w.context_sentence || '');
         if (chunks && chunks.length > 0) {
           // Mantém a frase do vídeo se existir e tiver mais que 2 palavras, senão sobrescreve
           const hasGoodVideoContext = w.context_sentence && w.context_sentence !== w.word && w.context_sentence.split(' ').length > 2;

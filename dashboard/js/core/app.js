@@ -17,7 +17,7 @@ const renderLearn = (...args) => import('../ui/learnView.js').then((m) => m.rend
 const renderProgress = (...args) => import('../ui/progressView.js').then((m) => m.renderProgress(...args));
 const renderAdmin = (...args) => import('../ui/adminView.js').then((m) => m.renderAdmin(...args));
 
-const CLIENT_BUILD = '3.0.49';
+const CLIENT_BUILD = '3.0.51';
 
 // Uma versão antiga do PWA podia misturar HTML/app novo com db.js antigo.
 // Antes de inicializar qualquer tela, elimina esse estado e recarrega uma vez.
@@ -46,7 +46,7 @@ if ('serviceWorker' in navigator && (typeof location === 'undefined' || location
     banner.setAttribute('role', 'status');
     banner.style.cssText = 'position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:100000;display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:14px;background:var(--color-surface,#fff);border:2px solid var(--color-primary,#58cc02);box-shadow:0 8px 30px rgba(0,0,0,.25);font:700 14px var(--font-main,sans-serif);color:var(--color-text,#333);max-width:92vw;';
     banner.innerHTML = `
-      <span>✨ Nova versão do LinguaFlow disponível</span>
+      <span>Nova versão do LinguaFlow disponível</span>
       <button type="button" id="lf-update-now" style="min-height:44px;padding:8px 18px;border:0;border-radius:10px;background:var(--color-primary,#58cc02);color:#fff;font:800 14px inherit;cursor:pointer;">Atualizar</button>
       <button type="button" id="lf-update-later" aria-label="Depois" style="min-width:44px;min-height:44px;border:0;background:none;color:var(--color-text-light,#777);font-size:18px;cursor:pointer;">✕</button>`;
     document.body.appendChild(banner);
@@ -124,7 +124,7 @@ class App {
       const now = Date.now();
       if (this._lastReadErrorToast && now - this._lastReadErrorToast < 30000) return;
       this._lastReadErrorToast = now;
-      this.showToast?.('⚠️ Falha de conexão ao carregar dados — a tela pode estar incompleta.', 'error');
+      this.showToast?.('Falha de conexão ao carregar dados — a tela pode estar incompleta.', 'error');
     });
     // Setup Navigation Listeners
     this.navBtns.forEach(btn => {
@@ -630,10 +630,10 @@ class App {
   setTheme(theme) {
     if (theme === 'dark') {
       document.documentElement.setAttribute('data-theme', 'dark');
-      if (this.themeToggleBtn) this.themeToggleBtn.textContent = '☀️';
+      if (this.themeToggleBtn) this.themeToggleBtn.textContent = 'Usar tema claro';
     } else {
       document.documentElement.removeAttribute('data-theme');
-      if (this.themeToggleBtn) this.themeToggleBtn.textContent = '🌙';
+      if (this.themeToggleBtn) this.themeToggleBtn.textContent = 'Usar tema escuro';
     }
     localStorage.setItem('lf_theme', theme);
   }

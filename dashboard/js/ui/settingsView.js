@@ -70,7 +70,7 @@ export async function runPlacementTest(app, onDone) {
   function frame(phaseLabel, progressPct, bodyHtml) {
     box.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-        <h2 id="pl-dialog-title" tabindex="-1" style="color:var(--color-text); font-size:14px;">🎯 Nivelamento — ${phaseLabel}</h2>
+        <h2 id="pl-dialog-title" tabindex="-1" style="color:var(--color-text); font-size:14px;">Nivelamento — ${phaseLabel}</h2>
         <button id="pl-close" type="button" aria-label="Fechar nivelamento" style="background:none; border:none; font-size:18px; cursor:pointer; color:var(--color-text-light);">✕</button>
       </div>
       <div role="progressbar" aria-label="Progresso do nivelamento" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressPct}" style="width:100%; background:var(--color-border); height:8px; border-radius:4px; overflow:hidden; margin-bottom:24px;">
@@ -154,7 +154,7 @@ export async function runPlacementTest(app, onDone) {
       const item = items[lIdx];
       frame('Fase 3/4: Escuta', 50 + Math.round((lIdx / items.length) * 25), `
         <p style="color:var(--color-text-light); font-size:13px; margin-bottom:12px;">Ouça e escolha o significado:</p>
-        <button id="pl-play" class="btn btn-secondary" style="padding:14px 28px; font-size:16px; margin-bottom:20px;">🔊 Ouvir${lIdx === 0 ? ' a frase' : ' de novo'}</button>
+        <button id="pl-play" class="btn btn-secondary" style="padding:14px 28px; font-size:16px; margin-bottom:20px;">Ouvir${lIdx === 0 ? ' a frase' : ' de novo'}</button>
         <div style="display:flex; flex-direction:column; gap:8px;">
           ${item.options.map((o, i) => `<button class="pl-opt btn" data-i="${i}" style="padding:12px; background:var(--color-bg-alt); color:var(--color-text); border:2px solid var(--color-border); font-weight:700; font-size:14px;">${o}</button>`).join('')}
         </div>`);
@@ -229,16 +229,16 @@ export async function runPlacementTest(app, onDone) {
         <strong style="color:var(--color-text);">${lvl}</strong>
       </div>`;
     box.innerHTML = `
-      <div style="font-size:56px; margin-bottom:12px;">${vocabResult.honesty < 60 ? '🤨' : '🎓'}</div>
+      <div style="font-size:13px; margin-bottom:12px; color:var(--color-text-light);">Resultado da estimativa</div>
       <h2 style="color:var(--color-primary); font-size:40px; margin-bottom:4px;">${combo.level}</h2>
       <p style="color:var(--color-text); font-weight:800; margin-bottom:16px;">${levelNames[combo.level] || ''}</p>
       <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:16px; text-align:left;">
-        ${skillRow('📖 Vocabulário', combo.breakdown.vocab)}
-        ${skillRow('✍️ Gramática/Leitura', combo.breakdown.cloze)}
-        ${skillRow('🎧 Escuta', combo.breakdown.listening)}
+        ${skillRow('Vocabulário', combo.breakdown.vocab)}
+        ${skillRow('Gramática e leitura', combo.breakdown.cloze)}
+        ${skillRow('Escuta', combo.breakdown.listening)}
       </div>
-      ${writingResult?.feedback ? `<p style="text-align:left; font-size:13px; color:var(--color-text); background:rgba(28,176,246,0.08); border:1px solid var(--color-secondary); border-radius:8px; padding:10px 12px; margin-bottom:12px;">📝 ${escapeHtml(writingResult.feedback)}</p>` : ''}
-      ${combo.gaps.length ? `<p style="color:#ff9600; font-size:13px; font-weight:700; margin-bottom:12px;">💡 Ponto a reforçar: ${combo.gaps.join(', ')}.</p>` : ''}
+      ${writingResult?.feedback ? `<p style="text-align:left; font-size:13px; color:var(--color-text); background:rgba(28,176,246,0.08); border:1px solid var(--color-secondary); border-radius:8px; padding:10px 12px; margin-bottom:12px;">${escapeHtml(writingResult.feedback)}</p>` : ''}
+      ${combo.gaps.length ? `<p style="color:#ff9600; font-size:13px; font-weight:700; margin-bottom:12px;">Ponto a reforçar: ${combo.gaps.join(', ')}.</p>` : ''}
       ${combo.retestRequired ? '<p style="color:var(--color-danger); font-size:13px; margin-bottom:16px;">As pseudo-palavras indicam respostas por chute. Por segurança, este resultado não será aplicado: refaça o teste com calma.</p>' : '<p style="color:var(--color-text-light); font-size:13px; margin-bottom:16px;">Nível aplicado em todo o sistema: IA, histórias e legendas.</p>'}
       <button id="pl-apply" class="btn btn-primary" style="width:100%; padding:14px;" ${combo.retestRequired ? 'disabled aria-disabled="true" title="Refaça o teste para aplicar um resultado confiável"' : ''}>Usar este nível</button>
       <button id="pl-redo" style="background:none; border:none; color:var(--color-text-light); font-family:var(--font-main); font-weight:700; font-size:13px; cursor:pointer; margin-top:12px;">Refazer o teste</button>`;
@@ -251,7 +251,7 @@ export async function runPlacementTest(app, onDone) {
           lfDb.setSetting('cefrTargetLevel', combo.level),
         ]);
         if (saved.some(result => !result)) throw new Error('Sincronização não confirmada');
-        app.showToast(`Nível ${combo.level} aplicado! 🎓`, 'success');
+        app.showToast(`Nível ${combo.level} aplicado.`, 'success');
       } catch {
         app.showToast('Erro ao salvar o nível.', 'error');
         return;
@@ -341,7 +341,7 @@ export async function renderSettings(container, app) {
           <button class="cefr-btn lf-btn-bounce" data-level="C1" aria-pressed="${cefr === 'C1' ? 'true' : 'false'}">C1<br><span>Avançado</span></button>
           <button class="cefr-btn lf-btn-bounce" data-level="C2" aria-pressed="${cefr === 'C2' ? 'true' : 'false'}">C2<br><span>Proficiente</span></button>
         </div>
-        <button id="btn-placement" class="btn btn-secondary" style="margin-top:16px; width:100%;">🎯 Estimar meu nível (~4 min)</button>
+        <button id="btn-placement" class="btn btn-secondary" style="margin-top:16px; width:100%;">Estimar meu nível (~4 min)</button>
         <p style="font-size:12px; color:var(--color-text-light); margin-top:8px;">Uma estimativa inicial com vocabulário, gramática em contexto e escuta — não substitui uma avaliação CEFR completa.</p>
       </div>
 
@@ -430,12 +430,12 @@ export async function renderSettings(container, app) {
         <p style="font-size:12px; color:var(--color-text-light); margin-top:8px;">Todos estes valores alimentam o motor FSRS de verdade — mesmo nome de chave que o agendador usa. Modificador 100% = neutro; 80% = revisa mais cedo.</p>
         <label style="display:flex; align-items:center; gap:10px; margin-top:20px; font-weight:bold; color:var(--color-text); cursor:pointer;">
           <input type="checkbox" id="srs-reverse-cards" ${srsReverse ? 'checked' : ''} style="width:18px; height:18px;">
-          Cartões reversos (🇧🇷→🇺🇸): às vezes mostrar a tradução e pedir o inglês
+          Cartões reversos: às vezes mostrar a tradução e pedir o inglês
         </label>
         <p style="font-size:12px; color:var(--color-text-light); margin-top:6px; margin-left:28px;">Só para cards já graduados — dobra o valor de cada palavra, como as notas de 2 cartões do Anki.</p>
         <label style="display:flex; align-items:center; gap:10px; margin-top:14px; font-weight:bold; color:var(--color-text); cursor:pointer;">
           <input type="checkbox" id="srs-varied-exercises" ${srsVaried ? 'checked' : ''} style="width:18px; height:18px;">
-          Exercícios variados (🧩 montar frase e 🎧 ditado) no estudo
+          Exercícios variados (montar frase e ditado) no estudo
         </label>
         <p style="font-size:12px; color:var(--color-text-light); margin-top:6px; margin-left:28px;">Estilo Duolingo, só para cards já graduados: acertou vale "Bom", errou vale "Errei" — o agendamento FSRS continua mandando.</p>
       </div>
@@ -487,7 +487,7 @@ export async function renderSettings(container, app) {
           <label style="display:flex; align-items:flex-start; gap:8px; padding-top:8px; border-top:1px dashed var(--color-border);">
             <input type="checkbox" id="audio-kokoro" style="width:18px; height:18px; margin-top:2px;">
             <span>
-              <strong>🎙️ Voz neural premium (Kokoro) — grátis e offline</strong><br>
+              <strong>Voz neural premium (Kokoro) — grátis e offline</strong><br>
               <span style="font-size:12px; color:var(--color-text-light);">Qualidade acima do Google TTS. Baixa ~90 MB na primeira vez e depois funciona até sem internet. Só no site (não na extensão). Requer navegador moderno.</span>
             </span>
           </label>
@@ -501,16 +501,16 @@ export async function renderSettings(container, app) {
             <div style="flex:1; min-width:200px;">
               <span id="tts-lang-label" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Sotaque</span>
               <div id="tts-lang-selector" role="group" aria-labelledby="tts-lang-label" style="display:flex; gap:8px;">
-                <button class="tts-opt-btn" data-lang="en-US" aria-pressed="${ttsLang === 'en-US' ? 'true' : 'false'}" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-primary); background:rgba(88,204,2,0.1); font-family:var(--font-main); font-weight:800; cursor:pointer; color:var(--color-text);">🇺🇸 Americano</button>
-                <button class="tts-opt-btn" data-lang="en-GB" aria-pressed="${ttsLang === 'en-GB' ? 'true' : 'false'}" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); font-family:var(--font-main); font-weight:700; cursor:pointer; color:var(--color-text-light);">🇬🇧 Britânico</button>
+                <button class="tts-opt-btn" data-lang="en-US" aria-pressed="${ttsLang === 'en-US' ? 'true' : 'false'}" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-primary); background:rgba(88,204,2,0.1); font-family:var(--font-main); font-weight:800; cursor:pointer; color:var(--color-text);">Americano</button>
+                <button class="tts-opt-btn" data-lang="en-GB" aria-pressed="${ttsLang === 'en-GB' ? 'true' : 'false'}" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); font-family:var(--font-main); font-weight:700; cursor:pointer; color:var(--color-text-light);">Britânico</button>
               </div>
             </div>
             <div style="flex:1; min-width:200px;">
               <span id="tts-speed-label" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px; font-size:14px;">Velocidade</span>
               <div id="tts-speed-selector" role="group" aria-labelledby="tts-speed-label" style="display:flex; gap:8px;">
-                <button class="tts-speed-btn" data-speed="slow" aria-pressed="${ttsSpeed === 'slow' ? 'true' : 'false'}" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); font-family:var(--font-main); font-weight:700; cursor:pointer; color:var(--color-text-light); font-size:13px;">🐢 Lento</button>
-                <button class="tts-speed-btn" data-speed="normal" aria-pressed="${ttsSpeed === 'normal' ? 'true' : 'false'}" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-primary); background:rgba(88,204,2,0.1); font-family:var(--font-main); font-weight:800; cursor:pointer; font-size:13px; color:var(--color-text);">👌 Normal</button>
-                <button class="tts-speed-btn" data-speed="native" aria-pressed="${ttsSpeed === 'native' ? 'true' : 'false'}" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); font-family:var(--font-main); font-weight:700; cursor:pointer; color:var(--color-text-light); font-size:13px;">🚀 Nativo</button>
+                <button class="tts-speed-btn" data-speed="slow" aria-pressed="${ttsSpeed === 'slow' ? 'true' : 'false'}" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); font-family:var(--font-main); font-weight:700; cursor:pointer; color:var(--color-text-light); font-size:13px;">Lento</button>
+                <button class="tts-speed-btn" data-speed="normal" aria-pressed="${ttsSpeed === 'normal' ? 'true' : 'false'}" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-primary); background:rgba(88,204,2,0.1); font-family:var(--font-main); font-weight:800; cursor:pointer; font-size:13px; color:var(--color-text);">Normal</button>
+                <button class="tts-speed-btn" data-speed="native" aria-pressed="${ttsSpeed === 'native' ? 'true' : 'false'}" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:2px solid var(--color-border); background:var(--color-surface); font-family:var(--font-main); font-weight:700; cursor:pointer; color:var(--color-text-light); font-size:13px;">Nativo</button>
               </div>
             </div>
           </div>
@@ -521,7 +521,7 @@ export async function renderSettings(container, app) {
 
       <!-- Lembretes (Web Push REAL — opt-in explícito) -->
       <div id="push-section" style="background: var(--color-surface); border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px; display:none;">
-        <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 8px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">🔔 Lembretes diários</h2>
+        <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 8px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">Lembretes diários</h2>
         <p style="color:var(--color-text-light); margin-bottom:16px; font-size:14px;">Uma notificação por dia (no máximo) quando houver revisões pendentes ou sua ofensiva estiver em risco — mesmo com o site fechado. Você pode desativar quando quiser.</p>
         <label style="display:flex; align-items:center; gap:10px; font-weight:bold; color:var(--color-text); cursor:pointer;">
           <input type="checkbox" id="push-toggle" style="width:18px; height:18px;">
@@ -532,7 +532,7 @@ export async function renderSettings(container, app) {
 
       <!-- Reengajamento por e-mail (Onda 3.4 — opt-in explícito) -->
       <div id="email-section" style="background: var(--color-surface); border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px;">
-        <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 8px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">📧 Resumo por e-mail</h2>
+        <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 8px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">Resumo por e-mail</h2>
         <p style="color:var(--color-text-light); margin-bottom:16px; font-size:14px;">No máximo 1 e-mail por semana: resumo do que você estudou ou um aviso se sua ofensiva estiver prestes a esfriar. Sem spam, cancele quando quiser.</p>
         <label style="display:flex; align-items:center; gap:10px; font-weight:bold; color:var(--color-text); cursor:pointer;">
           <input type="checkbox" id="email-toggle" style="width:18px; height:18px;">
@@ -550,19 +550,19 @@ export async function renderSettings(container, app) {
         
         <div style="display: flex; gap: 16px; flex-wrap: wrap;">
           <button id="btn-export-csv" class="btn btn-outline" style="flex:1; min-width:160px;">
-            📄 Exportar CSV
+            Exportar CSV
           </button>
           <button id="btn-export-anki" class="btn btn-secondary" style="flex:1; min-width:160px;">
-            📦 Exportar notas para o Anki (.txt)
+            Exportar notas para o Anki (.txt)
           </button>
         </div>
         <p style="font-size:12px; color:var(--color-text-light); margin-top:8px;">No Anki: Arquivo → Importar → selecione o .txt. O segundo arquivo é uma cópia de referência do agendamento LinguaFlow; o Anki não aplica esse estado automaticamente.</p>
         <div style="display:flex; gap:16px; flex-wrap:wrap; margin-top:16px; padding-top:16px; border-top:1px dashed var(--color-border);">
           <button id="btn-backup-json" class="btn btn-outline" style="flex:1; min-width:160px;">
-            💾 Backup completo (.json)
+            Backup completo (.json)
           </button>
           <button id="btn-restore-json" class="btn btn-outline" style="flex:1; min-width:160px;">
-            ♻️ Restaurar backup
+            Restaurar backup
           </button>
           <input type="file" id="restore-file-input" accept=".json,application/json" style="display:none;">
         </div>
@@ -577,12 +577,12 @@ export async function renderSettings(container, app) {
         </p>
         
         <button id="btn-logout" class="btn" style="background-color: var(--color-danger); border-bottom: 4px solid var(--color-danger-shadow); width: 100%;">
-          🚪 Sair da Conta
+          Sair da conta
         </button>
         ${isAdmin ? `
           <div style="margin-top: 24px; padding-top: 16px; border-top: 1px dashed var(--color-border); text-align: center;">
             <button id="btn-admin-gate" type="button" class="btn btn-outline" style="font-size: 13px; font-weight: 700; padding: 8px 18px; opacity: 0.75; border-color: var(--color-border); color: var(--color-text-light); cursor: pointer; border-radius: 8px; transition: all 0.2s;" title="Painel Administrativo">
-              🔐 Administração do Sistema
+              Administração do sistema
             </button>
           </div>
         ` : ''}
@@ -616,7 +616,7 @@ export async function renderSettings(container, app) {
   const groups = [
       group('Seu aprendizado', 'Nível e carga diária', ['Seu nível aproximado', 'Limites Diários'], { open: true }),
     group('Memória', 'Retenção e passos de aprendizagem', ['Motor de Memória (FSRS v4)']),
-    group('Som e lembretes', 'Áudio, notificações e resumo', ['Opções de Áudio (TTS Google Neural)', '🔔 Lembretes diários', '📧 Resumo por e-mail']),
+    group('Som e lembretes', 'Áudio, notificações e resumo', ['Opções de Áudio (TTS Google Neural)', 'Lembretes diários', 'Resumo por e-mail']),
     group('Dados e conta', 'Exportação, backup e sessão', ['Dados e Portabilidade', 'Conta']),
     group('Avançado', 'SRS detalhado, perfis e integrações', ['SRS Avançado (Nível Anki)', 'Perfis de SRS por Categoria'], { advanced: true }),
   ];
@@ -740,7 +740,7 @@ export async function renderSettings(container, app) {
       if (srscatSteps) srscatSteps.value = ov.learning_steps || '';
       if (srscatGrad) srscatGrad.value = ov.graduating_interval || '';
       if (srscatStatus) srscatStatus.textContent = (ov.lf_srs_retention || ov.learning_steps || ov.graduating_interval)
-        ? '✅ Esta categoria tem perfil próprio.' : 'Sem perfil próprio — usando o global.';
+        ? 'Esta categoria tem perfil próprio.' : 'Sem perfil próprio — usando o global.';
     } catch (e) {
       console.warn('[Settings] Erro ao carregar perfil por categoria:', e);
       if (srscatStatus) srscatStatus.textContent = 'Erro ao carregar. Tente de novo.';
@@ -775,7 +775,7 @@ export async function renderSettings(container, app) {
         lfDb.setSRSCategoryOverride(cat, 'learning_steps', stepsVal),
         lfDb.setSRSCategoryOverride(cat, 'graduating_interval', gradVal),
       ]);
-      if (srscatStatus) srscatStatus.textContent = '✅ Perfil salvo pra esta categoria.';
+      if (srscatStatus) srscatStatus.textContent = 'Perfil salvo para esta categoria.';
     } catch (e) {
       console.warn('[Settings] Erro ao salvar perfil por categoria:', e);
       if (srscatStatus) srscatStatus.textContent = 'Erro ao salvar. Tente de novo.';
@@ -1036,7 +1036,7 @@ export async function renderSettings(container, app) {
           console.warn('[Restore] Falha na palavra', w.word, err);
           failCount++;
         }
-        btn.textContent = `♻️ Restaurando… ${okCount + failCount}/${backup.words.length}`;
+        btn.textContent = `Restaurando… ${okCount + failCount}/${backup.words.length}`;
       }
 
       // 2. Estado FSRS dos cards: casa card antigo -> palavra -> card novo
@@ -1084,12 +1084,12 @@ export async function renderSettings(container, app) {
         ? `; ${cardOkCount} estados de card${cardFailCount ? ` (${cardFailCount} falharam)` : ''}`
         : '';
       app.showToast(
-        `Backup restaurado: ${okCount} palavras${failCount ? ` (${failCount} falharam)` : ''}${cardSummary}.${partial ? ' Revise as falhas.' : ' ✅'}`,
+        `Backup restaurado: ${okCount} palavras${failCount ? ` (${failCount} falharam)` : ''}${cardSummary}.${partial ? ' Revise as falhas.' : ''}`,
         partial ? 'info' : 'success'
       );
     } finally {
       btn.disabled = false;
-      btn.textContent = '♻️ Restaurar backup';
+      btn.textContent = 'Restaurar backup';
     }
   });
 
@@ -1107,11 +1107,11 @@ export async function renderSettings(container, app) {
       const { status, progress, error } = e.detail || {};
       if (!progressBox) return;
       if (status === 'done') {
-        progressText.textContent = 'Modelo pronto! 🎉';
+        progressText.textContent = 'Modelo pronto.';
         progressBar.style.width = '100%';
         setTimeout(() => progressBox.classList.add('hidden'), 2500);
       } else if (status === 'error') {
-        progressText.textContent = `⚠️ ${error || 'Falha ao baixar — usando Google TTS por enquanto.'}`;
+        progressText.textContent = `${error || 'Falha ao baixar — usando Google TTS por enquanto.'}`;
         setTimeout(() => progressBox.classList.add('hidden'), 4000);
       } else {
         progressBox.classList.remove('hidden');
@@ -1125,7 +1125,7 @@ export async function renderSettings(container, app) {
       try {
         if (kokoroChk.checked) {
           localStorage.setItem('lf_kokoro', '1');
-          app.showToast('Voz premium ativando… acompanhe o progresso do download abaixo. 🎙️', 'info');
+          app.showToast('Voz premium ativando… acompanhe o progresso do download abaixo.', 'info');
           progressBox?.classList.remove('hidden');
           preloadKokoro();
         } else {
@@ -1158,7 +1158,7 @@ export async function renderSettings(container, app) {
       const reg = await navigator.serviceWorker.ready;
       const existing = await reg.pushManager.getSubscription();
       toggle.checked = !!existing;
-      status.textContent = existing ? '✅ Lembretes ativos neste dispositivo.' : '';
+        status.textContent = existing ? 'Lembretes ativos neste dispositivo.' : '';
     } catch { /* sw ainda não pronto */ }
 
     toggle.addEventListener('change', async () => {
@@ -1176,8 +1176,8 @@ export async function renderSettings(container, app) {
           });
           const saved = await lfDb.savePushSubscription(sub.toJSON());
           if (!saved?.ok) { await sub.unsubscribe(); throw new Error('Falha ao registrar no servidor.'); }
-          status.textContent = '✅ Lembretes ativos neste dispositivo.';
-          app.showToast('🔔 Lembretes ativados! No máximo 1 por dia.', 'success');
+          status.textContent = 'Lembretes ativos neste dispositivo.';
+          app.showToast('Lembretes ativados. No máximo 1 por dia.', 'success');
         } else {
           const sub = await reg.pushManager.getSubscription();
           if (sub) {
@@ -1190,7 +1190,7 @@ export async function renderSettings(container, app) {
       } catch (e) {
         console.warn('[Push] Falha no opt-in:', e);
         toggle.checked = false;
-        status.textContent = `⚠️ ${e.message || 'Não foi possível ativar.'}`;
+        status.textContent = `${e.message || 'Não foi possível ativar.'}`;
         app.showToast('Não consegui ativar os lembretes: ' + (e.message || ''), 'error');
       } finally {
         toggle.disabled = false;
@@ -1206,7 +1206,7 @@ export async function renderSettings(container, app) {
     try {
       const stats = await lfDb.getUserStats();
       emailToggle.checked = !!stats?.email_opt_in;
-      emailStatus.textContent = stats?.email_opt_in ? '✅ Resumo semanal ativo.' : '';
+      emailStatus.textContent = stats?.email_opt_in ? 'Resumo semanal ativo.' : '';
     } catch { /* falha ao carregar preferência atual: deixa desmarcado */ }
 
     emailToggle.addEventListener('change', async () => {
@@ -1215,11 +1215,11 @@ export async function renderSettings(container, app) {
       try {
         const res = await lfDb.setEmailOptIn(desired);
         if (!res?.ok) throw new Error('Falha ao salvar a preferência.');
-        emailStatus.textContent = desired ? '✅ Resumo semanal ativo.' : 'Resumo por e-mail desativado.';
-        app.showToast(desired ? '📧 Resumo semanal ativado!' : 'Resumo por e-mail desativado.', desired ? 'success' : 'info');
+        emailStatus.textContent = desired ? 'Resumo semanal ativo.' : 'Resumo por e-mail desativado.';
+        app.showToast(desired ? 'Resumo semanal ativado.' : 'Resumo por e-mail desativado.', desired ? 'success' : 'info');
       } catch (e) {
         emailToggle.checked = !desired;
-        emailStatus.textContent = '⚠️ Não consegui salvar a preferência.';
+        emailStatus.textContent = 'Não consegui salvar a preferência.';
         app.showToast('Não consegui salvar a preferência de e-mail.', 'error');
       } finally {
         emailToggle.disabled = false;
@@ -1269,7 +1269,7 @@ function openAdminPinModal(app) {
 
   overlay.innerHTML = `
     <div style="background:var(--color-surface); border-radius:var(--radius-lg); border:2px solid var(--color-border); max-width:380px; width:100%; padding:28px; text-align:center; box-shadow:0 20px 40px rgba(0,0,0,0.3);">
-      <div style="font-size:40px; margin-bottom:12px;">🔐</div>
+      <div style="font-size:13px; margin-bottom:12px; color:var(--color-text-light);">Área restrita</div>
       <h2 id="admin-pin-title" style="color:var(--color-text); font-size:20px; font-weight:800; margin-bottom:8px;">Acesso Administrativo</h2>
       <p style="color:var(--color-text-light); font-size:13px; margin-bottom:20px;">Digite a senha de segurança de 6 dígitos para acessar a área restrita.</p>
       
@@ -1320,7 +1320,7 @@ function openAdminPinModal(app) {
 
       if (verifyRes && verifyRes.ok) {
         closePinModal();
-        app.showToast('Identidade confirmada. Bem-vindo, Administrador! 👑', 'success');
+        app.showToast('Identidade confirmada. Bem-vindo, administrador.', 'success');
         app.navigate('admin');
       } else {
         errorMsg.textContent = verifyRes?.message || 'Senha incorreta. Tente novamente.';

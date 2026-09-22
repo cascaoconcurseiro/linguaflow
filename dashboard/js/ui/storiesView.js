@@ -228,17 +228,17 @@ export function renderStories(container, app) {
         <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;" for="story-genre">Tema</label>
         <div style="display:flex; gap: 16px; flex-wrap:wrap;">
           <select id="story-genre" style="flex:1; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); font-size:16px; min-width: 200px; cursor: pointer; transition: border-color 0.2s;">
-            <option value="Dia a Dia">☕ Dia a Dia</option>
-            <option value="Viagens">✈️ Viagens</option>
-            <option value="Ficção Científica">🚀 Ficção Científica</option>
-            <option value="Negócios">💼 Negócios</option>
-            <option value="Mistério">🕵️ Mistério</option>
-            <option value="Romance">❤️ Romance</option>
-            <option value="Aventura">🌋 Aventura</option>
-            <option value="História (Fatos reais)">📜 Fatos Históricos</option>
+            <option value="Dia a Dia">Dia a Dia</option>
+            <option value="Viagens">Viagens</option>
+            <option value="Ficção Científica">Ficção Científica</option>
+            <option value="Negócios">Negócios</option>
+            <option value="Mistério">Mistério</option>
+            <option value="Romance">Romance</option>
+            <option value="Aventura">Aventura</option>
+            <option value="História (Fatos reais)">Fatos históricos</option>
           </select>
           <button id="btn-generate-story" class="btn btn-primary lf-btn-bounce" style="padding: 12px 24px; font-size: 16px; display:flex; align-items:center; gap:8px;">
-            <span class="icon" aria-hidden="true">✨</span> Criar história
+            Criar história
           </button>
         </div>
       </div>
@@ -269,16 +269,16 @@ export function renderStories(container, app) {
 
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
               <button id="btn-play-story" class="btn btn-primary lf-btn-bounce" style="padding: 8px 16px; font-size: 14px; display:flex; align-items:center; gap:6px;">
-                ▶️ Ouvir Tudo
+                Ouvir tudo
               </button>
               <button id="btn-stop-story" class="btn" style="padding: 8px 16px; font-size: 14px; display:none; align-items:center; gap:6px; background:#f44336; color:white; border:none;">
-                ⏹ Parar
+                Parar
               </button>
               <button id="btn-quiz-story" class="btn btn-secondary lf-btn-bounce" style="padding: 8px 16px; font-size: 14px; display:flex; align-items:center; gap:6px;">
-                🧠 Testar compreensão
+                Testar compreensão
               </button>
               <button id="btn-story-done" class="btn lf-btn-bounce" style="padding: 8px 16px; font-size: 14px; display:flex; align-items:center; gap:6px; background:#ffc800; color:#3c3c3c; border:none; font-weight:800;">
-                ✅ Marcar como lida
+                Marcar como lida
               </button>
             </div>
           </div>
@@ -306,7 +306,7 @@ export function renderStories(container, app) {
             <div id="lf-modal-pronounce" style="display:none; font-size:12px; color:var(--color-text-light); font-family:monospace; margin-top:4px;"></div>
           </div>
           <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-            <button id="lf-btn-tts-word" type="button" aria-label="Ouvir palavra" style="width:38px; height:38px; border-radius:10px; background:var(--color-bg-alt); border:1px solid var(--color-border); color:var(--color-secondary); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:16px;" title="Ouvir">🔊</button>
+            <button id="lf-btn-tts-word" type="button" aria-label="Ouvir palavra" style="width:auto; height:38px; padding:0 10px; border-radius:4px; background:var(--color-bg-alt); border:1px solid var(--color-border); color:var(--color-secondary); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800;" title="Ouvir">Ouvir</button>
             <button id="lf-close-modal" type="button" aria-label="Fechar detalhes da palavra" style="width:38px; height:38px; border-radius:10px; background:none; border:none; font-size:22px; color:var(--color-text-light); cursor:pointer; display:flex; align-items:center; justify-content:center;">&times;</button>
           </div>
         </div>
@@ -315,7 +315,7 @@ export function renderStories(container, app) {
         <div role="tablist" style="display:flex; border-bottom:1px solid var(--color-border); background:var(--color-bg-alt); padding:0 8px;">
           <button id="lf-tab-trans" role="tab" aria-selected="true" class="lf-story-tab active" data-tab="trans" style="flex:1; padding:10px 4px; font-size:12px; font-weight:800; border:none; background:none; color:var(--color-secondary); border-bottom:2px solid var(--color-secondary); cursor:pointer;">Tradução</button>
           <button id="lf-tab-examples" role="tab" aria-selected="false" class="lf-story-tab" data-tab="examples" style="flex:1; padding:10px 4px; font-size:12px; font-weight:700; border:none; background:none; color:var(--color-text-light); border-bottom:2px solid transparent; cursor:pointer;">Exemplos</button>
-          <button id="lf-tab-youglish" role="tab" aria-selected="false" class="lf-story-tab" data-tab="youglish" style="flex:1; padding:10px 4px; font-size:12px; font-weight:700; border:none; background:none; color:var(--color-text-light); border-bottom:2px solid transparent; cursor:pointer;">🎬 YouGlish (Vídeos)</button>
+          <button id="lf-tab-youglish" role="tab" aria-selected="false" class="lf-story-tab" data-tab="youglish" style="flex:1; padding:10px 4px; font-size:12px; font-weight:700; border:none; background:none; color:var(--color-text-light); border-bottom:2px solid transparent; cursor:pointer;">YouGlish (vídeos)</button>
         </div>
 
         <!-- Conteúdo com Scroll -->
@@ -332,14 +332,14 @@ export function renderStories(container, app) {
             
             <!-- Falso Cognato -->
             <div id="lf-modal-false-friend" style="display:none; background:rgba(251,146,60,0.1); border:1px solid rgba(251,146,60,0.3); border-radius:10px; padding:9px 12px; margin-bottom:12px;">
-              <div style="font-size:10px; color:#fb923c; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:4px;">⚠️ Falso Cognato — Cuidado!</div>
+              <div style="font-size:10px; color:#fb923c; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:4px;">Falso cognato — cuidado</div>
               <div id="lf-modal-false-friend-text" style="font-size:12px; color:#fcd34d; line-height:1.5;"></div>
             </div>
 
             <!-- Contexto na Frase -->
             <div id="lf-modal-context-box" style="display:none; background:rgba(139,92,246,0.06); border:1px solid rgba(139,92,246,0.2); border-radius:10px; padding:10px 12px; margin-bottom:14px;">
               <div style="font-size:10px; color:#a78bfa; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:4px; display:flex; align-items:center; gap:4px;">
-                <span>💡</span><span>Contexto nesta frase</span>
+                <span>Contexto nesta frase</span>
               </div>
               <div id="lf-modal-context-text" style="font-size:13px; color:var(--color-text); line-height:1.5;"></div>
             </div>
@@ -350,7 +350,7 @@ export function renderStories(container, app) {
             <!-- Ações -->
             <div style="display:flex; flex-direction:column; gap:8px;">
               <button id="lf-btn-save-word" class="btn btn-primary lf-btn-bounce" style="width:100%; padding:11px; font-size:14px; font-weight:800; display:flex; justify-content:center; align-items:center; gap:6px;">
-                💾 Salvar no Cofre
+                Salvar no Cofre
               </button>
               <button id="lf-btn-known-word" class="btn lf-btn-bounce" style="width:100%; padding:9px; font-size:13px; font-weight:700; background:rgba(74,222,128,0.1); color:#4ade80; border:1px solid rgba(74,222,128,0.25); border-radius:8px; cursor:pointer;">
                 ✓ Já sei esta palavra
@@ -365,13 +365,13 @@ export function renderStories(container, app) {
             </p>
             <div style="display:flex; flex-direction:column; gap:8px;">
               <button id="lf-btn-reverso" class="btn lf-btn-bounce" style="width:100%; padding:10px; font-size:13px; font-weight:700; background:rgba(3,105,161,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.3); border-radius:8px; cursor:pointer;">
-                🔄 Reverso Context — Frases Reais
+                Reverso Context — Frases reais
               </button>
               <button id="lf-btn-linguee" class="btn lf-btn-bounce" style="width:100%; padding:10px; font-size:13px; font-weight:700; background:rgba(74,222,128,0.08); color:#4ade80; border:1px solid rgba(74,222,128,0.25); border-radius:8px; cursor:pointer;">
-                🔗 Linguee — EN ↔ PT
+                Linguee — EN ↔ PT
               </button>
               <button id="lf-btn-google-trans" class="btn lf-btn-bounce" style="width:100%; padding:10px; font-size:13px; font-weight:700; background:var(--color-bg-alt); color:var(--color-text); border:1px solid var(--color-border); border-radius:8px; cursor:pointer;">
-                🌐 Google Tradutor
+                Google Tradutor
               </button>
             </div>
           </div>
@@ -382,13 +382,13 @@ export function renderStories(container, app) {
               Ouça como nativos pronunciam em vídeos reais do YouTube:
             </p>
             <button id="lf-btn-yg-all" class="btn lf-btn-bounce" style="width:100%; padding:12px; font-size:14px; font-weight:800; background:#dc2626; box-shadow:0 3px 0 #991b1b; color:white; border:none; border-radius:10px; cursor:pointer; margin-bottom:10px; transition:transform 0.1s, filter 0.15s;">
-              🎬 Assistir no YouGlish (Qualquer sotaque)
+              Assistir no YouGlish (qualquer sotaque)
             </button>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-              <button id="lf-btn-yg-us" class="btn lf-btn-bounce" style="padding:10px; background:rgba(239,68,68,0.08); color:#f87171; border:1px solid rgba(239,68,68,0.2); border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">🇺🇸 Americano</button>
-              <button id="lf-btn-yg-uk" class="btn lf-btn-bounce" style="padding:10px; background:rgba(239,68,68,0.08); color:#f87171; border:1px solid rgba(239,68,68,0.2); border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">🇬🇧 Britânico</button>
-              <button id="lf-btn-yg-aus" class="btn lf-btn-bounce" style="padding:10px; background:rgba(239,68,68,0.08); color:#f87171; border:1px solid rgba(239,68,68,0.2); border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">🇦🇺 Australiano</button>
-              <button id="lf-btn-yg-acad" class="btn lf-btn-bounce" style="padding:10px; background:rgba(239,68,68,0.08); color:#f87171; border:1px solid rgba(239,68,68,0.2); border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">🎓 Acadêmico</button>
+              <button id="lf-btn-yg-us" class="btn lf-btn-bounce" style="padding:10px; background:rgba(239,68,68,0.08); color:#f87171; border:1px solid rgba(239,68,68,0.2); border-radius:4px; font-size:12px; font-weight:700; cursor:pointer;">Americano</button>
+              <button id="lf-btn-yg-uk" class="btn lf-btn-bounce" style="padding:10px; background:rgba(239,68,68,0.08); color:#f87171; border:1px solid rgba(239,68,68,0.2); border-radius:4px; font-size:12px; font-weight:700; cursor:pointer;">Britânico</button>
+              <button id="lf-btn-yg-aus" class="btn lf-btn-bounce" style="padding:10px; background:rgba(239,68,68,0.08); color:#f87171; border:1px solid rgba(239,68,68,0.2); border-radius:4px; font-size:12px; font-weight:700; cursor:pointer;">Australiano</button>
+              <button id="lf-btn-yg-acad" class="btn lf-btn-bounce" style="padding:10px; background:rgba(239,68,68,0.08); color:#f87171; border:1px solid rgba(239,68,68,0.2); border-radius:4px; font-size:12px; font-weight:700; cursor:pointer;">Acadêmico</button>
             </div>
           </div>
         </div>
@@ -398,8 +398,8 @@ export function renderStories(container, app) {
     <!-- Floating Selection Toolbar -->
     <div id="lf-floating-toolbar" style="display:none; position:absolute; z-index:9000; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-sm); padding:6px; box-shadow:0 4px 12px rgba(0,0,0,0.1); flex-direction:column; gap:4px; animation:fadeIn 0.15s ease-out;">
       <div style="display:flex; gap:6px;">
-        <button id="lf-tb-translate" style="background:var(--color-bg); border:1px solid var(--color-border); border-radius:6px; padding:6px 12px; cursor:pointer; font-weight:bold; color:var(--color-text); display:flex; align-items:center; gap:6px; font-size:14px; transition:transform 0.1s;">🇧🇷 Traduzir</button>
-        <button id="lf-tb-tts" style="background:var(--color-bg); border:1px solid var(--color-border); border-radius:6px; padding:6px 12px; cursor:pointer; font-weight:bold; color:var(--color-text); display:flex; align-items:center; gap:6px; font-size:14px; transition:transform 0.1s;">🔊 Ouvir</button>
+        <button id="lf-tb-translate" style="background:var(--color-bg); border:1px solid var(--color-border); border-radius:4px; padding:6px 12px; cursor:pointer; font-weight:bold; color:var(--color-text); display:flex; align-items:center; gap:6px; font-size:14px; transition:transform 0.1s;">Traduzir</button>
+        <button id="lf-tb-tts" style="background:var(--color-bg); border:1px solid var(--color-border); border-radius:4px; padding:6px 12px; cursor:pointer; font-weight:bold; color:var(--color-text); display:flex; align-items:center; gap:6px; font-size:14px; transition:transform 0.1s;">Ouvir</button>
       </div>
       <div id="lf-tb-translation-result" style="display:none; padding:8px; background:var(--color-bg); border-radius:4px; font-size:14px; color:var(--color-text); max-width:250px; line-height:1.4;"></div>
     </div>
@@ -505,6 +505,15 @@ export function renderStories(container, app) {
         #story-content { font-size: 17px !important; line-height: 1.75 !important; }
         .story-paragraph { margin-bottom: 18px; }
         #story-title-display { font-size: 22px !important; }
+      }
+      #story-reader-container { border: 0 !important; border-top: 3px solid var(--color-secondary) !important; border-radius: 0 !important; box-shadow: none !important; }
+      .story-create-panel, .history-item, .quiz-opt { border-radius: 4px !important; box-shadow: none !important; }
+      .story-mode-tabs { border: 0; border-bottom: 1px solid var(--color-border); border-radius: 0; padding: 0; background: transparent; }
+      .story-mode-tabs .lf-tab { border-radius: 0; }
+      .story-mode-tabs .lf-tab.active { box-shadow: none; border-bottom: 2px solid var(--color-primary); }
+      .lf-btn-bounce:hover { transform: none !important; }
+      @media (prefers-reduced-motion: reduce) {
+        .story-page *, .story-page *::before, .story-page *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
       }
     `;
     document.head.appendChild(style);
@@ -719,17 +728,17 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     // por padrão; reler é uma escolha consciente (botão), não um vazamento.
     storyContent.style.display = 'none';
     const heading = document.createElement('h3');
-    heading.textContent = '🧠 Você entendeu a história? (sem espiar o texto!)';
+    heading.textContent = 'Você entendeu a história? (sem espiar o texto!)';
     heading.style.cssText = 'margin:0 0 4px 0; color:var(--color-text); font-size:18px;';
     quizBox.appendChild(heading);
     const revealBtn = document.createElement('button');
     revealBtn.type = 'button';
-    revealBtn.textContent = '👀 Não lembro — reler o texto';
+    revealBtn.textContent = 'Não lembro — reler o texto';
     revealBtn.style.cssText = 'background:none; border:none; color:var(--color-text-light); font-family:var(--font-main); font-size:12px; font-weight:700; text-decoration:underline; cursor:pointer; margin-bottom:14px; padding:0;';
     revealBtn.addEventListener('click', () => {
       const revealed = storyContent.style.display !== 'none';
       storyContent.style.display = revealed ? 'none' : 'block';
-      revealBtn.textContent = revealed ? '👀 Não lembro — reler o texto' : '🙈 Esconder o texto de novo';
+      revealBtn.textContent = revealed ? 'Não lembro — reler o texto' : 'Esconder o texto de novo';
     });
     quizBox.appendChild(revealBtn);
     questions.forEach((question, qi) => {
@@ -786,7 +795,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
   btnQuizStory.addEventListener('click', async () => {
     if (!currentStoryText) { app.showToast('Gere ou abra uma história primeiro.', 'info'); return; }
     btnQuizStory.disabled = true;
-    btnQuizStory.textContent = '🧠 Gerando perguntas...';
+    btnQuizStory.textContent = 'Gerando perguntas...';
     try {
       const questions = await generateQuiz(currentStoryText);
       renderQuiz(questions);
@@ -795,7 +804,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
       app.showToast('Não consegui gerar o quiz agora. Tente de novo.', 'error');
     } finally {
       btnQuizStory.disabled = false;
-      btnQuizStory.textContent = '🧠 Testar compreensão';
+      btnQuizStory.textContent = 'Testar compreensão';
     }
   });
 
@@ -807,7 +816,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     if (storyMarkedThisView) { app.showToast('Esta história já foi marcada nesta leitura.', 'info'); return; }
     btnStoryDone.disabled = true;
     storyMarkedThisView = true;
-    btnStoryDone.textContent = '✅ Lida nesta sessão';
+    btnStoryDone.textContent = 'Lida nesta sessão';
     app.showToast('Leitura concluída. Esta marca não altera XP, ofensiva ou liga.', 'success');
   });
 
@@ -816,7 +825,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     storyMarkedThisView = false;
     previousQuizQuestions = [];
     btnStoryDone.disabled = false;
-    btnStoryDone.textContent = '✅ Marcar como lida';
+    btnStoryDone.textContent = 'Marcar como lida';
     quizBox.style.display = 'none';
     quizBox.innerHTML = '';
   }
@@ -1107,8 +1116,8 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
             <div style="font-size:14px; color:var(--color-text-light);">${d.toLocaleDateString()} ${d.toLocaleTimeString()}</div>
           </button>
           <div style="display:flex; gap:6px; align-items:center;">
-            <button type="button" class="story-act" data-act="arch" aria-label="${archivedSet.has(storyKey(story)) ? 'Restaurar história do arquivo' : 'Arquivar história'}" title="${archivedSet.has(storyKey(story)) ? 'Restaurar do arquivo' : 'Arquivar (sai da lista, nada e apagado)'}">${archivedSet.has(storyKey(story)) ? '📤' : '📦'}</button>
-            <button type="button" class="story-act" data-act="del" aria-label="Excluir história para sempre" title="Excluir para sempre">🗑</button>
+            <button type="button" class="story-act" data-act="arch" aria-label="${archivedSet.has(storyKey(story)) ? 'Restaurar história do arquivo' : 'Arquivar história'}" title="${archivedSet.has(storyKey(story)) ? 'Restaurar do arquivo' : 'Arquivar (sai da lista, nada é apagado)'}">${archivedSet.has(storyKey(story)) ? 'Restaurar' : 'Arquivar'}</button>
+            <button type="button" class="story-act" data-act="del" aria-label="Excluir história para sempre" title="Excluir para sempre">Excluir</button>
           </div>
         `;
         if (archivedSet.has(storyKey(story))) div.classList.add('archived');
@@ -1199,7 +1208,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
         const found = (response.requestedWords || reencounterWords || [])
           .filter(w => new RegExp(`\\b${esc(w)}`, 'i').test(contentToRender));
         if (found.length) {
-      reBox.innerHTML = `🔁 <strong>Reencontro:</strong> esta história usa ${found.length} ${found.length === 1 ? 'termo do seu Cofre' : 'termos do seu Cofre'} — ${found.map(w => `<strong>${escapeHTML(w)}</strong>`).join(', ')}. Tente lembrar o sentido antes de tocar.`;
+      reBox.innerHTML = `<strong>Reencontro:</strong> esta história usa ${found.length} ${found.length === 1 ? 'termo do seu Cofre' : 'termos do seu Cofre'} — ${found.map(w => `<strong>${escapeHTML(w)}</strong>`).join(', ')}. Tente lembrar o sentido antes de tocar.`;
           reBox.style.display = 'block';
         } else {
           reBox.style.display = 'none';
@@ -1325,12 +1334,12 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     // Badge "% conhecido" (LingQ): mede o quão compreensível a história é pra VOCÊ
     const knownBadge = document.getElementById('story-known-badge');
     if (knownBadge && !statusAvailable) {
-      knownBadge.textContent = '📖 Familiaridade indisponível';
+      knownBadge.textContent = 'Familiaridade indisponível';
       knownBadge.title = 'Não foi possível consultar o estado do seu Cofre. O texto continua disponível para leitura.';
       knownBadge.style.display = 'inline';
     } else if (knownBadge && totalTokens > 0) {
       const pct = Math.round((knownCount / totalTokens) * 100);
-      knownBadge.textContent = `📖 Familiaridade estimada: ${pct}%`;
+      knownBadge.textContent = `Familiaridade estimada: ${pct}%`;
       knownBadge.removeAttribute('title');
       knownBadge.style.display = 'inline';
     }
@@ -1493,7 +1502,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
           const reveal = document.createElement('button');
           reveal.type = 'button';
           reveal.className = 'btn lf-btn-bounce';
-          reveal.textContent = '👁 Ver tradução da frase';
+          reveal.textContent = 'Ver tradução da frase';
           reveal.style.cssText = 'width:100%; padding:8px 12px; background:var(--color-bg-alt); border:1px solid var(--color-border); border-radius:8px; color:var(--color-secondary); font-weight:700; font-size:12px; cursor:pointer; text-align:center;';
           reveal.addEventListener('click', async () => {
             reveal.disabled = true;
@@ -1580,7 +1589,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
       };
 
       await db.saveWord(newCard);
-      app.showToast('Expressão salva no Cofre! ✅', 'success');
+      app.showToast('Expressão salva no Cofre.', 'success');
       
       const spans = document.querySelectorAll('.story-word');
       spans.forEach(span => {
@@ -1593,7 +1602,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
       btnSaveWord.innerHTML = btnOriginalText;
     } catch (e) {
       app.showToast('Erro ao salvar: ' + e.message, 'error');
-      btnSaveWord.innerHTML = '💾 Salvar';
+      btnSaveWord.innerHTML = 'Salvar';
     }
   });
 

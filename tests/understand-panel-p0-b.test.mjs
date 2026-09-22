@@ -20,6 +20,9 @@ assert.doesNotMatch(study, /tutor|grammar-chat|data-tutor-prompt/i,
   'tutor foi removido: o card não oferece uma segunda explicação por chat');
 assert.match(study, /Mais recursos/);
 assert.match(study, /Sobre esta palavra/);
+assert.doesNotMatch(study, /rich-word-header|rich-word-title|rich-trans-text|rich-pronunciation-br/,
+  'o painel contextual não repete o cabeçalho lexical já exibido no card');
+assert.match(study, /rich-context-label">O sentido aqui<\/div>/);
 
 assert.match(study, /const recommended = visible\.slice\(0, 2\)/);
 assert.match(study, /const additional = visible\.slice\(2\)/);

@@ -252,3 +252,14 @@
 - [x] Executar `node --check`, `test:human-interface`, `test:product-ux`, `test:design-system`, `test:p0-b` e `git diff --check`.
 - [ ] Fazer push, abrir PR e validar visualmente no preview da Vercel em desktop e celular.
 - [ ] Revisão humana e merge da PR.
+
+## 18. Issue #113 — Evitar repetição da palavra no sentido contextual — 2026-09-22
+
+- [x] Criar Issue #113 e registrar o problema de repetição de palavra, tradução e pronúncia no painel contextual.
+- [x] Remover o cabeçalho lexical duplicado do `renderRichContextCard`.
+- [x] Manter “O sentido aqui” e “Na frase” como conteúdo principal do painel.
+- [x] Preservar o resumo principal da palavra e o áudio da palavra no card.
+- [x] Atualizar o contrato P0-B para impedir o retorno do cabeçalho repetido.
+- [x] Executar `node --check`, `test:p0-b`, `test:contextual-card`, `test:human-interface`, `test:product-ux`, `test:design-system` e `git diff --check`.
+- [ ] Atualizar o preview da Vercel e validar visualmente com card autenticado.
+- [ ] Revisão humana e merge da PR.

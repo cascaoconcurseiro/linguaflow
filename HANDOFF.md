@@ -1,5 +1,30 @@
 # Handoff — LinguaFlow
 
+## Atualização da Issue #113 — Remover repetição no painel contextual
+
+**Data:** 2026-09-22
+**Branch:** `codex/111-compact-layout`
+**Worktree:** `C:\Users\Wesley\.codex\worktrees\issue-102-human-interface-pass\linguaflow`
+**Issue:** https://github.com/cascaoconcurseiro/linguaflow/issues/113
+**PR:** https://github.com/cascaoconcurseiro/linguaflow/pull/112
+
+### Feito nesta sessão
+
+- O cabeçalho duplicado de palavra, tradução, pronúncia e áudio foi removido de `renderRichContextCard`.
+- O painel “Entender melhor” agora apresenta diretamente “O sentido aqui” e “Na frase”, sem repetir o resumo lexical já visível no card.
+- O áudio e o resumo da palavra continuam no bloco principal, onde o aluno já espera encontrá-los.
+- O contrato P0-B foi reforçado para bloquear o retorno das classes e do cabeçalho repetido.
+- Não houve alteração de Supabase, persistência ou contrato de dados.
+
+### Próximo passo concreto
+
+Fazer push do commit na branch da PR #112, aguardar o novo preview da Vercel e validar o card autenticado visualmente; depois revisar e fazer merge.
+
+### Bloqueios pendentes
+
+- O preview da Vercel está protegido pelo login da Vercel neste ambiente, portanto a validação visual autenticada ainda depende de uma sessão do usuário.
+- Merge da PR #112 ainda pendente.
+
 ## Atualização da Issue #111 — Densidade vertical e acesso aos botões
 
 **Data:** 2026-09-22

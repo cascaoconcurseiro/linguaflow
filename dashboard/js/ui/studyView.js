@@ -1391,13 +1391,10 @@ async function revealCard(options = {}) {
 }
 
 function renderRichContextCard(wordData = {}, card = {}, word = '', context = '', translation = '') {
-  const safeWord = escapeHtml(word || wordData.word || card.word || '');
-  const trans = escapeHtml(translation || wordData.translation || card.translation || '');
   const explanation = String(wordData.explanation || '').trim();
-  const pronunciationPt = escapeHtml(wordData.pronunciation_pt || '');
   const safeContext = escapeHtml(context || wordData.context_sentence || '');
   let highlightedContext = safeContext;
-  if (safeWord && safeContext) {
+  if (word && safeContext) {
     try {
       const reg = new RegExp(`\\b(${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'gi');
       highlightedContext = safeContext.replace(reg, '<span class="context-word-highlight">$1</span>');
@@ -1408,18 +1405,6 @@ function renderRichContextCard(wordData = {}, card = {}, word = '', context = ''
 
   return `
     <div class="rich-word-container">
-      <div class="rich-word-header">
-        <div class="rich-word-meta">
-          <div class="rich-word-title-row">
-            <span class="rich-word-title">${safeWord}</span>
-            <span class="rich-arrow" aria-hidden="true">→</span>
-            <span class="rich-trans-text">${trans || 'Sentido contextual'}</span>
-          </div>
-          ${pronunciationPt ? `<div class="rich-pronunciation-br">Como soa: ${pronunciationPt}</div>` : ''}
-        </div>
-        <button type="button" class="btn-iso-audio" data-word="${safeWord}" aria-label="Ouvir pronúncia de ${safeWord}">Ouvir</button>
-      </div>
-
       ${explanation ? `
         <div class="rich-explain-box">
           <div class="rich-context-label">O sentido aqui</div>
@@ -1489,13 +1474,7 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
   contextDetails.open = Boolean(savedExplanation);
   contextDetails.classList.toggle('hidden', !savedExplanation);
   if (savedExplanation) {
-    const activeTrans = (wordEntry && wordEntry.pt) || wordData.translation || card.translation || '';
-    contextExplanation.innerHTML = renderRichContextCard(wordData, card, word, context, activeTrans);
-    contextExplanation.querySelector('.btn-iso-audio')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const lang = localStorage.getItem('lf_tts_lang') || 'en-US';
-      playNaturalAudio(word, { lang });
-    });
+    contextExplanation.innerHTML = renderRichContextCard(wordData, card, word, context);
   }
   // Onda 3.3: mnemônico por IA — gerado uma vez e salvo no card
   // (words.mnemonic), pra não custar uma chamada de IA toda vez que o
@@ -2597,16 +2576,6 @@ function injectStyles() {
     .context-explanation-card[open] > summary > span:last-child { transform:rotate(180deg); }
     #iso-context-explanation { padding:12px 14px 12px 16px; color:var(--color-text); font-size:14px; line-height:1.6; background:var(--color-surface); }
     .rich-word-container { display:flex; flex-direction:column; gap:8px; }
-    .rich-word-header { display:flex; align-items:center; justify-content:space-between; gap:10px; }
-    .rich-word-meta { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
-    .rich-word-title-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-    .rich-word-title { font-size:17px; font-weight:900; color:var(--color-text); line-height:1.2; }
-    .rich-arrow { color:var(--color-text-light); font-size:13px; font-weight:700; opacity:0.7; }
-    .rich-trans-text { font-size:17px; font-weight:800; color:var(--color-primary); line-height:1.2; }
-    .rich-pronunciation-br { font-size:12px; color:var(--color-text-light); line-height:1.4; }
-    .btn-iso-audio { width:32px; height:32px; background:rgba(28,176,246,0.1); border:1px solid rgba(28,176,246,0.25); border-radius:50%; color:var(--color-secondary); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; transition:transform 0.1s, background-color 0.15s; }
-    .btn-iso-audio:hover { background:rgba(28,176,246,0.2); transform:scale(1.05); }
-    .btn-iso-audio:active { transform:scale(0.95); }
     .rich-explain-box { padding:8px 0 2px; }
     .rich-context-label { margin-bottom:4px; color:var(--color-secondary); font-size:11px; font-weight:900; letter-spacing:.06em; text-transform:uppercase; }
     .rich-explain-body { font-size:13.5px; color:var(--color-text); line-height:1.55; }
@@ -2616,8 +2585,6 @@ function injectStyles() {
     @media (max-width:640px) {
       .context-explanation-card > summary { padding:9px 12px; font-size:13px; }
       #iso-context-explanation { padding:10px 12px; }
-      .rich-word-title { font-size:15px; }
-      .rich-trans-text { font-size:15px; }
     }
     #iso-mnemonic-box { margin-top:10px; }
     #iso-mnemonic-btn { min-height:40px; padding:0; border:0; background:transparent; color:var(--color-secondary); font-weight:900; cursor:pointer; }
@@ -2799,8 +2766,6 @@ function injectStyles() {
     .context-explanation-card > summary { min-height:52px; padding:0; background:transparent; font-size:15px; }
     .context-explanation-card > summary:hover { background:transparent; }
     #iso-context-explanation { padding:12px 0 0; background:transparent; text-align:left; }
-    .rich-word-title { font-size:21px; }
-    .rich-trans-text { font-size:21px; }
     .rich-explain-body { font-size:15px; line-height:1.6; }
     .rich-context-label { color:var(--color-primary); }
     .rich-quote-box { margin-top:12px; background:transparent; border-left:2px solid var(--color-secondary); border-radius:0; }
@@ -2861,8 +2826,8 @@ function injectStyles() {
       .study-card-meta > div span { max-width:210px; }
       .sentence-text { font-size:clamp(26px, 8vw, 36px); }
       #pump-translation { font-size:18px !important; }
-      #pump-word-val, .rich-word-title { font-size:18px !important; }
-      #pump-word-trans, .rich-trans-text { font-size:18px !important; }
+      #pump-word-val { font-size:18px !important; }
+      #pump-word-trans { font-size:18px !important; }
       .grading-row { gap:6px; }
       .grade-btn { min-height:72px; padding:8px 3px; font-size:14px; }
     }

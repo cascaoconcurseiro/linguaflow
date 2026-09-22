@@ -2820,6 +2820,35 @@ function injectStyles() {
     .learning-resource-section { padding:18px 0; }
     .more-contexts { border:1px solid var(--color-border); border-radius:10px; background:var(--color-surface); }
     .more-contexts > summary { min-height:52px; padding:0 16px; }
+    /* Issue #111: a avaliação é a ação contínua do card. Mantê-la presa ao
+       rodapé da área de estudo evita que o aluno procure os botões depois de
+       ler uma explicação longa, sem reduzir o alvo de toque. */
+    .grading-buttons { position:sticky; bottom:0; z-index:20; margin-left:-8px; margin-right:-8px; padding:10px 8px calc(10px + env(safe-area-inset-bottom)); background:linear-gradient(180deg, color-mix(in srgb, var(--color-bg) 0%, transparent), var(--color-bg) 24%); }
+    @media (min-width: 721px) and (max-height: 850px) {
+      .study-main { padding:12px 20px 24px; }
+      .anki-study-header { margin-bottom:10px; padding-bottom:8px; }
+      .anki-counter-badge strong { font-size:20px; }
+      .sentence-container { margin-bottom:8px; padding:16px 32px 18px; }
+      .study-card-meta { margin-bottom:14px; }
+      .sentence-text { margin-bottom:10px; font-size:clamp(26px, 3.2vw, 42px); }
+      .media-container { min-height:44px; margin-bottom:6px; }
+      #pump-phonetics { margin-top:4px !important; font-size:14px !important; }
+      #pump-translation { margin-top:10px !important; padding-top:10px !important; font-size:18px !important; }
+      #pump-word-answer { margin-top:10px !important; padding-top:10px !important; }
+      #pump-word-val { font-size:20px !important; }
+      #pump-word-trans { font-size:18px !important; }
+      .context-explanation-card { margin-top:10px; }
+      .context-explanation-card > summary { min-height:44px; }
+      #iso-context-explanation { padding-top:8px; }
+      .rich-explain-body { line-height:1.45; }
+      .grading-buttons { margin-top:10px; }
+      .grade-btn { min-height:72px; }
+      .study-explore { margin-top:10px; }
+    }
+    @media (max-width: 720px) {
+      .grading-buttons { bottom:calc(64px + env(safe-area-inset-bottom)); margin-left:-4px; margin-right:-4px; padding:8px 4px; background:linear-gradient(180deg, color-mix(in srgb, var(--color-bg) 0%, transparent), var(--color-bg) 22%); }
+    }
+    @media (prefers-reduced-motion: reduce) { .grading-buttons { background:var(--color-bg); } }
     @media (max-width: 720px) {
       .study-main { padding:16px 12px calc(104px + env(safe-area-inset-bottom)); }
       .anki-study-header { align-items:flex-start; }

@@ -1280,6 +1280,39 @@ function injectStyles() {
             .critical-card-tags { justify-content:flex-start; }
         }
         @media (prefers-reduced-motion: reduce) { .home-note-card { transform:none; } }
+
+        /* Issue #111: densidade adaptativa para notebooks. A primeira viewport
+           precisa mostrar a decisão do dia e seus próximos controles sem
+           transformar o produto em uma miniatura ilegível. */
+        @media (min-width: 761px) and (max-height: 850px) {
+            .gamified-home { padding:16px clamp(16px, 3vw, 28px) 28px; }
+            .dashboard-header h2 { font-size:clamp(28px, 3.4vw, 36px); margin-bottom:6px; }
+            .dashboard-header p { font-size:14px; }
+            .home-date-label { min-height:40px; }
+            .home-primary-plan { min-height:180px; grid-template-columns:minmax(0, 1fr) 210px; gap:16px; padding:18px 20px; }
+            .home-primary-plan h1 { margin:5px 0 8px; font-size:clamp(26px, 3.2vw, 34px); }
+            .home-primary-reason { font-size:14px; line-height:1.4; }
+            .home-primary-meta { margin:8px 0 12px; font-size:13px; }
+            .home-primary-plan .btn-action { min-height:44px; min-width:210px; padding:10px 14px; font-size:15px; }
+            .home-primary-visual { min-height:126px; }
+            .home-note-card { width:142px; min-height:92px; padding:16px; font-size:16px; }
+            .home-note-card i { margin-top:12px; }
+            .stats-grid { gap:8px; margin-top:12px; }
+            .stat-card { min-height:76px; padding:12px 12px 10px 46px; }
+            .stat-symbol { top:13px; left:12px; width:26px; height:26px; font-size:17px; }
+            .stat-value { font-size:21px; }
+            .stat-label { margin-top:5px; font-size:12px; }
+            .home-study-hours-card, .home-critical-cards-card { margin-top:12px; padding:14px; }
+            .study-hours-header { margin-bottom:10px; }
+            .study-skills-grid { padding-top:10px; }
+            .study-skill-pill { padding:0 12px 10px; }
+            .study-skill-pill .skill-name { margin-bottom:3px; font-size:12px; }
+            .study-skill-pill .skill-time { font-size:14px; }
+            .critical-cards-header { margin-bottom:10px; }
+            .critical-card-item { min-height:44px; padding:7px 12px; }
+            .home-secondary-actions { margin-top:12px; }
+            .home-more { margin-top:14px; }
+        }
     `;
     document.head.appendChild(style);
 }

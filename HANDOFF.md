@@ -1,5 +1,30 @@
 # Handoff — LinguaFlow
 
+## Atualização da Issue #111 — Densidade vertical e acesso aos botões
+
+**Data:** 2026-09-22
+**Branch:** `codex/111-compact-layout`
+**Worktree:** `C:\Users\Wesley\.codex\worktrees\issue-102-human-interface-pass\linguaflow`
+**Issue:** https://github.com/cascaoconcurseiro/linguaflow/issues/111
+
+### Feito nesta sessão
+
+- A Home recebeu um modo de densidade adaptativa para desktop com altura de até 850px, reduzindo padding, gaps, tamanhos e alturas redundantes sem transformar a interface em uma miniatura.
+- A Sessão de estudo mantém a área de avaliação (`Errei`, `Difícil`, `Bom`, `Fácil`) presa ao rodapé da área rolável depois da revelação do card.
+- Em celular, a área de avaliação fica acima da navegação inferior e continua com alvos de toque confortáveis.
+- `prefers-reduced-motion`, foco e teclado foram preservados.
+- Nenhuma alteração de Supabase foi necessária.
+
+### Próximo passo concreto
+
+Fazer commit/push de `codex/111-compact-layout`, abrir a PR da Issue #111 e validar no preview da Vercel em uma janela desktop 1366×768 e em um celular.
+
+### Bloqueios pendentes
+
+- QA visual autenticada ainda pendente.
+- O preview precisa confirmar se a barra sticky não cobre conteúdo em cards com explicação longa.
+- Merge ainda pendente.
+
 ## Atualização da Issue #109 — Referência visual atualizada da Home e do estudo
 
 **Data:** 2026-09-22

@@ -241,3 +241,14 @@
 - [ ] Commitar e fazer push da branch para disparar o preview da Vercel.
 - [ ] QA visual autenticada no preview da Vercel em desktop e celular.
 - [ ] Revisão humana e merge da PR.
+
+## 17. Issue #111 — Reduzir densidade vertical em notebooks — 2026-09-22
+
+- [x] Criar Issue #111 e branch isolada `codex/111-compact-layout` derivada da `main` pós-merge da Issue #109.
+- [x] Criar densidade adaptativa para Home em viewports desktop com altura reduzida, sem reduzir alvos de toque.
+- [x] Reduzir espaçamentos e tipografia somente no modo de altura reduzida; mobile mantém reflow próprio.
+- [x] Fixar a área de avaliação do estudo no rodapé da área rolável depois que ela aparece, mantendo os quatro botões acessíveis.
+- [x] Preservar foco, teclado, `prefers-reduced-motion` e alvos de toque mínimos.
+- [x] Executar `node --check`, `test:human-interface`, `test:product-ux`, `test:design-system`, `test:p0-b` e `git diff --check`.
+- [ ] Fazer push, abrir PR e validar visualmente no preview da Vercel em desktop e celular.
+- [ ] Revisão humana e merge da PR.

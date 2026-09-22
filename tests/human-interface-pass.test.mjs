@@ -44,6 +44,7 @@ assert.match(home, /class="home-primary-visual"/);
 assert.match(home, /class="stat-symbol"/);
 assert.match(css, /\.home-primary-plan \{ border: 0; border-left: 4px solid/);
 assert.match(home, /Issue #109: referência visual atualizada/);
+assert.match(home, /Issue #111: densidade adaptativa/);
 
 assert.match(study, /id="study-resources" class="study-resources hidden"/);
 assert.match(study, /class="chunk-action-btn chunk-audio-btn"[^>]*>Ouvir<\/button>/);
@@ -52,6 +53,8 @@ assert.match(study, /class="study-card-meta"/);
 assert.match(study, /id="study-card-position"/);
 assert.doesNotMatch(study, /tutor|grammar-chat|data-tutor-prompt/i);
 assert.match(study, /prefers-reduced-motion: reduce/);
+assert.match(study, /\.grading-buttons \{ position:sticky/);
+assert.match(study, /Issue #111: a avaliação é a ação contínua do card/);
 assert.doesNotMatch(study, /animation: slideIn/);
 
 console.log('human-interface-pass: ok');

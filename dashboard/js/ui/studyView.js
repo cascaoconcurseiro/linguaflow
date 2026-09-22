@@ -255,7 +255,7 @@ export async function renderStudy(container, app, params = {}) {
           <div class="study-card-meta">
             <div>
               <strong>INGLÊS</strong>
-              <span>Leia a frase e estude a palavra em destaque</span>
+              <span>Recorde o significado e revele para conferir</span>
             </div>
             <span id="study-card-position" aria-live="polite">1 de —</span>
           </div>
@@ -299,17 +299,25 @@ export async function renderStudy(container, app, params = {}) {
 
         <!-- Anki Grading Buttons -->
         <div class="grading-buttons hidden" id="grading-area">
+          <div class="grading-prompt"><strong>Como foi lembrar?</strong><span>Escolha uma opção para continuar.</span></div>
           <div class="grading-row">
-            <button class="grade-btn btn-danger" data-grade="1" aria-label="Errei; agendar novamente"><span aria-hidden="true">Errei</span><br><span id="grade-ivl-1" style="font-size:12px;opacity:0.8">…</span></button>
-            <button class="grade-btn btn-warning" data-grade="2" aria-label="Difícil; agendar com intervalo curto"><span aria-hidden="true">Difícil</span><br><span id="grade-ivl-2" style="font-size:12px;opacity:0.8">…</span></button>
-            <button class="grade-btn btn-secondary" data-grade="3" aria-label="Bom; agendar no intervalo recomendado"><span aria-hidden="true">Bom</span><br><span id="grade-ivl-3" style="font-size:12px;opacity:0.8">…</span></button>
-            <button class="grade-btn btn-primary" data-grade="4" aria-label="Fácil; agendar com intervalo longo"><span aria-hidden="true">Fácil</span><br><span id="grade-ivl-4" style="font-size:12px;opacity:0.8">…</span></button>
+            <button class="grade-btn btn-danger" data-grade="1" aria-label="Errei; agendar novamente"><span aria-hidden="true">Errei</span><br><span id="grade-ivl-1" style="font-size:12px;opacity:0.8">…</span><kbd aria-hidden="true">1</kbd></button>
+            <button class="grade-btn btn-warning" data-grade="2" aria-label="Difícil; agendar com intervalo curto"><span aria-hidden="true">Difícil</span><br><span id="grade-ivl-2" style="font-size:12px;opacity:0.8">…</span><kbd aria-hidden="true">2</kbd></button>
+            <button class="grade-btn btn-secondary" data-grade="3" aria-label="Bom; agendar no intervalo recomendado"><span aria-hidden="true">Bom</span><br><span id="grade-ivl-3" style="font-size:12px;opacity:0.8">…</span><kbd aria-hidden="true">3</kbd></button>
+            <button class="grade-btn btn-primary" data-grade="4" aria-label="Fácil; agendar com intervalo longo"><span aria-hidden="true">Fácil</span><br><span id="grade-ivl-4" style="font-size:12px;opacity:0.8">…</span><kbd aria-hidden="true">4</kbd></button>
           </div>
         </div>
 
         <!-- Tudo que ajuda a aprofundar continua disponível, mas não compete
              com recordar e avaliar. A gaveta só aparece após a resposta. -->
         <aside class="study-explore" aria-label="Aprofundamento opcional do card">
+                <section id="video-resource-section" class="learning-resource-section learning-resource-video hidden" aria-labelledby="video-resource-title">
+                  <p class="learning-resource-kicker">OUVIR NO CONTEXTO</p>
+                  <h3 id="video-resource-title">Trecho original</h3>
+                  <p class="learning-resource-description">Volte ao instante em que a frase foi falada e repita sem sair do card.</p>
+                  <div id="saved-video-context" class="study-video-context"></div>
+                  <div id="study-yt-mount" class="hidden" aria-label="Trecho do vídeo salvo"></div>
+                </section>
           <div class="study-explore-row">
             <details id="study-resources" class="study-resources hidden">
               <summary><span>Entender melhor</span><span aria-hidden="true">⌄</span></summary>
@@ -318,13 +326,7 @@ export async function renderStudy(container, app, params = {}) {
                   <strong>Mais recursos</strong>
                   <button id="close-study-resources" type="button">Fechar</button>
                 </div>
-                <section id="video-resource-section" class="learning-resource-section learning-resource-video hidden" aria-labelledby="video-resource-title">
-                  <p class="learning-resource-kicker">OUVIR NO CONTEXTO</p>
-                  <h3 id="video-resource-title">Trecho original</h3>
-                  <p class="learning-resource-description">Volte ao instante em que a frase foi falada e repita sem sair do card.</p>
-                  <div id="saved-video-context" class="study-video-context"></div>
-                  <div id="study-yt-mount" class="hidden" aria-label="Trecho do vídeo salvo"></div>
-                </section>
+
 
                 <section class="learning-resource-section" aria-labelledby="practice-resource-title">
                   <p class="learning-resource-kicker">PRATICAR</p>

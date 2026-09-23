@@ -2,7 +2,7 @@
 import { db } from '../utils/db.js';
 import { translator } from '../utils/translator.js';
 import { OFFICIAL_SITE_URL, isLinguaFlowUrl } from '../utils/site-boundary.js';
-import { buildStoryVarietyNote, buildLevelNote, levelSpecFor, recentStorySnippets } from '../utils/story-variety.js';
+import { buildStoryVarietyNote, buildLevelNote, levelSpecFor, recentStorySnippets, resolveStoryLevel } from '../utils/story-variety.js';
 import { slangsDB } from '../utils/slangs-db.js';
 import { phrasalVerbsDB } from '../utils/phrasal-verbs.js';
 
@@ -385,7 +385,7 @@ Sentido: [Uma única frase super curta explicando o sentido neste contexto]
 
   // Geração de Histórias
   if (request.action === 'ai_generate_story') {
-    generateStoryWithAI(request.genre)
+    generateStoryWithAI(request.genre, request.options || {})
       .then((data) => sendResponse(data)) // { story, level }
       .catch((err) => sendResponse({ story: null, level: null, error: err.message }));
     return true;
@@ -1586,9 +1586,13 @@ async function getReencounterWordsSW() {
   } catch { return []; }
 }
 
-async function generateStoryWithAI(genre) {
+async function generateStoryWithAI(genre, options = {}) {
   try {
-    const cefr = await db.getSetting('lf_cefr_level') || 'B1';
+    const learnerLevel = await db.getSetting('lf_cefr_level') || 'B1';
+    const cefr = resolveStoryLevel(learnerLevel, options?.level, options?.difficultyMode);
+    const targetMinutes = [3, 5, 10].includes(Number(options?.targetMinutes)) ? Number(options.targetMinutes) : 5;
+    const learningGoal = ['comfortable', 'vocabulary', 'challenge'].includes(options?.learningGoal)
+      ? options.learningGoal : 'comfortable';
     const config = await getApiConfig();
     if (!config.apiKey) {
       throw new Error('Faça login no LinguaFlow para gerar histórias.');
@@ -1603,7 +1607,7 @@ async function generateStoryWithAI(genre) {
     const recent = recentStorySnippets(await db.getStories(15).catch(() => []), genre);
     const varietyNote = buildStoryVarietyNote(recent);
     // W5.1: tamanho/estruturas/tokens escalam com o nível do aluno.
-    const levelNote = buildLevelNote(cefr);
+    const levelNote = buildLevelNote(cefr, { targetMinutes, learningGoal });
     const spec = levelSpecFor(cefr);
 
     const prompt = `Você é um gerador de histórias envolventes em inglês para estudantes.
@@ -1646,7 +1650,7 @@ DIRETRIZES FUNDAMENTAIS DE FORMATO:
       text = data.choices?.[0]?.message?.content || '';
     
     
-    return { story: text.trim(), level: cefr, requestedWords: reencounter };
+    return { story: text.trim(), level: cefr, requestedWords: reencounter, targetMinutes, learningGoal, promptVersion: 'story-v2' };
   } catch (err) {
     console.error('Erro ao gerar história:', err);
     throw err;

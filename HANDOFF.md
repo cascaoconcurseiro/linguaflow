@@ -217,3 +217,11 @@ Todos os testes de `test:release` continuam verdes.
 Direção branca/editorial escolhida pelo dono aplicada como camada CSS compartilhada e ajustes mínimos de markup. Revisão mantém IDs e handlers, move trecho original para rail e fixa avaliação. Tema claro é padrão somente quando não há escolha salva. Tipografia carrega sem handler inline, compatível com CSP. Sem mudança de backend/agendamento.
 
 Fixture local (`npm run dev`) usa módulos reais com banco simulado fail-closed; não é servidor de produção. QA e limitações em `design-qa.md`. Gate de release passou até smoke, que foi reexecutado com --allow-dirty após correção do cache. Não confundir isso com QA autenticada; áudio, gravação de notas, tema escuro completo e extensão seguem pendentes. Abrir PR draft, não fazer merge/deploy de produção antes da revisão.
+
+## 2026-09-23 — Issue #122 / codex/122-study-depth-stories
+
+- A revisão reserva dinamicamente a altura do dock de notas; conteúdo longo não termina escondido atrás dos botões.
+- “Entender melhor” reúne sentido contextual, nota de uso, mnemônico, chunks e prática, com fallback honesto quando faltam dados.
+- Histórias possui atalhos na Home e criação por nível, duração e objetivo. A geração web e da extensão compartilha o mesmo contrato.
+- `stories` passa a guardar nível solicitado/medido, duração, objetivo, modo, validação e versão do prompt pela migration `20260923175407_story_generation_contract.sql`.
+- Build alinhado em `3.0.53`. A migration permanece somente no repositório até revisão/CI; não foi aplicada remotamente.

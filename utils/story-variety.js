@@ -58,13 +58,39 @@ export function levelSpecFor(cefr) {
   return LEVEL_SPECS[cefr] || LEVEL_SPECS.B1;
 }
 
-export function buildLevelNote(cefr) {
+const LEVEL_ORDER = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
+export function resolveStoryLevel(baseLevel = 'B1', requestedLevel = 'auto', difficultyMode = 'current') {
+  const normalizedBase = LEVEL_ORDER.includes(baseLevel) ? baseLevel : 'B1';
+  if (LEVEL_ORDER.includes(requestedLevel)) return requestedLevel;
+  const index = LEVEL_ORDER.indexOf(normalizedBase);
+  if (difficultyMode === 'easier') return LEVEL_ORDER[Math.max(0, index - 1)];
+  if (difficultyMode === 'challenge') return LEVEL_ORDER[Math.min(LEVEL_ORDER.length - 1, index + 1)];
+  return normalizedBase;
+}
+
+export function storyLengthSpec(cefr, targetMinutes = 5) {
+  const minutes = [3, 5, 10].includes(Number(targetMinutes)) ? Number(targetMinutes) : 5;
+  const wordsPerMinute = { A1: 65, A2: 80, B1: 95, B2: 110, C1: 120, C2: 125 }[cefr] || 95;
+  const target = Math.round((minutes * wordsPerMinute) / 10) * 10;
+  const tolerance = Math.max(30, Math.round(target * 0.16 / 10) * 10);
+  return { minutes, minWords: Math.max(90, target - tolerance), maxWords: target + tolerance };
+}
+
+export function buildLevelNote(cefr, options = {}) {
   const spec = levelSpecFor(cefr);
+  const length = storyLengthSpec(cefr, options.targetMinutes);
+  const goal = options.learningGoal === 'vocabulary'
+    ? 'Priorize reencontros naturais e repetição espaçada dos termos-alvo sem transformar o texto em lista.'
+    : options.learningGoal === 'challenge'
+      ? 'Inclua algum desafio inferível pelo contexto, sem ultrapassar a gramática da banda solicitada.'
+      : 'Priorize leitura confortável, transparente e fluida; evite palavras raras que não sejam necessárias.';
   return `\nCALIBRAGEM OBRIGATÓRIA para o nível ${cefr}:
-- Comprimento: ${spec.words} palavras (desenvolva a história nessa extensão substancial).
+- Duração desejada: cerca de ${length.minutes} minutos (${length.minWords} a ${length.maxWords} palavras).
 - Formato: predominantemente DIÁLOGOS REAIS entre os personagens (falas diretas úteis para a vida real).
 - Frases de no máximo ${spec.maxSentence} palavras cada.
-- Estruturas e vocabulário: ${spec.structures}`;
+- Estruturas e vocabulário: ${spec.structures}
+- Objetivo da missão: ${goal}`;
 }
 
 // rand injetável para teste determinístico (mesmo padrão do placement.js)

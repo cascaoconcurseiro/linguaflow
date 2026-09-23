@@ -3,7 +3,7 @@
 // Na web (Vercel): chama a Edge Function segura direto com o token de sessão.
 
 import { db as lfDb } from '../../../utils/db.js';
-import { buildStoryVarietyNote, buildLevelNote, levelSpecFor, recentStorySnippets } from '../../../utils/story-variety.js';
+import { buildStoryVarietyNote, buildLevelNote, levelSpecFor, recentStorySnippets, resolveStoryLevel } from '../../../utils/story-variety.js';
 
 const EDGE_URL = 'https://qnutoswrufznztoznlql.supabase.co/functions/v1/deepseek-chat';
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
@@ -220,7 +220,11 @@ Retorne exatamente este JSON:
 // Mesmo prompt e mesma resposta { story, level } do service worker.
 // onChunk opcional: o texto vai aparecendo enquanto a IA escreve (streaming).
 export async function generateStoryWeb(genre, onChunk, userWords = [], options = {}) {
-  const cefr = (await getCefrLevel()) || 'B1';
+  const learnerLevel = (await getCefrLevel()) || 'B1';
+  const cefr = resolveStoryLevel(learnerLevel, options?.level, options?.difficultyMode);
+  const targetMinutes = [3, 5, 10].includes(Number(options?.targetMinutes)) ? Number(options.targetMinutes) : 5;
+  const learningGoal = ['comfortable', 'vocabulary', 'challenge'].includes(options?.learningGoal)
+    ? options.learningGoal : 'comfortable';
   const reencounter = (userWords || []).slice(0, 8);
 
   // OTIMIZAÇÃO DE CUSTOS E TOKENS: se o aluno não tem termos específicos de reencontro
@@ -229,11 +233,14 @@ export async function generateStoryWeb(genre, onChunk, userWords = [], options =
   if (!options?.forceNew && reencounter.length === 0) {
     try {
       const savedStories = await lfDb.getStories(30).catch(() => []);
-      const reusable = savedStories.find(s => s.genre === genre && (s.level === cefr || !s.level));
+      const reusable = savedStories.find(s => s.genre === genre
+        && (s.requested_level === cefr || (!s.requested_level && s.level === cefr))
+        && (!s.target_minutes || Number(s.target_minutes) === targetMinutes)
+        && (!s.learning_goal || s.learning_goal === learningGoal));
       if (reusable && (reusable.content || reusable.story)) {
         const text = reusable.content || reusable.story;
         if (onChunk) onChunk(text, text);
-        return { story: text, level: cefr, requestedWords: [], reused: true };
+        return { story: text, level: cefr, requestedWords: [], reused: true, targetMinutes, learningGoal };
       }
     } catch { /* se falhar o reuso, segue pro streaming normal */ }
   }
@@ -243,7 +250,7 @@ export async function generateStoryWeb(genre, onChunk, userWords = [], options =
     : '';
   const recent = recentStorySnippets(await lfDb.getStories(15).catch(() => []), genre);
   const varietyNote = buildStoryVarietyNote(recent);
-  const levelNote = buildLevelNote(cefr);
+  const levelNote = buildLevelNote(cefr, { targetMinutes, learningGoal });
   const spec = levelSpecFor(cefr);
   const prompt = `Você é um gerador de histórias envolventes em inglês para estudantes.
 Nível do Estudante: CEFR ${cefr}.
@@ -263,7 +270,7 @@ DIRETRIZES FUNDAMENTAIS DE FORMATO:
     { temperature: 0.8, max_tokens: spec.maxTokens },
     onChunk
   );
-  return { story, level: cefr, requestedWords: reencounter };
+  return { story, level: cefr, requestedWords: reencounter, targetMinutes, learningGoal, promptVersion: 'story-v2' };
 }
 
 // Onda 3.2 — Fase 4 do nivelamento: corrige a mini-produção escrita como um

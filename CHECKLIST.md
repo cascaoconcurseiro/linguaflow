@@ -260,3 +260,17 @@
 - [x] Contratos de release e smoke com --allow-dirty.
 - [ ] QA autenticada completa, áudio, persistência, offline e extensão.
 - [ ] Aprovação visual e merge; produção não alterada.
+
+## 18. Issue #122 — Estudo profundo e histórias por nível
+
+- [x] Reservar dinamicamente espaço para a barra fixa de avaliação em cards longos.
+- [x] Garantir quebra de frases longas e rolagem até todo o conteúdo revelado.
+- [x] Preencher “Entender melhor” com sentido contextual, uso, mnemônico, chunks e prática.
+- [x] Colocar atalho de Histórias no primeiro bloco e na seção “Depois” da Home.
+- [x] Adicionar nível, duração e objetivo à criação de histórias.
+- [x] Propagar o contrato na geração web e na extensão e medir o nível produzido.
+- [x] Criar migration aditiva de `stories`, preservando RLS e validando valores no banco.
+- [x] Adicionar contrato automatizado e incluir no gate de release.
+- [x] Alinhar versão do aplicativo, extensão e cache em 3.0.53.
+- [ ] Aplicar migration no Supabase remoto somente após revisão/CI.
+- [ ] Executar QA autenticada no preview da PR em desktop e celular.

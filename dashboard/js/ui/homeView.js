@@ -523,9 +523,12 @@ export async function renderHome(container, app) {
                         <p class="home-primary-meta">${todayAction.meta}</p>
                         <button class="btn-action btn-study" id="btn-study-now" type="button">${todayAction.label}<span aria-hidden="true">→</span></button>
                     </div>
-                    <div class="home-primary-visual" aria-hidden="true">
-                        <div class="home-note-card"><span>Small<br>steps.</span><i></i></div>
-                        <span class="home-note-caption">Você consegue.</span>
+                    <div class="home-primary-visual">
+                        <button type="button" id="btn-primary-stories" class="home-story-shortcut">
+                            <span class="home-story-shortcut-kicker">LEITURA GUIADA</span>
+                            <strong>Criar uma história</strong>
+                            <span>Escolha nível, duração e objetivo</span>
+                        </button>
                     </div>
                 </section>
                 
@@ -675,6 +678,9 @@ export async function renderHome(container, app) {
                     <button class="btn-action btn-study" id="btn-open-learning">
                         EXPLORAR CONTEÚDO
                     </button>
+                    <button class="btn-action btn-study" id="btn-open-stories">
+                        LER OU CRIAR HISTÓRIA
+                    </button>
                 </div>
 
                 <div class="achievements-section">
@@ -775,6 +781,8 @@ export async function renderHome(container, app) {
         renderHome(container, app);
     });
     document.getElementById('btn-open-learning')?.addEventListener('click', () => app?.navigate?.('learn'));
+    document.getElementById('btn-open-stories')?.addEventListener('click', () => app?.navigate?.('stories'));
+    document.getElementById('btn-primary-stories')?.addEventListener('click', () => app?.navigate?.('stories'));
 
     document.getElementById('btn-open-log-study')?.addEventListener('click', () => {
         showLogStudyModal(db, app, sourceLang, () => {
@@ -1196,6 +1204,11 @@ function injectStyles() {
         .home-primary-plan .btn-action span { font-size:24px; line-height:1; }
         .home-primary-plan .btn-action:hover { background:color-mix(in srgb, var(--color-primary) 86%, white); }
         .home-primary-visual { position:relative; min-height:170px; display:grid; place-items:center; }
+        .home-story-shortcut { width:100%; min-height:150px; padding:22px; display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-end; gap:7px; border:1px solid color-mix(in srgb, var(--color-secondary) 55%, var(--color-border)); border-radius:11px; background:color-mix(in srgb, var(--color-secondary) 8%, var(--color-surface)); color:var(--color-text); text-align:left; cursor:pointer; transition:border-color .16s ease, background-color .16s ease; }
+        .home-story-shortcut:hover, .home-story-shortcut:focus-visible { border-color:var(--color-secondary); background:color-mix(in srgb, var(--color-secondary) 13%, var(--color-surface)); }
+        .home-story-shortcut-kicker { color:var(--color-secondary); font-size:10px; font-weight:900; letter-spacing:.13em; }
+        .home-story-shortcut strong { font:400 24px/1.15 var(--font-reading); }
+        .home-story-shortcut > span:last-child { color:var(--color-text-light); font-size:12px; line-height:1.4; }
         .home-note-card { position:relative; width:168px; min-height:110px; padding:20px; border:1px solid #2e6ba5; border-radius:12px; background:#13375d; color:#d7edff; transform:rotate(-7deg); box-shadow:14px 10px 0 rgba(22,75,123,.35); font:italic 18px/1.15 Georgia, serif; }
         .home-note-card::before, .home-note-card::after { content:''; position:absolute; inset:7px -20px -7px 20px; border:1px solid rgba(37,169,255,.35); border-radius:12px; z-index:-1; }
         .home-note-card::after { inset:14px -32px -14px 32px; opacity:.55; }
@@ -1231,7 +1244,7 @@ function injectStyles() {
         .badge-lapse, .badge-diff { border-radius:999px; padding:5px 9px; font-size:11px; font-weight:800; white-space:nowrap; }
         .badge-lapse { color:#ffb5b5; background:rgba(255,75,75,.16); border:1px solid rgba(255,75,75,.4); }
         .badge-diff { color:#2b1b00; background:#ffd977; }
-        .home-secondary-actions { margin-top:18px; grid-template-columns:minmax(0, 1fr); }
+        .home-secondary-actions { margin-top:18px; grid-template-columns:repeat(2,minmax(0, 1fr)); }
         .home-secondary-actions .btn-action { justify-content:space-between; padding:0 18px; border:1px solid var(--color-secondary); border-radius:9px; background:transparent; color:var(--color-secondary); }
         .home-secondary-actions .btn-action::after { content:'›'; font-size:24px; line-height:1; }
         .home-more { margin-top:22px; }
@@ -1240,7 +1253,8 @@ function injectStyles() {
             .dashboard-header-row { display:block; }
             .home-date-label { margin-top:12px; }
             .home-primary-plan { grid-template-columns:1fr; min-height:0; padding:22px 18px; }
-            .home-primary-visual { display:none; }
+            .home-primary-visual { min-height:0; margin-top:4px; }
+            .home-story-shortcut { min-height:112px; }
             .stats-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
             .study-hours-header { align-items:flex-start; flex-direction:column; }
             .study-hours-header #btn-open-log-study { width:100%; }
@@ -1250,6 +1264,7 @@ function injectStyles() {
             .study-skill-pill:nth-child(n+3) { padding-top:12px; }
             .critical-card-item { align-items:flex-start; flex-direction:column; gap:7px; }
             .critical-card-tags { justify-content:flex-start; }
+            .home-secondary-actions { grid-template-columns:1fr; }
         }
         @media (prefers-reduced-motion: reduce) { .home-note-card { transform:none; } }
     `;

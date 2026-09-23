@@ -31,3 +31,25 @@ Rollback: reverter o commit da Issue #114. Nenhuma migração. Manter PR em rasc
 ## Perguntas operacionais
 
 Usar telemetria de revisão existente, sem eventos novos ou PII: a sessão começa? A revelação permite avaliar? A nota recebe confirmação ou erro recuperável? O abandono da sessão muda após a alteração? Comparar antes/depois somente após rollout autorizado.
+
+---
+
+# Issue #122 — Cards longos, aprofundamento e histórias
+
+## Resultado da revisão
+
+- O card agora mede a altura real da barra fixa de avaliação com `ResizeObserver` e reserva esse espaço no fim da rolagem. Frases, tradução, explicação e recursos continuam acessíveis mesmo quando o texto ocupa várias linhas.
+- “Entender melhor” deixa de ser um contêiner vazio: ao revelar, apresenta o sentido contextual, uma nota de uso/nível, truque de memória, blocos reutilizáveis e fontes de prática. Quando o enriquecimento não existe, informa a limitação sem inventar conteúdo.
+- Histórias ganhou acesso no primeiro bloco da Home e na seção “Depois”. A criação permite nível, duração e objetivo de leitura.
+- O tema editorial foi corrigido para não ocultar o atalho principal de Histórias.
+
+## Evidência e limites
+
+- Contratos automatizados cobrem altura dinâmica do dock, quebra de texto, presença/conteúdo do aprofundamento, atalhos e propagação das opções de história na web e extensão.
+- Sintaxe e suítes focadas de estudo, pedagogia, produto, contexto e banco passaram.
+- A tentativa de nova captura Playwright ficou bloqueada porque o executável Chromium não está disponível neste ambiente. A comparação visual anterior da mesma fixture permanece válida, mas a branch ainda requer smoke autenticado no preview da PR em desktop e celular.
+- A migration é aditiva, contém `CHECK` constraints e não altera RLS. Ela foi validada estaticamente; não foi aplicada ao Supabase remoto nesta sessão.
+
+## Veredito
+
+Implementação pronta para revisão em PR. Produção e schema remoto não devem ser alterados antes dos gates e do preview autenticado.

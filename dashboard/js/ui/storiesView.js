@@ -87,13 +87,13 @@ export function formatStoryAsBook(text) {
 // Roteadores extensão/web: na extensão o service worker faz o trabalho;
 // no site (Vercel) chamamos a Edge Function (história) e o translator
 // client-side (Google GTX/MyMemory têm CORS liberado — verificado).
-function generateStory(genre, onChunk, userWords = []) {
+function generateStory(genre, onChunk, userWords = [], options = {}) {
   if (isExtension) {
     return new Promise((resolve) => {
-      chrome.runtime.sendMessage({ action: 'ai_generate_story', genre }, resolve);
+      chrome.runtime.sendMessage({ action: 'ai_generate_story', genre, options }, resolve);
     });
   }
-  return generateStoryWeb(genre, onChunk, userWords).catch((e) => ({ error: e.message }));
+  return generateStoryWeb(genre, onChunk, userWords, options).catch((e) => ({ error: e.message }));
 }
 
 // Palavras pro REENCONTRO na história (Marco 3): fracas primeiro (3+ lapsos/
@@ -224,9 +224,9 @@ export function renderStories(container, app) {
       <!-- Control Panel (New Story) -->
       <div id="panel-new" role="tabpanel" aria-labelledby="tab-new" class="story-create-panel">
         <h2 style="font-size:20px; color:var(--color-text); margin:0 0 6px;">Criar uma história</h2>
-        <p style="color:var(--color-text-light); margin:0 0 16px; font-size:14px;">O texto usa seu nível e prioriza reencontros úteis.</p>
-        <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;" for="story-genre">Tema</label>
-        <div style="display:flex; gap: 16px; flex-wrap:wrap;">
+        <p style="color:var(--color-text-light); margin:0 0 16px; font-size:14px;">Escolha a missão de leitura. Depois da geração, mostramos o nível pedido e a estimativa medida.</p>
+        <div class="story-mission-grid">
+          <label class="story-field" for="story-genre"><span>Tema</span>
           <select id="story-genre" style="flex:1; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); font-size:16px; min-width: 200px; cursor: pointer; transition: border-color 0.2s;">
             <option value="Dia a Dia">Dia a Dia</option>
             <option value="Viagens">Viagens</option>
@@ -237,6 +237,22 @@ export function renderStories(container, app) {
             <option value="Aventura">Aventura</option>
             <option value="História (Fatos reais)">Fatos históricos</option>
           </select>
+          </label>
+          <label class="story-field" for="story-level"><span>Nível da história</span>
+            <select id="story-level">
+              <option value="auto">Meu nível atual</option>
+              <option value="A1">A1 · iniciante</option><option value="A2">A2 · básico</option>
+              <option value="B1">B1 · intermediário</option><option value="B2">B2 · intermediário alto</option>
+            </select>
+          </label>
+          <label class="story-field" for="story-duration"><span>Duração</span>
+            <select id="story-duration"><option value="3">3 minutos</option><option value="5" selected>5 minutos</option><option value="10">10 minutos</option></select>
+          </label>
+          <label class="story-field" for="story-goal"><span>Objetivo</span>
+            <select id="story-goal"><option value="comfortable">Leitura confortável</option><option value="vocabulary">Reencontrar vocabulário</option><option value="challenge">Um pequeno desafio</option></select>
+          </label>
+        </div>
+        <div class="story-create-actions">
           <button id="btn-generate-story" class="btn btn-primary lf-btn-bounce" style="padding: 12px 24px; font-size: 16px; display:flex; align-items:center; gap:8px;">
             Criar história
           </button>
@@ -501,6 +517,12 @@ export function renderStories(container, app) {
       .story-library-heading { margin-bottom:16px; }
       .story-library-heading h2 { margin:0 0 4px; color:var(--color-text); font-size:20px; }
       .story-library-heading p { margin:0; color:var(--color-text-light); font-size:14px; }
+      .story-mission-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+      .story-field { display:grid; gap:7px; color:var(--color-text); font-size:13px; font-weight:800; }
+      .story-field select { width:100%; min-height:48px; padding:10px 12px; border:1px solid var(--color-border); border-radius:5px; background:var(--color-surface); color:var(--color-text); font:500 15px var(--font-main); cursor:pointer; }
+      .story-field select:focus-visible { outline:3px solid var(--color-secondary); outline-offset:2px; }
+      .story-create-actions { display:flex; justify-content:flex-start; margin-top:18px; }
+      @media (max-width:620px) { .story-mission-grid { grid-template-columns:1fr; } .story-create-actions .btn { width:100%; justify-content:center; } }
       @media (max-width: 640px) {
         #story-content { font-size: 17px !important; line-height: 1.75 !important; }
         .story-paragraph { margin-bottom: 18px; }
@@ -527,6 +549,9 @@ export function renderStories(container, app) {
   const storyTitleDisplay = document.getElementById('story-title-display');
   const storyLevelBadge = document.getElementById('story-level-badge');
   const genreSelect = document.getElementById('story-genre');
+  const levelSelect = document.getElementById('story-level');
+  const durationSelect = document.getElementById('story-duration');
+  const goalSelect = document.getElementById('story-goal');
 
   // Audio Player
   const btnPlayStory = document.getElementById('btn-play-story');
@@ -967,10 +992,10 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
     else localStorage.setItem(key, JSON.stringify(stories));
   }
 
-  async function saveStoryLocal(title, text, level, genre) {
+  async function saveStoryLocal(title, text, level, genre, contract = {}) {
     // BANCO primeiro (história = tokens gastos, nunca pode se perder;
     // sincroniza entre dispositivos). Local fica como espelho offline.
-    const saved = await db.saveStory({ title, content: text, level, genre });
+    const saved = await db.saveStory({ title, content: text, level, genre, ...contract });
     if (!saved?.ok || !saved.id) throw new Error('O Supabase não confirmou o salvamento da história.');
 
     await new Promise((resolve) => readStories((stories) => {
@@ -1151,6 +1176,12 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
   // Generation
   btnGenerate.addEventListener('click', async () => {
     const genre = genreSelect.value;
+    const generationOptions = {
+      level: levelSelect.value,
+      targetMinutes: Number(durationSelect.value),
+      learningGoal: goalSelect.value,
+      difficultyMode: goalSelect.value === 'challenge' ? 'challenge' : 'current',
+    };
     storyContainer.style.display = 'block';
     storyContent.style.display = 'none';
     storyHeader.style.display = 'none';
@@ -1169,7 +1200,7 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
         storyLoading.style.display = 'none';
         storyContent.style.display = 'block';
         storyContent.textContent = full;
-      }, reencounterWords);
+      }, reencounterWords, generationOptions);
 
       if (!response || !response.story || response.error) {
         throw new Error(response?.error || 'Failed to generate story.');
@@ -1192,8 +1223,27 @@ Use somente fatos sustentados pela história. Nível: um pouco mais simples que 
       measureAndShowLevel(contentToRender, storyLevel); // A4: selo honesto
       storyHeader.style.display = 'block';
 
+      let measurement = null;
       try {
-        await saveStoryLocal(title, contentToRender, storyLevel, genre);
+        if (!cefrMapCache) {
+          const base = isExtension ? chrome.runtime.getURL('utils/') : '/utils/';
+          cefrMapCache = await fetch(`${base}cefr-wordlist.json`).then((r) => r.json());
+        }
+        measurement = measureStoryLevel(contentToRender, cefrMapCache);
+      } catch { /* a história continua utilizável sem falsa precisão */ }
+      const validationStatus = !measurement?.level ? 'insufficient_data'
+        : measurement.level === storyLevel ? 'matched' : 'mismatch';
+
+      try {
+        await saveStoryLocal(title, contentToRender, storyLevel, genre, {
+          requestedLevel: storyLevel,
+          targetMinutes: generationOptions.targetMinutes,
+          learningGoal: generationOptions.learningGoal,
+          difficultyMode: generationOptions.difficultyMode,
+          measuredLevel: measurement?.level || null,
+          validationStatus,
+          promptVersion: response.promptVersion || 'story-v2',
+        });
       } catch (saveError) {
         console.warn('[Stories] História gerada, mas não sincronizada:', saveError);
         app.showToast('História criada, mas ainda não foi salva. Verifique a conexão e tente gerar novamente.', 'error');

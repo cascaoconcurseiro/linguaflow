@@ -42,6 +42,7 @@ let nextCardPresentationId = 0;
 let audioUiToken = 0;
 let studentCefr = null;      // nivel CEFR (trava de ditado longo p/ A1-A2)
 let cardTimerInterval = null; // cronômetro visual em tempo real do card
+let gradingDockObserver = null;
 const TOPIC_LABELS = { word: 'Palavras', phrasal: 'Phrasal Verbs', slang: 'Gírias', idiom: 'Expressões' };
 
 function startCardTimer() {
@@ -96,6 +97,9 @@ export async function renderStudy(container, app, params = {}) {
     hidePlayer();
     setClipLoop(false);
     stopCardTimer();
+    gradingDockObserver?.disconnect();
+    gradingDockObserver = null;
+    document.documentElement.style.removeProperty('--study-grading-dock-height');
     if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
     studyTimers.forEach(clearTimeout);
     studyTimers.clear();
@@ -327,6 +331,16 @@ export async function renderStudy(container, app, params = {}) {
                   <button id="close-study-resources" type="button">Fechar</button>
                 </div>
 
+                <section class="learning-resource-section study-context-summary" aria-labelledby="study-context-meaning-title">
+                  <p class="learning-resource-kicker">ENTENDER</p>
+                  <h3 id="study-context-meaning-title">Sentido nesta frase</h3>
+                  <p id="study-context-meaning" class="learning-resource-description" aria-live="polite">Atualizando a explicação contextual…</p>
+                  <p id="study-usage-note" class="study-usage-note"></p>
+                  <div id="iso-mnemonic-box">
+                    <button id="iso-mnemonic-btn" type="button">Me dê um truque para lembrar</button>
+                    <p id="iso-mnemonic-text" class="hidden" aria-live="polite"></p>
+                  </div>
+                </section>
 
                 <section class="learning-resource-section" aria-labelledby="practice-resource-title">
                   <p class="learning-resource-kicker">PRATICAR</p>
@@ -377,6 +391,15 @@ export async function renderStudy(container, app, params = {}) {
   `;
 
   updateSessionCounters();
+  const gradingDock = document.getElementById('grading-area');
+  if (gradingDock && typeof ResizeObserver === 'function') {
+    gradingDockObserver?.disconnect();
+    gradingDockObserver = new ResizeObserver(([entry]) => {
+      const height = Math.ceil(entry?.borderBoxSize?.[0]?.blockSize || entry?.contentRect?.height || 0);
+      document.documentElement.style.setProperty('--study-grading-dock-height', `${height}px`);
+    });
+    gradingDockObserver.observe(gradingDock);
+  }
   document.getElementById('play-audio-btn').addEventListener('click', playCurrentAudio);
   document.getElementById('reveal-btn').addEventListener('click', revealCard);
   // Shadowing (§4g.1): compara a fala com a frase que o TTS acabou de tocar.
@@ -1332,6 +1355,8 @@ async function revealCard(options = {}) {
   document.getElementById('grading-area').classList.remove('hidden');
   document.querySelector('.study-layout')?.classList.add('is-revealed');
   document.getElementById('study-resources')?.classList.remove('hidden');
+  const resources = document.getElementById('study-resources');
+  if (resources && window.matchMedia?.('(min-width: 721px)').matches) resources.open = true;
   document.getElementById('study-card-menu')?.classList.remove('hidden');
   scheduleStudyTask(() => document.querySelector('.grade-btn:not(.hidden):not(:disabled)')?.focus({ preventScroll: true }));
 
@@ -1351,6 +1376,7 @@ async function revealCard(options = {}) {
   }
 
   renderReveal(word, context, ctxEntry, wordEntry, wordData, card);
+  renderStudyResourceSummary(word, context, ctxEntry, wordEntry, wordData);
   renderChunksList(chunks, context);
   updateYouglish(word);
 
@@ -1384,6 +1410,7 @@ async function revealCard(options = {}) {
       // perderia o estado play/pause e deixaria o callback do iframe anterior
       // apontando para botões já removidos.
       renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { renderVideo: false });
+      renderStudyResourceSummary(word, context, ctxEntry, wordEntry, wordData);
       renderChunksList(chunks, context);
     }).catch((e) => {
       if (currentCard === card) phonEl.classList.add('hidden');
@@ -1504,6 +1531,7 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
   // aluno reabre a mesma palavra.
   const mnemonicBtn = document.getElementById('iso-mnemonic-btn');
   const mnemonicText = document.getElementById('iso-mnemonic-text');
+  if (!mnemonicBtn || !mnemonicText) return;
   mnemonicText.classList.add('hidden');
   mnemonicText.textContent = '';
   if (wordData.mnemonic) {
@@ -1674,6 +1702,27 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
 }
 
 // ── Chunks (frases úteis) ────────────────────────────────────────────────────
+function renderStudyResourceSummary(word, context, ctxEntry, wordEntry, wordData = {}) {
+  const meaning = document.getElementById('study-context-meaning');
+  const usage = document.getElementById('study-usage-note');
+  if (!meaning || !usage) return;
+  const translation = String(wordEntry?.pt || wordData.translation || '').trim();
+  const explanation = String(wordData.explanation || '').trim();
+  meaning.textContent = explanation
+    || (translation
+      ? `Aqui, “${word}” significa “${translation}”. Leia a frase inteira antes de memorizar a palavra isolada.`
+      : 'Ainda não há uma explicação contextual salva. A frase original continua disponível e será enriquecida quando a conexão permitir.');
+
+  const categoryLabels = { phrasal: 'phrasal verb', idiom: 'expressão idiomática', slang: 'gíria', word: 'palavra' };
+  const category = categoryLabels[wordData.category] || 'unidade de vocabulário';
+  const level = wordData.level ? ` · nível estimado ${wordData.level}` : '';
+  const contextualTranslation = String(ctxEntry?.pt || '').trim();
+  usage.textContent = contextualTranslation
+    ? `${category}${level}. Na frase completa: ${contextualTranslation}`
+    : `${category}${level}. Pratique o bloco em que a palavra aparece, não apenas sua tradução.`;
+  usage.dataset.context = context || '';
+}
+
 function renderChunksList(chunks, context) {
   const container = document.getElementById('chunks-container');
   const visible = chunks.filter(c => !c.is_word);

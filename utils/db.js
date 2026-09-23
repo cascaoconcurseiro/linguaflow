@@ -767,6 +767,13 @@ class Database {
         content: story.content,
         level: story.level || null,
         genre: story.genre || null,
+        requested_level: story.requestedLevel || story.level || null,
+        target_minutes: story.targetMinutes || null,
+        learning_goal: story.learningGoal || null,
+        difficulty_mode: story.difficultyMode || null,
+        measured_level: story.measuredLevel || null,
+        validation_status: story.validationStatus || 'not_measured',
+        prompt_version: story.promptVersion || 'story-v2',
       }
     });
     return { ok: !!res?.[0], id: res?.[0]?.id, createdAt: res?.[0]?.created_at };

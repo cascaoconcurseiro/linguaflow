@@ -10,7 +10,6 @@ const filesToCheck = [
   { path: '../dashboard/js/ui/libraryView.js', identifier: 'isExtension' },
   { path: '../dashboard/js/ui/readerView.js', identifier: 'isExtension' },
   { path: '../dashboard/js/ui/storiesView.js', identifier: 'isExtension' },
-  { path: '../dashboard/js/ui/homeView.js', identifier: 'isExt' },
 ];
 
 for (const { path, identifier } of filesToCheck) {
@@ -81,3 +80,6 @@ assert.ok(
 );
 
 console.log('Contratos de ambiente Web vs Extensão e Leitor validados com sucesso ✅');
+
+const homeJs = await readFile(new URL('../dashboard/js/ui/homeView.js', import.meta.url), 'utf8');
+assert.ok(!homeJs.includes('estimateLevelFromHistory'), 'Home não transforma memória em nível CEFR');

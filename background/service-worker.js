@@ -19,6 +19,7 @@ const DB_PROXY_METHODS = new Set([
   'getSettings', 'getSRSCategoryOverrides', 'getSRSSettings', 'getStats',
   'getStatsSnapshot', 'getStories', 'getStudyStats', 'getTodayCounts', 'getTranslationCache',
   'getUserStats', 'getWord', 'getWordById', 'getWordsByCategory', 'getWordsByLetter',
+  'enqueueListeningInterval', 'getFluencyListeningText',
   'isKnown', 'issueFluencyTask', 'login', 'logout', 'logManualStudy', 'logReview', 'logSession',
   'markAsKnown', 'maybeLeagueRollover', 'migrateReaderText', 'predictNextState',
   'recordAdaptiveSignal', 'recordLearningTaskAttempt', 'reportClientError',
@@ -58,8 +59,10 @@ console.debug('LinguaFlow: Service Worker inicializado.');
 // ── Alarmes ──────────────────────────────────────────────────────────────────
 chrome.alarms.create('srs-reminder', { periodInMinutes: 60 });
 chrome.alarms.create('word-save-sync', { periodInMinutes: 1 });
+chrome.alarms.create('listening-sync', { periodInMinutes: 1 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'listening-sync') db.drainListeningQueue().catch(() => {});
   if (alarm.name === 'srs-reminder') updateBadge(); // updateBadge dispara a notificacao real
   if (alarm.name === 'word-save-sync') syncPendingWordSaves();
 });

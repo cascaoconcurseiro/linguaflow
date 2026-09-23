@@ -1,3 +1,7 @@
+## Issue #118 — Estabilização do listening e da avaliação (2026-09-23)
+
+Branch `codex/118-stabilize-learning` de `main` `3aed6ce`. Correções de contador de vídeo com idioma do áudio confirmado, fila idempotente, agregação de horas, rascunho por conta, emissão e envio autoritativo de tarefas, retirada da recalibração global por cards. Migration nova depende de `20260921160000_multimodal_study_and_language_tracking.sql`, ausente do banco hospedado no diagnóstico; nenhuma das duas foi aplicada lá. Replay local de 56 migrations e teste transacional passaram em PGlite; CI PostgreSQL e QA autenticada ainda são necessários. Detalhes de rollout, rollback, limitações pedagógicas e operacionais em `docs/audits/2026-09-23-issue-118-implementation.md`. Issue #118 aberta; PR e merge pendentes.
+
 # Handoff — LinguaFlow
 
 ## Atualização da Issue #109 — Referência visual atualizada da Home e do estudo

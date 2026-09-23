@@ -3,7 +3,6 @@ import { addLocalDays, daysBetweenLocalKeys, localDateKey } from '../../../utils
 import { runPlacementTest } from './settingsView.js';
 import { computeAchievements, newlyUnlocked } from '../core/achievements.js';
 import { bindViewStateAction, escapeHtml, renderViewState } from './viewState.js';
-import { estimateLevelFromHistory } from '../core/levelEstimator.js';
 import { isFluencyCheckDue } from '../core/fluencyCheck.js';
 
 function organizeHomeSections(container) {
@@ -95,35 +94,6 @@ export async function loadFluencyHomeState(db) {
         fluencyDue: isFluencyCheckDue(latest?.occurred_at || null),
         fluencyResumeAvailable: !!draft && draft.completed !== true,
     };
-}
-
-// A6 do backlog: depois de 50 tentativas reais, o review_log sabe mais que
-// o teste de 4 minutos. Recalibra o nivel 1x/dia, em segundo plano, e grava
-// lf_cefr_source='measured' — historias, exercicios e legendas passam a
-// seguir o nivel REAL do aluno, nao a etiqueta declarada.
-async function maybeRecalibrateLevel(db, reviewLog, cards, words, todayISO) {
-  try {
-    if (!db || (reviewLog || []).length < 50) return;
-    const lastRun = await db.getSetting('lf_cefr_measured_at').catch(() => null);
-    if (lastRun === todayISO) return;
-    const isExt = typeof chrome !== 'undefined' && !!chrome.runtime?.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
-    const base = isExt ? chrome.runtime.getURL('utils/') : '/utils/';
-    const cefrMap = await fetch(`${base}cefr-wordlist.json`).then((r) => r.json());
-    const result = estimateLevelFromHistory(reviewLog, cards, words, cefrMap);
-    await db.setSetting('lf_cefr_measured_at', todayISO).catch(() => {});
-    if (!result.level) return;
-    const current = await db.getSetting('lf_cefr_level').catch(() => null);
-    if (result.level === current) {
-      db.setSetting('lf_cefr_source', 'measured').catch(() => {});
-      return;
-    }
-    await Promise.all([
-      db.setSetting('lf_cefr_level', result.level),
-      db.setSetting('cefrTargetLevel', result.level),
-      db.setSetting('lf_cefr_source', 'measured'),
-    ]);
-    console.debug(`[LevelEstimator] Nivel recalibrado: ${current || '?'} -> ${result.level} (${result.total} tentativas)`);
-  } catch { /* medicao nunca quebra a Home */ }
 }
 
 export function chooseTodayAction(state = {}) {
@@ -380,7 +350,7 @@ export async function renderHome(container, app) {
         } catch { /* banner do cofre e opcional */ }
 
         // A6: nivel medido pelo estudo real — fire-and-forget, 1x/dia
-        maybeRecalibrateLevel(db, log30, allCards, allWords, todayISO);
+        // Card recall never changes a global CEFR level.
 
         // Conhecidas = marcadas no Leitor + cards maduros, agrupadas por família
         const matureByWordId = {};
@@ -589,7 +559,7 @@ export async function renderHome(container, app) {
                             <span class="study-hours-language">${currentFlag}</span>
                             <div>
                                 <h3 class="study-hours-title">Horas de Estudo (${sourceLang.toUpperCase()})</h3>
-                                <span class="study-hours-subtitle">Total acumulado: <strong>${studyStats?.summary?.totalHours || 0}h</strong></span>
+                                <span class="study-hours-subtitle">Total acumulado: <strong>${studyStats ? `${studyStats.summary.totalHours}h` : 'indisponível'}</strong></span>
                             </div>
                         </div>
                         <button type="button" class="btn btn-secondary" id="btn-open-log-study" style="padding: 10px 16px; font-size: 13px; font-weight: 800;">
@@ -597,7 +567,9 @@ export async function renderHome(container, app) {
                         </button>
                     </div>
 
-                    <div class="study-skills-grid">
+                    ${!studyStats ? '<p role="status">Não foi possível carregar as horas. Atualize a página para tentar novamente.</p>' : ''}
+                    ${studyStats?.unclassified?.totalSeconds > 0 ? `<p class="study-hours-subtitle">Histórico preservado sem idioma confirmado: ${studyStats.unclassified.totalFormatted}. Não incluído no total deste idioma.</p>` : ''}
+                    <div class="study-skills-grid" ${studyStats ? '' : 'hidden'}>
                         <div class="study-skill-pill">
                             <div class="skill-info">
                                 <span class="skill-name">Listening</span>
@@ -621,7 +593,7 @@ export async function renderHome(container, app) {
                                 <span class="skill-name">Speaking</span>
                                 <strong class="skill-time">${studyStats?.speaking?.totalFormatted || '0m'}</strong>
                             </div>
-                        </div>
+                        </div><div class="study-skill-pill"><div class="skill-info"><span class="skill-name">Escrita</span><strong class="skill-time">${studyStats?.writing?.totalFormatted || '0m'}</strong></div></div>
                     </div>
                 </div>
 

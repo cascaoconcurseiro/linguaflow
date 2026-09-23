@@ -1,3 +1,13 @@
+## Issue #118 · estabilização de aprendizagem (2026-09-23)
+
+- [x] Corrigir contagem audível de vídeos com idioma confirmado e impedir duplo crédito/inflação simples.
+- [x] Isolar rascunhos de fluência e usar tarefas emitidas/submissão estável.
+- [x] Corrigir Max, escrita e histórico sem idioma; retirar CEFR global por reviews de cards.
+- [x] Replay efêmero das 56 migrations e contratos de autorização/idempotência da nova RPC.
+- [ ] CI PostgreSQL real e browser e2e da PR.
+- [ ] Revisão, QA autenticada da extensão/players, rollout das duas migrations na ordem e deploy.
+- [ ] Avaliação pedagógica longitudinal com usuários e diálogo interativo real em issue separada.
+
 # Checklist — LinguaFlow
 
 ## 0. Proteção e baseline

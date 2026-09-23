@@ -1,3 +1,5 @@
+import { ListeningClock } from '../utils/listening-clock.js';
+import { localDateKey } from '../utils/local-day.js';
 import { expressionsDB } from '../utils/expressions-db.js';
 import { matchExpressionCandidate } from '../utils/expressions-db.js';
 import { slangsDB } from '../utils/slangs-db.js';
@@ -307,31 +309,76 @@ export class SubtitleEngine {
   }
 
   _startImmersionLog() {
+    this._listeningClock = new ListeningClock();
+    this._listeningKey = '';
+    this._listeningLanguage = null;
+    this._listeningOwner = null;
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') void this._flushListeningInterval().catch(() => {});
+    }, { signal:this._lifecycleController.signal });
+    window.addEventListener('pagehide', () => { void this._flushListeningInterval().catch(() => {}); }, { signal:this._lifecycleController.signal });
+    let busy = false;
     this._setManagedInterval(async () => {
-      // Só é atividade LinguaFlow quando o aluno realmente está com a extensão
-      // ativa, a página em primeiro plano e uma legenda sendo acompanhada.
-      // Antes, qualquer vídeo tocando em uma aba compatível inflava o progresso.
-      const hasActiveSubtitle = this.currentCueIndex >= 0 || Boolean(this.lastText?.trim());
-      if (
-        this.isActivated
-        && document.visibilityState === 'visible'
-        && hasActiveSubtitle
-        && this.videoElement
-        && !this.videoElement.paused
-        && !this.videoElement.ended
-      ) {
-        try {
-          // Prevenção de contagem dupla (Múltiplas abas abertas)
-          const { last_lf_immersion } = await chrome.storage.local.get('last_lf_immersion');
-          const now = Date.now();
-          if (last_lf_immersion && now - last_lf_immersion < 9000) return;
+      if (busy) return;
+      busy = true;
+      try {
+        const { db } = await import('../utils/db.js');
+        const owner = await db.getCurrentUserId();
+        const video = this.videoElement;
+        const key = `${location.href}|${video?.currentSrc || ''}`;
+        if (key !== this._listeningKey || owner !== this._listeningOwner) {
+          if (owner === this._listeningOwner) await this._flushListeningInterval();
+          this._listeningClock = new ListeningClock();
+          this._listeningLanguage = null;
+          this._listeningKey = key;
+          this._listeningOwner = owner;
+          const selector = document.querySelector('#lf-listening-language');
+          if (selector) selector.value = '';
+        }
+        const audioTrack = Array.from(video?.audioTracks || []).find(track => track.enabled);
+        // A visible track change invalidates manual confirmation; captions never confirm audio.
+        const trackKey = audioTrack ? `${audioTrack.id}:${audioTrack.language}` : '';
+        if (this._listeningTrack !== undefined && this._listeningTrack !== trackKey) {
+          await this._flushListeningInterval();
+          this._listeningLanguage = null;
+          const selector = document.querySelector('#lf-listening-language');
+          if (selector) selector.value = '';
+        }
+        this._listeningTrack = trackKey;
+        this._listeningClock.sample({
+          key, language:owner ? this._listeningLanguage : null, now:Date.now(), time:Number(video?.currentTime || 0),
+          rate:Number(video?.playbackRate || 1), active:this.isActivated, visible:document.visibilityState === 'visible',
+          paused:!video || video.paused, ended:video?.ended, seeking:video?.seeking,
+          muted:video?.muted, volume:video?.volume, readyState:video?.readyState || 0,
+          ad:!!document.querySelector('.ad-showing, .ad-interrupting'),
+        });
+        const pending = this._listeningClock.pending;
+        if (pending && (pending.seconds >= 10 || !this._listeningClock.state.startsWith('Contando'))) {
+          await this._flushListeningInterval();
+        }
+        const status = document.getElementById('lf-listening-status');
+        if (status) status.textContent = !owner ? 'Entre na conta para registrar listening' : this._listeningSyncPending ? `${this._listeningClock.state} · salvo neste dispositivo, sincronização automática` : this._listeningClock.state;
+      } catch (error) {
+        const status = document.getElementById('lf-listening-status');
+        if (status) status.textContent = 'Não foi possível registrar. Verifique sua conexão e conta.';
+        console.warn('[Listening] interval_failed', { code:error.code || 'unavailable' });
+      } finally { busy = false; }
+    }, 1000);
+  }
 
-          await chrome.storage.local.set({ last_lf_immersion: now });
-          const { db } = await import('../utils/db.js');
-          await db.logSession(10, this.platform, this.sourceLang || 'en');
-        } catch (e) {}
-      }
-    }, 10000);
+  async _flushListeningInterval() {
+    const measured = this._listeningClock?.take();
+    const interval = measured ? (({ key, ...value }) => value)(measured) : null;
+    if (!interval || !this._listeningOwner) return;
+    const { db } = await import('../utils/db.js');
+    try {
+      await db.enqueueListeningInterval({ ...interval, id:crypto.randomUUID(), accountId:this._listeningOwner, date:localDateKey(new Date(interval.startedAt)) });
+      this._listeningSyncPending = true;
+    } catch (error) {
+      // Preserve unsaved data for the next sample; never reassign it to another account.
+      if (!this._listeningClock.pending) this._listeningClock.pending = interval;
+      throw error;
+    }
   }
 
   async _loadSavedWords() {
@@ -2862,6 +2909,22 @@ export class SubtitleEngine {
             <button id="lf-close-panel" class="lf-close-btn" style="background:transparent;border:none;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;transition:0.2s;">✕</button>
         `;
 
+    const listeningControls = document.createElement('div');
+    listeningControls.style.cssText = 'padding:10px 16px;border-bottom:1px solid #94a3b844;font-size:13px;';
+    listeningControls.innerHTML = `<p id="lf-listening-status" role="status">Idioma não confirmado</p>
+      <label>Idioma do áudio deste vídeo <select id="lf-listening-language" aria-label="Idioma do áudio deste vídeo">
+      <option value="">Não confirmado</option><option value="en">Inglês</option><option value="pt">Português</option><option value="es">Espanhol</option><option value="fr">Francês</option><option value="de">Alemão</option><option value="it">Italiano</option><option value="ja">Japonês</option><option value="ko">Coreano</option></select></label>
+      <p style="margin:6px 0 0;font-size:11px;">Confirme o áudio que você está ouvindo. Se trocar a dublagem, atualize aqui. Legendas não determinam o idioma.</p>`;
+    listeningControls.querySelector('select').value = this._listeningLanguage || '';
+    listeningControls.querySelector('select').addEventListener('change', async event => {
+      try { await this._flushListeningInterval(); } catch {
+        event.target.value = this._listeningLanguage || '';
+        document.getElementById('lf-listening-status').textContent = 'Não foi possível salvar o tempo. Tente novamente.';
+        return;
+      }
+      this._listeningClock = new ListeningClock();
+      this._listeningLanguage = event.target.value || null;
+    }, { signal:panelAbort.signal });
     const closeBtn = header.querySelector('#lf-close-panel');
     closeBtn.onclick = closePanel;
 
@@ -2987,6 +3050,7 @@ export class SubtitleEngine {
 
     // ── Monta painel ──────────────────────────────────────────────────────
     panel.appendChild(header);
+    panel.appendChild(listeningControls);
     panel.appendChild(tabs);
     panel.appendChild(subtitlePane);
     panel.appendChild(wordsPane);
@@ -6005,6 +6069,7 @@ export class SubtitleEngine {
 
   destroy() {
     if (this._disposed) return;
+    void this._flushListeningInterval().catch(() => {});
     this._disposed = true;
     this._navigationController?.abort('engine-disposed');
     this._lifecycleController.abort('engine-disposed');

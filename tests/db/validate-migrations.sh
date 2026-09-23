@@ -120,4 +120,7 @@ run_pg "${PSQL[@]}" -f "$ROOT/tests/db/learning-task-attempts.sql"
 echo "── catálogo privado e autoridade da avaliação de fluência"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/db/fluency-assessment-authority.sql"
 
-echo "✅ Migrations reproduzíveis + gates comportamentais P0.1/P0.2 passaram."
+# Behavioral contracts added after the integrated audit.
+run_pg "${PSQL[@]}" -f "$ROOT/tests/db/stabilization.sql"
+
+echo "✅ Migrations reproduzíveis + gates comportamentais P0.1/P0.2/#118 passaram."

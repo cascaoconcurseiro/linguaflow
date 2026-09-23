@@ -33,12 +33,12 @@ Object.assign(db,{
  logReview:async()=>{throw new Error('Prévia: avaliações não são gravadas.');},
  _getToken:async()=>null,
 });
-const {renderHome}=await import('../../dashboard/js/ui/homeView.js?v=3.0.53');
-const {renderStudy}=await import('../../dashboard/js/ui/studyView.js?v=3.0.53');
+const {renderHome}=await import('../../dashboard/js/ui/homeView.js?v=3.0.54');
+const {renderStudy}=await import('../../dashboard/js/ui/studyView.js?v=3.0.54');
 const {renderLearn}=await import('../../dashboard/js/ui/learnView.js');
 const {renderProgress}=await import('../../dashboard/js/ui/progressView.js');
 const {renderLibrary}=await import('../../dashboard/js/ui/libraryView.js');
-const {renderStories}=await import('../../dashboard/js/ui/storiesView.js?v=3.0.53');
+const {renderStories}=await import('../../dashboard/js/ui/storiesView.js?v=3.0.54');
 const {renderReader}=await import('../../dashboard/js/ui/readerView.js');
 const {renderSettings}=await import('../../dashboard/js/ui/settingsView.js');
 const views={home:renderHome,study:renderStudy,learn:renderLearn,progress:renderProgress,library:renderLibrary,stories:renderStories,reader:renderReader,settings:renderSettings};

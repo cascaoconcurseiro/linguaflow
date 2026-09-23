@@ -5,297 +5,49 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Entrar na extensão — LinguaFlow</title>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
-
-      :root {
-        --color-primary: #4d9f00;
-        --color-primary-dark: #2f6900;
-        --color-secondary: #176f96;
-        --color-danger: #b42318;
-        --color-text: #202b33;
-        --color-text-light: #5b6870;
-        --color-border: #d8e0e4;
-        --color-bg: #fbfcfc;
-        --color-surface: #ffffff;
-        --radius: 8px;
-      }
-
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      html {
-        min-height: 100%;
-      }
-      body {
-        width: 340px;
-        background: var(--color-bg);
-        color: var(--color-text);
-        font-family: 'Inter', sans-serif;
-        padding: 24px;
-        text-align: center;
-        margin: 0 auto;
-        box-sizing: border-box;
-      }
-
-      .popup-card {
-        width: 100%;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-      }
-
-      #login-form,
-      #area-login,
-      #area-loading,
-      #area-logged {
-        width: 100%;
-      }
-
-      /* Quando aberta como aba completa no navegador (ex: redirecionado do player com ?login=1) */
-      body.is-tab-mode {
-        width: 100%;
-        min-height: 100vh;
-        background: #f8fafc;
-        background: #f2f5f4;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 32px 16px;
-      }
-
-      body.is-tab-mode .popup-card {
-        max-width: 420px;
-        background: #ffffff;
-        border-radius: 10px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 8px 24px rgba(27, 45, 54, 0.08);
-        padding: 40px 32px;
-      }
-
-      @media (min-width: 480px) {
-        body {
-          width: 100%;
-          min-height: 100vh;
-          background: #f8fafc;
-          background: #f2f5f4;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 32px 16px;
-        }
-
-        .popup-card {
-          max-width: 420px;
-          background: #ffffff;
-          border-radius: 10px;
-          border: 1px solid #e2e8f0;
-          box-shadow: 0 8px 24px rgba(27, 45, 54, 0.08);
-          padding: 40px 32px;
-        }
-      }
-
-      .header {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        margin-bottom: 20px;
-      }
-      .header img {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
-      }
-      .header h1 {
-        font-size: 24px;
-        font-weight: 800;
-        color: var(--color-primary-dark);
-        letter-spacing: -0.5px;
-      }
-
-      p {
-        font-size: 14px;
-        color: var(--color-text-light);
-        margin-bottom: 20px;
-        line-height: 1.4;
-      }
-
-      .hidden { display: none !important; }
-
-      label {
-        display: block;
-        text-align: left;
-        font-size: 12px;
-        font-weight: 700;
-        color: var(--color-text-light);
-        margin-bottom: 4px;
-      }
-      input {
-        width: 100%;
-        padding: 12px;
-        border: 2px solid var(--color-border);
-        border-radius: var(--radius);
-        font-family: inherit;
-        font-size: 14px;
-        margin-bottom: 12px;
-        outline: none;
-      }
-      input:focus { border-color: var(--color-secondary); }
-      input:focus-visible {
-        outline: 3px solid var(--color-secondary);
-        outline-offset: 2px;
-      }
-
-      .btn {
-        width: 100%;
-        padding: 14px;
-        border: none;
-        border-radius: var(--radius);
-        font-size: 15px;
-        font-weight: 700;
-        cursor: pointer;
-        font-family: inherit;
-        transition: background-color 0.16s ease, border-color 0.16s ease;
-      }
-      .btn:disabled { opacity: 0.6; cursor: wait; }
-
-      .btn-primary {
-        background-color: var(--color-primary);
-        color: white;
-        margin-bottom: 12px;
-      }
-      .btn-primary:hover { background-color: var(--color-primary-dark); }
-
-      .btn-secondary {
-        background-color: var(--color-secondary);
-        color: white;
-        margin-bottom: 12px;
-      }
-      .btn-secondary:hover { background-color: #0f536f; }
-
-      .btn-ghost {
-        background: none;
-        border: none;
-        color: var(--color-danger);
-        font-weight: 700;
-        font-size: 13px;
-        cursor: pointer;
-        font-family: inherit;
-      }
-
-      .error {
-        color: var(--color-danger);
-        font-size: 13px;
-        font-weight: 600;
-        margin-bottom: 12px;
-        min-height: 16px;
-      }
-
-      .user-chip {
-        display: inline-block;
-        background: rgba(88, 204, 2, 0.12);
-        color: var(--color-primary-dark);
-        border-radius: 4px;
-        padding: 6px 10px;
-        font-size: 13px;
-        font-weight: 700;
-        margin-bottom: 12px;
-        max-width: 100%;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .study-card {
-        width: 100%;
-        background: var(--color-surface);
-        border-top: 1px solid var(--color-border);
-        border-bottom: 1px solid var(--color-border);
-        padding: 14px 0;
-        margin-bottom: 16px;
-        text-align: left;
-      }
-      .study-card-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 10px;
-      }
-      .study-badge {
-        font-size: 11px;
-        font-weight: 700;
-        color: #1e293b;
-        background: transparent;
-        border-left: 3px solid var(--color-primary);
-        padding: 3px 8px;
-        border-radius: 0;
-      }
-      .streak-badge {
-        font-size: 11px;
-        font-weight: 700;
-        color: #ea580c;
-        background: transparent;
-        border-left: 3px solid #bd5b12;
-        padding: 3px 8px;
-        border-radius: 0;
-      }
-      .metrics-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        margin-bottom: 8px;
-      }
-      .metric-item {
-        background: transparent;
-        border: 0;
-        border-bottom: 1px solid #edf2f7;
-        border-radius: 0;
-        padding: 8px 0;
-        display: block;
-      }
-      .metric-info {
-        display: flex;
-        flex-direction: column;
-      }
-      .metric-label {
-        font-size: 10px;
-        font-weight: 700;
-        color: #64748b;
-        letter-spacing: 0.2px;
-      }
-      .metric-value {
-        font-size: 15px;
-        font-weight: 800;
-        color: #0f172a;
-      }
-      .cards-due-box {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        background: #f3f6f5;
-        border: 1px solid var(--color-border);
-        border-radius: 5px;
-        padding: 10px;
-        font-size: 12px;
-        color: #334155;
-      }
-
-      .tip {
-        font-size: 11px;
-        color: #afafaf;
-        margin-top: 20px;
-      }
-      button:focus-visible, input:focus-visible { outline: 3px solid var(--color-secondary); outline-offset: 3px; }
-      @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; } }
+      :root { --color-primary:#2052c4; --color-primary-dark:#183e96; --color-secondary:#2052c4; --color-danger:#a93232; --color-text:#18263b; --color-text-light:#627086; --color-border:#dcdedc; --color-bg:#fcfbf8; --color-surface:#fff; }
+      * { box-sizing:border-box; }
+      body { width:340px; margin:0; padding:26px 24px 22px; background:var(--color-bg); color:var(--color-text); font:14px/1.5 system-ui,sans-serif; }
+      .popup-card { width:100%; }
+      .header { padding-bottom:18px; border-bottom:1px solid var(--color-border); margin-bottom:18px; }
+      .header h1 { margin:0; font:400 29px/1.2 Georgia,serif; letter-spacing:-1px; }
+      .header p { margin:5px 0 0; font-size:12px; }
+      p { color:var(--color-text-light); }
+      .hidden { display:none!important; }
+      label { display:block; font-size:12px; margin-bottom:5px; }
+      input { width:100%; padding:12px; border:1px solid var(--color-border); border-radius:5px; font:inherit; margin-bottom:14px; background:var(--color-surface); color:var(--color-text); }
+      .btn { width:100%; min-height:46px; padding:12px 16px; border:1px solid transparent; border-radius:5px; font:600 14px system-ui,sans-serif; cursor:pointer; transition:background-color .15s,transform .1s; }
+      .btn-primary { background:var(--color-primary); color:#fff; margin-bottom:10px; }
+      .btn-primary:hover { background:var(--color-primary-dark); }
+      .btn-secondary { background:transparent; border-color:var(--color-border); color:var(--color-primary); }
+      .btn-secondary:hover { background:#e9eefb; }
+      .btn:active { transform:translateY(1px); }
+      .btn:disabled { opacity:.6; cursor:wait; }
+      .btn-ghost { background:none; border:0; color:var(--color-text-light); font:inherit; min-height:44px; cursor:pointer; padding:8px 0; }
+      .btn-ghost:hover { color:var(--color-danger); }
+      button:focus-visible,input:focus-visible { outline: 3px solid var(--color-secondary); outline-offset:3px; }
+      .error { color:var(--color-danger); font-size:13px; }
+      .user-chip { font-size:12px; color:var(--color-text-light); overflow-wrap:anywhere; margin-bottom:20px; }
+      .study-card { margin-bottom:22px; }
+      .study-card-header { display:flex; justify-content:space-between; gap:8px; font-size:12px; margin-bottom:16px; }
+      .study-badge { font-weight:600; }
+      .streak-badge { color:var(--color-text-light); }
+      .metrics-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; padding-bottom:18px; border-bottom:1px solid var(--color-border); }
+      .metric-info { display:flex; flex-direction:column; gap:7px; }
+      .metric-label { font-size:11px; color:var(--color-text-light); }
+      .metric-value { font:400 26px/1.2 Georgia,serif; }
+      .cards-due-box { padding-top:14px; font-size:13px; }
+      .tip { font-size:11px; border-top:1px solid var(--color-border); margin:14px 0 0; padding-top:14px; }
+      body.is-tab-mode { width:100%; min-height:100vh; display:grid; place-items:center; }
+      body.is-tab-mode .popup-card { max-width:380px; }
+      @media(prefers-reduced-motion:reduce) { * { transition:none!important; } }
     </style>
   </head>
   <body>
     <div class="popup-card">
       <div class="header">
-        <img src="../icon_full.png" alt="LF Logo" />
         <h1>LinguaFlow</h1>
+        <p>Seu inglês, em contexto.</p>
       </div>
 
       <!-- Estado: carregando -->
@@ -348,7 +100,7 @@
           </div>
         </div>
 
-        <p id="stats-text" class="hidden"></p>
+        <div id="stats-text" class="hidden" role="status" aria-live="polite"></div>
         <button id="btn-dash" class="btn btn-primary">Abrir dashboard</button>
         <button id="btn-logout" class="btn-ghost">Sair da conta</button>
       </div>

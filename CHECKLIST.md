@@ -274,3 +274,15 @@
 - [x] Alinhar versão do aplicativo, extensão e cache em 3.0.53.
 - [ ] Aplicar migration no Supabase remoto somente após revisão/CI.
 - [ ] Executar QA autenticada no preview da PR em desktop e celular.
+
+## 19. Issue #123 — Listening contínuo, tempo personalizado e popup
+
+- [x] Corrigir frações, atrasos curtos e dependência indevida de legendas.
+- [x] Idioma por faixa de áudio, confirmação manual quando desconhecido, nunca por legenda traduzida.
+- [x] Preservar fila por conta, idempotência e evidência de áudio.
+- [x] Duração personalizada 1–720 minutos com validação e erro recuperável.
+- [x] Popup editorial claro/azul, foco e movimento reduzido; QA visual com fixture local.
+- [x] Build 3.0.54, testes de regressão e pacote de extensão.
+- [x] PR #122 integrado; migration de histórias aplicada remotamente.
+- [ ] CI/replay SQL e merge #123; registrar resultado no PR.
+- [ ] QA autenticada com extensão instalada e faixa de áudio real nas plataformas.

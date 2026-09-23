@@ -11,6 +11,7 @@ const SUBTITLE_BRIDGE_TYPES = new Set([
   'LF_HBO_SUB',
   'LF_SUBTITLE_HOOK',
   'LF_PLAYER_STATE',
+  'LF_AUDIO_LANGUAGE',
   'LF_YT_SUB_TOGGLE',
 ]);
 const MAX_SUBTITLE_PAYLOAD_BYTES = 5 * 1024 * 1024;
@@ -34,6 +35,9 @@ export function isTrustedSubtitleBridgeMessage(event, bridgeState, currentUrl) {
     (domain) => currentHostname === domain || currentHostname.endsWith(`.${domain}`),
   );
 
+  if (data.type === 'LF_AUDIO_LANGUAGE') {
+    return isYouTube && (data.language === null || (typeof data.language === 'string' && /^[a-z]{2,3}(-[a-z0-9]{2,8})?$/.test(data.language)));
+  }
   if (data.type === 'LF_PLAYER_STATE') {
     return isYouTube && Number.isInteger(data.state) && data.state >= -1 && data.state <= 5;
   }
@@ -313,6 +317,7 @@ export class SubtitleEngine {
     this._listeningKey = '';
     this._listeningLanguage = null;
     this._listeningOwner = null;
+    this._listeningManual = false;
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState !== 'visible') void this._flushListeningInterval().catch(() => {});
     }, { signal:this._lifecycleController.signal });
@@ -330,24 +335,38 @@ export class SubtitleEngine {
           if (owner === this._listeningOwner) await this._flushListeningInterval();
           this._listeningClock = new ListeningClock();
           this._listeningLanguage = null;
+          this._listeningManual = false;
+          this._listeningTrack = undefined;
           this._listeningKey = key;
           this._listeningOwner = owner;
           const selector = document.querySelector('#lf-listening-language');
           if (selector) selector.value = '';
         }
+        if (this.platform === 'youtube') window.postMessage({ type:'LF_GET_AUDIO_LANGUAGE' }, location.origin);
         const audioTrack = Array.from(video?.audioTracks || []).find(track => track.enabled);
+        const nativeLanguage = String(audioTrack?.language || '').toLowerCase();
+        const bridgeLanguage = this._detectedAudio?.url === location.href && Date.now() - this._detectedAudio.at < 5000 ? this._detectedAudio.language : null;
+        const detected = /^[a-z]{2,3}(-[a-z0-9]{2,8})?$/.test(nativeLanguage) ? nativeLanguage.split('-')[0] : bridgeLanguage?.split('-')[0] || null;
         // A visible track change invalidates manual confirmation; captions never confirm audio.
-        const trackKey = audioTrack ? `${audioTrack.id}:${audioTrack.language}` : '';
-        if (this._listeningTrack !== undefined && this._listeningTrack !== trackKey) {
+        const trackKey = audioTrack ? `${audioTrack.id}:${audioTrack.language}` : detected || '';
+        if (this._listeningTrack && trackKey && this._listeningTrack !== trackKey) {
           await this._flushListeningInterval();
           this._listeningLanguage = null;
+          this._listeningManual = false;
           const selector = document.querySelector('#lf-listening-language');
           if (selector) selector.value = '';
         }
-        this._listeningTrack = trackKey;
+        if (trackKey) this._listeningTrack = trackKey;
+        if (!this._listeningManual && detected !== this._listeningLanguage) {
+          await this._flushListeningInterval();
+          this._listeningClock = new ListeningClock();
+          this._listeningLanguage = detected;
+        }
+        const selector = document.querySelector('#lf-listening-language');
+        if (selector) selector.value = this._listeningLanguage || '';
         this._listeningClock.sample({
-          key, language:owner ? this._listeningLanguage : null, now:Date.now(), time:Number(video?.currentTime || 0),
-          rate:Number(video?.playbackRate || 1), active:this.isActivated, visible:document.visibilityState === 'visible',
+          key, evidence:this._listeningManual ? 'user_confirmed' : 'audio_track', language:owner ? this._listeningLanguage : null, now:Date.now(), time:Number(video?.currentTime || 0),
+          rate:Number(video?.playbackRate || 1), active:!this._lifecycleController.signal.aborted, visible:document.visibilityState === 'visible' || (!!video && document.pictureInPictureElement === video),
           paused:!video || video.paused, ended:video?.ended, seeking:video?.seeking,
           muted:video?.muted, volume:video?.volume, readyState:video?.readyState || 0,
           ad:!!document.querySelector('.ad-showing, .ad-interrupting'),
@@ -376,7 +395,10 @@ export class SubtitleEngine {
       this._listeningSyncPending = true;
     } catch (error) {
       // Preserve unsaved data for the next sample; never reassign it to another account.
-      if (!this._listeningClock.pending) this._listeningClock.pending = interval;
+      const remainder = this._listeningClock.pending;
+      this._listeningClock.pending = remainder && remainder.key === measured.key
+        ? { ...measured, seconds:measured.seconds + remainder.seconds, endedAt:remainder.endedAt }
+        : measured;
       throw error;
     }
   }
@@ -612,6 +634,10 @@ export class SubtitleEngine {
       const bridgeState = window.__linguaFlowSubtitleBridge;
       if (!isTrustedSubtitleBridgeMessage(e, bridgeState, window.location.href)) return;
 
+      if (e.data.type === 'LF_AUDIO_LANGUAGE') {
+        this._detectedAudio = { language:e.data.language, url:location.href, at:Date.now() };
+        return;
+      }
       if (e.data.type === 'LF_HBO_SUB' || e.data.type === 'LF_SUBTITLE_HOOK') {
         let url = e.data.url || '';
         let resp = e.data.response || e.data.data;
@@ -2914,7 +2940,7 @@ export class SubtitleEngine {
     listeningControls.innerHTML = `<p id="lf-listening-status" role="status">Idioma não confirmado</p>
       <label>Idioma do áudio deste vídeo <select id="lf-listening-language" aria-label="Idioma do áudio deste vídeo">
       <option value="">Não confirmado</option><option value="en">Inglês</option><option value="pt">Português</option><option value="es">Espanhol</option><option value="fr">Francês</option><option value="de">Alemão</option><option value="it">Italiano</option><option value="ja">Japonês</option><option value="ko">Coreano</option></select></label>
-      <p style="margin:6px 0 0;font-size:11px;">Confirme o áudio que você está ouvindo. Se trocar a dublagem, atualize aqui. Legendas não determinam o idioma.</p>`;
+      <p style="margin:6px 0 0;font-size:11px;">Detectamos a faixa de áudio quando disponível. Se o idioma não aparecer, confirme aqui. Legendas não determinam o idioma.</p>`;
     listeningControls.querySelector('select').value = this._listeningLanguage || '';
     listeningControls.querySelector('select').addEventListener('change', async event => {
       try { await this._flushListeningInterval(); } catch {
@@ -2924,6 +2950,7 @@ export class SubtitleEngine {
       }
       this._listeningClock = new ListeningClock();
       this._listeningLanguage = event.target.value || null;
+      this._listeningManual = !!this._listeningLanguage;
     }, { signal:panelAbort.signal });
     const closeBtn = header.querySelector('#lf-close-panel');
     closeBtn.onclick = closePanel;

@@ -225,3 +225,14 @@ Fixture local (`npm run dev`) usa módulos reais com banco simulado fail-closed;
 - Histórias possui atalhos na Home e criação por nível, duração e objetivo. A geração web e da extensão compartilha o mesmo contrato.
 - `stories` passa a guardar nível solicitado/medido, duração, objetivo, modo, validação e versão do prompt pela migration `20260923175407_story_generation_contract.sql`.
 - Build alinhado em `3.0.53`. A migration permanece somente no repositório até revisão/CI; não foi aplicada remotamente.
+
+## 2026-09-23 — Issue #123 / listening e popup / 3.0.54
+
+- PR #122 foi integrado ao main remoto (33b15de). Migration de histórias aplicada ao projeto Supabase e colunas verificadas nesta sessão.
+- Listening preserva frações entre flushes, aceita pequenos atrasos do timer com avanço compatível, não depende da visibilidade das legendas e aceita PiP. Pausa, mute, anúncios, seek e grandes lacunas não geram crédito. Intervalos fracionados respeitam duração e não se sobrepõem; resto subsegundo após pausa longa é descartado para não bloquear sincronização.
+- Idioma automático vem de audioTracks ou da faixa selecionada exposta pelo player YouTube, por bridge validada. Legenda traduzida/configuração do aluno não confirma idioma. Plataforma sem metadados requer confirmação manual; não há reconhecimento de voz ou custo de IA. QA com extensão instalada nos players reais ainda pendente.
+- Supabase: migration aditiva de evidência audio_track preserva autenticação, idempotência, isolamento e rejeição de duração inflada. Aplicar após CI verde, antes de disponibilizar novo cliente. Rollback: reverter cliente, manter schema compatível e dados.
+- Home aceita 1–720 minutos inteiros personalizados com validação, foco, teclado, erro recuperável e aviso de soma ao total. Popup segue fundo marfim, azul, tipografia editorial e foco/reduced-motion.
+- Testes: regressões RED→GREEN para atraso, frações e duração SQL; retry preserva ID/evidência; duração manual inválida não escreve. Release passou todos os contratos; smoke isolado com --allow-dirty passou (gate inicial recusou árvore suja). Biome, Knip (avisos existentes), pacote extensão passaram. Replay Postgres local indisponível; CI executa replay completo com testes SQL de áudio/anti-duplicação/autorização.
+- Browser real com fixtures locais: popup 340px inspecionado; formulário validou 0, aceitou 27 e apresentou erro simulado sem perder entrada. Dados sintéticos, sem login/gravações reais. Fixture popup usa JS real e mocks fail-closed. Não equivale a teste fim a fim com YouTube/Max.
+- Operação: investigar se contador tem idioma, se fila fica pendente e se período é rejeitado. Estados no vídeo + eventos estruturados existentes interval_failed/sync_pending (código, sem conteúdo/URL/PII) ajudam diagnóstico; não há dashboard de métricas/traces de produção novo nesta entrega.

@@ -10,9 +10,17 @@ http.createServer(async(req,res)=>{try{
  if(url.searchParams.has('mobile')){
   res.writeHead(200,{'Content-Type':'text/html'});res.end('<!doctype html><html><body style="margin:0;background:#ddd"><iframe title="Mobile preview" src="/?view=study" style="width:390px;height:844px;border:0"></iframe></body></html>');return;
  }
+ if(name==='/__popup-frame'){
+  res.writeHead(200,{'Content-Type':'text/html'});res.end('<!doctype html><html><body style="margin:0;background:#ddd"><iframe title="Popup preview" src="/__popup" style="width:340px;height:610px;border:0"></iframe></body></html>');return;
+ }
+ if(name==='/__popup'){
+  let html=await readFile(path.join(root,'popup/popup.html'),'utf8');
+  html=html.replace('<head>','<head><base href="/popup/">').replace('src="popup.js"','src="/tests/fixtures/popup-preview.js"');
+  res.writeHead(200,{'Content-Type':'text/html','Cache-Control':'no-store'});res.end(html);return;
+ }
  if(name==='/'||name==='/__preview'){
   let html=await readFile(path.join(root,'dashboard/dashboard.html'),'utf8');
-  html=html.replace('<head>','<head><base href="/dashboard/">').replace('<script type="module" src="js/core/app.js?v=3.0.53"></script>','<script type="module" src="/tests/fixtures/editorial-preview.js?v=3.0.53"></script>');
+  html=html.replace('<head>','<head><base href="/dashboard/">').replace('<script type="module" src="js/core/app.js?v=3.0.54"></script>','<script type="module" src="/tests/fixtures/editorial-preview.js?v=3.0.54"></script>');
   res.writeHead(200,{'Content-Type':'text/html','Cache-Control':'no-store'});res.end(html);return;
  }
  const file=path.resolve(root,'.'+name);

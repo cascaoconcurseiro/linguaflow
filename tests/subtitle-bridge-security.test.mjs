@@ -56,6 +56,13 @@ const toggle = { ...base, data: { type: 'LF_YT_SUB_TOGGLE', nonce: state.nonce, 
 assert.equal(isTrustedSubtitleBridgeMessage(toggle, state, window.location.href), true);
 assert.equal(isTrustedSubtitleBridgeMessage({ ...toggle, data: { ...toggle.data, active: 0 } }, state, window.location.href), false);
 
+const audioMessage = { ...base, data: { type:'LF_AUDIO_LANGUAGE', nonce:state.nonce, pageUrl:window.location.href, language:'en-US'.toLowerCase() } };
+assert.equal(isTrustedSubtitleBridgeMessage(audioMessage, state, window.location.href), true);
+assert.equal(isTrustedSubtitleBridgeMessage({ ...audioMessage, data:{ ...audioMessage.data, language:null } }, state, window.location.href), true);
+for (const patch of [{nonce:'forged'},{pageUrl:'https://www.youtube.com/watch?v=old'},{language:'English'},{language:{code:'en'}}]) {
+  assert.equal(isTrustedSubtitleBridgeMessage({ ...audioMessage, data:{ ...audioMessage.data, ...patch } }, state, window.location.href), false);
+}
+
 window.location.href = 'https://play.max.com/video/title';
 window.location.origin = 'https://play.max.com';
 const maxState = { nonce: 'b'.repeat(48), url: window.location.href };
@@ -73,4 +80,4 @@ const maxMessage = {
 assert.equal(isTrustedSubtitleBridgeMessage(maxMessage, maxState, window.location.href), true);
 assert.equal(isTrustedSubtitleBridgeMessage({ ...maxMessage, data: { ...maxMessage.data, url: 'https://cdn.max.com/video.mp4' } }, maxState, window.location.href), false);
 
-console.log('20 testes de segurança do canal de legendas passaram — tudo verde ✅');
+console.log('26 testes de segurança do canal de legendas passaram — tudo verde ✅');

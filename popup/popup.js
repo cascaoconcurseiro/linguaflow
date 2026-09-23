@@ -31,6 +31,7 @@ async function renderLoggedIn() {
   // Cards devidos
   const statsText = document.getElementById('stats-text');
   if (new URLSearchParams(window.location.search).get('login') === '1') {
+    statsText.classList.remove('hidden');
     statsText.innerHTML = `
       <div style="margin: 8px 0 16px;">
         <span style="display:block; color:var(--color-primary-dark); font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; margin-bottom:8px;">Tudo pronto</span>
@@ -81,8 +82,7 @@ async function renderLoggedIn() {
       listeningTodayEl.textContent = studyStats.listening.todayFormatted || '0m';
     }
     if (listeningTotalEl && studyStats?.listening) {
-      const totalHours = studyStats.listening.totalHours || 0;
-      listeningTotalEl.textContent = totalHours >= 1 ? `${totalHours}h` : (studyStats.listening.totalFormatted || '0m');
+      listeningTotalEl.textContent = studyStats.listening.totalFormatted || '0m';
     }
 
     // Streak
@@ -166,6 +166,9 @@ async function openDashboard() {
     if (!result?.ok) throw new Error(result?.error || 'Não foi possível abrir o LinguaFlow.');
     window.close();
   } catch (error) {
+    const status = document.getElementById('stats-text');
+    status.classList.remove('hidden');
+    status.textContent = 'Não foi possível abrir o painel. Tente novamente.';
     console.warn('[Popup] Falha ao abrir o site:', error);
   }
 }

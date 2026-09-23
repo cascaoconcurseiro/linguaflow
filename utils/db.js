@@ -1483,6 +1483,7 @@ class Database {
     const userId = await this.getCurrentUserId();
     if (!userId || interval.accountId !== userId) throw new Error('Sessão do contador mudou. Confirme o idioma novamente.');
     if (!UUID_PATTERN.test(interval.id) || !Number.isInteger(interval.seconds) || interval.seconds < 1 || interval.seconds > 60
+      || !['user_confirmed', 'audio_track'].includes(interval.evidence || 'user_confirmed')
       || !/^[a-z]{2,3}(-[a-z0-9]{2,8})?$/.test(interval.language || '')) throw new Error('Intervalo de listening inválido.');
     const save = async () => {
       const key = `lf_listening_queue_v1:${userId}`;
@@ -1513,7 +1514,7 @@ class Database {
           if (Date.now() - Date.parse(item.startedAt) < 7 * 86400000) await this._fetch('rpc/record_listening_interval', { method:'POST', signal:AbortSignal.timeout(12000), body:{
             p_event_id:item.id, p_account_id:userId, p_seconds:item.seconds,
             p_started_at:item.startedAt, p_ended_at:item.endedAt,
-            p_language:item.language, p_date:item.date, p_evidence:'user_confirmed',
+            p_language:item.language, p_date:item.date, p_evidence:item.evidence || 'user_confirmed',
           }});
         } catch (error) {
           console.warn('[Listening] sync_pending', { code:error.code || error.kind || 'network' });
@@ -1660,7 +1661,8 @@ class Database {
     if (!validSkills.includes(safeSkill)) {
       throw new Error(`Habilidade de estudo inválida: ${skill}`);
     }
-    const safeMinutes = Math.max(1, Math.min(720, Math.round(Number(minutes) || 0)));
+    const safeMinutes = Number(minutes);
+    if (!Number.isInteger(safeMinutes) || safeMinutes < 1 || safeMinutes > 720) throw new Error('Informe de 1 a 720 minutos inteiros.');
     const safeDate = date || localDateKey();
     const safeLang = String(language || 'en').toLowerCase().trim();
 

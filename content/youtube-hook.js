@@ -189,7 +189,17 @@
     window.addEventListener('message', (e) => {
         if (e.origin !== window.location.origin || e.source !== window) return;
         if (!e.data || typeof e.data !== 'object') return;
-        if (e.data.type === 'LF_PRELOAD_SUBTITLES') {
+        if (e.data.type === 'LF_GET_AUDIO_LANGUAGE') {
+            // Selected audio, not captions or the learner's configured language.
+            const player = document.getElementById('movie_player');
+            let language = null;
+            try {
+                const track = player?.getAudioTrack?.();
+                const candidate = String(track?.languageCode || track?.language || track?.id?.split('.')[0] || '').toLowerCase();
+                if (/^[a-z]{2,3}(-[a-z0-9]{2,8})?$/.test(candidate)) language = candidate;
+            } catch { /* The platform may not expose the selected track. */ }
+            postBridgeMessage({ type:'LF_AUDIO_LANGUAGE', language });
+        } else if (e.data.type === 'LF_PRELOAD_SUBTITLES') {
             preloadFullSubtitleTrack();
         } else if (e.data.type === 'LF_SET_SOURCE_LANG' && typeof e.data.sourceLang === 'string') {
             if (currentSourceLang !== e.data.sourceLang) preloadedVideoKey = '';

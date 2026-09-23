@@ -1275,6 +1275,7 @@ function showLogStudyModal(db, app, sourceLang = 'en', onSaved) {
     const existing = document.getElementById('log-study-modal-overlay');
     if (existing) existing.remove();
 
+    const previousFocus = document.activeElement;
     let selectedSkill = 'reading';
     let selectedMinutes = 30;
 
@@ -1282,13 +1283,13 @@ function showLogStudyModal(db, app, sourceLang = 'en', onSaved) {
     modalOverlay.id = 'log-study-modal-overlay';
     modalOverlay.className = 'modal-overlay';
     modalOverlay.innerHTML = `
-        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modal-study-title">
+        <div class="modal-content" style="max-height:calc(100dvh - 32px);overflow-y:auto;" role="dialog" aria-modal="true" aria-labelledby="modal-study-title">
             <div class="modal-header">
-                <h3 class="modal-title" id="modal-study-title">Registrar Estudo Externo</h3>
-                <button type="button" id="btn-close-modal" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--color-text-light);">✕</button>
+                <h3 class="modal-title" id="modal-study-title">Registrar tempo de estudo</h3>
+                <button type="button" id="btn-close-modal" aria-label="Fechar registro de estudo" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--color-text-light);">✕</button>
             </div>
 
-            <p style="font-size:13px; color:var(--color-text-light); margin:0;">Adicione minutos estudados fora da extensão para controle total das suas horas.</p>
+            <p style="font-size:13px; color:var(--color-text-light); margin:0;">Adicione estudo externo ou apenas os minutos que o contador não registrou. O valor será somado ao total.</p>
 
             <div>
                 <label style="font-size:12px; font-weight:800; color:var(--color-text); display:block; margin-bottom:8px;">Habilidade:</label>
@@ -1316,6 +1317,9 @@ function showLogStudyModal(db, app, sourceLang = 'en', onSaved) {
                     <button type="button" class="btn-duration-chip" data-min="45">45m</button>
                     <button type="button" class="btn-duration-chip" data-min="60">1h</button>
                 </div>
+                <label for="manual-study-minutes" style="display:block;margin-top:14px;">Minutos personalizados</label>
+                <input id="manual-study-minutes" type="number" inputmode="numeric" min="1" max="720" step="1" value="30" required style="width:100%;padding:12px;margin-top:6px;" aria-describedby="manual-study-error">
+                <p id="manual-study-error" role="alert" style="color:var(--color-danger);margin-top:8px;"></p>
             </div>
 
             <button type="button" class="btn btn-primary" id="btn-save-manual-study" style="padding:14px; font-size:15px; font-weight:800; margin-top:6px;">
@@ -1339,17 +1343,29 @@ function showLogStudyModal(db, app, sourceLang = 'en', onSaved) {
             modalOverlay.querySelectorAll('.btn-duration-chip').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             selectedMinutes = Number(btn.dataset.min);
+            modalOverlay.querySelector('#manual-study-minutes').value = selectedMinutes;
         });
     });
 
+    modalOverlay.querySelector('#manual-study-minutes').addEventListener('input', () => {
+        modalOverlay.querySelectorAll('.btn-duration-chip').forEach(b => b.classList.toggle('active', Number(b.dataset.min) === Number(modalOverlay.querySelector('#manual-study-minutes').value)));
+    });
     const close = () => {
         document.removeEventListener('keydown', onKeyDown);
         modalOverlay.remove();
+        if (previousFocus?.isConnected) previousFocus.focus();
     };
     const onKeyDown = (e) => {
         if (e.key === 'Escape') close();
+        if (e.key === 'Tab') {
+            const controls = [...modalOverlay.querySelectorAll('button:not(:disabled), input:not(:disabled)')];
+            const first = controls[0], last = controls[controls.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        }
     };
     document.addEventListener('keydown', onKeyDown);
+    modalOverlay.querySelector('#btn-close-modal').focus();
     modalOverlay.querySelector('#btn-close-modal').addEventListener('click', close);
     modalOverlay.addEventListener('click', (e) => {
         if (e.target === modalOverlay) close();
@@ -1357,10 +1373,20 @@ function showLogStudyModal(db, app, sourceLang = 'en', onSaved) {
 
     modalOverlay.querySelector('#btn-save-manual-study').addEventListener('click', async () => {
         const btn = modalOverlay.querySelector('#btn-save-manual-study');
+        if (btn.disabled) return;
+        const input = modalOverlay.querySelector('#manual-study-minutes');
+        selectedMinutes = Number(input.value);
+        if (!Number.isInteger(selectedMinutes) || selectedMinutes < 1 || selectedMinutes > 720) {
+            modalOverlay.querySelector('#manual-study-error').textContent = 'Informe de 1 a 720 minutos inteiros.';
+            input.focus();
+            return;
+        }
+        modalOverlay.querySelector('#manual-study-error').textContent = '';
         btn.disabled = true;
         btn.textContent = 'Salvando…';
         try {
-            if (db?.logManualStudy) {
+            if (!db?.logManualStudy) throw new Error('Registro indisponível');
+            {
                 await db.logManualStudy({
                     skill: selectedSkill,
                     minutes: selectedMinutes,
@@ -1373,6 +1399,7 @@ function showLogStudyModal(db, app, sourceLang = 'en', onSaved) {
         } catch (e) {
             btn.disabled = false;
             btn.textContent = 'Salvar estudo';
+            modalOverlay.querySelector('#manual-study-error').textContent = 'Erro ao salvar estudo. Tente novamente.';
             app?.showToast?.('Erro ao salvar estudo. Tente novamente.', 'error');
         }
     });

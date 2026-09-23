@@ -28,13 +28,19 @@ begin
     perform public.record_listening_interval('11800000-0000-4000-8000-000000000013',auth.uid(),60,start_at,finish_at,'en',current_date,'user_confirmed');
     raise exception 'inflated duration accepted';
   exception when invalid_parameter_value then null; end;
+  result:=public.record_listening_interval('11800000-0000-4000-8000-000000000030',auth.uid(),5,start_at-interval '10 seconds',start_at-interval '5 seconds','en',current_date,'audio_track');
+  if (result->>'credited_seconds')::int <> 5 then raise exception 'audio evidence not credited'; end if;
+  begin
+    perform public.record_listening_interval('11800000-0000-4000-8000-000000000031',auth.uid(),5,start_at-interval '20 seconds',start_at-interval '15 seconds','en',current_date,'captions');
+    raise exception 'caption evidence accepted';
+  exception when invalid_parameter_value then null; end;
   issue:=public.issue_fluency_task('11800000-0000-4000-8000-000000000020','listening','A1');
   if length(public.get_fluency_listening_text((issue->>'id')::uuid)) < 10 then raise exception 'missing stimulus'; end if;
   perform set_config('lf.test_issue',issue->>'id',true);
 end $$;
 reset role;
 do $$ begin
-  if (select seconds from public.sessions where user_id='11800000-0000-4000-8000-000000000001' and date=current_date and source='video' and language='en') <> 10 then raise exception 'aggregate duplicated'; end if;
+  if (select seconds from public.sessions where user_id='11800000-0000-4000-8000-000000000001' and date=current_date and source='video' and language='en') <> 15 then raise exception 'aggregate duplicated'; end if;
 end $$;
 select set_config('request.jwt.claim.sub','11800000-0000-4000-8000-000000000002',true);
 set local role authenticated;

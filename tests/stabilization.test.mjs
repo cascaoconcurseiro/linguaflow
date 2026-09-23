@@ -36,3 +36,19 @@ test('issued tasks reach the real submission contract and retain IDs on retry',a
  await assert.rejects(adapter.submit(records),/temporary/);const savedPayload=JSON.stringify(sent[0]);await adapter.submit(records);
  assert.equal(JSON.stringify(sent[1]),savedPayload);assert.equal(sent[0].p_response.choice,1);assert.equal(sent[0].p_issue_id,ids[0]);
 });
+
+test('custom study minutes reach the RPC exactly; invalid durations never write',async()=>{
+ const d=makeDb();const writes=[];d._fetch=async(path,opts)=>{writes.push({path,body:opts.body});return {ok:true};};
+ for(const minutes of ['',0,-1,1.5,721,NaN])await assert.rejects(d.logManualStudy({skill:'listening',minutes,language:'en'}));
+ assert.equal(writes.length,0);await d.logManualStudy({skill:'listening',minutes:27,language:'en'});
+ assert.equal(writes[0].path,'rpc/log_manual_study');assert.equal(writes[0].body.p_minutes,27);assert.equal(writes[0].body.p_language,'en');
+});
+test('listening queue preserves audio evidence through an idempotent retry',async()=>{
+ const d=makeDb();const storage=new Map();d.getCurrentUserId=async()=> '12300000-0000-4000-8000-000000000001';
+ d._draftStorage=async(op,key,value)=>op==='get'?structuredClone(storage.get(key)):storage.set(key,structuredClone(value));
+ const sent=[];let fail=true;d._fetch=async(_,opts)=>{sent.push(opts.body);if(fail)throw new Error('offline');return {credited_seconds:10};};
+ const interval={id:'12300000-0000-4000-8000-000000000002',accountId:await d.getCurrentUserId(),seconds:10,language:'en',evidence:'audio_track',startedAt:new Date(Date.now()-20000).toISOString(),endedAt:new Date(Date.now()-10000).toISOString(),date:'2026-09-23'};
+ await d.enqueueListeningInterval(interval);await d.drainListeningQueue();fail=false;await d.drainListeningQueue();
+ assert.equal(sent.at(-1).p_evidence,'audio_track');assert.deepEqual(sent[0],sent.at(-1));assert.equal([...storage.values()][0].length,0);
+ await assert.rejects(d.enqueueListeningInterval({...interval,evidence:'captions'}));
+});

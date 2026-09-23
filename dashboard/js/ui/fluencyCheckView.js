@@ -5,7 +5,7 @@ const FLUENCY_STEPS = Object.freeze([
   {
     id: 'listening',
     skill: 'listening',
-    title: 'Escuta inédita',
+    title: 'Compreensão de escuta',
     instruction: 'Ouça a mensagem sem legenda e escolha a ideia principal.',
     taskType: 'unseen_listening',
     taskFamily: 'short-message',
@@ -31,15 +31,8 @@ const FLUENCY_STEPS = Object.freeze([
   },
 ]);
 
-const LISTENING_STIMULUS = 'The meeting starts at half past three, but please arrive ten minutes early.';
-const LISTENING_OPTIONS = Object.freeze([
-  ['ten', 'A reunião começa às dez.'],
-  ['early', 'É preciso chegar dez minutos antes da reunião.'],
-  ['cancelled', 'A reunião foi cancelada.'],
-]);
-
 const SKILL_LABELS = Object.freeze({
-  listening: 'Escuta inédita',
+  listening: 'Compreensão de escuta',
   writing: 'Escrita funcional',
   interaction: 'Interação',
 });
@@ -72,8 +65,11 @@ function normalizeAnswers(value) {
 export function createFluencyDataAdapter(db) {
   if (db?.fluencyCheckAdapter) return db.fluencyCheckAdapter;
 
+  let ownerId = null;
   return {
     async load() {
+      ownerId = await db.getCurrentUserId();
+      if (!ownerId) throw new Error('Entre na conta para iniciar o check.');
       const [latest, draft] = await Promise.all([
         typeof db?.getLatestLearningTaskAttempt === 'function'
           ? db.getLatestLearningTaskAttempt()
@@ -86,7 +82,7 @@ export function createFluencyDataAdapter(db) {
     },
     async saveDraft(draft) {
       if (typeof db?.saveFluencyCheckDraft === 'function') {
-        await db.saveFluencyCheckDraft(draft);
+        await db.saveFluencyCheckDraft(draft, ownerId);
       }
     },
     async clearDraft() {
@@ -94,15 +90,14 @@ export function createFluencyDataAdapter(db) {
         await db.clearFluencyCheckDraft();
       }
     },
+    async issue(skill, level, clientId) {
+      if (await db.getCurrentUserId() !== ownerId) throw new Error('A conta mudou. Reabra o check.');
+      return db.issueFluencyTask(skill, level, clientId);
+    },
+    async audio(issueId) { return db.getFluencyListeningText(issueId); },
     async submit(records) {
-      if (typeof db?.submitFluencyCheck === 'function') {
-        return db.submitFluencyCheck(records);
-      }
-      if (typeof db?.recordLearningTaskAttempt !== 'function') {
-        throw new Error('O registro do check ainda não está disponível.');
-      }
-      return Promise.all(records.map(({ clientAttemptId, attempt }) =>
-        db.recordLearningTaskAttempt(attempt, clientAttemptId)));
+      if (await db.getCurrentUserId() !== ownerId) throw new Error('A conta mudou. Reabra o check.');
+      return db.submitFluencyCheck(records);
     },
   };
 }
@@ -139,11 +134,11 @@ function renderProgress(stepIndex) {
     </div>`;
 }
 
-function renderIntroduction(hasDraft) {
+function renderIntroduction(hasDraft, targetLevel = 'A2') {
   return `
     <main class="fluency-check-page" data-fluency-screen="introduction" aria-labelledby="fluency-check-title">
       <header class="fluency-check-header">
-        <p class="product-kicker">EVIDÊNCIA DE USO REAL</p>
+        <p class="product-kicker">AMOSTRA DE COMUNICAÇÃO</p>
         <h1 id="fluency-check-title" tabindex="-1">Check de comunicação</h1>
         <p>Três tarefas curtas observam o que você compreende e produz fora da revisão de cartões.</p>
       </header>
@@ -155,6 +150,10 @@ function renderIntroduction(hasDraft) {
           <li>Esta amostra não altera FSRS, XP, ofensiva ou liga.</li>
           <li>Uma tentativa isolada não atribui um nível global de fluência.</li>
         </ul>
+        <label for="fluency-target-level">Dificuldade das tarefas (não é um diagnóstico de nível)</label>
+        <select id="fluency-target-level" ${hasDraft ? 'disabled' : ''}>${['A1','A2','B1','B2'].map(level => `<option ${level === targetLevel ? 'selected' : ''}>${level}</option>`).join('')}</select>
+        <p class="fluency-help">Suas respostas serão armazenadas de forma privada e enviadas ao serviço de IA para avaliação. Evite incluir dados pessoais.</p>
+        <p role="status" id="fluency-prepare-status"></p>
         <div class="fluency-task-actions">
           <button class="btn btn-outline" type="button" data-fluency-exit>Voltar ao Progresso</button>
           <button class="btn btn-primary" type="button" data-fluency-start>${hasDraft ? 'Continuar check' : 'Começar check'}</button>
@@ -163,7 +162,7 @@ function renderIntroduction(hasDraft) {
     </main>`;
 }
 
-function renderListening(answers) {
+function renderListening(answers, issue) {
   return `
     <fieldset class="fluency-fieldset">
       <legend>Qual é a informação mais importante da mensagem?</legend>
@@ -171,8 +170,9 @@ function renderListening(answers) {
         Ouvir mensagem
       </button>
       <p class="fluency-help">Você pode ouvir até duas vezes. Cada reprodução fica registrada como ajuda.</p>
+      <p class="fluency-audio-status" role="status" aria-live="polite"></p>
       <div class="fluency-options">
-        ${LISTENING_OPTIONS.map(([value, label]) => `
+        ${(issue.material.options || []).map((label, index) => [String(index), label]).map(([value, label]) => `
           <label>
             <input type="radio" name="fluency-listening" value="${value}" ${answers.listening.choice === value ? 'checked' : ''}>
             <span>${escapeHtml(label)}</span>
@@ -181,35 +181,35 @@ function renderListening(answers) {
     </fieldset>`;
 }
 
-function renderWriting(answers) {
+function renderWriting(answers, issue) {
   return `
     <fieldset class="fluency-fieldset">
-      <legend>Você vai chegar atrasado a um encontro. Avise a pessoa, explique brevemente e proponha um novo horário.</legend>
+      <legend>${escapeHtml(issue.material.instruction)}</legend>
       <label for="fluency-writing">Sua mensagem em inglês</label>
       <textarea id="fluency-writing" name="fluency-writing" rows="7" minlength="20" aria-describedby="fluency-writing-help">${escapeHtml(answers.writing)}</textarea>
-      <p id="fluency-writing-help" class="fluency-help">Mínimo de 20 caracteres. A resposta livre não é armazenada no registro de evidência.</p>
+      <p id="fluency-writing-help" class="fluency-help">Mínimo de 20 caracteres. Sua resposta será armazenada de forma privada para avaliação.</p>
     </fieldset>`;
 }
 
-function renderInteraction(answers) {
+function renderInteraction(answers, issue) {
   return `
     <fieldset class="fluency-fieldset">
-      <legend>Uma reserva foi registrada para o dia errado. Resolva a troca em dois turnos.</legend>
-      <div class="fluency-dialogue-prompt"><strong>Atendente:</strong> I have your reservation for Thursday. Is that correct?</div>
+      <legend>${escapeHtml(issue.material.instruction)}</legend>
+      <div class="fluency-dialogue-prompt"><strong>Objetivo:</strong> ${escapeHtml(issue.material.objective || issue.target_descriptor)}</div>
       <label for="fluency-interaction-first">Sua primeira resposta em inglês</label>
       <textarea id="fluency-interaction-first" rows="4" minlength="10">${escapeHtml(answers.interaction.first)}</textarea>
-      <div class="fluency-dialogue-prompt"><strong>Atendente:</strong> Sorry, did you mean Tuesday morning or Tuesday evening?</div>
-      <label for="fluency-interaction-clarification">Esclareça o horário em inglês</label>
+      <div class="fluency-dialogue-prompt"><strong>Atendente:</strong> Please clarify your request and confirm the details.</div>
+      <label for="fluency-interaction-clarification">Esclareça os detalhes em inglês</label>
       <textarea id="fluency-interaction-clarification" rows="4" minlength="10">${escapeHtml(answers.interaction.clarification)}</textarea>
       <p class="fluency-help">Esta é uma interação guiada por texto. Ela não substitui evidência de conversa oral.</p>
     </fieldset>`;
 }
 
-function renderTask(stepIndex, answers, errorMessage = '') {
+function renderTask(stepIndex, answers, issues, errorMessage = '') {
   const step = FLUENCY_STEPS[stepIndex];
-  const body = step.id === 'listening' ? renderListening(answers)
-    : step.id === 'writing' ? renderWriting(answers)
-      : renderInteraction(answers);
+  const body = step.id === 'listening' ? renderListening(answers, issues.listening)
+    : step.id === 'writing' ? renderWriting(answers, issues.writing)
+      : renderInteraction(answers, issues.interaction);
   return `
     <main class="fluency-check-page" data-fluency-screen="task" aria-labelledby="fluency-task-title">
       ${renderProgress(stepIndex)}
@@ -217,7 +217,7 @@ function renderTask(stepIndex, answers, errorMessage = '') {
         <header>
           <p class="product-kicker">${escapeHtml(SKILL_LABELS[step.skill])}</p>
           <h1 id="fluency-task-title" tabindex="-1">${escapeHtml(step.title)}</h1>
-          <p>${escapeHtml(step.instruction)}</p>
+          <p>${escapeHtml(issues[step.id].material.instruction)}</p>
         </header>
         ${body}
         <p class="fluency-validation" role="alert" tabindex="-1" ${errorMessage ? '' : 'hidden'}>${escapeHtml(errorMessage)}</p>
@@ -235,7 +235,7 @@ function renderReview(answers) {
       <header class="fluency-check-header">
         <p class="product-kicker">REVISÃO</p>
         <h1 id="fluency-review-title" tabindex="-1">Confira antes de registrar</h1>
-        <p>As respostas livres não são enviadas no registro de evidência; apenas presença, extensão e uso de ajuda.</p>
+        <p>As respostas serão enviadas ao servidor e ao serviço de IA para avaliação. Elas ficam privadas à sua conta; este check não avalia fala oral.</p>
       </header>
       <ol class="fluency-review-list">
         ${FLUENCY_STEPS.map((step) => `
@@ -257,8 +257,8 @@ function renderResult(answers) {
     <main class="fluency-check-page" data-fluency-screen="result" aria-labelledby="fluency-result-title">
       <header class="fluency-check-header">
         <p class="product-kicker">AMOSTRA REGISTRADA</p>
-        <h1 id="fluency-result-title" tabindex="-1">Seu resultado permanece por habilidade</h1>
-        <p>Este check registra participação e prepara avaliação posterior. Ele não certifica um nível global.</p>
+        <h1 id="fluency-result-title" tabindex="-1">Amostras avaliadas por habilidade</h1>
+        <p>As tarefas foram registradas e avaliadas no servidor. Esta amostra não certifica um nível global.</p>
       </header>
       <section class="fluency-result-grid" aria-label="Evidência por habilidade">
         ${FLUENCY_STEPS.map((step) => {
@@ -266,7 +266,7 @@ function renderResult(answers) {
           return `
             <article class="fluency-skill-result">
               <h2>${escapeHtml(step.title)}</h2>
-              <p>${available ? 'Amostra inicial registrada; avaliação de competência ainda pendente.' : `${escapeHtml(step.title)}: ainda sem evidência.`}</p>
+              <p>${available ? 'Amostra avaliada. Uma única tarefa não confirma competência geral.' : `${escapeHtml(step.title)}: ainda sem evidência.`}</p>
             </article>`;
         }).join('')}
       </section>
@@ -277,51 +277,18 @@ function renderResult(answers) {
     </main>`;
 }
 
-function responseLength(stepId, answers) {
-  if (stepId === 'listening') return answers.listening.choice ? 1 : 0;
-  if (stepId === 'writing') return answers.writing.trim().length;
-  return answers.interaction.first.trim().length + answers.interaction.clarification.trim().length;
-}
-
-function buildAttemptRecords(answers, attemptIds, startedAt) {
-  const occurredAt = new Date().toISOString();
-  return FLUENCY_STEPS.map((step) => {
-    const completed = isStepComplete(step.id, answers);
-    const evidence = {
-      task_family: step.taskFamily,
-      valid: false,
-      invalidation_reason: completed ? 'client_only_unevaluated' : 'no_response',
-      response_length: responseLength(step.id, answers),
-      turn_count: step.id === 'interaction' ? 2 : 1,
-      stimulus_id: `weekly-check-v1-${step.id}`,
-    };
+export function buildAttemptRecords(answers, attemptIds, startedAt, issues) {
+  return FLUENCY_STEPS.map(step => {
+    const issue = issues[step.id];
+    if (!issue?.id) throw new Error('Tarefa do servidor indisponível.');
+    const response = step.id === 'listening'
+      ? { choice:Number(answers.listening.choice), selected_option:issue.material.options[Number(answers.listening.choice)] }
+      : step.id === 'writing' ? { text:answers.writing.trim() }
+        : { turns:[answers.interaction.first.trim(), answers.interaction.clarification.trim()], mode:'guided_text' };
     return {
-      clientAttemptId: attemptIds[step.id],
-      attempt: {
-        task_key: `weekly-check-v1-${step.id}`,
-        task_type: step.taskType,
-        skill: step.skill,
-        target_descriptor: step.descriptor,
-        target_level: null,
-        prompt_version: 'client-static-v1',
-        evaluator_version: 'client-completion-v1',
-        evaluation_authority: 'client',
-        authoritative: false,
-        stimulus_unseen: step.id === 'listening',
-        assistance_used: {
-          replay_count: step.id === 'listening' ? answers.listening.replayCount : 0,
-          preparation_seconds: 0,
-        },
-        response_time_ms: Math.min(3_600_000, Math.max(0, Date.now() - startedAt)),
-        task_completion: completed ? 1 : 0,
-        comprehensibility: null,
-        accuracy: null,
-        fluency: null,
-        lexical_range: null,
-        overall_score: null,
-        evidence,
-        occurred_at: occurredAt,
-      },
+      issueId:issue.id, clientSubmissionId:attemptIds[step.id], response,
+      assistanceUsed:{replay_count:step.id === 'listening' ? answers.listening.replayCount : 0, guided_text:step.id === 'interaction'},
+      responseTimeMs:Math.min(3_600_000, Math.max(0,Date.now()-startedAt)),
     };
   });
 }
@@ -340,6 +307,10 @@ export async function renderFluencyCheck(container, app) {
   let attemptIds = Object.fromEntries(FLUENCY_STEPS.map((step) => [step.id, createClientAttemptId()]));
   let startedAt = Date.now();
   let submitting = false;
+  let issues = {};
+  let issueIds = Object.fromEntries(FLUENCY_STEPS.map(step => [step.id,createClientAttemptId()]));
+  let targetLevel = 'A2';
+  let frozenRecords = null;
 
   const stopMedia = () => {
     stopAudio();
@@ -353,21 +324,48 @@ export async function renderFluencyCheck(container, app) {
 
   const saveDraft = () => {
     adapter.saveDraft({
-      version: 1,
+      version: 2,
+      issues, issueIds, targetLevel, frozenRecords,
       stepIndex,
       answers,
       attemptIds,
       startedAt,
       completed: false,
-    }).catch(() => {});
+    }).catch(() => { app.showToast?.('Não foi possível salvar a continuidade do check. Mantenha esta tela aberta.', 'error'); });
   };
 
   const drawIntroduction = (hasDraft = false) => {
     if (!active) return;
-    container.innerHTML = renderIntroduction(hasDraft);
+    container.innerHTML = renderIntroduction(hasDraft, targetLevel);
     focusScreen(container);
     container.querySelector('[data-fluency-exit]')?.addEventListener('click', () => app.navigate?.('progress'));
-    container.querySelector('[data-fluency-start]')?.addEventListener('click', () => drawTask());
+    container.querySelector('[data-fluency-start]')?.addEventListener('click', async event => {
+      const button = event.currentTarget; button.disabled = true;
+      targetLevel = container.querySelector('#fluency-target-level').value;
+      const status = container.querySelector('#fluency-prepare-status');
+      status.textContent = 'Buscando tarefas do servidor…';
+      try {
+        // Persist IDs before issuing: retries must not consume another unseen task.
+        await adapter.saveDraft({version:2,issues,issueIds,targetLevel,answers,attemptIds,startedAt,stepIndex,frozenRecords});
+        for (const step of FLUENCY_STEPS) {
+          if (!issues[step.id]) {
+            issues[step.id] = await adapter.issue(step.skill,targetLevel,issueIds[step.id]);
+            await adapter.saveDraft({version:2,issues,issueIds,targetLevel,answers,attemptIds,startedAt,stepIndex,frozenRecords});
+          }
+        }
+        if (!active) return;
+        if (Object.values(issues).some(issue=>Date.parse(issue.expires_at) <= Date.now())) {
+          status.textContent = 'Este check expirou. Suas respostas continuam salvas. Volte ao Progresso para iniciar outro check.';
+          const restart = document.createElement('button'); restart.className='btn btn-outline'; restart.textContent='Descartar este check e começar outro';
+          restart.onclick=async()=>{await adapter.clearDraft(); if(active) await renderFluencyCheck(container,app);};status.append(restart);return;
+        }
+        if (frozenRecords) drawReview(); else drawTask();
+      } catch (error) {
+        if (!active) return;
+        status.textContent = /fluency_task_not_available/.test(error.message) ? 'Não há outra tarefa inédita disponível nesta dificuldade. Tente novamente em outro momento.' : 'Não foi possível preparar as tarefas. Tente novamente.';
+        button.disabled = false;
+      }
+    });
   };
 
   const updateAnswersFromDom = () => {
@@ -391,7 +389,9 @@ export async function renderFluencyCheck(container, app) {
 
     let completed = false;
     try {
-      completed = await playNaturalAudio(LISTENING_STIMULUS, { lang: 'en-US', rate: 0.9 });
+      const stimulus = await adapter.audio(issues.listening.id);
+      if (!active) return;
+      completed = await playNaturalAudio(stimulus, { lang: 'en-US', rate: 1 });
     } catch {
       completed = false;
     }
@@ -403,6 +403,7 @@ export async function renderFluencyCheck(container, app) {
       saveDraft();
       button.disabled = false;
       button.textContent = 'Tentar ouvir novamente';
+      container.querySelector('.fluency-audio-status').textContent = 'O áudio não foi reproduzido. Nenhuma tentativa foi consumida. Tente novamente.';
       return;
     }
 
@@ -414,7 +415,7 @@ export async function renderFluencyCheck(container, app) {
   const drawTask = (errorMessage = '') => {
     if (!active) return;
     stopMedia();
-    container.innerHTML = renderTask(stepIndex, answers, errorMessage);
+    container.innerHTML = renderTask(stepIndex, answers, issues, errorMessage);
     focusScreen(container);
 
     container.querySelector('[data-fluency-listen]')?.addEventListener('click', (event) => startListening(event.currentTarget));
@@ -430,6 +431,7 @@ export async function renderFluencyCheck(container, app) {
     });
     container.querySelector('[data-fluency-next]')?.addEventListener('click', () => {
       updateAnswersFromDom();
+      if (FLUENCY_STEPS[stepIndex].id === 'listening' && answers.listening.replayCount === 0) { drawTask('Ouça a mensagem antes de responder.'); return; }
       if (!isStepComplete(FLUENCY_STEPS[stepIndex].id, answers)) {
         drawTask('Conclua esta etapa ou use a opção disponível para continuar sem evidência.');
         container.querySelector('.fluency-validation')?.focus();
@@ -449,8 +451,10 @@ export async function renderFluencyCheck(container, app) {
     if (!active) return;
     stopMedia();
     container.innerHTML = renderReview(answers);
+    if (frozenRecords) container.querySelector('[data-fluency-review-back]').disabled = true;
     focusScreen(container);
     container.querySelector('[data-fluency-review-back]')?.addEventListener('click', () => {
+      if (frozenRecords) return;
       stepIndex = FLUENCY_STEPS.length - 1;
       drawTask();
     });
@@ -464,7 +468,10 @@ export async function renderFluencyCheck(container, app) {
       button.textContent = 'Registrando…';
       status.textContent = 'Registrando sua amostra sem alterar revisão ou placar.';
       try {
-        await adapter.submit(buildAttemptRecords(answers, attemptIds, startedAt));
+        frozenRecords ||= buildAttemptRecords(answers, attemptIds, startedAt, issues);
+        await adapter.saveDraft({version:2,issues,issueIds,targetLevel,answers,attemptIds,startedAt,stepIndex,frozenRecords});
+        container.querySelector('[data-fluency-review-back]').disabled = true;
+        await adapter.submit(frozenRecords);
         await adapter.clearDraft();
         if (!active) return;
         drawResult();
@@ -496,14 +503,16 @@ export async function renderFluencyCheck(container, app) {
   try {
     const loaded = await adapter.load();
     if (!active) return;
-    if (loaded?.draft?.version === 1) {
+    if (loaded?.draft?.version === 2) {
+      issues = loaded.draft.issues || {}; issueIds = {...issueIds,...loaded.draft.issueIds};
+      targetLevel = loaded.draft.targetLevel || 'A2'; frozenRecords = loaded.draft.frozenRecords || null;
       stepIndex = Math.min(FLUENCY_STEPS.length - 1, Math.max(0, Number(loaded.draft.stepIndex) || 0));
       answers = normalizeAnswers(loaded.draft.answers);
       attemptIds = { ...attemptIds, ...loaded.draft.attemptIds };
       startedAt = Number(loaded.draft.startedAt) || startedAt;
     }
     container.setAttribute('aria-busy', 'false');
-    drawIntroduction(!!loaded?.draft);
+    drawIntroduction(loaded?.draft?.version === 2);
   } catch {
     if (!active) return;
     container.setAttribute('aria-busy', 'false');

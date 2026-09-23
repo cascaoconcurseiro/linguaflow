@@ -64,7 +64,7 @@ assert.match(
 );
 assert.match(
   view,
-  /await playNaturalAudio\(LISTENING_STIMULUS,\s*\{\s*lang:\s*'en-US',\s*rate:\s*0\.9\s*\}\)/,
+  /await playNaturalAudio\(stimulus,\s*\{\s*lang:\s*'en-US',\s*rate:\s*1\s*\}\)/,
   'estímulo de escuta usa Google TTS natural com idioma e velocidade explícitos',
 );
 assert.match(view, /completed = await playNaturalAudio/);
@@ -76,9 +76,9 @@ assert.doesNotMatch(view, /speechSynthesis\.speak/);
 assert.match(view, /app\.onLeaveView/);
 assert.match(view, /if \(submitting\) return/);
 assert.match(view, /function normalizeAnswers\(/);
-assert.match(view, /recordLearningTaskAttempt/);
-assert.match(view, /evaluation_authority:\s*'client'/);
-assert.match(view, /authoritative:\s*false/);
+assert.match(view, /db\.issueFluencyTask/);
+assert.match(view, /db\.submitFluencyCheck/);
+assert.doesNotMatch(view, /client-completion-v1|weekly-check-v1/);
 assert.doesNotMatch(view, /autoplay/i);
 assert.doesNotMatch(view, /Você é [AB][12]/i);
 assert.doesNotMatch(view, /microfone será solicitado|Começar gravação|Fala espontânea/);

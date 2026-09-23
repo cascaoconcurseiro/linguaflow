@@ -1,13 +1,4 @@
-// levelEstimator.js — nível CEFR MEDIDO pelo histórico real do aluno (A6).
-// Prova de 4 minutos é o que se faz quando não há dados; depois de 50
-// tentativas reais, o review_log sabe mais que qualquer teste. Espelho do
-// selo honesto das histórias (readability.js), agora para a pessoa.
-//
-// Régua: banda mais ALTA com ≥ MIN_BAND_ATTEMPTS tentativas e ≥ RETENTION
-// de acerto, exigindo continuidade (não pula buraco — mesma régua do
-// scorePlacement). Total < MIN_TOTAL_ATTEMPTS ⇒ null (o teste prevalece).
-// C2 não é estimável por vocabulário (wordlist para em C1 aproximado).
-
+// Lexical review summary only. Never a measured CEFR proficiency level.
 const BANDS = ['A1', 'A2', 'B1', 'B2', 'C1'];
 const MIN_TOTAL_ATTEMPTS = 50;
 const MIN_BAND_ATTEMPTS = 10;
@@ -53,5 +44,5 @@ export function estimateLevelFromHistory(reviewLog, cards, words, cefrMap) {
       break; // sem dado suficiente na banda: não pula buraco
     }
   }
-  return { level, total, stats };
+  return { level: null, lexicalBand: level, total, stats };
 }

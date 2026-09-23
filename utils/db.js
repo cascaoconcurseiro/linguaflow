@@ -162,7 +162,7 @@ class Database {
     if (!token) {
        console.warn('[DB] Sessão Supabase não encontrada. Operação cancelada:', endpoint);
        const error = classifyRequestError(new Error('Sessão expirada. Entre novamente para continuar.'), 401);
-       if ((options.method || 'GET').toUpperCase() !== 'GET') throw error;
+       if (options.throwOnReadError || (options.method || 'GET').toUpperCase() !== 'GET') throw error;
        return null;
     }
 
@@ -208,7 +208,7 @@ class Database {
       // (word-popup mostra erro, handleGrade loga, backfill pula a palavra).
       // Leituras seguem retornando null (views tratam como vazio).
       const method = (options.method || 'GET').toUpperCase();
-      if (method !== 'GET') throw e;
+      if (options.throwOnReadError || method !== 'GET') throw e;
       // Leitura falhou: retorna null (views tratam como vazio) MAS avisa a UI
       // — "nenhuma palavra" quando na verdade a rede caiu era mentira na tela.
       if (typeof window !== 'undefined') {
@@ -311,6 +311,8 @@ class Database {
 
   async logout() {
     if (this.isProxyMode) return this._proxy('logout', []);
+    this._authGeneration = (this._authGeneration || 0) + 1;
+    await this.clearFluencyCheckDraft();
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       chrome.storage.local.remove('lf_supabase_session');
     }
@@ -1469,6 +1471,60 @@ class Database {
     return data || [];
   }
 
+  async enqueueListeningInterval(interval) {
+    if (this.isProxyMode) return this._proxy('enqueueListeningInterval', [interval]);
+    const userId = await this.getCurrentUserId();
+    if (!userId || interval.accountId !== userId) throw new Error('Sessão do contador mudou. Confirme o idioma novamente.');
+    if (!UUID_PATTERN.test(interval.id) || !Number.isInteger(interval.seconds) || interval.seconds < 1 || interval.seconds > 60
+      || !/^[a-z]{2,3}(-[a-z0-9]{2,8})?$/.test(interval.language || '')) throw new Error('Intervalo de listening inválido.');
+    const save = async () => {
+      const key = `lf_listening_queue_v1:${userId}`;
+      const queue = await this._draftStorage('get', key) || [];
+      if (!queue.some(item => item.id === interval.id)) {
+        if (queue.length >= 2000) throw new Error('Fila de listening cheia. Reconecte para sincronizar.');
+        queue.push(interval);
+        await this._draftStorage('set', key, queue);
+      }
+    };
+    const write = (this._listeningWrite || Promise.resolve()).then(save);
+    this._listeningWrite = write.catch(() => {});
+    await write;
+    void this.drainListeningQueue().catch(() => {});
+    return { pending: true };
+  }
+
+  async drainListeningQueue() {
+    if (this._listeningDrain) return this._listeningDrain;
+    this._listeningDrain = (async () => {
+      const userId = await this.getCurrentUserId();
+      if (!userId) return { pending: true };
+      const key = `lf_listening_queue_v1:${userId}`;
+      const queue = await this._draftStorage('get', key) || [];
+      for (const item of queue) {
+        if (await this.getCurrentUserId() !== userId) return { pending: true };
+        try {
+          if (Date.now() - Date.parse(item.startedAt) < 7 * 86400000) await this._fetch('rpc/record_listening_interval', { method:'POST', signal:AbortSignal.timeout(12000), body:{
+            p_event_id:item.id, p_account_id:userId, p_seconds:item.seconds,
+            p_started_at:item.startedAt, p_ended_at:item.endedAt,
+            p_language:item.language, p_date:item.date, p_evidence:'user_confirmed',
+          }});
+        } catch (error) {
+          console.warn('[Listening] sync_pending', { code:error.code || error.kind || 'network' });
+          return { pending: true };
+        }
+        const remove = async () => {
+          const current = await this._draftStorage('get', key) || [];
+          await this._draftStorage('set', key, current.filter(row => row.id !== item.id));
+        };
+        const write = (this._listeningWrite || Promise.resolve()).then(remove);
+        this._listeningWrite = write.catch(() => {});
+        await write;
+      }
+      return { pending: (await this._draftStorage('get', key) || []).length > 0 };
+    })().finally(() => { this._listeningDrain = null; });
+    return this._listeningDrain;
+  }
+
   async logSession(seconds, platform, language = 'en') {
     if (this.isProxyMode) return this._proxy('logSession', [seconds, platform, language]);
     const date = localDateKey();
@@ -1504,19 +1560,23 @@ class Database {
     if (this.isProxyMode) return this._proxy('getStudyStats', [language]);
     const lang = String(language || 'en').toLowerCase().trim();
     const today = localDateKey();
-    const sessions = await this.getSessions(365);
+    const sessions = await this.getSessions(null);
 
+    let unclassifiedSeconds = 0;
     let listeningToday = 0;
     let listeningTotal = 0;
     let cardsToday = 0;
     let cardsTotal = 0;
     let readingToday = 0;
     let readingTotal = 0;
+    let writingToday = 0;
+    let writingTotal = 0;
     let speakingToday = 0;
     let speakingTotal = 0;
 
     for (const s of sessions) {
-      const sLang = String(s.language || 'en').toLowerCase().trim();
+      const sLang = String(s.language || 'und').toLowerCase().trim();
+      if (sLang === 'und') unclassifiedSeconds += Math.max(0, Number(s.seconds) || 0);
       if (sLang !== lang) continue;
       const sec = Math.max(0, Number(s.seconds) || 0);
       const isToday = s.date === today;
@@ -1531,18 +1591,22 @@ class Database {
       } else if (src === 'reader' || src === 'manual_reading') {
         readingTotal += sec;
         if (isToday) readingToday += sec;
+      } else if (src === 'manual_writing') {
+        writingTotal += sec;
+        if (isToday) writingToday += sec;
       } else if (src === 'manual_speaking') {
         speakingTotal += sec;
         if (isToday) speakingToday += sec;
       }
     }
 
-    const totalSecondsToday = listeningToday + cardsToday + readingToday + speakingToday;
-    const totalSecondsAllTime = listeningTotal + cardsTotal + readingTotal + speakingTotal;
+    const totalSecondsToday = listeningToday + cardsToday + readingToday + speakingToday + writingToday;
+    const totalSecondsAllTime = listeningTotal + cardsTotal + readingTotal + speakingTotal + writingTotal;
     const totalHoursFloat = (totalSecondsAllTime / 3600).toFixed(1);
 
     return {
       language: lang,
+      unclassified: { totalSeconds:unclassifiedSeconds, totalFormatted:this.formatStudyTime(unclassifiedSeconds) },
       listening: {
         todaySeconds: listeningToday,
         totalSeconds: listeningTotal,
@@ -1561,6 +1625,10 @@ class Database {
         totalSeconds: readingTotal,
         todayFormatted: this.formatStudyTime(readingToday),
         totalFormatted: this.formatStudyTime(readingTotal),
+      },
+      writing: {
+        todaySeconds: writingToday, totalSeconds: writingTotal,
+        todayFormatted: this.formatStudyTime(writingToday), totalFormatted: this.formatStudyTime(writingTotal),
       },
       speaking: {
         todaySeconds: speakingToday,
@@ -1606,14 +1674,20 @@ class Database {
     if (value === 'reader') return 'reader';
     if (value === 'review' || value === 'study') return 'review';
     if (value === 'pwa' || value === 'web') return 'pwa';
-    if (this.isChromeContext && /youtube|netflix|disney|prime|video/.test(value)) return 'video';
+    if (this.isChromeContext && /youtube|netflix|disney|prime|video|^max$|hbo/.test(value)) return 'video';
     return this.isChromeContext ? 'extension' : 'pwa';
   }
 
   async getSessions(days = 30) {
     if (this.isProxyMode) return this._proxy('getSessions', [days]);
-    const minDate = localDateKey(addLocalDays(-(Math.max(1, days) - 1)));
-    return (await this._fetch(`sessions?date=gte.${minDate}`)) || [];
+    const filter = days === null ? '' : `date=gte.${localDateKey(addLocalDays(-(Math.max(1, days) - 1))) }&`;
+    const rows = [];
+    for (let offset = 0; ; offset += 1000) {
+      const page = await this._fetch(`sessions?${filter}order=date.asc,id.asc&limit=1000&offset=${offset}`, { throwOnReadError: true });
+      if (!Array.isArray(page)) throw new Error('Não foi possível carregar o tempo de estudo.');
+      rows.push(...page);
+      if (page.length < 1000) return rows;
+    }
   }
 
   async getReaderTexts() {
@@ -1850,6 +1924,12 @@ class Database {
     });
   }
 
+  async getFluencyListeningText(issueId) {
+    if (this.isProxyMode) return this._proxy('getFluencyListeningText', [issueId]);
+    if (!UUID_PATTERN.test(issueId)) throw new Error('Tarefa inválida.');
+    return this._fetch('rpc/get_fluency_listening_text', { method:'POST', body:{p_issue_id:issueId} });
+  }
+
   async submitFluencyTask(
     issueId,
     response,
@@ -1932,36 +2012,52 @@ class Database {
     return (await this._fetch(`fluency_skill_profiles?select=${select}&order=skill.asc`)) || [];
   }
 
-  async getFluencyCheckDraft() {
+  async _draftStorage(operation, key, value) {
     if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-      return await new Promise((resolve) => {
-        chrome.storage.local.get(FLUENCY_DRAFT_KEY, result => resolve(result[FLUENCY_DRAFT_KEY] || null));
+      return new Promise((resolve, reject) => {
+        const callback = result => {
+          if (chrome.runtime?.lastError) reject(new Error(chrome.runtime.lastError.message));
+          else resolve(operation === 'get' ? result?.[key] || null : null);
+        };
+        chrome.storage.local[operation](operation === 'set' ? { [key]: value } : key, callback);
       });
     }
-    try {
-      const raw = globalThis.localStorage?.getItem(FLUENCY_DRAFT_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
+    if (operation === 'remove') globalThis.localStorage?.removeItem(key);
+    if (operation === 'set') globalThis.localStorage?.setItem(key, JSON.stringify(value));
+    if (operation === 'get') {
+      try { return JSON.parse(globalThis.localStorage?.getItem(key) || 'null'); } catch { return null; }
     }
+    return null;
   }
 
-  async saveFluencyCheckDraft(draft) {
-    const value = { ...draft, savedAt: new Date().toISOString() };
-    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-      await new Promise(resolve => chrome.storage.local.set({ [FLUENCY_DRAFT_KEY]: value }, resolve));
-    } else {
-      globalThis.localStorage?.setItem(FLUENCY_DRAFT_KEY, JSON.stringify(value));
+  async getFluencyCheckDraft() {
+    await this._draftStorage('remove', FLUENCY_DRAFT_KEY); // Unowned legacy answers cannot be migrated safely.
+    const userId = await this.getCurrentUserId();
+    if (!userId) return null;
+    const value = await this._draftStorage('get', `${FLUENCY_DRAFT_KEY}:${userId}`);
+    if (await this.getCurrentUserId() !== userId) return null;
+    return value?.ownerId === userId ? value : null;
+  }
+
+  async saveFluencyCheckDraft(draft, expectedUserId = null) {
+    const generation = this._authGeneration || 0;
+    const userId = await this.getCurrentUserId();
+    if (!userId || (expectedUserId && userId !== expectedUserId)) throw new Error('A conta mudou. Reabra o check.');
+    const value = { ...draft, ownerId: userId, savedAt: new Date().toISOString() };
+    const key = `${FLUENCY_DRAFT_KEY}:${userId}`;
+    if (generation !== (this._authGeneration || 0)) throw new Error('Sessão encerrada.');
+    await this._draftStorage('set', key, value);
+    if (generation !== (this._authGeneration || 0) || await this.getCurrentUserId() !== userId) {
+      await this._draftStorage('remove', key);
+      throw new Error('A conta mudou. Reabra o check.');
     }
     return value;
   }
 
   async clearFluencyCheckDraft() {
-    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-      await new Promise(resolve => chrome.storage.local.remove(FLUENCY_DRAFT_KEY, resolve));
-    } else {
-      globalThis.localStorage?.removeItem(FLUENCY_DRAFT_KEY);
-    }
+    const userId = await this.getCurrentUserId();
+    await this._draftStorage('remove', FLUENCY_DRAFT_KEY);
+    if (userId) await this._draftStorage('remove', `${FLUENCY_DRAFT_KEY}:${userId}`);
   }
 
   async getFluencyCheckStatus() {

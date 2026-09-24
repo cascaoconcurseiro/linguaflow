@@ -914,7 +914,7 @@ export class SubtitleEngine {
     document.getElementById('lf-subtitle-panel')?.remove();
 
     // Atualiza a UI das legendas preservando o estado de ativação do usuário
-    await this._injectSubtitleUI();
+    await this._injectSubtitleUI(true);
     if (!this._isNavigationCurrent(navigation)) return;
     this.toggleSubtitles(this.isActivated);
     this._hboAutoEnableTried = false;
@@ -1190,7 +1190,21 @@ export class SubtitleEngine {
   }
 
   // ── UI de Legendas (Shadow DOM) ──────────────────────────────────────────
-  async _injectSubtitleUI() {
+  async _injectSubtitleUI(force = false) {
+    // Captions, video discovery and SPA navigation can request the mount at once.
+    // Share the in-flight mount so one caller cannot remove another's shadow root.
+    if (this._subtitleUiPending) await this._subtitleUiPending;
+    if (!force && this.shadowContainer?.host === document.getElementById('linguaflow-subtitle-host')) return;
+    const pending = this._createSubtitleUI();
+    this._subtitleUiPending = pending;
+    try {
+      await pending;
+    } finally {
+      if (this._subtitleUiPending === pending) this._subtitleUiPending = null;
+    }
+  }
+
+  async _createSubtitleUI() {
     // Remove instâncias anteriores (hot-reload)
     document.getElementById('linguaflow-subtitle-host')?.remove();
 

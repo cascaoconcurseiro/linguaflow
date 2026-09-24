@@ -195,5 +195,12 @@ assert.match(hboInjectSource, /contentType\.includes\('text\/vtt'\)/, 'hbo-injec
 const engineSource = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
 assert.match(engineSource, /targetRoot = document\.fullscreenElement \|\| document\.body/, 'subtitle-engine deve anexar host no targetRoot em fullscreen');
 assert.match(engineSource, /existing\.translatedText = nc\.translatedText/, 'subtitle-engine não deve sobrescrever traduções existentes ao mesclar cues');
+assert.match(engineSource, /aria-label="Fechar roteiro do vídeo"/);
+assert.match(engineSource, /setAttribute\('role', 'tablist'\)/);
+assert.match(engineSource, /aria-label="Buscar no roteiro do vídeo"/);
+assert.match(engineSource, /lf-panel-search-status/);
+assert.match(engineSource, /setTimeout\(\(\) => this\._filterSubtitleList\(e\.target\.value\), 140\)/);
+assert.match(engineSource, /item\.setAttribute\('role', 'button'\)/);
+assert.match(engineSource, /item\.onkeydown/);
 
 console.log('Max/HBO player UI contracts passed.');

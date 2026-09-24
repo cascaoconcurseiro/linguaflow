@@ -2024,19 +2024,81 @@ class Database {
   async _draftStorage(operation, key, value) {
     if (typeof chrome !== 'undefined' && chrome.storage?.local) {
       return new Promise((resolve, reject) => {
-        const callback = result => {
-          if (chrome.runtime?.lastError) reject(new Error(chrome.runtime.lastError.message));
-          else resolve(operation === 'get' ? result?.[key] || null : null);
+        const execute = (isRetry = false) => {
+          if (operation === 'set') {
+            chrome.storage.local.set({ [key]: value }, () => {
+              if (chrome.runtime?.lastError) {
+                const message = chrome.runtime.lastError.message || '';
+                if (!isRetry && /quota|kQuotaBytes|exceeded/i.test(message)) {
+                  this._evictDisposableStorage()
+                    .then(() => execute(true))
+                    .catch(() => reject(new Error(message)));
+                  return;
+                }
+                reject(new Error(message));
+              } else {
+                resolve(null);
+              }
+            });
+            return;
+          }
+
+          const callback = result => {
+            if (chrome.runtime?.lastError) reject(new Error(chrome.runtime.lastError.message));
+            else resolve(operation === 'get' ? result?.[key] || null : null);
+          };
+          chrome.storage.local[operation](key, callback);
         };
-        chrome.storage.local[operation](operation === 'set' ? { [key]: value } : key, callback);
+
+        execute(false);
       });
     }
     if (operation === 'remove') globalThis.localStorage?.removeItem(key);
-    if (operation === 'set') globalThis.localStorage?.setItem(key, JSON.stringify(value));
+    if (operation === 'set') {
+      try {
+        globalThis.localStorage?.setItem(key, JSON.stringify(value));
+      } catch (err) {
+        if (/quota|exceeded/i.test(err?.name || err?.message || '')) {
+          try {
+            const keysToRemove = [];
+            for (let i = 0; i < (globalThis.localStorage?.length || 0); i++) {
+              const k = globalThis.localStorage.key(i);
+              if (k && (k.startsWith('lf_tr:') || /^[a-z]{2,5}:[a-z]{2,5}:/.test(k))) {
+                keysToRemove.push(k);
+              }
+            }
+            keysToRemove.forEach(k => globalThis.localStorage.removeItem(k));
+            globalThis.localStorage?.setItem(key, JSON.stringify(value));
+            return;
+          } catch {
+            throw err;
+          }
+        }
+        throw err;
+      }
+    }
     if (operation === 'get') {
       try { return JSON.parse(globalThis.localStorage?.getItem(key) || 'null'); } catch { return null; }
     }
     return null;
+  }
+
+  async _evictDisposableStorage() {
+    if (typeof chrome === 'undefined' || !chrome.storage?.local) return;
+    return new Promise((resolve) => {
+      chrome.storage.local.get(null, (items) => {
+        if (chrome.runtime?.lastError || !items) return resolve();
+        const disposable = Object.keys(items).filter(k =>
+          k.startsWith('linguee_') ||
+          k.startsWith('reverso_') ||
+          k.startsWith('lf_tr:') ||
+          /^[a-z]{2,5}:[a-z]{2,5}:/.test(k) ||
+          k === 'lastYoutubeSubtitleUrls'
+        );
+        if (disposable.length === 0) return resolve();
+        chrome.storage.local.remove(disposable, () => resolve());
+      });
+    });
   }
 
   async getFluencyCheckDraft() {

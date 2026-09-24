@@ -1,3 +1,13 @@
+## Issue #135 · Layout vertical compacto, auto-atualização do PWA e versão 3.0.55 (2026-09-24)
+
+- [x] Organizar "Trecho original" e "Ouvir em outros contextos" em coluna vertical compacta de 340px, devolvendo espaço para o card principal.
+- [x] Implementar acordeom compacto para Trecho original que exibe apenas cabeçalho/resumo e expande o vídeo no clique.
+- [x] Conter altura máxima da gaveta lateral (`--study-grading-dock-height`) impedindo que ultrapasse os botões de classificação.
+- [x] Pausar áudio/vídeo imediatamente ao fechar o acordeom de Trecho original ou gaveta de Entender melhor.
+- [x] Sincronizar versão 3.0.55 em todo o repositório, aplicar cache busting `v=115` no CSS e revalidação de rotas no Vercel.
+- [x] Limpar caches legados do PWA e ativar atualizações automaticamente via worker no cliente.
+- [x] Contratos e release smoke 100% verdes; CI verde e deploy publicado na Vercel.
+
 ## Issue #125 · simplificação da lateral de estudo e correção de sobreposição da barra (2026-09-24)
 
 - [x] Remover seções intermediárias redundantes da lateral do card ("Sentido nesta frase", "Blocos úteis", mnemônicos e chat).

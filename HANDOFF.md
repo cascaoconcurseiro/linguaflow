@@ -1,3 +1,17 @@
+## Issue #135 — Layout vertical compacto de aprofundamento, auto-atualização do PWA e versão 3.0.55 (2026-09-24)
+
+- **PR:** #136 (mesclado em `main` `8e9cc43`).
+- **Problema resolvido:**
+  - A disposição lado a lado de "Trecho original" e "Ouvir em outros contextos" ocupava excessivo espaço horizontal e espremia o card principal de estudo.
+  - Usuários com Service Worker ativo continuavam retidos em versões de cache antigas mesmo com `Ctrl + Shift + R`, devido à ausência de bump no `CACHE_NAME`, ao cache imutável de 1 ano no Vercel para CSS e à falta de ativação imediata do novo worker.
+- **Mudanças realizadas:**
+  - **Layout vertical em coluna única (340px):** "Trecho original" posicionado acima de "Ouvir em outros contextos", com divisor horizontal sutil e respiro total devolvido ao card principal.
+  - **Acordeom compacto de Trecho original:** Inicia recolhido exibindo apenas kicker ("OUVIR NO CONTEXTO"), título e descrição, expandindo os controles do vídeo somente ao ser clicado pelo usuário.
+  - **Contenção estrita de altura:** `.study-explore` configurado com `max-height: calc(100dvh - 100px - var(--study-grading-dock-height, 140px))` e `overflow-y: auto`, garantindo que conteúdos expandidos nunca passem por cima ou por trás dos botões de classificação.
+  - **Pausa automática de áudio/vídeo:** Fechar o acordeom de Trecho original ou a gaveta de Entender melhor pausa instantaneamente qualquer player em reprodução.
+  - **Cache Busting e Auto-atualização PWA (3.0.55):** Sincronização de versão para 3.0.55, bump de `editorial.css` para `?v=115`, cabeçalho `must-revalidate` para rotas HTML no `vercel.json` e auto-skipWaiting no cliente.
+- **Validação:** Testes em `tests/study-lateral-side-by-side-and-pause.test.mjs`, `tests/multimodal-study-hours.test.mjs`, suíte completa e release smoke 100% verdes; CI no GitHub Actions verde e deploy publicado na Vercel.
+
 ## Issue #132 — Recursos de áudio lado a lado e pausa de vídeo ao fechar (2026-09-24)
 
 - **PR:** #133 (mesclado em `main` `adee245`).

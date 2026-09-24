@@ -359,7 +359,8 @@ export class SubtitleEngine {
         // An actual audio-track switch invalidates manual confirmation. ASR alone
         // never overrides the learner's selection.
         const trackKey = audioTrack ? `${audioTrack.id}:${audioTrack.language}` : evidence === 'audio_track' ? detected : '';
-        if (this._listeningTrack && trackKey && this._listeningTrack !== trackKey) {
+        if (trackKey && ((this._listeningTrack && this._listeningTrack !== trackKey)
+          || (this._listeningManual && !this._listeningTrack && this._listeningLanguage !== detected))) {
           await this._flushListeningInterval();
           this._listeningLanguage = null;
           this._listeningManual = false;

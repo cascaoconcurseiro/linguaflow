@@ -110,23 +110,15 @@ if (fs.existsSync(zipPath)) {
   fs.unlinkSync(zipPath);
 }
 
-// Usa tar -a -c -f (suportado nativamente no Windows 10/11 e Linux) ou powershell como fallback
-try {
-  execFileSync('tar', ['-a', '-c', '-f', zipPath, '.'], {
-    cwd: stagingDir,
-    stdio: 'ignore',
-  });
-} catch {
-  // Fallback para PowerShell no Windows
-  if (process.platform === 'win32') {
-    execFileSync('powershell.exe', [
-      '-NoProfile',
-      '-Command',
-      `Compress-Archive -Path "${stagingDir}/*" -DestinationPath "${zipPath}" -Force`
-    ]);
-  } else {
-    execFileSync('zip', ['-r', zipPath, '.'], { cwd: stagingDir });
-  }
+// GNU tar does not infer ZIP from the filename on Linux. Create a real ZIP.
+if (process.platform === 'win32') {
+  execFileSync('powershell.exe', [
+    '-NoProfile',
+    '-Command',
+    `Compress-Archive -Path "${stagingDir}/*" -DestinationPath "${zipPath}" -Force`,
+  ]);
+} else {
+  execFileSync('zip', ['-qr', zipPath, '.'], { cwd: stagingDir });
 }
 
 const stats = fs.statSync(zipPath);

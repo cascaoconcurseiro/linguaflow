@@ -1,4 +1,5 @@
 import { ListeningClock } from '../utils/listening-clock.js';
+import { groupCaptionEvents, attachTranslationsByTime } from '../utils/caption-grouping.js';
 import { localDateKey } from '../utils/local-day.js';
 import { expressionsDB } from '../utils/expressions-db.js';
 import { matchExpressionCandidate } from '../utils/expressions-db.js';
@@ -597,15 +598,9 @@ export class SubtitleEngine {
       }
     }, 1000);
 
-    // Observer para esconder legenda nativa (YouTube altera o DOM frequentemente)
+    // Keep the official captions visible until our source-language cues exist.
     if (this.platform === 'youtube') {
-      this.ytObserver = new MutationObserver(() => {
-        const nativeWindow = document.querySelector('.ytp-caption-window-container');
-        if (nativeWindow && nativeWindow.style.display !== 'none') {
-          nativeWindow.style.display = 'none';
-          console.debug('[LinguaFlow] Legenda nativa detectada e ocultada novamente');
-        }
-      });
+      this.ytObserver = new MutationObserver(() => this._syncYouTubeNativeCaptions());
       this.ytObserver.observe(document.body, { childList: true, subtree: true });
     }
 
@@ -648,7 +643,7 @@ export class SubtitleEngine {
           try { resp = JSON.stringify(resp); } catch { return; }
         }
 
-        console.debug(`[LinguaFlow] Captura de Legenda detectada: ${url.substring(0, 50)}...`);
+        console.debug('[LinguaFlow] Legenda detectada pelo player');
 
         // Se for YouTube (timedtext), usa o processador específico
         if (url.includes('timedtext')) {
@@ -894,6 +889,8 @@ export class SubtitleEngine {
 
     this.cues = [];
     this.xhrCues = [];
+    this._ytFullCueVideoId = null;
+    this._syncYouTubeNativeCaptions();
     this._currentCue = null;
     this.currentCueIndex = -1;
     this.lastText = '';
@@ -927,6 +924,25 @@ export class SubtitleEngine {
     if (this.platform === 'youtube') {
       this._injectYouTubeControls();
       this._scheduleForNavigation((nav) => this._fetchYoutubeSubtitles(nav), 1000, navigation);
+    }
+  }
+
+  _syncYouTubeNativeCaptions() {
+    if (this.platform !== 'youtube') return;
+    const nativeWindow = document.querySelector('.ytp-caption-window-container');
+    if (this._hiddenYouTubeCaptions && this._hiddenYouTubeCaptions !== nativeWindow) {
+      this._hiddenYouTubeCaptions.style.display = '';
+      this._hiddenYouTubeCaptions = null;
+    }
+    if (!nativeWindow) return;
+    if (this.isActivated && this.cues?.length) {
+      if (nativeWindow.style.display !== 'none') {
+        nativeWindow.style.display = 'none';
+        this._hiddenYouTubeCaptions = nativeWindow;
+      }
+    } else if (this._hiddenYouTubeCaptions === nativeWindow) {
+      nativeWindow.style.display = '';
+      this._hiddenYouTubeCaptions = null;
     }
   }
 
@@ -3231,8 +3247,8 @@ export class SubtitleEngine {
         try {
           const u = new URL(r);
           const lang = u.searchParams.get('lang') || u.searchParams.get('tlang') || '';
-          // Aceita se não tiver tlang (é original) OU se o lang bater com sourceLang
-          return !u.searchParams.has('tlang') && (lang === '' || lang.startsWith(srcLang));
+          // Unknown and translated tracks are not evidence of the target language.
+          return !u.searchParams.has('tlang') && lang.toLowerCase().split('-')[0] === srcLang.toLowerCase().split('-')[0];
         } catch {
           return false;
         }
@@ -3253,17 +3269,22 @@ export class SubtitleEngine {
         }
       };
 
-      // Usa as preferidas ou cai de volta para qualquer URL do vídeo (sempre sanitizada sem tlang)
-      const rawUrlsToTry = preferredUrls.length > 0 ? preferredUrls : matchingUrls;
-      const urlsToTry = Array.from(new Set(rawUrlsToTry.map(sanitizeUrl)));
+      // Never fetch a cached track from a different language or a translated URL.
+      const urlsToTry = Array.from(new Set(preferredUrls.slice(0, 1).map(sanitizeUrl)));
       console.debug(`[LinguaFlow] Legendas: ${urlsToTry.length} candidatas (lang=${srcLang})`);
 
       for (const url of urlsToTry) {
         if (!this._isNavigationCurrent(navigation)) return;
-        console.debug('[LinguaFlow] Tentando carregar legendas de:', url);
+        const attemptKey = `${navigation.epoch}:${url}`;
+        if (this._ytCachedAttemptKey === attemptKey) return;
+        this._ytCachedAttemptKey = attemptKey;
+        console.debug('[LinguaFlow] Tentando faixa original armazenada');
         const response = await fetch(new URL(url).toString(), { signal: navigation.signal });
         if (!this._isNavigationCurrent(navigation)) return;
-        if (!response.ok) continue;
+        if (!response.ok) {
+          console.warn('[LinguaFlow] caption_cached_track_unavailable', { status: Number(response.status) || 0 });
+          continue;
+        }
 
         const text = await response.text();
         if (!this._isNavigationCurrent(navigation)) return;
@@ -3280,6 +3301,8 @@ export class SubtitleEngine {
           if (cues && cues.length > 0) {
             if (!this._isNavigationCurrent(navigation)) return;
             this.cues = cues;
+            this._ytFullCueVideoId = videoId;
+            this._syncYouTubeNativeCaptions();
             this.xhrCues = cues;
             this.usingXhr = true;
             this._rebuildSubtitleList();
@@ -3299,288 +3322,16 @@ export class SubtitleEngine {
 
   // ── processYtSub — cópia EXATA do V5 ──────────────────────────────────────
   _processYtSub(data) {
-    const l = {
-      _a: 4,
-      _b: 14,
-      _c: 1e3,
-      _d: 600,
-      _e: 5,
-      _f: 400,
-      _g: 7,
-      _h: 3,
-      _i: 5,
-      _j: 6,
-      _k: 4,
-    };
-
-    function decodeHtml(s) {
-      if (!s) return s;
-      const o = document.createElement('textarea');
-      o.innerHTML = s;
-      let r = o.value,
-        e = '',
-        a = 5;
-      while (r !== e && a > 0) {
-        e = r;
-        o.innerHTML = r;
-        r = o.value;
-        a--;
-      }
-      return r;
-    }
-
-    function round(s, o) {
-      if (!(isNaN(s) || typeof o !== 'number' || o < 0)) return Number(s.toFixed(o));
-    }
-
-    const D = {
-      en: new Set([
-        'but',
-        'so',
-        'and',
-        'because',
-        'when',
-        'while',
-        'if',
-        'then',
-        'however',
-        'although',
-        'also',
-        'or',
-        'yet',
-        'since',
-        'after',
-        'before',
-        'until',
-        'unless',
-        'where',
-        'which',
-        'who',
-        'that',
-        'though',
-        'whether',
-        'once',
-        'now',
-        'still',
-        'even',
-        'just',
-        'already',
-        'never',
-        'always',
-        'sometimes',
-        'meanwhile',
-        'furthermore',
-        'moreover',
-        'therefore',
-        'otherwise',
-        'instead',
-        'anyway',
-        'besides',
-        'finally',
-        'actually',
-        'basically',
-        'honestly',
-        'apparently',
-        'obviously',
-        'clearly',
-        'unfortunately',
-        'seriously',
-      ]),
-      es: new Set([
-        'pero',
-        'porque',
-        'cuando',
-        'mientras',
-        'aunque',
-        'entonces',
-        'también',
-        'donde',
-        'como',
-        'si',
-        'después',
-        'antes',
-        'hasta',
-        'sin',
-        'además',
-        'ya',
-        'ahora',
-        'nunca',
-        'siempre',
-        'todavía',
-        'incluso',
-        'solo',
-        'primero',
-        'luego',
-        'finalmente',
-        'básicamente',
-        'obviamente',
-        'desafortunadamente',
-        'realmente',
-        'actualmente',
-        'simplemente',
-      ]),
-      de: new Set([
-        'aber',
-        'weil',
-        'wenn',
-        'während',
-        'obwohl',
-        'dann',
-        'also',
-        'auch',
-        'oder',
-        'denn',
-        'damit',
-        'nachdem',
-        'bevor',
-        'bis',
-        'seit',
-        'wo',
-        'dass',
-        'noch',
-        'schon',
-        'nie',
-        'immer',
-        'jetzt',
-        'trotzdem',
-        'außerdem',
-        'deshalb',
-        'allerdings',
-        'eigentlich',
-        'grundsätzlich',
-        'natürlich',
-        'tatsächlich',
-        'normalerweise',
-        'übrigens',
-      ]),
-      fr: new Set([
-        'mais',
-        'parce',
-        'quand',
-        'pendant',
-        'bien',
-        'alors',
-        'aussi',
-        'donc',
-        'car',
-        'après',
-        'avant',
-        'depuis',
-        'si',
-        'où',
-        'comme',
-        'puis',
-        'encore',
-        'déjà',
-        'jamais',
-        'toujours',
-        'maintenant',
-        'même',
-        'cependant',
-        'pourtant',
-        'néanmoins',
-        'ensuite',
-        'finalement',
-        'évidemment',
-        'malheureusement',
-        'franchement',
-        'simplement',
-        'vraiment',
-        'apparemment',
-        'normalement',
-        'heureusement',
-      ]),
-    };
-
-    function detectLang(words) {
-      const o = words
-        .slice(0, 50)
-        .map((a) => a.toLowerCase().replace(/[^a-záàâäãéèêëíìîïóòôöõúùûüñçß]/g, ''));
-      const r = {};
-      for (const [a, g] of Object.entries(D)) r[a] = o.filter((m) => g.has(m)).length;
-      const e = Object.entries(r).sort((a, g) => g[1] - a[1])[0];
-      return e && e[1] >= 2 ? e[0] : null;
-    }
-
-    function processEvents(s) {
-      if (!s?.events?.length) return [];
-      const CJK =
-        /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/;
-      const maxSample = 100;
-      let e = 0,
-        a = 0;
-      for (const n of s.events) {
-        if (e >= maxSample) break;
-        if (n.segs)
-          for (const b of n.segs) {
-            if (e >= maxSample) break;
-            const d = (b.utf8 || '').trim();
-            e++;
-            const x = d.includes(' '),
-              y = CJK.test(d) && d.length > 2;
-            if (x || y) a++;
-          }
-      }
-      const isCJK = e > 0 && a / e > 0.5;
-      const m = [];
-
-      if (isCJK) {
-        s.events.forEach((n) => {
-          if (!n.segs) return;
-          const b = n.segs
-            .map((y) => y.utf8 || '')
-            .join('')
-            .replace(/\n/g, ' ')
-            .trim();
-          if (!b) return;
-          const d = n.tStartMs ?? 0,
-            x = n.dDurationMs ?? 0;
-          m.push({ text: b, start: d / 1000, end: (d + x) / 1000 });
-        });
-      } else {
-        // Estratégia de Precisão: Captura eventos e respeita os tempos de cada segmento (word-level timing)
-        s.events.forEach((evt) => {
-          if (!evt.segs || evt.segs.length === 0) return;
-
-          const startMs = evt.tStartMs ?? 0;
-          const durationMs = evt.dDurationMs ?? 0;
-
-          // Se houver múltiplos segmentos, tentamos capturar a frase inteira com seu tempo real
-          let text = '';
-          evt.segs.forEach((seg) => {
-            text += seg.utf8 || '';
-          });
-
-          text = text.replace(/\n/g, ' ').trim();
-          if (!text) return;
-
-          // Higienização de texto (remove marcadores de música/ruído [Music], [Laughter])
-          const cleanText = text.replace(/\[.*?\]/g, '').trim();
-          if (!cleanText) return;
-
-          m.push({
-            text: cleanText,
-            start: startMs / 1000,
-            end: (startMs + durationMs) / 1000,
-          });
-        });
-
-        // Ordenação e remoção de sobreposições
-        m.sort((a, b) => a.start - b.start);
-      }
-      return m;
-    }
-
-    const raw = processEvents(data);
-    console.debug('[LinguaFlow] Raw cues from processEvents:', raw.length);
-    for (let e = 0; e < raw.length - 1; e++) {
-      if (raw[e].end > raw[e + 1].start) raw[e].end = raw[e + 1].start;
-    }
+    const round = (seconds) => Number.isFinite(seconds) ? Math.round(seconds * 100) / 100 : null;
+    const raw = groupCaptionEvents(data?.events).map((cue) => ({
+      ...cue,
+      text: this._cleanSubtitleText(cue.text),
+    })).filter((cue) => cue.text && cue.end > cue.start);
     const result = raw
       .map((e) => {
-        const a = round(e.start, 2),
-          g = round(e.end - e.start, 2),
-          m = round(e.end, 2);
+        const a = round(e.start),
+          g = round(e.end - e.start),
+          m = round(e.end);
         if (a == null || g == null || m == null) return null;
         return {
           startTime: a,
@@ -3689,10 +3440,11 @@ export class SubtitleEngine {
         const idx = this._binarySearchCue(cuesToSearch, t);
         const cue = idx !== -1 ? cuesToSearch[idx] : null;
 
-        if (cue && cue.text !== this.lastText) {
+        if (cue && cue !== this._currentCue) {
           this.lastText = cue.text;
           this.onSubtitle(cue);
         } else if (!cue && this.lastText !== '') {
+          this._currentCue = null;
           this.lastText = '';
           this.renderDual('', '');
         }
@@ -3722,9 +3474,10 @@ export class SubtitleEngine {
 
   async _processYouTubeRawSubtitles(url, raw, navigation = this._navigationSnapshot()) {
     if (!this._isNavigationCurrent(navigation)) return;
+    let currentVideoId;
     try {
       const cueVideoId = new URL(url).searchParams.get('v');
-      const currentVideoId = new URL(navigation.url).searchParams.get('v');
+      currentVideoId = new URL(navigation.url).searchParams.get('v');
       if (cueVideoId && currentVideoId && cueVideoId !== currentVideoId) return;
     } catch { return; }
     if (!raw || raw.length < 10) return;
@@ -3736,6 +3489,8 @@ export class SubtitleEngine {
       return;
     }
 
+    const requestedLanguage = parsedUrl.searchParams.get('lang');
+    if (!requestedLanguage || requestedLanguage.toLowerCase().split('-')[0] !== String(this.sourceLang || 'en').toLowerCase().split('-')[0]) return;
     const hasTlang = parsedUrl.searchParams.has('tlang');
     if (hasTlang) {
       // Se já possuímos legendas no idioma original, NÃO sobrescrevemos e nem precisamos buscar de novo; apenas enriquecemos com a tradução
@@ -3746,19 +3501,20 @@ export class SubtitleEngine {
           else if (raw.includes('WEBVTT') || raw.includes('-->')) transCues = this._parseVTT(raw);
         } catch {}
         if (Array.isArray(transCues) && transCues.length > 0) {
-          this.cues.forEach((c, i) => {
-            const match = transCues[i] || transCues.find((tc) => Math.abs(tc.start - c.start) < 0.5);
-            if (match?.text) c.translatedText = match.text;
-          });
+          attachTranslationsByTime(this.cues, transCues);
         }
         return;
       }
 
-      // Se ainda não temos legendas, busca o original sem o tlang
-      console.debug('[LinguaFlow] 🔄 Legenda interceptada contém tlang (tradução). Buscando original...');
+      // One bounded original-track request per navigation; translated segments
+      // may arrive many times and 403/429 responses must not trigger retries.
+      const originKey = `${navigation.epoch}:${currentVideoId}:${requestedLanguage}`;
+      if (this._ytOriginRequestKey === originKey) return;
+      this._ytOriginRequestKey = originKey;
       try {
         const origUrl = new URL(url);
-        origUrl.searchParams.delete('tlang');
+        for (const key of ['tlang', 't', 'range', 'spv']) origUrl.searchParams.delete(key);
+        origUrl.searchParams.set('fmt', 'json3');
         const origResponse = await fetch(origUrl.toString(), { signal: navigation.signal });
         if (!this._isNavigationCurrent(navigation)) return;
         if (origResponse.ok) {
@@ -3780,13 +3536,12 @@ export class SubtitleEngine {
               } catch {}
 
               if (Array.isArray(transCues) && transCues.length > 0) {
-                origCues.forEach((c, i) => {
-                  const match = transCues[i] || transCues.find((tc) => Math.abs(tc.start - c.start) < 0.5);
-                  if (match?.text) c.translatedText = match.text;
-                });
+                attachTranslationsByTime(origCues, transCues);
               }
 
               this.cues = origCues;
+              this._ytFullCueVideoId = currentVideoId;
+              this._syncYouTubeNativeCaptions();
               this.xhrCues = origCues;
               this.usingXhr = true;
               this._rebuildSubtitleList();
@@ -3802,10 +3557,6 @@ export class SubtitleEngine {
                 }
               });
 
-              const ytWrap = typeof document !== 'undefined'
-                ? document.querySelector('.ytp-caption-window-container')
-                : null;
-              if (ytWrap) ytWrap.style.display = 'none';
               return;
             }
           }
@@ -3831,8 +3582,9 @@ export class SubtitleEngine {
     if (cues.length > 0 && this._isNavigationCurrent(navigation)) {
       const existing = this.cues || [];
       const incomingIsSegment = ['t', 'range', 'spv'].some((param) => parsedUrl.searchParams.has(param));
+      if (incomingIsSegment && this._ytFullCueVideoId === currentVideoId) return;
       if (existing.length > 0) {
-        const shouldMerge = incomingIsSegment || existing.length > cues.length;
+        const shouldMerge = incomingIsSegment;
         if (shouldMerge) {
           const merged = new Map(existing.map((cue) => [Math.round(cue.start * 100), cue]));
           cues.forEach((cue) => {
@@ -3842,9 +3594,25 @@ export class SubtitleEngine {
               cue.translatedText = previous.translatedText;
               cue._transLang = previous._transLang;
             }
-            merged.set(key, cue);
+            if (!previous || cue.text.length >= previous.text.length || cue.end - cue.start > previous.end - previous.start) merged.set(key, cue);
           });
           cues = [...merged.values()].sort((a, b) => a.start - b.start);
+          if (incomingIsSegment) {
+            const previousCues = cues;
+            cues = groupCaptionEvents(previousCues.map((item) => ({
+              tStartMs: Math.round(item.start * 1000),
+              dDurationMs: Math.round((item.end - item.start) * 1000),
+              segs: [{ utf8: item.text }],
+            }))).map((item) => {
+              const prior = previousCues.find((cue) => cue.start === item.start && cue.text === item.text);
+              return {
+                ...item, id: `subtitle_${item.start}_${item.end}`,
+                sentence: item.text, startTime: item.start,
+                duration: item.end - item.start, finishTime: item.end,
+                ...(prior?.translatedText ? { translatedText:prior.translatedText, _transLang:prior._transLang } : {}),
+              };
+            });
+          }
         } else {
           const prevMap = new Map(existing.map((cue) => [Math.round(cue.start * 100), cue]));
           cues.forEach((cue) => {
@@ -3858,6 +3626,8 @@ export class SubtitleEngine {
         }
       }
       this.cues = cues;
+      if (!incomingIsSegment) this._ytFullCueVideoId = currentVideoId;
+      this._syncYouTubeNativeCaptions();
       this.xhrCues = cues; // Unifica para garantir que o sync loop e sidebar vejam o mesmo
       this.usingXhr = true;
       this._rebuildSubtitleList(); // Atualiza painel lateral IMEDIATAMENTE
@@ -3878,14 +3648,6 @@ export class SubtitleEngine {
         }
       });
 
-      // Esconde legenda nativa do YouTube
-      const ytWrap = typeof document !== 'undefined'
-        ? document.querySelector('.ytp-caption-window-container')
-        : null;
-      if (ytWrap) {
-        ytWrap.style.display = 'none';
-        console.debug('[LinguaFlow] Legenda nativa do YouTube escondida');
-      }
     }
   }
 
@@ -3986,12 +3748,7 @@ export class SubtitleEngine {
           }
 
           // Sincronia com Legenda Nativa (YouTube)
-          if (this.platform === 'youtube' && this.isActivated) {
-            const ytNative = document.querySelector('.ytp-caption-window-container');
-            if (ytNative && ytNative.style.display !== 'none') {
-              ytNative.style.display = 'none';
-            }
-          }
+          if (this.platform === 'youtube') this._syncYouTubeNativeCaptions();
 
           // Encontra a cue ativa (Otimizado: usa busca binária primeiro se não houver sobreposição conhecida)
           // Para manter compatibilidade com sobreposições, usamos o filter apenas se necessário
@@ -4004,7 +3761,7 @@ export class SubtitleEngine {
             );
           }
 
-          if (cue && cue.text !== this.lastText) {
+          if (cue && cue !== this._currentCue) {
             this.lastText = cue.text;
             this.onSubtitle(cue);
           } else if (!cue && this.lastText !== '') {
@@ -4233,7 +3990,7 @@ export class SubtitleEngine {
   onSubtitle(cue) {
     if (!cue) return;
     console.debug('[LinguaFlow] onSubtitle triggered:', cue.text.substring(0, 30) + '...');
-    if (cue.text === this._lastProcessedText) return;
+    if (cue === this._currentCue) return;
     this._lastProcessedText = cue.text;
     this._currentCue = cue;
     this.currentSubtitleTimestamp = cue.start;
@@ -4619,6 +4376,7 @@ export class SubtitleEngine {
     host.style.opacity = isVisible ? '1' : '0';
     host.style.transition = 'opacity 0.2s ease, visibility 0.2s';
     this.isActivated = isVisible;
+    this._syncYouTubeNativeCaptions();
 
     // Sincroniza os switches visuais da interface (YouTube)
     const swYt = document.getElementById('lf-yt-switch');
@@ -4804,7 +4562,7 @@ export class SubtitleEngine {
 
     if (!cues || cues.length === 0) {
       container.innerHTML =
-        '<div style="padding:40px 20px;text-align:center;color:#64748B;font-size:14px;">Nenhuma legenda encontrada para este vídeo.</div>';
+        '<div style="padding:40px 20px;text-align:center;color:#64748B;font-size:14px;">A faixa de legendas do idioma estudado não está disponível aqui. Confira as legendas originais no player.</div>';
       return;
     }
 
@@ -6098,6 +5856,10 @@ export class SubtitleEngine {
     if (this._disposed) return;
     void this._flushListeningInterval().catch(() => {});
     this._disposed = true;
+    if (this._hiddenYouTubeCaptions) {
+      this._hiddenYouTubeCaptions.style.display = '';
+      this._hiddenYouTubeCaptions = null;
+    }
     this._navigationController?.abort('engine-disposed');
     this._lifecycleController.abort('engine-disposed');
     this._managedTimeouts.forEach((id) => clearTimeout(id));

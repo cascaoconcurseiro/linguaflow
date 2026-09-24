@@ -40,12 +40,16 @@
     const originalFetch = window.fetch;
     let currentSourceLang = 'en';
     let preloadedVideoKey = '';
+    // A failed track is not retried on every player event or button click.
+    // Navigation/source-language changes allow a fresh, single attempt.
 
     const getCaptionTracks = () => {
         try {
             const player = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
             const response = (typeof player?.getPlayerResponse === 'function' ? player.getPlayerResponse() : null)
                 || window.ytInitialPlayerResponse;
+            const currentId = new URLSearchParams(window.location.search).get('v');
+            if (response?.videoDetails?.videoId && response.videoDetails.videoId !== currentId) return [];
             const tracks = response?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
             return Array.isArray(tracks) ? tracks : [];
         } catch {
@@ -62,9 +66,8 @@
             return;
         }
 
-        const manual = tracks.find((track) => track.languageCode?.startsWith(currentSourceLang) && track.kind !== 'asr');
-        const source = tracks.find((track) => track.languageCode?.startsWith(currentSourceLang));
-        const track = manual || source || tracks[0];
+        const matches = tracks.filter((item) => item.baseUrl && item.languageCode?.toLowerCase().split('-')[0] === currentSourceLang.toLowerCase().split('-')[0]);
+        const track = matches.find((item) => item.kind !== 'asr') || matches[0];
         if (!track?.baseUrl) return;
 
         const url = new URL(track.baseUrl, window.location.href);
@@ -79,13 +82,14 @@
 
         try {
             const response = await originalFetch(url.toString());
-            if (!response.ok) throw new Error(`subtitle_status_${response.status}`);
+            if (!response.ok) {
+                console.warn('[LinguaFlow] caption_track_unavailable', { status: Number(response.status) || 0 });
+                return;
+            }
             const body = await response.text();
             if (body.length > 10) notifyExt(url.toString(), body);
-            else preloadedVideoKey = '';
         } catch (error) {
-            preloadedVideoKey = '';
-            console.debug('[LinguaFlow] Falha ao antecipar trilha completa:', error);
+            console.warn('[LinguaFlow] caption_track_error', { code: error?.name || 'network' });
         }
     };
 
@@ -105,11 +109,10 @@
                            urlStr.includes('subtitles');
 
         if (isSubtitle) {
+            // Never duplicate a failed player request: the YouTube player owns retries.
+            const response = await originalFetch.apply(this, args);
             try {
-                const response = await originalFetch.apply(this, args);
                 const clone = response.clone();
-                
-                // Se for Netflix ou HBO, o conteúdo pode ser binário ou comprimido
                 if (urlStr.includes('nflxvideo.net') || urlStr.includes('.vtt')) {
                     clone.arrayBuffer().then(buf => {
                         postBridgeMessage({ type: 'LF_SUBTITLE_HOOK', url: urlStr, data: buf, isBinary: true });
@@ -117,10 +120,8 @@
                 } else {
                     clone.text().then(text => notifyExt(urlStr, text)).catch(() => {});
                 }
-                return response;
-            } catch (e) {
-                return originalFetch.apply(this, args);
-            }
+            } catch { /* Capture must never affect playback. */ }
+            return response;
         }
         return originalFetch.apply(this, args);
     };
@@ -136,11 +137,13 @@
 
         if (isSubtitle) {
             this.addEventListener('load', function() {
-                if (this.responseType === 'arraybuffer' || this.response instanceof ArrayBuffer) {
-                    postBridgeMessage({ type: 'LF_SUBTITLE_HOOK', url: urlStr, data: this.response, isBinary: true });
-                } else {
-                    notifyExt(urlStr, this.responseText);
-                }
+                try {
+                    if (this.responseType === 'arraybuffer' || this.response instanceof ArrayBuffer) {
+                        postBridgeMessage({ type: 'LF_SUBTITLE_HOOK', url: urlStr, data: this.response, isBinary: true });
+                    } else {
+                        notifyExt(urlStr, this.responseText);
+                    }
+                } catch { /* Player responses are never modified by the extension. */ }
             });
         }
         return originalOpen.apply(this, arguments);

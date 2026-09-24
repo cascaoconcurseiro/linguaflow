@@ -2872,11 +2872,10 @@ export class SubtitleEngine {
             #lf-subtitle-panel .lf-new { color: #f8fafc; }
 
             #lf-subtitle-panel .lf-subtitle-item.active {
-                background: rgba(28, 176, 246, 0.2) !important;
-                border-left-color: #1cb0f6 !important;
-                transform: scale(1.02);
+                background: rgba(166, 190, 255, 0.12) !important;
+                border-left-color: #a6beff !important;
                 z-index: 10;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                box-shadow: none;
             }
             #lf-subtitle-panel .lf-subtitle-item.is-looping {
                 background: rgba(2, 132, 199, 0.28) !important;
@@ -2904,7 +2903,7 @@ export class SubtitleEngine {
                 50% { box-shadow: 0 0 16px rgba(56, 189, 248, 1); transform: scale(1.08); }
             }
             #lf-subtitle-panel .lf-subtitle-item {
-                transition: all 0.1s;
+                transition: background-color 0.14s, border-color 0.14s;
             }
             #lf-subtitle-panel .lf-subtitle-item:not(.active):not(.is-looping) {
                 opacity: 0.8;
@@ -2913,55 +2912,61 @@ export class SubtitleEngine {
             /* --- THEME STYLES --- */
             #lf-subtitle-panel {
                 font-family: 'Nunito', sans-serif;
-                box-shadow: -2px 0 12px rgba(0,0,0,0.5);
+                box-shadow: -12px 0 28px rgba(0,0,0,0.22);
+            }
+            @media (prefers-reduced-motion: reduce) {
+                #lf-subtitle-panel *, #lf-subtitle-panel *::before, #lf-subtitle-panel *::after {
+                    animation-duration: 0.01ms !important;
+                    transition-duration: 0.01ms !important;
+                }
             }
             #lf-subtitle-panel.theme-light {
-                background: #ffffff;
+                background: #fcfbf8;
                 border-left: 1px solid #d1d5db;
-                color: #3c3c3c;
+                color: #162338;
             }
             #lf-subtitle-panel.theme-dark {
-                background: #0f172a;
-                border-left: 1px solid #1e293b;
-                color: #f8fafc;
+                background: #161b24;
+                border-left: 1px solid #384352;
+                color: #edf0f4;
             }
             
-            #lf-subtitle-panel.theme-light .lf-panel-header { background: #ffffff; border-bottom: 2px solid #e5e5e5; }
-            #lf-subtitle-panel.theme-dark .lf-panel-header { background: #0f172a; border-bottom: 2px solid #1e293b; }
+            #lf-subtitle-panel.theme-light .lf-panel-header { background: #fcfbf8; border-bottom: 1px solid #dddfdf; }
+            #lf-subtitle-panel.theme-dark .lf-panel-header { background: #161b24; border-bottom: 1px solid #384352; }
             
-            #lf-subtitle-panel.theme-light .lf-panel-title { color: #3c3c3c; }
-            #lf-subtitle-panel.theme-dark .lf-panel-title { color: #f8fafc; }
+            #lf-subtitle-panel.theme-light .lf-panel-title { color: #162338; }
+            #lf-subtitle-panel.theme-dark .lf-panel-title { color: #edf0f4; }
             
             #lf-subtitle-panel.theme-light .lf-close-btn { color: #afafaf; }
             #lf-subtitle-panel.theme-light .lf-close-btn:hover { background: #f7f7f7; color: #777777; }
             #lf-subtitle-panel.theme-dark .lf-close-btn { color: #64748B; }
             #lf-subtitle-panel.theme-dark .lf-close-btn:hover { background: #1e293b; color: #f8fafc; }
 
-            #lf-subtitle-panel.theme-light .lf-tabs { background: #f7f7f7; border-bottom: 2px solid #e5e5e5; }
-            #lf-subtitle-panel.theme-dark .lf-tabs { background: #0f172a; border-bottom: 2px solid #1e293b; }
+            #lf-subtitle-panel.theme-light .lf-tabs { background: #f3f2ef; border-bottom: 1px solid #dddfdf; }
+            #lf-subtitle-panel.theme-dark .lf-tabs { background: #161b24; border-bottom: 1px solid #384352; }
             
-            #lf-subtitle-panel.theme-light .lf-toolbar { background: #f7f7f7; border-bottom: 1px solid #e5e5e5; }
-            #lf-subtitle-panel.theme-dark .lf-toolbar { background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.08); }
+            #lf-subtitle-panel.theme-light .lf-toolbar { background: #f3f2ef; border-bottom: 1px solid #dddfdf; }
+            #lf-subtitle-panel.theme-dark .lf-toolbar { background: #1c2430; border-bottom: 1px solid #384352; }
             
-            #lf-subtitle-panel.theme-light .lf-search-input { background: #ffffff; border: 1px solid #d1d5db; color: #3c3c3c; }
-            #lf-subtitle-panel.theme-dark .lf-search-input { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #E2E8F0; }
+            #lf-subtitle-panel.theme-light .lf-search-input { background: #ffffff; border: 1px solid #dddfdf; color: #162338; }
+            #lf-subtitle-panel.theme-dark .lf-search-input { background: #202733; border: 1px solid #384352; color: #edf0f4; }
 
             #lf-subtitle-panel.theme-light .lf-search-input::placeholder { color: #afafaf; }
             
-            #lf-subtitle-panel.theme-light .lf-subtitle-list { background: #ffffff; }
-            #lf-subtitle-panel.theme-dark .lf-subtitle-list { background: #0f172a; }
+            #lf-subtitle-panel.theme-light .lf-subtitle-list { background: #fcfbf8; }
+            #lf-subtitle-panel.theme-dark .lf-subtitle-list { background: #161b24; }
 
-            #lf-subtitle-panel.theme-light .lf-subtitle-item { border-bottom: 1px solid #e5e5e5; border-left: 4px solid transparent; }
-            #lf-subtitle-panel.theme-dark .lf-subtitle-item { border-bottom: 1px solid #1e293b; border-left: 4px solid transparent; }
+            #lf-subtitle-panel.theme-light .lf-subtitle-item { border-bottom: 1px solid #dddfdf; border-left: 2px solid transparent; }
+            #lf-subtitle-panel.theme-dark .lf-subtitle-item { border-bottom: 1px solid #384352; border-left: 2px solid transparent; }
             
-            #lf-subtitle-panel.theme-light .lf-subtitle-item:not(.active):hover { background: #f1f5f9 !important; }
-            #lf-subtitle-panel.theme-dark .lf-subtitle-item:not(.active):hover { background: #1e293b !important; }
+            #lf-subtitle-panel.theme-light .lf-subtitle-item:not(.active):hover { background: #f3f2ef !important; }
+            #lf-subtitle-panel.theme-dark .lf-subtitle-item:not(.active):hover { background: #202733 !important; }
             
             #lf-subtitle-panel.theme-light .lf-time { color: #afafaf; }
             #lf-subtitle-panel.theme-dark .lf-time { color: #64748B; }
             
-            #lf-subtitle-panel.theme-light .lf-trans-text { color: #1cb0f6; }
-            #lf-subtitle-panel.theme-dark .lf-trans-text { color: #38BDF8; }
+            #lf-subtitle-panel.theme-light .lf-trans-text { color: #2052c4; }
+            #lf-subtitle-panel.theme-dark .lf-trans-text { color: #a6beff; }
 
             #lf-subtitle-panel.theme-light .lf-checkbox-label { color: #777777; }
             #lf-subtitle-panel.theme-dark .lf-checkbox-label { color: #94a3b8; }
@@ -3038,8 +3043,8 @@ export class SubtitleEngine {
     tabs.style.cssText =
       'display:flex;flex-shrink:0;';
     tabs.innerHTML = `
-            <button id="lf-tab-subtitles" class="lf-tab-btn active" role="tab" aria-selected="true" aria-controls="lf-pane-subtitles" data-tab="subtitles" style="flex:1;padding:14px;background:transparent;border:none;border-bottom:4px solid #1cb0f6;color:#1cb0f6;font-size:14px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;transition:all 0.1s;text-transform:uppercase;">Legenda</button>
-            <button id="lf-tab-words" class="lf-tab-btn" role="tab" aria-selected="false" aria-controls="lf-pane-words" data-tab="words" style="flex:1;padding:14px;background:transparent;border:none;border-bottom:4px solid transparent;font-size:14px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;transition:all 0.1s;text-transform:uppercase;">Palavras</button>
+            <button id="lf-tab-subtitles" class="lf-tab-btn active" role="tab" aria-selected="true" aria-controls="lf-pane-subtitles" data-tab="subtitles" style="flex:1;padding:14px;background:transparent;border:none;border-bottom:2px solid #a6beff;color:#a6beff;font-size:14px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;transition:all 0.14s;text-transform:uppercase;">Legenda</button>
+            <button id="lf-tab-words" class="lf-tab-btn" role="tab" aria-selected="false" aria-controls="lf-pane-words" data-tab="words" style="flex:1;padding:14px;background:transparent;border:none;border-bottom:2px solid transparent;font-size:14px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;transition:all 0.14s;text-transform:uppercase;">Palavras</button>
         `;
 
     // ── Painel Subtitles ──────────────────────────────────────────────────
@@ -3175,10 +3180,10 @@ export class SubtitleEngine {
       if (active === 'subtitles') {
         subtitlePane.style.display = 'flex';
         wordsPane.style.display = 'none';
-        tabSubtitles.style.borderBottomColor = '#38BDF8';
-        tabSubtitles.style.color = '#38BDF8';
+        tabSubtitles.style.borderBottomColor = '#a6beff';
+        tabSubtitles.style.color = '#a6beff';
         tabWords.style.borderBottomColor = 'transparent';
-        tabWords.style.color = '#64748B';
+        tabWords.style.color = '#b0bac9';
         tabSubtitles.classList.add('active');
         tabWords.classList.remove('active');
         tabSubtitles.setAttribute('aria-selected', 'true');
@@ -3190,10 +3195,10 @@ export class SubtitleEngine {
       } else {
         subtitlePane.style.display = 'none';
         wordsPane.style.display = 'flex';
-        tabWords.style.borderBottomColor = '#38BDF8';
-        tabWords.style.color = '#38BDF8';
+        tabWords.style.borderBottomColor = '#a6beff';
+        tabWords.style.color = '#a6beff';
         tabSubtitles.style.borderBottomColor = 'transparent';
-        tabSubtitles.style.color = '#64748B';
+        tabSubtitles.style.color = '#b0bac9';
         tabWords.classList.add('active');
         tabSubtitles.classList.remove('active');
         tabWords.setAttribute('aria-selected', 'true');

@@ -298,15 +298,15 @@ export class SettingsPanel {
 
     s.getElementById('btn-save-settings').onclick = async () => {
       const btn = s.getElementById('btn-save-settings');
-      btn.textContent = '✅ Salvo!';
-      btn.style.background = '#059669';
+       btn.textContent = 'Configurações salvas';
+       btn.style.background = '#2f855a';
       for (const [key, value] of Object.entries(this.cfg)) {
         await writeSetting(key, value);
       }
       window.dispatchEvent(new CustomEvent('LF_SETTINGS_CHANGED'));
       setTimeout(() => {
-        btn.textContent = '💾 Salvar';
-        btn.style.background = '#10B981';
+         btn.textContent = 'Salvar alterações';
+         btn.style.background = '#2052c4';
       }, 2000);
     };
 
@@ -322,68 +322,71 @@ export class SettingsPanel {
             @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
             @import url('https://fonts.cdnfonts.com/css/opendyslexic');
             * { box-sizing: border-box; }
+            @media (prefers-reduced-motion: reduce) {
+                *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+            }
             .overlay {
                 display: none; position: fixed; inset: 0;
                 background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
                 pointer-events: auto; justify-content: flex-end; z-index: 2147483647;
             }
             .panel.theme-light {
-                background: #ffffff;
-                border-left: 2px solid #d1d5db;
-                color: #3c3c3c;
+                background: #fcfbf8;
+                border-left: 1px solid #dddfdf;
+                color: #162338;
             }
-            .panel.theme-light .panel-header { background: #ffffff; border-bottom-color: #d1d5db; }
-            .panel.theme-light .panel-title { color: #3c3c3c; }
-            .panel.theme-light .close-btn { color: #777777; }
-            .panel.theme-light .close-btn:hover { background: #f7f7f7; color: #4b4b4b; border-color: #d1d5db; }
-            .panel.theme-light .section-title { color: #777777; }
-            .panel.theme-light .card { background: #ffffff; border-color: #d1d5db; }
-            .panel.theme-light .card:hover { border-color: #9ca3af; }
-            .panel.theme-light .group label { color: #3c3c3c; }
-            .panel.theme-light .group small { color: #777777; }
-            .panel.theme-light select { background: #f7f7f7; border-color: #d1d5db; color: #3c3c3c; }
-            .panel.theme-light select:hover { background: #e5e5e5; }
-            .panel.theme-light select:focus { background: #ffffff; }
-            .panel.theme-light input[type=range] { background: #d1d5db; }
-            .panel.theme-light .shortcut-item { background: #ffffff; border-color: #d1d5db; color: #777777; }
-            .panel.theme-light kbd { background: #ffffff; border-color: #d1d5db; color: #3c3c3c; }
-            .panel.theme-light .preview-box { background: #f7f7f7; border-color: #d1d5db; }
-            .panel.theme-light .preview-orig { color: #3c3c3c; }
-            .panel.theme-light .footer-btns { background: #ffffff; border-top-color: #d1d5db; }
-            .panel.theme-light .btn-secondary { background: #ffffff; border-color: #d1d5db; }
-            .panel.theme-light .btn-secondary:hover { background: #f7f7f7; border-color: #9ca3af; }
-            .panel.theme-light .color-row { background: #f7f7f7; border-color: #d1d5db; }
-            .panel.theme-light input[type=color] { border-color: #d1d5db; }
-            .panel.theme-light .color-label { color: #3c3c3c; }
+            .panel.theme-light .panel-header { background: #fcfbf8; border-bottom-color: #dddfdf; }
+            .panel.theme-light .panel-title { color: #162338; }
+            .panel.theme-light .close-btn { color: #5d6878; }
+            .panel.theme-light .close-btn:hover { background: #f3f2ef; color: #162338; border-color: transparent; }
+            .panel.theme-light .section-title { color: #5d6878; }
+            .panel.theme-light .card { background: #ffffff; border-color: #dddfdf; }
+            .panel.theme-light .card:hover { border-color: #2052c4; }
+            .panel.theme-light .group label { color: #162338; }
+            .panel.theme-light .group small { color: #5d6878; }
+            .panel.theme-light select { background: #ffffff; border-color: #dddfdf; color: #162338; }
+            .panel.theme-light select:hover { background: #f3f2ef; }
+            .panel.theme-light select:focus { background: #ffffff; border-color: #2052c4; }
+            .panel.theme-light input[type=range] { background: #dddfdf; }
+            .panel.theme-light .shortcut-item { background: #ffffff; border-color: #dddfdf; color: #5d6878; }
+            .panel.theme-light kbd { background: #f3f2ef; border-color: #dddfdf; color: #162338; }
+            .panel.theme-light .preview-box { background: #f3f2ef; border-color: #dddfdf; }
+            .panel.theme-light .preview-orig { color: #162338; }
+            .panel.theme-light .footer-btns { background: #fcfbf8; border-top-color: #dddfdf; }
+            .panel.theme-light .btn-secondary { background: transparent; border-color: #dddfdf; color: #2052c4; }
+            .panel.theme-light .btn-secondary:hover { background: #f3f2ef; border-color: #2052c4; }
+            .panel.theme-light .color-row { background: #f3f2ef; border-color: #dddfdf; }
+            .panel.theme-light input[type=color] { border-color: #dddfdf; }
+            .panel.theme-light .color-label { color: #162338; }
 
             .panel.theme-dark {
-                background: #0f172a; /* Escuro */
-                border-left: 2px solid #1e293b;
-                color: #f8fafc;
+                background: #161b24;
+                border-left: 1px solid #384352;
+                color: #edf0f4;
             }
-            .panel.theme-dark .panel-header { background: #0f172a; border-bottom-color: #1e293b; }
-            .panel.theme-dark .panel-title { color: #f8fafc; }
-            .panel.theme-dark .close-btn { color: #94a3b8; }
-            .panel.theme-dark .close-btn:hover { background: #1e293b; color: #f8fafc; border-color: #334155; }
-            .panel.theme-dark .section-title { color: #94a3b8; }
-            .panel.theme-dark .card { background: #0f172a; border-color: #1e293b; }
-            .panel.theme-dark .card:hover { border-color: #334155; }
-            .panel.theme-dark .group label { color: #f8fafc; }
-            .panel.theme-dark .group small { color: #94a3b8; }
-            .panel.theme-dark select { background: #1e293b; border-color: #334155; color: #f8fafc; }
-            .panel.theme-dark select:hover { background: #334155; }
-            .panel.theme-dark select:focus { background: #0f172a; }
-            .panel.theme-dark input[type=range] { background: #1e293b; }
-            .panel.theme-dark .shortcut-item { background: #0f172a; border-color: #1e293b; color: #94a3b8; }
-            .panel.theme-dark kbd { background: #1e293b; border-color: #334155; color: #f8fafc; }
-            .panel.theme-dark .preview-box { background: #1e293b; border-color: #334155; }
-            .panel.theme-dark .preview-orig { color: #f8fafc; }
-            .panel.theme-dark .footer-btns { background: #0f172a; border-top-color: #1e293b; }
-            .panel.theme-dark .btn-secondary { background: #1e293b; border-color: #334155; }
-            .panel.theme-dark .btn-secondary:hover { background: #334155; border-color: #475569; }
-            .panel.theme-dark .color-row { background: #1e293b; border-color: #334155; }
-            .panel.theme-dark input[type=color] { border-color: #334155; }
-            .panel.theme-dark .color-label { color: #f8fafc; }
+            .panel.theme-dark .panel-header { background: #161b24; border-bottom-color: #384352; }
+            .panel.theme-dark .panel-title { color: #edf0f4; }
+            .panel.theme-dark .close-btn { color: #b0bac9; }
+            .panel.theme-dark .close-btn:hover { background: #202733; color: #edf0f4; border-color: transparent; }
+            .panel.theme-dark .section-title { color: #b0bac9; }
+            .panel.theme-dark .card { background: #1c2430; border-color: #384352; }
+            .panel.theme-dark .card:hover { border-color: #a6beff; }
+            .panel.theme-dark .group label { color: #edf0f4; }
+            .panel.theme-dark .group small { color: #b0bac9; }
+            .panel.theme-dark select { background: #202733; border-color: #384352; color: #edf0f4; }
+            .panel.theme-dark select:hover { background: #242d3a; }
+            .panel.theme-dark select:focus { background: #1c2430; border-color: #a6beff; }
+            .panel.theme-dark input[type=range] { background: #384352; }
+            .panel.theme-dark .shortcut-item { background: #1c2430; border-color: #384352; color: #b0bac9; }
+            .panel.theme-dark kbd { background: #202733; border-color: #384352; color: #edf0f4; }
+            .panel.theme-dark .preview-box { background: #202733; border-color: #384352; }
+            .panel.theme-dark .preview-orig { color: #edf0f4; }
+            .panel.theme-dark .footer-btns { background: #161b24; border-top-color: #384352; }
+            .panel.theme-dark .btn-secondary { background: transparent; border-color: #384352; color: #a6beff; }
+            .panel.theme-dark .btn-secondary:hover { background: #202733; border-color: #a6beff; }
+            .panel.theme-dark .color-row { background: #202733; border-color: #384352; }
+            .panel.theme-dark input[type=color] { border-color: #384352; }
+            .panel.theme-dark .color-label { color: #edf0f4; }
 
             .panel {
                 width: 360px;
@@ -391,7 +394,7 @@ export class SettingsPanel {
                 box-sizing: border-box;
                 height: 100%;
                 font-family: 'Nunito', sans-serif;
-                box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+                box-shadow: -12px 0 28px rgba(0,0,0,0.22);
                 display: flex; flex-direction: column;
                 animation: slideIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.2);
             }
@@ -399,7 +402,7 @@ export class SettingsPanel {
             
             .panel-header {
                 display: flex; align-items: center; justify-content: space-between;
-                padding: 14px 16px; border-bottom: 2px solid;
+                padding: 20px 24px; border-bottom: 1px solid;
                 flex-shrink: 0;
             }
             .panel-title { 
@@ -433,9 +436,9 @@ export class SettingsPanel {
             .section-title svg { width: 16px; height: 16px; stroke-width: 2.5; }
             
             .card {
-                border: 2px solid;
-                border-bottom-width: 4px;
-                border-radius: 12px;
+                border: 1px solid;
+                border-bottom-width: 1px;
+                border-radius: 8px;
                 padding: 14px;
                 margin-bottom: 10px;
                 transition: border-color 0.2s;
@@ -448,8 +451,8 @@ export class SettingsPanel {
             
             select {
                 width: 100%; padding: 10px 14px;
-                border: 2px solid; border-bottom-width: 4px;
-                border-radius: 10px; font-family: 'Nunito', sans-serif;
+                border: 1px solid; border-bottom-width: 1px;
+                border-radius: 8px; font-family: 'Nunito', sans-serif;
                 font-size: 13px; font-weight: 700; cursor: pointer; outline: none; appearance: none;
                 background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='%2394a3b8' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
                 background-repeat: no-repeat; background-position: right 12px center; background-size: 20px;
@@ -492,41 +495,41 @@ export class SettingsPanel {
             .shortcut-item {
                 display: flex; justify-content: space-between; align-items: center;
                 padding: 10px 12px; border-radius: 10px;
-                border: 2px solid; border-bottom-width: 4px;
+                border: 1px solid; border-bottom-width: 1px;
                 font-size: 13px; font-weight: 700;
             }
             kbd {
-                border: 2px solid; border-bottom-width: 4px;
+                border: 1px solid; border-bottom-width: 1px;
                 padding: 6px 12px; border-radius: 10px;
                 font-family: 'Nunito', monospace; font-weight: 900; font-size: 14px;
             }
             
             .preview-box {
-                border-radius: 12px; padding: 16px;
-                margin-top: 14px; text-align: center; border: 2px solid; border-bottom-width: 4px;
+                border-radius: 8px; padding: 16px;
+                margin-top: 14px; text-align: center; border: 1px solid; border-bottom-width: 1px;
             }
             .preview-orig  { font-weight: 900; font-size: 14px; }
             .preview-trans { color: #1cb0f6; font-weight: 800; font-size: 12px; margin-top: 6px; }
             
             .footer-btns {
-                padding: 12px 16px; border-top: 2px solid;
+                padding: 16px 24px; border-top: 1px solid;
                 display: flex; gap: 10px; flex-shrink: 0;
             }
             .btn {
-                flex: 1; padding: 11px 8px; border-radius: 12px; border: 2px solid transparent; border-bottom-width: 4px;
+                flex: 1; padding: 12px 10px; border-radius: 8px; border: 1px solid transparent; border-bottom-width: 1px;
                 font-weight: 800; font-size: 13px; font-family: 'Nunito', sans-serif;
                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
                 cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 6px;
             }
             .btn svg { width: 16px; height: 16px; stroke-width: 2.5; flex-shrink: 0; }
             .btn-primary {
-                background: #58cc02; color: #ffffff; border-color: #58a700;
+                background: #2052c4; color: #ffffff; border-color: #183e96;
             }
             .btn-primary:hover { filter: brightness(1.05); }
             .btn-primary:active { transform: translateY(2px); border-bottom-width: 2px; margin-bottom: 2px; }
             
             .btn-secondary {
-                color: #1cb0f6;
+                color: #2052c4;
             }
             .btn-secondary:hover { background: #334155; border-color: #475569; }
             .btn-secondary:active { transform: translateY(2px); border-bottom-width: 2px; margin-bottom: 2px; }
@@ -537,7 +540,7 @@ export class SettingsPanel {
                 <div class="panel-header">
                     <h2 class="panel-title" id="lf-settings-panel-title">
                         <img src="${chrome.runtime.getURL('icon128.png')}" alt="LinguaFlow" style="width:22px;height:22px;border-radius:6px;" />
-                        LinguaFlow
+                        Configurações do player
                     </h2>
                     <button class="close-btn" id="btn-close" type="button" aria-label="Fechar painel de configurações">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -550,11 +553,11 @@ export class SettingsPanel {
                     <div class="section">
                         <div class="section-title">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>
-                            Idiomas
+                             Idiomas
                         </div>
                         <div class="card">
                             <div class="group">
-                                <label>Idioma da Tradução (para)</label>
+                                 <label>Traduzir para</label>
                                 <select id="sel-lang">
                                     <option value="pt">Português BR</option>
                                     <option value="es">Español</option>
@@ -564,7 +567,7 @@ export class SettingsPanel {
                                 </select>
                             </div>
                             <div class="group">
-                                <label>Idioma do Vídeo (original)</label>
+                                 <label>Idioma falado no vídeo</label>
                                 <select id="sel-source-lang">
                                     <option value="en">English 🇬🇧</option>
                                     <option value="es">Español 🇪🇸</option>
@@ -574,7 +577,7 @@ export class SettingsPanel {
                                     <option value="ko">한국어 🇰🇷</option>
                                     <option value="pt">Português 🇧🇷</option>
                                 </select>
-                                <small>Idioma falado no vídeo — usado para buscar a legenda original correta.</small>
+                                 <small>Usamos essa informação para encontrar a legenda original correta.</small>
                             </div>
                         </div>
                     </div>
@@ -583,11 +586,11 @@ export class SettingsPanel {
                     <div class="section">
                         <div class="section-title">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="6.5"/></svg>
-                            Aparência e Acessibilidade
+                             Aparência e acessibilidade
                         </div>
                         <div class="card">
                             <div class="group">
-                                <label>Tipografia das Legendas</label>
+                                 <label>Fonte das legendas</label>
                                 <select id="sel-font-family">
                                     <option value="Inter">Inter (Moderna/Padrão)</option>
                                     <option value="Merriweather">Merriweather (Clássica)</option>
@@ -595,7 +598,7 @@ export class SettingsPanel {
                                 </select>
                             </div>
                             <div class="group">
-                                <label>Tema da Interface</label>
+                                 <label>Tema do player</label>
                                 <select id="sel-theme">
                                     <option value="light">Modo Claro</option>
                                     <option value="dark">Modo Escuro</option>
@@ -605,13 +608,13 @@ export class SettingsPanel {
                                  acessibilidade implementada e escondida era o pior
                                  dos dois mundos. Fiação (load/save/aplicação) já existia. -->
                             <div class="group">
-                                <label>Paleta de Cores Semântica</label>
+                                 <label>Cores dos estados de aprendizagem</label>
                                 <select id="sel-palette">
                                     <option value="Vibrant">Vibrante (Cores Vivas)</option>
                                     <option value="Pastel">Pastel (Suave)</option>
                                     <option value="Colorblind">Acessibilidade (Daltônicos)</option>
                                 </select>
-                                <small>Define as cores para palavras conhecidas e em aprendizado.</small>
+                                 <small>Define como palavras conhecidas e em aprendizagem aparecem.</small>
                             </div>
                         </div>
                     </div>
@@ -620,12 +623,12 @@ export class SettingsPanel {
                     <div class="section">
                         <div class="section-title">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg>
-                            Exibição de Legendas
+                             Exibição das legendas
                         </div>
 
                         <div class="card">
                             <div class="group">
-                                <label>Modo de Exibição</label>
+                                 <label>O que aparece na tela</label>
                                 <select id="sel-mode">
                                     <option value="bilingual">Bilíngue (Original + Tradução)</option>
                                     <option value="blur">Bilíngue (Tradução Oculta/Borrada)</option>
@@ -638,16 +641,16 @@ export class SettingsPanel {
                                  sempre existiu (load/save/engine); só o controle faltava.
                                  Desfoca a legenda ORIGINAL — treino de escuta pura. -->
                             <div class="group">
-                                <label>Desfocar Legenda Original (Treino de Escuta)</label>
+                                 <label>Ocultar a legenda original</label>
                                 <select id="sel-blur">
                                     <option value="off">Desligado</option>
                                     <option value="on">Ligado — ouça primeiro, espie se precisar</option>
                                 </select>
-                                <small>Borra o texto em inglês; passe o mouse para revelar. Força o ouvido a trabalhar antes do olho.</small>
+                                 <small>Tente compreender o áudio antes de revelar o texto.</small>
                             </div>
 
                             <div class="group">
-                                <label>Tamanho: Idioma Original</label>
+                                 <label>Tamanho do texto original</label>
                                 <div class="slider-row">
                                     <input type="range" id="rng-font" min="14" max="72" step="1" value="35">
                                     <span class="slider-val" id="val-font">35px</span>
@@ -655,7 +658,7 @@ export class SettingsPanel {
                             </div>
 
                             <div class="group">
-                                <label>Tamanho: Tradução</label>
+                                 <label>Tamanho da tradução</label>
                                 <div class="slider-row">
                                     <input type="range" id="rng-font-trans" min="10" max="56" step="1" value="18">
                                     <span class="slider-val" id="val-font-trans">18px</span>
@@ -663,7 +666,7 @@ export class SettingsPanel {
                             </div>
 
                             <div class="group" style="margin-top:20px;">
-                                <label>Opacidade do Fundo</label>
+                                 <label>Opacidade do fundo da legenda</label>
                                 <div class="slider-row">
                                     <input type="range" id="rng-bg" min="0" max="100" value="45">
                                     <span class="slider-val" id="val-bg">45%</span>
@@ -671,7 +674,7 @@ export class SettingsPanel {
                             </div>
 
                             <div class="group">
-                                <label>Posição Vertical</label>
+                                 <label>Altura da legenda</label>
                                 <div class="slider-row">
                                     <input type="range" id="rng-position" min="20" max="400" value="84">
                                     <span class="slider-val" id="val-position">84px</span>
@@ -679,7 +682,7 @@ export class SettingsPanel {
                             </div>
 
                             <div class="group">
-                                <label>Alinhamento Horizontal</label>
+                                 <label>Posição horizontal</label>
                                 <div class="slider-row">
                                     <input type="range" id="rng-horizontal" min="0" max="100" value="45">
                                     <span class="slider-val" id="val-horizontal">45%</span>
@@ -697,42 +700,42 @@ export class SettingsPanel {
                     <div class="section">
                         <div class="section-title">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                            Reprodução e Comportamento
+                             Reprodução e comportamento
                         </div>
                         <div class="card">
                             <div class="group">
-                                <label>Pausa Automática</label>
+                                 <label>Pausar após cada fala</label>
                                 <select id="sel-autopause">
                                     <option value="on">Ativada (Pausa após cada fala)</option>
                                     <option value="off">Desativada</option>
                                 </select>
                             </div>
                             <div class="group">
-                                <label>Sincronia das Legendas (Offset)</label>
+                                 <label>Ajuste de sincronia</label>
                                 <div class="slider-row">
                                     <input type="range" id="rng-anticipation" min="-2" max="2" step="0.1" value="0">
                                     <span class="slider-val" id="val-anticipation">0s</span>
                                 </div>
-                                <small>Corrige legendas fora de sincronia.</small>
+                                 <small>Use quando a legenda aparecer antes ou depois do áudio.</small>
                             </div>
                             <div class="group">
-                                <label>Atrasar Tradução</label>
+                                 <label>Atraso da tradução</label>
                                 <div class="slider-row">
                                     <input type="range" id="rng-delay" min="0" max="5" step="0.1" value="0">
                                     <span class="slider-val" id="val-delay">0s</span>
                                 </div>
-                                <small>Força você a tentar entender o áudio antes da legenda traduzida aparecer.</small>
+                                 <small>Dê alguns segundos para tentar compreender o áudio.</small>
                             </div>
                             <div class="group">
-                                <label>Tempo do botão "Traduzir"</label>
+                                 <label>Duração da tradução manual</label>
                                 <div class="slider-row">
                                     <input type="range" id="rng-flash" min="1" max="15" step="0.5" value="4">
                                     <span class="slider-val" id="val-flash">4s</span>
                                 </div>
-                                <small>Duração da tradução na tela quando requisitada manualmente.</small>
+                                 <small>Quanto tempo a tradução fica visível quando solicitada.</small>
                             </div>
                             <div class="group">
-                                <label>Velocidade de Pronúncia TTS</label>
+                                 <label>Velocidade da pronúncia</label>
                                 <select id="sel-tts-speed">
                                     <option value="1.0">1.0x (Normal)</option>
                                     <option value="0.75">0.75x (Lenta)</option>
@@ -746,11 +749,11 @@ export class SettingsPanel {
                     <div class="section">
                         <div class="section-title">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                            Imersão & Destaques (CEFR)
+                             Imersão e destaques (CEFR)
                         </div>
                         <div class="card">
                             <div class="group">
-                                <label>Destaque Automático de Nível</label>
+                                 <label>Destacar palavras por nível</label>
                                 <select id="sel-cefr-level">
                                     <option value="none">Desativado</option>
                                     <option value="all">Todos os Níveis (A1-C2)</option>
@@ -761,10 +764,10 @@ export class SettingsPanel {
                                     <option value="C1">C1 (Avançado)</option>
                                     <option value="C2">C2 (Fluente)</option>
                                 </select>
-                                <small>Destaca na legenda palavras do nível escolhido.</small>
+                                 <small>Marca na legenda as palavras do nível escolhido.</small>
                             </div>
                             <div class="group">
-                                <label>Mostrar Cores do Nível CEFR</label>
+                                 <label>Mostrar cores dos níveis</label>
                                 <select id="sel-cefr-colors">
                                     <option value="on">Ativado</option>
                                     <option value="off">Desativado</option>
@@ -777,16 +780,16 @@ export class SettingsPanel {
                     <div class="section">
                         <div class="section-title">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-                            Seu Vocabulário
+                             Cores do seu vocabulário
                         </div>
                         <div class="card">
                             <div class="color-row">
                                 <input type="color" id="col-known" value="#86EFAC">
-                                <span class="color-label">Palavras que você já sabe</span>
+                                 <span class="color-label">Palavras que você já conhece</span>
                             </div>
                             <div class="color-row">
                                 <input type="color" id="col-saved" value="#93C5FD">
-                                <span class="color-label">Palavras que está aprendendo</span>
+                                 <span class="color-label">Palavras em aprendizagem</span>
                             </div>
                         </div>
                     </div>
@@ -795,19 +798,19 @@ export class SettingsPanel {
                     <div class="section">
                         <div class="section-title">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"/><line x1="6" y1="8" x2="6.01" y2="8"/><line x1="10" y1="8" x2="10.01" y2="8"/><line x1="14" y1="8" x2="14.01" y2="8"/><line x1="18" y1="8" x2="18.01" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="6" y1="16" x2="18" y2="16"/></svg>
-                            Atalhos do Teclado
+                             Atalhos do teclado
                         </div>
                         <div class="card" style="padding: 12px;">
                             <div class="shortcuts-grid">
-                                <div class="shortcut-item"><span>Fala Anterior</span><kbd>A</kbd></div>
-                                <div class="shortcut-item"><span>Repetir Fala</span><kbd>S</kbd></div>
-                                <div class="shortcut-item"><span>Próxima Fala</span><kbd>D</kbd></div>
-                                <div class="shortcut-item"><span>Auto-Pausa</span><kbd>Q</kbd></div>
+                                 <div class="shortcut-item"><span>Trecho anterior</span><kbd>A</kbd></div>
+                                 <div class="shortcut-item"><span>Repetir trecho</span><kbd>S</kbd></div>
+                                 <div class="shortcut-item"><span>Próximo trecho</span><kbd>D</kbd></div>
+                                 <div class="shortcut-item"><span>Pausa automática</span><kbd>Q</kbd></div>
                                 <div class="shortcut-item"><span>Revisão Rápida</span><kbd>R</kbd></div>
-                                <div class="shortcut-item"><span>Painel Lateral</span><kbd>L</kbd></div>
+                                 <div class="shortcut-item"><span>Abrir o roteiro</span><kbd>L</kbd></div>
                                 <div class="shortcut-item"><span>Configurações</span><kbd>O</kbd></div>
-                                <div class="shortcut-item"><span>Mostrar/Ocultar Legendas</span><kbd>C</kbd></div>
-                                <div class="shortcut-item"><span>Play/Pause</span><kbd>Espaço</kbd></div>
+                                 <div class="shortcut-item"><span>Mostrar ou ocultar legendas</span><kbd>C</kbd></div>
+                                 <div class="shortcut-item"><span>Reproduzir ou pausar</span><kbd>Espaço</kbd></div>
                             </div>
                         </div>
                     </div>
@@ -817,11 +820,11 @@ export class SettingsPanel {
                 <div class="footer-btns">
                     <button id="btn-save-settings" class="btn btn-primary">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                        Salvar
+                         Salvar alterações
                     </button>
                     <button id="btn-export-data" class="btn btn-secondary">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-                        Dashboard
+                         Abrir Dashboard
                     </button>
                 </div>
             </div>

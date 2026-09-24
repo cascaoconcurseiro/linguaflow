@@ -4,6 +4,7 @@ const CJK = /[\u3040-\u30ff\u3400-\u9fff]/;
 const COMPLETE = /[.!?…。！？][”’"')\]]*$/u;
 const LIMIT_SECONDS = 8;
 const LIMIT_CHARACTERS = 150;
+const PURE_SOUND_OR_MARKER = /^([><]{1,4}|[»«›‹▶►◄◀➔→➤]|\[[^\]]+\]|\([^)]+\)|\*[^*]+\*|[♪♫♬♩\s])+$/;
 
 export function groupCaptionEvents(events) {
   const fragments = (Array.isArray(events) ? events : [])
@@ -13,7 +14,7 @@ export function groupCaptionEvents(events) {
       end:(event.tStartMs + Math.max(0, Number(event.dDurationMs) || 0)) / 1000,
       text:event.segs.map(seg => typeof seg?.utf8 === 'string' ? seg.utf8 : '').join('').replace(/\s+/g,' ').trim(),
     }))
-    .filter(cue => cue.text && !/^\[[^\]]+\]$/.test(cue.text))
+    .filter(cue => cue.text && !PURE_SOUND_OR_MARKER.test(cue.text))
     .sort((a,b) => a.start-b.start);
   const phrases=[];
   for(const fragment of fragments) {
@@ -31,7 +32,7 @@ export function groupCaptionEvents(events) {
       previous.end=Math.max(previous.end,fragment.end);
       continue;
     }
-    const distinctSpeaker=/^[-–—]\s/.test(fragment.text);
+    const distinctSpeaker=/^([-–—]|\>{1,4}|[»«›‹])\s*/.test(fragment.text);
     if(gap>1.1 || gap< -0.6 || COMPLETE.test(previous.text) || distinctSpeaker
       || fragment.end-previous.start>LIMIT_SECONDS || previous.text.length+fragment.text.length+1>LIMIT_CHARACTERS) {
       phrases.push({...fragment});
@@ -41,8 +42,20 @@ export function groupCaptionEvents(events) {
     previous.text+=separator+fragment.text;
     previous.end=Math.max(previous.end,fragment.end);
   }
-  // Avoid a long manual cue masking the next phrase during playback.
-  for(let i=0;i<phrases.length-1;i++)phrases[i].end=Math.min(phrases[i].end,phrases[i+1].start);
+  // Evita que legendas persistam na tela durante silêncio ou música.
+  // Limita a duração máxima ao tempo de fala/leitura confortável (máx LIMIT_SECONDS = 8s).
+  for(let i=0;i<phrases.length;i++) {
+    const text = phrases[i].text || '';
+    const words = text.split(/\s+/).filter(Boolean).length;
+    const maxDur = Math.min(LIMIT_SECONDS, Math.max(3.5, 2.0 + Math.max(words * 0.45, text.length * 0.08)));
+    const maxEnd = phrases[i].start + maxDur;
+    if (phrases[i].end > maxEnd) {
+      phrases[i].end = maxEnd;
+    }
+    if (i < phrases.length - 1) {
+      phrases[i].end = Math.min(phrases[i].end, phrases[i+1].start);
+    }
+  }
   return phrases;
 }
 

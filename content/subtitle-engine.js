@@ -2977,7 +2977,8 @@ export class SubtitleEngine {
         `;
 
     const listeningControls = document.createElement('div');
-    listeningControls.style.cssText = 'padding:10px 16px;border-bottom:1px solid #94a3b844;font-size:13px;';
+    listeningControls.id = 'lf-listening-controls';
+    listeningControls.style.cssText = 'display:none;';
     listeningControls.innerHTML = `<p id="lf-listening-status" role="status">Idioma não confirmado</p>
       <label>Idioma do áudio deste vídeo <select id="lf-listening-language" aria-label="Idioma do áudio deste vídeo">
       <option value="">Não confirmado</option><option value="en">Inglês</option><option value="pt">Português</option><option value="es">Espanhol</option><option value="fr">Francês</option><option value="de">Alemão</option><option value="it">Italiano</option><option value="ja">Japonês</option><option value="ko">Coreano</option></select></label>
@@ -3232,7 +3233,14 @@ export class SubtitleEngine {
         .join(' ')
         .trim();
       const text = this._cleanSubtitleText ? this._cleanSubtitleText(rawText) : rawText;
-      if (text) cues.push({ start: parseTime(startStr), end: parseTime(endStr), text });
+      if (text) {
+        const start = parseTime(startStr);
+        const parsedEnd = parseTime(endStr);
+        const words = text.split(/\s+/).filter(Boolean).length;
+        const maxDur = Math.min(8.0, Math.max(3.5, 2.0 + Math.max(words * 0.45, text.length * 0.08)));
+        const end = Math.min(parsedEnd, start + maxDur);
+        cues.push({ start, end, text });
+      }
     });
     return cues;
   }
@@ -3463,7 +3471,15 @@ export class SubtitleEngine {
         // Loop legado unificado com o motor de elite
         const cuesToSearch = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
         const idx = this._binarySearchCue(cuesToSearch, t);
-        const cue = idx !== -1 ? cuesToSearch[idx] : null;
+        let cue = idx !== -1 ? cuesToSearch[idx] : null;
+        if (cue) {
+          const text = cue.text || '';
+          const words = text.split(/\s+/).filter(Boolean).length;
+          const maxDur = Math.min(8.0, Math.max(3.5, 2.0 + Math.max(words * 0.45, text.length * 0.08)));
+          if (t > cue.start + maxDur) {
+            cue = null;
+          }
+        }
 
         if (cue && cue !== this._currentCue) {
           this.lastText = cue.text;
@@ -3775,9 +3791,14 @@ export class SubtitleEngine {
           // Sincronia com Legenda Nativa (YouTube)
           if (this.platform === 'youtube') this._syncYouTubeNativeCaptions();
 
-          // Encontra a cue ativa (Otimizado: usa busca binária primeiro se não houver sobreposição conhecida)
-          // Para manter compatibilidade com sobreposições, usamos o filter apenas se necessário
-          const activeCues = cuesToSearch.filter((c) => t >= c.start && t <= c.end);
+          // Encontra a cue ativa (com duração máxima de segurança para evitar legendas presas em silêncio ou música)
+          const activeCues = cuesToSearch.filter((c) => {
+            const text = c.text || '';
+            const words = text.split(/\s+/).filter(Boolean).length;
+            const maxDur = Math.min(8.0, Math.max(3.5, 2.0 + Math.max(words * 0.45, text.length * 0.08)));
+            const effectiveEnd = Math.min(c.end, c.start + maxDur);
+            return t >= c.start && t <= effectiveEnd;
+          });
 
           let cue = null;
           if (activeCues.length > 0) {
@@ -3876,7 +3897,9 @@ export class SubtitleEngine {
     if (!text) return '';
     return text
       .replace(/\[.*?\]/g, '') // Remove [Music], [Laughter]
-      .replace(/\(.*?\)/g, '') // Remove (shouting)
+      .replace(/\(.*?\)/g, '') // Remove (shouting), (music)
+      .replace(/\*.*?\*/g, '') // Remove *music*, *applause*
+      .replace(/[♪♫♬♩]/g, '') // Remove notas musicais
       // §4j.1/§4l.2: entidades HTML decodificadas AQUI, na fonte da cue —
       // antes só a legenda na tela era consertada (_makeClickable) e o card
       // recebia "don&#39;t" cru em context_sentence, contaminando frente,
@@ -3889,6 +3912,14 @@ export class SubtitleEngine {
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
       .replace(/&apos;/g, "'")
+      .replace(/&raquo;/g, '»')
+      .replace(/&laquo;/g, '«')
+      // Remove pontas de flechas, marcadores de orador e chevrons (>>, >>>, <<, >, », etc.)
+      .replace(/[»«›‹▶►◄◀➔→➤]/g, ' ')
+      .replace(/[><]{2,}/g, ' ')
+      .replace(/(?:^|\s)[><]+(?:\s|$)/g, ' ')
+      .replace(/^[><]+\s*/, '')
+      .replace(/\s*[><]+$/, '')
       .replace(/\s+/g, ' ') // Unifica espaços
       .trim();
   }
@@ -4089,6 +4120,8 @@ export class SubtitleEngine {
       console.warn('[LinguaFlow] renderDual failed: shadowContainer not ready');
       return;
     }
+    orig = this._cleanSubtitleText ? this._cleanSubtitleText(orig) : (orig || '');
+    trans = this._cleanSubtitleText ? this._cleanSubtitleText(trans) : (trans || '');
     console.debug('[LinguaFlow] renderDual called with:', {
       orig: orig?.substring(0, 20),
       trans: trans?.substring(0, 20),
@@ -4595,10 +4628,14 @@ export class SubtitleEngine {
     if (showTrans) this._translateAllSidebarCues(cues);
 
     cues.forEach((cue, idx) => {
+      const cleanText = this._cleanSubtitleText ? this._cleanSubtitleText(cue.text) : (cue.text || '');
+      if (!cleanText) return;
+      const cleanTrans = cue.translatedText && this._cleanSubtitleText ? this._cleanSubtitleText(cue.translatedText) : (cue.translatedText || '');
+
       const matchesFilter =
         !filter ||
-        cue.text.toLowerCase().includes(filter.toLowerCase()) ||
-        (cue.translatedText && cue.translatedText.toLowerCase().includes(filter.toLowerCase()));
+        cleanText.toLowerCase().includes(filter.toLowerCase()) ||
+        (cleanTrans && cleanTrans.toLowerCase().includes(filter.toLowerCase()));
 
       if (!matchesFilter) return;
 
@@ -4621,13 +4658,13 @@ export class SubtitleEngine {
       item.innerHTML = `
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
                     <span class="lf-time lf-sub-time" style="font-size:11px;font-family:'Nunito',monospace;font-weight:700;flex-shrink:0;margin-top:3px;">${this._formatTime(startTime)}</span>
-                    <div class="lf-sub-text" style="flex:1;font-size:15px;line-height:1.4;font-weight:700;">${escapeHTML(cue.text)}</div>
+                    <div class="lf-sub-text" style="flex:1;font-size:15px;line-height:1.4;font-weight:700;">${escapeHTML(cleanText)}</div>
                     <div style="display:flex;gap:4px;">
                         <button class="lf-loop-cue" title="Repetir frase" style="background:transparent;border:none;color:inherit;cursor:pointer;font-size:14px;padding:0 2px;">🔁</button>
                     </div>
                 </div>
                 <div class="lf-translation-text lf-trans-text" style="font-size:13px;padding-left:42px;font-weight:600;display:${showTrans ? 'block' : 'none'};">
-                    ${cue.translatedText ? escapeHTML(cue.translatedText) : '<span style="opacity:0.6;font-style:italic;">traduzindo...</span>'}
+                    ${cleanTrans ? escapeHTML(cleanTrans) : '<span style="opacity:0.6;font-style:italic;">traduzindo...</span>'}
                 </div>
             `;
 
@@ -4668,13 +4705,14 @@ export class SubtitleEngine {
       if (!this._isNavigationCurrent(navigation) || this.targetLang !== targetLang) return;
       const cue = pending[index];
       if (!cue || !cues.includes(cue) || !result?.translation) return;
-      cue.translatedText = result.translation;
+      const cleanTrans = this._cleanSubtitleText ? this._cleanSubtitleText(result.translation) : result.translation;
+      cue.translatedText = cleanTrans;
       cue._transLang = targetLang;
       const cueIndex = cues.indexOf(cue);
       const item = document.querySelector(`.lf-subtitle-item[data-index="${cueIndex}"] .lf-translation-text`);
-      if (item) item.textContent = result.translation;
+      if (item) item.textContent = cleanTrans;
       if (this._currentCue === cue && this.shadowContainer) {
-        this.renderDual(cue.text, result.translation);
+        this.renderDual(cue.text, cleanTrans);
       }
     };
 

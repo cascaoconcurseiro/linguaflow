@@ -172,3 +172,68 @@ test('complete track replaces earlier partial segment without stale duplicate wo
   await engine._processYouTubeRawSubtitles(url,JSON.stringify({events:[{tStartMs:0,dDurationMs:1500,segs:[{utf8:'The right sentence.'}]}]}),nav);
   assert.deepEqual(engine.cues.map(c=>c.text),['The right sentence.']);
 });
+
+test('subtitles and sidebar clean speaker change arrowheads (>>) and chevrons leaving only text', async () => {
+  const { SubtitleEngine } = await import('../content/subtitle-engine.js');
+  const engine = Object.create(SubtitleEngine.prototype);
+
+  // 1. _cleanSubtitleText removes >> at start, end, alone and chevrons
+  assert.equal(
+    engine._cleanSubtitleText('>> If you ever wake up in a bad mood, just try some Jack Johnson.'),
+    'If you ever wake up in a bad mood, just try some Jack Johnson.'
+  );
+  assert.equal(
+    engine._cleanSubtitleText('Become a better morning person in two >>'),
+    'Become a better morning person in two'
+  );
+  assert.equal(engine._cleanSubtitleText('>>'), '');
+  assert.equal(engine._cleanSubtitleText('>>> Host: Hello >>'), 'Host: Hello');
+  assert.equal(engine._cleanSubtitleText('>> Se você acordar de mau humor, apenas'), 'Se você acordar de mau humor, apenas');
+  assert.equal(engine._cleanSubtitleText('« Jack Johnson »'), 'Jack Johnson');
+  assert.equal(engine._cleanSubtitleText('&gt;&gt; Jack Johnson'), 'Jack Johnson');
+
+  // 2. groupCaptionEvents drops cues that contain ONLY arrowheads
+  const events = [
+    { tStartMs: 2000, dDurationMs: 4000, segs: [{ utf8: '>> If you ever wake up' }] },
+    { tStartMs: 39000, dDurationMs: 1000, segs: [{ utf8: '>>' }] },
+    { tStartMs: 47000, dDurationMs: 2000, segs: [{ utf8: ">> What's up, guys?" }] },
+  ];
+  const grouped = groupCaptionEvents(events);
+  assert.equal(grouped.length, 2);
+  assert.ok(!grouped.some((c) => c.text === '>>'));
+
+  // 3. Audio language selection container is hidden by default in sidebar
+  const div = { id: '', style: { cssText: '' }, innerHTML: '', querySelector: () => ({ value: '', addEventListener: () => {} }) };
+  const mockDoc = {
+    createElement: (tag) => {
+      if (tag === 'div') return { id: '', style: { cssText: '', display: '' }, innerHTML: '', appendChild: () => {}, querySelector: () => ({ value: '', addEventListener: () => {} }) };
+      return { style: {}, appendChild: () => {}, querySelector: () => ({}) };
+    },
+    getElementById: () => null,
+  };
+});
+
+test('subtitles do not persist indefinitely during music or silence', async () => {
+  const { SubtitleEngine } = await import('../content/subtitle-engine.js');
+  const engine = Object.create(SubtitleEngine.prototype);
+
+  // 1. Music notes and sound descriptions are cleaned
+  assert.equal(engine._cleanSubtitleText('♪ Jack Johnson ♪'), 'Jack Johnson');
+  assert.equal(engine._cleanSubtitleText('(music)'), '');
+  assert.equal(engine._cleanSubtitleText('[Music]'), '');
+  assert.equal(engine._cleanSubtitleText('*upbeat music*'), '');
+
+  // 2. groupCaptionEvents drops pure music/sound events and caps long silence/music durations
+  const events = [
+    { tStartMs: 14000, dDurationMs: 25000, segs: [{ utf8: 'Become a better morning person in two' }] },
+    { tStartMs: 20000, dDurationMs: 10000, segs: [{ utf8: '♪ [Music] ♪' }] },
+    { tStartMs: 35000, dDurationMs: 3000, segs: [{ utf8: 'Next sentence.' }] },
+  ];
+  const grouped = groupCaptionEvents(events);
+  assert.equal(grouped.length, 2);
+  assert.equal(grouped[0].text, 'Become a better morning person in two');
+  // Must NOT stretch to 35s or 39s; capped to comfortable reading duration (~5.15s, <= 8s max)
+  assert.ok(grouped[0].end <= 14 + 8, `Duration should be capped, got end: ${grouped[0].end}`);
+  assert.ok(grouped[0].end < 21, `Phrase duration should end around 19s, got end: ${grouped[0].end}`);
+  assert.equal(grouped[1].text, 'Next sentence.');
+});

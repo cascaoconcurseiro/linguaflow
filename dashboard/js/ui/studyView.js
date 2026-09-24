@@ -327,42 +327,18 @@ export async function renderStudy(container, app, params = {}) {
               <summary><span>Entender melhor</span><span aria-hidden="true">⌄</span></summary>
               <div class="study-resources-content">
                 <div class="study-resource-panel-header">
-                  <strong>Mais recursos</strong>
+                  <strong>Entender melhor</strong>
                   <button id="close-study-resources" type="button">Fechar</button>
                 </div>
 
-                <section class="learning-resource-section study-context-summary" aria-labelledby="study-context-meaning-title">
-                  <p class="learning-resource-kicker">ENTENDER</p>
-                  <h3 id="study-context-meaning-title">Sentido nesta frase</h3>
-                  <p id="study-context-meaning" class="learning-resource-description" aria-live="polite">Atualizando a explicação contextual…</p>
-                  <p id="study-usage-note" class="study-usage-note"></p>
-                  <div id="iso-mnemonic-box">
-                    <button id="iso-mnemonic-btn" type="button">Me dê um truque para lembrar</button>
-                    <p id="iso-mnemonic-text" class="hidden" aria-live="polite"></p>
+                <section class="learning-resource-section" aria-labelledby="native-examples-title">
+                  <h3 id="native-examples-title">Ouvir em outros contextos</h3>
+                  <div id="youglish-box" class="hidden">
+                    <button id="yg-load-btn" class="btn btn-secondary">Ver no YouGlish</button>
+                    <div id="yg-widget-embed"></div>
+                    <a id="youglish-fallback" href="#" target="_blank" rel="noopener" class="hidden">Abrir no YouGlish</a>
                   </div>
                 </section>
-
-                <section class="learning-resource-section" aria-labelledby="practice-resource-title">
-                  <p class="learning-resource-kicker">PRATICAR</p>
-                  <h3 id="practice-resource-title">Blocos úteis desta frase</h3>
-                  <p class="learning-resource-description">Ouça e repita os blocos que podem reaparecer em outras situações.</p>
-                  <div class="chunks-list" id="chunks-container"></div>
-                </section>
-
-                <details class="more-contexts">
-                  <summary>Mais exemplos e fontes</summary>
-                  <div class="more-contexts-content">
-                    <section aria-labelledby="native-examples-title">
-                      <h3 id="native-examples-title">Ouvir em outros contextos</h3>
-                      <div id="youglish-box" class="hidden">
-                        <button id="yg-load-btn" class="btn btn-secondary">Ver no YouGlish</button>
-                        <div id="yg-widget-embed"></div>
-                        <a id="youglish-fallback" href="#" target="_blank" rel="noopener" class="hidden">Abrir no YouGlish</a>
-                      </div>
-                    </section>
-                    <!-- Tatoeba removido a pedido do dono (18/07) -->
-                  </div>
-                </details>
               </div>
             </details>
 
@@ -808,7 +784,8 @@ async function loadNextCard(app) {
   hidePlayer(); // troca de card: o vídeo do card anterior não deve tocar ao fundo
   document.getElementById('youglish-box').classList.add('hidden');
   document.getElementById('improve-btn').classList.add('hidden');
-  document.getElementById('chunks-container').innerHTML = '';
+  const chunksEl = document.getElementById('chunks-container');
+  if (chunksEl) chunksEl.innerHTML = '';
 
   const wordData = card.wordData || {};
   const word = wordData.word || card.word || 'Erro';
@@ -1531,37 +1508,38 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
   // aluno reabre a mesma palavra.
   const mnemonicBtn = document.getElementById('iso-mnemonic-btn');
   const mnemonicText = document.getElementById('iso-mnemonic-text');
-  if (!mnemonicBtn || !mnemonicText) return;
-  mnemonicText.classList.add('hidden');
-  mnemonicText.textContent = '';
-  if (wordData.mnemonic) {
-    mnemonicText.textContent = wordData.mnemonic;
-    mnemonicText.classList.remove('hidden');
-    mnemonicBtn.textContent = 'Gerar outro truque';
-  } else {
-    mnemonicBtn.textContent = 'Me dê um truque para lembrar';
-  }
-  mnemonicBtn.onclick = async () => {
-    mnemonicBtn.disabled = true;
-    mnemonicBtn.textContent = 'Gerando…';
-    try {
-      const translation = (wordEntry && wordEntry.pt) || wordData.translation || card.translation || '';
-      const mnemonic = await generateMnemonic(word, translation, context);
-      mnemonicText.textContent = mnemonic;
+  if (mnemonicBtn && mnemonicText) {
+    mnemonicText.classList.add('hidden');
+    mnemonicText.textContent = '';
+    if (wordData.mnemonic) {
+      mnemonicText.textContent = wordData.mnemonic;
       mnemonicText.classList.remove('hidden');
       mnemonicBtn.textContent = 'Gerar outro truque';
-      if (wordData.id) {
-        wordData.mnemonic = mnemonic;
-        lfDb.updateWord(wordData.id, { mnemonic }).catch(() => {});
-      }
-    } catch (e) {
-      console.warn('[Study] Mnemônico falhou:', e);
-      exerciseApp?.showToast?.('Não consegui gerar um truque agora. Tente de novo.', 'error');
+    } else {
       mnemonicBtn.textContent = 'Me dê um truque para lembrar';
-    } finally {
-      mnemonicBtn.disabled = false;
     }
-  };
+    mnemonicBtn.onclick = async () => {
+      mnemonicBtn.disabled = true;
+      mnemonicBtn.textContent = 'Gerando…';
+      try {
+        const translation = (wordEntry && wordEntry.pt) || wordData.translation || card.translation || '';
+        const mnemonic = await generateMnemonic(word, translation, context);
+        mnemonicText.textContent = mnemonic;
+        mnemonicText.classList.remove('hidden');
+        mnemonicBtn.textContent = 'Gerar outro truque';
+        if (wordData.id) {
+          wordData.mnemonic = mnemonic;
+          lfDb.updateWord(wordData.id, { mnemonic }).catch(() => {});
+        }
+      } catch (e) {
+        console.warn('[Study] Mnemônico falhou:', e);
+        exerciseApp?.showToast?.('Não consegui gerar um truque agora. Tente de novo.', 'error');
+        mnemonicBtn.textContent = 'Me dê um truque para lembrar';
+      } finally {
+        mnemonicBtn.disabled = false;
+      }
+    };
+  }
 
   if (!renderVideo) return;
 
@@ -1725,6 +1703,7 @@ function renderStudyResourceSummary(word, context, ctxEntry, wordEntry, wordData
 
 function renderChunksList(chunks, context) {
   const container = document.getElementById('chunks-container');
+  if (!container) return;
   const visible = chunks.filter(c => !c.is_word);
   // A frase do card sempre primeiro
   visible.sort((a, b) => {

@@ -56,10 +56,11 @@ const toggle = { ...base, data: { type: 'LF_YT_SUB_TOGGLE', nonce: state.nonce, 
 assert.equal(isTrustedSubtitleBridgeMessage(toggle, state, window.location.href), true);
 assert.equal(isTrustedSubtitleBridgeMessage({ ...toggle, data: { ...toggle.data, active: 0 } }, state, window.location.href), false);
 
-const audioMessage = { ...base, data: { type:'LF_AUDIO_LANGUAGE', nonce:state.nonce, pageUrl:window.location.href, language:'en-US'.toLowerCase() } };
+const audioMessage = { ...base, data: { type:'LF_AUDIO_LANGUAGE', nonce:state.nonce, pageUrl:window.location.href, language:'en-US'.toLowerCase(), evidence:'audio_track' } };
 assert.equal(isTrustedSubtitleBridgeMessage(audioMessage, state, window.location.href), true);
-assert.equal(isTrustedSubtitleBridgeMessage({ ...audioMessage, data:{ ...audioMessage.data, language:null } }, state, window.location.href), true);
-for (const patch of [{nonce:'forged'},{pageUrl:'https://www.youtube.com/watch?v=old'},{language:'English'},{language:{code:'en'}}]) {
+assert.equal(isTrustedSubtitleBridgeMessage({ ...audioMessage, data:{ ...audioMessage.data, language:'en', evidence:'caption_asr' } }, state, window.location.href), true);
+assert.equal(isTrustedSubtitleBridgeMessage({ ...audioMessage, data:{ ...audioMessage.data, language:null, evidence:null } }, state, window.location.href), true);
+for (const patch of [{nonce:'forged'},{pageUrl:'https://www.youtube.com/watch?v=old'},{language:'English'},{language:{code:'en'}},{evidence:'captions'},{language:null}]) {
   assert.equal(isTrustedSubtitleBridgeMessage({ ...audioMessage, data:{ ...audioMessage.data, ...patch } }, state, window.location.href), false);
 }
 

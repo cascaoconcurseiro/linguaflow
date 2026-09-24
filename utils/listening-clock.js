@@ -11,8 +11,8 @@ export class ListeningClock {
       : s.paused || s.ended || s.seeking ? 'Pausado'
       : s.muted || s.volume === 0 ? 'Pausado: áudio sem som'
       : s.readyState < 3 ? 'Pausado: carregando vídeo' : null;
-    this.state = reason || `Contando ${s.language.toUpperCase()} · ${s.evidence === 'audio_track' ? 'áudio detectado' : 'idioma confirmado'}`;
-    if (reason || !prior || prior.key !== s.key || prior.language !== s.language || prior.rate !== s.rate) return 0;
+    this.state = reason || `Contando ${s.language.toUpperCase()} · ${s.evidence === 'audio_track' ? 'áudio detectado' : s.evidence === 'caption_asr' ? 'estimado pela legenda automática' : 'idioma confirmado'}`;
+    if (reason || !prior || prior.key !== s.key || prior.language !== s.language || prior.evidence !== s.evidence || prior.rate !== s.rate) return 0;
     // Both endpoints must be eligible; large gaps and discontinuities are not listening.
     if (prior.paused || prior.ended || prior.seeking || prior.muted || prior.volume === 0 || prior.readyState < 3 || !prior.visible || !prior.active || prior.ad) return 0;
     const wall = (s.now - prior.now) / 1000;

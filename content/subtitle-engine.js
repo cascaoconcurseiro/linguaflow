@@ -324,6 +324,9 @@ export class SubtitleEngine {
     this._listeningEvidence = null;
     this._listeningOwner = null;
     this._listeningManual = false;
+    this._listeningFlushFailures = 0;
+    this._listeningFlushNextAttempt = 0;
+    this._listeningLastErrorLogged = null;
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState !== 'visible') void this._flushListeningInterval().catch(() => {});
     }, { signal:this._lifecycleController.signal });
@@ -338,7 +341,9 @@ export class SubtitleEngine {
         const video = this.videoElement;
         const key = `${location.href}|${video?.currentSrc || ''}`;
         if (key !== this._listeningKey || owner !== this._listeningOwner) {
-          if (owner === this._listeningOwner) await this._flushListeningInterval();
+          if (owner === this._listeningOwner) {
+            try { await this._flushListeningInterval(); } catch {}
+          }
           this._listeningClock = new ListeningClock();
           this._listeningLanguage = null;
           this._listeningEvidence = null;
@@ -361,7 +366,7 @@ export class SubtitleEngine {
         const trackKey = audioTrack ? `${audioTrack.id}:${audioTrack.language}` : evidence === 'audio_track' ? detected : '';
         if (trackKey && ((this._listeningTrack && this._listeningTrack !== trackKey)
           || (this._listeningManual && !this._listeningTrack && this._listeningLanguage !== detected))) {
-          await this._flushListeningInterval();
+          try { await this._flushListeningInterval(); } catch {}
           this._listeningLanguage = null;
           this._listeningManual = false;
           const selector = document.querySelector('#lf-listening-language');
@@ -369,7 +374,7 @@ export class SubtitleEngine {
         }
         if (trackKey) this._listeningTrack = trackKey;
         if (!this._listeningManual && (detected !== this._listeningLanguage || evidence !== this._listeningEvidence)) {
-          await this._flushListeningInterval();
+          try { await this._flushListeningInterval(); } catch {}
           this._listeningClock = new ListeningClock();
           this._listeningLanguage = detected;
           this._listeningEvidence = evidence;
@@ -385,34 +390,53 @@ export class SubtitleEngine {
         });
         const pending = this._listeningClock.pending;
         if (pending && (pending.seconds >= 10 || !this._listeningClock.state.startsWith('Contando'))) {
-          await this._flushListeningInterval();
+          if (Date.now() >= (this._listeningFlushNextAttempt || 0)) {
+            await this._flushListeningInterval();
+          }
         }
         const status = document.getElementById('lf-listening-status');
         if (status) status.textContent = !owner ? 'Entre na conta para registrar listening' : this._listeningSyncPending ? `${this._listeningClock.state} · salvo neste dispositivo, sincronização automática` : this._listeningClock.state;
       } catch (error) {
         const status = document.getElementById('lf-listening-status');
         if (status) status.textContent = 'Não foi possível registrar. Verifique sua conexão e conta.';
-        console.warn('[Listening] interval_failed', { code:error.code || 'unavailable' });
+        const errKey = `${error.code || error.name || 'err'}:${error.message || ''}`;
+        if (this._listeningLastErrorLogged !== errKey) {
+          this._listeningLastErrorLogged = errKey;
+          console.warn('[Listening] interval_failed', { code:error.code || 'unavailable' });
+        }
       } finally { busy = false; }
     }, 1000);
   }
 
   async _flushListeningInterval() {
-    const measured = this._listeningClock?.take();
-    const interval = measured ? (({ key, ...value }) => value)(measured) : null;
-    if (!interval || !this._listeningOwner) return;
-    const { db } = await import('../utils/db.js');
-    try {
-      await db.enqueueListeningInterval({ ...interval, id:crypto.randomUUID(), accountId:this._listeningOwner, date:localDateKey(new Date(interval.startedAt)) });
-      this._listeningSyncPending = true;
-    } catch (error) {
-      // Preserve unsaved data for the next sample; never reassign it to another account.
-      const remainder = this._listeningClock.pending;
-      this._listeningClock.pending = remainder && remainder.key === measured.key
-        ? { ...measured, seconds:measured.seconds + remainder.seconds, endedAt:remainder.endedAt }
-        : measured;
-      throw error;
-    }
+    if (this._flushingListeningInterval) return this._flushingListeningInterval;
+    this._flushingListeningInterval = (async () => {
+      const measured = this._listeningClock?.take();
+      const interval = measured ? (({ key, ...value }) => value)(measured) : null;
+      if (!interval || !this._listeningOwner) return;
+      const { db } = await import('../utils/db.js');
+      try {
+        await db.enqueueListeningInterval({ ...interval, id:crypto.randomUUID(), accountId:this._listeningOwner, date:localDateKey(new Date(interval.startedAt)) });
+        this._listeningSyncPending = true;
+        this._listeningFlushFailures = 0;
+        this._listeningFlushNextAttempt = 0;
+        this._listeningLastErrorLogged = null;
+      } catch (error) {
+        // Preserve unsaved data for the next sample; never reassign it to another account.
+        const remainder = this._listeningClock.pending;
+        this._listeningClock.pending = remainder && remainder.key === measured.key
+          ? { ...measured, seconds:measured.seconds + remainder.seconds, endedAt:remainder.endedAt }
+          : measured;
+        const failures = (this._listeningFlushFailures || 0) + 1;
+        this._listeningFlushFailures = failures;
+        const backoffMs = Math.min(60000, 5000 * Math.pow(2, failures - 1));
+        this._listeningFlushNextAttempt = Date.now() + backoffMs;
+        throw error;
+      }
+    })().finally(() => {
+      this._flushingListeningInterval = null;
+    });
+    return this._flushingListeningInterval;
   }
 
   async _loadSavedWords() {

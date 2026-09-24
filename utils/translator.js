@@ -25,19 +25,25 @@ class Translator {
     }
 
     _getCacheKey(text, fromLang, toLang) {
-        return `${fromLang}:${toLang}:${text.trim().toLowerCase().replace(/\s+/g, ' ')}`;
+        return `lf_tr:${fromLang}:${toLang}:${text.trim().toLowerCase().replace(/\s+/g, ' ')}`;
     }
 
     async _getLocalCache(cacheKey) {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
             return new Promise((resolve) => {
                 try {
-                    chrome.storage.local.get(cacheKey, (res) => resolve(res?.[cacheKey] || null));
+                    const legacyKey = cacheKey.startsWith('lf_tr:') ? cacheKey.slice(6) : cacheKey;
+                    chrome.storage.local.get([cacheKey, legacyKey], (res) => {
+                        resolve(res?.[cacheKey] || res?.[legacyKey] || null);
+                    });
                 } catch { resolve(null); }
             });
         }
         if (typeof localStorage !== 'undefined') {
-            try { return localStorage.getItem(cacheKey) || null; } catch { return null; }
+            try {
+                const legacyKey = cacheKey.startsWith('lf_tr:') ? cacheKey.slice(6) : cacheKey;
+                return localStorage.getItem(cacheKey) || localStorage.getItem(legacyKey) || null;
+            } catch { return null; }
         }
         return null;
     }
@@ -45,7 +51,13 @@ class Translator {
     _setLocalCache(cacheKey, value) {
         if (!value) return;
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-            try { chrome.storage.local.set({ [cacheKey]: value }); } catch {}
+            try {
+                chrome.storage.local.set({ [cacheKey]: value }, () => {
+                    if (chrome.runtime?.lastError) {
+                        // Trata erros de cota silenciosamente sem lançar exceção não capturada
+                    }
+                });
+            } catch {}
         } else if (typeof localStorage !== 'undefined') {
             try { localStorage.setItem(cacheKey, value); } catch {}
         }

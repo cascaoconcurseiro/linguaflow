@@ -32,21 +32,76 @@ const DB_PROXY_METHODS = new Set([
 ]);
 
 // Garbage Collector para limpar dicionários velhos e liberar espaço (QuotaExceeded)
-function _sweepStaleCache() {
+function _evictDisposableCache() {
+  return new Promise((resolve) => {
+    if (typeof chrome === 'undefined' || !chrome.storage?.local) return resolve();
+    chrome.storage.local.get(null, (items) => {
+      if (chrome.runtime?.lastError || !items) return resolve();
+      const keysToRemove = Object.keys(items).filter((k) =>
+        k.startsWith('linguee_') ||
+        k.startsWith('reverso_') ||
+        k.startsWith('lf_tr:') ||
+        /^[a-z]{2,5}:[a-z]{2,5}:/.test(k) ||
+        k === 'lastYoutubeSubtitleUrls'
+      );
+      if (keysToRemove.length === 0) return resolve();
+      chrome.storage.local.remove(keysToRemove, () => resolve());
+    });
+  });
+}
+
+function _sweepStaleCache(maxLinguee = 30, maxReverso = 30, maxTranslations = 1000) {
+  if (typeof chrome === 'undefined' || !chrome.storage?.local) return;
   chrome.storage.local.get(null, (items) => {
+    if (chrome.runtime?.lastError || !items) return;
     const now = Date.now();
+    const lingueeEntries = [];
+    const reversoEntries = [];
+    const translationKeys = [];
     const keysToRemove = [];
+
     for (const [key, value] of Object.entries(items)) {
-      if (key.startsWith('linguee_') || key.startsWith('reverso_')) {
-        // Remove se for mais velho que 7 dias (7 * 24 * 60 * 60 * 1000 = 604800000ms)
-        if (value.ts && now - value.ts > 604800000) {
+      if (key.startsWith('linguee_')) {
+        if (value?.ts && now - value.ts > 3 * 86400000) {
           keysToRemove.push(key);
+        } else {
+          lingueeEntries.push({ key, ts: value?.ts || 0 });
         }
+      } else if (key.startsWith('reverso_')) {
+        if (value?.ts && now - value.ts > 3 * 86400000) {
+          keysToRemove.push(key);
+        } else {
+          reversoEntries.push({ key, ts: value?.ts || 0 });
+        }
+      } else if (key.startsWith('lf_tr:') || /^[a-z]{2,5}:[a-z]{2,5}:/.test(key)) {
+        translationKeys.push(key);
       }
     }
+
+    if (lingueeEntries.length > maxLinguee) {
+      lingueeEntries.sort((a, b) => b.ts - a.ts);
+      for (const item of lingueeEntries.slice(maxLinguee)) {
+        keysToRemove.push(item.key);
+      }
+    }
+
+    if (reversoEntries.length > maxReverso) {
+      reversoEntries.sort((a, b) => b.ts - a.ts);
+      for (const item of reversoEntries.slice(maxReverso)) {
+        keysToRemove.push(item.key);
+      }
+    }
+
+    if (translationKeys.length > maxTranslations) {
+      const excess = translationKeys.slice(0, translationKeys.length - maxTranslations);
+      keysToRemove.push(...excess);
+    }
+
     if (keysToRemove.length > 0) {
       chrome.storage.local.remove(keysToRemove, () => {
-        console.debug(`[LinguaFlow] GC: Limpos ${keysToRemove.length} itens obsoletos do cache.`);
+        if (!chrome.runtime?.lastError) {
+          console.debug(`[LinguaFlow] GC: Limpos ${keysToRemove.length} itens obsoletos do cache.`);
+        }
       });
     }
   });
@@ -63,7 +118,10 @@ chrome.alarms.create('listening-sync', { periodInMinutes: 1 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'listening-sync') db.drainListeningQueue().catch(() => {});
-  if (alarm.name === 'srs-reminder') updateBadge(); // updateBadge dispara a notificacao real
+  if (alarm.name === 'srs-reminder') {
+    updateBadge(); // updateBadge dispara a notificacao real
+    _sweepStaleCache();
+  }
   if (alarm.name === 'word-save-sync') syncPendingWordSaves();
 });
 
@@ -651,10 +709,25 @@ function readLocal(key) {
 }
 
 function writeLocal(value) {
-  return new Promise((resolve, reject) => chrome.storage.local.set(value, () => {
-    if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-    else resolve();
-  }));
+  return new Promise((resolve, reject) => {
+    const doWrite = (isRetry = false) => {
+      chrome.storage.local.set(value, () => {
+        if (chrome.runtime.lastError) {
+          const message = chrome.runtime.lastError.message || '';
+          if (!isRetry && /quota|kQuotaBytes|exceeded/i.test(message)) {
+            _evictDisposableCache()
+              .then(() => doWrite(true))
+              .catch(() => reject(new Error(message)));
+            return;
+          }
+          reject(new Error(message));
+        } else {
+          resolve();
+        }
+      });
+    };
+    doWrite(false);
+  });
 }
 
 async function enqueueWordSave(payload) {

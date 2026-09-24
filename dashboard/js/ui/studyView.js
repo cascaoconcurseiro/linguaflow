@@ -404,15 +404,19 @@ export async function renderStudy(container, app, params = {}) {
   document.getElementById('study-resources').open = false;
   document.getElementById('study-card-menu').open = false;
   document.getElementById('study-resources')?.addEventListener('toggle', (event) => {
-    if (event.isTrusted && event.currentTarget.open && presentationEvidence) presentationEvidence.helpCount += 1;
     if (event.currentTarget.open) {
+      if (event.isTrusted && presentationEvidence) presentationEvidence.helpCount += 1;
       requestAnimationFrame(() => {
         event.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       });
+    } else {
+      pauseYouglish();
     }
   });
   document.getElementById('close-study-resources')?.addEventListener('click', () => {
-    document.getElementById('study-resources').open = false;
+    pauseYouglish();
+    const res = document.getElementById('study-resources');
+    if (res) res.open = false;
   });
 
   document.querySelectorAll('.grade-btn').forEach(btn => {
@@ -1851,10 +1855,19 @@ function loadYouglishAnd(word) {
   document.head.appendChild(s);
 }
 
-// Pausa o vídeo do YouGlish (chamado ao trocar de card / sair da sessão)
+// Pausa o vídeo do YouGlish (chamado ao trocar de card, fechar painel ou sair da sessão)
 function pauseYouglish() {
   if (youglishLoadTimer) { clearTimeout(youglishLoadTimer); youglishLoadTimer = null; }
   try { ygWidget?.pause?.(); } catch { /* widget pode não estar pronto */ }
+  try {
+    const iframes = document.querySelectorAll('#yg-widget-embed iframe, #study-yt-mount iframe');
+    iframes.forEach(iframe => {
+      iframe.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: '' }), '*');
+    });
+  } catch { /* postMessage protegido */ }
+  try {
+    document.querySelectorAll('#yg-widget-embed video, #study-yt-mount video, #saved-video-context video').forEach(v => v.pause());
+  } catch { /* video nativo protegido */ }
 }
 
 function ygFetch(word) {

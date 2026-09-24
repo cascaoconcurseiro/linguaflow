@@ -16,8 +16,8 @@ await assert.rejects(
 assert.doesNotMatch(app, /gameView\.js|renderGame/);
 assert.doesNotMatch(home, /btn-game|btn-play-match|navigate\(['"]game['"]\)/);
 assert.doesNotMatch(learn, /route:\s*['"]game['"]|Escolher prática/);
-assert.match(app, /if \(route === 'game'\)[\s\S]*?route = 'learn'/,
-  'links antigos para jogos devem cair em Aprender');
+assert.match(app, /if \(route === 'game' \|\| route === 'learn'\)[\s\S]*?route = 'stories'/,
+  'links antigos para jogos e aprender devem cair em Histórias');
 assert.match(vercel, /\{ "source": "\/game", "destination": "\/dashboard\/dashboard\.html" \}/,
   'bookmarks antigos devem carregar o shell para o roteador redirecionar');
 assert.doesNotMatch(vercel, /:route\([^)]*\bgame\b[^)]*\)/,

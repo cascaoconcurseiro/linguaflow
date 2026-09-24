@@ -25,10 +25,8 @@ for (const id of ['video-resource-section', 'native-examples-title', 'youglish-b
   assert.match(study, new RegExp(`id="${id}"`), `Entender melhor inclui ${id}`);
 }
 
-assert.match(home, /id="btn-open-stories"/,
-  'Home oferece atalho explícito para Histórias');
 assert.match(home, /id="btn-primary-stories"/,
-  'Home oferece Histórias também no primeiro bloco visível');
+  'Home oferece Histórias no primeiro bloco visível');
 assert.match(editorial, /home-primary-plan \.home-primary-visual \{ display:grid; \}/,
   'tema editorial não oculta o atalho principal de Histórias');
 assert.match(home, /navigate\?\.\('stories'\)/,

@@ -366,10 +366,10 @@ class App {
   }
 
   navigate(route, params = {}) {
-    // A rota de jogos foi aposentada. Bookmarks antigos continuam seguros,
-    // mas nunca carregam o módulo nem iniciam uma rodada.
-    if (route === 'game') {
-      route = 'learn';
+    // A rota de jogos e a antiga rota Aprender foram aposentadas. Bookmarks antigos continuam seguros,
+    // mas redirecionam diretamente para Histórias.
+    if (route === 'game' || route === 'learn') {
+      route = 'stories';
       params = {};
     }
     // Toda rota de produto exige uma sessão confirmada. Esta guarda central
@@ -388,7 +388,7 @@ class App {
     this.routeParams = params || {};
     this.syncShellForRoute(route);
     const routeTitles = {
-      home: 'Hoje', learn: 'Aprender', library: 'O Cofre', progress: 'Progresso',
+      home: 'Hoje', library: 'O Cofre', progress: 'Progresso',
       study: 'Sessão de estudo', stories: 'Histórias', reader: 'Leitor',
       stats: 'Estatísticas', leagues: 'Ligas', settings: 'Configurações', login: 'Entrar',
       'fluency-check': 'Check de comunicação',

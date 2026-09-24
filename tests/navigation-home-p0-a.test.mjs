@@ -16,11 +16,10 @@ for (const nav of [desktopNav, mobileNav]) {
   const labels = [...nav.matchAll(/<span[^>]*>([^<]+)<\/span>|<button[^>]*>([^<]+)<\/button>/g)]
     .map(match => (match[1] || match[2] || '').trim())
     .filter(label => ['Hoje', 'Aprender', 'Cofre', 'O Cofre', 'Progresso'].includes(label));
-  assert.equal(labels.length, 4);
+  assert.equal(labels.length, 3);
   assert.equal(labels[0], 'Hoje');
-  assert.equal(labels[1], 'Aprender');
-  assert.match(labels[2], /Cofre/);
-  assert.equal(labels[3], 'Progresso');
+  assert.match(labels[1], /Cofre/);
+  assert.equal(labels[2], 'Progresso');
 }
 assert.match(html, /id="profile-menu-toggle"[^>]*aria-haspopup="menu"[^>]*aria-expanded="false"/);
 assert.match(html, /id="profile-menu"[^>]*role="menu"[^>]*hidden/);
@@ -31,8 +30,8 @@ for (const route of ['home','learn','library','progress','study','stories','read
 assert.match(app, /'fluency-check': renderFluencyCheck/);
 assert.match(app, /const learnRoutes = new Set\(\['learn', 'stories', 'reader'\]\)/);
 assert.doesNotMatch(app, /import\('\.\.\/ui\/gameView\.js'\)|game:\s*renderGame/);
-assert.match(app, /if \(route === 'game'\)[\s\S]*?route = 'learn'/,
-  'bookmark antigo de jogos é redirecionado para Aprender sem carregar o módulo');
+assert.match(app, /if \(route === 'game' \|\| route === 'learn'\)[\s\S]*?route = 'stories'/,
+  'bookmarks antigos de jogos e aprender são redirecionados para Histórias');
 assert.match(app, /const progressRoutes = new Set\(\['progress', 'fluency-check', 'stats', 'leagues'\]\)/);
 assert.match(app, /setProfileMenuOpen\(false, true\)/);
 assert.match(css, /\.profile-menu\[hidden\] \{ display:none; \}/);
@@ -44,16 +43,16 @@ assert.match(learn, /data-learn-route="\$\{item\.route\}"/);
 assert.match(progress, /data-progress-route="\$\{item\.route\}"/);
 
 const cases = [
-  [{ totalWords:0 }, 'first-context', 'learn'],
+  [{ totalWords:0 }, 'first-context', 'stories'],
   [{ totalWords:5, dueCards:7, dueLearning:2, daysAway:3 }, 'return-review', 'study'],
   [{ totalWords:5, dueCards:2, dueLearning:2 }, 'learning', 'study'],
   [{ totalWords:5, dueCards:4, dueLearning:1 }, 'review', 'study'],
   [{ totalWords:5, dueCards:4, fluencyDue:true }, 'review', 'study'],
   [{ totalWords:5, dueCards:0, fluencyResumeAvailable:true }, 'fluency-resume', 'fluency-check'],
   [{ totalWords:5, dueCards:0, fluencyDue:true }, 'fluency-check', 'fluency-check'],
-  [{ totalWords:5, dueCards:0, reviewsToday:8 }, 'completed', 'learn'],
-  [{ totalWords:5, dueCards:0, daysAway:3 }, 'return-clear', 'learn'],
-  [{ totalWords:5, dueCards:0 }, 'clear', 'learn'],
+  [{ totalWords:5, dueCards:0, reviewsToday:8 }, 'completed', 'stories'],
+  [{ totalWords:5, dueCards:0, daysAway:3 }, 'return-clear', 'stories'],
+  [{ totalWords:5, dueCards:0 }, 'clear', 'stories'],
 ];
 for (const [state, kind, route] of cases) {
   const decision = chooseTodayAction(state);

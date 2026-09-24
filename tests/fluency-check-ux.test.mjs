@@ -11,7 +11,7 @@ const css = read('dashboard/css/globals.css');
 
 assert.equal(
   chooseTodayAction({ totalWords: 0, fluencyDue: true }).route,
-  'learn',
+  'stories',
   'primeiro contexto vem antes do check',
 );
 assert.equal(

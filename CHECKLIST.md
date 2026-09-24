@@ -349,4 +349,5 @@
 - [x] Usar apenas ASR original de idioma único como estimativa, respeitando áudio selecionado, dublagens e troca de vídeo.
 - [x] Registrar `caption_asr` separadamente na fila e RPC, com migration aditiva e replay efêmero.
 - [x] Exibir a proveniência como estimativa no painel de listening.
-- [ ] CI, aplicar migration na produção, merge e QA no Chrome instalado com vídeo do usuário.
+- [x] CI, migration hospedada e merge da PR #143 no `main`.
+- [ ] QA no Chrome instalado com vídeo do usuário.

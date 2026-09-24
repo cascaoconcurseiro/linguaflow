@@ -3002,13 +3002,7 @@ export class SubtitleEngine {
     header.style.cssText =
       'padding:20px 24px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;';
     header.innerHTML = `
-            <div class="lf-panel-title" style="display:flex;align-items:center;gap:10px;font-size:20px;font-weight:800;">
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <defs><linearGradient id="lf-hdr-grad" x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stop-color="#58cc02"/><stop offset="100%" stop-color="#58a700"/>
-                </linearGradient></defs>
-                <path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z" fill="url(#lf-hdr-grad)"/>
-              </svg>
+            <div class="lf-panel-title" style="display:flex;align-items:center;gap:0;font-family:'Libre Caslon Text',Georgia,serif;font-size:24px;font-weight:400;letter-spacing:-0.035em;">
               <span id="lf-panel-heading">Roteiro do vídeo</span>
             </div>
             <button id="lf-close-panel" class="lf-close-btn" aria-label="Fechar roteiro do vídeo" style="background:transparent;border:none;width:40px;height:40px;border-radius:8px;cursor:pointer;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;transition:0.2s;">✕</button>

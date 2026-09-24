@@ -19,7 +19,10 @@ assert.doesNotMatch(study, /id="isolated-word-box"/);
 assert.doesNotMatch(study, /tatoeba-box/, 'Tatoeba foi removido e não deve voltar');
 
 const menu = study.indexOf('id="study-card-menu"');
-assert.ok(menu > native, 'ações administrativas ficam fora do conteúdo pedagógico');
+const cardMeta = study.indexOf('class="study-card-meta"');
+const explore = study.indexOf('class="study-explore"');
+assert.ok(menu > cardMeta && menu < explore, 'ações administrativas ficam no cabeçalho do card');
+assert.doesNotMatch(study.slice(explore), /id="study-card-menu"/, 'menu do card não fica dentro do aprofundamento');
 for (const id of ['btn-undo', 'improve-btn', 'bury-btn']) assert.ok(study.indexOf(`id="${id}"`, menu) > menu);
 
 assert.match(study, /id="close-study-resources"/);

@@ -261,7 +261,27 @@ export async function renderStudy(container, app, params = {}) {
               <strong>INGLÊS</strong>
               <span>Recorde o significado e revele para conferir</span>
             </div>
-            <span id="study-card-position" aria-live="polite">1 de —</span>
+            <div class="study-card-meta-actions">
+              <details id="study-card-menu" class="study-card-menu hidden">
+                <summary aria-label="Abrir ações do card">⋯</summary>
+                <div class="study-card-menu-content">
+                  ${(topicFilter || weakOnly) ? `
+                  <div class="study-session-context">
+                    <span>${topicFilter ? `Tópico: <strong>${TOPIC_LABELS[topicFilter] || topicFilter}</strong>` : 'Prática de palavras fracas'}</span>
+                    <button id="clear-topic-filter-btn">Voltar à revisão completa</button>
+                  </div>` : ''}
+                  <div class="study-card-actions">
+                    <button id="btn-undo" style="display:none">Desfazer última (Z)</button>
+                    <button id="menu-quick-edit-btn">Editar card (E)</button>
+                    <button id="menu-card-info-btn">Informações de intervalo (I)</button>
+                    <button id="menu-suspend-btn" title="Pausa as revisões deste card">Pausar revisões (@)</button>
+                    <button id="improve-btn" class="hidden">Editar ou regenerar frase</button>
+                    <button id="bury-btn" title="Adia este card para amanhã sem afetar o agendamento">Deixar para amanhã</button>
+                  </div>
+                </div>
+              </details>
+              <span id="study-card-position" class="study-card-meta-position" aria-live="polite">1 de —</span>
+            </div>
           </div>
           <div class="sentence-text" id="pump-sentence">Carregando...</div>
           <div class="media-container">
@@ -351,24 +371,6 @@ export async function renderStudy(container, app, params = {}) {
               </div>
             </details>
 
-            <details id="study-card-menu" class="study-card-menu hidden">
-              <summary aria-label="Abrir ações do card">⋯</summary>
-              <div class="study-card-menu-content">
-                ${(topicFilter || weakOnly) ? `
-                <div class="study-session-context">
-                  <span>${topicFilter ? `Tópico: <strong>${TOPIC_LABELS[topicFilter] || topicFilter}</strong>` : 'Prática de palavras fracas'}</span>
-                  <button id="clear-topic-filter-btn">Voltar à revisão completa</button>
-                </div>` : ''}
-                <div class="study-card-actions">
-                  <button id="btn-undo" style="display:none">Desfazer última (Z)</button>
-                  <button id="menu-quick-edit-btn">Editar card (E)</button>
-                  <button id="menu-card-info-btn">Informações de intervalo (I)</button>
-                  <button id="menu-suspend-btn" title="Pausa as revisões deste card">Pausar revisões (@)</button>
-                  <button id="improve-btn" class="hidden">Editar ou regenerar frase</button>
-                  <button id="bury-btn" title="Adia este card para amanhã sem afetar o agendamento">Deixar para amanhã</button>
-                </div>
-              </div>
-            </details>
           </div>
         </aside>
       </div>
@@ -2837,10 +2839,11 @@ function injectStyles() {
     .timer-label { display:block; font-size:11px; color:var(--color-text-light); }
     .sentence-container { max-width:none; margin:0 0 14px; padding:25px 48px 28px; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); text-align:center; }
     .study-card-meta { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:28px; text-align:left; }
-    .study-card-meta > div { display:grid; gap:3px; }
+    .study-card-meta > div:first-child { display:grid; gap:3px; }
+    .study-card-meta-actions { display:flex; align-items:center; justify-content:flex-end; gap:12px; flex:0 0 auto; margin-left:auto; }
     .study-card-meta strong { color:var(--color-text); font-size:14px; letter-spacing:.06em; }
     .study-card-meta span { color:var(--color-text-light); font-size:13px; }
-    .study-card-meta > span { padding:8px 12px; border:1px solid var(--color-border); border-radius:999px; white-space:nowrap; }
+    .study-card-meta-position { padding:8px 12px; border:1px solid var(--color-border); border-radius:999px; white-space:nowrap; }
     .sentence-text { max-width:980px; margin:0 auto 18px; font-size:clamp(30px, 4.3vw, 54px); line-height:1.16; letter-spacing:-.035em; }
     .media-container { width:auto; max-width:none; min-height:56px; margin:0 auto 12px; border:0; background:transparent; border-radius:0; }
     .audio-wave-placeholder { gap:7px; }
@@ -2893,7 +2896,7 @@ function injectStyles() {
       .anki-card-quick-actions { width:100%; justify-content:flex-end; margin-top:-4px; }
       .sentence-container { padding:20px 14px 22px; border-radius:12px; }
       .study-card-meta { margin-bottom:22px; }
-      .study-card-meta > div span { max-width:210px; }
+      .study-card-meta > div:first-child span { max-width:210px; }
       .sentence-text { font-size:clamp(26px, 8vw, 36px); }
       #pump-translation { font-size:18px !important; }
       #pump-word-val, .rich-word-title { font-size:18px !important; }

@@ -45,6 +45,11 @@ assert.match(popupContext, /Promise\.all\(\[phrasalPromise, responsePromise\]\)/
   'IA espera somente o recurso local necessário para montar a resposta');
 assert.match(popupContext, /const sentenceTranslation = await sentenceTranslationPromise[\s\S]*Falha ao obter professor IA/,
   'tradução auxiliar só bloqueia o fallback quando a IA falha');
+const popupDisplayIndex = popup.indexOf('this.popup.style.display = \'block\';');
+const earlyContextIndex = popup.indexOf('this._explainContext(this.word, this.context);', popupDisplayIndex);
+const dictionaryIndex = popup.indexOf('this._loadData(this.word);', popupDisplayIndex);
+assert.ok(earlyContextIndex > popupDisplayIndex && earlyContextIndex < dictionaryIndex,
+  'análise contextual começa depois de exibir o popup e antes da carga do dicionário');
 assert.doesNotMatch(source, /\.(?:from|insert|upsert)\(/,
   'proxy não persiste prompts ou respostas em armazenamento compartilhado');
 

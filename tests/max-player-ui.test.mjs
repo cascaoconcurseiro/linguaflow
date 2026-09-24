@@ -193,8 +193,13 @@ assert.match(hboInjectSource, /contentType\.includes\('text\/vtt'\)/, 'hbo-injec
 
 // Contract: subtitle-engine reparenta host para document.fullscreenElement no HBO Max
 const engineSource = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+const settingsSource = await readFile(new URL('../content/settings-panel.js', import.meta.url), 'utf8');
 assert.match(engineSource, /targetRoot = document\.fullscreenElement \|\| document\.body/, 'subtitle-engine deve anexar host no targetRoot em fullscreen');
 assert.match(engineSource, /existing\.translatedText = nc\.translatedText/, 'subtitle-engine não deve sobrescrever traduções existentes ao mesclar cues');
+assert.match(engineSource, /Roteiro do vídeo/);
+assert.doesNotMatch(engineSource, /lf-hdr-grad|linearGradient/, 'sidebar não deve carregar marca gráfica legada no cabeçalho');
+assert.doesNotMatch(settingsSource, /icon128\.png/, 'configurações não devem exibir o ícone legado do produto');
+assert.match(settingsSource, /Libre Caslon Text/);
 assert.match(engineSource, /aria-label="Fechar roteiro do vídeo"/);
 assert.match(engineSource, /setAttribute\('role', 'tablist'\)/);
 assert.match(engineSource, /aria-label="Buscar no roteiro do vídeo"/);

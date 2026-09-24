@@ -319,7 +319,7 @@ export class SettingsPanel {
   _html() {
     return `
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Libre+Caslon+Text:wght@400;500&display=swap');
             @import url('https://fonts.cdnfonts.com/css/opendyslexic');
             * { box-sizing: border-box; }
             @media (prefers-reduced-motion: reduce) {
@@ -393,7 +393,7 @@ export class SettingsPanel {
                 max-width: 100vw;
                 box-sizing: border-box;
                 height: 100%;
-                font-family: 'Nunito', sans-serif;
+                font-family: 'DM Sans', system-ui, sans-serif;
                 box-shadow: -12px 0 28px rgba(0,0,0,0.22);
                 display: flex; flex-direction: column;
                 animation: slideIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.2);
@@ -406,18 +406,17 @@ export class SettingsPanel {
                 flex-shrink: 0;
             }
             .panel-title { 
-                margin: 0; font-size: 18px; font-weight: 800; 
+                margin: 0; font-family: 'Libre Caslon Text', Georgia, serif; font-size: 24px; font-weight: 400; letter-spacing: -0.035em;
                 display: flex; align-items: center; gap: 10px;
             }
-            .panel-title svg { width: 22px; height: 22px; color: #58cc02; }
             .close-btn {
-                background: transparent; border: 2px solid transparent;
-                cursor: pointer; border-radius: 12px;
+                background: transparent; border: 0;
+                cursor: pointer; border-radius: 6px;
                 width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
-                transition: all 0.2s;
+                transition: background-color 140ms, color 140ms;
             }
-            .close-btn:hover { border-bottom-width: 4px; transform: translateY(-2px); }
-            .close-btn:active { border-bottom-width: 2px; transform: translateY(0); }
+            .close-btn:hover { transform: none; }
+            .close-btn:active { transform: translateY(1px); }
             .close-btn svg { width: 24px; height: 24px; }
             
             .panel-body { flex: 1; overflow-y: auto; padding: 16px; }
@@ -428,12 +427,12 @@ export class SettingsPanel {
             
             .section { margin-bottom: 20px; }
             .section-title {
-                display: flex; align-items: center; gap: 8px;
-                font-size: 12px; font-weight: 800;
+                display: flex; align-items: center; gap: 0;
+                font-size: 11px; font-weight: 600;
                 text-transform: uppercase; letter-spacing: 1.5px;
                 margin: 0 0 10px 0;
             }
-            .section-title svg { width: 16px; height: 16px; stroke-width: 2.5; }
+            .section-title svg { display: none; }
             
             .card {
                 border: 1px solid;
@@ -446,19 +445,19 @@ export class SettingsPanel {
             
             .group { margin-bottom: 14px; }
             .group:last-child { margin-bottom: 0; }
-            .group label { font-size: 13px; font-weight: 800; display: block; margin-bottom: 6px; }
-            .group small { display: block; font-size: 12px; margin-top: 6px; line-height: 1.4; font-weight: 700; }
+            .group label { font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px; }
+            .group small { display: block; font-size: 12px; margin-top: 6px; line-height: 1.4; font-weight: 400; }
             
             select {
                 width: 100%; padding: 10px 14px;
                 border: 1px solid; border-bottom-width: 1px;
-                border-radius: 8px; font-family: 'Nunito', sans-serif;
+                border-radius: 8px; font-family: 'DM Sans', system-ui, sans-serif;
                 font-size: 13px; font-weight: 700; cursor: pointer; outline: none; appearance: none;
                 background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='%2394a3b8' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
                 background-repeat: no-repeat; background-position: right 12px center; background-size: 20px;
                 transition: all 0.2s;
             }
-            select:active { border-bottom-width: 2px; transform: translateY(2px); margin-bottom: 2px; }
+            select:active { transform: translateY(1px); }
             
             .slider-row { display: flex; align-items: center; gap: 16px; margin-top: 12px; }
             input[type=range] {
@@ -517,7 +516,7 @@ export class SettingsPanel {
             }
             .btn {
                 flex: 1; padding: 12px 10px; border-radius: 8px; border: 1px solid transparent; border-bottom-width: 1px;
-                font-weight: 800; font-size: 13px; font-family: 'Nunito', sans-serif;
+                font-weight: 600; font-size: 13px; font-family: 'DM Sans', system-ui, sans-serif;
                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
                 cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 6px;
             }
@@ -526,20 +525,19 @@ export class SettingsPanel {
                 background: #2052c4; color: #ffffff; border-color: #183e96;
             }
             .btn-primary:hover { filter: brightness(1.05); }
-            .btn-primary:active { transform: translateY(2px); border-bottom-width: 2px; margin-bottom: 2px; }
+            .btn-primary:active { transform: translateY(1px); }
             
             .btn-secondary {
                 color: #2052c4;
             }
             .btn-secondary:hover { background: #334155; border-color: #475569; }
-            .btn-secondary:active { transform: translateY(2px); border-bottom-width: 2px; margin-bottom: 2px; }
+            .btn-secondary:active { transform: translateY(1px); }
         </style>
 
         <div class="overlay" id="overlay">
             <div class="panel" role="dialog" aria-modal="true" aria-labelledby="lf-settings-panel-title">
                 <div class="panel-header">
                     <h2 class="panel-title" id="lf-settings-panel-title">
-                        <img src="${chrome.runtime.getURL('icon128.png')}" alt="LinguaFlow" style="width:22px;height:22px;border-radius:6px;" />
                         Configurações do player
                     </h2>
                     <button class="close-btn" id="btn-close" type="button" aria-label="Fechar painel de configurações">

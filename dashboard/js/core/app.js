@@ -16,7 +16,7 @@ const renderLearn = (...args) => import('../ui/learnView.js').then((m) => m.rend
 const renderProgress = (...args) => import('../ui/progressView.js').then((m) => m.renderProgress(...args));
 const renderAdmin = (...args) => import('../ui/adminView.js').then((m) => m.renderAdmin(...args));
 
-const CLIENT_BUILD = '3.0.56';
+const CLIENT_BUILD = '3.0.57';
 
 // Purga caches de versões anteriores do PWA para impedir que clientes fiquem presos em assets defasados
 if ('caches' in window) {

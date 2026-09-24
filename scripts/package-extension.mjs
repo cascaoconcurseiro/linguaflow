@@ -86,6 +86,21 @@ if (Array.isArray(manifest.web_accessible_resources)) {
   if (fs.existsSync(path.join(root, f))) filesToCopy.add(f);
 });
 
+// A lista do manifest cobre URLs expostas à página, mas o service worker
+// também importa módulos privados. Inclua dependências locais transitivas
+// sem torná-las web_accessible_resources.
+for (const relative of filesToCopy) {
+  if (!relative.endsWith('.js')) continue;
+  const source = fs.readFileSync(path.join(root, relative), 'utf8');
+  for (const match of source.matchAll(/(?:\bimport\s+(?:[^'";]+\s+from\s+)?|\bimport\s*\()\s*['"](\.{1,2}\/[^'"]+)['"]/g)) {
+    const dependency = path.posix.normalize(path.posix.join(path.posix.dirname(relative), match[1]));
+    if (dependency.startsWith('../') || path.posix.isAbsolute(dependency)) {
+      throw new Error(`Import local fora da extensão: ${relative} -> ${dependency}`);
+    }
+    filesToCopy.add(dependency);
+  }
+}
+
 // 4. Copiar para o staging
 let copiedCount = 0;
 for (const rel of filesToCopy) {

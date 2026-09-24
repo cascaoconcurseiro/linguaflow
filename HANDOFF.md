@@ -283,3 +283,12 @@ Fixture local (`npm run dev`) usa módulos reais com banco simulado fail-closed;
 ## 2026-09-24 — Issue #138 / legendas YouTube
 
 Auditoria e implementação detalhadas em `docs/audits/youtube-caption-integrity-2026-09-24.md`. Agrupamento conservador de eventos JSON3 para legenda/barra/card; língua e faixa manual priorizadas; sem fallback para faixa diferente; URL cache com idioma obrigatório; tradução pareada por tempo; faixa completa preservada diante de segmentos; pré-carga e recuperação original limitadas a uma tentativa por navegação; fetch interceptor não repete falha. Legenda oficial visível até haver cues LinguaFlow e restaurada na navegação e destruição. Fonte YouTube oficial confirma limitações do ASR e acesso autorizado da Data API. Pacote ZIP Linux corrigido e util de agrupamento incluído com exposição restrita. QA com extensão real pendente, sem garantia de imunidade a bloqueios por plataforma.
+## Issue #140 — Popup da legenda e montagem concorrente (2026-09-24)
+
+- Branch `codex/140-caption-popup-recovery` sobre `main` `cec5ed6`. Versão `3.0.57`.
+- `word-popup.js` importa `utils/context-chunks.js`, ausente da lista de recursos acessíveis nas origens de vídeo. Isso bloqueava o módulo e impedia o popup de iniciar. Recurso exposto apenas nas origens de vídeo já autorizadas para o popup.
+- O ZIP anterior também não copiava `utils/story-variety.js`, importado pelo service worker. Empacotamento agora inclui módulos locais transitivos sem expor imports privados no manifesto.
+- A UI da legenda pode ser solicitada ao mesmo tempo na inicialização e ao detectar o vídeo. A montagem agora compartilha a operação pendente; na mudança de vídeo, uma nova montagem é solicitada explicitamente.
+- `isolated.js`/`debounce` não existe neste repositório; o erro do console pode vir de um script antigo ainda residente na aba ou de outra extensão. `interval_failed` é do contador de listening e requer informação de erro adicional se persistir após atualização.
+- Critério testado: import do popup e montagem concorrente. Sem evidência de QA real no navegador com a instalação do usuário ou de resolução de `interval_failed`.
+- Rollback: restaurar a versão `3.0.56`; sem mudanças de banco, permissão ou fetch do YouTube.

@@ -336,3 +336,10 @@
 - [x] Tradução por tempo, fallback nativo e tentativas limitadas após 403/429.
 - [x] Testes comportamentais RED→GREEN, versão 3.0.56 e ZIP real incluindo módulo de legendas.
 - [ ] CI/PR e QA da extensão instalada num vídeo real; verificar risco contratual da coleta em internals antes de distribuição ampla.
+## Issue #140 · Popup da legenda (2026-09-24)
+
+- [x] Corrigir dependência `context-chunks.js` do popup no manifesto MV3, limitada às origens de vídeo.
+- [x] Empacotar `story-variety.js` e demais dependências locais transitivas do service worker no ZIP.
+- [x] Serializar a inicialização do Shadow DOM entre legenda, vídeo e navegação.
+- [x] Testes RED→GREEN de acesso ao módulo e montagem simultânea; bump da extensão/site para `3.0.57`.
+- [ ] QA no Chrome instalado: abrir palavra na legenda e troca de vídeo; verificar o contador de listening se ainda apresentar erro.

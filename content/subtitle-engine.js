@@ -2804,6 +2804,8 @@ export class SubtitleEngine {
     const existing = document.getElementById('lf-subtitle-panel-wrapper');
     if (existing) return;
 
+    const panelTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
     const wrapper = document.createElement('div');
     wrapper.id = 'lf-subtitle-panel-wrapper';
     wrapper.style.cssText = `
@@ -2832,6 +2834,9 @@ export class SubtitleEngine {
     const panel = document.createElement('div');
     panel.id = 'lf-subtitle-panel';
     panel.className = this.uiTheme === 'dark' ? 'theme-dark' : 'theme-light';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.setAttribute('aria-labelledby', 'lf-panel-heading');
     panel.style.cssText = `
             width: 420px;
             height: 100%;
@@ -2975,10 +2980,14 @@ export class SubtitleEngine {
 
     const panelAbort = new AbortController();
     const closePanel = () => {
+      if (panelAbort.signal.aborted) return;
       panelAbort.abort();
       overlay.style.opacity = '0';
       panel.style.transform = 'translateX(100%)';
-      setTimeout(() => wrapper.remove(), 300);
+      setTimeout(() => {
+        wrapper.remove();
+        if (panelTrigger && document.contains(panelTrigger)) panelTrigger.focus({ preventScroll: true });
+      }, 300);
     };
 
     overlay.onclick = closePanel;
@@ -2995,9 +3004,9 @@ export class SubtitleEngine {
                 </linearGradient></defs>
                 <path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z" fill="url(#lf-hdr-grad)"/>
               </svg>
-              <span>LinguaFlow</span>
+              <span id="lf-panel-heading">Roteiro do vídeo</span>
             </div>
-            <button id="lf-close-panel" class="lf-close-btn" style="background:transparent;border:none;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;transition:0.2s;">✕</button>
+            <button id="lf-close-panel" class="lf-close-btn" aria-label="Fechar roteiro do vídeo" style="background:transparent;border:none;width:40px;height:40px;border-radius:8px;cursor:pointer;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;transition:0.2s;">✕</button>
         `;
 
     const listeningControls = document.createElement('div');
@@ -3021,19 +3030,23 @@ export class SubtitleEngine {
     const closeBtn = header.querySelector('#lf-close-panel');
     closeBtn.onclick = closePanel;
 
-    // ── Abas Subtitles / Words ────────────────────────────────────────────
+    // ── Abas Legenda / Palavras ───────────────────────────────────────────
     const tabs = document.createElement('div');
     tabs.className = 'lf-tabs';
+    tabs.setAttribute('role', 'tablist');
+    tabs.setAttribute('aria-label', 'Conteúdo do roteiro');
     tabs.style.cssText =
       'display:flex;flex-shrink:0;';
     tabs.innerHTML = `
-            <button id="lf-tab-subtitles" class="lf-tab-btn active" data-tab="subtitles" style="flex:1;padding:14px;background:transparent;border:none;border-bottom:4px solid #1cb0f6;color:#1cb0f6;font-size:14px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;transition:all 0.1s;text-transform:uppercase;">Subtitles</button>
-            <button id="lf-tab-words" class="lf-tab-btn" data-tab="words" style="flex:1;padding:14px;background:transparent;border:none;border-bottom:4px solid transparent;font-size:14px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;transition:all 0.1s;text-transform:uppercase;">Words</button>
+            <button id="lf-tab-subtitles" class="lf-tab-btn active" role="tab" aria-selected="true" aria-controls="lf-pane-subtitles" data-tab="subtitles" style="flex:1;padding:14px;background:transparent;border:none;border-bottom:4px solid #1cb0f6;color:#1cb0f6;font-size:14px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;transition:all 0.1s;text-transform:uppercase;">Legenda</button>
+            <button id="lf-tab-words" class="lf-tab-btn" role="tab" aria-selected="false" aria-controls="lf-pane-words" data-tab="words" style="flex:1;padding:14px;background:transparent;border:none;border-bottom:4px solid transparent;font-size:14px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;transition:all 0.1s;text-transform:uppercase;">Palavras</button>
         `;
 
     // ── Painel Subtitles ──────────────────────────────────────────────────
     const subtitlePane = document.createElement('div');
     subtitlePane.id = 'lf-pane-subtitles';
+    subtitlePane.setAttribute('role', 'tabpanel');
+    subtitlePane.setAttribute('aria-labelledby', 'lf-tab-subtitles');
     subtitlePane.style.cssText = 'flex:1;display:flex;flex-direction:column;overflow:hidden;';
 
     const toolbar = document.createElement('div');
@@ -3043,10 +3056,10 @@ export class SubtitleEngine {
     toolbar.innerHTML = `
             <div style="display:flex;gap:8px;align-items:center;">
                 <div style="position:relative;flex:1;">
-                    <input id="lf-panel-search" class="lf-search-input" type="search" placeholder="Buscar no script..." style="width:100%;border-radius:8px;padding:8px 12px 8px 32px;font-size:12px;outline:none;transition:border-color 0.2s;">
+                    <input id="lf-panel-search" class="lf-search-input" type="search" aria-label="Buscar no roteiro do vídeo" placeholder="Buscar no roteiro..." style="width:100%;border-radius:8px;padding:8px 12px 8px 32px;font-size:12px;outline:none;transition:border-color 0.2s;">
                     <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#64748B;font-size:14px;">🔍</span>
                 </div>
-                <button id="lf-follow-btn" title="Seguir legenda atual" style="background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.3);color:#38BDF8;width:34px;height:34px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;">📍</button>
+                <button id="lf-follow-btn" title="Seguir vídeo" aria-label="Seguir trecho atual do vídeo" style="background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.3);color:#38BDF8;width:40px;height:40px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;">↗</button>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <div style="display:flex;gap:12px;">
@@ -3056,22 +3069,26 @@ export class SubtitleEngine {
                     </label>
                     <label class="lf-checkbox-label" style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;">
                         <input type="checkbox" id="lf-autoscroll-panel" checked style="cursor:pointer;accent-color:#38BDF8;">
-                        <span>Auto-scroll</span>
+                        <span>Acompanhar vídeo</span>
                     </label>
                 </div>
                 <div style="display:flex;gap:6px;">
-                    <button id="lf-export-pdf" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#CBD5E1;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;text-transform:uppercase;">PDF</button>
-                    <button id="lf-export-csv" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#CBD5E1;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;text-transform:uppercase;">CSV</button>
-                    <button id="lf-export-anki" style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);color:#38BDF8;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;text-transform:uppercase;">Anki</button>
+                    <button id="lf-export-pdf" aria-label="Exportar roteiro em PDF" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#CBD5E1;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;text-transform:uppercase;">PDF</button>
+                    <button id="lf-export-csv" aria-label="Exportar roteiro em CSV" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#CBD5E1;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;text-transform:uppercase;">CSV</button>
+                    <button id="lf-export-anki" aria-label="Exportar roteiro para Anki" style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);color:#38BDF8;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;text-transform:uppercase;">Anki</button>
                 </div>
             </div>
+            <div id="lf-panel-search-status" role="status" aria-live="polite" style="font-size:11px;color:#94A3B8;min-height:16px;"></div>
         `;
 
     // Evento de busca
     const searchInput = toolbar.querySelector('#lf-panel-search');
+    let searchTimer = null;
     searchInput.addEventListener('input', (e) => {
-      this._filterSubtitleList(e.target.value);
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => this._filterSubtitleList(e.target.value), 140);
     });
+    panelAbort.signal.addEventListener('abort', () => clearTimeout(searchTimer), { once: true });
 
     const list = document.createElement('div');
     list.id = 'lf-subtitle-list';
@@ -3125,6 +3142,9 @@ export class SubtitleEngine {
     // ── Painel Words (Frequência, Phrasal Verbs e Gírias) ─────────────────
     const wordsPane = document.createElement('div');
     wordsPane.id = 'lf-pane-words';
+    wordsPane.setAttribute('role', 'tabpanel');
+    wordsPane.setAttribute('aria-labelledby', 'lf-tab-words');
+    wordsPane.setAttribute('hidden', '');
     wordsPane.style.cssText = 'flex:1;display:none;flex-direction:column;overflow:hidden;position:relative;';
 
     const wordsScroll = document.createElement('div');
@@ -3161,6 +3181,10 @@ export class SubtitleEngine {
         tabWords.style.color = '#64748B';
         tabSubtitles.classList.add('active');
         tabWords.classList.remove('active');
+        tabSubtitles.setAttribute('aria-selected', 'true');
+        tabWords.setAttribute('aria-selected', 'false');
+        subtitlePane.removeAttribute('hidden');
+        wordsPane.setAttribute('hidden', '');
         list._userScrolling = false;
         this._updateSubtitlePanelHighlight(true);
       } else {
@@ -3172,6 +3196,10 @@ export class SubtitleEngine {
         tabSubtitles.style.color = '#64748B';
         tabWords.classList.add('active');
         tabSubtitles.classList.remove('active');
+        tabWords.setAttribute('aria-selected', 'true');
+        tabSubtitles.setAttribute('aria-selected', 'false');
+        wordsPane.removeAttribute('hidden');
+        subtitlePane.setAttribute('hidden', '');
         if (sentenceExplorer.style.display !== 'flex') {
           wordsScroll.style.display = 'block';
         }
@@ -3180,6 +3208,19 @@ export class SubtitleEngine {
     };
     tabSubtitles.addEventListener('click', () => switchTab('subtitles'));
     tabWords.addEventListener('click', () => switchTab('words'));
+    tabs.addEventListener('keydown', (event) => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      const target = event.key === 'Home'
+        ? tabSubtitles
+        : event.key === 'End'
+          ? tabWords
+          : event.key === 'ArrowLeft'
+            ? (event.target === tabWords ? tabSubtitles : tabWords)
+            : (event.target === tabSubtitles ? tabWords : tabSubtitles);
+      target.focus();
+      switchTab(target.dataset.tab);
+    });
     switchTab('subtitles');
 
     // ── Eventos do Painel (Fiação Final) ──────────────────────────────────
@@ -3209,6 +3250,12 @@ export class SubtitleEngine {
       if (cb) cb.checked = true;
       this._updateSubtitlePanelHighlight(true);
     };
+
+    const closeWithEscape = (event) => {
+      if (event.key === 'Escape') closePanel();
+    };
+    document.addEventListener('keydown', closeWithEscape, { signal: panelAbort.signal });
+    closeBtn.focus({ preventScroll: true });
 
     // Highlight Inicial e Loop de Sincronia
     this._updateSubtitlePanelHighlight(true);
@@ -4650,6 +4697,7 @@ export class SubtitleEngine {
     const showTrans = document.getElementById('lf-show-translation')?.checked ?? true;
     if (showTrans) this._translateAllSidebarCues(cues);
 
+    let visibleCount = 0;
     cues.forEach((cue, idx) => {
       const cleanText = this._cleanSubtitleText ? this._cleanSubtitleText(cue.text) : (cue.text || '');
       if (!cleanText) return;
@@ -4661,9 +4709,16 @@ export class SubtitleEngine {
         (cleanTrans && cleanTrans.toLowerCase().includes(filter.toLowerCase()));
 
       if (!matchesFilter) return;
+      visibleCount += 1;
+
+      // Garante que o tempo está em segundos para formatar
+      const startTime = cue.start > 100000 ? cue.start / 1000 : cue.start;
 
       const item = document.createElement('div');
       item.className = 'lf-subtitle-item';
+      item.setAttribute('role', 'button');
+      item.setAttribute('tabindex', '0');
+      item.setAttribute('aria-label', `Ouvir trecho a partir de ${this._formatTime(startTime)}`);
       item.dataset.index = idx;
       item.style.cssText = `
                 padding: 12px 16px;
@@ -4675,15 +4730,12 @@ export class SubtitleEngine {
                 gap: 4px;
             `;
 
-      // Garante que o tempo está em segundos para formatar
-      const startTime = cue.start > 100000 ? cue.start / 1000 : cue.start;
-
       item.innerHTML = `
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
                     <span class="lf-time lf-sub-time" style="font-size:11px;font-family:'Nunito',monospace;font-weight:700;flex-shrink:0;margin-top:3px;">${this._formatTime(startTime)}</span>
                     <div class="lf-sub-text" style="flex:1;font-size:15px;line-height:1.4;font-weight:700;">${escapeHTML(cleanText)}</div>
                     <div style="display:flex;gap:4px;">
-                        <button class="lf-loop-cue" title="Repetir frase" style="background:transparent;border:none;color:inherit;cursor:pointer;font-size:14px;padding:0 2px;">🔁</button>
+                        <button class="lf-loop-cue" title="Repetir frase" aria-label="Repetir frase" style="background:transparent;border:none;color:inherit;cursor:pointer;font-size:14px;padding:0 2px;">🔁</button>
                     </div>
                 </div>
                 <div class="lf-translation-text lf-trans-text" style="font-size:13px;padding-left:42px;font-weight:600;display:${showTrans ? 'block' : 'none'};">
@@ -4691,9 +4743,9 @@ export class SubtitleEngine {
                 </div>
             `;
 
-      item.onclick = (e) => {
+      const playCue = (e) => {
 
-        if (e.target.classList.contains('lf-loop-cue')) {
+        if (e.target.closest?.('.lf-loop-cue')) {
           this._toggleCueLoop(idx, e.target);
           return;
         }
@@ -4702,8 +4754,23 @@ export class SubtitleEngine {
           this.videoElement.play();
         }
       };
+      item.onclick = playCue;
+      item.onkeydown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          playCue(e);
+        }
+      };
       container.appendChild(item);
     });
+
+    const status = container.parentElement?.querySelector('#lf-panel-search-status');
+    if (status) {
+      const normalizedFilter = String(filter || '').trim();
+      status.textContent = normalizedFilter
+        ? `${visibleCount} ${visibleCount === 1 ? 'ocorrência encontrada' : 'ocorrências encontradas'}`
+        : `${visibleCount} ${visibleCount === 1 ? 'trecho disponível' : 'trechos disponíveis'}`;
+    }
 
     this._updateSubtitlePanelHighlight();
     this._syncLoopButtons();

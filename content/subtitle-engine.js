@@ -3647,7 +3647,6 @@ export class SubtitleEngine {
     if (cues.length > 0 && this._isNavigationCurrent(navigation)) {
       const existing = this.cues || [];
       const incomingIsSegment = ['t', 'range', 'spv'].some((param) => parsedUrl.searchParams.has(param));
-      if (incomingIsSegment && this._ytFullCueVideoId === currentVideoId) return;
       if (existing.length > 0) {
         const shouldMerge = incomingIsSegment;
         if (shouldMerge) {

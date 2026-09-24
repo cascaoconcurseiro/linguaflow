@@ -307,3 +307,14 @@
 - [x] Abrir PR #130 e mesclar em `main` (`1b5ccbd`).
 - [x] Validar deploy em produção na Vercel via navegador com captura de tela.
 
+## 21. Issue #132 — Recursos de áudio lado a lado e pausa de vídeo ao fechar (2026-09-24)
+
+- [x] Criar Issue #132 e branch de trabalho `codex/132-study-audio-side-by-side-and-pause`.
+- [x] Dispor "OUVIR NO CONTEXTO" e "Ouvir em outros contextos" lado a lado em `editorial.css`.
+- [x] Ajustar viewport e respiro para acomodar recursos sem forçar rolagem vertical desnecessária.
+- [x] Pausar vídeo e áudio imediatamente ao fechar a gaveta de recursos em `studyView.js`.
+- [x] Adicionar teste automatizado `tests/study-lateral-side-by-side-and-pause.test.mjs`.
+- [x] Abrir PR #133 e mesclar em `main` (`adee245`).
+- [x] Validar CI no GitHub Actions e deploy na Vercel.
+
+

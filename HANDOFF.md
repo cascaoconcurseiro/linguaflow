@@ -1,3 +1,14 @@
+## Issue #129 — Remoção da seção 'Depois' e da página 'Aprender' (2026-09-24)
+
+- **PR:** #130 (mesclado em `main` `1b5ccbd`).
+- **Problema resolvido:** O usuário solicitou a remoção da seção intermediária "Depois" no dashboard (botões "EXPLORAR CONTEÚDO" e "LER OU CRIAR HISTÓRIA") e a remoção da aba "Aprender", visto que o atalho direto para Histórias já fica em destaque no topo do dashboard (#home-primary-plan).
+- **Mudanças realizadas:**
+  - Removido o bloco `#home-next` e os botões `#home-secondary-actions` em `homeView.js`.
+  - Aposentada a aba "Aprender" nas barras de navegação desktop e mobile de `dashboard.html`.
+  - Rota legada `learn` agora redireciona suavemente para `stories` em `app.js`.
+  - Treinador diário (`chooseTodayAction`) encaminha intenções de imersão/história para `stories`.
+- **Validação:** Contratos em `tests/navigation-home-p0-a.test.mjs`, `tests/product-ux-stage4.test.mjs`, `tests/study-depth-stories-contract.test.mjs`, `tests/game-removal-contract.test.mjs` e `tests/fluency-check-ux.test.mjs` atualizados e verdes. CI no GitHub Actions verde e deploy validado na Vercel.
+
 ## Issue #125 — Simplificação lateral do estudo e prevenção de sobreposição da barra de notas (2026-09-24)
 
 - **PRs:** #126 e #127 (mesclados em `main` `36e2f6c`).

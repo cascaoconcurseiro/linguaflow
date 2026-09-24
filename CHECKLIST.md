@@ -295,3 +295,15 @@
 - [x] PR #122 integrado; migration de histórias aplicada remotamente.
 - [ ] CI/replay SQL e merge #123; registrar resultado no PR.
 - [ ] QA autenticada com extensão instalada e faixa de áudio real nas plataformas.
+
+## 20. Issue #129 — Remoção da seção 'Depois' e aba 'Aprender' (2026-09-24)
+
+- [x] Criar Issue #129 e branch de trabalho `codex/129-remove-learn-and-home-next`.
+- [x] Remover o bloco `#home-next` e botões secundários `#home-secondary-actions` em `homeView.js`.
+- [x] Remover botão de navegação "Aprender" do desktop e mobile em `dashboard.html`.
+- [x] Redirecionar rota legada `learn` para `stories` em `app.js`.
+- [x] Ajustar rotas do `chooseTodayAction` de imersão para `stories`.
+- [x] Atualizar suítes de teste de regressão e UX (5 suítes verdes).
+- [x] Abrir PR #130 e mesclar em `main` (`1b5ccbd`).
+- [x] Validar deploy em produção na Vercel via navegador com captura de tela.
+

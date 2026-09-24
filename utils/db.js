@@ -50,6 +50,10 @@ class Database {
     this.isProxyMode = this.isChromeContext && !this.isBackgroundWorker;
     this.initPromise = Promise.resolve();
     this._cacheGeneration = 0;
+    this._ensureUserStatsPromise = null;
+    this._timezoneSynced = null;
+    this._storiesCache = null;
+    this._storiesRefreshing = null;
   }
 
   // Lê o objeto de sessão completo ({ access_token, refresh_token, expires_at, user })
@@ -321,6 +325,8 @@ class Database {
     }
     this._invalidateReadCache();
     this._srsCache = null;
+    this._ensureUserStatsPromise = null;
+    this._timezoneSynced = null;
     return { ok: true };
   }
 
@@ -687,6 +693,7 @@ class Database {
     if (target === 'all' || target === 'words') this._wordsCache = null;
     if (target === 'all' || target === 'sentences') this._sentencesCache = null;
     if (target === 'all' || target === 'known_words') this._knownWordsCache = null;
+    if (target === 'all' || target === 'stories') this._storiesCache = null;
   }
 
   // Onda 4: aceita paginação real (limit/offset viram LIMIT/OFFSET no
@@ -776,13 +783,27 @@ class Database {
         prompt_version: story.promptVersion || 'story-v2',
       }
     });
+    this._storiesCache = null;
     return { ok: !!res?.[0], id: res?.[0]?.id, createdAt: res?.[0]?.created_at };
   }
 
   async getStories(limit = 50) {
     if (this.isProxyMode) return this._proxy('getStories', [limit]);
+    if (limit === 50 && this._storiesCache) {
+      if (Date.now() - this._storiesCache.ts >= 30000 && !this._storiesRefreshing) {
+        this._storiesRefreshing = this._fetchStories(limit)
+          .finally(() => { this._storiesRefreshing = null; });
+        this._storiesRefreshing.catch(() => {});
+      }
+      return this._storiesCache.data;
+    }
+    return this._fetchStories(limit);
+  }
+
+  async _fetchStories(limit = 50) {
     const rows = await this._fetch(`stories?select=*&order=created_at.desc&limit=${limit}`);
     if (!rows) throw new Error('Não foi possível carregar as histórias do Supabase.');
+    if (limit === 50) this._storiesCache = { data: rows, ts: Date.now() };
     return rows;
   }
 
@@ -790,6 +811,7 @@ class Database {
     if (!UUID_PATTERN.test(String(id))) return false;
     if (this.isProxyMode) return this._proxy('deleteStory', [id]);
     await this._fetch(`stories?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
+    this._storiesCache = null;
     return true;
   }
 
@@ -1783,17 +1805,26 @@ class Database {
 
   async ensureUserStats() {
     if (this.isProxyMode) return this._proxy('ensureUserStats', []);
-    
-    // Apenas garante que o perfil exista via backend (XP agora é automático por Triggers)
-    await this._fetch('rpc/ensure_user_stats', {
-      method: 'POST'
-    });
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (timezone) {
-      await this._fetch('rpc/set_user_timezone', { method: 'POST', body: { p_timezone: timezone } });
+
+    // App boot e a tela de Ligas podem pedir o mesmo bootstrap quase juntos.
+    // Compartilhar a promessa evita duas RPCs e duas validações de fuso.
+    if (this._ensureUserStatsPromise) return this._ensureUserStatsPromise;
+    this._ensureUserStatsPromise = (async () => {
+      // Apenas garante que o perfil exista via backend (XP agora é automático por Triggers)
+      await this._fetch('rpc/ensure_user_stats', { method: 'POST' });
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (timezone && timezone !== this._timezoneSynced) {
+        await this._fetch('rpc/set_user_timezone', { method: 'POST', body: { p_timezone: timezone } });
+        this._timezoneSynced = timezone;
+      }
+      return { ok: true };
+    })();
+    try {
+      return await this._ensureUserStatsPromise;
+    } catch (error) {
+      this._ensureUserStatsPromise = null;
+      throw error;
     }
-    
-    return { ok: true };
   }
 
   // Rollover semanal das ligas (lazy, idempotente — o pg_cron é o titular)

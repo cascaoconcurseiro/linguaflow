@@ -1,3 +1,14 @@
+## Issue #132 — Recursos de áudio lado a lado e pausa de vídeo ao fechar (2026-09-24)
+
+- **PR:** #133 (mesclado em `main` `adee245`).
+- **Problema resolvido:**
+  - O aprofundamento empilhava verticalmente "OUVIR NO CONTEXTO" (trecho original) e "Ouvir em outros contextos" (YouGlish) em uma coluna estreita (290px), forçando rolagem vertical ("subir e descer") e deixando espaço vazio na tela.
+  - Ao fechar o painel/gaveta de "Ouvir em outros contextos", o vídeo do YouGlish continuava reproduzindo áudio em segundo plano.
+- **Mudanças realizadas:**
+  - Dispostos "OUVIR NO CONTEXTO" e "Ouvir em outros contextos" lado a lado (em 2 colunas com divisor visual) em telas desktop em `editorial.css`, ajustando para caber na viewport sem necessidade de rolagem vertical.
+  - Adicionada pausa imediata de vídeo e áudio ao fechar "Entender melhor" (clique em `#close-study-resources` e evento `toggle`), pausando YouGlish widget, disparando `postMessage('pauseVideo')` para iframes do YouTube e pausando tags `<video>` em `studyView.js`.
+- **Validação:** Novo teste automatizado em `tests/study-lateral-side-by-side-and-pause.test.mjs`, suíte completa `npm run test:release` verde, CI no GitHub Actions verde e deploy validado na Vercel.
+
 ## Issue #129 — Remoção da seção 'Depois' e da página 'Aprender' (2026-09-24)
 
 - **PR:** #130 (mesclado em `main` `1b5ccbd`).

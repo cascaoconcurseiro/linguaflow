@@ -1483,7 +1483,7 @@ class Database {
     const userId = await this.getCurrentUserId();
     if (!userId || interval.accountId !== userId) throw new Error('Sessão do contador mudou. Confirme o idioma novamente.');
     if (!UUID_PATTERN.test(interval.id) || !Number.isInteger(interval.seconds) || interval.seconds < 1 || interval.seconds > 60
-      || !['user_confirmed', 'audio_track'].includes(interval.evidence || 'user_confirmed')
+      || !['user_confirmed', 'audio_track', 'caption_asr'].includes(interval.evidence || 'user_confirmed')
       || !/^[a-z]{2,3}(-[a-z0-9]{2,8})?$/.test(interval.language || '')) throw new Error('Intervalo de listening inválido.');
     const save = async () => {
       const key = `lf_listening_queue_v1:${userId}`;

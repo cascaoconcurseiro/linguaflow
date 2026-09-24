@@ -193,15 +193,42 @@
         if (e.origin !== window.location.origin || e.source !== window) return;
         if (!e.data || typeof e.data !== 'object') return;
         if (e.data.type === 'LF_GET_AUDIO_LANGUAGE') {
-            // Selected audio, not captions or the learner's configured language.
+            // Prefer the selected audio. Original ASR is a qualified fallback;
+            // manual and translated subtitles do not establish spoken language.
             const player = document.getElementById('movie_player');
             let language = null;
+            let evidence = null;
             try {
                 const track = player?.getAudioTrack?.();
                 const candidate = String(track?.languageCode || track?.language || track?.id?.split('.')[0] || '').toLowerCase();
-                if (/^[a-z]{2,3}(-[a-z0-9]{2,8})?$/.test(candidate)) language = candidate;
+                if (/^[a-z]{2,3}(-[a-z0-9]{2,8})?$/.test(candidate)) {
+                    language = candidate;
+                    evidence = 'audio_track';
+                } else {
+                    const response = player?.getPlayerResponse?.();
+                    const videoId = new URLSearchParams(window.location.search).get('v');
+                    const playerId = response?.videoDetails?.videoId;
+                    const available = player?.getAvailableAudioTracks?.();
+                    const formatTracks = response?.streamingData?.adaptiveFormats
+                        ?.map(format => format.audioTrack?.id).filter(Boolean) || [];
+                    const hasAlternativeAudio = (Array.isArray(available) && available.length > 1)
+                        || new Set(formatTracks).size > 1;
+                    if (playerId === videoId && !hasAlternativeAudio) {
+                        const tracks = response?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
+                        const languages = [...new Set(tracks.filter(item => {
+                            if (item.kind !== 'asr' || !item.baseUrl || item.translationLanguage) return false;
+                            try { return !new URL(item.baseUrl, window.location.href).searchParams.has('tlang'); }
+                            catch { return false; }
+                        }).map(item => String(item.languageCode || '').toLowerCase())
+                            .filter(code => /^[a-z]{2,3}(-[a-z0-9]{2,8})?$/.test(code)))];
+                        if (languages.length === 1) {
+                            language = languages[0];
+                            evidence = 'caption_asr';
+                        }
+                    }
+                }
             } catch { /* The platform may not expose the selected track. */ }
-            postBridgeMessage({ type:'LF_AUDIO_LANGUAGE', language });
+            postBridgeMessage({ type:'LF_AUDIO_LANGUAGE', language, evidence });
         } else if (e.data.type === 'LF_PRELOAD_SUBTITLES') {
             preloadFullSubtitleTrack();
         } else if (e.data.type === 'LF_SET_SOURCE_LANG' && typeof e.data.sourceLang === 'string') {

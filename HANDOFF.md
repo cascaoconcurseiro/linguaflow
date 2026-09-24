@@ -292,3 +292,11 @@ Auditoria e implementação detalhadas em `docs/audits/youtube-caption-integrity
 - `isolated.js`/`debounce` não existe neste repositório; o erro do console pode vir de um script antigo ainda residente na aba ou de outra extensão. `interval_failed` é do contador de listening e requer informação de erro adicional se persistir após atualização.
 - Critério testado: import do popup e montagem concorrente. Sem evidência de QA real no navegador com a instalação do usuário ou de resolução de `interval_failed`.
 - Rollback: restaurar a versão `3.0.56`; sem mudanças de banco, permissão ou fetch do YouTube.
+## Issue #142 — Estimativa de idioma por ASR original (2026-09-24)
+
+- Branch `codex/142-detect-youtube-audio-language` sobre árvore `3.0.57`; release da extensão `3.0.58`.
+- Resposta do player do YouTube já consultada para legendas; o hook usa a faixa ASR original de idioma único somente quando não há faixa de áudio selecionada e não há várias faixas de áudio. Não faz nova requisição de rede.
+- Ponte com nonce transporta `caption_asr` como evidência distinta; seleção explícita do usuário e faixa de áudio prevalecem. UI indica "estimado pela legenda automática"; idioma não confirmado continua quando só há legenda manual/traduzida ou áudio ambíguo.
+- Migration append-only `20260924122205_listening_asr_evidence.sql` amplia a validação de evidência da RPC e do ledger sem alterar RLS, grants, janelas de idempotência ou contagem. Deve ser aplicada **antes** de disponibilizar a extensão 3.0.58; versão antiga permanece compatível.
+- Testes comportamentais do hook, ponte, contador, fila local e replay das 59 migrations em PGlite passaram. QA com extensão instalada no vídeo da captura ainda pendente; o vídeo específico pode não ter faixa ASR original.
+- Rollback: voltar à extensão 3.0.57. A migration aditiva pode permanecer; não remover `caption_asr` enquanto houver intervalos desse tipo na fila local.

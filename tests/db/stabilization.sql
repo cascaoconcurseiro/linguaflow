@@ -30,6 +30,8 @@ begin
   exception when invalid_parameter_value then null; end;
   result:=public.record_listening_interval('11800000-0000-4000-8000-000000000030',auth.uid(),5,start_at-interval '10 seconds',start_at-interval '5 seconds','en',current_date,'audio_track');
   if (result->>'credited_seconds')::int <> 5 then raise exception 'audio evidence not credited'; end if;
+  result:=public.record_listening_interval('11800000-0000-4000-8000-000000000032',auth.uid(),5,start_at-interval '30 seconds',start_at-interval '25 seconds','en',current_date,'caption_asr');
+  if (result->>'credited_seconds')::int <> 5 then raise exception 'ASR evidence not credited'; end if;
   begin
     perform public.record_listening_interval('11800000-0000-4000-8000-000000000031',auth.uid(),5,start_at-interval '20 seconds',start_at-interval '15 seconds','en',current_date,'captions');
     raise exception 'caption evidence accepted';
@@ -40,7 +42,7 @@ begin
 end $$;
 reset role;
 do $$ begin
-  if (select seconds from public.sessions where user_id='11800000-0000-4000-8000-000000000001' and date=current_date and source='video' and language='en') <> 15 then raise exception 'aggregate duplicated'; end if;
+  if (select seconds from public.sessions where user_id='11800000-0000-4000-8000-000000000001' and date=current_date and source='video' and language='en') <> 20 then raise exception 'aggregate duplicated'; end if;
 end $$;
 select set_config('request.jwt.claim.sub','11800000-0000-4000-8000-000000000002',true);
 set local role authenticated;

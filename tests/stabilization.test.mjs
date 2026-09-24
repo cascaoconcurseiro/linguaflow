@@ -50,5 +50,7 @@ test('listening queue preserves audio evidence through an idempotent retry',asyn
  const interval={id:'12300000-0000-4000-8000-000000000002',accountId:await d.getCurrentUserId(),seconds:10,language:'en',evidence:'audio_track',startedAt:new Date(Date.now()-20000).toISOString(),endedAt:new Date(Date.now()-10000).toISOString(),date:'2026-09-23'};
  await d.enqueueListeningInterval(interval);await d.drainListeningQueue();fail=false;await d.drainListeningQueue();
  assert.equal(sent.at(-1).p_evidence,'audio_track');assert.deepEqual(sent[0],sent.at(-1));assert.equal([...storage.values()][0].length,0);
+ await d.enqueueListeningInterval({...interval,id:'12300000-0000-4000-8000-000000000003',evidence:'caption_asr'});
+ await d.drainListeningQueue();assert.equal(sent.at(-1).p_evidence,'caption_asr');
  await assert.rejects(d.enqueueListeningInterval({...interval,evidence:'captions'}));
 });

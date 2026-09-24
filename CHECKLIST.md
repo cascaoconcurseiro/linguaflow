@@ -343,3 +343,10 @@
 - [x] Serializar a inicialização do Shadow DOM entre legenda, vídeo e navegação.
 - [x] Testes RED→GREEN de acesso ao módulo e montagem simultânea; bump da extensão/site para `3.0.57`.
 - [ ] QA no Chrome instalado: abrir palavra na legenda e troca de vídeo; verificar o contador de listening se ainda apresentar erro.
+
+## Issue #142 · idioma do áudio no YouTube (2026-09-24)
+
+- [x] Usar apenas ASR original de idioma único como estimativa, respeitando áudio selecionado, dublagens e troca de vídeo.
+- [x] Registrar `caption_asr` separadamente na fila e RPC, com migration aditiva e replay efêmero.
+- [x] Exibir a proveniência como estimativa no painel de listening.
+- [ ] CI, aplicar migration na produção, merge e QA no Chrome instalado com vídeo do usuário.

@@ -124,9 +124,9 @@ html body .study-focus-track { height:4px; background:var(--color-border); }
 html body .study-focus-track > span { background:var(--color-primary); }
 html { --study-grading-dock-height:0px; }
 html body .study-layout { background:var(--color-bg); }
-html body.lf-focus-mode #app-root { scroll-padding-bottom:calc(var(--study-grading-dock-height) + 48px); }
+html body.lf-focus-mode #app-root { scroll-padding-bottom:calc(var(--study-grading-dock-height) + 64px); }
 html body .study-main { display:grid; grid-template-columns:minmax(0,1fr) 290px; align-items:start; column-gap:48px; row-gap:16px; width:100%; max-width:1440px; margin:auto; padding:24px 5vw 164px; }
-html body .study-layout.is-revealed .study-main { padding-bottom:calc(var(--study-grading-dock-height) + 56px); }
+html body .study-layout.is-revealed .study-main { padding-bottom:calc(var(--study-grading-dock-height) + 72px); }
 html body .anki-study-header { grid-column:1/-1; max-width:none; margin:0 0 8px; padding-bottom:12px; border-bottom:0; }
 html body .anki-counter-badge { border:0; background:transparent; color:var(--color-text-light); font-weight:400; }
 html body .anki-counter-badge strong { font-size:14px; font-weight:600; }
@@ -155,7 +155,7 @@ html body .rich-context-label { display:none; }
 html body .rich-explain-body { font:400 15px/1.7 var(--font-main); max-width:62ch; color:var(--color-text-light); }
 html body .study-front-actions { justify-content:flex-start !important; margin-top:28px !important; }
 html body .reveal-btn { width:auto; padding:14px 24px; }
-html body .study-explore { grid-column:2; grid-row:2; margin:0; padding:8px 0 24px 32px; border-left:1px solid var(--color-border); min-width:0; }
+html body .study-explore { grid-column:2; grid-row:2; margin:0; padding:8px 0 24px 32px; border-left:1px solid var(--color-border); min-width:0; max-height:calc(100dvh - 120px - var(--study-grading-dock-height, 140px)); overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; }
 html body .study-explore:not(:has(.study-resources:not(.hidden))) { visibility:hidden; }
 html body .study-explore-row { display:block; }
 html body .study-resources { width:100%; border:0; background:transparent; }
@@ -202,13 +202,13 @@ html body .is-revealed #pump-translation { animation:editorial-reveal 180ms ease
   html body .stat-card:nth-child(3) { border-left:0; }
   html body .product-destination-card + .product-destination-card { border-left:0; padding-left:0; }
   html body .study-main { display:flex; gap:0; align-items:stretch; padding:16px 20px calc(155px + env(safe-area-inset-bottom)); }
-  html body .study-layout.is-revealed .study-main { padding-bottom:calc(var(--study-grading-dock-height) + 36px + env(safe-area-inset-bottom)); }
+  html body .study-layout.is-revealed .study-main { padding-bottom:calc(var(--study-grading-dock-height) + 48px + env(safe-area-inset-bottom)); }
   html body .anki-study-header { margin-bottom:20px; gap:4px; }
   html body .anki-session-counters { gap:4px; }
   html body .anki-card-quick-actions { display:none; }
   html body .study-card-meta { margin-bottom:24px; }
   html body .sentence-text { font-size:clamp(28px,7.6vw,38px); line-height:1.35; }
-  html body .study-explore { margin-top:28px; padding:20px 0; border-left:0; border-top:1px solid var(--color-border); }
+  html body .study-explore { margin-top:28px; padding:20px 0; border-left:0; border-top:1px solid var(--color-border); max-height:none; overflow:visible; }
   html body .study-explore:not(:has(.study-resources:not(.hidden))) { display:none; }
   html body .grading-buttons { padding:10px 12px calc(12px + env(safe-area-inset-bottom)); grid-template-columns:1fr; gap:8px; }
   .grading-prompt strong { font:500 13px var(--font-main); }

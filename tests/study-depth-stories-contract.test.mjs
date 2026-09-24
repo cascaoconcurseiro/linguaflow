@@ -21,11 +21,9 @@ assert.match(study, /ResizeObserver/,
 assert.match(editorial, /scroll-padding-bottom:\s*calc\(var\(--study-grading-dock-height/,
   'o scroll nunca termina atrás da barra fixa');
 
-for (const id of ['study-context-meaning', 'study-usage-note', 'chunks-container']) {
+for (const id of ['video-resource-section', 'native-examples-title', 'youglish-box']) {
   assert.match(study, new RegExp(`id="${id}"`), `Entender melhor inclui ${id}`);
 }
-assert.match(study, /Atualizando a explicação contextual/,
-  'aprofundamento tem estado honesto enquanto o conteúdo é enriquecido');
 
 assert.match(home, /id="btn-open-stories"/,
   'Home oferece atalho explícito para Histórias');

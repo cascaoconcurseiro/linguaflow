@@ -16,7 +16,15 @@ const renderLearn = (...args) => import('../ui/learnView.js').then((m) => m.rend
 const renderProgress = (...args) => import('../ui/progressView.js').then((m) => m.renderProgress(...args));
 const renderAdmin = (...args) => import('../ui/adminView.js').then((m) => m.renderAdmin(...args));
 
-const CLIENT_BUILD = '3.0.54';
+const CLIENT_BUILD = '3.0.55';
+
+// Purga caches de versões anteriores do PWA para impedir que clientes fiquem presos em assets defasados
+if ('caches' in window) {
+  caches.keys().then((names) => {
+    const stale = names.filter((n) => n.startsWith('linguaflow-') && n !== `linguaflow-v${CLIENT_BUILD}`);
+    if (stale.length > 0) Promise.all(stale.map((n) => caches.delete(n))).catch(() => {});
+  }).catch(() => {});
+}
 
 // Uma versão antiga do PWA podia misturar HTML/app novo com db.js antigo.
 // Antes de inicializar qualquer tela, elimina esse estado e recarrega uma vez.
@@ -62,11 +70,17 @@ if ('serviceWorker' in navigator && (typeof location === 'undefined' || location
         reg.update().catch(() => {});
         console.log('[SW] Registrado com sucesso:', reg.scope);
         // Worker novo já esperando (aba ficou aberta durante um deploy)
-        if (reg.waiting && navigator.serviceWorker.controller) promptUpdate(reg.waiting);
+        if (reg.waiting && navigator.serviceWorker.controller) {
+          try { reg.waiting.postMessage('SKIP_WAITING'); } catch { /* silent */ }
+          promptUpdate(reg.waiting);
+        }
         reg.addEventListener('updatefound', () => {
           const incoming = reg.installing;
           incoming?.addEventListener('statechange', () => {
-            if (incoming.state === 'installed' && navigator.serviceWorker.controller) promptUpdate(incoming);
+            if (incoming.state === 'installed' && navigator.serviceWorker.controller) {
+              try { incoming.postMessage('SKIP_WAITING'); } catch { /* silent */ }
+              promptUpdate(incoming);
+            }
           });
         });
         // Checagem periódica: pega o deploy mesmo com a aba aberta há horas

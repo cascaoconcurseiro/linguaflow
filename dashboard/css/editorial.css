@@ -155,16 +155,27 @@ html body .rich-context-label { display:none; }
 html body .rich-explain-body { font:400 15px/1.7 var(--font-main); max-width:62ch; color:var(--color-text-light); }
 html body .study-front-actions { justify-content:flex-start !important; margin-top:28px !important; }
 html body .reveal-btn { width:auto; padding:14px 24px; }
-html body .study-explore { grid-column:2; grid-row:2; margin:0; padding:8px 0 24px 32px; border-left:1px solid var(--color-border); min-width:0; max-width:820px; max-height:calc(100dvh - 100px - var(--study-grading-dock-height, 140px)); overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; display:flex; flex-direction:row; align-items:flex-start; gap:32px; }
+html body .study-explore { grid-column:2; grid-row:2; margin:0; padding:8px 0 24px 28px; border-left:1px solid var(--color-border); min-width:0; width:340px; max-width:360px; max-height:calc(100dvh - 100px - var(--study-grading-dock-height, 140px)); overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; display:flex; flex-direction:column; align-items:stretch; gap:16px; }
 html body .study-explore:not(:has(.study-resources:not(.hidden))) { visibility:hidden; }
-html body #video-resource-section { flex:1 1 300px; min-width:270px; max-width:360px; }
-html body .study-explore-row { flex:1 1 320px; min-width:280px; max-width:400px; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:start; }
-html body #video-resource-section:not(.hidden) + .study-explore-row { border-left:1px solid var(--color-border); padding-left:32px; }
+html body #video-resource-section { width:100%; padding:0; }
+html body .study-resource-accordion { border:0; background:transparent; }
+html body .study-resource-summary { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; cursor:pointer; list-style:none; padding:4px 0; border-radius:6px; transition:opacity 120ms ease; }
+html body .study-resource-summary:hover { opacity:.85; }
+html body .study-resource-summary::-webkit-details-marker { display:none; }
+html body .study-resource-summary-text { flex:1; min-width:0; }
+html body .study-resource-chevron { color:var(--color-text-light); font-size:16px; line-height:1.4; transition:transform 160ms ease; user-select:none; padding-top:2px; }
+html body .study-resource-accordion[open] .study-resource-chevron { transform:rotate(180deg); }
+html body .study-resource-body { padding-top:10px; }
+html body .study-explore-row { width:100%; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:start; }
+html body #video-resource-section:not(.hidden) + .study-explore-row { border-left:0; padding-left:0; border-top:1px solid var(--color-border); padding-top:16px; }
 html body .study-resources { width:100%; border:0; background:transparent; }
 html body .study-resources-content { position:static; width:100%; max-height:none; overflow:visible; padding:0; border:0; box-shadow:none; background:transparent; }
-html body .study-resources > summary { font-size:13px; min-height:56px; padding:16px 0; border-top:1px solid var(--color-border); }
+html body .study-resources > summary { font-size:13px; min-height:48px; padding:12px 0; border:0; color:var(--color-link); cursor:pointer; }
 html body .study-resources[open] > summary { display:none; }
-html body .study-resource-panel-header { min-height:44px; font-size:13px; }
+html body .study-resource-panel-header { min-height:36px; font-size:13px; display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+html body .study-resource-panel-header strong { font:600 11px var(--font-main); letter-spacing:.14em; text-transform:uppercase; color:var(--color-text-light); }
+html body #close-study-resources { background:transparent; border:0; color:var(--color-text-light); font:500 12px var(--font-main); cursor:pointer; padding:4px 8px; border-radius:4px; }
+html body #close-study-resources:hover { color:var(--color-text); background:var(--editorial-highlight); }
 html body .learning-resource-section { padding:12px 0 24px; }
 html body .learning-resource-section h3 { font:400 20px/1.4 var(--font-reading); }
 html body .learning-resource-kicker { font-size:10px; letter-spacing:.14em; color:var(--color-text-light); }

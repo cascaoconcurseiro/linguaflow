@@ -60,11 +60,12 @@ const studyViewContent = readFileSync('dashboard/js/ui/studyView.js', 'utf8');
 assert.match(studyViewContent, /card-live-timer/, 'studyView deve conter o cronômetro do card #card-live-timer');
 assert.match(studyViewContent, /startCardTimer/, 'studyView deve iniciar startCardTimer()');
 
-// 6. Contrato de Cache Busting (PWA / Service Worker v3.0.54)
+// 6. Contrato de Cache Busting (PWA / Service Worker)
+const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 const swContent = readFileSync('dashboard/sw.js', 'utf8');
-assert.match(swContent, /linguaflow-v3\.0\.54/, 'sw.js deve usar a versão de cache 3.0.54');
+assert.match(swContent, new RegExp(`linguaflow-v${pkg.version.replace(/\\./g, '\\.')}`), `sw.js deve usar a versão de cache ${pkg.version}`);
 
 const dashboardHtml = readFileSync('dashboard/dashboard.html', 'utf8');
-assert.match(dashboardHtml, /app\.js\?v=3\.0\.54/, 'dashboard.html deve importar app.js?v=3.0.54');
+assert.match(dashboardHtml, new RegExp(`app\\.js\\?v=${pkg.version.replace(/\\./g, '\\.')}`), `dashboard.html deve importar app.js?v=${pkg.version}`);
 
 console.log('✅ Todos os testes de contrato passaram com sucesso!');

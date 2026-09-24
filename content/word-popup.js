@@ -960,6 +960,13 @@ export class WordPopup {
     this.popup.style.display = 'block';
     this._startPosLoop(); // Inicia o loop rAF para posicionamento
 
+    // A análise contextual é independente do dicionário. Dispare-a assim que
+    // o popup estiver visível para que tradução/definição e IA carreguem em
+    // paralelo; _render() verá _contextExplained=true e não duplicará o pedido.
+    if (this.context && !this._contextExplained) {
+      this._explainContext(this.word, this.context);
+    }
+
     // Trigger animation
     requestAnimationFrame(() => {
       this.popup.style.opacity = '1';

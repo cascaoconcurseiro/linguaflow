@@ -328,3 +328,11 @@
 - [x] Validar CI no GitHub Actions e deploy na Vercel.
 
 
+
+## 20. Issue #138 — integridade das legendas YouTube
+
+- [x] Auditoria de parser, faixa, requests, sidebar, captura e fallback oficial documentada.
+- [x] Frases contínuas com limites, rolling revisions, faixa por idioma e precedência da faixa completa.
+- [x] Tradução por tempo, fallback nativo e tentativas limitadas após 403/429.
+- [x] Testes comportamentais RED→GREEN, versão 3.0.56 e ZIP real incluindo módulo de legendas.
+- [ ] CI/PR e QA da extensão instalada num vídeo real; verificar risco contratual da coleta em internals antes de distribuição ampla.

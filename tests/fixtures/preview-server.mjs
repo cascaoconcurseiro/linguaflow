@@ -20,7 +20,7 @@ http.createServer(async(req,res)=>{try{
  }
  if(name==='/'||name==='/__preview'){
   let html=await readFile(path.join(root,'dashboard/dashboard.html'),'utf8');
-  html=html.replace('<head>','<head><base href="/dashboard/">').replace('<script type="module" src="js/core/app.js?v=3.0.54"></script>','<script type="module" src="/tests/fixtures/editorial-preview.js?v=3.0.54"></script>');
+  html=html.replace('<head>','<head><base href="/dashboard/">').replace(/<script type="module" src="js\/core\/app\.js\?v=[\d.]+"><\/script>/,'<script type="module" src="/tests/fixtures/editorial-preview.js"></script>');
   res.writeHead(200,{'Content-Type':'text/html','Cache-Control':'no-store'});res.end(html);return;
  }
  const file=path.resolve(root,'.'+name);

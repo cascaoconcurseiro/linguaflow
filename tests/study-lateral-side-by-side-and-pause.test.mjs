@@ -18,14 +18,17 @@ assert.match(study, /id="study-resources"[\s\S]*?addEventListener\('toggle'[\s\S
 assert.match(study, /function pauseYouglish\(\)[\s\S]*?ygWidget\?\.pause\?\.[\s\S]*?postMessage[\s\S]*?pauseVideo/,
   'pauseYouglish deve acionar a API do widget e enviar postMessage de pausa para iframes do YouTube');
 
-// 2. Verificação de layout lado a lado para Trecho original e Ouvir em outros contextos
-assert.match(editorial, /\.study-explore\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*row;/,
-  'o container de aprofundamento deve posicionar os recursos lado a lado em telas desktop');
+assert.match(study, /id="video-resource-toggle"[\s\S]*?addEventListener\('toggle'[\s\S]*?pausePlayer\(\)/,
+  'fechar o acordeom de Trecho original deve pausar o player imediatamente');
 
-assert.match(editorial, /#video-resource-section:not\(\.hidden\)\s*\+\s*\.study-explore-row\s*\{[^}]*border-left:/,
+// 2. Verificação de layout vertical compacto para Trecho original e Ouvir em outros contextos
+assert.match(editorial, /\.study-explore\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/,
+  'o container de aprofundamento deve posicionar os recursos em coluna vertical liberando espaço para o card');
+
+assert.match(editorial, /#video-resource-section:not\(\.hidden\)\s*\+\s*\.study-explore-row\s*\{[^}]*border-top:/,
   'deve haver uma divisória visual limpa entre Trecho original e Ouvir em outros contextos quando ambos estiverem visíveis');
 
-assert.match(editorial, /@media\s*\(max-width:\s*(?:1000|1100)px\)[\s\S]*?\.study-explore\s*\{[^}]*flex-direction:\s*column/,
-  'em telas menores deve empilhar verticalmente de forma responsiva');
+assert.match(editorial, /\.study-explore\s*\{[^}]*max-height:\s*calc\([^}]*--study-grading-dock-height/,
+  'o container de aprofundamento deve limitar a altura para não ultrapassar a barra de avaliação');
 
-console.log('Contratos de layout lado a lado e pausa de áudio/vídeo passaram com sucesso.');
+console.log('Contratos de layout vertical compacto e pausa de áudio/vídeo passaram com sucesso.');

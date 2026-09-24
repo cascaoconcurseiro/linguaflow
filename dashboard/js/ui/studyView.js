@@ -315,13 +315,22 @@ export async function renderStudy(container, app, params = {}) {
         <!-- Tudo que ajuda a aprofundar continua disponível, mas não compete
              com recordar e avaliar. A gaveta só aparece após a resposta. -->
         <aside class="study-explore" aria-label="Aprofundamento opcional do card">
-                <section id="video-resource-section" class="learning-resource-section learning-resource-video hidden" aria-labelledby="video-resource-title">
+          <section id="video-resource-section" class="learning-resource-section learning-resource-video hidden" aria-labelledby="video-resource-title">
+            <details id="video-resource-toggle" class="study-resource-accordion">
+              <summary class="study-resource-summary">
+                <div class="study-resource-summary-text">
                   <p class="learning-resource-kicker">OUVIR NO CONTEXTO</p>
                   <h3 id="video-resource-title">Trecho original</h3>
                   <p class="learning-resource-description">Volte ao instante em que a frase foi falada e repita sem sair do card.</p>
-                  <div id="saved-video-context" class="study-video-context"></div>
-                  <div id="study-yt-mount" class="hidden" aria-label="Trecho do vídeo salvo"></div>
-                </section>
+                </div>
+                <span class="study-resource-chevron" aria-hidden="true">⌄</span>
+              </summary>
+              <div class="study-resource-body">
+                <div id="saved-video-context" class="study-video-context"></div>
+                <div id="study-yt-mount" class="hidden" aria-label="Trecho do vídeo salvo"></div>
+              </div>
+            </details>
+          </section>
           <div class="study-explore-row">
             <details id="study-resources" class="study-resources hidden">
               <summary><span>Entender melhor</span><span aria-hidden="true">⌄</span></summary>
@@ -417,6 +426,11 @@ export async function renderStudy(container, app, params = {}) {
     pauseYouglish();
     const res = document.getElementById('study-resources');
     if (res) res.open = false;
+  });
+  document.getElementById('video-resource-toggle')?.addEventListener('toggle', (event) => {
+    if (!event.currentTarget.open) {
+      pausePlayer();
+    }
   });
 
   document.querySelectorAll('.grade-btn').forEach(btn => {
@@ -789,6 +803,8 @@ async function loadNextCard(app) {
   contextExplanation.textContent = '';
   document.getElementById('saved-video-context').replaceChildren();
   document.getElementById('video-resource-section')?.classList.add('hidden');
+  const vidToggle = document.getElementById('video-resource-toggle');
+  if (vidToggle) vidToggle.open = false;
   document.getElementById('study-yt-mount').classList.add('hidden');
   hidePlayer(); // troca de card: o vídeo do card anterior não deve tocar ao fundo
   document.getElementById('youglish-box').classList.add('hidden');

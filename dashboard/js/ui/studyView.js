@@ -405,6 +405,11 @@ export async function renderStudy(container, app, params = {}) {
   document.getElementById('study-card-menu').open = false;
   document.getElementById('study-resources')?.addEventListener('toggle', (event) => {
     if (event.isTrusted && event.currentTarget.open && presentationEvidence) presentationEvidence.helpCount += 1;
+    if (event.currentTarget.open) {
+      requestAnimationFrame(() => {
+        event.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    }
   });
   document.getElementById('close-study-resources')?.addEventListener('click', () => {
     document.getElementById('study-resources').open = false;

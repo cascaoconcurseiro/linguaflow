@@ -173,6 +173,32 @@ test('complete track replaces earlier partial segment without stale duplicate wo
   assert.deepEqual(engine.cues.map(c=>c.text),['The right sentence.']);
 });
 
+test('partial initial track continues with later YouTube segments', async () => {
+  const {SubtitleEngine}=await import('../content/subtitle-engine.js');
+  globalThis.window={location:{href:'https://www.youtube.com/watch?v=vid14'}};
+  globalThis.document={querySelector:()=>null};
+  globalThis.chrome={storage:{local:{get:(_key,cb)=>cb({lastYoutubeSubtitleUrls:[]}),set:()=>{}}}};
+  const engine=Object.create(SubtitleEngine.prototype);
+  Object.assign(engine,{platform:'youtube',isActivated:true,cues:[],xhrCues:[],sourceLang:'en',_disposed:false,_navigationEpoch:0,_navigationUrl:'',_navigationController:null});
+  engine._rebuildSubtitleList=()=>{};engine._rebuildWordsList=()=>{};
+  const nav=engine._beginNavigation(window.location.href);
+
+  // The initial request has no segment marker but may still contain only the
+  // first portion of a long track; later player requests must not be ignored.
+  await engine._processYouTubeRawSubtitles(
+    'https://www.youtube.com/api/timedtext?v=vid14&lang=en',
+    JSON.stringify({events:[{tStartMs:0,dDurationMs:1000,segs:[{utf8:'The first part.'}]}]}),
+    nav,
+  );
+  await engine._processYouTubeRawSubtitles(
+    'https://www.youtube.com/api/timedtext?v=vid14&lang=en&t=60',
+    JSON.stringify({events:[{tStartMs:60000,dDurationMs:1000,segs:[{utf8:'The later part.'}]}]}),
+    nav,
+  );
+
+  assert.deepEqual(engine.cues.map(c=>c.text),['The first part.','The later part.']);
+});
+
 test('subtitles and sidebar clean speaker change arrowheads (>>) and chevrons leaving only text', async () => {
   const { SubtitleEngine } = await import('../content/subtitle-engine.js');
   const engine = Object.create(SubtitleEngine.prototype);

@@ -1,3 +1,10 @@
+## Issue #125 — Simplificação lateral do estudo e prevenção de sobreposição da barra de notas (2026-09-24)
+
+- **PRs:** #126 e #127 (mesclados em `main` `36e2f6c`).
+- **Problema resolvido:** Eliminação de seções redundantes na lateral do card de estudo (sentido textual redundante, blocos intermediários e mnemônicos), mantendo exclusivamente "OUVIR NO CONTEXTO" (trecho original com player) e "Ouvir em outros contextos" (YouGlish).
+- **Layout e rolagem:** Adicionado `max-height: calc(100dvh - 120px - var(--study-grading-dock-height, 140px))` e `overflow-y: auto` no painel `.study-explore`, garantindo que a expansão da gaveta lateral nunca sobreponha ou passe para baixo dos botões fixos de avaliação (`Errei`, `Difícil`, `Bom`, `Fácil`). Aumentado `padding-bottom` e `scroll-padding-bottom` para garantir respiro visual completo.
+- **CI & Release Smoke:** Contratos em `tests/study-depth-stories-contract.test.mjs` e `tests/understand-panel-p0-b.test.mjs` atualizados e validados. Build e Release no GitHub Actions verde; deploy na Vercel publicado e verificado no navegador com sucesso.
+
 ## Issue #118 — Estabilização do listening e da avaliação (2026-09-23)
 
 Branch `codex/118-stabilize-learning` de `main` `3aed6ce`. Correções de contador de vídeo com idioma do áudio confirmado, fila idempotente, agregação de horas, rascunho por conta, emissão e envio autoritativo de tarefas, retirada da recalibração global por cards. Migration nova depende de `20260921160000_multimodal_study_and_language_tracking.sql`, ausente do banco hospedado no diagnóstico; nenhuma das duas foi aplicada lá. Replay local de 56 migrations e teste transacional passaram em PGlite; CI PostgreSQL e QA autenticada ainda são necessários. Detalhes de rollout, rollback, limitações pedagógicas e operacionais em `docs/audits/2026-09-23-issue-118-implementation.md`. Issue #118 aberta; PR e merge pendentes.

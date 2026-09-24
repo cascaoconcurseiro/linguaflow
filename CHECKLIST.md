@@ -1,3 +1,12 @@
+## Issue #125 · simplificação da lateral de estudo e correção de sobreposição da barra (2026-09-24)
+
+- [x] Remover seções intermediárias redundantes da lateral do card ("Sentido nesta frase", "Blocos úteis", mnemônicos e chat).
+- [x] Manter exclusivamente "OUVIR NO CONTEXTO" (trecho original) e "Ouvir em outros contextos" (YouGlish).
+- [x] Fixar rolagem independente em `.study-explore` com `max-height` proporcional à barra inferior.
+- [x] Evitar sobreposição de botões fixos de avaliação (`Errei`, `Difícil`, `Bom`, `Fácil`) e adicionar rolagem suave automática.
+- [x] Atualizar contratos de teste e garantir CI e release smoke verdes.
+- [x] Deploy e validação visual no navegador na Vercel em produção.
+
 ## Issue #118 · estabilização de aprendizagem (2026-09-23)
 
 - [x] Corrigir contagem audível de vídeos com idioma confirmado e impedir duplo crédito/inflação simples.

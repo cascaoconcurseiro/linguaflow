@@ -11,8 +11,9 @@ const [html, css, app, home, library, stories, settings] = await Promise.all([
   readFile(new URL('../dashboard/js/ui/settingsView.js', import.meta.url), 'utf8'),
 ]);
 
-// Navegação: quatro destinos pedagógicos iguais em desktop e mobile.
-for (const label of ['Hoje', 'Aprender', 'Cofre', 'Progresso']) assert.match(html, new RegExp(`>${label}<`));
+// Navegação: destinos pedagógicos essenciais iguais em desktop e mobile.
+for (const label of ['Hoje', 'Cofre', 'Progresso']) assert.match(html, new RegExp(`>${label}<`));
+assert.doesNotMatch(html, />Aprender</);
 assert.doesNotMatch(html, />Mais</);
 assert.match(html, /aria-label="Navegação principal"/);
 assert.match(app, /aria-current', 'page'/);
@@ -22,9 +23,9 @@ assert.match(css, /@media \(max-width: 340px\)/);
 
 // Home: próximo passo primeiro; metas e números ficam sob demanda.
 const today = home.indexOf("section('home-today'");
-const next = home.indexOf("section('home-next'");
 const more = home.indexOf("more\.id = 'home-more'");
-assert.ok(today < next && next < more);
+assert.ok(today >= 0 && today < more);
+assert.doesNotMatch(home, /section\('home-next'/);
 assert.match(home, /chooseTodayAction/);
 assert.match(home, /id="home-primary-plan"/);
 assert.match(home, /competitive-details/);

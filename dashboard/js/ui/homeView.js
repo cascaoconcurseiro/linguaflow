@@ -34,9 +34,6 @@ function organizeHomeSections(container) {
     append(today, '#home-study-hours-card');
     append(today, '#home-critical-cards');
 
-    const next = section('home-next', 'Depois', 'Continue em contexto real ou faça uma prática curta.');
-    append(next, '#home-secondary-actions');
-
     const more = document.createElement('details');
     more.id = 'home-more';
     more.className = 'home-more';
@@ -48,7 +45,7 @@ function organizeHomeSections(container) {
     append(moreBody, '.achievements-section');
     append(moreBody, '.heatmap-section');
 
-    main.replaceChildren(today, next, more);
+    main.replaceChildren(today, more);
     sidebar.remove();
 }
 
@@ -106,15 +103,15 @@ export function chooseTodayAction(state = {}) {
     const dueTomorrow = Math.max(0, Number(state.dueTomorrow) || 0);
     const retention30 = state.retention30 === null || state.retention30 === undefined
         ? null : Number(state.retention30);
-    if (totalWords === 0) return { kind:'first-context', route:'learn', label:'Encontrar uma frase', title:'Aprenda sua primeira frase real', reason:'Escolha um conteúdo, encontre uma frase útil e transforme esse momento em memória.', meta:'Vídeos, histórias ou textos — você escolhe a fonte.' };
+    if (totalWords === 0) return { kind:'first-context', route:'stories', label:'Criar uma história', title:'Aprenda sua primeira frase real', reason:'Crie ou leia uma história no seu nível para encontrar frases úteis e transformá-las em memória.', meta:'Leitura guiada com áudio e contexto.' };
     if (dueCards > 0 && daysAway >= 2) return { kind:'return-review', route:'study', label:'Retomar revisões', title:'Vamos retomar de onde você parou', reason:'Sua memória precisa de atenção, sem pressa e sem tentar recuperar dias perdidos.', meta:`${dueReview} ${dueReview === 1 ? 'revisão' : 'revisões'}${dueLearning ? ` · ${dueLearning} em aprendizado` : ''}` };
     if (dueLearning > 0 && dueReview === 0) return { kind:'learning', route:'study', label:'Continuar aprendizado', title:'Continue o que começou', reason:'Estas frases voltaram agora para reforçar a primeira memória.', meta:`${dueLearning} ${dueLearning === 1 ? 'frase em aprendizado' : 'frases em aprendizado'}` };
     if (dueReview > 0) return { kind:'review', route:'study', label:'Revisar agora', title:'Proteja o que você já aprendeu', reason:retention30 !== null && Number.isFinite(retention30) && retention30 < 70 ? 'Hoje vale consolidar o que já existe antes de adicionar frases novas.' : dueReview >= 15 ? 'A fila está maior; faça uma sessão confortável e retome depois.' : 'Estas frases chegaram ao momento certo de serem lembradas.', meta:`${dueReview} ${dueReview === 1 ? 'revisão' : 'revisões'}${dueLearning ? ` · ${dueLearning} em aprendizado` : ''}` };
     if (state.fluencyResumeAvailable === true) return { kind:'fluency-resume', route:'fluency-check', label:'Continuar check', title:'Seu check está esperando por você', reason:'As etapas já concluídas foram preservadas. Continue de onde parou sem repetir o que já fez.', meta:'Evidência comunicativa · não altera revisão, XP ou liga' };
     if (state.fluencyDue === true) return { kind:'fluency-check', route:'fluency-check', label:'Fazer check de comunicação', title:'Teste o inglês fora dos seus cartões', reason:'Uma tarefa curta e inédita observa o que você consegue compreender e produzir sem ensaio.', meta:'Cerca de 8 minutos · não altera revisão, XP ou liga' };
-    if (reviewsToday > 0) return { kind:'completed', route:'learn', label:'Continuar em imersão', title:'Plano de memória concluído', reason:`Você fez ${reviewsToday} ${reviewsToday === 1 ? 'revisão' : 'revisões'} hoje. As próximas frases voltarão no momento certo.`, meta:dueTomorrow ? `Amanhã: ${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}` : 'Nada mais é obrigatório hoje.' };
-    if (daysAway >= 2) return { kind:'return-clear', route:'learn', label:'Continuar em imersão', title:'Você voltou na hora certa', reason:'Não há revisões vencidas. Escolha um conteúdo e descubra uma nova frase.', meta:dueTomorrow ? `Amanhã: ${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}` : 'Sua memória está em dia.' };
-    return { kind:'clear', route:'learn', label:'Continuar em imersão', title:'Sua memória está em dia', reason:'Você pode continuar aprendendo com conteúdo real ou encerrar por hoje.', meta:dueTomorrow ? `Amanhã: ${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}` : 'Nada mais é obrigatório hoje.' };
+    if (reviewsToday > 0) return { kind:'completed', route:'stories', label:'Ler histórias', title:'Plano de memória concluído', reason:`Você fez ${reviewsToday} ${reviewsToday === 1 ? 'revisão' : 'revisões'} hoje. As próximas frases voltarão no momento certo.`, meta:dueTomorrow ? `Amanhã: ${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}` : 'Nada mais é obrigatório hoje.' };
+    if (daysAway >= 2) return { kind:'return-clear', route:'stories', label:'Ler histórias', title:'Você voltou na hora certa', reason:'Não há revisões vencidas. Escolha uma história e descubra novas frases.', meta:dueTomorrow ? `Amanhã: ${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}` : 'Sua memória está em dia.' };
+    return { kind:'clear', route:'stories', label:'Ler histórias', title:'Sua memória está em dia', reason:'Você pode continuar lendo histórias com contexto real ou encerrar por hoje.', meta:dueTomorrow ? `Amanhã: ${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}` : 'Nada mais é obrigatório hoje.' };
 }
 
 function parseOnboarding(value) {
@@ -674,14 +671,7 @@ export async function renderHome(container, app) {
                     </div>
                 </div>
 
-                <div id="home-secondary-actions" class="action-buttons home-secondary-actions">
-                    <button class="btn-action btn-study" id="btn-open-learning">
-                        EXPLORAR CONTEÚDO
-                    </button>
-                    <button class="btn-action btn-study" id="btn-open-stories">
-                        LER OU CRIAR HISTÓRIA
-                    </button>
-                </div>
+
 
                 <div class="achievements-section">
                     <h3 style="margin:0 0 12px 0; font-size:16px; color:var(--color-text);">Conquistas</h3>
@@ -780,8 +770,6 @@ export async function renderHome(container, app) {
     document.getElementById('btn-home-details-retry')?.addEventListener('click', () => {
         renderHome(container, app);
     });
-    document.getElementById('btn-open-learning')?.addEventListener('click', () => app?.navigate?.('learn'));
-    document.getElementById('btn-open-stories')?.addEventListener('click', () => app?.navigate?.('stories'));
     document.getElementById('btn-primary-stories')?.addEventListener('click', () => app?.navigate?.('stories'));
 
     document.getElementById('btn-open-log-study')?.addEventListener('click', () => {

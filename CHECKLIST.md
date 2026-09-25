@@ -29,6 +29,18 @@
 
 # Checklist — LinguaFlow
 
+## Issue #165 · destacar pronúncia IPA no card e popup (2026-09-25)
+
+- [x] Registrar Issue #165 e trabalhar na branch `codex/165-highlight-ipa-pronunciation`.
+- [x] Exibir IPA ampliada e rotulada no card de estudo do dashboard.
+- [x] Exibir IPA ampliada e rotulada no popup da extensão.
+- [x] Ocultar o bloco sem IPA e limpar valores entre cards/palavras.
+- [x] Manter inserção segura via `textContent` e apoio secundário da pronúncia em português.
+- [x] Adicionar `tests/ipa-pronunciation-display.test.mjs`.
+- [x] Rodar contratos direcionados, `npm run test:release` e `node tests/release-smoke.mjs` após commit.
+- [x] Abrir PR #166 com `Closes #165`.
+- [ ] Revisão humana, QA visual autenticada do card e QA do popup dentro do Chrome.
+
 ## 0. Proteção e baseline
 
 - [x] Confirmar que `main` local está em `0c33b26`.

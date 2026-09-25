@@ -1246,23 +1246,37 @@ export class SubtitleEngine {
     const host = document.createElement('div');
     host.id = 'linguaflow-subtitle-host';
 
+    // O shell visual não pode depender de banco ou da montagem tardia do player.
+    // Começamos no body com defaults seguros e reposicionamos depois, quando o
+    // container real existir. Isso tira I/O e retries do caminho crítico.
+    host.style.cssText = `
+      position: fixed !important;
+      bottom: 100px !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      z-index: 2147483640 !important;
+      width: 94% !important;
+      max-width: 900px !important;
+      text-align: center !important;
+      pointer-events: none;
+      padding: 0 !important;
+      display: flex !important;
+      justify-content: center !important;
+    `;
+    document.body.appendChild(host);
+
     // Carrega posição salva ou usa padrão
     // YouTube: linha do tempo fica em ~48-60px, então usamos 100px para ficar acima
     // HBO/Max: calculado dinamicamente baseado na barra de controles real
     let bottomPos = this.platform === 'youtube' ? 100 : null; // null = auto para HBO
     let horizontalPos = 50;
     let userSavedBottom = false;
-    try {
-      const { db } = await import('../utils/db.js');
-      const savedBottom = await db.getSetting('subtitleBottom');
-      const savedHorizontal = await db.getSetting('subtitleHorizontal');
-      if (savedBottom !== undefined && savedBottom !== null) {
-        bottomPos = savedBottom;
-        userSavedBottom = true;
-      }
-      if (savedHorizontal !== undefined && savedHorizontal !== null)
-        horizontalPos = savedHorizontal;
-    } catch (e) {}
+    const settingsPromise = import('../utils/db.js')
+      .then(async ({ db }) => ({
+        savedBottom: await db.getSetting('subtitleBottom'),
+        savedHorizontal: await db.getSetting('subtitleHorizontal'),
+      }))
+      .catch(() => ({}));
 
     if (bottomPos === null) bottomPos = 100; // fallback temporário, será recalculado
 
@@ -1270,17 +1284,25 @@ export class SubtitleEngine {
     this._currentBottom = bottomPos;
     this._currentHorizontal = horizontalPos;
 
-    // Tenta encontrar o container do player (com retry mais agressivo para HBO/Max)
+    // Usa o player imediatamente quando ele já existe; caso contrário, o shell
+    // fica no body e _waitForVideo() faz o reposicionamento assim que possível.
     let playerContainer = this._findPlayerContainer();
 
-    if (!playerContainer && this.platform !== 'generic') {
-      // Tenta até 5x com intervalos crescentes (HBO demora para montar o player)
-      for (const delay of [1000, 2000, 3000, 4000, 5000]) {
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        playerContainer = this._findPlayerContainer();
-        if (playerContainer) break;
+    settingsPromise.then(({ savedBottom, savedHorizontal }) => {
+      if (!host.isConnected) return;
+      if (savedBottom !== undefined && savedBottom !== null) {
+        bottomPos = savedBottom;
+        userSavedBottom = true;
+        this._currentBottom = savedBottom;
       }
-    }
+      if (savedHorizontal !== undefined && savedHorizontal !== null) {
+        horizontalPos = savedHorizontal;
+        this._currentHorizontal = savedHorizontal;
+      }
+      host.style.bottom = `${this.platform === 'max' && !userSavedBottom ? 120 : bottomPos}px`;
+      host.style.left = `${horizontalPos}%`;
+      host.style.transform = `translateX(-${horizontalPos}%)`;
+    });
 
     if (this.platform === 'max') {
       const effectiveBottom = userSavedBottom ? bottomPos : 120;
@@ -1298,7 +1320,7 @@ export class SubtitleEngine {
                 padding: 0 !important;
             `;
       const targetRoot = document.fullscreenElement || document.body;
-      targetRoot.appendChild(host);
+      if (host.parentElement !== targetRoot) targetRoot.appendChild(host);
       console.debug(`[LinguaFlow] HBO: legenda fixed bottom=${effectiveBottom}px`);
     } else if (playerContainer) {
       // YouTube e outros: absoluto dentro do player
@@ -1336,7 +1358,7 @@ export class SubtitleEngine {
                 display: flex !important;
                 justify-content: center !important;
             `;
-      document.body.appendChild(host);
+      if (host.parentElement !== document.body) document.body.appendChild(host);
       console.debug(
         `[LinguaFlow] Legenda posicionada (fallback): ${horizontalPos}% horizontal, ${bottomPos}px vertical`,
       );
@@ -3521,7 +3543,7 @@ export class SubtitleEngine {
           }, 1500);
         }
       }
-    }, 800);
+    }, 250);
   }
 
   // ── Captura ──────────────────────────────────────────────────────────────

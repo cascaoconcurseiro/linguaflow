@@ -29,6 +29,16 @@
 
 # Checklist — LinguaFlow
 
+## Issue #167 · inicialização imediata do player da extensão (2026-09-25)
+
+- [x] Identificar bloqueio no caminho crítico: settings assíncronos e retries de até 15s antes de montar a UI.
+- [x] Montar o host visual imediatamente no `body` com defaults seguros.
+- [x] Aplicar posição salva em background e reposicionar quando o player existir.
+- [x] Reduzir polling de descoberta do vídeo para 250ms sem duplicar listeners/loops.
+- [x] Adicionar contrato `tests/player-startup-performance.test.mjs`.
+- [x] Rodar contratos direcionados e `npm run test:release`.
+- [ ] Repetir `release-smoke` após commit e fazer QA visual em YouTube/Max.
+
 ## Issue #165 · destacar pronúncia IPA no card e popup (2026-09-25)
 
 - [x] Registrar Issue #165 e trabalhar na branch `codex/165-highlight-ipa-pronunciation`.

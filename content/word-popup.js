@@ -492,8 +492,11 @@ export class WordPopup {
       <span id="fcefr" class="lfp-badge" style="display:none;"></span>
       <span id="fcefr-prog" style="display:none;font-size:10px;color:#94a3b8;font-family:monospace;align-self:center;"></span>
     </div>
-    <div style="display:flex;align-items:center;gap:5px;margin-top:5px;flex-wrap:wrap;">
-      <span id="fipa" style="font-size:12px;color:#94a3b8;font-family:monospace;"></span>
+    <div id="fipa-wrap" style="display:none;margin-top:10px;">
+      <div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px;">Pronúncia (IPA)</div>
+      <span id="fipa" style="display:block;font-size:25px;line-height:1.25;color:#f8fafc;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.01em;"></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:5px;margin-top:7px;flex-wrap:wrap;">
       <span id="fprpt" style="display:none;font-size:18px;color:#fbbf24;font-weight:700;font-family:monospace;background:rgba(251,191,36,0.15);padding:4px 8px;border-radius:6px;border:1px solid rgba(251,191,36,0.3);"></span>
     </div>
     <div style="display:flex;align-items:center;gap:5px;margin-top:6px;flex-wrap:wrap;">
@@ -1054,8 +1057,13 @@ export class WordPopup {
   _render(d) {
     const q = (s) => this._q(s);
     q('#ft').textContent = d.translation || '—';
+    const ipaWrap = q('#fipa-wrap');
     if (d.phonetic) {
       q('#fipa').textContent = d.phonetic;
+      ipaWrap.style.display = 'block';
+    } else {
+      q('#fipa').textContent = '';
+      ipaWrap.style.display = 'none';
     }
     const elPt = q('#fprpt');
     if (d.pronunciation_pt) {

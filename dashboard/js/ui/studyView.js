@@ -296,7 +296,10 @@ export async function renderStudy(container, app, params = {}) {
             </div>
           </div>
           <div id="pump-context-hint" class="study-context-hint hidden" style="margin-top: 14px; font-size: 19px; line-height: 1.5; color: var(--color-text); background: var(--color-surface-2, rgba(255,255,255,0.05)); border: 1px solid var(--color-border); border-radius: 10px; padding: 12px 16px; text-align: left;"></div>
-          <div id="pump-phonetics" style="font-size: 18px; color: var(--color-secondary); font-style: italic; margin-top: 12px;" class="hidden"></div>
+          <div id="pump-phonetics" class="study-ipa hidden" aria-live="polite">
+            <span class="study-ipa-label">Pronúncia (IPA)</span>
+            <span id="pump-phonetics-value" class="study-ipa-value"></span>
+          </div>
           <div id="pump-translation" style="font-size: 20px; font-weight: 700; color: var(--color-text); margin-top: 12px; padding-top: 12px; border-top: 2px dashed var(--color-border);" class="hidden"></div>
           <div id="pump-word-answer" class="study-word-answer-pill hidden" style="margin-top: 14px; padding: 10px 14px; background: var(--color-surface-2, rgba(255,255,255,0.04)); border: 1px solid var(--color-border); border-radius: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
@@ -1475,10 +1478,12 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
     && currentCard === card
     && cardPresentationIds.get(card) === presentationId;
   const phonEl = document.getElementById('pump-phonetics');
+  const phonValueEl = document.getElementById('pump-phonetics-value');
   if (ctxEntry && ctxEntry.phon) {
-    phonEl.textContent = ctxEntry.phon;
+    phonValueEl.textContent = ctxEntry.phon;
     phonEl.classList.remove('hidden');
   } else {
+    phonValueEl.textContent = '';
     phonEl.classList.add('hidden');
   }
 

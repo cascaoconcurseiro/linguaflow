@@ -24,7 +24,7 @@ O LinguaFlow é estruturado como um sistema híbrido distribuído, operando com 
 │  - Supabase Auth: JWT, RBAC, isolamento por usuário         │
 │  - PostgreSQL 15: Schema relacional com RLS em 100%         │
 │  - RPCs Atômicas (PL/pgSQL com locks transacionais):        │
-│    • submit_review_fsrs (lock FOR UPDATE)                   │
+│    • record_card_review (lock FOR UPDATE)                   │
 │    • log_study_time (agregação multicanal atômica)          │
 │    • sync_pull / sync_push (reconciliação offline)          │
 │    • commit_fluency_assessment (perfil de proficiência)     │
@@ -76,7 +76,7 @@ Nenhuma escrita local tem autoridade para sobrescrever o servidor sem reconcilia
 2. Cartão é apresentado em um dos 4 modos (Flashcard, Digitação, Áudio, Speed Review).
 3. O usuário classifica a retenção (`Again`, `Hard`, `Good`, `Easy`).
 4. Algoritmo FSRS v4.5 calcula novos valores de Estabilidade ($S$), Dificuldade ($D$) e próxima data de vencimento ($I$).
-5. Cliente dispara RPC `submit_review_fsrs(card_id, rating, review_duration)`.
+5. Cliente dispara RPC `record_card_review(card_id, rating, review_duration)` (autoridade server-side FSRS).
 6. O banco adquire lock de linha (`SELECT ... FOR UPDATE`), grava o `review_log`, atualiza o card e soma o XP correspondente numa única transação atômica.
 
 ### 3.3. Telemetria de Estudo Multicanal

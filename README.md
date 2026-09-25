@@ -4,7 +4,7 @@
 
 **Plataforma open-source para aquisição e consolidação do inglês através de imersão contextual, repetição espaçada avançada (FSRS v4.5), leitura guiada e inteligência artificial pedagógica.**
 
-[![Release](https://img.shields.io/badge/release-v3.0.46-blue.svg?style=flat-square)](https://github.com/cascaoconcurseiro/linguaflow/releases)
+[![Release](https://img.shields.io/badge/release-v3.0.58-blue.svg?style=flat-square)](https://github.com/cascaoconcurseiro/linguaflow/releases)
 [![Tests](https://img.shields.io/badge/tests-80%2F80%20passing-brightgreen.svg?style=flat-square)](https://github.com/cascaoconcurseiro/linguaflow/actions)
 [![FSRS](https://img.shields.io/badge/algorithm-FSRS%20v4.5-orange.svg?style=flat-square)](https://github.com/open-spaced-repetition/fsrs4anki)
 [![Supabase](https://img.shields.io/badge/backend-Supabase%20%7C%20PostgreSQL-3ECF8E.svg?style=flat-square&logo=supabase)](https://supabase.com)
@@ -79,7 +79,7 @@ O **LinguaFlow** une o consumo de conteúdo autêntico na web (filmes, séries, 
 │  - Supabase Auth: JWT, RBAC, isolamento por usuário         │
 │  - PostgreSQL 15: Schema relacional com RLS em 100%         │
 │  - RPCs Atômicas (PL/pgSQL com locks transacionais):        │
-│    • submit_review_fsrs (lock FOR UPDATE)                   │
+│    • record_card_review (lock FOR UPDATE)                   │
 │    • log_study_time (agregação multicanal atômica)          │
 │    • sync_pull / sync_push (reconciliação offline-first)    │
 │    • commit_fluency_assessment (motor de proficiência)      │

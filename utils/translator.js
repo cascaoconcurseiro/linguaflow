@@ -110,7 +110,7 @@ class Translator {
                             db.setTranslationCache(cacheKey, dictEntry.def).catch(() => {});
                             return { translation: dictEntry.def, source: 'offline_dict', cached: true };
                         }
-                    } catch (e) {
+                    } catch {
                         // ignore dict error
                     }
                 }

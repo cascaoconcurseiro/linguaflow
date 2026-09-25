@@ -1,6 +1,7 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.2.0/schema.json",
-  "files": { "includes": ["scripts/wiring-audit.js", "tests/wiring-audit.test.mjs", "tests/e2e/**/*.mjs"] },
+  "files": { "includes": ["scripts/**/*.js", "scripts/**/*.mjs", "utils/**/*.js", "dashboard/js/core/**/*.js", "tests/wiring-audit.test.mjs", "tests/e2e/**/*.mjs"] },
+  "assist": { "enabled": false },
   "formatter": { "enabled": false },
   "linter": {
     "enabled": true,

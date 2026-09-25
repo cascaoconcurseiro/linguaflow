@@ -1,3 +1,18 @@
+## Issue #167 — Inicialização imediata do player da extensão (2026-09-25)
+
+- **PR:** será aberta após o commit desta sessão; branch `codex/167-fast-player-startup`.
+- **Issue:** [#167](https://github.com/cascaoconcurseiro/linguaflow/issues/167).
+- **Diagnóstico:** `SubtitleEngine.init()` aguardava `_injectSubtitleUI()`, enquanto `_createSubtitleUI()` esperava import/leitura de settings e até cinco retries de 1, 2, 3, 4 e 5 segundos para encontrar o player. O `_waitForVideo()` ainda usava polling de 800ms.
+- **Feito:**
+  - O host de legendas agora é criado imediatamente no `body` com defaults seguros.
+  - Settings de posição são carregadas em background e aplicadas depois da montagem.
+  - O host é reposicionado no player assim que ele existir, preservando o fallback inicial.
+  - A descoberta de vídeo passou para polling de 250ms sem criar um segundo loop.
+  - Adicionado `tests/player-startup-performance.test.mjs`.
+- **Validação:** contratos de startup/ciclo de vida/player passaram e `npm run test:release` passou; o smoke deve ser repetido depois do commit.
+- **Próximo passo concreto:** commit, `node tests/release-smoke.mjs`, abrir PR #167 e validar visualmente a extensão no YouTube/Max.
+- **Bloqueios:** QA visual real em player autenticado ainda pendente; não houve deploy.
+
 ## Issue #165 — Pronúncia IPA ampliada no card e popup (2026-09-25)
 
 - **PR:** [#166](https://github.com/cascaoconcurseiro/linguaflow/pull/166), branch `codex/165-highlight-ipa-pronunciation`.

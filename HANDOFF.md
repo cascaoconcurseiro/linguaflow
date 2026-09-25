@@ -1,6 +1,30 @@
+## Issue #169 — Progresso persistido no Reader, unificação de release e expansão de lint (2026-09-25)
+
+- **PR:** vinculada à Issue [#169](https://github.com/cascaoconcurseiro/linguaflow/issues/169), branch `codex/169-reader-progress`.
+- **Issue:** [#169](https://github.com/cascaoconcurseiro/linguaflow/issues/169).
+- **Feito:**
+  - Persistência de progresso de leitura conectada na UI do Reader (`readerView.js`):
+    - Estante exibe badges de `✓ Lido` ou `${pct}% lido`.
+    - Leitor rastreia rolagem com debounce seguro e chama `db.updateReaderProgress(id, { lastReadPosition, readingPercentage, isCompleted })`.
+    - Botão no cabeçalho do leitor permite alternar manualmente entre concluído e em andamento.
+    - Posição anterior de leitura é restaurada suavemente ao abrir texto em andamento.
+  - `utils/db.js`: `getReaderTexts` agora inclui `last_read_position, reading_percentage, is_completed` na query REST do Supabase.
+  - `background/service-worker.js`: `'updateReaderProgress'` adicionado à allowlist do DB proxy.
+  - Empacotamento unificado no `.github/workflows/release.yml` para usar `npm run build:extension` (37 arquivos curados).
+  - Gate de lint expandido: `biome.json` e `npm run lint:biome` agora cobrem `scripts/`, `utils/`, `dashboard/js/core/` e `tests/` (40 arquivos analisados e verdes).
+  - Jornada E2E do Reader adicionada com Playwright em `tests/e2e/reader-journey.spec.mjs` e fixture local `tests/fixtures/reader-preview.html`.
+  - Documentação alinhada: versão v3.0.58 atualizada no `README.md`, referência de RPC corrigida de `submit_review_fsrs` para `record_card_review` em `README.md` e `docs/ARQUITETURA.md`.
+  - Resolução da sobreposição de PRs: PR #166 (Issue #165) e PR #168 (Issue #167) foram desacopladas com rebase limpo, validadas com CI verde e mescladas em `main`.
+- **Validação:**
+  - `npm run test:web-reader` e `tests/reader-progress-contract.test.mjs` verdes.
+  - `npm run test:e2e` (3 cenários de navegador no Playwright verdes).
+  - `npm run lint:biome` (40 arquivos de produção e testes verdes).
+  - `npm run build:extension` (pacote de produção curado com 37 arquivos).
+  - Release smoke determinístico e suíte funcional completos.
+
 ## Issue #167 — Inicialização imediata do player da extensão (2026-09-25)
 
-- **PR:** será aberta após o commit desta sessão; branch `codex/167-fast-player-startup`.
+- **PR:** [#168](https://github.com/cascaoconcurseiro/linguaflow/pull/168) (mesclada em `main`).
 - **Issue:** [#167](https://github.com/cascaoconcurseiro/linguaflow/issues/167).
 - **Diagnóstico:** `SubtitleEngine.init()` aguardava `_injectSubtitleUI()`, enquanto `_createSubtitleUI()` esperava import/leitura de settings e até cinco retries de 1, 2, 3, 4 e 5 segundos para encontrar o player. O `_waitForVideo()` ainda usava polling de 800ms.
 - **Feito:**
@@ -9,13 +33,11 @@
   - O host é reposicionado no player assim que ele existir, preservando o fallback inicial.
   - A descoberta de vídeo passou para polling de 250ms sem criar um segundo loop.
   - Adicionado `tests/player-startup-performance.test.mjs`.
-- **Validação:** contratos de startup/ciclo de vida/player passaram e `npm run test:release` passou; o smoke deve ser repetido depois do commit.
-- **Próximo passo concreto:** commit, `node tests/release-smoke.mjs`, abrir PR #167 e validar visualmente a extensão no YouTube/Max.
-- **Bloqueios:** QA visual real em player autenticado ainda pendente; não houve deploy.
+- **Validação:** contratos de startup/ciclo de vida/player passaram, checks remotos do CI verdes e PR mesclada em `main`.
 
 ## Issue #165 — Pronúncia IPA ampliada no card e popup (2026-09-25)
 
-- **PR:** [#166](https://github.com/cascaoconcurseiro/linguaflow/pull/166), branch `codex/165-highlight-ipa-pronunciation`.
+- **PR:** [#166](https://github.com/cascaoconcurseiro/linguaflow/pull/166) (mesclada em `main`), branch `codex/165-highlight-ipa-pronunciation`.
 - **Issue:** [#165](https://github.com/cascaoconcurseiro/linguaflow/issues/165).
 - **Commit:** `88b6160 feat(ui): destacar pronuncia IPA no card e popup`.
 - **Atualização desta sessão:** removida a versão abrasileirada da interface, dos payloads novos e dos prompts de IA; a PR agora mantém somente IPA.

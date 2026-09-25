@@ -122,13 +122,8 @@ jobs:
     
     - name: Create extension package
       run: |
-        # Remove development files
-        rm -rf .git .github backups tests docs/archived
-        rm -f .gitignore ARCHITECTURE_ANALYSIS.md
-        
-        # Create zip for Chrome Web Store
-        zip -r linguaflow-v${{ steps.version.outputs.version }}.zip . \
-          -x "*.git*" "node_modules/*" "*.DS_Store" "backups/*" "tests/*"
+        npm run build:extension
+        cp dist/linguaflow-extension-v${{ steps.version.outputs.version }}.zip linguaflow-v${{ steps.version.outputs.version }}.zip
     
     - name: Create Release
       uses: softprops/action-gh-release@v1

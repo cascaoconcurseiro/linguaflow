@@ -40,7 +40,7 @@ class TTS {
             try {
                 await this._playAudioUrl(audioUrl, rate, token);
                 return true;
-            } catch (e) {
+            } catch {
                 if (!this.playback.isCurrent(token)) return false;
                 console.debug('[TTS] Audio MP3 falhou, tentando Google TTS');
             }
@@ -50,7 +50,7 @@ class TTS {
         try {
             await this._playGoogleTTS(text, lang, rate, token);
             return true;
-        } catch (e) {
+        } catch {
             if (!this.playback.isCurrent(token)) return false;
             console.debug('[TTS] Google TTS falhou, usando Web Speech API');
         }

@@ -1,3 +1,14 @@
+## Issue #169 · Conectar progresso persistido no Reader, release unificado e expansão de lint (2026-09-25)
+
+- [x] Conectar `updateReaderProgress` na interface do Web Reader (`readerView.js` com auto-save em scroll com debounce, flush e marcação de conclusão).
+- [x] Incluir `last_read_position, reading_percentage, is_completed` em `getReaderTexts` no `utils/db.js`.
+- [x] Adicionar `updateReaderProgress` na allowlist de proxy do `background/service-worker.js`.
+- [x] Criar suíte de contrato `tests/reader-progress-contract.test.mjs` e jornada Playwright E2E `tests/e2e/reader-journey.spec.mjs`.
+- [x] Unificar empacotamento da extensão no release workflow chamando `npm run build:extension` (ZIP curado com 37 arquivos).
+- [x] Expandir lint Biome para analisar código executável de produção (`utils/`, `dashboard/js/core/`, `scripts/`, `tests/`) com 40 arquivos limpos.
+- [x] Atualizar documentação desatualizada em `README.md`, `docs/ARQUITETURA.md` e `HANDOFF.md`.
+- [x] Resolver sobreposição das PRs #166 e #168 com rebase limpo e merge em `main`.
+
 ## Issue #135 · Layout vertical compacto, auto-atualização do PWA e versão 3.0.55 (2026-09-24)
 
 - [x] Organizar "Trecho original" e "Ouvir em outros contextos" em coluna vertical compacta de 340px, devolvendo espaço para o card principal.
@@ -243,7 +254,7 @@
 - [x] Criar `docs/ESTADO_ATUAL_2026-09-21.md` com snapshot completo do sistema.
 - [x] Atualizar `HANDOFF.md`, `CHECKLIST.md` e `docs/PROMPT_PROXIMA_SESSAO.md`.
 - [ ] QA autenticada no navegador (bloqueada — sem navegador nesta sessão).
-- [ ] Validar `updateReaderProgress` na UI (banco pronto, UI sem entrada).
+- [x] Validar `updateReaderProgress` na UI (banco conectado, auto-save por scroll e conclusão).
 - [ ] RLS real com dois usuários (bloqueado — sem ambiente Supabase real).
 
 ## 14. Issue #102 — Human Interface Pass

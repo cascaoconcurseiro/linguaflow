@@ -128,6 +128,9 @@ function normalizeText(row) {
     title: row.title || 'Texto',
     content: row.content || '',
     source: row.source || 'pasted',
+    last_read_position: Math.max(0, Math.floor(Number(row.last_read_position) || 0)),
+    reading_percentage: Math.min(100, Math.max(0, Math.round(Number(row.reading_percentage) || 0))),
+    is_completed: Boolean(row.is_completed),
     addedAt: row.created_at ? new Date(row.created_at).getTime() : Number(row.addedAt || Date.now()),
   };
 }
@@ -260,6 +263,7 @@ export async function renderReader(container, app) {
   const documentController = new AbortController();
   readerDocumentController = documentController;
   app.onLeaveView?.(() => {
+    flushProgressSave?.();
     if (readerDocumentController === documentController) readerDocumentController = null;
     documentController.abort();
   });
@@ -311,21 +315,38 @@ export async function renderReader(container, app) {
       <div id="reader-shelf">
         <h3 style="color:var(--color-text); margin-bottom:12px;">Meus textos (${texts.length})</h3>
         <div id="rd-list">
-          ${texts.length === 0 ? renderViewState({ kind: 'empty', title: 'Você ainda não adicionou textos', message: 'Cole, importe ou experimente o texto de exemplo acima.', compact: true }) : texts.map(t => `
+          ${texts.length === 0 ? renderViewState({ kind: 'empty', title: 'Você ainda não adicionou textos', message: 'Cole, importe ou experimente o texto de exemplo acima.', compact: true }) : texts.map(t => {
+            let progressBadge = '';
+            if (t.is_completed) {
+              progressBadge = '<span class="rd-badge rd-badge-completed" style="display:inline-flex; align-items:center; font-size:11px; font-weight:800; color:#16a34a; background:rgba(22,163,74,0.12); padding:2px 8px; border-radius:4px; margin-left:8px;">✓ Lido</span>';
+            } else if (t.reading_percentage > 0) {
+              progressBadge = `<span class="rd-badge rd-badge-progress" style="display:inline-flex; align-items:center; font-size:11px; font-weight:700; color:var(--color-secondary); background:rgba(28,176,246,0.12); padding:2px 8px; border-radius:4px; margin-left:8px;">${Math.round(t.reading_percentage)}% lido</span>`;
+            }
+            return `
             <div class="rd-item" data-id="${t.id}" style="display:flex; justify-content:space-between; align-items:center; background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:14px 18px; margin-bottom:10px; cursor:pointer;">
               <div>
-                <div style="font-weight:800; color:var(--color-text);">${escapeText(t.title)}</div>
-                <div style="font-size:12px; color:var(--color-text-light);">${(t.content.match(/[a-zA-Z][a-zA-Z'-]*/g) || []).length} palavras · ${new Date(t.addedAt).toLocaleDateString('pt-BR')}</div>
+                <div style="font-weight:800; color:var(--color-text); display:flex; align-items:center; flex-wrap:wrap;">
+                  ${escapeText(t.title)}
+                  ${progressBadge}
+                </div>
+                <div style="font-size:12px; color:var(--color-text-light); margin-top:2px;">${(t.content.match(/[a-zA-Z][a-zA-Z'-]*/g) || []).length} palavras · ${new Date(t.addedAt).toLocaleDateString('pt-BR')}</div>
               </div>
               <button class="rd-del" data-id="${t.id}" style="background:none; border:none; cursor:pointer; font-size:16px;" title="Excluir texto">Excluir</button>
-            </div>`).join('')}
+            </div>`;
+          }).join('')}
         </div>
       </div>
 
       <div id="reader-view" class="hidden">
-        <button id="rd-back" style="background:none; border:none; color:var(--color-secondary); font-family:var(--font-main); font-weight:800; cursor:pointer; margin-bottom:16px;">← Voltar aos textos</button>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+          <button id="rd-back" style="background:none; border:none; color:var(--color-secondary); font-family:var(--font-main); font-weight:800; cursor:pointer;">← Voltar aos textos</button>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <span id="rd-reading-progress" style="font-size:13px; font-weight:700; color:var(--color-text-light);">0% lido</span>
+            <button id="rd-mark-completed" class="btn btn-secondary" style="padding:6px 12px; font-size:12px; cursor:pointer;">Marcar como lido ✓</button>
+          </div>
+        </div>
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:16px;">
-          <h2 id="rd-view-title" style="color:var(--color-text);"></h2>
+          <h2 id="rd-view-title" style="color:var(--color-text); margin:0;"></h2>
           <div id="rd-view-stats" style="font-size:13px; font-weight:700; color:var(--color-text-light);"></div>
         </div>
         <div id="rd-view-body" class="reader-container" style="background:var(--color-surface); border:2px solid var(--color-border); border-radius:var(--radius-md); padding:clamp(20px, 4vw, 36px); box-shadow:0 4px 20px rgba(0,0,0,0.04);"></div>
@@ -375,6 +396,69 @@ export async function renderReader(container, app) {
     popup.style.top = `${top}px`;
   }
 
+  let progressTimer = null;
+  let pendingProgress = null;
+
+  async function persistProgress(t, lastReadPosition, readingPercentage, isCompleted) {
+    if (!t) return;
+    t.last_read_position = Math.max(0, Math.floor(Number(lastReadPosition) || 0));
+    t.reading_percentage = Math.min(100, Math.max(0, Math.round(Number(readingPercentage) || 0)));
+    t.is_completed = Boolean(isCompleted);
+    saveTexts(texts);
+    updateProgressUI(t);
+
+    if (t.id === 'sample') return;
+
+    try {
+      await lfDb.updateReaderProgress(t.id, {
+        lastReadPosition: t.last_read_position,
+        readingPercentage: t.reading_percentage,
+        isCompleted: t.is_completed,
+      });
+    } catch (e) {
+      console.warn('[Reader] Falha ao persistir progresso:', e);
+    }
+  }
+
+  function scheduleProgressSave(t, lastReadPosition, readingPercentage, isCompleted) {
+    pendingProgress = { t, lastReadPosition, readingPercentage, isCompleted };
+    if (progressTimer) clearTimeout(progressTimer);
+    progressTimer = setTimeout(() => {
+      if (pendingProgress) {
+        persistProgress(pendingProgress.t, pendingProgress.lastReadPosition, pendingProgress.readingPercentage, pendingProgress.isCompleted);
+        pendingProgress = null;
+      }
+    }, 600);
+  }
+
+  function flushProgressSave() {
+    if (progressTimer) {
+      clearTimeout(progressTimer);
+      progressTimer = null;
+    }
+    if (pendingProgress) {
+      persistProgress(pendingProgress.t, pendingProgress.lastReadPosition, pendingProgress.readingPercentage, pendingProgress.isCompleted);
+      pendingProgress = null;
+    }
+  }
+
+  function updateProgressUI(t) {
+    const progressEl = document.getElementById('rd-reading-progress');
+    const completeBtn = document.getElementById('rd-mark-completed');
+    if (!progressEl || !completeBtn) return;
+    if (t.is_completed) {
+      progressEl.textContent = '100% lido ✓';
+      completeBtn.textContent = 'Marcar como não lido';
+      completeBtn.classList.remove('btn-secondary');
+      completeBtn.classList.add('btn-outline');
+    } else {
+      progressEl.textContent = `${Math.round(t.reading_percentage || 0)}% lido`;
+      completeBtn.textContent = 'Marcar como lido ✓';
+      completeBtn.classList.remove('btn-outline');
+      completeBtn.classList.add('btn-secondary');
+    }
+  }
+
   function openText(t) {
     currentText = t;
     shelf.classList.add('hidden');
@@ -383,6 +467,15 @@ export async function renderReader(container, app) {
     document.getElementById('rd-view-title').textContent = t.title;
     document.getElementById('rd-view-body').innerHTML = renderTokens(t.content);
     refreshStats();
+    updateProgressUI(t);
+
+    if (t.last_read_position > 0 && !t.is_completed) {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: t.last_read_position, behavior: 'smooth' });
+      });
+    } else {
+      window.scrollTo({ top: 0 });
+    }
   }
 
   function refreshStats() {
@@ -505,7 +598,11 @@ export async function renderReader(container, app) {
     }
   });
 
-  document.getElementById('rd-back').addEventListener('click', () => renderReader(container, app));
+  document.getElementById('rd-back').addEventListener('click', () => {
+    flushProgressSave();
+    currentText = null;
+    renderReader(container, app);
+  });
 
   const tooltipEl = document.getElementById('rd-word-tooltip');
   let tooltipTimer = null;
@@ -596,6 +693,32 @@ export async function renderReader(container, app) {
   window.addEventListener('resize', hidePopup, { signal: documentController.signal });
   window.addEventListener('scroll', hideTooltip, { signal: documentController.signal, passive: true });
   window.addEventListener('orientationchange', hidePopup, { signal: documentController.signal });
+
+  function handleReaderScroll() {
+    if (!currentText) return;
+    const bodyEl = document.getElementById('rd-view-body');
+    if (!bodyEl) return;
+    const rect = bodyEl.getBoundingClientRect();
+    const windowH = window.innerHeight || document.documentElement.clientHeight;
+    if (rect.top > windowH) return;
+    const totalH = rect.height;
+    if (totalH <= 0) return;
+    const visibleH = Math.max(0, windowH - rect.top);
+    const pct = Math.min(100, Math.max(0, Math.round((visibleH / totalH) * 100)));
+    if (pct > (currentText.reading_percentage || 0) && !currentText.is_completed) {
+      const isComplete = pct >= 95;
+      scheduleProgressSave(currentText, window.scrollY, pct, isComplete);
+    }
+  }
+  window.addEventListener('scroll', handleReaderScroll, { signal: documentController.signal, passive: true });
+
+  document.getElementById('rd-mark-completed')?.addEventListener('click', () => {
+    if (!currentText) return;
+    const isCompleted = !currentText.is_completed;
+    const percentage = isCompleted ? 100 : (currentText.reading_percentage === 100 ? 0 : currentText.reading_percentage || 0);
+    persistProgress(currentText, currentText.last_read_position || 0, percentage, isCompleted);
+    app.showToast(isCompleted ? 'Texto marcado como lido ✓' : 'Marcado como em andamento.', 'info');
+  });
 
   document.getElementById('rdp-audio').addEventListener('click', () => {
     if (popupWord) playNaturalAudio(popupWord, { lang: localStorage.getItem('lf_tts_lang') || 'en-US' });

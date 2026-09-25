@@ -1722,7 +1722,7 @@ class Database {
 
   async getReaderTexts() {
     if (this.isProxyMode) return this._proxy('getReaderTexts', []);
-    return this._fetch('reader_texts?select=id,title,content,source,created_at,updated_at&order=updated_at.desc');
+    return this._fetch('reader_texts?select=id,title,content,source,last_read_position,reading_percentage,is_completed,created_at,updated_at&order=updated_at.desc');
   }
 
   async saveReaderText(text) {

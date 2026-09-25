@@ -26,7 +26,7 @@ const DB_PROXY_METHODS = new Set([
   'restoreCardState', 'savePushSubscription', 'saveReaderText', 'saveSentence',
   'saveStory', 'saveWord', 'setCardSuspended', 'setEmailOptIn', 'setSetting',
   'setSRSCategoryOverride', 'setTranslationCache', 'signUp', 'submitFluencyTask',
-  'suspendCard', 'undoReview', 'updateWord', 'resetCardToNew',
+  'suspendCard', 'undoReview', 'updateReaderProgress', 'updateWord', 'resetCardToNew',
   'getCurrentUser', 'isAdmin', 'adminVerifyPin', 'adminGetMetrics', 'adminListUsers', 'adminResetUserDeck',
   'adminResetAllDecks', 'adminDeleteUser', 'adminClearErrors',
 ]);

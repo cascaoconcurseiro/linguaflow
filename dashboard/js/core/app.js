@@ -435,12 +435,10 @@ class App {
     }
 
     // Verifica se a tela (view) já existe no cache
-    let isFirstLoad = false;
     let targetContainer = this.viewContainers[route];
 
     if (!targetContainer) {
       // Primeira vez abrindo esta tela: cria um container vazio e mostra o loading
-      isFirstLoad = true;
       targetContainer = document.createElement('div');
       targetContainer.style.width = '100%';
       targetContainer.style.height = '100%';

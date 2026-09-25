@@ -188,13 +188,12 @@ export function safeParseJson(text) {
   return null;
 }
 
-// Fonética BR + traduções da frase e da palavra em UMA chamada só (economiza rate-limit).
+// IPA + traduções da frase e da palavra em UMA chamada só (economiza rate-limit).
 export async function enrichCard(word, sentence) {
   const system = `Você é um professor de inglês para brasileiros. Responda APENAS com JSON válido, sem nenhum texto extra.
-REGRAS para os campos "*_phon" (Fonética Brasileira = inglês escrito como um brasileiro leria):
-- NUNCA traduza palavras dentro da fonética (ex: "should" -> "xud", nunca "deve").
-- NUNCA use símbolos IPA (ə, ʃ, θ...). Só letras comuns do português.
-- Marque a sílaba tônica com acento (ex: "I think you should call her" -> "Ai fínk iú xud cól rrâr").
+REGRAS para os campos "*_phon":
+- Use transcrição fonética IPA da pronúncia americana natural, entre barras /.../ quando apropriado.
+- Não escreva uma leitura aproximada com letras do português e não traduza palavras dentro da transcrição.
 REGRAS para os campos "*_pt":
 - Traduza a frase INTEIRA para português brasileiro natural, pelo sentido e contexto.
 - NÃO deixe palavras ou expressões em inglês dentro da tradução, nem empréstimos como "fist bump". Traduza a intenção (ex.: "I'll fist-bump you" -> "Vou bater aqui com você").
@@ -203,9 +202,9 @@ REGRAS para os campos "*_pt":
 Frase: "${sentence}"
 Retorne exatamente este JSON:
 {
-  "sentence_phon": "fonética brasileira da frase inteira",
+  "sentence_phon": "transcrição IPA da frase inteira",
   "sentence_pt": "tradução natural da frase para português brasileiro",
-  "word_phon": "fonética brasileira só da palavra-foco",
+  "word_phon": "transcrição IPA só da palavra-foco",
   "word_pt": "tradução da palavra-foco NESTE contexto"
 }`;
 
@@ -327,12 +326,11 @@ Quando houver uma frase de origem, ela é a autoridade. Não substitua a ocorrê
 Para cada frase (chunk), você deve fornecer:
 1. "eng": A frase em inglês.
 2. "pt": A tradução natural para português brasileiro.
-3. "phon": A pronúncia da frase inteira usando EXCLUSIVAMENTE 'Fonética Brasileira' (Inglês escrito como se fala em português).
+3. "phon": A transcrição IPA da pronúncia natural da frase inteira.
 REGRAS CRÍTICAS PARA "phon":
-- NUNCA traduza nenhuma palavra para o português no meio da pronúncia (ex: NUNCA use "deve" para "should", use "xud").
-- NUNCA use símbolos do Alfabeto Fonético Internacional (AFI/IPA) como ə, ʌ, ɔ, ʃ, θ. Use apenas letras comuns do alfabeto português.
-- Exemplo: "I think you should call her" -> "Ai fink iú xud cól râr".
-- Dê bastante ênfase (acentuação) na sílaba tônica.
+- Use símbolos do Alfabeto Fonético Internacional (AFI/IPA), por exemplo /aɪ θɪŋk ju ʃʊd kɔl hər/.
+- Não escreva uma leitura aproximada com letras do português e não traduza palavras dentro da transcrição.
+- Preserve acento primário e secundário quando a fonte fornecer essa informação.
 
 O primeiro objeto deve ser a frase de origem, com "is_context": true.
 O segundo deve ser a unidade lexical principal, com "is_learning_unit": true.

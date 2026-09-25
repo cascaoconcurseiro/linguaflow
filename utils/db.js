@@ -8,7 +8,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 const FLUENCY_DRAFT_KEY = 'lf_fluency_check_draft_v1';
 // snapshot era um JPEG base64 nunca renderizado. Em produção, só 6 palavras
 // somavam 5,4 MB nesse campo e cada select=* o baixava outra vez.
-const WORD_SELECT = 'id,user_id,word,lang,translation,context_sentence,phonetic,pronunciation_pt,explanation,level,tags,ai_chunks,video_url,video_title,platform,added_at,synonyms,antonyms,definition,category,mnemonic,video_start_ms,video_end_ms';
+const WORD_SELECT = 'id,user_id,word,lang,translation,context_sentence,phonetic,explanation,level,tags,ai_chunks,video_url,video_title,platform,added_at,synonyms,antonyms,definition,category,mnemonic,video_start_ms,video_end_ms';
 
 export function createOperationId() {
   return globalThis.crypto?.randomUUID?.()
@@ -520,7 +520,6 @@ class Database {
     if (wordData.synonyms !== undefined) payload.synonyms = wordData.synonyms;
     if (wordData.antonyms !== undefined) payload.antonyms = wordData.antonyms;
     if (wordData.definition !== undefined) payload.definition = wordData.definition;
-    if (wordData.pronunciation_pt !== undefined) payload.pronunciation_pt = wordData.pronunciation_pt;
     if (wordData.explanation !== undefined) payload.explanation = wordData.explanation;
     if (wordData.platform !== undefined) payload.platform = wordData.platform;
     if (wordData.level !== undefined) payload.level = wordData.level;

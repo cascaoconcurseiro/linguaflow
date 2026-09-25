@@ -296,7 +296,10 @@ export async function renderStudy(container, app, params = {}) {
             </div>
           </div>
           <div id="pump-context-hint" class="study-context-hint hidden" style="margin-top: 14px; font-size: 19px; line-height: 1.5; color: var(--color-text); background: var(--color-surface-2, rgba(255,255,255,0.05)); border: 1px solid var(--color-border); border-radius: 10px; padding: 12px 16px; text-align: left;"></div>
-          <div id="pump-phonetics" style="font-size: 18px; color: var(--color-secondary); font-style: italic; margin-top: 12px;" class="hidden"></div>
+          <div id="pump-phonetics" class="study-ipa hidden" aria-live="polite">
+            <span class="study-ipa-label">Pronúncia (IPA)</span>
+            <span id="pump-phonetics-value" class="study-ipa-value"></span>
+          </div>
           <div id="pump-translation" style="font-size: 20px; font-weight: 700; color: var(--color-text); margin-top: 12px; padding-top: 12px; border-top: 2px dashed var(--color-border);" class="hidden"></div>
           <div id="pump-word-answer" class="study-word-answer-pill hidden" style="margin-top: 14px; padding: 10px 14px; background: var(--color-surface-2, rgba(255,255,255,0.04)); border: 1px solid var(--color-border); border-radius: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
@@ -1427,7 +1430,6 @@ function renderRichContextCard(wordData = {}, card = {}, word = '', context = ''
   const safeWord = escapeHtml(word || wordData.word || card.word || '');
   const trans = escapeHtml(translation || wordData.translation || card.translation || '');
   const explanation = String(wordData.explanation || '').trim();
-  const pronunciationPt = escapeHtml(wordData.pronunciation_pt || '');
   const safeContext = escapeHtml(context || wordData.context_sentence || '');
   let highlightedContext = safeContext;
   if (safeWord && safeContext) {
@@ -1448,7 +1450,6 @@ function renderRichContextCard(wordData = {}, card = {}, word = '', context = ''
             <span class="rich-arrow" aria-hidden="true">→</span>
             <span class="rich-trans-text">${trans || 'Sentido contextual'}</span>
           </div>
-          ${pronunciationPt ? `<div class="rich-pronunciation-br">Como soa: ${pronunciationPt}</div>` : ''}
         </div>
         <button type="button" class="btn-iso-audio" data-word="${safeWord}" aria-label="Ouvir pronúncia de ${safeWord}">Ouvir</button>
       </div>
@@ -1475,10 +1476,12 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
     && currentCard === card
     && cardPresentationIds.get(card) === presentationId;
   const phonEl = document.getElementById('pump-phonetics');
+  const phonValueEl = document.getElementById('pump-phonetics-value');
   if (ctxEntry && ctxEntry.phon) {
-    phonEl.textContent = ctxEntry.phon;
+    phonValueEl.textContent = ctxEntry.phon;
     phonEl.classList.remove('hidden');
   } else {
+    phonValueEl.textContent = '';
     phonEl.classList.add('hidden');
   }
 
@@ -2669,7 +2672,6 @@ function injectStyles() {
     .rich-word-title { font-size:17px; font-weight:900; color:var(--color-text); line-height:1.2; }
     .rich-arrow { color:var(--color-text-light); font-size:13px; font-weight:700; opacity:0.7; }
     .rich-trans-text { font-size:17px; font-weight:800; color:var(--color-primary); line-height:1.2; }
-    .rich-pronunciation-br { font-size:12px; color:var(--color-text-light); line-height:1.4; }
     .btn-iso-audio { width:32px; height:32px; background:rgba(28,176,246,0.1); border:1px solid rgba(28,176,246,0.25); border-radius:50%; color:var(--color-secondary); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; transition:transform 0.1s, background-color 0.15s; }
     .btn-iso-audio:hover { background:rgba(28,176,246,0.2); transform:scale(1.05); }
     .btn-iso-audio:active { transform:scale(0.95); }

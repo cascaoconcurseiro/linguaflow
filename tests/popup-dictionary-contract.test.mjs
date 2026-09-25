@@ -8,7 +8,7 @@ const method = source.slice(
   source.indexOf('// ── Funções de IA'),
 );
 const popupSource = readFileSync(new URL('../content/word-popup.js', import.meta.url), 'utf8');
-const dictMethod = popupSource.slice(popupSource.indexOf('  _dict(w) {'), popupSource.indexOf('  _convertIPAtoPT', popupSource.indexOf('  _dict(w) {')));
+const dictMethod = popupSource.slice(popupSource.indexOf('  _dict(w) {'), popupSource.indexOf('  _clearLoginWait', popupSource.indexOf('  _dict(w) {')));
 assert.match(method, /fetchWithTimeout = async \(url, ms = 2000\)/,
   'cada provedor deve ter timeout finito compatível com o orçamento total');
 assert.match(dictMethod, /}, 3000\);/,

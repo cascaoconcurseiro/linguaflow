@@ -377,14 +377,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  // Transliteração fonética PT-BR com IA
-  if (request.action === 'ai_phonetic_pt') {
-    getPTPhoneticWithAI(request.word)
-      .then((pronunciation) => sendResponse({ pronunciation }))
-      .catch((err) => sendResponse({ pronunciation: null, error: err.message }));
-    return true;
-  }
-
   // Explicação super curta para a história (LingQ style)
   if (request.action === 'ai_explain_story_word') {
     const contextStr = request.context || 'sem contexto';
@@ -402,7 +394,7 @@ Sentido: [Uma única frase super curta explicando o sentido neste contexto]
     return true;
   }
 
-  // Gerador de Chunks com IA (Inglês, Tradução, Fonética Brasileira)
+  // Gerador de Chunks com IA (Inglês, tradução e IPA)
   if (request.action === 'ai_generate_chunks') {
     const { word, context } = request;
     generateChunksWithAI(word, context)
@@ -427,9 +419,8 @@ Sentido: [Uma única frase super curta explicando o sentido neste contexto]
       .then((result) => sendResponse({
         explanation: result?.explanation || null,
         translation: result?.translation || null,
-        pronunciation_pt: result?.pronunciation_pt || null,
       }))
-      .catch((err) => sendResponse({ explanation: null, translation: null, pronunciation_pt: null, error: err.message }));
+      .catch((err) => sendResponse({ explanation: null, translation: null, error: err.message }));
     return true;
   }
 
@@ -1091,67 +1082,9 @@ ESTRUTURA DE RESPOSTA OBRIGATÓRIA (Use exatamente esses títulos em negrito, se
 
 **O truque:** Compare rapidamente com o sentido isolado ou literal (se houver diferença), ou dê uma dica de uso (ex: "é super informal", "use no trabalho").
 
-**Pronúncia da vida real:** Escreva como um brasileiro leria rápido, usando letras do português (ex: "water" -> "uó-râr", "I got it" -> "ai-gá-ret"). Nada de símbolos fonéticos IPA complexos. Destaque a sílaba tônica.
-
 **Exemplos rápidos:**
 - [Inglês] (Tradução)
 - [Inglês] (Tradução)`;
-}
-
-async function getPTPhoneticWithAI(word) {
-  if (!word) return '';
-  const cleanWord = word.toLowerCase().trim();
-  const cacheKey = `pt_phonetic_${cleanWord}`;
-
-  try {
-    const cached = await db.getSetting(cacheKey).catch(() => null);
-    if (cached) return cached;
-
-    const config = await getApiConfig();
-    if (!config.apiKey) {
-      console.warn('[LinguaFlow] Sem sessão. Não é possível gerar transliteração PT-BR.');
-      return '';
-    }
-
-    const prompt = `Retorne APENAS a transliteração fonética de como um BRASILEIRO leria a palavra em inglês "${word}" para soar o mais nativo possível (exemplo: apple -> á-pou, though -> dôu, write -> ruáit). Regras:
-- Retorne APENAS a transliteração.
-- NÃO inclua aspas, pontuação, hífens sobrando ou textos explicativos.
-- Use acentos do português (á, é, í, ó, ú, â, ê, ô) para indicar a sílaba tônica.`;
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    let responseText = '';
-    
-      const res = await fetchWithRetry(config.apiUrl, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${config.apiKey}`,
-          'Content-Type': 'application/json',
-          
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: config.model,
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.1,
-          max_tokens: 400,
-        }),
-      });
-      clearTimeout(timeoutId);
-      const data = await res.json();
-      responseText = data.choices?.[0]?.message?.content || '';
-    
-
-    const transliteration = responseText.replace(/['"]/g, '').trim().toLowerCase();
-    if (transliteration) {
-      db.setSetting(cacheKey, transliteration).catch(() => {});
-    }
-    return transliteration;
-  } catch (err) {
-    console.error('[LinguaFlow] AI Phonetic Error:', err);
-    return '';
-  }
 }
 
 async function explainWordWithAI(word, context, customPrompt = null) {
@@ -1263,12 +1196,11 @@ Quando houver uma frase de origem, ela é a autoridade. Não substitua a ocorrê
 Para cada frase (chunk), você deve fornecer:
 1. "eng": A frase em inglês.
 2. "pt": A tradução natural para português brasileiro.
-3. "phon": A pronúncia da frase inteira usando EXCLUSIVAMENTE 'Fonética Brasileira' (Inglês escrito como se fala em português).
+3. "phon": A transcrição IPA da pronúncia natural da frase inteira.
 REGRAS CRÍTICAS PARA "phon":
-- NUNCA traduza nenhuma palavra para o português no meio da pronúncia (ex: NUNCA use "deve" para "should", use "xud").
-- NUNCA use símbolos do Alfabeto Fonético Internacional (AFI/IPA) como ə, ʌ, ɔ, ʃ, θ. Use apenas letras comuns do alfabeto português.
-- Exemplo: "I think you should call her" -> "Ai fink iú xud cól râr".
-- Dê bastante ênfase (acentuação) na sílaba tônica.
+- Use símbolos do Alfabeto Fonético Internacional (AFI/IPA), por exemplo /aɪ θɪŋk ju ʃʊd kɔl hər/.
+- Não escreva uma leitura aproximada com letras do português e não traduza palavras dentro da transcrição.
+- Preserve acento primário e secundário quando a fonte fornecer essa informação.
 
 O primeiro objeto deve ser a frase de origem, com "is_context": true.
 O segundo deve ser a unidade lexical principal, com "is_learning_unit": true. Pode ser a palavra, phrasal verb, expressão, collocation ou bloco completo que realmente funciona como uma ideia na frase.
@@ -1493,18 +1425,10 @@ Frase/contexto: "${sentence}"
 Retorne exatamente:
 {
   "translation": "tradução curta da palavra/expressão NESTA frase",
-  "pronunciation_pt": "aproximação fonética abrasileirada da fala natural americana, com sílabas separadas por hífen e acento na sílaba forte",
-  "explanation": "explicação didática, direta e concisa nesta frase (1-2 frases), reconhecendo o bloco completo quando houver expressão"
+      "explanation": "explicação didática, direta e concisa nesta frase (1-2 frases), reconhecendo o bloco completo quando houver expressão"
 }
 
 Em "translation", escreva somente o equivalente curto que serve como resposta de flashcard.
-Em "pronunciation_pt", priorize como a palavra REALMENTE SOA para um brasileiro ouvindo um falante nativo americano:
-- NÃO faça conversão literal letra por letra.
-- Flap T / Flap D americano: T ou D entre vogais (ou antes de sílaba átona) vira som do "r" brando de "caro" (ex: "water" -> "uó-rer", "better" -> "bé-rer", "oxygenated" -> "ók-si-djâ-nêi-rid", "city" -> "sí-ri", "put it" -> "pú-rit").
-- Redução de vogais e schwa /ə/: represente com "â" ou som enfraquecido (ex: "banana" -> "bâ-né-nâ", "about" -> "â-báut").
-- Sons especiais familiares: W = "u", R inicial = "rr", TH = "f" ou "d" (ex: "think" -> "fink", "this" -> "dis"), L final = "u" (ex: "apple" -> "é-pou").
-- Em phrasal verbs e expressões, represente a ligação natural (connected speech, ex: "give up" -> "guí-vãp", "got over" -> "gó-rôu-ver").
-- Separe em sílabas com hífen e coloque acento gráfico na sílaba tônica. Use apenas letras e acentos do português brasileiro; não use IPA nem acrescente explicações.
 Exemplo: termo "gross", frase "This is gross" -> "nojento; repugnante", nunca "bruto".
 Exemplo: termo "got", frase "She finally got over her fear of flying" -> "superou". Na explicação, mostre que "got over" significa "superou" o medo; não traduza "got" isoladamente como "pegou".
 Se for phrasal verb, chunk, gíria ou expressão, traduza o bloco inteiro pelo sentido da frase.`;
@@ -1540,12 +1464,10 @@ Se for phrasal verb, chunk, gíria ou expressão, traduza o bloco inteiro pelo s
     try {
       const parsed = JSON.parse(content);
       const translation = String(parsed?.translation || '').trim();
-      const pronunciationPt = String(parsed?.pronunciation_pt || '').trim().split(/\r?\n/)[0].slice(0, 80);
       const explanation = String(parsed?.explanation || '').trim();
-      if (!translation && !pronunciationPt && !explanation) return null;
+      if (!translation && !explanation) return null;
       const res = {
         translation: translation || null,
-        pronunciation_pt: pronunciationPt || null,
         explanation: explanation || null,
       };
       cache.set(cacheKey, res);

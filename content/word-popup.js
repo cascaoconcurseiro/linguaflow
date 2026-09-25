@@ -492,9 +492,9 @@ export class WordPopup {
       <span id="fcefr" class="lfp-badge" style="display:none;"></span>
       <span id="fcefr-prog" style="display:none;font-size:10px;color:#94a3b8;font-family:monospace;align-self:center;"></span>
     </div>
-    <div style="display:flex;align-items:center;gap:5px;margin-top:5px;flex-wrap:wrap;">
-      <span id="fipa" style="font-size:12px;color:#94a3b8;font-family:monospace;"></span>
-      <span id="fprpt" style="display:none;font-size:18px;color:#fbbf24;font-weight:700;font-family:monospace;background:rgba(251,191,36,0.15);padding:4px 8px;border-radius:6px;border:1px solid rgba(251,191,36,0.3);"></span>
+    <div id="fipa-wrap" style="display:none;margin-top:10px;">
+      <div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px;">Pronúncia (IPA)</div>
+      <span id="fipa" style="display:block;font-size:25px;line-height:1.25;color:#f8fafc;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.01em;"></span>
     </div>
     <div style="display:flex;align-items:center;gap:5px;margin-top:6px;flex-wrap:wrap;">
       <span id="fexprtype" class="lfp-badge" style="display:none;"></span>
@@ -824,7 +824,6 @@ export class WordPopup {
     const q = (s) => this.popup.querySelector(s);
     q('#fw').textContent = this.word;
     q('#fipa').textContent = '';
-    q('#fprpt').style.display = 'none';
     q('#fpos').style.display = 'none';
     q('#ffreq').style.display = 'none';
     q('#fcefr').style.display = 'none';
@@ -990,24 +989,12 @@ export class WordPopup {
     this.cache[word] = {
       translation: '...',
       phonetic: '',
-      pronunciation_pt: '',
-      pronunciation_source: null,
       partOfSpeech: '',
       definition: 'Carregando dicionário...',
     };
     if (this.word === word) this._render(this.cache[word]);
 
     const entry = this.cache[word];
-    let savedPronunciation = '';
-    db.getWord(word, this.engine?.sourceLang || 'en').then((saved) => {
-      if (this.cache[word] !== entry) return;
-      savedPronunciation = String(saved?.pronunciation_pt || '').trim();
-      if (!savedPronunciation || savedPronunciation === '...') return;
-      entry.pronunciation_pt = savedPronunciation;
-      entry.pronunciation_source = 'saved';
-      if (this.word === word) this._render(entry);
-    }).catch(() => {});
-
     // Busca tradução e dicionário em paralelo, mas atualiza a tela assim que cada um chegar
     this._translate(word)
       .then((tr) => {
@@ -1026,17 +1013,6 @@ export class WordPopup {
         if (this.cache[word] === entry) {
           Object.assign(entry, dict || {});
           this.cache[word].phonetic = dict?.phonetic || '';
-          const convertedPronunciation = this._convertIPAtoPT(dict?.phonetic);
-          this.cache[word].pronunciation_pt =
-            savedPronunciation && savedPronunciation !== '...'
-              ? savedPronunciation
-              : convertedPronunciation;
-          this.cache[word].pronunciation_source =
-            savedPronunciation && savedPronunciation !== '...'
-              ? 'saved'
-              : convertedPronunciation
-                ? 'ipa'
-                : null;
           if (!dict?.definition) entry.definition = 'Definição indisponível no momento.';
         }
         if (this.word === word) this._render(this.cache[word]);
@@ -1054,15 +1030,13 @@ export class WordPopup {
   _render(d) {
     const q = (s) => this._q(s);
     q('#ft').textContent = d.translation || '—';
+    const ipaWrap = q('#fipa-wrap');
     if (d.phonetic) {
       q('#fipa').textContent = d.phonetic;
-    }
-    const elPt = q('#fprpt');
-    if (d.pronunciation_pt) {
-      elPt.textContent = '🇧🇷 ' + d.pronunciation_pt;
-      elPt.style.display = 'inline';
+      ipaWrap.style.display = 'block';
     } else {
-      elPt.style.display = 'none';
+      q('#fipa').textContent = '';
+      ipaWrap.style.display = 'none';
     }
     if (d.partOfSpeech) {
       q('#fpos').textContent = this._posLabel(d.partOfSpeech);
@@ -1430,7 +1404,7 @@ export class WordPopup {
         context: this.saveContext || this.context,
         learningUnit: this.word,
         learningTranslation: translation,
-        learningPhonetic: d.pronunciation_pt || this._convertIPAtoPT(d.phonetic || '') || '',
+        learningPhonetic: d.phonetic || '',
       });
 
       // Capture tags
@@ -1450,7 +1424,6 @@ export class WordPopup {
         lang: this.engine?.sourceLang || 'en',
         translation: translation,
         phonetic: d.phonetic || '',
-        pronunciation_pt: d.pronunciation_pt || this._convertIPAtoPT(d.phonetic || '') || '',
         definition: d.definition || '',
         // Reutiliza o professor contextual que já rodou no popup. Nenhuma
         // chamada extra é feita no estudo; o texto segue junto com o card.
@@ -1545,12 +1518,11 @@ export class WordPopup {
         translation: contextSession.translation || currentPayload.translation || '',
         context_sentence: contextSession.saveContext || contextSession.context || '',
         explanation: contextSession.explanation || '',
-        pronunciation_pt: contextSession.pronunciation_pt || currentPayload.pronunciation_pt || '',
         chunks: mergeContextualChunks(currentPayload.chunks, {
           context: contextSession.saveContext || contextSession.context,
           learningUnit: contextSession.word,
           learningTranslation: contextSession.translation || currentPayload.translation || '',
-          learningPhonetic: contextSession.pronunciation_pt || currentPayload.pronunciation_pt || '',
+          learningPhonetic: currentPayload.phonetic || '',
         }),
       };
       if (
@@ -1558,7 +1530,6 @@ export class WordPopup {
         &&
         nextPayload.context_sentence === currentPayload.context_sentence
         && nextPayload.explanation === currentPayload.explanation
-        && nextPayload.pronunciation_pt === currentPayload.pronunciation_pt
         && JSON.stringify(nextPayload.chunks) === JSON.stringify(currentPayload.chunks)
       ) return;
 
@@ -1687,125 +1658,6 @@ export class WordPopup {
       }
     });
   }
-  _convertIPAtoPT(ipa) {
-    if (!ipa) return '';
-    let raw = ipa.replace(/[\/\[\]]/g, '').trim();
-    if (!raw) return '';
-
-    let s = raw.replace(/[ˌ]/g, '').toLowerCase();
-
-    // 1. Regra de Flap T / Flap D americano:
-    // T ou D entre vogais (ou após r e antes de vogal/əl) antes de sílaba átona
-    // (não precedido imediatamente por ˈ) vira o som do 'r' brando brasileiro de "caro".
-    // Ex: water (ˈwɔːtər -> ˈwɔːrər), better (ˈbɛtər -> ˈbɛrər), city (ˈsɪti -> ˈsɪri)
-    const vowelChars = 'aɑɒæeɛɜɪiʌʊuəɔo';
-    const flapRegex = new RegExp(
-      `([${vowelChars}][ː]?|[rɹ])([td])(?![ˈ])([${vowelChars}]|əl|l̩)`,
-      'g'
-    );
-    s = s.replace(flapRegex, '$1r$3');
-
-    // Mapeamento fonético de IPA para grafia brasileira natural
-    const map = {
-      // Ditongos e encontros vocálicos
-      aɪ: 'ái',
-      eɪ: 'êi',
-      ɔɪ: 'ói',
-      aʊ: 'áu',
-      oʊ: 'ôu',
-      əʊ: 'ôu',
-      juː: 'iú',
-      ju: 'iú',
-
-      // Vogais com r e schwa
-      ɚ: 'er',
-      ɝ: 'âr',
-      'ɜːr': 'âr',
-      'ɜː': 'âr',
-      ɜ: 'âr',
-      'ər': 'er',
-      ə: 'â',
-
-      // Vogais simples
-      æ: 'é',
-      'ɑː': 'á',
-      ɑ: 'á',
-      ɒ: 'ó',
-      'ɔː': 'ó',
-      ɔ: 'ó',
-      e: 'é',
-      ɛ: 'é',
-      ɪ: 'i',
-      'iː': 'í',
-      i: 'i',
-      ʌ: 'ã',
-      ʊ: 'u',
-      'uː': 'ú',
-      u: 'u',
-
-      // Flap explícito em transcrições fonéticas
-      ɾ: 'r',
-      t̬: 'r',
-      d̬: 'r',
-
-      // Consoantes
-      ʧ: 'tch',
-      tʃ: 'tch',
-      dʒ: 'dj',
-      ʃ: 'ch',
-      ʒ: 'j',
-      θ: 'f',
-      ð: 'd',
-      ŋ: 'ng',
-      ɡ: 'g',
-      h: 'rr',
-      j: 'i',
-      w: 'u',
-      ɹ: 'r',
-      r: 'r',
-    };
-
-    // Acento tônico ˈ para vogais curtas fechadas
-    s = s.replace(/ˈɪ/g, 'ˈí').replace(/ˈi/g, 'ˈí').replace(/ˈʊ/g, 'ˈú').replace(/ˈu/g, 'ˈú');
-
-    const keys = Object.keys(map).sort((a, b) => b.length - a.length);
-    const pattern = new RegExp(
-      keys.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
-      'g'
-    );
-    s = s.replace(pattern, (m) => map[m]);
-
-    s = s.replace(/[ˈː]/g, '');
-
-    // Dark L pós-vocálico vira som de "u" familiar (ex: apple -> é-pou, ball -> ból/bóu)
-    s = s.replace(/([aáãâeéêiíoóôuú])l\b/g, '$1u');
-    s = s.replace(/([aáãâeéêiíoóôuú])l(?=[bcdfghjkmnpqrstvwxz])/g, '$1u');
-
-    // Transforma pontos IPA em hífen
-    s = s.replace(/\./g, '-');
-
-    // Remove consoantes dobradas redundantes
-    s = s.replace(/([bcdfghjklmnpqrstvwxyz])\1+/g, '$1');
-
-    // Separação silábica natural se não contiver hífen nem espaço
-    if (!s.includes('-') && !s.includes(' ')) {
-      const v = 'aáãâeéêiíoóôuú';
-      s = s.replace(new RegExp(`([${v}])(?=(?:tch|dj|ch|rr|[bcdfghjklmnpqrstvwxyz])[${v}])`, 'g'), '$1-');
-      s = s.replace(/([bcdfghjklmnpqrstvwxyz])(?=[bcdfghjklmnpqrstvwxyz])/g, (m, c1, offset, str) => {
-        const sub = str.slice(offset, offset + 3);
-        if (sub.startsWith('tch') || sub.startsWith('dj') || sub.startsWith('ch') || sub.startsWith('rr')) return c1;
-        if (offset > 0 && (str.slice(offset - 1, offset + 2) === 'tch' || str.slice(offset - 1, offset + 1) === 'dj')) return c1;
-        return c1 + '-';
-      });
-      s = s.replace(/-+/g, '-').replace(/^-|-$/g, '');
-    }
-
-    // Normalização natural para palavras de alta frequência onde ɑ no inglês americano soa ó
-    s = s.replace(/^uá-rer/, 'uó-rer');
-
-    return s.trim();
-  }
-
   _clearLoginWait() {
     if (this._loginListener) chrome.storage.onChanged.removeListener(this._loginListener);
     this._loginListener = null;
@@ -1926,14 +1778,12 @@ export class WordPopup {
             `;
       }
 
-      if (response?.translation || response?.pronunciation_pt || response?.explanation) {
+      if (response?.translation || response?.explanation) {
         const explanation = cleanContextExplanation(response.explanation);
         const contextualTranslation = String(response.translation || '').trim();
-        const contextualPronunciation = String(response.pronunciation_pt || '').trim();
         if (contextSession) {
           contextSession.translation = contextualTranslation;
           contextSession.explanation = explanation;
-          contextSession.pronunciation_pt = contextualPronunciation;
           contextSession.contextResolved = true;
           this._syncLateSaveEnrichment(contextSession).catch((error) => {
             console.warn('[WordPopup] Contexto tardio aguardará nova sincronização:', error);
@@ -1944,15 +1794,7 @@ export class WordPopup {
         if (contextualTranslation && this.cache[word]) {
           this.cache[word].translation = contextualTranslation;
         }
-        if (
-          contextualPronunciation
-          && this.cache[word]
-          && this.cache[word].pronunciation_source !== 'saved'
-        ) {
-          this.cache[word].pronunciation_pt = contextualPronunciation;
-          this.cache[word].pronunciation_source = 'ai';
-        }
-        if (this.cache[word] && (contextualTranslation || contextualPronunciation)) {
+        if (this.cache[word] && contextualTranslation) {
           this._render(this.cache[word]);
         }
         this.contextExplanation = explanation;

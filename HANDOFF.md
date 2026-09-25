@@ -1,3 +1,20 @@
+## Issue #165 — Pronúncia IPA ampliada no card e popup (2026-09-25)
+
+- **PR:** [#166](https://github.com/cascaoconcurseiro/linguaflow/pull/166), branch `codex/165-highlight-ipa-pronunciation`.
+- **Issue:** [#165](https://github.com/cascaoconcurseiro/linguaflow/issues/165).
+- **Commit:** `88b6160 feat(ui): destacar pronuncia IPA no card e popup`.
+- **Atualização desta sessão:** removida a versão abrasileirada da interface, dos payloads novos e dos prompts de IA; a PR agora mantém somente IPA.
+- **Feito:**
+  - O card de estudo do dashboard agora possui bloco “Pronúncia (IPA)” com tipografia grande, responsiva e atualização anunciável.
+  - O popup da extensão agora possui bloco “Pronúncia (IPA)” em 25px; o contêiner inteiro fica oculto quando não há IPA.
+  - A pronúncia aproximada em português foi removida do popup, card contextual, exportação do Cofre, payloads novos e geração de IA.
+  - A coluna histórica `words.pronunciation_pt` e os dados antigos permanecem no schema por compatibilidade, mas não são mais selecionados/renderizados nem enviados em novos salvamentos.
+  - Valores vindos de conteúdo persistido/API continuam usando `textContent`; o card limpa a IPA entre apresentações.
+  - Adicionado `tests/ipa-pronunciation-display.test.mjs`.
+- **Validação:** contratos direcionados e `npm run test:release` passaram; o smoke será repetido após o commit desta atualização; `git diff --check` passou.
+- **Próximo passo concreto:** revisão humana da [PR #166](https://github.com/cascaoconcurseiro/linguaflow/pull/166) e QA visual autenticada em `dashboard/js/ui/studyView.js`/`dashboard/css/editorial.css`, além de abrir o popup real da extensão com uma palavra que tenha IPA.
+- **Bloqueios:** ainda não houve QA visual autenticada nem validação do popup dentro do Chrome; não houve merge, deploy, schema, RPC, RLS ou Edge Function.
+
 ## Issue #135 — Layout vertical compacto de aprofundamento, auto-atualização do PWA e versão 3.0.55 (2026-09-24)
 
 - **PR:** #136 (mesclado em `main` `8e9cc43`).

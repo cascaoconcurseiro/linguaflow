@@ -13,7 +13,7 @@ for (const name of Object.getOwnPropertyNames(Object.getPrototypeOf(db))) {
 const sentence = 'Your mom works hard and she deserves a nice gift.';
 const translation = 'Sua mãe trabalha duro e ela merece um presente legal.';
 const words = [
-  { id:'w1', word:'deserves', translation:'merece', context_sentence:sentence, explanation:'Ela merece receber um presente pelo esforço que faz.', category:'word', video_title:'Mother’s Day · Max', video_url:'https://play.hbomax.com/video/watch/demo?t=398', platform:'max', pronunciation_pt:'dizârvs', level:'A2',
+  { id:'w1', word:'deserves', translation:'merece', context_sentence:sentence, explanation:'Ela merece receber um presente pelo esforço que faz.', category:'word', video_title:'Mother’s Day · Max', video_url:'https://play.hbomax.com/video/watch/demo?t=398', platform:'max', level:'A2',
     ai_chunks:[{eng:sentence,pt:translation,phon:'',is_context:true},{eng:'deserves',pt:'merece',phon:'dizârvs',is_learning_unit:true,is_word:true},{eng:'She deserves a break.',pt:'Ela merece uma pausa.',phon:''}] },
   { id:'w2',word:'come over',translation:'vir aqui',context_sentence:'You want him to come over again?',category:'phrasal',level:'A2', ai_chunks:[{eng:'You want him to come over again?',pt:'Você quer que ele venha aqui de novo?',is_context:true},{eng:'come over',pt:'vir aqui',is_word:true,is_learning_unit:true}] },
 ];

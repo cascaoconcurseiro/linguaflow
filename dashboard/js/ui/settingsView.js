@@ -933,7 +933,6 @@ export async function renderSettings(container, app) {
           : '';
         const front = `<b>${cleanHtml(w.word)}</b>${sentence}`;
         const backParts = [cleanHtml(w.translation)];
-        if (w.pronunciation_pt) backParts.push(`<i>[${cleanHtml(w.pronunciation_pt)}]</i>`);
         if (w.definition) backParts.push(cleanHtml(w.definition));
         if (w.explanation) backParts.push(`<br><b>Por que significa isso nesta frase?</b><br>${cleanHtml(w.explanation)}`);
         if (w.mnemonic) backParts.push(`<br><b>Como lembrar</b><br>${cleanHtml(w.mnemonic)}`);

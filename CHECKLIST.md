@@ -39,6 +39,8 @@
 - [x] Adicionar `tests/ipa-pronunciation-display.test.mjs`.
 - [x] Rodar contratos direcionados, `npm run test:release` e `node tests/release-smoke.mjs` após commit.
 - [x] Abrir PR #166 com `Closes #165`.
+- [x] Remover a pronúncia abrasileirada das superfícies, payloads novos e prompts de IA; manter apenas IPA.
+- [x] Atualizar regressões para garantir ausência de `pronunciation_pt`, transliteração PT-BR e conversão IPA→português no código ativo.
 - [ ] Revisão humana, QA visual autenticada do card e QA do popup dentro do Chrome.
 
 ## 0. Proteção e baseline

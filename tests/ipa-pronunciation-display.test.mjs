@@ -11,6 +11,7 @@ assert.match(popup, /font-size:25px;line-height:1\.25/, 'popup exibe a IPA em es
 assert.match(popup, /q\('#fipa'\)\.textContent = d\.phonetic/, 'popup injeta a IPA como texto, sem HTML');
 assert.match(popup, /ipaWrap\.style\.display = 'block'/, 'popup revela o bloco apenas quando há IPA');
 assert.match(popup, /ipaWrap\.style\.display = 'none'/, 'popup oculta o bloco sem IPA');
+assert.doesNotMatch(popup, /pronunciation_pt|fprpt|_convertIPAtoPT/, 'popup não mantém pronúncia abrasileirada');
 
 assert.match(study, /class="study-ipa hidden" aria-live="polite"/, 'card anuncia a atualização da IPA');
 assert.match(study, /Pronúncia \(IPA\)/, 'card rotula a pronúncia IPA');

@@ -1430,7 +1430,6 @@ function renderRichContextCard(wordData = {}, card = {}, word = '', context = ''
   const safeWord = escapeHtml(word || wordData.word || card.word || '');
   const trans = escapeHtml(translation || wordData.translation || card.translation || '');
   const explanation = String(wordData.explanation || '').trim();
-  const pronunciationPt = escapeHtml(wordData.pronunciation_pt || '');
   const safeContext = escapeHtml(context || wordData.context_sentence || '');
   let highlightedContext = safeContext;
   if (safeWord && safeContext) {
@@ -1451,7 +1450,6 @@ function renderRichContextCard(wordData = {}, card = {}, word = '', context = ''
             <span class="rich-arrow" aria-hidden="true">→</span>
             <span class="rich-trans-text">${trans || 'Sentido contextual'}</span>
           </div>
-          ${pronunciationPt ? `<div class="rich-pronunciation-br">Como soa: ${pronunciationPt}</div>` : ''}
         </div>
         <button type="button" class="btn-iso-audio" data-word="${safeWord}" aria-label="Ouvir pronúncia de ${safeWord}">Ouvir</button>
       </div>
@@ -2674,7 +2672,6 @@ function injectStyles() {
     .rich-word-title { font-size:17px; font-weight:900; color:var(--color-text); line-height:1.2; }
     .rich-arrow { color:var(--color-text-light); font-size:13px; font-weight:700; opacity:0.7; }
     .rich-trans-text { font-size:17px; font-weight:800; color:var(--color-primary); line-height:1.2; }
-    .rich-pronunciation-br { font-size:12px; color:var(--color-text-light); line-height:1.4; }
     .btn-iso-audio { width:32px; height:32px; background:rgba(28,176,246,0.1); border:1px solid rgba(28,176,246,0.25); border-radius:50%; color:var(--color-secondary); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; transition:transform 0.1s, background-color 0.15s; }
     .btn-iso-audio:hover { background:rgba(28,176,246,0.2); transform:scale(1.05); }
     .btn-iso-audio:active { transform:scale(0.95); }

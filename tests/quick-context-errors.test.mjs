@@ -28,12 +28,11 @@ await assert.rejects(unauthorized.result, /401/);
 const unavailable = await run('test-session', { ok: false, status: 502 });
 await assert.rejects(unavailable.result, /502/);
 const success = await run('test-session', {
-  ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ translation: 'superou', pronunciation_pt: 'gót ôu-ver', explanation: 'Aqui, got over significa superar o medo, não pegar algo.' }) } }] }),
+  ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ translation: 'superou', explanation: 'Aqui, got over significa superar o medo, não pegar algo.' }) } }] }),
 });
 const result = await success.result;
 assert.equal(result.translation, 'superou');
 assert.equal(result.explanation, 'Aqui, got over significa superar o medo, não pegar algo.');
-assert.equal(result.pronunciation_pt, 'gót ôu-ver');
 const messages = success.request().messages;
 assert.match(messages[0].content, /Português Brasileiro/);
 assert.match(messages[0].content, /Não faça análise gramatical/);
@@ -43,12 +42,8 @@ assert.match(messages[0].content, /Não invente expressões/);
 assert.match(messages[1].content, /Termo selecionado: "got"/);
 assert.match(messages[1].content, /She finally got over her fear of flying/);
 assert.match(messages[1].content, /"got over" significa "superou"/);
-assert.match(messages[1].content, /"pronunciation_pt"/);
+assert.doesNotMatch(messages[1].content, /pronunciation_pt|transliteração|Fonética Brasileira/);
 assert.doesNotMatch(messages[1].content, /uma frase curta explicando/);
 assert.equal(success.request().model, 'deepseek-chat');
 assert.ok(success.request().max_tokens <= 320, 'popup limita geração para evitar respostas lentas fora do contrato');
-const pronunciationOnly = await run('test-session', {
-  ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ pronunciation_pt: 'gúd' }) } }] }),
-});
-assert.equal((await pronunciationOnly.result).pronunciation_pt, 'gúd');
 console.log('Contexto rápido: sessão ausente, 401, 502 e resposta válida verificados.');

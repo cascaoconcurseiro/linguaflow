@@ -29,12 +29,10 @@ assert.match(source, /admin\.auth\.getUser\(token\)[\s\S]*consumeQuota\(admin, u
   'cada chamada resolve o usuário autenticado antes de consumir sua cota');
 assert.match(popup, /Sessão expirada na extensão\. Abra o Dashboard do LinguaFlow e entre novamente\./,
   'popup distingue sessão expirada de indisponibilidade da IA');
-assert.match(worker, /pronunciation_pt:\s*result\?\.pronunciation_pt \|\| null/,
-  'worker entrega a pronúncia brasileira retornada pelo contexto rápido');
-assert.match(popup, /response\.pronunciation_pt[\s\S]*cache\[word\]\.pronunciation_pt/,
-  'popup aplica a pronúncia brasileira ao estado visível da palavra');
-assert.match(popup, /response\?\.translation \|\| response\?\.pronunciation_pt \|\| response\?\.explanation/,
-  'popup aceita pronúncia mesmo quando os outros campos da IA vierem vazios');
+assert.doesNotMatch(worker, /pronunciation_pt|ai_phonetic_pt|transliteração PT-BR/,
+  'worker não gera nem devolve pronúncia abrasileirada');
+assert.doesNotMatch(popup, /pronunciation_pt|_convertIPAtoPT|fprpt/,
+  'popup não carrega, gera ou renderiza pronúncia abrasileirada');
 assert.match(popupContext, /await db\._readSession\(\)/,
   'popup verifica presença da sessão no armazenamento local sem uma ida extra ao worker');
 assert.doesNotMatch(popupContext, /db\.checkSession\(\)/,

@@ -7,6 +7,7 @@ import { deriveAdaptivePlan, detectSessionFatigue, evaluateActiveRecallHonesty }
 import { loadVideo, playClip, replayClip, pausePlayer, setClipLoop, isClipPlaying, hidePlayer } from '../core/ytPlayer.js';
 import { hasSourcePhraseLeak } from '../../../utils/translation-quality.js';
 import { mergeContextualChunks } from '../../../utils/context-chunks.js';
+import { isValidIpa, cleanIpa } from '../../../utils/ipa-validator.js';
 import { escapeHtml } from './viewState.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
@@ -93,6 +94,7 @@ export async function renderStudy(container, app, params = {}) {
       }).catch(() => {});
     }
     studyViewActive = false;
+    document.body.classList.remove('lf-study-mode');
     stopAudio();
     audioUiToken += 1;
     pauseYouglish();
@@ -121,6 +123,7 @@ export async function renderStudy(container, app, params = {}) {
     studyContainer = null;
   });
   injectStyles();
+  document.body.classList.add('lf-study-mode');
   consecutiveCorrect = 0;
   sessionCards = 0;
   sessionXp = 0;
@@ -539,10 +542,11 @@ function handleKeydown(e) {
 // Aceita os formatos antigos ({eng|ingles|english, pt|portugues, phon|fonetica})
 // e as entradas especiais novas: is_context (a frase do card) e is_word (a palavra).
 function normChunk(c) {
+  const rawPhon = c.phon || c.fonetica || c.phonetics || '';
   return {
     eng: c.eng || c.ingles || c.english || '',
     pt: c.pt || c.portugues || c.portuguese || '',
-    phon: c.phon || c.fonetica || c.phonetics || '',
+    phon: isValidIpa(rawPhon) ? cleanIpa(rawPhon) : '',
     is_context: !!c.is_context,
     is_learning_unit: !!c.is_learning_unit || !!c.is_target,
     is_word: !!c.is_word,
@@ -1389,7 +1393,7 @@ async function revealCard(options = {}) {
 
   // 3. Conteúdo antigo pode existir e ainda estar quebrado. Uma expressão
   // inglesa copiada para o PT ("fist bump", por exemplo) também exige reparo.
-  const needsContextRepair = !ctxEntry || !ctxEntry.pt || hasSourcePhraseLeak(context, ctxEntry.pt);
+  const needsContextRepair = !ctxEntry || !ctxEntry.pt || hasSourcePhraseLeak(context, ctxEntry.pt) || (ctxEntry.phon && !isValidIpa(ctxEntry.phon));
   const needsWordRepair = !wordEntry || !wordEntry.pt;
   if (needsContextRepair || needsWordRepair) {
     const phonEl = document.getElementById('pump-phonetics');
@@ -1399,12 +1403,13 @@ async function revealCard(options = {}) {
     enrichCard(word, context).then(async (data) => {
       if (currentCard !== card || !data) return;
 
-      if (needsContextRepair && data.sentence_phon && data.sentence_pt && !hasSourcePhraseLeak(context, data.sentence_pt)) {
-        ctxEntry = { eng: context, pt: data.sentence_pt || '', phon: data.sentence_phon, is_context: true, is_word: false };
+      if (needsContextRepair && data.sentence_phon && isValidIpa(data.sentence_phon) && data.sentence_pt && !hasSourcePhraseLeak(context, data.sentence_pt)) {
+        ctxEntry = { eng: context, pt: data.sentence_pt || '', phon: cleanIpa(data.sentence_phon), is_context: true, is_word: false };
         chunks = [ctxEntry, ...chunks.filter(c => !c.is_context)];
       }
       if (needsWordRepair && data.word_pt) {
-        wordEntry = { eng: word, pt: data.word_pt || '', phon: data.word_phon || '', is_context: false, is_word: true };
+        const safeWdPhon = isValidIpa(data.word_phon) ? cleanIpa(data.word_phon) : '';
+        wordEntry = { eng: word, pt: data.word_pt || '', phon: safeWdPhon, is_context: false, is_word: true };
         wordData.translation = data.word_pt;
         card.translation = data.word_pt;
         chunks = [...chunks, wordEntry];
@@ -1478,8 +1483,9 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
     && currentCard === card
     && cardPresentationIds.get(card) === presentationId;
   const phonEl = document.getElementById('pump-phonetics');
-  const phonValueEl = document.getElementById('pump-phonetics-value');
-  if (ctxEntry && ctxEntry.phon) {
+  const safeIpa = isValidIpa(ctxEntry?.phon) ? cleanIpa(ctxEntry.phon) : '';
+  if (ctxEntry) ctxEntry.phon = safeIpa;
+  if (safeIpa) {
     phonValueEl.textContent = ctxEntry.phon;
     phonEl.classList.remove('hidden');
   } else {
@@ -1499,13 +1505,17 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
   const wordAnswerEl = document.getElementById('pump-word-answer');
   if (wordAnswerEl && word) {
     const activeWordTrans = (wordEntry && wordEntry.pt) || wordData.translation || card.translation || '';
-    const activeWordPhon = (wordEntry && wordEntry.phon) || wordData.phonetic || '';
+    const rawWordPhon = (wordEntry && wordEntry.phon) || wordData.phonetic || '';
+    const activeWordPhon = isValidIpa(rawWordPhon) ? cleanIpa(rawWordPhon) : '';
     const wordValEl = document.getElementById('pump-word-val');
     const wordTransEl = document.getElementById('pump-word-trans');
     const wordPhonEl = document.getElementById('pump-word-phon');
     if (wordValEl) wordValEl.textContent = word;
     if (wordTransEl) wordTransEl.textContent = activeWordTrans ? `${activeWordTrans}` : '';
-    if (wordPhonEl) wordPhonEl.textContent = activeWordPhon || '';
+    if (wordPhonEl) {
+      wordPhonEl.textContent = activeWordPhon;
+      wordPhonEl.style.display = activeWordPhon ? '' : 'none';
+    }
     wordAnswerEl.classList.remove('hidden');
 
     const wordAudioBtn = document.getElementById('pump-word-audio-btn');
@@ -2713,9 +2723,14 @@ function injectStyles() {
       .wave-bar { animation: none !important; }
     }
 
-    /* Issue #109: a study card with the hierarchy from the new reference. */
-    .study-layout { background:var(--color-bg); }
-    .study-main { width:min(100%, 1160px); min-height:calc(100dvh - var(--topbar-height)); margin:0 auto; padding:24px 28px 40px; }
+    /* Issue #109 / scroll-isolation: a sessão de estudo ocupa toda a altura
+       disponível. O #app-root NÃO rola (body.lf-study-mode bloqueia isso);
+       apenas .study-main rola internamente. Os botões de avaliação ficam
+       fixos em relação à viewport — sem scrollbar externa aparecendo. */
+    body.lf-study-mode #app-root { overflow: hidden; }
+    .study-layout { background:var(--color-bg); display:flex; flex-direction:column; height:calc(100dvh - var(--topbar-height)); overflow:hidden; }
+    .study-main { flex:1; overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; scrollbar-width:thin; width:min(100%, 1160px); margin:0 auto; padding:24px 28px calc(var(--study-grading-dock-height, 140px) + 24px); box-sizing:border-box; }
+    .sentence-container { max-width:none; margin:0 0 14px; padding:25px 48px 28px; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); text-align:center; overflow:visible; }
     .anki-study-header { width:100%; max-width:none; margin:0 0 18px; padding:0 4px 14px; border-bottom:1px solid var(--color-border); }
     .anki-session-counters { gap:0; }
     .anki-counter-badge { min-width:116px; padding:0 22px; border:0; border-right:1px solid var(--color-border); border-radius:0; background:transparent; color:var(--color-text-light); font-size:13px; }
@@ -2724,7 +2739,6 @@ function injectStyles() {
     .anki-counter-badge strong { display:block; color:var(--color-text); font-size:24px; line-height:1; }
     .anki-card-timer { padding:0; border:0; background:transparent; color:var(--color-secondary); font-size:16px; }
     .timer-label { display:block; font-size:11px; color:var(--color-text-light); }
-    .sentence-container { max-width:none; margin:0 0 14px; padding:25px 48px 28px; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); text-align:center; max-height:calc(100dvh - 100px - var(--study-grading-dock-height, 140px)); overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; }
     .study-card-meta { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:28px; text-align:left; }
     .study-card-meta > div:first-child { display:grid; gap:3px; }
     .study-card-meta-actions { display:flex; align-items:center; justify-content:flex-end; gap:12px; flex:0 0 auto; margin-left:auto; }
@@ -2775,7 +2789,7 @@ function injectStyles() {
     .more-contexts { border:1px solid var(--color-border); border-radius:10px; background:var(--color-surface); }
     .more-contexts > summary { min-height:52px; padding:0 16px; }
     @media (max-width: 720px) {
-      .study-main { padding:16px 12px calc(104px + env(safe-area-inset-bottom)); }
+      .study-main { padding:16px 12px calc(var(--study-grading-dock-height, 104px) + 16px); }
       .anki-study-header { align-items:flex-start; }
       .anki-session-counters { width:100%; justify-content:space-between; }
       .anki-counter-badge { min-width:0; padding:0 10px; font-size:11px; }

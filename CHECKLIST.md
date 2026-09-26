@@ -1,3 +1,16 @@
+## Issue #197 · Fix: garantir IPA estrito e eliminar pronúncia abrasileirada (2026-09-26)
+
+- [x] Registrar Issue #197 e trabalhar na branch `codex/197-ipa-strict-validation`.
+- [x] Criar `utils/ipa-validator.js` com `isValidIpa()` e `cleanIpa()` — rejeita acentos portugueses, tokens abrasileirados (Uí, fót, répin, bât, dén, dídnt…), dígrafos não-IPA e texto sem marcas fonéticas IPA.
+- [x] Corrigir prompts de `background/service-worker.js` e `dashboard/js/core/ai.js`: remover exemplos abrasileirados, adicionar PROIBIÇÃO TOTAL e exemplos de IPA correto.
+- [x] Implementar retry corretivo em `enrichCard` e `generateChunksWeb`/`generateChunksWithAI`: detecta IPA inválido na resposta e faz segunda chamada com mensagem de erro.
+- [x] Aplicar validação IPA em todas as camadas de exibição: `sanitizeCardEnrichment`, `normChunk`, `mergeContextualChunks`, `_render` (word-popup) e `renderReveal` (studyView).
+- [x] Converter exemplos de assimilação palatina e elisão em `utils/speech-cadence.js` para IPA real.
+- [x] Adicionar `utils/ipa-validator.js` e `utils/schema.js` ao `manifest.json` (web_accessible_resources).
+- [x] Criar `tests/ipa-validator.test.mjs` com 5 testes (5/5 verdes).
+- [x] Atualizar `tests/architectural-resilience.test.mjs` para verificar rejeição de fonética inválida e aceite de IPA legítimo (5/5 verdes).
+- [x] Criar PR #198 e confirmar gate de testes.
+
 ## Issue #193 · Proteção contra Shadow DOM nos atalhos e limpeza de dead DOM no shell PWA (2026-09-26)
 
 - [x] Registrar Issue #193 e trabalhar na branch `codex/193-reader-shadowdom-shell-harden`.

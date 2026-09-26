@@ -7,6 +7,9 @@
  */
 
 import { safeParseJson } from '../dashboard/js/core/ai.js';
+import { isValidIpa, cleanIpa } from './ipa-validator.js';
+
+export { isValidIpa, cleanIpa };
 
 /**
  * Sanitiza e garante tipos primitivos com defaults seguros.
@@ -59,8 +62,10 @@ export function sanitizeCardEnrichment(raw) {
 
   const sentence_pt = sanitizeString(data.sentence_pt || data.portuguese_sentence || data.translation);
   const word_pt = sanitizeString(data.word_pt || data.portuguese_word || data.word_translation);
-  const sentence_phon = sanitizeString(data.sentence_phon || data.phonetic_sentence);
-  const word_phon = sanitizeString(data.word_phon || data.phonetic_word);
+  const rawSentencePhon = sanitizeString(data.sentence_phon || data.phonetic_sentence);
+  const rawWordPhon = sanitizeString(data.word_phon || data.phonetic_word);
+  const sentence_phon = isValidIpa(rawSentencePhon) ? cleanIpa(rawSentencePhon) : '';
+  const word_phon = isValidIpa(rawWordPhon) ? cleanIpa(rawWordPhon) : '';
 
   return {
     sentence_pt,

@@ -124,8 +124,11 @@ html body .study-focus-track { height:4px; background:var(--color-border); }
 html body .study-focus-track > span { background:var(--color-primary); }
 html { --study-grading-dock-height:0px; }
 html body .study-layout { background:var(--color-bg); }
-html body.lf-focus-mode #app-root { overflow-y:hidden; scroll-padding-bottom:calc(var(--study-grading-dock-height) + 64px); }
-html body .study-main { display:grid; grid-template-columns:minmax(340px,1fr) auto; align-items:start; column-gap:48px; row-gap:16px; width:100%; max-width:1440px; margin:auto; padding:24px 5vw 164px; }
+html body.lf-focus-mode #app-root,
+html body.lf-study-mode #app-root { overflow:hidden; }
+html body.lf-study-mode .study-layout { display:flex; flex-direction:column; height:calc(100dvh - var(--topbar-height, 70px)); overflow:hidden; }
+html body .study-main { display:grid; grid-template-columns:minmax(340px,1fr) auto; align-items:start; column-gap:48px; row-gap:16px; width:100%; max-width:1440px; margin:auto; padding:24px 5vw 164px; overflow:hidden; }
+html body.lf-study-mode .study-main { flex:1; overflow:hidden; }
 html body .study-layout.is-revealed .study-main { padding-bottom:calc(var(--study-grading-dock-height) + 72px); }
 html body .anki-study-header { grid-column:1/-1; max-width:none; margin:0 0 8px; padding-bottom:12px; border-bottom:0; }
 html body .anki-counter-badge { border:0; background:transparent; color:var(--color-text-light); font-weight:400; }

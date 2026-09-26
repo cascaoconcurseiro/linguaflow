@@ -4,6 +4,7 @@
 
 import { db as lfDb } from '../../../utils/db.js';
 import { buildStoryVarietyNote, buildLevelNote, levelSpecFor, recentStorySnippets, resolveStoryLevel } from '../../../utils/story-variety.js';
+import { isValidIpa, cleanIpa } from '../../../utils/ipa-validator.js';
 
 const EDGE_URL = 'https://qnutoswrufznztoznlql.supabase.co/functions/v1/deepseek-chat';
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
@@ -169,10 +170,11 @@ export async function enrichCard(word, sentence) {
       const normSentLower = normSentence.toLowerCase();
       // Se não há frase ou a frase é a própria palavra, retorna os dados canônicos da palavra
       if (!normSentence || normSentLower === normWord.toLowerCase()) {
+        const safeCachedWordPhon = isValidIpa(cached.word_phon) ? cleanIpa(cached.word_phon) : '';
         return {
           sentence_phon: '',
           sentence_pt: '',
-          word_phon: cached.word_phon || '',
+          word_phon: safeCachedWordPhon,
           word_pt: cached.word_pt || '',
           _cached: true,
         };
@@ -184,10 +186,12 @@ export async function enrichCard(word, sentence) {
         : null;
 
       if (matchingContext) {
+        const safeSentPhon = isValidIpa(matchingContext.sentence_phon) ? cleanIpa(matchingContext.sentence_phon) : '';
+        const safeWordPhon = isValidIpa(cached.word_phon) ? cleanIpa(cached.word_phon) : '';
         return {
-          sentence_phon: matchingContext.sentence_phon || '',
+          sentence_phon: safeSentPhon,
           sentence_pt: matchingContext.sentence_pt || '',
-          word_phon: cached.word_phon || '',
+          word_phon: safeWordPhon,
           word_pt: matchingContext.word_pt || cached.word_pt || '',
           _cached: true,
         };
@@ -197,22 +201,26 @@ export async function enrichCard(word, sentence) {
     console.warn('[AI] Erro ao consultar cache canônico, prosseguindo com IA:', err);
   }
 
-  // 2. Cache miss: chama o modelo de IA
-  const system = `Você é um professor de inglês para brasileiros. Responda APENAS com JSON válido, sem nenhum texto extra.
-REGRAS para os campos "*_phon":
-- Use transcrição fonética IPA da pronúncia americana natural, entre barras /.../ quando apropriado.
-- Não escreva uma leitura aproximada com letras do português e não traduza palavras dentro da transcrição.
+  // 2. Cache miss: chama o modelo de IA com regras estritas de IPA
+  const system = `Você é um linguista e professor de inglês para brasileiros. Responda APENAS com JSON válido, sem texto extra.
+REGRAS OBRIGATÓRIAS para os campos "*_phon" (IPA):
+- Use EXCLUSIVAMENTE o Alfabeto Fonético Internacional (AFI/IPA) no padrão do inglês americano (General American), sempre entre barras /.../.
+- PROIBIÇÃO TOTAL: NUNCA gere pronúncia abrasileirada, respelling fonético ou aproximações ortográficas em português (JAMAIS escreva coisas como "Uí", "fót", "répin", "bât", "dén", "dídnt", "kent", etc.).
+- Preserve fonemas autênticos do inglês: /θ/, /ð/, /æ/, /ɪ/, /ə/, /ŋ/, acento primário ˈ e secundário ˌ.
+- Connected speech: transcreva linking e reduções via símbolos IPA formais (ex: /wi ˈθɔt əv ˈræpɪŋ ɪt, bət ðɛn ˈdɪdənt/).
+- Se não souber a transcrição exata no padrão IPA, deixe o campo como string vazia "".
 REGRAS para os campos "*_pt":
 - Traduza a frase INTEIRA para português brasileiro natural, pelo sentido e contexto.
-- NÃO deixe palavras ou expressões em inglês dentro da tradução, nem empréstimos como "fist bump". Traduza a intenção (ex.: "I'll fist-bump you" -> "Vou bater aqui com você").
+- NÃO deixe palavras ou expressões em inglês dentro da tradução, nem empréstimos como "fist bump". Traduza a intenção.
 - Preserve nomes próprios, mas nunca produza uma mistura de português e inglês.`;
+
   const user = `Palavra-foco: "${normWord}"
 Frase: "${normSentence}"
 Retorne exatamente este JSON:
 {
-  "sentence_phon": "transcrição IPA da frase inteira",
+  "sentence_phon": "/transcrição IPA estrita da frase inteira/",
   "sentence_pt": "tradução natural da frase para português brasileiro",
-  "word_phon": "transcrição IPA só da palavra-foco",
+  "word_phon": "/transcrição IPA estrita só da palavra-foco/",
   "word_pt": "tradução da palavra-foco NESTE contexto"
 }`;
 
@@ -220,7 +228,41 @@ Retorne exatamente este JSON:
     [{ role: 'system', content: system }, { role: 'user', content: user }],
     { temperature: 0.1, max_tokens: 500 }
   );
-  const parsed = safeParseJson(content);
+  let parsed = safeParseJson(content);
+
+  // Se retornou fonética inválida/abrasileirada, rejeita e regenera uma vez com reforço de IPA
+  const rawSentPhon = parsed?.sentence_phon;
+  const rawWdPhon = parsed?.word_phon;
+  const sentInvalid = rawSentPhon && !isValidIpa(rawSentPhon);
+  const wordInvalid = rawWdPhon && !isValidIpa(rawWdPhon);
+
+  if (sentInvalid || wordInvalid) {
+    try {
+      const retryContent = await aiChat(
+        [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+          { role: 'assistant', content },
+          {
+            role: 'user',
+            content: 'ERRO: A resposta anterior utilizou aproximação fonética/abrasileirada inválida. É PROIBIDO usar ortografia do português. Forneça EXCLUSIVAMENTE o Alfabeto Fonético Internacional (IPA) entre barras /.../ para os campos "*_phon" ou deixe-os vazios "".',
+          },
+        ],
+        { temperature: 0.1, max_tokens: 500 }
+      );
+      const retryParsed = safeParseJson(retryContent);
+      if (retryParsed) {
+        parsed = { ...parsed, ...retryParsed };
+      }
+    } catch (e) {
+      console.warn('[AI] Falha na regeneração de IPA:', e);
+    }
+  }
+
+  if (parsed) {
+    parsed.sentence_phon = isValidIpa(parsed.sentence_phon) ? cleanIpa(parsed.sentence_phon) : '';
+    parsed.word_phon = isValidIpa(parsed.word_phon) ? cleanIpa(parsed.word_phon) : '';
+  }
 
   // 3. Persiste assincronamente no cache canônico para os próximos acessos
   if (parsed && (parsed.word_phon || parsed.sentence_pt || parsed.word_pt)) {
@@ -343,7 +385,7 @@ Responda APENAS com JSON válido: {"mnemonic": "1-2 frases em português, direto
 
 // Geração de chunks na web (na extensão o service worker já tem essa rotina).
 export async function generateChunksWeb(word, context = '') {
-  const system = `Você é um professor de inglês para brasileiros focando no aprendizado por 'chunks' (blocos léxicos).
+  const system = `Você é um linguista e professor de inglês para brasileiros focando no aprendizado por 'chunks' (blocos léxicos).
 Seu objetivo é identificar a unidade que vale aprender na ocorrência real e só depois sugerir no máximo 2 variações úteis.
 
 Quando houver uma frase de origem, ela é a autoridade. Não substitua a ocorrência por uma frase genérica e não escolha um sentido que não esteja sustentado por ela.
@@ -352,30 +394,73 @@ Para cada frase (chunk), você deve fornecer:
 1. "eng": A frase em inglês.
 2. "pt": A tradução natural para português brasileiro.
 3. "phon": A transcrição IPA da pronúncia natural da frase inteira.
-REGRAS CRÍTICAS PARA "phon":
-- Use símbolos do Alfabeto Fonético Internacional (AFI/IPA), por exemplo /aɪ θɪŋk ju ʃʊd kɔl hər/.
-- Não escreva uma leitura aproximada com letras do português e não traduza palavras dentro da transcrição.
-- Preserve acento primário e secundário quando a fonte fornecer essa informação.
+REGRAS OBRIGATÓRIAS E CRÍTICAS PARA "phon":
+- Use EXCLUSIVAMENTE símbolos do Alfabeto Fonético Internacional (AFI/IPA) no padrão do inglês americano (General American), sempre entre barras /.../.
+- PROIBIÇÃO TOTAL: NUNCA gere pronúncia abrasileirada, respelling fonético ou aproximações ortográficas em português (JAMAIS escreva coisas como "Uí", "fót", "répin", "bât", "dén", "dídnt", "kent", etc.).
+- Preserve fonemas autênticos do inglês: /θ/, /ð/, /æ/, /ɪ/, /ə/, /ŋ/, acento primário ˈ e secundário ˌ.
+- Connected speech: transcreva linking e reduções via notação IPA formal (ex: /wi ˈθɔt əv ˈræpɪŋ ɪt, bət ðɛn ˈdɪdənt/).
+- Se não souber a transcrição exata no padrão IPA, deixe o campo "phon" como string vazia "".
 
 O primeiro objeto deve ser a frase de origem, com "is_context": true.
 O segundo deve ser a unidade lexical principal, com "is_learning_unit": true.
 Os próximos objetos, se houver, são variações curtas e naturais, nunca desconectadas do sentido encontrado.
 
-Responda ÚNICA E EXCLUSIVAMENTE com um objeto JSON válido contendo uma chave "chunks". Nada de texto antes ou depois.`;
+Responda ÚNICA E EXCLUSIVAMENTE com um objeto JSON válido contendo uma chave "chunks". Nada de texto antes ou depois.
+Exemplo de formato esperado:
+{
+  "chunks": [
+    { "eng": "I can't get over what happened.", "pt": "Eu não consigo superar o que aconteceu.", "phon": "/aɪ kænt ɡɛt ˈoʊvər wʌt ˈhæpənd/", "is_context": true },
+    { "eng": "get over", "pt": "superar / deixar para trás", "phon": "/ɡɛt ˈoʊvər/", "is_learning_unit": true },
+    { "eng": "I still haven't gotten over it.", "pt": "Eu ainda não consegui superar isso.", "phon": "/aɪ stɪl ˈhævənt ˈɡɑːtn̩ ˈoʊvər ɪt/" }
+  ]
+}`;
+
+  const user = context
+    ? `Palavra ou expressão selecionada: "${word}"\nFrase de origem do vídeo: "${context}"\nIdentifique a unidade lexical que deve ser aprendida nesta ocorrência.`
+    : `Palavra ou expressão: "${word}"\nNão há frase de origem disponível. Gere uma ocorrência curta e deixe claro o sentido da unidade.`;
 
   const content = await aiChat(
-    [{ role: 'system', content: system }, {
-      role: 'user',
-      content: context
-        ? `Palavra ou expressão selecionada: "${word}"\nFrase de origem do vídeo: "${context}"\nIdentifique a unidade lexical que deve ser aprendida nesta ocorrência.`
-        : `Palavra ou expressão: "${word}"\nNão há frase de origem disponível. Gere uma ocorrência curta e deixe claro o sentido da unidade.`,
-    }],
+    [{ role: 'system', content: system }, { role: 'user', content: user }],
     { temperature: 0.7, max_tokens: 1000 }
   );
-  const parsed = safeParseJson(content);
-  if (!parsed) return [];
-  if (Array.isArray(parsed)) return parsed;
-  const firstKey = Object.keys(parsed)[0];
-  if (Array.isArray(parsed[firstKey])) return parsed[firstKey];
-  return [];
+  let parsed = safeParseJson(content);
+  let list = [];
+  if (Array.isArray(parsed)) list = parsed;
+  else if (parsed && typeof parsed === 'object') {
+    const firstKey = Object.keys(parsed)[0];
+    if (Array.isArray(parsed[firstKey])) list = parsed[firstKey];
+  }
+
+  // Se qualquer chunk retornou fonética abrasileirada/inválida, tenta uma regeneração corretiva
+  const hasInvalidPhon = list.some((c) => c && c.phon && !isValidIpa(c.phon));
+  if (hasInvalidPhon) {
+    try {
+      const retryContent = await aiChat(
+        [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+          { role: 'assistant', content },
+          {
+            role: 'user',
+            content: 'ERRO: A resposta anterior continha aproximação fonética/abrasileirada inválida no campo "phon". É PROIBIDO usar ortografia do português. Forneça estritamente símbolos do Alfabeto Fonético Internacional (IPA) entre barras /.../ ou deixe o campo vazio "".',
+          },
+        ],
+        { temperature: 0.1, max_tokens: 1000 }
+      );
+      const retryParsed = safeParseJson(retryContent);
+      if (Array.isArray(retryParsed)) list = retryParsed;
+      else if (retryParsed && typeof retryParsed === 'object') {
+        const k = Object.keys(retryParsed)[0];
+        if (Array.isArray(retryParsed[k])) list = retryParsed[k];
+      }
+    } catch (e) {
+      console.warn('[AI] Falha na regeneração de chunks IPA:', e);
+    }
+  }
+
+  return list.map((chunk) => {
+    if (!chunk || typeof chunk !== 'object') return chunk;
+    const validPhon = isValidIpa(chunk.phon) ? cleanIpa(chunk.phon) : '';
+    return { ...chunk, phon: validPhon };
+  });
 }

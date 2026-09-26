@@ -59,8 +59,21 @@ test('Schema Hardening: AI Card Enrichment sanitizes broken LLM responses', () =
   assert.equal(res.isValid, true);
   assert.equal(res.sentence_pt, 'Ele deu um passo à frente.');
   assert.equal(res.word_pt, 'passo');
-  assert.equal(res.sentence_phon, 'El deu um pass a frent');
+  // Rejeita texto abrasileirado/informal no campo fonético
+  assert.equal(res.sentence_phon, '');
   assert.equal(res.word_phon, '');
+
+  const validIpaLLM = `\`\`\`json
+  {
+    "sentence_pt": "Nós pensamos em embrulhar isso.",
+    "word_pt": "embrulhar",
+    "sentence_phon": "/wi ˈθɔt əv ˈræpɪŋ ɪt, bət ðɛn ˈdɪdənt/",
+    "word_phon": "/ˈræpɪŋ/"
+  }
+  \`\`\``;
+  const resValid = sanitizeCardEnrichment(validIpaLLM);
+  assert.equal(resValid.sentence_phon, '/wi ˈθɔt əv ˈræpɪŋ ɪt, bət ðɛn ˈdɪdənt/');
+  assert.equal(resValid.word_phon, '/ˈræpɪŋ/');
 
   const invalidRes = sanitizeCardEnrichment('Desculpe, não consigo responder a isso.');
   assert.equal(invalidRes.isValid, false);

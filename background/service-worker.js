@@ -17,6 +17,7 @@ import {
   generateAIVariation as generateAIVariationModule,
   backfillMissingSentences as backfillMissingSentencesModule,
 } from './ai-generator.js';
+import { isValidIpa, cleanIpa } from '../utils/ipa-validator.js';
 
 // Métodos que páginas da extensão podem chamar através do service worker.
 // A fronteira explícita impede acesso a helpers internos como db._fetch.
@@ -1139,7 +1140,7 @@ async function generateChunksWithAI(word, context = '') {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    const chunksPersona = `Você é um professor de inglês para brasileiros focando no aprendizado por 'chunks' (blocos léxicos).
+    const chunksPersona = `Você é um linguista e professor de inglês para brasileiros focando no aprendizado por 'chunks' (blocos léxicos).
 Seu objetivo é identificar a unidade que vale aprender na ocorrência real e só depois sugerir no máximo 2 variações úteis.
 
 Quando houver uma frase de origem, ela é a autoridade. Não substitua a ocorrência por uma frase genérica e não escolha um sentido que não esteja sustentado por ela.
@@ -1148,10 +1149,12 @@ Para cada frase (chunk), você deve fornecer:
 1. "eng": A frase em inglês.
 2. "pt": A tradução natural para português brasileiro.
 3. "phon": A transcrição IPA da pronúncia natural da frase inteira.
-REGRAS CRÍTICAS PARA "phon":
-- Use símbolos do Alfabeto Fonético Internacional (AFI/IPA), por exemplo /aɪ θɪŋk ju ʃʊd kɔl hər/.
-- Não escreva uma leitura aproximada com letras do português e não traduza palavras dentro da transcrição.
-- Preserve acento primário e secundário quando a fonte fornecer essa informação.
+REGRAS OBRIGATÓRIAS E CRÍTICAS PARA "phon":
+- Use EXCLUSIVAMENTE símbolos do Alfabeto Fonético Internacional (AFI/IPA) no padrão do inglês americano (General American), sempre entre barras /.../.
+- PROIBIÇÃO TOTAL: NUNCA gere pronúncia abrasileirada, respelling ou aproximações ortográficas baseadas no português (JAMAIS escreva coisas como "Uí", "fót", "répin", "bât", "dén", "dídnt", "kent", etc.).
+- Não substitua fonemas ingleses por letras do português: preserve /θ/, /ð/, /æ/, /ɪ/, /ə/, /ŋ/, acento primário ˈ e secundário ˌ.
+- Connected speech: transcreva linking e reduções via símbolos IPA técnicos (ex: /wi ˈθɔt əv ˈræpɪŋ ɪt, bət ðɛn ˈdɪdənt/).
+- Se não souber a transcrição exata no padrão IPA internacional, deixe o campo "phon" como string vazia "".
 
 O primeiro objeto deve ser a frase de origem, com "is_context": true.
 O segundo deve ser a unidade lexical principal, com "is_learning_unit": true. Pode ser a palavra, phrasal verb, expressão, collocation ou bloco completo que realmente funciona como uma ideia na frase.
@@ -1161,9 +1164,9 @@ Responda ÚNICA E EXCLUSIVAMENTE com um objeto JSON válido contendo uma chave "
 Exemplo de formato esperado:
 {
   "chunks": [
-    { "eng": "I can't get over what happened.", "pt": "Eu não consigo superar o que aconteceu.", "phon": "Ai kent get ôuver uót répennd", "is_context": true },
-    { "eng": "get over", "pt": "superar / conseguir deixar para trás", "phon": "get ôuver", "is_learning_unit": true },
-    { "eng": "I still haven't gotten over it.", "pt": "Eu ainda não consegui superar isso.", "phon": "Ai stil révent góten ôuver it" }
+    { "eng": "I can't get over what happened.", "pt": "Eu não consigo superar o que aconteceu.", "phon": "/aɪ kænt ɡɛt ˈoʊvər wʌt ˈhæpənd/", "is_context": true },
+    { "eng": "get over", "pt": "superar / deixar para trás", "phon": "/ɡɛt ˈoʊvər/", "is_learning_unit": true },
+    { "eng": "I still haven't gotten over it.", "pt": "Eu ainda não consegui superar isso.", "phon": "/aɪ stɪl ˈhævənt ˈɡɑːtn̩ ˈoʊvər ɪt/" }
   ]
 }`;
 
@@ -1213,11 +1216,59 @@ Não há frase de origem disponível. Gere uma ocorrência curta e deixe claro o
 
     try {
       const parsed = JSON.parse(content);
-      if (Array.isArray(parsed)) return parsed;
-      // Se for um objeto com uma propriedade de array
-      const firstKey = Object.keys(parsed)[0];
-      if (Array.isArray(parsed[firstKey])) return parsed[firstKey];
-      return [];
+      let list = [];
+      if (Array.isArray(parsed)) {
+        list = parsed;
+      } else if (parsed && typeof parsed === 'object') {
+        const firstKey = Object.keys(parsed)[0];
+        if (Array.isArray(parsed[firstKey])) {
+          list = parsed[firstKey];
+        }
+      }
+
+      // Se qualquer chunk retornou fonética abrasileirada/inválida, tenta uma regeneração corretiva
+      const hasInvalidPhon = list.some((c) => c && c.phon && !isValidIpa(c.phon));
+      if (hasInvalidPhon) {
+        try {
+          const retryResp = await fetchWithRetry(config.apiUrl, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
+            signal: controller.signal,
+            body: JSON.stringify({
+              model: config.model,
+              messages: [
+                { role: 'system', content: chunksPersona },
+                { role: 'user', content: userPrompt },
+                { role: 'assistant', content },
+                {
+                  role: 'user',
+                  content: 'ERRO: A resposta anterior utilizou aproximação fonética/abrasileirada inválida no campo "phon". É PROIBIDO usar ortografia do português. Forneça estritamente símbolos do Alfabeto Fonético Internacional (IPA) entre barras /.../ ou deixe o campo vazio "".',
+                },
+              ],
+              temperature: 0.1,
+              max_tokens: 1000,
+            }),
+          });
+          if (retryResp.ok) {
+            const retryData = await retryResp.json();
+            const retryText = (retryData.choices?.[0]?.message?.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
+            const retryParsed = JSON.parse(retryText);
+            if (Array.isArray(retryParsed)) list = retryParsed;
+            else if (retryParsed && typeof retryParsed === 'object') {
+              const k = Object.keys(retryParsed)[0];
+              if (Array.isArray(retryParsed[k])) list = retryParsed[k];
+            }
+          }
+        } catch (retryErr) {
+          console.warn('[LinguaFlow IA] Falha na regeneração de chunks IPA:', retryErr);
+        }
+      }
+
+      return list.map((chunk) => {
+        if (!chunk || typeof chunk !== 'object') return chunk;
+        const validPhon = isValidIpa(chunk.phon) ? cleanIpa(chunk.phon) : '';
+        return { ...chunk, phon: validPhon };
+      });
     } catch (e) {
       console.error('Falha ao parsear JSON dos chunks:', content);
       return [];

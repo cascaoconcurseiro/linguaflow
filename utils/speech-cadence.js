@@ -20,20 +20,20 @@ const REDUCTIONS = {
 };
 
 const PALATAL_ASSIMILATIONS = [
-  { pattern: /\bdid\s+you\b/gi, phrase: 'did you', sound: 'did-ja (/dʒ/)' },
-  { pattern: /\bdon't\s+you\b/gi, phrase: "don't you", sound: 'don-cha (/tʃ/)' },
-  { pattern: /\bmeet\s+you\b/gi, phrase: 'meet you', sound: 'mee-tcha (/tʃ/)' },
-  { pattern: /\bwould\s+you\b/gi, phrase: 'would you', sound: 'wood-ja (/dʒ/)' },
-  { pattern: /\bcould\s+you\b/gi, phrase: 'could you', sound: 'cood-ja (/dʒ/)' },
-  { pattern: /\bwhat\s+you\b/gi, phrase: 'what you', sound: 'wha-tcha (/tʃ/)' },
-  { pattern: /\bgot\s+you\b/gi, phrase: 'got you', sound: 'got-cha (/tʃ/)' },
-  { pattern: /\bcalled\s+you\b/gi, phrase: 'called you', sound: 'call-dja (/dʒ/)' },
+  { pattern: /\bdid\s+you\b/gi, phrase: 'did you', sound: '/ˈdɪdʒə/ (com /dʒ/)' },
+  { pattern: /\bdon't\s+you\b/gi, phrase: "don't you", sound: '/ˈdoʊntʃə/ (com /tʃ/)' },
+  { pattern: /\bmeet\s+you\b/gi, phrase: 'meet you', sound: '/ˈmiːtʃə/ (com /tʃ/)' },
+  { pattern: /\bwould\s+you\b/gi, phrase: 'would you', sound: '/ˈwʊdʒə/ (com /dʒ/)' },
+  { pattern: /\bcould\s+you\b/gi, phrase: 'could you', sound: '/ˈkʊdʒə/ (com /dʒ/)' },
+  { pattern: /\bwhat\s+you\b/gi, phrase: 'what you', sound: '/ˈwʌtʃə/ (com /tʃ/)' },
+  { pattern: /\bgot\s+you\b/gi, phrase: 'got you', sound: '/ˈɡɑːtʃə/ (com /tʃ/)' },
+  { pattern: /\bcalled\s+you\b/gi, phrase: 'called you', sound: '/ˈkɔːldʒə/ (com /dʒ/)' },
 ];
 
 const ELISION_PATTERNS = [
-  { pattern: /\bnext\s+door\b/gi, phrase: 'next door', explanation: 'O /t/ é elidido entre consoantes (nex-door).' },
-  { pattern: /\blast\s+night\b/gi, phrase: 'last night', explanation: 'O /t/ é elidido antes de consoante (las-night).' },
-  { pattern: /\bfirst\s+time\b/gi, phrase: 'first time', explanation: 'O /t/ é elidido/suprimido (firs-time).' },
+  { pattern: /\bnext\s+door\b/gi, phrase: 'next door', explanation: 'O /t/ é elidido entre consoantes (/nɛks dɔːr/).' },
+  { pattern: /\blast\s+night\b/gi, phrase: 'last night', explanation: 'O /t/ é elidido antes de consoante (/læs naɪt/).' },
+  { pattern: /\bfirst\s+time\b/gi, phrase: 'first time', explanation: 'O /t/ é elidido/suprimido (/fɜːrs taɪm/).' },
   { pattern: /\bhold\s+tight\b/gi, phrase: 'hold tight', explanation: 'O /d/ sofre elisão antes de consoante plosiva.' },
 ];
 

@@ -1,3 +1,20 @@
+## Issue #197 — Fix: IPA Estrito e Eliminação de Pronúncia Abrasileirada (2026-09-26)
+
+- **PR:** [#198](https://github.com/cascaoconcurseiro/linguaflow/pull/198), branch `codex/197-ipa-strict-validation`.
+- **Issue:** [#197](https://github.com/cascaoconcurseiro/linguaflow/issues/197).
+- **Problema resolvido:** O sistema gerava pronúncia abrasileirada (ex: "Uí fót óv rrépin it, bât dén dídnt") rotulada como "Pronúncia (IPA)". A causa raiz era o próprio prompt do service worker, que incluía exemplos abrasileirados como demonstração do formato esperado.
+- **Feito:**
+  - **Novo `utils/ipa-validator.js`**: `isValidIpa()` (rejeita acentos do português, tokens abrasileirados, dígrafos não-IPA, texto sem marcas fonéticas) e `cleanIpa()` (valida e normaliza para `/.../`; retorna `''` se inválido).
+  - **Prompts corrigidos** em `background/service-worker.js` e `dashboard/js/core/ai.js`: exemplos abrasileirados substituídos por IPA correto; PROIBIÇÃO TOTAL explícita; fallback de campo vazio instruído.
+  - **Retry corretivo** em `enrichCard`, `generateChunksWeb` e `generateChunksWithAI`: se o LLM retornar fonética inválida, uma segunda chamada é feita com mensagem de erro explícita.
+  - **Validação em todas as camadas**: `sanitizeCardEnrichment`, `normChunk`, `mergeContextualChunks`, `_render` e `renderReveal` passam todos os campos `phon` pelo validador antes de exibir; `wordPhonEl` ocultado quando vazio.
+  - **`utils/speech-cadence.js`**: exemplos de assimilação palatina e elisão convertidos para IPA real (`/ˈdɪdʒə/`, `/ˈdoʊntʃə/`, etc.).
+  - **`manifest.json`**: `utils/ipa-validator.js` e `utils/schema.js` adicionados ao `web_accessible_resources`.
+- **Validação:**
+  - `tests/ipa-validator.test.mjs`: 5/5 verdes.
+  - `tests/architectural-resilience.test.mjs`: 5/5 verdes.
+- **Pendente:** QA visual no navegador não executado nesta sessão. Validar no Chrome após merge.
+
 ## Issue #195 — Endurecimento de Segurança, Mídia e Dead DOM (2026-09-26)
 
 - **PR:** Vinculado à Issue [#195](https://github.com/cascaoconcurseiro/linguaflow/issues/195), branch `codex/195-security-media-dead-dom-harden`.

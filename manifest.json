@@ -117,6 +117,8 @@
         "utils/lemma.js",
         "utils/lexical-profile.js",
         "utils/speech-cadence.js",
+        "utils/ipa-validator.js",
+        "utils/schema.js",
         "utils/dom-events.js",
         "icon128.png"
       ],

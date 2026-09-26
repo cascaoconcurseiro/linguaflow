@@ -14,6 +14,7 @@ import {
   getPosDetail,
   getPosPatterns,
 } from './popup/popup-linguistics.js';
+import { isValidIpa, cleanIpa } from '../utils/ipa-validator.js';
 
 export class WordPopup {
   constructor(engine, platform) {
@@ -868,6 +869,7 @@ export class WordPopup {
   _render(d) {
     const q = (s) => this._q(s);
     q('#ft').textContent = d.translation || '—';
+    d.phonetic = isValidIpa(d.phonetic) ? cleanIpa(d.phonetic) : '';
     const ipaWrap = q('#fipa-wrap');
     if (d.phonetic) {
       q('#fipa').textContent = d.phonetic;
@@ -1226,7 +1228,10 @@ export class WordPopup {
       // O backfill do service worker roda em background depois do saveWord e
       // completa chunks/frases sozinho.
       if (!d.phonetic && this.generatedChunks && this.generatedChunks.length > 0) {
-        d.phonetic = this.generatedChunks[0].phon;
+        const candidatePhon = this.generatedChunks[0].phon;
+        if (isValidIpa(candidatePhon)) {
+          d.phonetic = cleanIpa(candidatePhon);
+        }
       }
 
       // Capture o trecho antes de qualquer await: enquanto o dicionário/DB

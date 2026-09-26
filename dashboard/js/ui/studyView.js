@@ -7,6 +7,7 @@ import { deriveAdaptivePlan, detectSessionFatigue, evaluateActiveRecallHonesty }
 import { loadVideo, playClip, replayClip, pausePlayer, setClipLoop, isClipPlaying, hidePlayer } from '../core/ytPlayer.js';
 import { hasSourcePhraseLeak } from '../../../utils/translation-quality.js';
 import { mergeContextualChunks } from '../../../utils/context-chunks.js';
+import { isValidIpa, cleanIpa } from '../../../utils/ipa-validator.js';
 import { escapeHtml } from './viewState.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
@@ -539,10 +540,11 @@ function handleKeydown(e) {
 // Aceita os formatos antigos ({eng|ingles|english, pt|portugues, phon|fonetica})
 // e as entradas especiais novas: is_context (a frase do card) e is_word (a palavra).
 function normChunk(c) {
+  const rawPhon = c.phon || c.fonetica || c.phonetics || '';
   return {
     eng: c.eng || c.ingles || c.english || '',
     pt: c.pt || c.portugues || c.portuguese || '',
-    phon: c.phon || c.fonetica || c.phonetics || '',
+    phon: isValidIpa(rawPhon) ? cleanIpa(rawPhon) : '',
     is_context: !!c.is_context,
     is_learning_unit: !!c.is_learning_unit || !!c.is_target,
     is_word: !!c.is_word,
@@ -1389,7 +1391,7 @@ async function revealCard(options = {}) {
 
   // 3. Conteúdo antigo pode existir e ainda estar quebrado. Uma expressão
   // inglesa copiada para o PT ("fist bump", por exemplo) também exige reparo.
-  const needsContextRepair = !ctxEntry || !ctxEntry.pt || hasSourcePhraseLeak(context, ctxEntry.pt);
+  const needsContextRepair = !ctxEntry || !ctxEntry.pt || hasSourcePhraseLeak(context, ctxEntry.pt) || (ctxEntry.phon && !isValidIpa(ctxEntry.phon));
   const needsWordRepair = !wordEntry || !wordEntry.pt;
   if (needsContextRepair || needsWordRepair) {
     const phonEl = document.getElementById('pump-phonetics');
@@ -1399,12 +1401,13 @@ async function revealCard(options = {}) {
     enrichCard(word, context).then(async (data) => {
       if (currentCard !== card || !data) return;
 
-      if (needsContextRepair && data.sentence_phon && data.sentence_pt && !hasSourcePhraseLeak(context, data.sentence_pt)) {
-        ctxEntry = { eng: context, pt: data.sentence_pt || '', phon: data.sentence_phon, is_context: true, is_word: false };
+      if (needsContextRepair && data.sentence_phon && isValidIpa(data.sentence_phon) && data.sentence_pt && !hasSourcePhraseLeak(context, data.sentence_pt)) {
+        ctxEntry = { eng: context, pt: data.sentence_pt || '', phon: cleanIpa(data.sentence_phon), is_context: true, is_word: false };
         chunks = [ctxEntry, ...chunks.filter(c => !c.is_context)];
       }
       if (needsWordRepair && data.word_pt) {
-        wordEntry = { eng: word, pt: data.word_pt || '', phon: data.word_phon || '', is_context: false, is_word: true };
+        const safeWdPhon = isValidIpa(data.word_phon) ? cleanIpa(data.word_phon) : '';
+        wordEntry = { eng: word, pt: data.word_pt || '', phon: safeWdPhon, is_context: false, is_word: true };
         wordData.translation = data.word_pt;
         card.translation = data.word_pt;
         chunks = [...chunks, wordEntry];
@@ -1478,8 +1481,9 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
     && currentCard === card
     && cardPresentationIds.get(card) === presentationId;
   const phonEl = document.getElementById('pump-phonetics');
-  const phonValueEl = document.getElementById('pump-phonetics-value');
-  if (ctxEntry && ctxEntry.phon) {
+  const safeIpa = isValidIpa(ctxEntry?.phon) ? cleanIpa(ctxEntry.phon) : '';
+  if (ctxEntry) ctxEntry.phon = safeIpa;
+  if (safeIpa) {
     phonValueEl.textContent = ctxEntry.phon;
     phonEl.classList.remove('hidden');
   } else {
@@ -1499,13 +1503,17 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
   const wordAnswerEl = document.getElementById('pump-word-answer');
   if (wordAnswerEl && word) {
     const activeWordTrans = (wordEntry && wordEntry.pt) || wordData.translation || card.translation || '';
-    const activeWordPhon = (wordEntry && wordEntry.phon) || wordData.phonetic || '';
+    const rawWordPhon = (wordEntry && wordEntry.phon) || wordData.phonetic || '';
+    const activeWordPhon = isValidIpa(rawWordPhon) ? cleanIpa(rawWordPhon) : '';
     const wordValEl = document.getElementById('pump-word-val');
     const wordTransEl = document.getElementById('pump-word-trans');
     const wordPhonEl = document.getElementById('pump-word-phon');
     if (wordValEl) wordValEl.textContent = word;
     if (wordTransEl) wordTransEl.textContent = activeWordTrans ? `${activeWordTrans}` : '';
-    if (wordPhonEl) wordPhonEl.textContent = activeWordPhon || '';
+    if (wordPhonEl) {
+      wordPhonEl.textContent = activeWordPhon;
+      wordPhonEl.style.display = activeWordPhon ? '' : 'none';
+    }
     wordAnswerEl.classList.remove('hidden');
 
     const wordAudioBtn = document.getElementById('pump-word-audio-btn');

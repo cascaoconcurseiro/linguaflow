@@ -1,5 +1,7 @@
 // Estrutura compartilhada para manter o trecho original e a unidade aprendida
 // no mesmo card sem misturar isso com exemplos genéricos de IA.
+import { cleanIpa } from './ipa-validator.js';
+
 export function mergeContextualChunks(existing, {
   context = '',
   contextTranslation = '',
@@ -22,7 +24,7 @@ export function mergeContextualChunks(existing, {
     result.push({
       eng: contextual,
       pt: String(contextTranslation || previousContext.pt || '').trim(),
-      phon: String(contextPhonetic || previousContext.phon || '').trim(),
+      phon: cleanIpa(contextPhonetic || previousContext.phon || ''),
       is_context: true,
     });
   }
@@ -30,7 +32,7 @@ export function mergeContextualChunks(existing, {
     result.push({
       eng: unit,
       pt: String(learningTranslation || previousUnit.pt || '').trim(),
-      phon: String(learningPhonetic || previousUnit.phon || '').trim(),
+      phon: cleanIpa(learningPhonetic || previousUnit.phon || ''),
       is_learning_unit: true,
     });
   }

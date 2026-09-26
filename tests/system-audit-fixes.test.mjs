@@ -7,6 +7,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
 
 const storiesView = read('dashboard/js/ui/storiesView.js');
+const storiesQuiz = read('dashboard/js/ui/storiesQuiz.js');
 const youtubeHook = read('content/youtube-hook.js');
 const wordPopup = read('content/word-popup.js');
 const subtitleEngine = read('content/subtitle-engine.js');
@@ -15,8 +16,8 @@ const libraryView = read('dashboard/js/ui/libraryView.js');
 // 1. Stories quiz parsing
 assert.match(storiesView, /import\s*\{[^}]*safeParseJson[^}]*\}\s*from\s*'\.\.\/core\/ai\.js'/,
   'storiesView importa safeParseJson de ai.js');
-assert.match(storiesView, /safeParseJson\(content\)/,
-  'storiesView usa safeParseJson para proteger o quiz contra preâmbulos da IA');
+assert.match(storiesQuiz, /safeParseJson\(content\)/,
+  'storiesQuiz usa safeParseJson para proteger o quiz contra preâmbulos da IA');
 
 // 2. YouTube hook Request support
 assert.match(youtubeHook, /url\s*&&\s*typeof\s*url\.url\s*===\s*'string'\s*\?\s*url\.url/,

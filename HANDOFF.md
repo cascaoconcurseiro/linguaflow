@@ -1,3 +1,20 @@
+## Issue #191 — Inteligência de Mídia no YouTube: WPM e Connected Speech nas Legendas — Fase 5 (2026-09-26)
+
+- **PR:** vinculada à Issue [#191](https://github.com/cascaoconcurseiro/linguaflow/issues/191), branch `codex/191-speech-cadence-connected-speech`.
+- **Issue:** [#191](https://github.com/cascaoconcurseiro/linguaflow/issues/191).
+- **Feito:**
+  - **Motor de Cadência de Fala (`utils/speech-cadence.js`)**: Função pura `calculateWpm(text, durationSec)` que calcula a taxa real de palavras por minuto e categoriza a cadência (`slow`, `normal`, `fast`, `very_fast`).
+  - **Detecção de Fenômenos de Fala Conectada (`utils/speech-cadence.js`)**: Função `detectConnectedSpeech(text)` capaz de identificar 4 famílias fonológicas fundamentais da fala nativa: reduções coloquiais ("gonna", "wanna", "coulda"), assimilações palatais ("did you" -> did-ja, "don't you" -> don-cha), elisões em encontros consonantais ("next door", "last night") e linking fonético consoante final + vogal inicial.
+  - **Anotador de Legendas (`utils/speech-cadence.js`)**: Função `annotateCaptionSegment(segment)` que produz metadados fonológicos e marca segmentos com alta demanda de processamento auditivo (`hasChallengingPhonetics`).
+  - **Integração no Motor de Legendas (`content/subtitle-engine.js`)**: Reexportação de utilitários e enriquecimento do cue em tempo real (`cue._speechCadence`).
+  - **Exposição Segura na Extensão (`manifest.json`)**: Adicionado `utils/speech-cadence.js` sob `web_accessible_resources`.
+  - **Contratos e Testes**: Criada suíte `tests/speech-cadence-and-connected-speech.test.mjs` com 7 asserções e integrada no script `test:subtitle-lifecycle` em `package.json`.
+- **Validação:**
+  - `npm run test:subtitle-lifecycle` verde (69/69 testes de legendas, ciclo de vida e cadência de fala aprovados).
+  - `npm run test:pedagogy` e `npm run test:review-economy` 100% verdes.
+  - `npm run lint:biome` limpo.
+  - `node tests/release-smoke.mjs --allow-dirty` verde.
+
 ## Issue #189 — Auditoria Lexical i+1 e Controle de Densidade CEFR nas Histórias — Fase 4 (2026-09-26)
 
 - **PR:** vinculada à Issue [#189](https://github.com/cascaoconcurseiro/linguaflow/issues/189), branch `codex/189-lexical-profile-i-plus-one`.

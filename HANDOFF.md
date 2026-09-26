@@ -1,3 +1,20 @@
+## Issue #173 — Modularização interna do serviço de banco de dados utils/db.js — Fase 2 (2026-09-25)
+
+- **PR:** vinculada à Issue [#173](https://github.com/cascaoconcurseiro/linguaflow/issues/173), branch `codex/173-modular-database-service`.
+- **Issue:** [#173](https://github.com/cascaoconcurseiro/linguaflow/issues/173).
+- **Feito:**
+  - Extraído o repositório `ReaderStoriesRepository` em `utils/db/reader-stories-repo.js`: centraliza persistência de histórias geradas, catálogo, cache SWR de 30s com refresh assíncrono, exclusão segura por UUID, arquivamento e gestão dos textos do Web Reader (`getReaderTexts`, `saveReaderText`, `migrateReaderText`, `deleteReaderText`, `updateReaderProgress`).
+  - Extraído o repositório `GamificationRepository` em `utils/db/gamification-repo.js`: centraliza estatísticas do usuário (`getUserStats`), telemetria sem PII (`reportClientError`), ranking seguro de ligas (`getLeaderboard`), bootstrap atômico e sincronização de fuso horário com lock de promise (`ensureUserStats`), rollover semanal (`maybeLeagueRollover`), Web Push (`getPushPublicKey`, `savePushSubscription`, `deletePushSubscription`), opt-in de e-mail (`setEmailOptIn`) e conquistas (`saveAchievement`, `getUserAchievements`).
+  - Aplicado padrão **Facade** na classe `Database` (`utils/db.js`): instancia ambos os repositórios no construtor e delega todas as operações mantendo as assinaturas e JSDoc intactos, garantindo 100% de retrocompatibilidade com todos os 50+ módulos e suítes de teste.
+  - Atualizado `manifest.json` para expor `utils/db/reader-stories-repo.js` e `utils/db/gamification-repo.js` no `web_accessible_resources` da extensão MV3.
+  - Atualizados testes contratuais e estruturais para refletir a nova organização modular dos arquivos de banco.
+  - Criada nova suíte de testes de contrato em `tests/modular-database-facade-contract.test.mjs` validando delegações em proxy mode, isolamento de repositórios e a interface da Facade (3/3 testes verdes).
+- **Validação:**
+  - `npm run test:web-reader` e `tests/modular-database-facade-contract.test.mjs` verdes.
+  - `npm run test:e2e` (Playwright) 100% verde (3/3 cenários passando).
+  - `npm run lint:biome` verde (42 arquivos analisados sem erros).
+  - `node tests/release-smoke.mjs --allow-dirty` verde.
+
 ## Issue #171 — Decomposição modular de Configurações e Histórias — Fase 1 (2026-09-25)
 
 - **PR:** vinculada à Issue [#171](https://github.com/cascaoconcurseiro/linguaflow/issues/171), branch `codex/171-modular-settings-and-stories`.

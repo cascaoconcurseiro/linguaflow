@@ -98,6 +98,8 @@
         "utils/cefr-wordlist.json",
         "utils/frequency-en.json",
         "utils/db.js",
+        "utils/db/reader-stories-repo.js",
+        "utils/db/gamification-repo.js",
         "utils/local-day.js",
         "utils/expressions-db.js",
         "utils/slangs-db.js",

@@ -1,3 +1,14 @@
+## Issue #173 · Modularização interna do serviço de banco de dados utils/db.js — Fase 2 (2026-09-25)
+
+- [x] Registrar Issue #173 e trabalhar na branch `codex/173-modular-database-service`.
+- [x] Extrair repositório `ReaderStoriesRepository` para `utils/db/reader-stories-repo.js` (histórias, textos sincronizados do leitor, progresso e arquivamento).
+- [x] Extrair repositório `GamificationRepository` para `utils/db/gamification-repo.js` (estatísticas, ligas, telemetria, Web Push e conquistas).
+- [x] Implementar padrão Facade em `Database` (`utils/db.js`), delegando métodos aos repositórios e mantendo 100% de retrocompatibilidade com todas as chamadas existentes.
+- [x] Declarar `utils/db/reader-stories-repo.js` e `utils/db/gamification-repo.js` no `manifest.json` sob `web_accessible_resources`.
+- [x] Atualizar testes estruturais (`tests/study-depth-stories-contract.test.mjs`, `tests/reader-progress-contract.test.mjs`, `tests/user-stats-security-p0-3.test.mjs`, `tests/professional-hardening.test.mjs` e `tests/engine.test.mjs`).
+- [x] Criar suíte de teste de contrato para a Facade em `tests/modular-database-facade-contract.test.mjs` (3/3 testes verdes).
+- [x] Validar que `npm run test:web-reader`, `npm run test:e2e`, `npm run lint:biome` e `npm run test:release` passam 100%.
+
 ## Issue #171 · Decomposição modular de Configurações e Histórias — Fase 1 (2026-09-25)
 
 - [x] Extrair modal interativo de nivelamento CEFR em 4 fases para `dashboard/js/ui/cefrPlacementTest.js`, reduzindo `settingsView.js` em 267 linhas.

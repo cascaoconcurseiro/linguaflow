@@ -9,7 +9,7 @@ const contractPath = path.join(root, 'supabase/migrations/20260716124440_contrac
 const expandSql = fs.readFileSync(expandPath, 'utf8');
 const contractSql = fs.readFileSync(contractPath, 'utf8');
 const sql = `${expandSql}\n${contractSql}`;
-const db = fs.readFileSync(path.join(root, 'utils/db.js'), 'utf8');
+const db = `${fs.readFileSync(path.join(root, 'utils/db.js'), 'utf8')}\n${fs.readFileSync(path.join(root, 'utils/db/gamification-repo.js'), 'utf8')}`;
 const leagues = fs.readFileSync(path.join(root, 'dashboard/js/ui/leaguesView.js'), 'utf8');
 
 const check = (condition, message) => assert.ok(condition, message);

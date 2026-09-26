@@ -127,37 +127,6 @@ export async function aiChatStream(messages, options = {}, onChunk) {
   return full;
 }
 
-function levelNote(level) {
-  if (!level) return 'Nível do aluno desconhecido: assuma A2/B1 e evite termos técnicos sem explicar.';
-  const styles = {
-    A1: 'Use frases curtíssimas, vocabulário mínimo e muitos exemplos traduzidos. Zero jargão.',
-    A2: 'Frases curtas, exemplos do dia a dia, sempre com tradução. Jargão só se explicado com analogia.',
-    B1: 'Pode usar termos simples (ex: "passado", "verbo"), sempre amarrados a um exemplo prático.',
-    B2: 'Explique nuances e registro (formal/informal). Exemplos sem tradução quando forem óbvios.',
-    C1: 'Foque em nuance, colocações e naturalidade. Compare alternativas que um nativo usaria.',
-    C2: 'Trate como quase-nativo: registro, ironia, variações regionais, sutilezas de uso.',
-  };
-  return `O aluno tem nível CEFR ${level}. ${styles[level] || ''}`;
-}
-
-export function grammarTutorPersona(sentence, word, level) {
-  return `Você é um poliglota brasileiro que ensina FLUÊNCIA, não gramática. Você conversa como um amigo que já passou pelo mesmo caminho — zero gramatiquês.
-A frase que o aluno está estudando: "${sentence}" (palavra-foco: "${word}").
-${levelNote(level)}
-
-REGRAS (obrigatórias):
-- Responda SÓ o que foi perguntado. Nada além. NUNCA explique sem pergunta.
-- MÁXIMO ~80 palavras. Uma ideia por resposta.
-- Foco em USO REAL: o que a frase quer dizer de verdade, quando um nativo usaria, como soa. Nomes técnicos de gramática (ex: "present perfect") só se forem ESSENCIAIS pra dúvida — e aí explique em meia linha o que significam na prática.
-- Sempre ancore na frase do aluno, com 1 exemplo do dia a dia se ajudar.
-- Português brasileiro informal e acolhedor.
-- Formato: HTML simples (<b>, <p>). NUNCA markdown, NUNCA listas longas.`;
-}
-
-export function grammarInitialQuestion(sentence, word) {
-  return `Me explica essa frase: "${sentence}". O que ela quer dizer de verdade, e qual é a estrutura mais importante nela (se "${word}" fizer parte disso, foque nela)? Bem curto e didático.`;
-}
-
 export function safeParseJson(text) {
   if (!text || typeof text !== 'string') return null;
   const clean = text.replace(/```json/gi, '').replace(/```/g, '').trim();
@@ -316,7 +285,7 @@ ${levelNote}
 DIRETRIZES FUNDAMENTAIS DE FORMATO:
 - O texto DEVE ser rico em DIÁLOGOS REAIS entre os personagens (cerca de 60% a 70% da história em conversas diretas que uma pessoa pode usar no mundo real em viagens, trabalho, compras e dia a dia).
 - Use aspas inglesas ("...") para as falas e intercale as falas com reações, sentimentos e ações dos personagens.
-- O vocabulário e a gramática devem estar estritamente alinhados ao nível CEFR ${cefr} especificado.
+- O vocabulário e a gramática devem estar RIGOROSAMENTE alinhados ao nível CEFR ${cefr} especificado. Se o nível for A1 ou A2, garanta linguagem simples, direta e acessível, sem palavras difíceis ou tempos verbais complexos fora da banda.
 - Não traduza a história. Apenas escreva a história em inglês, diagramada como um livro: separe CADA parágrafo e CADA turno de fala de personagem OBRIGATORIAMENTE com duas quebras de linha (\n\n). NUNCA junte falas de dois personagens no mesmo parágrafo.
 - NÃO use formatação markdown, NÃO coloque um título, apenas o texto da história.`;
 

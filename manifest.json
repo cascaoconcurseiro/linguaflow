@@ -18,8 +18,7 @@
     "https://www.linguee.com.br/*",
     "https://context.reverso.net/*",
     "https://qnutoswrufznztoznlql.supabase.co/*",
-    "https://translate.google.com/*",
-    "https://api.allorigins.win/*"
+    "https://translate.google.com/*"
   ],
   "background": {
     "service_worker": "background/service-worker.js",
@@ -75,7 +74,7 @@
     "default_title": "LinguaFlow"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://qnutoswrufznztoznlql.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com https://translate.googleapis.com https://api.mymemory.translated.net https://api.dictionaryapi.dev https://api.datamuse.com https://en.wiktionary.org https://www.linguee.com.br https://context.reverso.net https://translate.google.com https://api.allorigins.win"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://qnutoswrufznztoznlql.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com https://translate.googleapis.com https://api.mymemory.translated.net https://api.dictionaryapi.dev https://api.datamuse.com https://en.wiktionary.org https://www.linguee.com.br https://context.reverso.net https://translate.google.com"
   },
   "web_accessible_resources": [
     {

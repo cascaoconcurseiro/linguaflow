@@ -1,6 +1,6 @@
 import { db as lfDb, createOperationId } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio, downloadAudio, preloadNaturalAudio } from '../core/tts.js';
-import { getCefrLevel, enrichCard, generateChunksWeb, generateMnemonic } from '../core/ai.js';
+import { getCefrLevel, enrichCard, generateChunksWeb } from '../core/ai.js';
 import { attachVideoContext, renderVideoContext, getVideoContext } from '../core/videoContext.js';
 import { buildSessionQueue, isWeakCard, prioritizeDueLearning } from '../core/sessionQueue.js';
 import { deriveAdaptivePlan, detectSessionFatigue, evaluateActiveRecallHonesty } from '../core/adaptiveLearning.js';
@@ -816,8 +816,6 @@ async function loadNextCard(app) {
   hidePlayer(); // troca de card: o vídeo do card anterior não deve tocar ao fundo
   document.getElementById('youglish-box').classList.add('hidden');
   document.getElementById('improve-btn').classList.add('hidden');
-  const chunksEl = document.getElementById('chunks-container');
-  if (chunksEl) chunksEl.innerHTML = '';
 
   const wordData = card.wordData || {};
   const word = wordData.word || card.word || 'Erro';
@@ -1268,7 +1266,6 @@ async function improveSentence(app) {
   const wordEntry = chunks.find(c => c.is_learning_unit)
     || chunks.find(c => c.is_word || c.eng?.toLowerCase() === word.toLowerCase());
   renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { renderVideo: false });
-  renderChunksList(chunks, context);
   // O trecho salvo pertence à frase anterior; escondê-lo evita ensinar uma
   // associação áudio/texto incorreta depois da substituição por IA.
   document.getElementById('video-resource-section')?.classList.add('hidden');
@@ -1388,8 +1385,6 @@ async function revealCard(options = {}) {
   }
 
   renderReveal(word, context, ctxEntry, wordEntry, wordData, card);
-  renderStudyResourceSummary(word, context, ctxEntry, wordEntry, wordData);
-  renderChunksList(chunks, context);
   updateYouglish(word);
 
   // 3. Conteúdo antigo pode existir e ainda estar quebrado. Uma expressão
@@ -1422,8 +1417,6 @@ async function revealCard(options = {}) {
       // perderia o estado play/pause e deixaria o callback do iframe anterior
       // apontando para botões já removidos.
       renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { renderVideo: false });
-      renderStudyResourceSummary(word, context, ctxEntry, wordEntry, wordData);
-      renderChunksList(chunks, context);
     }).catch((e) => {
       if (currentCard === card) phonEl.classList.add('hidden');
       console.warn('[Study] Enriquecimento falhou:', e);
@@ -1446,10 +1439,14 @@ function renderRichContextCard(wordData = {}, card = {}, word = '', context = ''
     }
   }
 
+  const isLearningUnit = (card._chunks || []).some(c => c.is_learning_unit);
+  const unitBadge = isLearningUnit ? '<div class="rich-context-label">Unidade para guardar</div>' : '';
+
   return `
     <div class="rich-word-container">
       <div class="rich-word-header">
         <div class="rich-word-meta">
+          ${unitBadge}
           <div class="rich-word-title-row">
             <span class="rich-word-title">${safeWord}</span>
             <span class="rich-arrow" aria-hidden="true">→</span>
@@ -1538,43 +1535,7 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
       playNaturalAudio(word, { lang });
     });
   }
-  // Onda 3.3: mnemônico por IA — gerado uma vez e salvo no card
-  // (words.mnemonic), pra não custar uma chamada de IA toda vez que o
-  // aluno reabre a mesma palavra.
-  const mnemonicBtn = document.getElementById('iso-mnemonic-btn');
-  const mnemonicText = document.getElementById('iso-mnemonic-text');
-  if (mnemonicBtn && mnemonicText) {
-    mnemonicText.classList.add('hidden');
-    mnemonicText.textContent = '';
-    if (wordData.mnemonic) {
-      mnemonicText.textContent = wordData.mnemonic;
-      mnemonicText.classList.remove('hidden');
-      mnemonicBtn.textContent = 'Gerar outro truque';
-    } else {
-      mnemonicBtn.textContent = 'Me dê um truque para lembrar';
-    }
-    mnemonicBtn.onclick = async () => {
-      mnemonicBtn.disabled = true;
-      mnemonicBtn.textContent = 'Gerando…';
-      try {
-        const translation = (wordEntry && wordEntry.pt) || wordData.translation || card.translation || '';
-        const mnemonic = await generateMnemonic(word, translation, context);
-        mnemonicText.textContent = mnemonic;
-        mnemonicText.classList.remove('hidden');
-        mnemonicBtn.textContent = 'Gerar outro truque';
-        if (wordData.id) {
-          wordData.mnemonic = mnemonic;
-          lfDb.updateWord(wordData.id, { mnemonic }).catch(() => {});
-        }
-      } catch (e) {
-        console.warn('[Study] Mnemônico falhou:', e);
-        exerciseApp?.showToast?.('Não consegui gerar um truque agora. Tente de novo.', 'error');
-        mnemonicBtn.textContent = 'Me dê um truque para lembrar';
-      } finally {
-        mnemonicBtn.disabled = false;
-      }
-    };
-  }
+
 
   if (!renderVideo) return;
 
@@ -1714,104 +1675,7 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
   }
 }
 
-// ── Chunks (frases úteis) ────────────────────────────────────────────────────
-function renderStudyResourceSummary(word, context, ctxEntry, wordEntry, wordData = {}) {
-  const meaning = document.getElementById('study-context-meaning');
-  const usage = document.getElementById('study-usage-note');
-  if (!meaning || !usage) return;
-  const translation = String(wordEntry?.pt || wordData.translation || '').trim();
-  const explanation = String(wordData.explanation || '').trim();
-  meaning.textContent = explanation
-    || (translation
-      ? `Aqui, “${word}” significa “${translation}”. Leia a frase inteira antes de memorizar a palavra isolada.`
-      : 'Ainda não há uma explicação contextual salva. A frase original continua disponível e será enriquecida quando a conexão permitir.');
 
-  const categoryLabels = { phrasal: 'phrasal verb', idiom: 'expressão idiomática', slang: 'gíria', word: 'palavra' };
-  const category = categoryLabels[wordData.category] || 'unidade de vocabulário';
-  const level = wordData.level ? ` · nível estimado ${wordData.level}` : '';
-  const contextualTranslation = String(ctxEntry?.pt || '').trim();
-  usage.textContent = contextualTranslation
-    ? `${category}${level}. Na frase completa: ${contextualTranslation}`
-    : `${category}${level}. Pratique o bloco em que a palavra aparece, não apenas sua tradução.`;
-  usage.dataset.context = context || '';
-}
-
-function renderChunksList(chunks, context) {
-  const container = document.getElementById('chunks-container');
-  if (!container) return;
-  const visible = chunks.filter(c => !c.is_word);
-  // A frase do card sempre primeiro
-  visible.sort((a, b) => {
-    const rank = (chunk) => chunk.is_context ? 0 : chunk.is_learning_unit ? 1 : 2;
-    return rank(a) - rank(b);
-  });
-
-  if (visible.length === 0) {
-    container.innerHTML = `<div class="chunk-card" style="opacity:1;"><div class="chunk-en">${escapeHtml(context)}</div></div>`;
-    return;
-  }
-
-  const recommended = visible.slice(0, 2);
-  const additional = visible.slice(2);
-  container.innerHTML = recommended.map((c, i) => renderChunkCard(c, i)).join('')
-    + (additional.length ? `
-      <details class="chunk-more">
-        <summary>Ver mais ${additional.length} ${additional.length === 1 ? 'bloco' : 'blocos'}</summary>
-        <div>${additional.map((c, i) => renderChunkCard(c, i + recommended.length)).join('')}</div>
-      </details>` : '');
-  attachChunkAudioListeners();
-}
-
-function renderChunkCard(c, i) {
-  const safeEng = escapeHtml(c.eng || '');
-  const label = c.is_context
-    ? '<div class="chunk-label">Trecho original</div>'
-    : c.is_learning_unit
-      ? '<div class="chunk-label">Unidade para guardar</div>'
-      : '';
-  return `
-    <div class="chunk-card">
-      ${label}
-      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-        <div style="flex:1;">
-          <div class="chunk-en">${safeEng}</div>
-          <div class="chunk-br">${escapeHtml(c.phon || '')}</div>
-          <div class="chunk-pt">${escapeHtml(c.pt || '')}</div>
-        </div>
-        <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0; margin-left:8px;">
-          <button class="chunk-action-btn chunk-audio-btn" data-text="${safeEng}" aria-label="Ouvir: ${safeEng}" title="Ouvir">Ouvir</button>
-          <button class="chunk-action-btn chunk-save-btn" data-text="${safeEng}" aria-label="Salvar áudio de: ${safeEng}" title="Salvar áudio (MP3)">Salvar</button>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function attachChunkAudioListeners() {
-  const lang = localStorage.getItem('lf_tts_lang') || 'en-US';
-  document.querySelectorAll('.chunk-audio-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const text = btn.dataset.text;
-      if (text) playNaturalAudio(text, { lang });
-    });
-  });
-  document.querySelectorAll('.chunk-save-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const text = btn.dataset.text;
-      if (!text) return;
-      const original = btn.textContent;
-      btn.textContent = 'Salvando…';
-      btn.disabled = true;
-      try {
-        await downloadAudio(text, { lang });
-      } catch (e) {
-        console.warn('[Study] Download de áudio falhou:', e);
-      }
-      btn.textContent = original;
-      btn.disabled = false;
-    });
-  });
-}
 
 // escapeHtml importado de viewState.js — não duplicar aqui.
 
@@ -2711,9 +2575,7 @@ function injectStyles() {
       .rich-word-title { font-size:15px; }
       .rich-trans-text { font-size:15px; }
     }
-    #iso-mnemonic-box { margin-top:10px; }
-    #iso-mnemonic-btn { min-height:40px; padding:0; border:0; background:transparent; color:var(--color-secondary); font-weight:900; cursor:pointer; }
-    #iso-mnemonic-text { margin-top:8px; padding:10px 12px; border:1px solid var(--color-warning); border-radius:10px; background:rgba(255,200,0,.12); color:var(--color-text); font-size:13px; line-height:1.5; }
+
     .more-contexts { border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); }
     .more-contexts > summary { min-height:48px; padding:0 14px; display:flex; align-items:center; cursor:pointer; color:var(--color-text); font-weight:900; }
     .more-contexts-content { padding:0 14px 14px; display:grid; gap:16px; }
@@ -2836,7 +2698,6 @@ function injectStyles() {
     .btn-iso-audio { width: auto; min-width: 44px; height: 44px; padding: 8px 10px; border-radius: 5px; background: transparent; font-size: 12px; transition: background-color .16s ease, border-color .16s ease; }
     .btn-iso-audio:hover, .btn-iso-audio:active { background: var(--color-bg-alt); transform: none; }
     .rich-quote-box { border-radius: 0; background: transparent; padding-left: 10px; }
-    #iso-mnemonic-text { border-radius: 4px; background: transparent; }
     .chunk-card { border-left-width: 3px; border-radius: 0; padding: 16px 0 16px 14px; }
     .chunk-pt { border-radius: 0; background: transparent; padding-left: 0; }
     .chunk-action-btn { width: auto; height: 44px; min-width: 64px; border: 1px solid var(--color-border); border-radius: 4px; background: transparent; color: var(--color-secondary); font-size: 11px; font-weight: 800; }
@@ -2863,7 +2724,7 @@ function injectStyles() {
     .anki-counter-badge strong { display:block; color:var(--color-text); font-size:24px; line-height:1; }
     .anki-card-timer { padding:0; border:0; background:transparent; color:var(--color-secondary); font-size:16px; }
     .timer-label { display:block; font-size:11px; color:var(--color-text-light); }
-    .sentence-container { max-width:none; margin:0 0 14px; padding:25px 48px 28px; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); text-align:center; }
+    .sentence-container { max-width:none; margin:0 0 14px; padding:25px 48px 28px; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); text-align:center; max-height:calc(100dvh - 100px - var(--study-grading-dock-height, 140px)); overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; }
     .study-card-meta { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:28px; text-align:left; }
     .study-card-meta > div:first-child { display:grid; gap:3px; }
     .study-card-meta-actions { display:flex; align-items:center; justify-content:flex-end; gap:12px; flex:0 0 auto; margin-left:auto; }
@@ -2897,7 +2758,7 @@ function injectStyles() {
     .rich-explain-body { font-size:15px; line-height:1.6; }
     .rich-context-label { color:var(--color-primary); }
     .rich-quote-box { margin-top:12px; background:transparent; border-left:2px solid var(--color-secondary); border-radius:0; }
-    .grading-buttons { max-width:none; margin-top:16px; }
+    .grading-buttons { position:fixed; inset:auto 0 0; z-index:110; width:100%; max-width:none; margin:0; }
     .grading-row { gap:12px; }
     .grade-btn { min-height:88px; border-radius:12px; border:0; font-size:18px; box-shadow:none; }
     .grade-btn:hover:not(:disabled) { filter:brightness(1.06); }

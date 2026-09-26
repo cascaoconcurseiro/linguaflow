@@ -1,8 +1,7 @@
 import { ListeningClock } from '../utils/listening-clock.js';
 import { groupCaptionEvents, attachTranslationsByTime } from '../utils/caption-grouping.js';
 import { localDateKey } from '../utils/local-day.js';
-import { expressionsDB } from '../utils/expressions-db.js';
-import { matchExpressionCandidate } from '../utils/expressions-db.js';
+import { expressionsDB, matchExpressionCandidate, MAX_EXPRESSION_WORDS } from '../utils/expressions-db.js';
 import { slangsDB } from '../utils/slangs-db.js';
 import { videoUtils } from '../utils/video-utils.js';
 
@@ -577,7 +576,14 @@ export class SubtitleEngine {
 
     // Keep the official captions visible until our source-language cues exist.
     if (this.platform === 'youtube') {
-      this.ytObserver = new MutationObserver(() => this._syncYouTubeNativeCaptions());
+      let ytRafId = null;
+      this.ytObserver = new MutationObserver(() => {
+        if (ytRafId) return;
+        ytRafId = requestAnimationFrame(() => {
+          ytRafId = null;
+          this._syncYouTubeNativeCaptions();
+        });
+      });
       this.ytObserver.observe(document.body, { childList: true, subtree: true });
     }
 
@@ -4238,13 +4244,7 @@ export class SubtitleEngine {
   }
 
   _getMaxExpressionWords() {
-    if (!this._maxExpressionWords) {
-      this._maxExpressionWords = Math.max(
-        2,
-        ...Array.from(expressionsDB, (expr) => expr.split(/\s+/).length),
-      );
-    }
-    return this._maxExpressionWords;
+    return MAX_EXPRESSION_WORDS;
   }
 
   _createWordSpan(text, isExpression, disableHoverPause = false) {

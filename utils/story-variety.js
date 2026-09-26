@@ -13,13 +13,17 @@ const SETTINGS = ['a small coffee shop', 'a crowded train', 'an old bookstore',
   'a night market', 'an office on a Friday afternoon', 'a rainy bus stop',
   'a rooftop garden', 'an airport gate', 'a neighborhood gym',
   'a family kitchen', 'a beach town in winter', 'a busy hospital lobby',
-  'a quiet library', 'a street food festival'];
+  'a quiet library', 'a street food festival', 'a cozy bakery on a Sunday morning',
+  'a sunny city park with dogs', 'a local supermarket checkout line',
+  'a relaxed terrace cafe with outdoor seating', 'a friendly neighborhood record store'];
 
 const INGREDIENTS = ['an unexpected phone call', 'a small misunderstanding',
   'a lost object that matters', 'a stranger who helps',
   'a difficult decision', 'a funny coincidence', 'a promise kept too late',
   'a surprise invitation', 'a plan that goes wrong',
-  'good news arriving at a bad time'];
+  'good news arriving at a bad time', 'a friendly pet causing a funny moment',
+  'ordering something delicious by accident', 'recommending a favorite song or movie',
+  'finding an old photo in a coat pocket'];
 
 function pick(arr, rand) {
   return arr[Math.floor(rand() * arr.length)];
@@ -39,11 +43,11 @@ export function recentStorySnippets(stories = [], genre = '') {
 // Especificação de tamanho/estrutura POR BANDA (queixa do dono 17/07: todo
 // nível recebia os mesmos "200-300 palavras" — um A1 ganha um texto 3x maior
 // do que aguenta e desiste achando que o problema é ele). W5.1 do plano.
-const LEVEL_SPECS = {
+export const LEVEL_SPECS = {
   A1: { words: '280 a 380', maxSentence: 10, maxTokens: 1100,
-    structures: 'diálogos cotidianos simples (apresentações, cafeteria, compras, rotina), APENAS presente simples, "there is/are" e imperativo. Vocabulário das 1000 palavras mais comuns.' },
+    structures: 'diálogos cotidianos simples (apresentações, cafeteria, compras, rotina), APENAS presente simples, "there is/are" e imperativo. Vocabulário estrito das 1000 palavras mais comuns do dia a dia (proibido vocabulário B1/B2).' },
   A2: { words: '400 a 550', maxSentence: 14, maxTokens: 1500,
-    structures: 'diálogos práticos ricos do dia a dia (viagens, transporte, restaurantes, trabalho, imprevistos reais), presente e passado simples, "going to", comparativos. Nada de perfect tenses.' },
+    structures: 'diálogos práticos ricos do dia a dia (viagens, transporte, restaurantes, trabalho, imprevistos reais), presente e passado simples, "going to", comparativos. Vocabulário estrito de nível básico A2 (nada de perfect tenses, conditionals ou vocabulário abstrato B1/B2).' },
   B1: { words: '600 a 800', maxSentence: 18, maxTokens: 2200,
     structures: 'conversas realistas completas com troca de opiniões, sentimentos, situações imprevistas, present perfect, 1º condicional e passado contínuo.' },
   B2: { words: '800 a 1100', maxSentence: 22, maxTokens: 2800,

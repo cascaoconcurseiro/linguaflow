@@ -515,5 +515,18 @@
 - [x] Validação de gates: `npm run test:subtitle-lifecycle`, `test:pedagogy`, `test:review-economy`, `lint:biome` e `release-smoke`.
 - [ ] Submissão e merge do PR.
 
+## Fix · Botões de nota fixos no sistema e rolagem isolada no conteúdo central do card (2026-09-26)
+
+## Issue #195 · Endurecimento de Segurança, Mídia e Dead DOM (2026-09-26)
+
+- [x] Criar Issue #195 e branch `codex/195-security-media-dead-dom-harden`.
+- [x] Eliminação do proxy de terceiros `api.allorigins.win` em `utils/tts.js`, `utils/translator.js`, `manifest.json`, `dashboard/dashboard.html` e `vercel.json`.
+- [x] Otimização de CPU com throttle `requestAnimationFrame` no `ytObserver` de `content/subtitle-engine.js`.
+- [x] Pré-computação estática da constante `MAX_EXPRESSION_WORDS = 6` em `utils/expressions-db.js` eliminando alocações dinâmicas repetitivas.
+- [x] Limpeza de seletores e rotinas mortas/zumbis de chunks e mnemônicos legados em `dashboard/js/ui/studyView.js`.
+- [x] Remoção de exports e personas órfãs em `dashboard/js/core/ai.js` (`grammarTutorPersona`, `grammarInitialQuestion`).
+- [x] Suíte TDD `tests/security-media-and-dead-dom-fixes.test.mjs` integrada no script `test:release`.
+- [x] Validação de gates: `npm run lint:biome` e testes de release 100% verdes.
+
 
 

@@ -4,6 +4,8 @@
  * Teclas: 1=Errei, 2=Difícil, 3=Bom, 4=Fácil, Esc=Fechar
  */
 
+import { isEditableTarget } from '../utils/dom-events.js';
+
 export class ReviewOverlay {
   constructor() {
     this.host = null;
@@ -115,7 +117,7 @@ export class ReviewOverlay {
     // Keyboard
     this._keyHandler = (e) => {
       if (!this.visible || this._answerBusy) return;
-      if (e.target.closest('input, textarea')) return;
+      if (isEditableTarget(e)) return;
 
       const actionsVisible = document.getElementById('lf-ro-actions').style.display !== 'none';
       if (!actionsVisible && (e.key === ' ' || e.key === 'Enter')) {

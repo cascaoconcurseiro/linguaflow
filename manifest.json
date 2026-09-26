@@ -118,6 +118,7 @@
         "utils/lemma.js",
         "utils/lexical-profile.js",
         "utils/speech-cadence.js",
+        "utils/dom-events.js",
         "icon128.png"
       ],
       "matches": [

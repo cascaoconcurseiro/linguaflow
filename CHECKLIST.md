@@ -1,3 +1,16 @@
+## Issue #175 · Modularização do motor de legendas content/subtitle-engine.js — Fase 3 (2026-09-25)
+
+- [x] Registrar Issue #175 e trabalhar na branch `codex/175-modular-subtitle-engine`.
+- [x] Extrair validação de segurança da bridge em `content/subtitles/bridge-security.js` (`isTrustedSubtitleBridgeMessage`, constantes de origem e actions permitidas).
+- [x] Extrair cálculo de responsividade do dock em `content/subtitles/dock-layout.js` (`computeDockResponsiveClass`, `applyDockResponsiveClass`).
+- [x] Extrair gerenciamento de hotkeys do player em `content/subtitles/player-hotkeys.js` (`setupPlayerHotkeys`).
+- [x] Extrair parser de legendas WebVTT em `content/subtitles/vtt-parser.js` (`parseVTT`).
+- [x] Refatorar `content/subtitle-engine.js` importando e delegando para os submódulos, mantendo reexportações e 100% de compatibilidade pública.
+- [x] Declarar os 4 novos submódulos em `manifest.json` sob `web_accessible_resources`.
+- [x] Criar suíte de testes de contrato em `tests/modular-subtitles-contract.test.mjs` (4/4 testes verdes).
+- [x] Integrar teste ao script `test:subtitle-lifecycle` em `package.json`.
+- [x] Validar regressão completa: `test:subtitle-lifecycle` (26 testes), `test:max-ui`, `test:e2e` (Playwright), `lint:biome` e `release-smoke` 100% verdes.
+
 ## Issue #173 · Modularização interna do serviço de banco de dados utils/db.js — Fase 2 (2026-09-25)
 
 - [x] Registrar Issue #173 e trabalhar na branch `codex/173-modular-database-service`.

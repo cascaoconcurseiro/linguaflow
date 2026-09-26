@@ -1,3 +1,22 @@
+## Issue #175 — Modularização do motor de legendas content/subtitle-engine.js — Fase 3 (2026-09-25)
+
+- **PR:** vinculada à Issue [#175](https://github.com/cascaoconcurseiro/linguaflow/issues/175), branch `codex/175-modular-subtitle-engine`.
+- **Issue:** [#175](https://github.com/cascaoconcurseiro/linguaflow/issues/175).
+- **Feito:**
+  - Extraído `content/subtitles/bridge-security.js`: validação de mensagens vindas da bridge web accessible (`isTrustedSubtitleBridgeMessage`), constantes de segurança e restrições de origem.
+  - Extraído `content/subtitles/dock-layout.js`: cálculo responsivo de classes do dock (`computeDockResponsiveClass`) e aplicação com memoização no DOM (`applyDockResponsiveClass`).
+  - Extraído `content/subtitles/player-hotkeys.js`: manipulador unificado de atalhos de teclado do player com suporte a `AbortSignal` (`setupPlayerHotkeys`).
+  - Extraído `content/subtitles/vtt-parser.js`: analisador e normalizador resiliente de WebVTT (`parseVTT`) com suporte a tags de estilo, timecodes com vírgula/ponto e cues multilinha.
+  - Refatorado `content/subtitle-engine.js`: importa os novos submódulos, delega a execução interna dos métodos correspondentes e reexporta as funções públicas (`isTrustedSubtitleBridgeMessage`, `computeDockResponsiveClass`, `applyDockResponsiveClass`) preservando 100% de compatibilidade para todos os testes e callers.
+  - Declarados os 4 novos submódulos em `manifest.json` sob `web_accessible_resources`.
+  - Criada suíte de testes de contrato em `tests/modular-subtitles-contract.test.mjs` (4/4 testes verdes) e integrada no comando `npm run test:subtitle-lifecycle`.
+- **Validação:**
+  - `npm run test:subtitle-lifecycle` (26/26 testes verdes).
+  - `npm run test:max-ui` verde.
+  - `npm run test:e2e` (Playwright) verde (3/3 testes).
+  - `npm run lint:biome` verde (42 arquivos analisados sem erros).
+  - `node tests/release-smoke.mjs --allow-dirty` verde.
+
 ## Issue #173 — Modularização interna do serviço de banco de dados utils/db.js — Fase 2 (2026-09-25)
 
 - **PR:** vinculada à Issue [#173](https://github.com/cascaoconcurseiro/linguaflow/issues/173), branch `codex/173-modular-database-service`.

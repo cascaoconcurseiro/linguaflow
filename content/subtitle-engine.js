@@ -8,90 +8,24 @@ import { videoUtils } from '../utils/video-utils.js';
 
 import { escapeHTML } from '../utils/html.js';
 
-const SUBTITLE_BRIDGE_TYPES = new Set([
-  'LF_HBO_SUB',
-  'LF_SUBTITLE_HOOK',
-  'LF_PLAYER_STATE',
-  'LF_AUDIO_LANGUAGE',
-  'LF_YT_SUB_TOGGLE',
-]);
-const MAX_SUBTITLE_PAYLOAD_BYTES = 5 * 1024 * 1024;
-const MAX_SUBTITLE_URL_LENGTH = 4096;
+import {
+  isTrustedSubtitleBridgeMessage,
+  SUBTITLE_BRIDGE_TYPES,
+  MAX_SUBTITLE_PAYLOAD_BYTES,
+  MAX_SUBTITLE_URL_LENGTH,
+} from './subtitles/bridge-security.js';
+import {
+  computeDockResponsiveClass,
+  applyDockResponsiveClass,
+} from './subtitles/dock-layout.js';
+import { setupPlayerHotkeys } from './subtitles/player-hotkeys.js';
+import { parseVTT } from './subtitles/vtt-parser.js';
 
-export function isTrustedSubtitleBridgeMessage(event, bridgeState, currentUrl) {
-  const data = event?.data;
-  if (event?.source !== window || event?.origin !== window.location.origin) return false;
-  if (!bridgeState?.nonce || bridgeState.url !== currentUrl) return false;
-  if (!data || typeof data !== 'object' || !SUBTITLE_BRIDGE_TYPES.has(data.type)) return false;
-  if (data.nonce !== bridgeState.nonce || data.pageUrl !== currentUrl) return false;
-
-  let currentHostname;
-  try {
-    currentHostname = new URL(currentUrl).hostname;
-  } catch {
-    return false;
-  }
-  const isYouTube = currentHostname === 'youtube.com' || currentHostname.endsWith('.youtube.com');
-  const isMax = ['max.com', 'hbomax.com', 'hbo.com'].some(
-    (domain) => currentHostname === domain || currentHostname.endsWith(`.${domain}`),
-  );
-
-  if (data.type === 'LF_AUDIO_LANGUAGE') {
-    return isYouTube && (
-      (data.language === null && data.evidence === null)
-      || (typeof data.language === 'string' && /^[a-z]{2,3}(-[a-z0-9]{2,8})?$/.test(data.language)
-        && ['audio_track', 'caption_asr'].includes(data.evidence))
-    );
-  }
-  if (data.type === 'LF_PLAYER_STATE') {
-    return isYouTube && Number.isInteger(data.state) && data.state >= -1 && data.state <= 5;
-  }
-  if (data.type === 'LF_YT_SUB_TOGGLE') return isYouTube && typeof data.active === 'boolean';
-
-  if (typeof data.url !== 'string' || data.url.length === 0 || data.url.length > MAX_SUBTITLE_URL_LENGTH) {
-    return false;
-  }
-  try {
-    const subtitleUrl = new URL(data.url, currentUrl);
-    const protocol = subtitleUrl.protocol;
-    if (protocol !== 'https:' && protocol !== 'http:') return false;
-    const subtitleLocator = `${subtitleUrl.pathname}${subtitleUrl.search}`.toLowerCase();
-    if (data.type === 'LF_SUBTITLE_HOOK' && (!isYouTube || !subtitleLocator.includes('timedtext'))) {
-      return false;
-    }
-    if (
-      data.type === 'LF_HBO_SUB'
-      && (!isMax || !/(\.vtt|\.webvtt|subtitle|caption)/.test(subtitleLocator))
-    ) return false;
-  } catch {
-    return false;
-  }
-
-  const payload = data.type === 'LF_HBO_SUB' ? data.response : data.data;
-  if (typeof payload === 'string') {
-    return payload.length <= MAX_SUBTITLE_PAYLOAD_BYTES
-      && new TextEncoder().encode(payload).byteLength <= MAX_SUBTITLE_PAYLOAD_BYTES;
-  }
-  return payload instanceof ArrayBuffer && payload.byteLength <= MAX_SUBTITLE_PAYLOAD_BYTES;
-}
-
-export function computeDockResponsiveClass(playerWidth) {
-  if (playerWidth === null || playerWidth === undefined) return 'lf-size-normal';
-  const width = Number(playerWidth);
-  if (!Number.isFinite(width) || width <= 0 || width >= 820) return 'lf-size-normal';
-  if (width >= 620) return 'lf-size-compact';
-  if (width >= 480) return 'lf-size-mini';
-  return 'lf-size-tiny';
-}
-
-export function applyDockResponsiveClass(dockElement, playerWidth) {
-  if (!dockElement) return 'lf-size-normal';
-  const cls = computeDockResponsiveClass(playerWidth);
-  dockElement.classList.toggle('lf-size-compact', cls === 'lf-size-compact');
-  dockElement.classList.toggle('lf-size-mini', cls === 'lf-size-mini');
-  dockElement.classList.toggle('lf-size-tiny', cls === 'lf-size-tiny');
-  return cls;
-}
+export {
+  isTrustedSubtitleBridgeMessage,
+  computeDockResponsiveClass,
+  applyDockResponsiveClass,
+};
 
 const STOP_WORDS = new Set([
   'the', 'a', 'an', 'and', 'or', 'but', 'to', 'of', 'in', 'on', 'at', 'for', 'with', 'is', 'are',
@@ -771,78 +705,7 @@ export class SubtitleEngine {
   }
 
   _setupKeyboardShortcuts() {
-    document.addEventListener('keydown', (e) => {
-      // Não dispara se o usuário estiver digitando em um input
-      if (
-        ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName) ||
-        document.activeElement.isContentEditable
-      )
-        return;
-
-      const vid = this.videoElement || document.querySelector('video');
-      if (!vid) return;
-
-      const key = e.key.toLowerCase();
-      const code = e.code;
-
-      // Bloqueia scroll por espaço/setas se o foco não estiver no vídeo
-      if ([' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
-        // e.preventDefault(); // Opcional: remover se quebrar scroll da página
-      }
-
-      switch (code) {
-        case 'KeyA': // Anterior
-          e.preventDefault();
-          this.prevSubtitle();
-          this._showNotification('⏮️ Frase Anterior');
-          break;
-        case 'KeyS': // Repetir atual (Shadowing)
-          e.preventDefault();
-          this.repeatSubtitle();
-          this._showNotification('🔄 Repetindo (Shadowing)');
-          break;
-        case 'KeyD': // Próxima
-          e.preventDefault();
-          this.nextSubtitle();
-          this._showNotification('⏭️ Próxima Frase');
-          break;
-        case 'KeyQ': // Toggle Pausa Automática
-          e.preventDefault();
-          this.autoPause = !this.autoPause;
-          this._showAutoPauseIndicator();
-          break;
-        case 'KeyL': // Painel de Legendas
-          e.preventDefault();
-          this.toggleSubtitlePanel();
-          break;
-        case 'KeyO': // Configurações
-          e.preventDefault();
-          window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
-          break;
-        case 'KeyC': { // Toggle Legendas
-          e.preventDefault();
-          // No YouTube o switch injetado é o dono do estado (localStorage,
-          // title e visual). Clicá-lo mantém tecla e botão sincronizados.
-          const ytSwitch = document.getElementById('lf-yt-toggle-wrapper');
-          if (ytSwitch) ytSwitch.click();
-          else this.toggleSubtitles();
-          const isVisible = localStorage.getItem('lf_sub_visible') === 'true';
-          this._showNotification(isVisible ? '👁️ Legendas Ativadas' : '🙈 Legendas Ocultas');
-          break;
-        }
-        case 'Space': // Play/Pause
-          e.preventDefault();
-          if (vid.paused) {
-            vid.play();
-            this._showNotification('▶️ Play');
-          } else {
-            vid.pause();
-            this._showNotification('⏸️ Pause');
-          }
-          break;
-      }
-    }, { signal: this._lifecycleController.signal });
-    console.debug('[LinguaFlow] ⌨️ Centro de Comando unificado (A, S, D, Q, L, O, C, Espaço).');
+    setupPlayerHotkeys(this, this._lifecycleController?.signal);
   }
 
   // ── Navegação por Legenda ───────────────────────────────────────────────
@@ -3299,42 +3162,9 @@ export class SubtitleEngine {
 
   // Removido _formatTime duplicado e assíncrono (usando a versão síncrona no fim do arquivo)
 
-  // ── VTT Parser (HBO Max) — V5 version ────────────────────────────────────
+  // ── VTT Parser (HBO Max) — delegado para parseVTT ────────────────────────
   _parseVTT(vttStr) {
-    if (!vttStr || typeof vttStr !== 'string') return [];
-    const normalized = vttStr.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    const cues = [];
-    const blocks = normalized.split(/\n\s*\n/);
-    blocks.forEach((b) => {
-      const lines = b.trim().split('\n');
-      let timeLine = lines.find((l) => l.includes('-->'));
-      if (!timeLine) return;
-      const [startStr, endStr] = timeLine.split('-->').map((s) => s.trim());
-      const parseTime = (t) => {
-        if (!t) return 0;
-        const timePart = t.split(/\s+/)[0].replace(',', '.');
-        const p = timePart.split(':');
-        let sec = parseFloat(p.pop() || 0);
-        if (p.length) sec += parseInt(p.pop() || 0, 10) * 60;
-        if (p.length) sec += parseInt(p.pop() || 0, 10) * 3600;
-        return isNaN(sec) ? 0 : sec;
-      };
-      const rawText = lines
-        .slice(lines.indexOf(timeLine) + 1)
-        .map((l) => l.replace(/<[^>]+>/g, '').trim())
-        .join(' ')
-        .trim();
-      const text = this._cleanSubtitleText ? this._cleanSubtitleText(rawText) : rawText;
-      if (text) {
-        const start = parseTime(startStr);
-        const parsedEnd = parseTime(endStr);
-        const words = text.split(/\s+/).filter(Boolean).length;
-        const maxDur = Math.min(8.0, Math.max(3.5, 2.0 + Math.max(words * 0.45, text.length * 0.08)));
-        const end = Math.min(parsedEnd, start + maxDur);
-        cues.push({ start, end, text });
-      }
-    });
-    return cues;
+    return parseVTT(vttStr, this._cleanSubtitleText ? (text) => this._cleanSubtitleText(text) : null);
   }
 
   async _fetchYoutubeSubtitles(navigation = this._navigationSnapshot()) {

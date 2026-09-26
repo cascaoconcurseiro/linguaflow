@@ -252,7 +252,20 @@ export function renderStories(container, app) {
               <option value="Romance">Romance & Conexões</option>
               <option value="Aventura">Aventura & Natureza</option>
               <option value="Ficção Científica">Ficção Científica</option>
-              <option value="História (Fatos reais)">Fatos Históricos & Biografias</option>
+            </optgroup>
+            <optgroup label="Auto-ajuda & Crescimento">
+              <option value="Motivação & Hábitos">Motivação & Construção de Hábitos</option>
+              <option value="Produtividade & Foco">Produtividade & Foco</option>
+              <option value="Relacionamentos & Comunicação">Relacionamentos & Comunicação</option>
+              <option value="Saúde Mental & Equilíbrio">Saúde Mental & Equilíbrio</option>
+              <option value="Finanças Pessoais">Finanças Pessoais & Dinheiro</option>
+            </optgroup>
+            <optgroup label="Histórias Reais & Não-ficção">
+              <option value="Biografia Inspiradora">Biografia de Pessoa Inspiradora</option>
+              <option value="História (Fatos reais)">Fatos Históricos & Eventos Marcantes</option>
+              <option value="Ciência & Descobertas">Ciência & Grandes Descobertas</option>
+              <option value="Empreendedorismo & Inovação">Empreendedorismo & Startups</option>
+              <option value="Natureza & Meio Ambiente">Natureza & Meio Ambiente</option>
             </optgroup>
           </select>
           </label>

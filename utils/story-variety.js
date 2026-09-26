@@ -15,7 +15,15 @@ const SETTINGS = ['a small coffee shop', 'a crowded train', 'an old bookstore',
   'a family kitchen', 'a beach town in winter', 'a busy hospital lobby',
   'a quiet library', 'a street food festival', 'a cozy bakery on a Sunday morning',
   'a sunny city park with dogs', 'a local supermarket checkout line',
-  'a relaxed terrace cafe with outdoor seating', 'a friendly neighborhood record store'];
+  'a relaxed terrace cafe with outdoor seating', 'a friendly neighborhood record store',
+  // auto-ajuda & crescimento
+  'a productivity workshop in a co-working space', 'a morning journaling session at home',
+  'a mentorship conversation over coffee', 'a solo hiking trail at sunrise',
+  'a mindfulness retreat in the countryside', 'a simple home office on a quiet Tuesday',
+  // histórias reais & não-ficção
+  'a university research lab', 'a small startup office', 'a historical museum after hours',
+  'a documentary film crew on location', 'a conservation camp in a national park',
+  'a community radio station', 'a science fair at a local school'];
 
 const INGREDIENTS = ['an unexpected phone call', 'a small misunderstanding',
   'a lost object that matters', 'a stranger who helps',
@@ -23,7 +31,20 @@ const INGREDIENTS = ['an unexpected phone call', 'a small misunderstanding',
   'a surprise invitation', 'a plan that goes wrong',
   'good news arriving at a bad time', 'a friendly pet causing a funny moment',
   'ordering something delicious by accident', 'recommending a favorite song or movie',
-  'finding an old photo in a coat pocket'];
+  'finding an old photo in a coat pocket',
+  // auto-ajuda
+  'a habit that suddenly clicks after weeks of trying',
+  'a short conversation that changes someone\'s perspective',
+  'a failed attempt that teaches more than success',
+  'discovering a simple routine that makes mornings easier',
+  'a mentor sharing one piece of advice that sticks',
+  // histórias reais / não-ficção
+  'a surprising fact discovered during research',
+  'an obstacle that nearly ended the project',
+  'a collaboration between two unlikely people',
+  'a breakthrough that happened by accident',
+  'a moment when the evidence contradicted the theory'];
+
 
 function pick(arr, rand) {
   return arr[Math.floor(rand() * arr.length)];

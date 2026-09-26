@@ -4,7 +4,51 @@ export function deriveAdaptivePlan(card, profile = null) {
   const weak = (card?.lapses || 0) >= 3 || !!card?.is_leech;
   const stage = Math.max(0, Math.min(3, Number(profile?.recovery_stage || (weak ? 1 : 0))));
   const issue = profile?.dominant_issue || (weak ? 'recall' : 'none');
-  return { stage, issue, mode: ['normal', 'word_focus', 'simple_context', 'varied_context'][stage], recovering: stage > 0 };
+  const isInstable = (card?.lapses || 0) >= 2 || !!card?.is_leech || card?.status === 'learning' || stage > 0;
+  return {
+    stage,
+    issue,
+    mode: ['normal', 'word_focus', 'simple_context', 'varied_context'][stage],
+    recovering: stage > 0,
+    requires_active_verification: isInstable,
+  };
+}
+
+export function evaluateActiveRecallHonesty(card, proposedGrade, evidence = {}) {
+  const plan = card?._adaptivePlan || deriveAdaptivePlan(card);
+  const grade = Math.max(1, Math.min(4, Math.round(Number(proposedGrade) || 1)));
+
+  if (!plan?.requires_active_verification) {
+    return { adjustedGrade: grade, honest: true, reason: 'none' };
+  }
+
+  if (grade <= 3) {
+    return { adjustedGrade: grade, honest: true, reason: 'within_honest_bounds' };
+  }
+
+  // Grau 4 (Fácil) proposto em card instável: valida esforço real
+  const helpCount = Number(evidence?.helpCount) || 0;
+  const responseMs = Number(evidence?.responseMs) || 0;
+
+  if (helpCount > 0) {
+    return {
+      adjustedGrade: 3,
+      honest: false,
+      reason: 'help_used_on_instable_card',
+      message: 'Card com dica utilizada ajustado para Bom.',
+    };
+  }
+
+  if (responseMs > SLOW_RESPONSE_MS) {
+    return {
+      adjustedGrade: 3,
+      honest: false,
+      reason: 'slow_response_on_instable_card',
+      message: 'Card com tempo elevado ajustado para Bom.',
+    };
+  }
+
+  return { adjustedGrade: 4, honest: true, reason: 'unaided_fast_recall' };
 }
 
 export function normalizeLearningSignal(signal = {}) {

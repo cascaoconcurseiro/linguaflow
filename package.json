@@ -55,7 +55,7 @@
     "test:context-explanation": "node tests/context-explanation-persistence.test.mjs",
     "test:contextual-card": "node tests/contextual-chunks.test.mjs && node tests/contextual-card-contract.test.mjs",
     "test:contextual-translation": "node tests/contextual-translation-contract.test.mjs",
-    "test:adaptive": "node tests/adaptive-learning.test.mjs && node tests/adaptive-learning-contract.test.mjs && node --test tests/anti-burnout-pacing.test.mjs",
+    "test:adaptive": "node tests/adaptive-learning.test.mjs && node tests/adaptive-learning-contract.test.mjs && node --test tests/anti-burnout-pacing.test.mjs && node --test tests/active-recall-verification.test.mjs",
     "test:fluency": "node tests/fluency-core.test.mjs && node tests/fluency-task-catalog.test.mjs && node tests/fluency-foundation-contract.test.mjs && node tests/fluency-task-catalog-seed.test.mjs && node tests/fluency-assessment-authority-contract.test.mjs && node tests/fluency-assessment-edge-contract.test.mjs && node tests/fluency-client-contract.test.mjs && node tests/fluency-check-ux.test.mjs",
     "test:mobile-pronunciation": "node tests/mobile-pronunciation-ux.test.mjs",
     "test:frontend-lifecycle": "node tests/frontend-lifecycle-regression.test.mjs",

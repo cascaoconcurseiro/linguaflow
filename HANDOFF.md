@@ -1,3 +1,19 @@
+## Issue #187 — Verificação Ativa & Guarda de Honestidade no SRS — Fase 3 (2026-09-26)
+
+- **PR:** vinculada à Issue [#187](https://github.com/cascaoconcurseiro/linguaflow/issues/187), branch `codex/187-active-recall-verification`.
+- **Issue:** [#187](https://github.com/cascaoconcurseiro/linguaflow/issues/187).
+- **Feito:**
+  - **Identificação de Cards Instáveis (`adaptiveLearning.js`)**: `deriveAdaptivePlan` passou a sinalizar `requires_active_verification` para cards em aprendizado (`learning`), com reincidência de erros (`lapses >= 2`), marcados como leech ou em estágio de recuperação.
+  - **Guarda de Honestidade Algorítmica (`adaptiveLearning.js`)**: Função pura `evaluateActiveRecallHonesty(card, proposedGrade, evidence)` que ajusta automaticamente notas superestimadas (grau 4 / Fácil) para grau 3 (Bom) se o usuário consultou ajuda/dica ou levou tempo excessivo (>18s), impedindo inflação irreal de estabilidade no FSRS.
+  - **Indicador Visual de Recuperação (`studyView.js`)**: Adicionada tag discreta no front do card instruindo a evocação ativa antes de virar.
+  - **Integração no Fluxo de Estudo (`studyView.js`)**: `handleGrade` aplica `evaluateActiveRecallHonesty` antes de submeter a avaliação e exibe toast educativo com reforço pedagógico.
+  - **Contratos e Testes**: Criada suíte `tests/active-recall-verification.test.mjs` com 5 asserções e integrada no script `test:adaptive` em `package.json`.
+- **Validação:**
+  - `npm run test:adaptive` verde (todos os contratos e testes unitários de adaptabilidade e honestidade aprovados).
+  - `npm run test:pedagogy` e `npm run test:review-economy` 100% verdes.
+  - `npm run lint:biome` limpo.
+  - `node tests/release-smoke.mjs --allow-dirty` verde.
+
 ## Issue #185 — Retenção Comportamental & Motor Anti-Burnout — Fase 2 (2026-09-26)
 
 - **PR:** vinculada à Issue [#185](https://github.com/cascaoconcurseiro/linguaflow/issues/185), branch `codex/185-anti-burnout-pacing`.

@@ -8,6 +8,7 @@ const reader = read('dashboard/js/ui/readerView.js');
 const stories = read('dashboard/js/ui/storiesView.js');
 const home = read('dashboard/js/ui/homeView.js');
 const settings = read('dashboard/js/ui/settingsView.js');
+const placement = read('dashboard/js/ui/cefrPlacementTest.js');
 const css = read('dashboard/css/globals.css');
 const db = read('utils/db.js');
 const stats = read('dashboard/js/ui/statsView.js');
@@ -79,9 +80,13 @@ assert.match(home, /supplementaryDataAvailable = false/);
 assert.match(home, /Alguns detalhes não foram carregados/);
 assert.match(home, /btn-home-details-retry/);
 
-// Dashboard e extensão confirmam CEFR juntos.
-const mirrors = [...settings.matchAll(/Promise\.all\(\[\s*lfDb\.setSetting\('lf_cefr_level',[\s\S]*?lfDb\.setSetting\('cefrTargetLevel'/g)];
+// Dashboard e extensão confirmam CEFR juntos (seletor de configurações + teste de nível).
+const mirrors = [
+  ...settings.matchAll(/Promise\.all\(\[\s*lfDb\.setSetting\('lf_cefr_level',[\s\S]*?lfDb\.setSetting\('cefrTargetLevel'/g),
+  ...placement.matchAll(/Promise\.all\(\[\s*lfDb\.setSetting\('lf_cefr_level',[\s\S]*?lfDb\.setSetting\('cefrTargetLevel'/g),
+];
 assert.equal(mirrors.length, 2, 'teste de nível e seletor devem aguardar os dois espelhos CEFR');
 assert.doesNotMatch(settings, /setSetting\('cefrTargetLevel'[^\n]+\.catch\(\(\) => \{\}\)/);
+assert.doesNotMatch(placement, /setSetting\('cefrTargetLevel'[^\n]+\.catch\(\(\) => \{\}\)/);
 
 console.log('✓ P0/P1: autenticação, fallback de view, Reader, Home parcial e CEFR resilientes');

@@ -188,8 +188,47 @@ export function safeParseJson(text) {
   return null;
 }
 
-// IPA + traduções da frase e da palavra em UMA chamada só (economiza rate-limit).
+// IPA + traduções da frase e da palavra com Cache Léxico Canônico (FinOps & Latência).
 export async function enrichCard(word, sentence) {
+  const normWord = String(word || '').trim();
+  const normSentence = String(sentence || '').trim();
+
+  // 1. Consulta o cache canônico no Supabase / memória local
+  try {
+    const cached = await lfDb.getCanonicalLexicon(normWord);
+    if (cached) {
+      const normSentLower = normSentence.toLowerCase();
+      // Se não há frase ou a frase é a própria palavra, retorna os dados canônicos da palavra
+      if (!normSentence || normSentLower === normWord.toLowerCase()) {
+        return {
+          sentence_phon: '',
+          sentence_pt: '',
+          word_phon: cached.word_phon || '',
+          word_pt: cached.word_pt || '',
+          _cached: true,
+        };
+      }
+
+      // Se há frase, busca se esse contexto exato já foi enriquecido anteriormente
+      const matchingContext = Array.isArray(cached.contexts)
+        ? cached.contexts.find((ctx) => String(ctx?.sentence || '').trim().toLowerCase() === normSentLower)
+        : null;
+
+      if (matchingContext) {
+        return {
+          sentence_phon: matchingContext.sentence_phon || '',
+          sentence_pt: matchingContext.sentence_pt || '',
+          word_phon: cached.word_phon || '',
+          word_pt: matchingContext.word_pt || cached.word_pt || '',
+          _cached: true,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('[AI] Erro ao consultar cache canônico, prosseguindo com IA:', err);
+  }
+
+  // 2. Cache miss: chama o modelo de IA
   const system = `Você é um professor de inglês para brasileiros. Responda APENAS com JSON válido, sem nenhum texto extra.
 REGRAS para os campos "*_phon":
 - Use transcrição fonética IPA da pronúncia americana natural, entre barras /.../ quando apropriado.
@@ -198,8 +237,8 @@ REGRAS para os campos "*_pt":
 - Traduza a frase INTEIRA para português brasileiro natural, pelo sentido e contexto.
 - NÃO deixe palavras ou expressões em inglês dentro da tradução, nem empréstimos como "fist bump". Traduza a intenção (ex.: "I'll fist-bump you" -> "Vou bater aqui com você").
 - Preserve nomes próprios, mas nunca produza uma mistura de português e inglês.`;
-  const user = `Palavra-foco: "${word}"
-Frase: "${sentence}"
+  const user = `Palavra-foco: "${normWord}"
+Frase: "${normSentence}"
 Retorne exatamente este JSON:
 {
   "sentence_phon": "transcrição IPA da frase inteira",
@@ -212,7 +251,24 @@ Retorne exatamente este JSON:
     [{ role: 'system', content: system }, { role: 'user', content: user }],
     { temperature: 0.1, max_tokens: 500 }
   );
-  return safeParseJson(content);
+  const parsed = safeParseJson(content);
+
+  // 3. Persiste assincronamente no cache canônico para os próximos acessos
+  if (parsed && (parsed.word_phon || parsed.sentence_pt || parsed.word_pt)) {
+    lfDb.saveCanonicalLexicon({
+      word: normWord,
+      word_phon: parsed.word_phon || null,
+      word_pt: parsed.word_pt || null,
+      context: normSentence ? {
+        sentence: normSentence,
+        sentence_phon: parsed.sentence_phon || '',
+        sentence_pt: parsed.sentence_pt || '',
+        word_pt: parsed.word_pt || '',
+      } : null,
+    }).catch((err) => console.warn('[AI] Falha ao persistir no cache canônico:', err));
+  }
+
+  return parsed;
 }
 
 // Geração de história na web (na extensão o service worker tem 'ai_generate_story').

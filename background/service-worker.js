@@ -39,6 +39,7 @@ const DB_PROXY_METHODS = new Set([
   'saveStory', 'saveWord', 'setCardSuspended', 'setEmailOptIn', 'setSetting',
   'setSRSCategoryOverride', 'setTranslationCache', 'signUp', 'submitFluencyTask',
   'suspendCard', 'undoReview', 'updateReaderProgress', 'updateWord', 'resetCardToNew',
+  'getCanonicalLexicon', 'saveCanonicalLexicon',
   'getCurrentUser', 'isAdmin', 'adminVerifyPin', 'adminGetMetrics', 'adminListUsers', 'adminResetUserDeck',
   'adminResetAllDecks', 'adminDeleteUser', 'adminClearErrors',
 ]);

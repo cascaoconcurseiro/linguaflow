@@ -1,3 +1,19 @@
+## Issue #183 — FinOps & Cache Léxico Canônico — Fase 1 (2026-09-26)
+
+- **PR:** vinculada à Issue [#183](https://github.com/cascaoconcurseiro/linguaflow/issues/183), branch `codex/183-canonical-lexicon-cache`.
+- **Issue:** [#183](https://github.com/cascaoconcurseiro/linguaflow/issues/183).
+- **Feito:**
+  - **Tabela `public.canonical_lexicon` & RPC**: Criada migration `supabase/migrations/20260926120000_canonical_lexicon_cache.sql` com índice único `(lower(trim(word)), lang)` e RPC `get_or_cache_canonical_lexicon` com merge seguro de contextos em JSONB, RLS ativo e permissões revogadas para anon.
+  - **Database Client**: Implementados `db.getCanonicalLexicon(word, lang)` e `db.saveCanonicalLexicon(entry)` em `utils/db.js` com cache LRU em memória e suporte transparente a proxy no service worker.
+  - **Proxy no Service Worker**: Adicionados `getCanonicalLexicon` e `saveCanonicalLexicon` ao Set `DB_PROXY_METHODS` em `background/service-worker.js`.
+  - **Enriquecimento com Bypass Inteligente**: Atualizado `enrichCard` em `dashboard/js/core/ai.js` para consultar o cache canônico antes de chamar a Edge Function / LLM e persistir novos enriquecimentos no banco.
+  - **Contratos e Testes**: Criada suíte `tests/canonical-lexicon-cache.test.mjs` integrada no script `npm run test:ai-routing`.
+- **Validação:**
+  - `npm run test:ai-routing` verde (100% dos contratos de IA e cache canônico aprovados).
+  - `npm run test:contextual-translation` verde.
+  - `npm run lint:biome` verde.
+  - `node tests/release-smoke.mjs` verde.
+
 ## Issue #181 — Correções sistêmicas pós-auditoria — FSRS stability, undo quota, PWA shell e telemetria (2026-09-26)
 
 - **PR:** vinculada à Issue [#181](https://github.com/cascaoconcurseiro/linguaflow/issues/181), branch `codex/181-audit-systemic-fixes`.

@@ -6,6 +6,7 @@ const study = read('dashboard/js/ui/studyView.js');
 const app = read('dashboard/js/core/app.js');
 const learn = read('dashboard/js/ui/learnView.js');
 const stories = read('dashboard/js/ui/storiesView.js');
+const storiesQuiz = read('dashboard/js/ui/storiesQuiz.js');
 const leagues = read('dashboard/js/ui/leaguesView.js');
 const db = read('utils/db.js');
 
@@ -29,7 +30,7 @@ assert.doesNotMatch(learn, /route:\s*'game'/,
 
 assert.doesNotMatch(stories, /recordEvent\(/,
   'história e quiz gerados no cliente não concedem XP competitivo');
-assert.match(stories, /Prática de compreensão — sem alterar XP, ofensiva ou liga/);
+assert.match(storiesQuiz, /Prática de compreensão — sem alterar XP, ofensiva ou liga/);
 assert.match(stories, /Familiaridade indisponível/);
 assert.match(stories, /available: false/);
 assert.doesNotMatch(stories, /storyDoneAwarded|storyQuizScored/,

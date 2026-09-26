@@ -679,8 +679,8 @@ export function renderStories(container, app) {
   btnStopStory.addEventListener('click', stopFullStoryTTS);
 
   // ── Quiz de compreensão (LingQ-style) ─────────────────────────────────────
-  // Perguntas geradas da própria história oferecem feedback local. Como o
-  // gabarito é gerado por IA no cliente, o resultado não alimenta o placar.
+  // Perguntas geradas da própria história oferecem feedback local (Prática de compreensão — sem alterar XP, ofensiva ou liga).
+  // Como o gabarito é gerado por IA no cliente, o resultado não alimenta o placar.
   const btnQuizStory = document.getElementById('btn-quiz-story');
   const quizBox = document.getElementById('story-quiz-box');
 

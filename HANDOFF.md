@@ -1,3 +1,23 @@
+## Issue #193 — Proteção contra Shadow DOM nos atalhos e limpeza de dead DOM no shell PWA (2026-09-26)
+
+- **PR:** [#194](https://github.com/cascaoconcurseiro/linguaflow/pull/194), branch `codex/193-reader-shadowdom-shell-harden`.
+- **Issue:** [#193](https://github.com/cascaoconcurseiro/linguaflow/issues/193).
+- **Feito:**
+  - **Utilitário de Detecção de Campos Editáveis (`utils/dom-events.js`)**: Criação da helper `isEditableTarget(event, fallbackTarget)` que inspeciona `event.composedPath()`, `shadowRoot.activeElement` e atributos `isContentEditable`.
+  - **Proteção dos Atalhos do Player contra Shadow DOM (`content/subtitles/player-hotkeys.js`)**: Atalhos de reprodução (A, S, D, Q, L, O, C, Espaço) agora ignoram teclas quando o usuário está digitando em elementos encapsulados em Shadow DOM (ex: caixa de pesquisa `<ytd-searchbox>` ou comentários do YouTube).
+  - **Proteção do Review Overlay (`content/index.js` e `content/review-overlay.js`)**: A tecla "R" e as teclas numéricas 1-4 deixaram de interceptar digitações em inputs do YouTube com Shadow DOM.
+  - **Otimização do PWA Shell (`dashboard/js/core/app.js`)**: `updateGlobalStats()` limpo de requisições redundantes de rede para `db.getUserStats()` e referências a seletores inexistentes (`#streak-val` e `#due-val`), concentrando-se apenas na atualização de progresso de foco (`updateFocusStatus`).
+  - **Limpeza de Seletores Zumbis no Estudo (`dashboard/js/ui/studyView.js`)**: Removidos listeners nulos para `#btn-quick-edit`, `#btn-card-info` e `#btn-card-suspend`, consolidando as interações no menu oficial.
+  - **Suíte de Testes TDD (`tests/shadow-dom-hotkeys-and-shell.test.mjs`)**: 12/12 contratos cobrindo detecção em Shadow DOM, contratos de atalhos e ausência de dead DOM no PWA shell.
+- **Validação:**
+  - `tests/shadow-dom-hotkeys-and-shell.test.mjs` verde (12/12 aprovados).
+  - `npm run test:pedagogy` e `npm run test:review-economy` 100% verdes.
+  - `npm run test:release` 100% verde (incluindo `professional-hardening` e `modular-subtitles-contract`).
+  - `npm run lint:biome` limpo (0 erros).
+  - `node tests/release-smoke.mjs` verde (83 arquivos JS íntegros, working tree limpa).
+  - CI verde no GitHub Actions (Commitlint, Vercel Preview, Release Smoke).
+  - PR #194 mesclado em `main` (`2fe0530`).
+
 ## Issue #191 — Inteligência de Mídia no YouTube: WPM e Connected Speech nas Legendas — Fase 5 (2026-09-26)
 
 - **PR:** vinculada à Issue [#191](https://github.com/cascaoconcurseiro/linguaflow/issues/191), branch `codex/191-speech-cadence-connected-speech`.

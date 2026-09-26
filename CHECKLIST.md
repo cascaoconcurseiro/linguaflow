@@ -1,3 +1,15 @@
+## Issue #193 · Proteção contra Shadow DOM nos atalhos e limpeza de dead DOM no shell PWA (2026-09-26)
+
+- [x] Registrar Issue #193 e trabalhar na branch `codex/193-reader-shadowdom-shell-harden`.
+- [x] Criar utilitário `utils/dom-events.js` com `isEditableTarget` inspecionando `event.composedPath()`, `shadowRoot.activeElement` e atributos `isContentEditable`.
+- [x] Proteger atalhos de teclado contra Shadow DOM do YouTube (Searchbox e Comments) em `content/subtitles/player-hotkeys.js`, `content/index.js` e `content/review-overlay.js`.
+- [x] Otimizar `updateGlobalStats()` em `dashboard/js/core/app.js`, eliminando requisições redundantes a `db.getUserStats()` e seleções mortas para `#streak-val` e `#due-val`.
+- [x] Limpar listeners fantasmas de ações em `dashboard/js/ui/studyView.js` (`#btn-quick-edit`, `#btn-card-info`, `#btn-card-suspend`).
+- [x] Adicionar `utils/dom-events.js` aos `web_accessible_resources` em `manifest.json`.
+- [x] Criar suíte de testes TDD em `tests/shadow-dom-hotkeys-and-shell.test.mjs` (12/12 aprovados).
+- [x] Validar bateria de testes completa (`release-smoke`, `test:pedagogy`, `test:review-economy`, `test:release`, `lint:biome` 100% verdes).
+- [x] Criar PR #194, validar CI e mesclar em `main`.
+
 ## Issue #179 · Modularização linguística de content/word-popup.js — Fase 5 (2026-09-25)
 
 - [x] Registrar Issue #179 e trabalhar na branch `codex/179-modular-word-popup`.

@@ -88,3 +88,4 @@ background/env.js
 background/env.json
 .vercel
 .env*
+scratch/

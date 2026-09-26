@@ -81,7 +81,6 @@
     {
       "resources": [
         "utils/site-boundary.js",
-        "utils/dom-events.js",
         "utils/tts.js",
         "utils/exclusive-playback.js",
         "utils/offline-dict.js"
@@ -119,6 +118,7 @@
         "utils/lemma.js",
         "utils/lexical-profile.js",
         "utils/speech-cadence.js",
+        "utils/dom-events.js",
         "icon128.png"
       ],
       "matches": [

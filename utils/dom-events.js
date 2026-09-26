@@ -14,7 +14,7 @@ export function isEditableTarget(event, fallbackTarget = null) {
   if (event && typeof event.composedPath === 'function') {
     const path = event.composedPath();
     for (const node of path) {
-      if (!node || node.nodeType !== 1) continue;
+      if (!node) continue;
       const tag = node.tagName?.toUpperCase();
       if (EDITABLE_TAGS.has(tag)) return true;
       if (node.isContentEditable) return true;
@@ -22,7 +22,7 @@ export function isEditableTarget(event, fallbackTarget = null) {
   }
 
   const target = event?.target || fallbackTarget || (typeof document !== 'undefined' ? document.activeElement : null);
-  if (!target || target.nodeType !== 1) return false;
+  if (!target) return false;
 
   const tag = target.tagName?.toUpperCase();
   if (EDITABLE_TAGS.has(tag)) return true;

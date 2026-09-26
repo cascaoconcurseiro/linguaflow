@@ -1,6 +1,8 @@
 // utils/db.js — Banco único do LinguaFlow (Cloud-Only)
 // Integração 100% direta com Supabase via REST API (sem IndexedDB local)
 import { addLocalDays, localDateKey, localDayBounds } from './local-day.js';
+import { ReaderStoriesRepository } from './db/reader-stories-repo.js';
+import { GamificationRepository } from './db/gamification-repo.js';
 
 const SUPABASE_URL = 'https://qnutoswrufznztoznlql.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_sjE7swuyYQz-80x9lttf4Q_awnZ_YlY';
@@ -54,6 +56,8 @@ class Database {
     this._timezoneSynced = null;
     this._storiesCache = null;
     this._storiesRefreshing = null;
+    this._readerStoriesRepo = new ReaderStoriesRepository(this);
+    this._gamificationRepo = new GamificationRepository(this);
   }
 
   // Lê o objeto de sessão completo ({ access_token, refresh_token, expires_at, user })
@@ -327,6 +331,7 @@ class Database {
     this._srsCache = null;
     this._ensureUserStatsPromise = null;
     this._timezoneSynced = null;
+    this._gamificationRepo?.resetSessionState?.();
     return { ok: true };
   }
 
@@ -692,7 +697,10 @@ class Database {
     if (target === 'all' || target === 'words') this._wordsCache = null;
     if (target === 'all' || target === 'sentences') this._sentencesCache = null;
     if (target === 'all' || target === 'known_words') this._knownWordsCache = null;
-    if (target === 'all' || target === 'stories') this._storiesCache = null;
+    if (target === 'all' || target === 'stories') {
+      this._storiesCache = null;
+      this._readerStoriesRepo?.invalidateCache?.();
+    }
   }
 
   // Onda 4: aceita paginação real (limit/offset viram LIMIT/OFFSET no
@@ -762,56 +770,21 @@ class Database {
     return data || [];
   }
 
-  // ── HISTÓRIAS (biblioteca permanente — história gerada nunca se perde) ────
+  // ── HISTÓRIAS (delegadas ao ReaderStoriesRepository) ─────────────────────
   async saveStory(story) {
-    if (this.isProxyMode) return this._proxy('saveStory', [story]);
-    const res = await this._fetch('stories', {
-      method: 'POST',
-      headers: { 'Prefer': 'return=representation' },
-      body: {
-        title: story.title,
-        content: story.content,
-        level: story.level || null,
-        genre: story.genre || null,
-        requested_level: story.requestedLevel || story.level || null,
-        target_minutes: story.targetMinutes || null,
-        learning_goal: story.learningGoal || null,
-        difficulty_mode: story.difficultyMode || null,
-        measured_level: story.measuredLevel || null,
-        validation_status: story.validationStatus || 'not_measured',
-        prompt_version: story.promptVersion || 'story-v2',
-      }
-    });
-    this._storiesCache = null;
-    return { ok: !!res?.[0], id: res?.[0]?.id, createdAt: res?.[0]?.created_at };
+    return this._readerStoriesRepo.saveStory(story);
   }
 
   async getStories(limit = 50) {
-    if (this.isProxyMode) return this._proxy('getStories', [limit]);
-    if (limit === 50 && this._storiesCache) {
-      if (Date.now() - this._storiesCache.ts >= 30000 && !this._storiesRefreshing) {
-        this._storiesRefreshing = this._fetchStories(limit)
-          .finally(() => { this._storiesRefreshing = null; });
-        this._storiesRefreshing.catch(() => {});
-      }
-      return this._storiesCache.data;
-    }
-    return this._fetchStories(limit);
+    return this._readerStoriesRepo.getStories(limit);
   }
 
   async _fetchStories(limit = 50) {
-    const rows = await this._fetch(`stories?select=*&order=created_at.desc&limit=${limit}`);
-    if (!rows) throw new Error('Não foi possível carregar as histórias do Supabase.');
-    if (limit === 50) this._storiesCache = { data: rows, ts: Date.now() };
-    return rows;
+    return this._readerStoriesRepo._fetchStories(limit);
   }
 
   async deleteStory(id) {
-    if (!UUID_PATTERN.test(String(id))) return false;
-    if (this.isProxyMode) return this._proxy('deleteStory', [id]);
-    await this._fetch(`stories?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
-    this._storiesCache = null;
-    return true;
+    return this._readerStoriesRepo.deleteStory(id);
   }
 
   // minutesAhead: "learn ahead" do Anki — inclui cards de aprendizado que
@@ -1720,155 +1693,64 @@ class Database {
     }
   }
 
+  // ── WEB READER (delegadas ao ReaderStoriesRepository) ─────────────────────
   async getReaderTexts() {
-    if (this.isProxyMode) return this._proxy('getReaderTexts', []);
-    return this._fetch('reader_texts?select=id,title,content,source,last_read_position,reading_percentage,is_completed,created_at,updated_at&order=updated_at.desc');
+    return this._readerStoriesRepo.getReaderTexts();
   }
 
   async saveReaderText(text) {
-    if (this.isProxyMode) return this._proxy('saveReaderText', [text]);
-    const row = {
-      id: String(text.id),
-      title: String(text.title || 'Texto').slice(0, 300),
-      content: String(text.content || ''),
-      source: text.source || 'pasted',
-      created_at: new Date(text.addedAt || Date.now()).toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    const saved = await this._fetch('reader_texts?on_conflict=user_id,id', {
-      method: 'POST',
-      headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
-      body: row,
-    });
-    return saved?.[0] || row;
+    return this._readerStoriesRepo.saveReaderText(text);
   }
 
   async migrateReaderText(text) {
-    if (this.isProxyMode) return this._proxy('migrateReaderText', [text]);
-    const migratedAt = new Date(text.addedAt || Date.now()).toISOString();
-    const row = {
-      id: String(text.id),
-      title: String(text.title || 'Texto').slice(0, 300),
-      content: String(text.content || ''),
-      source: text.source || 'migration',
-      created_at: migratedAt,
-      updated_at: migratedAt,
-    };
-    const saved = await this._fetch('reader_texts?on_conflict=user_id,id', {
-      method: 'POST',
-      headers: { Prefer: 'resolution=ignore-duplicates,return=representation' },
-      body: row,
-    });
-    return saved?.[0] || null;
+    return this._readerStoriesRepo.migrateReaderText(text);
   }
 
   async deleteReaderText(id) {
-    if (this.isProxyMode) return this._proxy('deleteReaderText', [id]);
-    await this._fetch(`reader_texts?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
-    return true;
+    return this._readerStoriesRepo.deleteReaderText(id);
   }
 
-  // ── GAMIFICAÇÃO E ESTATÍSTICAS DO USUÁRIO ────────────────────────────────
+  // ── GAMIFICAÇÃO E ESTATÍSTICAS (delegadas ao GamificationRepository) ────────
   async getUserStats() {
-    if (this.isProxyMode) return this._proxy('getUserStats', []);
-    const res = await this._fetch('user_stats?select=*&limit=1');
-    return res && res.length > 0 ? res[0] : null;
+    return this._gamificationRepo.getUserStats();
   }
 
   // Telemetria mínima: nunca envia texto do card, pergunta, token, e-mail ou
   // stack trace. É só o suficiente para detectar uma tela/fluxo quebrado.
   async reportClientError(source, errorName, route = '', appVersion = '') {
-    if (this.isProxyMode) return this._proxy('reportClientError', [source, errorName, route, appVersion]);
-    const safe = value => String(value || 'Error').replace(/[^a-zA-Z0-9_.:/ -]/g, '').slice(0, 120);
-    try {
-      await this._fetch('client_errors', {
-        method: 'POST',
-        body: {
-          source: safe(source).slice(0, 80),
-          error_name: safe(errorName),
-          route: safe(route).slice(0, 80) || null,
-          app_version: safe(appVersion).slice(0, 40) || null,
-        },
-      });
-    } catch { /* telemetria nunca interrompe o produto */ }
+    return this._gamificationRepo.reportClientError(source, errorName, route, appVersion);
   }
 
   async getLeaderboard(leagueIndex = 0, limit = 20) {
-    if (this.isProxyMode) return this._proxy('getLeaderboard', [leagueIndex, limit]);
-    const res = await this._fetch('rpc/get_leaderboard', {
-      method: 'POST',
-      body: { p_league_index: leagueIndex, p_limit: limit },
-    });
-    return res || [];
+    return this._gamificationRepo.getLeaderboard(leagueIndex, limit);
   }
 
   async ensureUserStats() {
-    if (this.isProxyMode) return this._proxy('ensureUserStats', []);
-
-    // App boot e a tela de Ligas podem pedir o mesmo bootstrap quase juntos.
-    // Compartilhar a promessa evita duas RPCs e duas validações de fuso.
-    if (this._ensureUserStatsPromise) return this._ensureUserStatsPromise;
-    this._ensureUserStatsPromise = (async () => {
-      // Apenas garante que o perfil exista via backend (XP agora é automático por Triggers)
-      await this._fetch('rpc/ensure_user_stats', { method: 'POST' });
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      if (timezone && timezone !== this._timezoneSynced) {
-        await this._fetch('rpc/set_user_timezone', { method: 'POST', body: { p_timezone: timezone } });
-        this._timezoneSynced = timezone;
-      }
-      return { ok: true };
-    })();
-    try {
-      return await this._ensureUserStatsPromise;
-    } catch (error) {
-      this._ensureUserStatsPromise = null;
-      throw error;
-    }
+    return this._gamificationRepo.ensureUserStats();
   }
 
   // Rollover semanal das ligas (lazy, idempotente — o pg_cron é o titular)
   async maybeLeagueRollover() {
-    if (this.isProxyMode) return this._proxy('maybeLeagueRollover', []);
-    try {
-      return await this._fetch('rpc/maybe_league_rollover', { method: 'POST', body: {} });
-    } catch { return { ran: false }; }
+    return this._gamificationRepo.maybeLeagueRollover();
   }
 
   // ── WEB PUSH (opt-in explícito nas Configurações) ─────────────────────────
   async getPushPublicKey() {
-    if (this.isProxyMode) return this._proxy('getPushPublicKey', []);
-    const res = await this._fetch('rpc/get_push_public_key', { method: 'POST', body: {} });
-    return typeof res === 'string' ? res : null;
+    return this._gamificationRepo.getPushPublicKey();
   }
 
   async savePushSubscription(sub) {
-    if (this.isProxyMode) return this._proxy('savePushSubscription', [sub]);
-    const keys = sub?.keys || {};
-    if (!sub?.endpoint || !keys.p256dh || !keys.auth) return { ok: false };
-    const res = await this._fetch('push_subscriptions?on_conflict=user_id,endpoint', {
-      method: 'POST',
-      headers: { 'Prefer': 'resolution=merge-duplicates' },
-      body: { endpoint: sub.endpoint, p256dh: keys.p256dh, auth: keys.auth },
-    });
-    return { ok: !!res };
+    return this._gamificationRepo.savePushSubscription(sub);
   }
 
   async deletePushSubscription(endpoint) {
-    if (this.isProxyMode) return this._proxy('deletePushSubscription', [endpoint]);
-    if (!endpoint) return { ok: false };
-    await this._fetch(`push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`, { method: 'DELETE' });
-    return { ok: true };
+    return this._gamificationRepo.deletePushSubscription(endpoint);
   }
 
   // Onda 3.4: opt-in de reengajamento por e-mail (resumo semanal + ofensiva
   // em risco) — mesmo padrão de RPC restrita ao próprio usuário do push.
   async setEmailOptIn(enabled) {
-    if (this.isProxyMode) return this._proxy('setEmailOptIn', [enabled]);
-    const res = await this._fetch('rpc/set_email_opt_in', {
-      method: 'POST',
-      body: { p_enabled: !!enabled },
-    });
-    return res || { ok: false };
+    return this._gamificationRepo.setEmailOptIn(enabled);
   }
 
   // ── CACHE DE TRADUÇÃO (tabela própria — NUNCA mais dentro de settings) ────
@@ -2269,47 +2151,21 @@ class Database {
 
   // Progresso de leitura do Web Reader
   async updateReaderProgress(textId, { lastReadPosition = 0, readingPercentage = 0, isCompleted = false } = {}) {
-    if (this.isProxyMode) return this._proxy('updateReaderProgress', [textId, { lastReadPosition, readingPercentage, isCompleted }]);
-    const body = {
-      last_read_position: Math.max(0, Math.floor(Number(lastReadPosition) || 0)),
-      reading_percentage: Math.min(100, Math.max(0, Number(readingPercentage) || 0)),
-      is_completed: Boolean(isCompleted),
-      updated_at: new Date().toISOString(),
-    };
-    await this._fetch(`reader_texts?id=eq.${encodeURIComponent(textId)}`, {
-      method: 'PATCH',
-      headers: { 'Prefer': 'return=minimal' },
-      body,
-    });
-    return { ok: true };
+    return this._readerStoriesRepo.updateReaderProgress(textId, { lastReadPosition, readingPercentage, isCompleted });
   }
 
   // Arquivamento nativo de histórias
   async updateStoryArchive(storyId, archived = true) {
-    if (this.isProxyMode) return this._proxy('updateStoryArchive', [storyId, archived]);
-    await this._fetch(`stories?id=eq.${encodeURIComponent(storyId)}`, {
-      method: 'PATCH',
-      headers: { 'Prefer': 'return=minimal' },
-      body: { archived: Boolean(archived), updated_at: new Date().toISOString() },
-    });
-    return { ok: true };
+    return this._readerStoriesRepo.updateStoryArchive(storyId, archived);
   }
 
   // Conquistas normalizadas no banco
   async saveAchievement(achievementId) {
-    if (this.isProxyMode) return this._proxy('saveAchievement', [achievementId]);
-    const res = await this._fetch('user_achievements?on_conflict=user_id,achievement_id', {
-      method: 'POST',
-      headers: { 'Prefer': 'resolution=merge-duplicates,return=representation' },
-      body: { achievement_id: String(achievementId) },
-    });
-    return !!res;
+    return this._gamificationRepo.saveAchievement(achievementId);
   }
 
   async getUserAchievements() {
-    if (this.isProxyMode) return this._proxy('getUserAchievements', []);
-    const rows = await this._fetch('user_achievements?select=achievement_id,unlocked_at');
-    return (rows || []).map(r => r.achievement_id);
+    return this._gamificationRepo.getUserAchievements();
   }
 }
 

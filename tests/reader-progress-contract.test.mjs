@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 
-const dbSource = read('utils/db.js');
+const dbSource = `${read('utils/db.js')}\n${read('utils/db/reader-stories-repo.js')}`;
 const swSource = read('background/service-worker.js');
 const readerSource = read('dashboard/js/ui/readerView.js');
 

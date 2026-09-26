@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { buildLevelNote, resolveStoryLevel, storyLengthSpec } from '../utils/story-variety.js';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
-const [study, editorial, home, stories, ai, worker, db, migration] = await Promise.all([
+const [study, editorial, home, stories, ai, worker, dbMain, dbStories, migration] = await Promise.all([
   read('dashboard/js/ui/studyView.js'),
   read('dashboard/css/editorial.css'),
   read('dashboard/js/ui/homeView.js'),
@@ -11,8 +11,10 @@ const [study, editorial, home, stories, ai, worker, db, migration] = await Promi
   read('dashboard/js/core/ai.js'),
   read('background/service-worker.js'),
   read('utils/db.js'),
+  read('utils/db/reader-stories-repo.js'),
   read('supabase/migrations/20260923175407_story_generation_contract.sql'),
 ]);
+const db = `${dbMain}\n${dbStories}`;
 
 assert.match(editorial, /--study-grading-dock-height/,
   'a altura real da barra de avaliação reserva espaço no conteúdo');

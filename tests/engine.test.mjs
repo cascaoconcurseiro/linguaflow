@@ -2,7 +2,7 @@
 // teste de nivelamento em 3 fases. Rodar: node tests/engine.test.mjs
 // (Copia os módulos pra .mjs porque o package.json não tem "type": "module".)
 
-import { copyFileSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -17,6 +17,9 @@ assert.match(dbSource, /Number\.isFinite\(parsedNewPerDay\)[\s\S]*Number\.isFini
 const tmp = mkdtempSync(join(tmpdir(), 'lf-test-'));
 writeFileSync(join(tmp, 'package.json'), JSON.stringify({ type: 'module' }));
 copyFileSync(join(root, 'utils/db.js'), join(tmp, 'db.mjs'));
+mkdirSync(join(tmp, 'db'), { recursive: true });
+copyFileSync(join(root, 'utils/db/reader-stories-repo.js'), join(tmp, 'db/reader-stories-repo.js'));
+copyFileSync(join(root, 'utils/db/gamification-repo.js'), join(tmp, 'db/gamification-repo.js'));
 copyFileSync(join(root, 'utils/local-day.js'), join(tmp, 'local-day.js'));
 copyFileSync(join(root, 'dashboard/js/core/placement.js'), join(tmp, 'placement.mjs'));
 copyFileSync(join(root, 'dashboard/js/core/sessionQueue.js'), join(tmp, 'sessionQueue.mjs'));

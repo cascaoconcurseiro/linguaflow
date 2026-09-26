@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 
 const reader = readFileSync('dashboard/js/ui/readerView.js', 'utf8');
 const stories = readFileSync('dashboard/js/ui/storiesView.js', 'utf8');
-const db = readFileSync('utils/db.js', 'utf8');
+const db = `${readFileSync('utils/db.js', 'utf8')}\n${readFileSync('utils/db/reader-stories-repo.js', 'utf8')}\n${readFileSync('utils/db/gamification-repo.js', 'utf8')}`;
 const app = readFileSync('dashboard/js/core/app.js', 'utf8');
 const manifest = JSON.parse(readFileSync('manifest.json', 'utf8'));
 const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));

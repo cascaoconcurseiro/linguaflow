@@ -3,6 +3,7 @@ import { playNaturalAudio, stopAudio } from '../core/tts.js';
 import { generateStoryWeb, aiChat, enrichCard } from '../core/ai.js';
 import { safeParseJson } from '../core/ai.js';
 import { measureStoryLevel } from '../core/readability.js';
+import { analyzeLexicalProfile, formatLexicalBadge } from '../../../utils/lexical-profile.js';
 import { translator } from '../../../utils/translator.js';
 import { lemma } from '../../../utils/lemma.js';
 import { escapeHTML } from '../../../utils/html.js';
@@ -281,6 +282,7 @@ export function renderStories(container, app) {
               <h2 id="story-title-display" style="margin-top:0; color:var(--color-text); font-size:26px; font-weight:800; letter-spacing:-0.02em; margin-bottom:10px;"></h2>
               <span id="story-level-badge" style="background:var(--color-primary); color:white; font-size:12px; font-weight:bold; padding:4px 8px; border-radius:12px;">B1</span>
               <span id="story-known-badge" style="background:var(--color-secondary); color:white; font-size:12px; font-weight:bold; padding:4px 8px; border-radius:12px; margin-left:6px; display:none;" title="Estimativa que combina termos marcados por você e itens com memória estável; não mede compreensão."></span>
+              <span id="story-i-plus-one-badge" style="background:rgba(16, 185, 129, 0.15); color:#10b981; border:1px solid rgba(16, 185, 129, 0.3); font-size:12px; font-weight:bold; padding:4px 8px; border-radius:12px; margin-left:6px; display:none;"></span>
               <div id="story-reencounter" style="display:none; font-size:13px; color:var(--color-text-light); margin-top:8px; line-height:1.5;"></div>
             </div>
 
@@ -549,6 +551,7 @@ export function renderStories(container, app) {
   const storyHeader = document.getElementById('story-header');
   const storyTitleDisplay = document.getElementById('story-title-display');
   const storyLevelBadge = document.getElementById('story-level-badge');
+  const storyIPlusOneBadge = document.getElementById('story-i-plus-one-badge');
   const genreSelect = document.getElementById('story-genre');
   const levelSelect = document.getElementById('story-level');
   const durationSelect = document.getElementById('story-duration');
@@ -923,13 +926,37 @@ export function renderStories(container, app) {
         cefrMapCache = await fetch(`${base}cefr-wordlist.json`).then((r) => r.json());
       }
       const measured = measureStoryLevel(text, cefrMapCache);
-      if (!measured.level) return;
-      if (measured.level !== requested) {
-        storyLevelBadge.textContent = `pedido ${requested} · medido ${measured.level}`;
-        storyLevelBadge.title = `${Math.round(measured.coverage * 100)}% do vocabulario reconhecido esta coberto ate ${measured.level}`;
-      } else {
-        storyLevelBadge.textContent = requested;
-        storyLevelBadge.title = 'Nivel confirmado pela medicao de vocabulario';
+      if (measured.level) {
+        if (measured.level !== requested) {
+          storyLevelBadge.textContent = `pedido ${requested} · medido ${measured.level}`;
+          storyLevelBadge.title = `${Math.round(measured.coverage * 100)}% do vocabulario reconhecido esta coberto ate ${measured.level}`;
+        } else {
+          storyLevelBadge.textContent = requested;
+          storyLevelBadge.title = 'Nivel confirmado pela medicao de vocabulario';
+        }
+      }
+
+      // Auditoria Lexical i+1 (Fase 4)
+      const userCefr = (typeof app !== 'undefined' && app.studentCefr) || requested || 'A2';
+      const profile = analyzeLexicalProfile(text, new Set(vaultTranslations.keys()), { userCefr, cefrMap: cefrMapCache });
+      const badgeInfo = formatLexicalBadge(profile);
+      if (storyIPlusOneBadge && badgeInfo) {
+        storyIPlusOneBadge.textContent = badgeInfo.label;
+        storyIPlusOneBadge.title = badgeInfo.title;
+        storyIPlusOneBadge.style.display = 'inline-block';
+        if (badgeInfo.status === 'optimal') {
+          storyIPlusOneBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+          storyIPlusOneBadge.style.color = '#10b981';
+          storyIPlusOneBadge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+        } else if (badgeInfo.status === 'easy') {
+          storyIPlusOneBadge.style.background = 'rgba(59, 130, 246, 0.15)';
+          storyIPlusOneBadge.style.color = '#3b82f6';
+          storyIPlusOneBadge.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+        } else {
+          storyIPlusOneBadge.style.background = 'rgba(245, 158, 11, 0.15)';
+          storyIPlusOneBadge.style.color = '#f59e0b';
+          storyIPlusOneBadge.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+        }
       }
     } catch { /* sem medicao, o selo fica com o pedido */ }
   }

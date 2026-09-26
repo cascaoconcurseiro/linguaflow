@@ -115,6 +115,8 @@
         "utils/listening-clock.js",
         "utils/caption-grouping.js",
         "utils/context-chunks.js",
+        "utils/lemma.js",
+        "utils/lexical-profile.js",
         "icon128.png"
       ],
       "matches": [

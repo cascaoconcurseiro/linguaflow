@@ -481,7 +481,16 @@
 - [x] Tag visual `Recuperação Ativa • Tente evocar antes de virar` em `renderFront` no `studyView.js`.
 - [x] Integração de guarda de honestidade e toast educativo em `handleGrade` no `studyView.js`.
 - [x] Suíte de testes `tests/active-recall-verification.test.mjs` integrada no script `test:adaptive` em `package.json`.
-- [x] Validação de gates: `npm run test:adaptive`, `test:pedagogy`, `test:review-economy`, `lint:biome` e `release-smoke`.
+- [x] Submissão e merge do PR #188.
+
+## Issue #189 · Auditoria Lexical i+1 e Controle de Densidade CEFR nas Histórias — Fase 4 (2026-09-26)
+
+- [x] Criar Issue #189 e branch de trabalho `codex/189-lexical-profile-i-plus-one`.
+- [x] Criação do motor lexical puro `utils/lexical-profile.js` (`analyzeLexicalProfile` e `formatLexicalBadge`) baseado no princípio de Comprehensible Input de Krashen & Nation.
+- [x] Declaração de `utils/lexical-profile.js` e `utils/lemma.js` nos `web_accessible_resources` do `manifest.json`.
+- [x] Integração em `dashboard/js/ui/storiesView.js` com pill visual informativa (`story-i-plus-one-badge`) no cabeçalho da leitura.
+- [x] Suíte de testes `tests/lexical-profile-i-plus-one.test.mjs` integrada no script `test:p1-b` em `package.json`.
+- [x] Validação de gates: `npm run test:p1-b`, `test:pedagogy`, `test:review-economy`, `lint:biome` e `release-smoke`.
 - [ ] Submissão e merge do PR.
 
 

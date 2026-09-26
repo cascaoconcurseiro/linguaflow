@@ -1,3 +1,19 @@
+## Issue #189 — Auditoria Lexical i+1 e Controle de Densidade CEFR nas Histórias — Fase 4 (2026-09-26)
+
+- **PR:** vinculada à Issue [#189](https://github.com/cascaoconcurseiro/linguaflow/issues/189), branch `codex/189-lexical-profile-i-plus-one`.
+- **Issue:** [#189](https://github.com/cascaoconcurseiro/linguaflow/issues/189).
+- **Feito:**
+  - **Motor de Análise Lexical (`utils/lexical-profile.js`)**: Função pura `analyzeLexicalProfile(text, knownLemmas, options)` que avalia a proporção de vocabulário conhecido vs novo segundo a hipótese de Comprehensible Input de Krashen & Nation, determinando se o texto está na faixa ótima $i+1$ (2% a 10% de palavras novas) ou se atinge zona de sobrecarga cognitiva (>15%).
+  - **Formatador de Badge da Leitura (`utils/lexical-profile.js`)**: Função `formatLexicalBadge(profile)` que gera rótulo limpo e elegante ("95% compreensível · Ideal i+1") e orienta o aluno sem poluição visual.
+  - **Exposição na Extensão**: Registrados `utils/lexical-profile.js` e `utils/lemma.js` no `manifest.json`.
+  - **Integração na Interface (`dashboard/js/ui/storiesView.js`)**: Exibição da pill `story-i-plus-one-badge` no cabeçalho das histórias criadas e lidas.
+  - **Contratos e Testes**: Criada suíte `tests/lexical-profile-i-plus-one.test.mjs` com 6 asserções e integrada no script `test:p1-b` em `package.json`.
+- **Validação:**
+  - `npm run test:p1-b` verde (100% dos testes de leitura, quiz e perfil lexical aprovados).
+  - `npm run test:pedagogy` e `npm run test:review-economy` 100% verdes.
+  - `npm run lint:biome` limpo.
+  - `node tests/release-smoke.mjs --allow-dirty` verde.
+
 ## Issue #187 — Verificação Ativa & Guarda de Honestidade no SRS — Fase 3 (2026-09-26)
 
 - **PR:** vinculada à Issue [#187](https://github.com/cascaoconcurseiro/linguaflow/issues/187), branch `codex/187-active-recall-verification`.

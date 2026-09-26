@@ -20,11 +20,19 @@ import {
 } from './subtitles/dock-layout.js';
 import { setupPlayerHotkeys } from './subtitles/player-hotkeys.js';
 import { parseVTT } from './subtitles/vtt-parser.js';
+import {
+  calculateWpm,
+  detectConnectedSpeech,
+  annotateCaptionSegment,
+} from '../utils/speech-cadence.js';
 
 export {
   isTrustedSubtitleBridgeMessage,
   computeDockResponsiveClass,
   applyDockResponsiveClass,
+  calculateWpm,
+  detectConnectedSpeech,
+  annotateCaptionSegment,
 };
 
 const STOP_WORDS = new Set([
@@ -3993,6 +4001,9 @@ export class SubtitleEngine {
     // 1. Pre-renderização: Cria os spans clicáveis antes de mostrar
     if (!cue._renderedNode) {
       cue._renderedNode = this._makeClickable(cue.text);
+    }
+    if (!cue._speechCadence) {
+      cue._speechCadence = annotateCaptionSegment(cue);
     }
 
     // 2. Tradução Dinâmica: Se não tiver, busca ou usa placeholder

@@ -490,7 +490,17 @@
 - [x] Declaração de `utils/lexical-profile.js` e `utils/lemma.js` nos `web_accessible_resources` do `manifest.json`.
 - [x] Integração em `dashboard/js/ui/storiesView.js` com pill visual informativa (`story-i-plus-one-badge`) no cabeçalho da leitura.
 - [x] Suíte de testes `tests/lexical-profile-i-plus-one.test.mjs` integrada no script `test:p1-b` em `package.json`.
-- [x] Validação de gates: `npm run test:p1-b`, `test:pedagogy`, `test:review-economy`, `lint:biome` e `release-smoke`.
+- [x] Submissão e merge do PR #190.
+
+## Issue #191 · Inteligência de Mídia no YouTube: WPM e Connected Speech nas Legendas — Fase 5 (2026-09-26)
+
+- [x] Criar Issue #191 e branch de trabalho `codex/191-speech-cadence-connected-speech`.
+- [x] Criação do módulo `utils/speech-cadence.js` com funções puras `calculateWpm`, `detectConnectedSpeech` e `annotateCaptionSegment`.
+- [x] Detecção de 4 famílias de fenômenos fonológicos de fala conectada: reduções coloquiais, assimilações palatais, elisões e linking consoante+vogal.
+- [x] Registro de `utils/speech-cadence.js` nos `web_accessible_resources` do `manifest.json`.
+- [x] Integração em `content/subtitle-engine.js` com enriquecimento de `_speechCadence` em cada cue exibido.
+- [x] Suíte de testes `tests/speech-cadence-and-connected-speech.test.mjs` integrada no script `test:subtitle-lifecycle` em `package.json`.
+- [x] Validação de gates: `npm run test:subtitle-lifecycle`, `test:pedagogy`, `test:review-economy`, `lint:biome` e `release-smoke`.
 - [ ] Submissão e merge do PR.
 
 

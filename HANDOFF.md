@@ -1,3 +1,18 @@
+## Issue #185 — Retenção Comportamental & Motor Anti-Burnout — Fase 2 (2026-09-26)
+
+- **PR:** vinculada à Issue [#185](https://github.com/cascaoconcurseiro/linguaflow/issues/185), branch `codex/185-anti-burnout-pacing`.
+- **Issue:** [#185](https://github.com/cascaoconcurseiro/linguaflow/issues/185).
+- **Feito:**
+  - **Detector de Fadiga na Sessão (`adaptiveLearning.js`)**: Função pura `detectSessionFatigue(signals, baselineMs)` que avalia latência e acurácia em janela móvel para detectar cansaço mental sem interrupções bruscas.
+  - **Diluidor de Backlog Pós-Inatividade (`sessionQueue.js`)**: Função `balanceBacklogQueue(cards, opts)` para fatiar acúmulos excessivos de revisões (>35 cards) após dias sem estudar, priorizando os cards em maior risco de esquecimento e preservando integralmente os cards de learning.
+  - **Integração no Fluxo de Estudo (`studyView.js`)**: Coleta de sinais por card em `sessionSignals`, notificação empática com reforço positivo ao detectar fadiga cognitiva, e aplicação de `backlogPacing` ao construir a fila.
+  - **Contratos e Testes**: Criada suíte `tests/anti-burnout-pacing.test.mjs` com 6 asserções e integrada no script `test:adaptive`.
+- **Validação:**
+  - `npm run test:adaptive` verde.
+  - `npm run test:engine` verde.
+  - `npm run lint:biome` verde.
+  - `node tests/release-smoke.mjs` verde.
+
 ## Issue #183 — FinOps & Cache Léxico Canônico — Fase 1 (2026-09-26)
 
 - **PR:** vinculada à Issue [#183](https://github.com/cascaoconcurseiro/linguaflow/issues/183), branch `codex/183-canonical-lexicon-cache`.

@@ -48,23 +48,71 @@ function shuffleArray(arr) {
   return out;
 }
 
+// Balanceador de backlog pós-inatividade (Anti-Burnout / Diluição da muralha de cards).
+// Garante que cards em 'learning' nunca sejam adiados, enquanto limita o volume
+// de revisões acumuladas a uma fatia pedagógica diária realizável.
+export function balanceBacklogQueue(cards = [], opts = {}) {
+  const maxDailyBacklog = Number(opts.maxDailyBacklog) || 30;
+  const learningCards = [];
+  const otherCards = [];
+
+  for (const c of cards) {
+    if (c?.status === 'learning') learningCards.push(c);
+    else otherCards.push(c);
+  }
+
+  if (otherCards.length <= maxDailyBacklog || maxDailyBacklog <= 0) {
+    return { activeQueue: [...cards], postponedCount: 0, paced: false, postponedCards: [] };
+  }
+
+  // Ordena por urgência: mais lapsos primeiro, depois menor estabilidade FSRS
+  const sorted = [...otherCards].sort((a, b) => {
+    const lapsesDiff = (b?.lapses || 0) - (a?.lapses || 0);
+    if (lapsesDiff !== 0) return lapsesDiff;
+    const stabA = a?.stability != null ? Number(a.stability) : 1;
+    const stabB = b?.stability != null ? Number(b.stability) : 1;
+    return stabA - stabB;
+  });
+
+  const selected = sorted.slice(0, maxDailyBacklog);
+  const postponed = sorted.slice(maxDailyBacklog);
+
+  return {
+    activeQueue: [...learningCards, ...selected],
+    postponedCount: postponed.length,
+    paced: true,
+    postponedCards: postponed,
+  };
+}
+
 // opts.priorityCategory (Onda 1.3): a categoria mais fraca do diagnóstico. Os
 // cards de revisão dessa categoria são estudados PRIMEIRO (memória fresca),
 // sem quebrar o interleaving de novas/fracas. opts.getCategory permite testar.
 // opts.newOrder ('sequential' | 'random') e opts.reviewOrder ('due' | 'random') (paridade Anki).
+// opts.backlogPacing ({ maxDailyBacklog, daysInactive }) aplica diluição contra burnout.
 export function buildSessionQueue(cards, opts = {}) {
   const {
     priorityCategory = null,
     getCategory = defaultGetCategory,
     newOrder = 'sequential',
     reviewOrder = 'due',
+    backlogPacing = null,
   } = opts;
+
+  let inputCards = cards;
+  if (backlogPacing && typeof backlogPacing === 'object') {
+    const pacingResult = balanceBacklogQueue(cards, backlogPacing);
+    if (pacingResult.paced) {
+      inputCards = pacingResult.activeQueue;
+    }
+  }
+
   const learning = [];
   const weak = [];
   const reviews = [];
   const news = [];
 
-  for (const c of cards) {
+  for (const c of inputCards) {
     if (c.status === 'learning') learning.push(c);
     else if (isWeakCard(c)) weak.push(c);
     else if (c.status === 'new') news.push(c);
@@ -91,3 +139,4 @@ export function buildSessionQueue(cards, opts = {}) {
   const interleaved = spreadInto(withNews, weak);
   return [...learning, ...interleaved];
 }
+

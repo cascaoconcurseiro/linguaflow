@@ -461,6 +461,17 @@
 - [x] Integração em `enrichCard` (`dashboard/js/core/ai.js`): bypass de LLM em caso de hit e indexação automática em miss.
 - [x] Suíte de testes `tests/canonical-lexicon-cache.test.mjs` e integração no script `test:ai-routing`.
 - [x] Validação de gates: `npm run test:ai-routing`, `test:contextual-translation`, `lint:biome` e `release-smoke`.
+- [x] Merge do PR #184 e deploy na Vercel.
+
+## Issue #185 · Retenção Comportamental & Motor Anti-Burnout — Fase 2 (2026-09-26)
+
+- [x] Criar Issue #185 e branch de trabalho `codex/185-anti-burnout-pacing`.
+- [x] Função pura `detectSessionFatigue` em `adaptiveLearning.js` com detecção de latência relativa e taxa de erros.
+- [x] Função pura `balanceBacklogQueue` em `sessionQueue.js` para diluir acúmulo de revisões e preservar cards de learning.
+- [x] Integração no fluxo de estudo em `studyView.js`: registro de `sessionSignals`, notificação de fadiga e opção de `backlogPacing`.
+- [x] Suíte de testes `tests/anti-burnout-pacing.test.mjs` integrada no script `test:adaptive`.
+- [x] Validação de gates: `npm run test:adaptive`, `test:engine`, `lint:biome` e `release-smoke`.
 - [ ] Submissão de PR e merge.
+
 
 

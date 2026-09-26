@@ -3,7 +3,7 @@ import { playNaturalAudio, stopAudio, downloadAudio, preloadNaturalAudio } from 
 import { getCefrLevel, enrichCard, generateChunksWeb, generateMnemonic } from '../core/ai.js';
 import { attachVideoContext, renderVideoContext, getVideoContext } from '../core/videoContext.js';
 import { buildSessionQueue, isWeakCard, prioritizeDueLearning } from '../core/sessionQueue.js';
-import { deriveAdaptivePlan } from '../core/adaptiveLearning.js';
+import { deriveAdaptivePlan, detectSessionFatigue } from '../core/adaptiveLearning.js';
 import { loadVideo, playClip, replayClip, pausePlayer, setClipLoop, isClipPlaying, hidePlayer } from '../core/ytPlayer.js';
 import { hasSourcePhraseLeak } from '../../../utils/translation-quality.js';
 import { mergeContextualChunks } from '../../../utils/context-chunks.js';
@@ -19,6 +19,8 @@ let consecutiveCorrect = 0;
 let sessionCards = 0;
 let sessionXp = 0;
 let sessionStart = Date.now();
+let sessionSignals = [];
+let sessionFatiguePromptShown = false;
 let sessionCardIds = new Set();
 let lastReview = null; // { prevCard, card, grade, isCorrect } para o undo
 let reverseEnabled = false; // cartões reversos PT→EN (setting lf_reverse_cards)
@@ -123,6 +125,8 @@ export async function renderStudy(container, app, params = {}) {
   sessionCards = 0;
   sessionXp = 0;
   sessionStart = Date.now();
+  sessionSignals = [];
+  sessionFatiguePromptShown = false;
   lastReview = null;
   gradeBusy = !!cardMutationPromise;
   exerciseApp = app;
@@ -188,6 +192,7 @@ export async function renderStudy(container, app, params = {}) {
       loadedQueue = buildSessionQueue(limited, {
         newOrder: srs?.newOrder,
         reviewOrder: srs?.reviewOrder,
+        backlogPacing: { maxDailyBacklog: srs?.backlogDailyPacing || 35 },
       });
     }
   } catch (e) {
@@ -2042,6 +2047,19 @@ async function handleGrade(grade, app) {
     else dueQueue = dueQueue.filter(card => card.id !== gradedCard.id);
     sessionCards++;
     playFeedbackSound(isCorrect ? 'correct' : 'wrong');
+
+    sessionSignals.push({
+      correct: isCorrect,
+      responseMs: Date.now() - evidence.startedAt,
+      abandoned: false,
+    });
+    if (!sessionFatiguePromptShown && sessionSignals.length >= 6) {
+      const fatigueCheck = detectSessionFatigue(sessionSignals);
+      if (fatigueCheck.fatigued) {
+        sessionFatiguePromptShown = true;
+        app.showToast('Excelente foco! Seu tempo de resposta aumentou após vários cards; que tal pausar para consolidar na memória?', 'info', 7000);
+      }
+    }
 
     if (isCorrect) {
       // XP real vem SÓ do backend (trigger no review_log). Nada de contador

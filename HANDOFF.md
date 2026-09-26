@@ -1,3 +1,20 @@
+## Issue #179 — Modularização linguística de content/word-popup.js — Fase 5 (2026-09-25)
+
+- **PR:** vinculada à Issue [#179](https://github.com/cascaoconcurseiro/linguaflow/issues/179), branch `codex/179-modular-word-popup`.
+- **Issue:** [#179](https://github.com/cascaoconcurseiro/linguaflow/issues/179).
+- **Feito:**
+  - Extraído `content/popup/popup-linguistics.js`: isola o catálogo curado de falsos amigos (`FALSE_FRIENDS`), conjuntos de expressões e colocações comuns (`COMMON_IDIOMS`, `COMMON_CHUNKS`), mapeador de classes gramaticais (`getPosLabel`, `getPosDetail`, `getPosPatterns`), detector de tipo de expressão com suporte a lematização e partículas (`detectExprType`), detecção de falsos amigos (`detectFalseFriend`) e normalizador textual (`cleanContextExplanation`).
+  - Refatorado `content/word-popup.js`: importa os helpers linguísticos e delega as chamadas nos métodos `_initData()`, `_detectExprType()`, `_detectFalseFriend()`, `_posLabel()`, `_posDetail()` e `_patterns()`, mantendo 100% de retrocompatibilidade com a API de `WordPopup` e todos os testes existentes.
+  - Declarado `content/popup/popup-linguistics.js` no `manifest.json` sob `web_accessible_resources` para que os content scripts possam importá-lo no contexto dos players de vídeo.
+  - Criada nova suíte de testes de contrato em `tests/modular-popup-linguistics-contract.test.mjs` (5/5 testes verdes) e integrada no comando `npm run test:words-explorer`.
+- **Validação:**
+  - `npm run test:word-popup-hover` e `npm run test:words-explorer` 100% verdes.
+  - `node --test tests/caption-popup-startup.test.mjs` verde (3/3 testes, validando que todas as dependências estáticas do popup estão expostas no manifest).
+  - `npm run test:max-ui` e `npm run test:subtitle-lifecycle` verdes.
+  - `npm run test:e2e` (Playwright) verde (3/3 cenários).
+  - `npm run lint:biome` verde (42 arquivos analisados sem erros).
+  - `node tests/release-smoke.mjs --allow-dirty` verde.
+
 ## Issue #177 — Decomposição modular de background/service-worker.js — Fase 4 (2026-09-25)
 
 - **PR:** vinculada à Issue [#177](https://github.com/cascaoconcurseiro/linguaflow/issues/177), branch `codex/177-modular-service-worker`.

@@ -1,3 +1,13 @@
+## Issue #179 · Modularização linguística de content/word-popup.js — Fase 5 (2026-09-25)
+
+- [x] Registrar Issue #179 e trabalhar na branch `codex/179-modular-word-popup`.
+- [x] Extrair submódulo `content/popup/popup-linguistics.js` isolando o dicionário de falsos cognatos (`FALSE_FRIENDS`), conjuntos de expressões e chunks (`COMMON_IDIOMS`, `COMMON_CHUNKS`), mapeamentos de classes gramaticais (`getPosLabel`, `getPosDetail`, `getPosPatterns`), detecção de expressões com lematização (`detectExprType`) e sanitização de explicações (`cleanContextExplanation`).
+- [x] Refatorar `content/word-popup.js` delegando métodos linguísticos para o novo submódulo, preservando 100% de retrocompatibilidade com a API de `WordPopup`.
+- [x] Declarar `content/popup/popup-linguistics.js` no `manifest.json` sob `web_accessible_resources`.
+- [x] Criar suíte de testes de contrato em `tests/modular-popup-linguistics-contract.test.mjs` (5/5 testes verdes).
+- [x] Integrar teste ao script `test:words-explorer` em `package.json`.
+- [x] Validar regressão completa: `test:word-popup-hover`, `test:words-explorer`, `test:max-ui`, `test:subtitle-lifecycle`, `test:e2e` (Playwright), `lint:biome` e `release-smoke` 100% verdes.
+
 ## Issue #177 · Decomposição modular de background/service-worker.js — Fase 4 (2026-09-25)
 
 - [x] Registrar Issue #177 e trabalhar na branch `codex/177-modular-service-worker`.

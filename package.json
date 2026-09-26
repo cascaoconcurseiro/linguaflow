@@ -25,7 +25,7 @@
     "test:word-popup-hover": "node tests/word-popup-hover-race.test.mjs && node tests/word-popup-accessibility.test.mjs",
     "test:max-ui": "node tests/max-player-ui.test.mjs && node tests/player-controls-sync.test.mjs",
     "test:study-hours": "node tests/multimodal-study-hours.test.mjs",
-    "test:words-explorer": "node tests/words-explorer-contract.test.mjs && node tests/popup-phrasal-slang-detector.test.mjs",
+    "test:words-explorer": "node tests/words-explorer-contract.test.mjs && node tests/popup-phrasal-slang-detector.test.mjs && node --test tests/modular-popup-linguistics-contract.test.mjs",
     "test:focus-shell": "node tests/focus-shell.test.mjs",
     "test:study-focus": "node tests/study-focus.test.mjs",
     "test:evidence": "node tests/evidence-foundation.test.mjs",

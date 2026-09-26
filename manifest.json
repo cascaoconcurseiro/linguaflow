@@ -99,6 +99,7 @@
         "content/max-player-ui.js",
         "content/review-overlay.js",
         "content/word-popup.js",
+        "content/popup/popup-linguistics.js",
         "utils/cefr-wordlist.json",
         "utils/frequency-en.json",
         "utils/db.js",

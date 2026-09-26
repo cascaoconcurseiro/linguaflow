@@ -6,6 +6,7 @@ const CACHE_NAME = 'linguaflow-v3.0.58';
 // URLs como o Vercel serve de verdade (via rewrites de vercel.json)
 const APP_SHELL = [
   '/',
+  '/js/core/app.js?v=3.0.58',
   '/css/globals.css?v=editorial-114',
   '/css/editorial.css?v=115',
   '/manifest.webmanifest',

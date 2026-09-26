@@ -111,16 +111,18 @@
         if (isSubtitle) {
             // Never duplicate a failed player request: the YouTube player owns retries.
             const response = await originalFetch.apply(this, args);
-            try {
-                const clone = response.clone();
-                if (urlStr.includes('nflxvideo.net') || urlStr.includes('.vtt')) {
-                    clone.arrayBuffer().then(buf => {
-                        postBridgeMessage({ type: 'LF_SUBTITLE_HOOK', url: urlStr, data: buf, isBinary: true });
-                    }).catch(() => {});
-                } else {
-                    clone.text().then(text => notifyExt(urlStr, text)).catch(() => {});
-                }
-            } catch { /* Capture must never affect playback. */ }
+            if (response && response.ok) {
+                try {
+                    const clone = response.clone();
+                    if (urlStr.includes('nflxvideo.net') || urlStr.includes('.vtt')) {
+                        clone.arrayBuffer().then(buf => {
+                            postBridgeMessage({ type: 'LF_SUBTITLE_HOOK', url: urlStr, data: buf, isBinary: true });
+                        }).catch(() => {});
+                    } else {
+                        clone.text().then(text => notifyExt(urlStr, text)).catch(() => {});
+                    }
+                } catch { /* Capture must never affect playback. */ }
+            }
             return response;
         }
         return originalFetch.apply(this, args);
@@ -138,10 +140,12 @@
         if (isSubtitle) {
             this.addEventListener('load', function() {
                 try {
-                    if (this.responseType === 'arraybuffer' || this.response instanceof ArrayBuffer) {
-                        postBridgeMessage({ type: 'LF_SUBTITLE_HOOK', url: urlStr, data: this.response, isBinary: true });
-                    } else {
-                        notifyExt(urlStr, this.responseText);
+                    if (this.status >= 200 && this.status < 300) {
+                        if (this.responseType === 'arraybuffer' || this.response instanceof ArrayBuffer) {
+                            postBridgeMessage({ type: 'LF_SUBTITLE_HOOK', url: urlStr, data: this.response, isBinary: true });
+                        } else {
+                            notifyExt(urlStr, this.responseText);
+                        }
                     }
                 } catch { /* Player responses are never modified by the extension. */ }
             });

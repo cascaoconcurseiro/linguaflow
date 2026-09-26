@@ -1,3 +1,14 @@
+## Issue #177 · Decomposição modular de background/service-worker.js — Fase 4 (2026-09-25)
+
+- [x] Registrar Issue #177 e trabalhar na branch `codex/177-modular-service-worker`.
+- [x] Extrair rotinas de garbage collection e limpeza de cache para `background/cache-cleaner.js` (`evictDisposableCache`, `sweepStaleCache`, `clearBadLingueeCache`).
+- [x] Extrair geradores de IA para `background/ai-generator.js` (`generateSentenceWithAI`, `getReencounterWordsSW`, `generateStoryWithAI`, `generateAIVariation`, `backfillMissingSentences`).
+- [x] Refatorar `background/service-worker.js` delegando para os novos módulos e mantendo 100% dos contratos e assinaturas originais.
+- [x] Criar suíte de testes de contrato em `tests/modular-service-worker-contract.test.mjs` (5/5 testes verdes).
+- [x] Integrar teste ao script `test:ai-routing` em `package.json`.
+- [x] Validar que o empacotamento de produção (`npm run build:extension`) inclui as dependências privadas no ZIP de release.
+- [x] Regressões `test:ai-routing`, `test:e2e` (Playwright), `lint:biome` e `release-smoke` 100% verdes.
+
 ## Issue #175 · Modularização do motor de legendas content/subtitle-engine.js — Fase 3 (2026-09-25)
 
 - [x] Registrar Issue #175 e trabalhar na branch `codex/175-modular-subtitle-engine`.

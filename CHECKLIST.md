@@ -439,3 +439,16 @@
 - [x] Exibir a proveniência como estimativa no painel de listening.
 - [x] CI, migration hospedada e merge da PR #143 no `main`.
 - [ ] QA no Chrome instalado com vídeo do usuário.
+
+## Issue #181 · Correções sistêmicas pós-auditoria (2026-09-26)
+
+- [x] Criar Issue #181 e branch de trabalho `codex/181-audit-systemic-fixes`.
+- [x] Migration FSRS: normalizar estabilidade nula/zero e proteger contra `SQLSTATE 22012 (division_by_zero)`.
+- [x] Alinhamento de cota diária: excluir revisões desfeitas (`card_review_undos`) na RPC e no cliente `db.getTodayCounts()`.
+- [x] PWA Offline Shell: incluir entrypoint `/js/core/app.js?v=3.0.58` no `APP_SHELL` de `dashboard/sw.js`.
+- [x] YouTube Hook: validar `response.ok` e `status < 300` antes de notificar legendas, evitando repassar páginas HTML de erro 403/404/429.
+- [x] Telemetria OTLP: sanitizar credenciais, chaves e tokens (`apikey`, `token`, `Bearer`) em mensagens e stack traces em `utils/observability.js`.
+- [x] Contratos e testes automatizados: criar `tests/review-fsrs-stability-and-undo-quota.test.mjs` e atualizar `tests/observability.test.mjs`.
+- [x] Validar gates de teste (`npm run test:pedagogy`, `test:review-economy`, `test:observability`, `test:subtitle-lifecycle`, `lint:biome`).
+- [ ] Merge do PR #182 e deploy.
+

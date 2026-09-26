@@ -1,3 +1,21 @@
+## Issue #181 — Correções sistêmicas pós-auditoria — FSRS stability, undo quota, PWA shell e telemetria (2026-09-26)
+
+- **PR:** vinculada à Issue [#181](https://github.com/cascaoconcurseiro/linguaflow/issues/181), branch `codex/181-audit-systemic-fixes`.
+- **Issue:** [#181](https://github.com/cascaoconcurseiro/linguaflow/issues/181).
+- **Feito:**
+  - **FSRS & Divisão por Zero (AUD-01)**: Criada migration `supabase/migrations/20260926110000_fsrs_stability_guard_and_undo_quota.sql` que normaliza valores de estabilidade nulos ou zero (`stability = 0`) para `greatest(0.1, coalesce(nullif(v_card.stability, 0), ...))` na RPC `record_card_review`, impedindo erro de runtime `SQLSTATE 22012 (division_by_zero)`.
+  - **Alinhamento de Quota Diária com Undo (AUD-02)**: Atualizada a lógica de limites diários da RPC `record_card_review` para desconsiderar revisões que constam em `public.card_review_undos` tanto em `v_new_today` quanto em `v_review_today`. Atualizado `getTodayCounts()` em `utils/db.js` para filtrar revisões desfeitas via `card_review_undos`.
+  - **PWA Offline Shell (AUD-03)**: Adicionado `/js/core/app.js?v=3.0.58` ao array `APP_SHELL` em `dashboard/sw.js` para assegurar que o script de entrada do app esteja em cache no primeiro boot offline.
+  - **YouTube Hook: Respostas de Erro (AUD-05)**: Atualizados os interceptores `fetch` e `XHR` em `content/youtube-hook.js` para checar `response.ok` e `status < 300` antes de notificar o motor de legendas, evitando que páginas HTML de erro 403/404/429 poluam o estado de legendas.
+  - **Higienização de Telemetria OTLP (AUD-06)**: Adicionado `redactSensitive` em `utils/observability.js` mascarando chaves (`apikey`, `token`, `Bearer`) em mensagens e stack traces exportados.
+  - **Contratos e Testes**: Criada suíte `tests/review-fsrs-stability-and-undo-quota.test.mjs` integrada no script `npm run test:review-economy`.
+- **Validação:**
+  - `npm run test:pedagogy` e `npm run test:review-economy` verdes.
+  - `npm run test:observability` verde.
+  - `npm run test:web-reader`, `npm run test:subtitle-lifecycle`, `npm run test:words-explorer` e `npm run test:translation-quality` verdes.
+  - `npm run lint:biome` verde (42 arquivos analisados sem erros).
+  - `node tests/release-smoke.mjs` verde.
+
 ## Issue #179 — Modularização linguística de content/word-popup.js — Fase 5 (2026-09-25)
 
 - **PR:** vinculada à Issue [#179](https://github.com/cascaoconcurseiro/linguaflow/issues/179), branch `codex/179-modular-word-popup`.

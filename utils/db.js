@@ -848,15 +848,18 @@ class Database {
   async getTodayCounts() {
     if (this.isProxyMode) return this._proxy('getTodayCounts', []);
     const { start, end } = localDayBounds();
-    const [logToday, introduced] = await Promise.all([
+    const [logToday, introduced, undosToday] = await Promise.all([
       // O teto diário é de revisões propriamente ditas. Um passo de card novo
       // ou learning não consome esse orçamento. previous_status é gravado no
       // servidor pela RPC, antes de alterar o card; nunca vem do cliente.
       this._fetch(`review_log?previous_status=in.(review,mature)&ts=gte.${encodeURIComponent(start.toISOString())}&ts=lt.${encodeURIComponent(end.toISOString())}&select=id`),
       this._fetch(`cards?introduced_at=gte.${encodeURIComponent(start.toISOString())}&introduced_at=lt.${encodeURIComponent(end.toISOString())}&select=id`),
+      this._fetch(`card_review_undos?created_at=gte.${encodeURIComponent(start.toISOString())}&created_at=lt.${encodeURIComponent(end.toISOString())}&select=review_log_id`).catch(() => []),
     ]);
+    const undoneSet = new Set((undosToday || []).map((u) => u.review_log_id).filter(Boolean));
+    const activeReviews = (logToday || []).filter((l) => !undoneSet.has(l.id));
     return {
-      reviewsToday: (logToday || []).length,
+      reviewsToday: activeReviews.length,
       newIntroducedToday: (introduced || []).length,
     };
   }

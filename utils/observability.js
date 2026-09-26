@@ -5,8 +5,29 @@ function getConfig() {
   return config && typeof config === 'object' ? config : {};
 }
 
+const SENSITIVE_PATTERNS = [
+  /([?&](?:apikey|api_key|token|access_token|auth|password|secret)=)[^&\s]+/gi,
+  /(Bearer\s+)[A-Za-z0-9._~+/-]+/gi,
+  /(Basic\s+)[A-Za-z0-9+/=]+/gi,
+];
+
+export function redactSensitive(value) {
+  if (typeof value !== 'string') return value;
+  let result = value;
+  for (const pattern of SENSITIVE_PATTERNS) {
+    result = result.replace(pattern, '$1[REDACTED]');
+  }
+  return result;
+}
+
 function safeString(value, fallback = 'unknown') {
-  return typeof value === 'string' && value.trim() ? value.trim().slice(0, 200) : fallback;
+  if (typeof value !== 'string' || !value.trim()) return fallback;
+  return redactSensitive(value.trim()).slice(0, 200);
+}
+
+function safeText(value, maxLength = 4000) {
+  if (typeof value !== 'string' || !value.trim()) return '';
+  return redactSensitive(value.trim()).slice(0, maxLength);
 }
 
 function now() {
@@ -65,7 +86,7 @@ export function observeError(error, context = {}) {
     ...context,
     errorType: safeString(normalized.name, 'Error'),
     message: safeString(normalized.message),
-    stack: safeString(normalized.stack, '').slice(0, 4000),
+    stack: safeText(normalized.stack, 4000),
   });
 }
 

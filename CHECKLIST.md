@@ -471,7 +471,18 @@
 - [x] Integração no fluxo de estudo em `studyView.js`: registro de `sessionSignals`, notificação de fadiga e opção de `backlogPacing`.
 - [x] Suíte de testes `tests/anti-burnout-pacing.test.mjs` integrada no script `test:adaptive`.
 - [x] Validação de gates: `npm run test:adaptive`, `test:engine`, `lint:biome` e `release-smoke`.
-- [ ] Submissão de PR e merge.
+- [x] Submissão e merge do PR #186.
+
+## Issue #187 · Verificação Ativa & Guarda de Honestidade no SRS — Fase 3 (2026-09-26)
+
+- [x] Criar Issue #187 e branch de trabalho `codex/187-active-recall-verification`.
+- [x] Detecção de cards instáveis (`requires_active_verification`) em `deriveAdaptivePlan` (`adaptiveLearning.js`).
+- [x] Função pura `evaluateActiveRecallHonesty(card, proposedGrade, evidence)` corrigindo avaliações superestimadas (grau 4 com ajuda ou latência lenta) para grau 3.
+- [x] Tag visual `Recuperação Ativa • Tente evocar antes de virar` em `renderFront` no `studyView.js`.
+- [x] Integração de guarda de honestidade e toast educativo em `handleGrade` no `studyView.js`.
+- [x] Suíte de testes `tests/active-recall-verification.test.mjs` integrada no script `test:adaptive` em `package.json`.
+- [x] Validação de gates: `npm run test:adaptive`, `test:pedagogy`, `test:review-economy`, `lint:biome` e `release-smoke`.
+- [ ] Submissão e merge do PR.
 
 
 

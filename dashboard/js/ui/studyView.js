@@ -3,7 +3,7 @@ import { playNaturalAudio, stopAudio, downloadAudio, preloadNaturalAudio } from 
 import { getCefrLevel, enrichCard, generateChunksWeb, generateMnemonic } from '../core/ai.js';
 import { attachVideoContext, renderVideoContext, getVideoContext } from '../core/videoContext.js';
 import { buildSessionQueue, isWeakCard, prioritizeDueLearning } from '../core/sessionQueue.js';
-import { deriveAdaptivePlan, detectSessionFatigue } from '../core/adaptiveLearning.js';
+import { deriveAdaptivePlan, detectSessionFatigue, evaluateActiveRecallHonesty } from '../core/adaptiveLearning.js';
 import { loadVideo, playClip, replayClip, pausePlayer, setClipLoop, isClipPlaying, hidePlayer } from '../core/ytPlayer.js';
 import { hasSourcePhraseLeak } from '../../../utils/translation-quality.js';
 import { mergeContextualChunks } from '../../../utils/context-chunks.js';
@@ -980,7 +980,10 @@ function renderFront(card, word, context) {
   }
   card._clozeHtml = clozeHtml;
   card._classicStage = 'word';
-  sentenceEl.innerHTML = `<div class="study-word-only">${escapeHtml(word)}</div>`;
+  const activeRecallBadge = card._adaptivePlan?.requires_active_verification
+    ? '<div class="study-active-recall-tag" style="font-size:12px; font-weight:700; color:var(--color-primary, #6366f1); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Recuperação Ativa • Tente evocar antes de virar</div>'
+    : '';
+  sentenceEl.innerHTML = `${activeRecallBadge}<div class="study-word-only">${escapeHtml(word)}</div>`;
 
   const hintBtn = document.getElementById('hint-btn');
   const hasContextHint = Boolean(context && context.trim().toLowerCase() !== word.trim().toLowerCase());
@@ -1982,10 +1985,16 @@ async function handleGrade(grade, app) {
   if (buryBtn) buryBtn.disabled = true;
   stopAudio();
 
+  const honesty = evaluateActiveRecallHonesty(gradedCard, grade, presentationEvidence);
+  const effectiveGrade = honesty.adjustedGrade;
+  if (!honesty.honest && honesty.message) {
+    app.showToast(honesty.message, 'info', 4500);
+  }
+
   const operation = pendingReviewOperations.get(gradedCard.id) || {
     operationId: createOperationId(),
-    grade,
-    plannedState: gradedCard._gradePreviews?.[grade - 1] || null,
+    grade: effectiveGrade,
+    plannedState: gradedCard._gradePreviews?.[effectiveGrade - 1] || null,
   };
   pendingReviewOperations.set(gradedCard.id, operation);
   const isCorrect = operation.grade >= 2;

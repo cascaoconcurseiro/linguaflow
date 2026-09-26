@@ -1,6 +1,8 @@
 // content/subtitles/player-hotkeys.js — Gerenciamento isolado dos atalhos de teclado do player
 // Extraído de content/subtitle-engine.js (Centro de Comando A, S, D, Q, L, O, C, Espaço)
 
+import { isEditableTarget } from '../../utils/dom-events.js';
+
 /**
  * Registra os listeners de teclado globais do player com suporte a ciclo de vida via AbortSignal.
  * @param {import('../subtitle-engine.js').SubtitleEngine} engine
@@ -9,11 +11,8 @@
  */
 export function setupPlayerHotkeys(engine, signal) {
   const handler = (e) => {
-    // Não dispara se o usuário estiver digitando em um input
-    if (
-      ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) ||
-      document.activeElement?.isContentEditable
-    ) {
+    // Não dispara se o usuário estiver digitando em um input (incluindo Shadow DOM do YouTube)
+    if (isEditableTarget(e)) {
       return;
     }
 

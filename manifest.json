@@ -81,6 +81,7 @@
     {
       "resources": [
         "utils/site-boundary.js",
+        "utils/dom-events.js",
         "utils/tts.js",
         "utils/exclusive-playback.js",
         "utils/offline-dict.js"

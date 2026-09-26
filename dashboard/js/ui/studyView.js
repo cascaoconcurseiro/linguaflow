@@ -452,9 +452,6 @@ export async function renderStudy(container, app, params = {}) {
 
   document.getElementById('btn-undo')?.addEventListener('click', () => handleUndo(app));
   document.getElementById('bury-btn')?.addEventListener('click', () => buryCard(app));
-  document.getElementById('btn-quick-edit')?.addEventListener('click', () => openQuickEditModal(app));
-  document.getElementById('btn-card-info')?.addEventListener('click', () => openCardInfoModal(app));
-  document.getElementById('btn-card-suspend')?.addEventListener('click', () => suspendCurrentCard(app));
   document.getElementById('menu-quick-edit-btn')?.addEventListener('click', () => openQuickEditModal(app));
   document.getElementById('menu-card-info-btn')?.addEventListener('click', () => openCardInfoModal(app));
   document.getElementById('menu-suspend-btn')?.addEventListener('click', () => suspendCurrentCard(app));

@@ -1,5 +1,6 @@
 import { SettingsPanel } from './settings-panel.js';
 import { SubtitleEngine } from './subtitle-engine.js';
+import { isEditableTarget } from '../utils/dom-events.js';
 
 // Verifica se está em um site suportado
 const hostname = window.location.hostname;
@@ -47,7 +48,7 @@ if (!isSupported) {
       // Tecla R = toggle review
       document.addEventListener('keydown', (e) => {
         if (e.key === 'r' || e.key === 'R') {
-          if (e.target.closest('input, textarea, [contenteditable="true"]')) return;
+          if (isEditableTarget(e)) return;
           if (e.ctrlKey || e.metaKey || e.altKey) return;
           reviewOverlay.toggle();
         }

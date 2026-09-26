@@ -253,17 +253,13 @@ class App {
   }
 
   async updateGlobalStats() {
-    const stats = await db.getUserStats();
-    if (stats) {
-       const streakEl = document.getElementById('streak-val');
-       if (streakEl) streakEl.textContent = stats.streak;
+    try {
+      const dueCards = await db.getCardsDue(50, false);
+      const count = Array.isArray(dueCards) ? dueCards.length : 0;
+      this.updateFocusStatus(count);
+    } catch {
+      // Falha de rede ou modo offline mantém o estado atual de forma resiliente
     }
-    
-    // Also update due count
-    const dueCards = await db.getCardsDue(50, false);
-    const dueEl = document.getElementById('due-val');
-    if (dueEl) dueEl.textContent = dueCards.length;
-    this.updateFocusStatus(dueCards.length);
   }
 
   setupFocusShell() {

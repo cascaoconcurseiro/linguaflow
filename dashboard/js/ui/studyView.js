@@ -429,7 +429,7 @@ export async function renderStudy(container, app, params = {}) {
     if (event.currentTarget.open) {
       if (event.isTrusted && presentationEvidence) presentationEvidence.helpCount += 1;
       requestAnimationFrame(() => {
-        event.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        event.currentTarget?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       });
     } else {
       pauseYouglish();

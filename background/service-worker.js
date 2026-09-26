@@ -5,6 +5,18 @@ import { OFFICIAL_SITE_URL, isLinguaFlowUrl } from '../utils/site-boundary.js';
 import { buildStoryVarietyNote, buildLevelNote, levelSpecFor, recentStorySnippets, resolveStoryLevel } from '../utils/story-variety.js';
 import { slangsDB } from '../utils/slangs-db.js';
 import { phrasalVerbsDB } from '../utils/phrasal-verbs.js';
+import {
+  evictDisposableCache,
+  sweepStaleCache,
+  clearBadLingueeCache as clearBadLingueeCacheModule,
+} from './cache-cleaner.js';
+import {
+  generateSentenceWithAI as generateSentenceWithAIModule,
+  getReencounterWordsSW as getReencounterWordsSWModule,
+  generateStoryWithAI as generateStoryWithAIModule,
+  generateAIVariation as generateAIVariationModule,
+  backfillMissingSentences as backfillMissingSentencesModule,
+} from './ai-generator.js';
 
 // Métodos que páginas da extensão podem chamar através do service worker.
 // A fronteira explícita impede acesso a helpers internos como db._fetch.
@@ -31,81 +43,19 @@ const DB_PROXY_METHODS = new Set([
   'adminResetAllDecks', 'adminDeleteUser', 'adminClearErrors',
 ]);
 
-// Garbage Collector para limpar dicionários velhos e liberar espaço (QuotaExceeded)
+// Garbage Collector e limpador de cache (delegado a background/cache-cleaner.js)
 function _evictDisposableCache() {
-  return new Promise((resolve) => {
-    if (typeof chrome === 'undefined' || !chrome.storage?.local) return resolve();
-    chrome.storage.local.get(null, (items) => {
-      if (chrome.runtime?.lastError || !items) return resolve();
-      const keysToRemove = Object.keys(items).filter((k) =>
-        k.startsWith('linguee_') ||
-        k.startsWith('reverso_') ||
-        k.startsWith('lf_tr:') ||
-        /^[a-z]{2,5}:[a-z]{2,5}:/.test(k) ||
-        k === 'lastYoutubeSubtitleUrls'
-      );
-      if (keysToRemove.length === 0) return resolve();
-      chrome.storage.local.remove(keysToRemove, () => resolve());
-    });
-  });
+  return evictDisposableCache();
 }
 
 function _sweepStaleCache(maxLinguee = 30, maxReverso = 30, maxTranslations = 1000) {
-  if (typeof chrome === 'undefined' || !chrome.storage?.local) return;
-  chrome.storage.local.get(null, (items) => {
-    if (chrome.runtime?.lastError || !items) return;
-    const now = Date.now();
-    const lingueeEntries = [];
-    const reversoEntries = [];
-    const translationKeys = [];
-    const keysToRemove = [];
-
-    for (const [key, value] of Object.entries(items)) {
-      if (key.startsWith('linguee_')) {
-        if (value?.ts && now - value.ts > 3 * 86400000) {
-          keysToRemove.push(key);
-        } else {
-          lingueeEntries.push({ key, ts: value?.ts || 0 });
-        }
-      } else if (key.startsWith('reverso_')) {
-        if (value?.ts && now - value.ts > 3 * 86400000) {
-          keysToRemove.push(key);
-        } else {
-          reversoEntries.push({ key, ts: value?.ts || 0 });
-        }
-      } else if (key.startsWith('lf_tr:') || /^[a-z]{2,5}:[a-z]{2,5}:/.test(key)) {
-        translationKeys.push(key);
-      }
-    }
-
-    if (lingueeEntries.length > maxLinguee) {
-      lingueeEntries.sort((a, b) => b.ts - a.ts);
-      for (const item of lingueeEntries.slice(maxLinguee)) {
-        keysToRemove.push(item.key);
-      }
-    }
-
-    if (reversoEntries.length > maxReverso) {
-      reversoEntries.sort((a, b) => b.ts - a.ts);
-      for (const item of reversoEntries.slice(maxReverso)) {
-        keysToRemove.push(item.key);
-      }
-    }
-
-    if (translationKeys.length > maxTranslations) {
-      const excess = translationKeys.slice(0, translationKeys.length - maxTranslations);
-      keysToRemove.push(...excess);
-    }
-
-    if (keysToRemove.length > 0) {
-      chrome.storage.local.remove(keysToRemove, () => {
-        if (!chrome.runtime?.lastError) {
-          console.debug(`[LinguaFlow] GC: Limpos ${keysToRemove.length} itens obsoletos do cache.`);
-        }
-      });
-    }
-  });
+  return sweepStaleCache(maxLinguee, maxReverso, maxTranslations);
 }
+
+function clearBadLingueeCache() {
+  return clearBadLingueeCacheModule();
+}
+
 // Roda o limpador sempre que o Service Worker inicializa
 _sweepStaleCache();
 
@@ -1489,167 +1439,20 @@ Se for phrasal verb, chunk, gíria ou expressão, traduza o bloco inteiro pelo s
 }
 
 // ============================================================================
-// GERADOR DE FRASE DE EXEMPLO COM IA
+// GERADOR DE FRASE DE EXEMPLO COM IA (delegado a background/ai-generator.js)
 // ============================================================================
 async function generateSentenceWithAI(word) {
-  try {
-    if (!word) return null;
-    const systemPrompt = `Você é um professor de inglês nativo criando material didático.
-Crie UMA única frase curta e natural em inglês usando a palavra/expressão: "${word}".
-A frase deve ser de nível iniciante/intermediário e fácil de entender o contexto.
-Logo na linha de baixo, forneça a tradução exata em português brasileiro.
-Retorne EXATAMENTE neste formato (e nada mais):
-Frase: [frase em inglês]
-Tradução: [tradução em português]`;
-
-    const config = await getApiConfig();
-    if (!config.apiKey) return null;
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-    let response;
-    if (true) {
-      response = await fetchWithRetry(config.apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${config.apiKey}`,
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: config.model,
-          messages: [{ role: 'system', content: systemPrompt }],
-          temperature: 0.7,
-          max_tokens: 150,
-        }),
-      });
-    }
-
-    clearTimeout(timeoutId);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-
-    let text = '';
-    
-      text = data.choices?.[0]?.message?.content || '';
-    
-
-    text = text.trim();
-    if (!text) return null;
-
-    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-    let sentence = '';
-    let translation = '';
-    
-    for (const line of lines) {
-      if (line.toLowerCase().startsWith('frase:')) {
-        sentence = line.replace(/^(frase:|\*\*frase:\*\*|frase:)\s*/i, '').trim();
-      } else if (line.toLowerCase().startsWith('tradução:')) {
-        translation = line.replace(/^(tradução:|\*\*tradução:\*\*|tradução:)\s*/i, '').trim();
-      }
-    }
-    
-    if (sentence) {
-      return { sentence, translation };
-    }
-    return null;
-
-  } catch (err) {
-    console.error('Erro na IA:', err);
-    return { sentence: 'Error generating sentence.', translation: 'Erro ao gerar frase.' };
-  }
+  return generateSentenceWithAIModule(word, { getApiConfig, fetchWithRetry });
 }
 
 // Palavras do aluno pro REENCONTRO na história (Onda 1.4 — paridade com a web):
 // fracas primeiro (3+ lapsos/leech), depois em aprendizado recente. Máx 8.
 async function getReencounterWordsSW() {
-  try {
-    const [cards, words] = await Promise.all([db.getAllCards(), db.getAllWords()]);
-    const wordById = {};
-    words.forEach(w => { wordById[w.id] = w; });
-    const nameOf = (c) => wordById[c.word_id]?.word;
-    const weak = cards
-      .filter(c => !c.suspended && ((c.lapses || 0) >= 3 || c.is_leech))
-      .sort((a, b) => (b.lapses || 0) - (a.lapses || 0))
-      .map(nameOf).filter(Boolean);
-    const inProgress = cards
-      .filter(c => !c.suspended && (c.status === 'learning' || c.status === 'review'))
-      .sort((a, b) => new Date(b.last_review || 0) - new Date(a.last_review || 0))
-      .map(nameOf).filter(Boolean);
-    return [...new Set([...weak, ...inProgress])].slice(0, 8);
-  } catch { return []; }
+  return getReencounterWordsSWModule(db);
 }
 
 async function generateStoryWithAI(genre, options = {}) {
-  try {
-    const learnerLevel = await db.getSetting('lf_cefr_level') || 'B1';
-    const cefr = resolveStoryLevel(learnerLevel, options?.level, options?.difficultyMode);
-    const targetMinutes = [3, 5, 10].includes(Number(options?.targetMinutes)) ? Number(options.targetMinutes) : 5;
-    const learningGoal = ['comfortable', 'vocabulary', 'challenge'].includes(options?.learningGoal)
-      ? options.learningGoal : 'comfortable';
-    const config = await getApiConfig();
-    if (!config.apiKey) {
-      throw new Error('Faça login no LinguaFlow para gerar histórias.');
-    }
-
-    const reencounter = await getReencounterWordsSW();
-    const reencounterNote = reencounter.length
-      ? `\nIMPORTANTE: incorpore NATURALMENTE ${Math.min(6, Math.max(4, reencounter.length))} destas palavras/expressões que o aluno está estudando (sem forçar, sem destacar, sem listar): ${reencounter.join(', ')}.`
-      : '';
-
-    // Bug 17/07 (dono): prompt byte-idêntico gerava sempre a mesma história.
-    const recent = recentStorySnippets(await db.getStories(15).catch(() => []), genre);
-    const varietyNote = buildStoryVarietyNote(recent);
-    // W5.1: tamanho/estruturas/tokens escalam com o nível do aluno.
-    const levelNote = buildLevelNote(cefr, { targetMinutes, learningGoal });
-    const spec = levelSpecFor(cefr);
-
-    const prompt = `Você é um gerador de histórias envolventes em inglês para estudantes.
-Nível do Estudante: CEFR ${cefr}.
-Tema/Gênero da História: ${genre}.
-${reencounterNote}
-${varietyNote}
-${levelNote}
-DIRETRIZES FUNDAMENTAIS DE FORMATO:
-- O texto DEVE ser rico em DIÁLOGOS REAIS entre os personagens (cerca de 60% a 70% da história em conversas diretas que uma pessoa pode usar no mundo real em viagens, trabalho, compras e dia a dia).
-- Use aspas inglesas ("...") para as falas e intercale as falas com reações, sentimentos e ações dos personagens.
-- O vocabulário e a gramática devem estar estritamente alinhados ao nível CEFR ${cefr} especificado.
-- Não traduza a história. Apenas escreva a história em inglês, diagramada como um livro: separe CADA parágrafo e CADA turno de fala de personagem OBRIGATORIAMENTE com duas quebras de linha (\n\n). NUNCA junte falas de dois personagens no mesmo parágrafo.
-- NÃO use formatação markdown, NÃO coloque um título, apenas o texto da história.`;
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
-    
-    let response;
-    
-      response = await fetchWithRetry(config.apiUrl, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: config.model,
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.8,
-          max_tokens: spec.maxTokens,
-        }),
-      });
-    
-
-    clearTimeout(timeoutId);
-    if (!response.ok) throw new Error('API Error');
-    const data = await response.json();
-    
-    let text = '';
-    
-      text = data.choices?.[0]?.message?.content || '';
-    
-    
-    return { story: text.trim(), level: cefr, requestedWords: reencounter, targetMinutes, learningGoal, promptVersion: 'story-v2' };
-  } catch (err) {
-    console.error('Erro ao gerar história:', err);
-    throw err;
-  }
+  return generateStoryWithAIModule(genre, options, { db, getApiConfig, fetchWithRetry });
 }
 
 function notifyDashboards(word) {
@@ -1704,95 +1507,14 @@ chrome.notifications?.onClicked?.addListener((id) => {
   }
 });
 
-function clearBadLingueeCache() {
-  chrome.storage.local.get(null, (items) => {
-    const keys = Object.keys(items).filter(
-      (k) => k.startsWith('linguee_') && items[k].html?.includes('\uFFFD'),
-    );
-    if (keys.length) chrome.storage.local.remove(keys);
-  });
-}
-
 async function generateAIVariation(word, sentence) {
-  const config = await getApiConfig();
-  const prompt = `Você é um professor de inglês inovador.
-A frase que estou estudando contém a palavra "${word}": "${sentence}".
-Sua tarefa é gerar APENAS 3 frases INÉDITAS usando o mesmo padrão gramatical e a palavra "${word}".
-As frases devem ser coloquiais, modernas e úteis (nada de frases de livro de escola).
-
-Regras de Saída:
-Não dê explicações. Responda APENAS com a lista numerada, sendo a frase em inglês e a tradução.
-1. [Frase 1 em inglês] - [Tradução 1]
-2. [Frase 2 em inglês] - [Tradução 2]
-3. [Frase 3 em inglês] - [Tradução 3]`;
-
-  const payload = {
-    messages: [{ role: 'user', content: prompt }],
-    temperature: 0.8,
-    max_tokens: 300,
-  };
-
-  payload.model = config.model;
-
-  const res = await fetch(config.apiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${config.apiKey}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) throw new Error('API AI falhou ao gerar variações');
-  const data = await res.json();
-  return data.choices[0].message.content;
+  return generateAIVariationModule(word, sentence, { getApiConfig });
 }
 
 
-// ── Backfill de Frases com IA (Background Queue) ─────────────────────────────────
-let isBackfilling = false;
-
+// ── Backfill de Frases com IA (Background Queue delegado a background/ai-generator.js) ─
 async function backfillMissingSentences() {
-  if (isBackfilling) return;
-  isBackfilling = true;
-  try {
-    const config = await getApiConfig();
-    if (!config.apiKey) { isBackfilling = false; return; }
-
-    const words = await db.getAllWords();
-    const missing = words.filter(w => w.category !== 'sentence' && (!w.context_sentence || w.context_sentence === w.word || w.context_sentence.trim() === '' || !w.ai_chunks));
-    
-    if (missing.length === 0) {
-      isBackfilling = false;
-      return;
-    }
-    console.debug(`[LinguaFlow] Iniciando geração automática de frases para ${missing.length} palavras no cofre...`);
-
-    for (const w of missing) {
-      try {
-        await new Promise(r => setTimeout(r, 6000)); // Espera 6s para respeitar limites da API (Rate Limit)
-        const chunks = await generateChunksWithAI(w.word, w.context_sentence || '');
-        if (chunks && chunks.length > 0) {
-          // Mantém a frase do vídeo se existir e tiver mais que 2 palavras, senão sobrescreve
-          const hasGoodVideoContext = w.context_sentence && w.context_sentence !== w.word && w.context_sentence.split(' ').length > 2;
-          if (!hasGoodVideoContext) {
-            w.context_sentence = chunks[0].eng || chunks[0].ingles || chunks[0].english;
-          }
-          w.ai_chunks = JSON.stringify(chunks);
-          await db.saveWord(w);
-          console.debug(`[LinguaFlow] Auto-generated chunks for: ${w.word}`);
-          notifyDashboards(w.word);
-        }
-      } catch (e) {
-        console.warn(`[LinguaFlow] Failed to auto-generate for ${w.word}:`, e);
-      }
-    }
-    console.debug('[LinguaFlow] Geração automática de frases concluída!');
-  } catch (e) {
-    console.error('[LinguaFlow] Backfill error:', e);
-  } finally {
-    isBackfilling = false;
-  }
+  return backfillMissingSentencesModule({ db, getApiConfig, generateChunksWithAI, notifyDashboards });
 }
 
 setTimeout(backfillMissingSentences, 10000);

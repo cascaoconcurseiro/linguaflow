@@ -1,3 +1,20 @@
+## Issue #177 — Decomposição modular de background/service-worker.js — Fase 4 (2026-09-25)
+
+- **PR:** vinculada à Issue [#177](https://github.com/cascaoconcurseiro/linguaflow/issues/177), branch `codex/177-modular-service-worker`.
+- **Issue:** [#177](https://github.com/cascaoconcurseiro/linguaflow/issues/177).
+- **Feito:**
+  - Extraído `background/cache-cleaner.js`: rotinas de garbage collection de entradas voláteis sob risco de QuotaExceeded (`evictDisposableCache`), rotina de sweep de itens expirados (>3 dias) ou excedentes de limites (`sweepStaleCache`), e limpeza de fragmentos corrompidos do Linguee (`clearBadLingueeCache`).
+  - Extraído `background/ai-generator.js`: geração de frases de exemplo com tradução em português (`generateSentenceWithAI`), extração de até 8 palavras fracas e em aprendizado recente para reencontro pedagógico (`getReencounterWordsSW`), geração estruturada de histórias CEFR com diálogos realistas (`generateStoryWithAI`), geração de 3 variações da frase com o mesmo padrão gramatical (`generateAIVariation`), e backfill assíncrono em fila com rate limit de 6s para preencher frases e chunks faltantes no cofre (`backfillMissingSentences`).
+  - Refatorado `background/service-worker.js`: importa os novos submódulos, delega as chamadas correspondentes, mantém reexportações e assinaturas intactas, garantindo 100% de compatibilidade com todos os testes e callers existentes.
+  - Criada nova suíte de testes de contrato em `tests/modular-service-worker-contract.test.mjs` (5/5 testes verdes) e adicionada ao script `test:ai-routing` em `package.json`.
+  - Validado que o script de empacotamento (`npm run build:extension`) rastreia e inclui automaticamente as dependências privadas no artefato de release sem expô-las em `web_accessible_resources`.
+- **Validação:**
+  - `npm run test:ai-routing` (10 contratos DeepSeek + dicionário + fallbacks + 5 testes do novo contrato verdes).
+  - `npm run test:e2e` (Playwright) verde (3/3 testes).
+  - `npm run build:extension` verde (45 arquivos empacotados no ZIP de release).
+  - `npm run lint:biome` verde (42 arquivos analisados sem erros).
+  - `node tests/release-smoke.mjs --allow-dirty` verde.
+
 ## Issue #175 — Modularização do motor de legendas content/subtitle-engine.js — Fase 3 (2026-09-25)
 
 - **PR:** vinculada à Issue [#175](https://github.com/cascaoconcurseiro/linguaflow/issues/175), branch `codex/175-modular-subtitle-engine`.

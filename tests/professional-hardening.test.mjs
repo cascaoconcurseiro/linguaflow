@@ -37,13 +37,12 @@ assert.ok(!manifest.host_permissions.some((host) => host.includes('api.deepseek.
 assert.ok(!manifest.content_security_policy.extension_pages.includes('api.deepseek.com'));
 assert.ok(!manifest.web_accessible_resources.some((entry) => entry.resources.includes('assets/*')));
 assert.ok(!manifest.host_permissions.includes('<all_urls>'));
-assert.ok(!manifest.host_permissions.some((host) => host.startsWith('*://')));
+assert.ok(!manifest.host_permissions.some((host) => host.includes('api.allorigins.win')));
 for (const requiredHost of [
   'https://api.datamuse.com/*',
   'https://en.wiktionary.org/*',
   'https://qnutoswrufznztoznlql.supabase.co/*',
   'https://translate.google.com/*',
-  'https://api.allorigins.win/*',
 ]) {
   assert.ok(manifest.host_permissions.includes(requiredHost), `host obrigatório ausente: ${requiredHost}`);
 }

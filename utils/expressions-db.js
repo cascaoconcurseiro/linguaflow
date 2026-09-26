@@ -270,3 +270,4 @@ export function matchExpressionCandidate(words) {
   return null;
 }
 
+export const MAX_EXPRESSION_WORDS = 6;

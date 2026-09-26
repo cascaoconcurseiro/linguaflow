@@ -1,3 +1,34 @@
+## Issue #195 — Endurecimento de Segurança, Mídia e Dead DOM (2026-09-26)
+
+- **PR:** Vinculado à Issue [#195](https://github.com/cascaoconcurseiro/linguaflow/issues/195), branch `codex/195-security-media-dead-dom-harden`.
+- **Issue:** [#195](https://github.com/cascaoconcurseiro/linguaflow/issues/195).
+- **Feito:**
+  - **Eliminação de Proxy de Terceiros (`api.allorigins.win`)**: Removida a dependência do proxy público não autenticado em `utils/tts.js`, `utils/translator.js`, `manifest.json` (host_permissions e CSP), `dashboard/dashboard.html` e `vercel.json`. O áudio e traduções fora da extensão agora contam com fallback resiliente para Web Speech API e MyMemory/Google direto.
+  - **Otimização de Observer no YouTube (`content/subtitle-engine.js`)**: O `MutationObserver` das legendas nativas do YouTube agora utiliza throttling estrito com `requestAnimationFrame` (`ytRafId`), evitando recálculos e sincronizações repetitivas a cada mutação de nós na árvore DOM durante reprodução de vídeos.
+  - **Constante Pré-computada de Expressões (`utils/expressions-db.js`)**: Adicionada e exportada a constante `MAX_EXPRESSION_WORDS = 6`, eliminando alocações dinâmicas de arrays via `Array.from(expressionsDB)` em `content/subtitle-engine.js`.
+  - **Limpeza de Dead DOM no Estudo (`dashboard/js/ui/studyView.js`)**: Removidas rotinas e seletores zumbis órfãos (`#chunks-container`, `#study-context-meaning`, `#study-usage-note`, `#iso-mnemonic-btn`, `#iso-mnemonic-text`), e integrado o badge visual de "Unidade para guardar" diretamente no card de contexto rico (`renderRichContextCard`).
+  - **Remoção de Exports Órfãos (`dashboard/js/core/ai.js`)**: Removidos `grammarTutorPersona`, `grammarInitialQuestion` e a função local `levelNote` não mais consumidos pelo sistema.
+  - **Suíte de Testes TDD (`tests/security-media-and-dead-dom-fixes.test.mjs`)**: 14/14 testes cobrindo segurança de rede, ausência de proxy externo, controle por rAF no observer, otimização de expressões e eliminação de dead DOM.
+- **Validação:**
+  - `tests/security-media-and-dead-dom-fixes.test.mjs` verde (14/14 aprovados).
+  - `npm run test:release` 100% verde (incluindo testes de sincronização, hardening, contratos de estudo e storage quota).
+  - `npm run lint:biome` limpo (0 erros em 45 arquivos).
+  - `node tests/release-smoke.mjs --allow-dirty` verde (83 arquivos JS íntegros).
+
+## Fix — Botões de nota fixos no sistema e rolagem isolada no conteúdo central do card (2026-09-26)
+
+- **Arquivos:** `dashboard/css/editorial.css`, `dashboard/js/ui/studyView.js`.
+- **Problema resolvido:**
+  - Ao rolar a página em cards de estudo com conteúdo longo (frase, pronúncia IPA, traduções, explicações de contexto, exemplos), a página inteira rolava dentro de `#app-root`, arrastando o cabeçalho para fora da tela e fazendo os botões de nota (`Errei`, `Difícil`, `Bom`, `Fácil`) rolarem junto ou disputarem rolagem da tela.
+- **Mudanças realizadas:**
+  - **Botões de Avaliação Fixos no Sistema (`.grading-buttons`):** Ancorados permanentemente como barra fixa no rodapé (`position: fixed; inset: auto 0 0; z-index: 110`) tanto em `editorial.css` quanto nos estilos injetados de `studyView.js`, garantindo que nunca rolem para fora da visualização.
+  - **Isolamento de Rolagem no Conteúdo Central (`.sentence-container`):** `.sentence-container` configurado com `max-height: calc(100dvh - 100px - var(--study-grading-dock-height, 140px))`, `overflow-y: auto`, `overscroll-behavior: contain` e `scrollbar-width: thin;`, permitindo que apenas o conteúdo do card role verticalmente sem deslocar o resto do sistema.
+  - **Estabilidade do Shell no Modo Foco (`#app-root`):** `#app-root` recebe `overflow-y: hidden` no modo foco editorial, impedindo salto ou rolagem do layout externo e mantendo cabeçalho (`.anki-study-header`) e botões sempre estáveis.
+  - **Adaptação Responsiva Mobile:** Em telas <= 720px, `.study-main` gerencia a rolagem vertical única com `max-height: calc(100dvh - 58px)` entre o topo fixo e os botões fixos.
+- **Validação:**
+  - Verificação dinâmica via headless browser (`chrome-devtools-mcp`): confirmação de `sentenceScrollTop: 250` com `appRootScrollTop: 0` e botões de nota fixados na coordenada inferior da viewport (`gbBottom: 861px`).
+  - Suítes de regressão `npm run test:study-focus`, `test:stage3`, `test:study-depth-stories`, `test:dashboard-cards`, `study-lateral-side-by-side-and-pause.test.mjs` e `test:focus-shell` 100% verdes.
+
 ## Issue #193 — Proteção contra Shadow DOM nos atalhos e limpeza de dead DOM no shell PWA (2026-09-26)
 
 - **PR:** [#194](https://github.com/cascaoconcurseiro/linguaflow/pull/194), branch `codex/193-reader-shadowdom-shell-harden`.

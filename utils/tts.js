@@ -107,11 +107,10 @@ class TTS {
                         }
                     }
                     
-                    // Se não for extensão ou falhou, usa Proxy para evitar AdBlockers e CORS
+                    // Se não for extensão ou mensageria indisponível, usa a URL direta;
+                    // se falhar por CORS/rede, o fluxo cai com segurança para Web Speech API.
                     if (!playableUrl) {
-                        // Vamos usar o AllOrigins como proxy
-                        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-                        playableUrl = proxyUrl;
+                        playableUrl = url;
                     }
                     
                     this.audioCache.set(cacheKey, playableUrl);

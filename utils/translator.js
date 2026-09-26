@@ -215,33 +215,6 @@ class Translator {
             }
         }
 
-        // No navegador web, requisições diretas a translate.googleapis.com sofrem bloqueio de CORS.
-        // O proxy allorigins (homologado no CSP e host_permissions) viabiliza a tradução no ambiente web.
-        try {
-            const proxyTarget = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${toLang}&dt=t&q=${q}`;
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(proxyTarget)}`;
-            const controller = new AbortController();
-            const tid = setTimeout(() => controller.abort(), 4000);
-            const response = await fetch(proxyUrl, { signal: controller.signal });
-            clearTimeout(tid);
-            if (response.ok) {
-                const raw = await response.text();
-                if (raw && !raw.startsWith('<')) {
-                    const data = JSON.parse(raw);
-                    if (data && data[0] && Array.isArray(data[0])) {
-                        const translation = data[0]
-                            .filter(part => part && part[0])
-                            .map(part => part[0])
-                            .join('')
-                            .trim();
-                        if (translation) return translation;
-                    }
-                }
-            }
-        } catch (err) {
-            console.warn('[LinguaFlow Translator] Proxy allorigins falhou:', err.message);
-        }
-
         return null;
     }
 

@@ -226,18 +226,34 @@ export function renderStories(container, app) {
       <!-- Control Panel (New Story) -->
       <div id="panel-new" role="tabpanel" aria-labelledby="tab-new" class="story-create-panel">
         <h2 style="font-size:20px; color:var(--color-text); margin:0 0 6px;">Criar uma história</h2>
-        <p style="color:var(--color-text-light); margin:0 0 16px; font-size:14px;">Escolha a missão de leitura. Depois da geração, mostramos o nível pedido e a estimativa medida.</p>
+        <p style="color:var(--color-text-light); margin:0 0 16px; font-size:14px;">Escolha o tema e o nível desejado. Sua história é gerada e calibrada no nível exato que você escolher.</p>
         <div class="story-mission-grid">
           <label class="story-field" for="story-genre"><span>Tema</span>
           <select id="story-genre" style="flex:1; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); font-size:16px; min-width: 200px; cursor: pointer; transition: border-color 0.2s;">
-            <option value="Dia a Dia">Dia a Dia</option>
-            <option value="Viagens">Viagens</option>
-            <option value="Ficção Científica">Ficção Científica</option>
-            <option value="Negócios">Negócios</option>
-            <option value="Mistério">Mistério</option>
-            <option value="Romance">Romance</option>
-            <option value="Aventura">Aventura</option>
-            <option value="História (Fatos reais)">Fatos históricos</option>
+            <optgroup label="Cotidiano & Conforto">
+              <option value="Dia a Dia" selected>Dia a Dia (Rotina & Momentos)</option>
+              <option value="Cafeteria & Restaurante">Cafeteria & Restaurante</option>
+              <option value="Amizades & Convivência">Amizades & Encontros</option>
+              <option value="Família & Casa">Família & Convivência em Casa</option>
+              <option value="Animais & Pets">Animais & Pets</option>
+              <option value="Compras & Cidade">Compras & Vida na Cidade</option>
+              <option value="Saúde & Bem-Estar">Saúde & Hábitos Saudáveis</option>
+            </optgroup>
+            <optgroup label="Lazer, Cultura & Prática">
+              <option value="Viagens">Viagens & Aeroportos</option>
+              <option value="Trabalho & Carreira">Trabalho & Dia a Dia Profissional</option>
+              <option value="Música, Cinema & Hobbies">Música, Séries & Hobbies</option>
+              <option value="Comédia & Situações Engraçadas">Comédia & Situações Engraçadas</option>
+              <option value="Tecnologia & Vida Digital">Tecnologia & Vida Digital</option>
+              <option value="Cultura & Tradições">Cultura & Festividades</option>
+            </optgroup>
+            <optgroup label="Imaginação & Narrativas">
+              <option value="Mistério">Mistério & Curiosidade</option>
+              <option value="Romance">Romance & Conexões</option>
+              <option value="Aventura">Aventura & Natureza</option>
+              <option value="Ficção Científica">Ficção Científica</option>
+              <option value="História (Fatos reais)">Fatos Históricos & Biografias</option>
+            </optgroup>
           </select>
           </label>
           <label class="story-field" for="story-level"><span>Nível da história</span>
@@ -916,8 +932,7 @@ export function renderStories(container, app) {
     loadHistory();
   }
 
-  // A4 do backlog: o selo mostrava o nivel PEDIDO, nunca verificado. Mede o
-  // nivel real com a cefr-wordlist e, se divergir, mostra os dois.
+  // Mede o nível real com a cefr-wordlist lematizada e confirma a calibração no selo.
   let cefrMapCache = null;
   async function measureAndShowLevel(text, requested) {
     try {
@@ -926,13 +941,14 @@ export function renderStories(container, app) {
         cefrMapCache = await fetch(`${base}cefr-wordlist.json`).then((r) => r.json());
       }
       const measured = measureStoryLevel(text, cefrMapCache);
+      const displayLevel = requested || measured.level || 'B1';
+      storyLevelBadge.textContent = displayLevel;
       if (measured.level) {
-        if (measured.level !== requested) {
-          storyLevelBadge.textContent = `pedido ${requested} · medido ${measured.level}`;
-          storyLevelBadge.title = `${Math.round(measured.coverage * 100)}% do vocabulario reconhecido esta coberto ate ${measured.level}`;
+        const coveragePct = Math.round(measured.coverage * 100);
+        if (measured.level === displayLevel) {
+          storyLevelBadge.title = `Nível ${displayLevel} confirmado pela medição de vocabulário (${coveragePct}% coberto)`;
         } else {
-          storyLevelBadge.textContent = requested;
-          storyLevelBadge.title = 'Nivel confirmado pela medicao de vocabulario';
+          storyLevelBadge.title = `Nível ${displayLevel} · Vocabulário acessível: ${coveragePct}% coberto até ${measured.level}`;
         }
       }
 

@@ -94,6 +94,7 @@ export async function renderStudy(container, app, params = {}) {
       }).catch(() => {});
     }
     studyViewActive = false;
+    document.body.classList.remove('lf-study-mode');
     stopAudio();
     audioUiToken += 1;
     pauseYouglish();
@@ -122,6 +123,7 @@ export async function renderStudy(container, app, params = {}) {
     studyContainer = null;
   });
   injectStyles();
+  document.body.classList.add('lf-study-mode');
   consecutiveCorrect = 0;
   sessionCards = 0;
   sessionXp = 0;
@@ -2721,9 +2723,14 @@ function injectStyles() {
       .wave-bar { animation: none !important; }
     }
 
-    /* Issue #109: a study card with the hierarchy from the new reference. */
-    .study-layout { background:var(--color-bg); }
-    .study-main { width:min(100%, 1160px); min-height:calc(100dvh - var(--topbar-height)); margin:0 auto; padding:24px 28px 40px; }
+    /* Issue #109 / scroll-isolation: a sessão de estudo ocupa toda a altura
+       disponível. O #app-root NÃO rola (body.lf-study-mode bloqueia isso);
+       apenas .study-main rola internamente. Os botões de avaliação ficam
+       fixos em relação à viewport — sem scrollbar externa aparecendo. */
+    body.lf-study-mode #app-root { overflow: hidden; }
+    .study-layout { background:var(--color-bg); display:flex; flex-direction:column; height:calc(100dvh - var(--topbar-height)); overflow:hidden; }
+    .study-main { flex:1; overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; scrollbar-width:thin; width:min(100%, 1160px); margin:0 auto; padding:24px 28px calc(var(--study-grading-dock-height, 140px) + 24px); box-sizing:border-box; }
+    .sentence-container { max-width:none; margin:0 0 14px; padding:25px 48px 28px; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); text-align:center; overflow:visible; }
     .anki-study-header { width:100%; max-width:none; margin:0 0 18px; padding:0 4px 14px; border-bottom:1px solid var(--color-border); }
     .anki-session-counters { gap:0; }
     .anki-counter-badge { min-width:116px; padding:0 22px; border:0; border-right:1px solid var(--color-border); border-radius:0; background:transparent; color:var(--color-text-light); font-size:13px; }
@@ -2732,7 +2739,6 @@ function injectStyles() {
     .anki-counter-badge strong { display:block; color:var(--color-text); font-size:24px; line-height:1; }
     .anki-card-timer { padding:0; border:0; background:transparent; color:var(--color-secondary); font-size:16px; }
     .timer-label { display:block; font-size:11px; color:var(--color-text-light); }
-    .sentence-container { max-width:none; margin:0 0 14px; padding:25px 48px 28px; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); text-align:center; max-height:calc(100dvh - 100px - var(--study-grading-dock-height, 140px)); overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; }
     .study-card-meta { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:28px; text-align:left; }
     .study-card-meta > div:first-child { display:grid; gap:3px; }
     .study-card-meta-actions { display:flex; align-items:center; justify-content:flex-end; gap:12px; flex:0 0 auto; margin-left:auto; }
@@ -2783,7 +2789,7 @@ function injectStyles() {
     .more-contexts { border:1px solid var(--color-border); border-radius:10px; background:var(--color-surface); }
     .more-contexts > summary { min-height:52px; padding:0 16px; }
     @media (max-width: 720px) {
-      .study-main { padding:16px 12px calc(104px + env(safe-area-inset-bottom)); }
+      .study-main { padding:16px 12px calc(var(--study-grading-dock-height, 104px) + 16px); }
       .anki-study-header { align-items:flex-start; }
       .anki-session-counters { width:100%; justify-content:space-between; }
       .anki-counter-badge { min-width:0; padding:0 10px; font-size:11px; }

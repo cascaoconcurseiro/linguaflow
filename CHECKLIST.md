@@ -450,5 +450,17 @@
 - [x] Telemetria OTLP: sanitizar credenciais, chaves e tokens (`apikey`, `token`, `Bearer`) em mensagens e stack traces em `utils/observability.js`.
 - [x] Contratos e testes automatizados: criar `tests/review-fsrs-stability-and-undo-quota.test.mjs` e atualizar `tests/observability.test.mjs`.
 - [x] Validar gates de teste (`npm run test:pedagogy`, `test:review-economy`, `test:observability`, `test:subtitle-lifecycle`, `lint:biome`).
-- [ ] Merge do PR #182 e deploy.
+- [x] Merge do PR #182 e deploy na Vercel.
+
+## Issue #183 · FinOps & Cache Léxico Canônico — Fase 1 (2026-09-26)
+
+- [x] Criar Issue #183 e branch de trabalho `codex/183-canonical-lexicon-cache`.
+- [x] Migration Supabase `20260926120000_canonical_lexicon_cache.sql`: tabela `canonical_lexicon` e RPC `get_or_cache_canonical_lexicon`.
+- [x] Métodos `db.getCanonicalLexicon(word, lang)` e `db.saveCanonicalLexicon(entry)` em `utils/db.js` com cache LRU em memória.
+- [x] Métodos incluídos em `DB_PROXY_METHODS` em `background/service-worker.js`.
+- [x] Integração em `enrichCard` (`dashboard/js/core/ai.js`): bypass de LLM em caso de hit e indexação automática em miss.
+- [x] Suíte de testes `tests/canonical-lexicon-cache.test.mjs` e integração no script `test:ai-routing`.
+- [x] Validação de gates: `npm run test:ai-routing`, `test:contextual-translation`, `lint:biome` e `release-smoke`.
+- [ ] Submissão de PR e merge.
+
 

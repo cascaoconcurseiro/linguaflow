@@ -58,6 +58,7 @@ class Database {
     this._storiesRefreshing = null;
     this._readerStoriesRepo = new ReaderStoriesRepository(this);
     this._gamificationRepo = new GamificationRepository(this);
+    this._canonicalLexiconMemory = new Map();
   }
 
   // Lê o objeto de sessão completo ({ access_token, refresh_token, expires_at, user })
@@ -2169,6 +2170,72 @@ class Database {
 
   async getUserAchievements() {
     return this._gamificationRepo.getUserAchievements();
+  }
+
+  // ── CACHE LÉXICO CANÔNICO (FinOps & Latência) ─────────────────────────────
+  async getCanonicalLexicon(word, lang = 'en') {
+    if (this.isProxyMode) return this._proxy('getCanonicalLexicon', [word, lang]);
+    const normWord = String(word || '').trim().toLowerCase();
+    const normLang = String(lang || 'en').trim().toLowerCase();
+    if (!normWord) return null;
+
+    const cacheKey = `${normLang}:${normWord}`;
+    if (this._canonicalLexiconMemory?.has(cacheKey)) {
+      return this._canonicalLexiconMemory.get(cacheKey);
+    }
+
+    try {
+      const res = await this._fetch(`canonical_lexicon?word=eq.${encodeURIComponent(normWord)}&lang=eq.${encodeURIComponent(normLang)}&select=*`);
+      if (Array.isArray(res) && res.length > 0) {
+        const entry = res[0];
+        if (!this._canonicalLexiconMemory) this._canonicalLexiconMemory = new Map();
+        if (this._canonicalLexiconMemory.size > 500) {
+          const firstKey = this._canonicalLexiconMemory.keys().next().value;
+          this._canonicalLexiconMemory.delete(firstKey);
+        }
+        this._canonicalLexiconMemory.set(cacheKey, entry);
+        return entry;
+      }
+      return null;
+    } catch (e) {
+      console.warn('[DB] getCanonicalLexicon error:', e);
+      return null;
+    }
+  }
+
+  async saveCanonicalLexicon(entry) {
+    if (this.isProxyMode) return this._proxy('saveCanonicalLexicon', [entry]);
+    if (!entry || !entry.word) return null;
+    const normWord = String(entry.word).trim().toLowerCase();
+    const normLang = String(entry.lang || 'en').trim().toLowerCase();
+    if (!normWord) return null;
+
+    const cacheKey = `${normLang}:${normWord}`;
+    try {
+      const saved = await this._fetch('rpc/get_or_cache_canonical_lexicon', {
+        method: 'POST',
+        body: {
+          p_word: normWord,
+          p_lang: normLang,
+          p_entry: {
+            word_phon: entry.word_phon || null,
+            word_pt: entry.word_pt || null,
+            context: entry.context || null,
+            source: entry.source || 'deepseek-chat',
+          },
+        },
+      });
+
+      if (saved) {
+        if (!this._canonicalLexiconMemory) this._canonicalLexiconMemory = new Map();
+        this._canonicalLexiconMemory.set(cacheKey, saved);
+        return saved;
+      }
+      return null;
+    } catch (e) {
+      console.warn('[DB] saveCanonicalLexicon error:', e);
+      return null;
+    }
   }
 }
 

@@ -1,3 +1,11 @@
+## Issue #171 · Decomposição modular de Configurações e Histórias — Fase 1 (2026-09-25)
+
+- [x] Extrair modal interativo de nivelamento CEFR em 4 fases para `dashboard/js/ui/cefrPlacementTest.js`, reduzindo `settingsView.js` em 267 linhas.
+- [x] Extrair quiz de compreensão LingQ-style para `dashboard/js/ui/storiesQuiz.js`, reduzindo `storiesView.js` em 139 linhas.
+- [x] Adicionar suíte de contrato `tests/stories-quiz-contract.test.mjs` validando `normalizeQuiz`, `generateStoryQuiz` e `runPlacementTest`.
+- [x] Manter retrocompatibilidade total reexportando `runPlacementTest` e preservando a API e estilos intactos.
+- [x] Regressões `test:p1-a`, `test:p1-b`, `test:e2e`, `lint:biome` e `release-smoke` 100% verdes.
+
 ## Issue #169 · Conectar progresso persistido no Reader, release unificado e expansão de lint (2026-09-25)
 
 - [x] Conectar `updateReaderProgress` na interface do Web Reader (`readerView.js` com auto-save em scroll com debounce, flush e marcação de conclusão).

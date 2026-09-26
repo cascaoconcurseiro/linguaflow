@@ -1,3 +1,18 @@
+## Issue #171 — Decomposição modular de Configurações e Histórias — Fase 1 (2026-09-25)
+
+- **PR:** vinculada à Issue [#171](https://github.com/cascaoconcurseiro/linguaflow/issues/171), branch `codex/171-modular-settings-and-stories`.
+- **Issue:** [#171](https://github.com/cascaoconcurseiro/linguaflow/issues/171).
+- **Feito:**
+  - Extraído o modal de nivelamento CEFR em 4 fases de `dashboard/js/ui/settingsView.js` para `dashboard/js/ui/cefrPlacementTest.js`, reduzindo `settingsView.js` em 267 linhas mantendo reexportação para retrocompatibilidade com `homeView.js`.
+  - Extraído o quiz de compreensão LingQ-style de `dashboard/js/ui/storiesView.js` para `dashboard/js/ui/storiesQuiz.js`, reduzindo `storiesView.js` em 139 linhas.
+  - Criada suíte de testes de contrato unitário em `tests/stories-quiz-contract.test.mjs` validando `normalizeQuiz`, `generateStoryQuiz` e a exportação de `runPlacementTest`.
+  - Atualizado `tests/cofre-settings-p1-a.test.mjs` para checar `cefrPlacementTest.js` e adicionada execução de `stories-quiz-contract.test.mjs` em `package.json`.
+- **Validação:**
+  - `npm run test:p1-a` e `npm run test:p1-b` verdes.
+  - `npm run test:e2e` (3/3 testes verdes).
+  - `npm run lint:biome` (40 arquivos verdes).
+  - `node tests/release-smoke.mjs` verde.
+
 ## Issue #169 — Progresso persistido no Reader, unificação de release e expansão de lint (2026-09-25)
 
 - **PR:** vinculada à Issue [#169](https://github.com/cascaoconcurseiro/linguaflow/issues/169), branch `codex/169-reader-progress`.

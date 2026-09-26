@@ -5,6 +5,7 @@ import { escapeHtml } from '../dashboard/js/ui/viewState.js';
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const library = read('dashboard/js/ui/libraryView.js');
 const settings = read('dashboard/js/ui/settingsView.js');
+const placement = read('dashboard/js/ui/cefrPlacementTest.js');
 
 assert.equal(escapeHtml('<img src=x onerror=alert(1)> & "x"'), '&lt;img src=x onerror=alert(1)&gt; &amp; &quot;x&quot;');
 assert.match(library, /escapeHtml\(w\.word\)/);
@@ -47,11 +48,11 @@ for (const id of [
 }
 assert.match(settings, /id="tts-lang-selector" role="group" aria-labelledby="tts-lang-label"/);
 assert.match(settings, /id="tts-speed-selector" role="group" aria-labelledby="tts-speed-label"/);
-assert.match(settings, /<label for="pl-writing"/,
+assert.match(placement, /<label for="pl-writing"/,
   'produção escrita do nivelamento deve ter label associado');
-assert.match(settings, /id="pl-writing"[^>]*aria-describedby="pl-writing-prompt pl-writing-count"/,
+assert.match(placement, /id="pl-writing"[^>]*aria-describedby="pl-writing-prompt pl-writing-count"/,
   'textarea deve anunciar o enunciado e a contagem mínima');
-assert.match(settings, /id="pl-writing-count"[^>]*role="status"[^>]*aria-live="polite"/,
+assert.match(placement, /id="pl-writing-count"[^>]*role="status"[^>]*aria-live="polite"/,
   'contagem dinâmica da produção deve ser anunciada sem interromper');
 assert.match(settings, /class="cefr-btn[^>]*aria-pressed="\$\{cefr === '[A-C][12]' \? 'true' : 'false'\}"/,
   'cada opção CEFR deve expor seu estado selecionado');
@@ -70,13 +71,13 @@ assert.match(settings, /Number\.isFinite\(value\) && value > 0/,
   'learning steps devem rejeitar valores não finitos e não positivos');
 assert.match(settings, /Number\.isFinite\(Number\(token\)\) && Number\(token\) > 0/,
   'overrides por categoria devem validar todos os passos');
-assert.match(settings, /setAttribute\('role', 'dialog'\)[\s\S]+setAttribute\('aria-modal', 'true'\)[\s\S]+setAttribute\('aria-labelledby', 'pl-dialog-title'\)/,
+assert.match(placement, /setAttribute\('role', 'dialog'\)[\s\S]+setAttribute\('aria-modal', 'true'\)[\s\S]+setAttribute\('aria-labelledby', 'pl-dialog-title'\)/,
   'placement deve ser um diálogo nomeado e modal');
-assert.match(settings, /event\.key === 'Escape'[\s\S]+closeAll\(\)/,
+assert.match(placement, /event\.key === 'Escape'[\s\S]+closeAll\(\)/,
   'placement deve fechar com Escape');
-assert.match(settings, /const closeAll[\s\S]+returnFocusTo\?\.focus\(\)/,
+assert.match(placement, /const closeAll[\s\S]+returnFocusTo\?\.focus\(\)/,
   'placement deve restaurar foco ao fechar');
-assert.match(settings, /escapeHtml\(writingResult\.feedback\)/,
+assert.match(placement, /escapeHtml\(writingResult\.feedback\)/,
   'feedback da IA no placement deve ser escapado');
 
 console.log('✓ P1-A: Cofre escaneável e Configurações seguras');

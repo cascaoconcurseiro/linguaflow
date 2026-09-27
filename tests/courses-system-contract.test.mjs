@@ -58,12 +58,15 @@ test('seed: 10 frases reais com tradução, IPA e anotações; sem áudio fictí
 });
 
 test('UI: sem catálogo fixo, sem dados de demonstração, sem voz robótica', () => {
-  const views = ['coursesView', 'coursePracticeView', 'courseNotebooksView', 'coursePrepareModal']
+  const views = ['coursesView', 'coursePracticeView', 'coursePrepareModal',
+    'courses/courseUi', 'courses/courseHome', 'courses/courseStore', 'courses/courseNotebooks',
+    'courses/courseAnalysis', 'courses/courseLeaderboard']
     .map((name) => read(`dashboard/js/ui/${name}.js`)).join('\n');
   assert.doesNotMatch(views, /SITUATIONAL_COURSES|FALLBACK_UNITS|DEMO_MISTAKES|DEMO_VOCABULARY/);
   assert.doesNotMatch(views, /speechSynthesis/, 'áudio pela voz neural (tts.js)');
   assert.doesNotMatch(views, /\bprompt\(/, 'nota com campo acessível, não prompt()');
-  assert.doesNotMatch(views, /db\._fetch|db\.rpc/, 'acesso ao banco só pelo CoursesRepository');
+  assert.doesNotMatch(views, /db\._fetch|db\.rpc\(/, 'acesso ao banco só pelo CoursesRepository');
+  assert.doesNotMatch(views, /members only|Membros|assinatura|\$\d/i, 'tudo gratuito');
 });
 
 test('UI: player registra um único listener global e o remove ao sair', () => {
@@ -71,9 +74,21 @@ test('UI: player registra um único listener global e o remove ao sair', () => {
   const adds = player.match(/container\.addEventListener\('keydown'/g) || [];
   assert.equal(adds.length, 1);
   assert.match(player, /container\.removeEventListener\('keydown', onKeydown\)/);
+  assert.match(player, /window\.removeEventListener\('beforeunload', onBeforeUnload\)/);
   assert.match(player, /app\.onLeaveView\?\.\(/);
-  const renderShellBody = player.slice(player.indexOf('function showUnit()'), player.indexOf('function updateHud()'));
-  assert.doesNotMatch(renderShellBody, /container\.addEventListener/, 'trocar de frase não adiciona listener no container');
+  const showUnitBody = player.slice(player.indexOf('function showUnit()'), player.indexOf('function updateActionStates()'));
+  assert.doesNotMatch(showUnitBody, /container\.addEventListener/, 'trocar de frase não adiciona listener no container');
+});
+
+test('UI: player tem as funções do YouType mapeadas', () => {
+  const player = read('dashboard/js/ui/coursePracticeView.js');
+  for (const action of ['previous', 'replay', 'hint', 'submit', 'reveal', 'skip', 'settings', 'pause', 'theme', 'pop-speed', 'pop-readings']) {
+    assert.match(player, new RegExp(`data-action="${action}"`), `ação ${action}`);
+  }
+  assert.match(player, /isSemicolon && e\.shiftKey/, 'Ctrl+Shift+; = dica da palavra');
+  assert.match(player, /e\.code === 'Quote'/, "Ctrl+' = repetir áudio");
+  assert.match(player, /HARD_SLOT_CH/, 'difícil sem pista de tamanho');
+  assert.match(player, /commitIncomplete/, 'sair no meio grava sessão incompleta');
 });
 
 test('repositório: endpoints corretos e escrita sem user_id', async () => {
@@ -81,14 +96,13 @@ test('repositório: endpoints corretos e escrita sem user_id', async () => {
   const repo = new CoursesRepository({
     _fetch: async (endpoint, options = {}) => {
       calls.push({ endpoint, options });
-      if (endpoint.startsWith('course_catalog')) {
+      if (endpoint === 'rpc/rpc_course_catalog') {
         return [
-          { id: 'c1', title: 'A', course_lessons: [
-            { id: 'l2', chapter_number: 2, title: 'L2', course_units: [{ count: 5 }] },
-            { id: 'l1', chapter_number: 1, title: 'L1', course_units: [{ count: 10 }] },
-            { id: 'l3', chapter_number: 3, title: 'vazia', course_units: [{ count: 0 }] },
+          { id: 'c1', title: 'A', lessons: [
+            { id: 'l1', chapter_number: 1, title: 'L1', unit_count: 10 },
+            { id: 'l3', chapter_number: 3, title: 'vazia', unit_count: 0 },
           ] },
-          { id: 'c2', title: 'Sem frases', course_lessons: [] },
+          { id: 'c2', title: 'Sem frases', lessons: [] },
         ];
       }
       return [];
@@ -97,21 +111,47 @@ test('repositório: endpoints corretos e escrita sem user_id', async () => {
 
   const catalog = await repo.listCatalog();
   assert.deepEqual(catalog.map((c) => c.id), ['c1'], 'curso sem frases não aparece');
-  assert.deepEqual(catalog[0].lessons.map((l) => l.id), ['l1', 'l2'], 'lições ordenadas e sem vazias');
-  assert.equal(calls[0].options.throwOnReadError, true, 'falha de leitura vira estado de erro, não vazio');
+  assert.deepEqual(catalog[0].lessons.map((l) => l.id), ['l1'], 'lição sem frases não aparece');
 
   await repo.saveVocabulary('unit-street-a1-01-01');
-  const vocab = calls.at(-1);
-  assert.deepEqual(vocab.options.body, { unit_id: 'unit-street-a1-01-01' });
+  assert.deepEqual(calls.at(-1).options.body, { unit_id: 'unit-street-a1-01-01' });
+
+  await repo.getLesson('lesson-street-a1-01');
+  assert.equal(calls.at(-1).options.throwOnReadError, true, 'falha de leitura vira estado de erro, não vazio');
 
   await assert.rejects(() => repo.getLesson('x&select=*'), /inválido/, 'id não injeta parâmetros no PostgREST');
+  await assert.rejects(() => repo.getUnits(['ok-1', 'bad)']), /inválido/);
   await assert.rejects(() => repo.saveNote('unit-1', '   '), /vazia/);
+  assert.throws(() => repo.getLeaderboard('yearly'), /período/);
 
-  await repo.commitSession({ clientSessionId: 'id', lessonId: 'l1', difficulty: 'hard', startedAt: 't', activeTimeSeconds: 5, score: 1, highestCombo: 1, results: [] });
+  await repo.commitPractice({ clientSessionId: 'id', kind: 'mistakes', lessonId: 'l1', difficulty: 'hard', startedAt: 't', activeTimeSeconds: 5, score: 1, highestCombo: 1, results: [], completed: true });
   const commit = calls.at(-1);
-  assert.equal(commit.endpoint, 'rpc/rpc_commit_course_session');
-  assert.equal(typeof commit.options.body, 'object', 'corpo como objeto: _fetch define Content-Type JSON');
+  assert.equal(commit.endpoint, 'rpc/rpc_course_commit_practice');
+  assert.equal(commit.options.body.p_lesson_id, null, 'prática de caderno não tem lição');
+  assert.equal(commit.options.body.p_kind, 'mistakes');
   assert.ok(!('p_user_id' in commit.options.body));
+
+  await repo.commitSession({ clientSessionId: 'id2', lessonId: 'l1', difficulty: 'easy', startedAt: 't', activeTimeSeconds: 1, score: 1, highestCombo: 1, results: [{ unit_id: 'u', attempts: 1, used_hint: true }] });
+  assert.equal(calls.at(-1).options.body.p_results[0].hint_count, 1, 'pendência antiga (used_hint) é convertida');
+});
+
+test('plataforma: migration com sessões incompletas, resultados por frase e RPCs protegidas', () => {
+  const sql = read('supabase/migrations/20260927180000_course_platform.sql');
+  for (const fn of ['rpc_course_commit_practice', 'rpc_set_course_in_my_courses', 'rpc_course_catalog', 'rpc_course_analysis', 'rpc_course_leaderboard']) {
+    assert.ok(new RegExp('REVOKE ALL ON FUNCTION public[.]' + fn + '[(][^)]*[)] FROM PUBLIC, anon;').test(sql), `${fn} sem anon`);
+  }
+  assert.match(sql, /course_session_results_select_own/);
+  assert.match(sql, /CASE WHEN v_status = 'completed' THEN ARRAY\[p_lesson_id\]/, 'só sessão concluída conclui a lição');
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.rpc_commit_course_session/, 'compatibilidade com clientes antigos');
+  for (const idx of sql.match(/CREATE INDEX[^;]+;/g)) assert.doesNotMatch(idx, /now\(\)/);
+});
+
+test('conteúdo: seed gerado bate com a fonte e cobre 90 frases novas', async () => {
+  const { generate } = await import('../scripts/generate-course-seed.mjs');
+  const { sql, errors } = generate();
+  assert.deepEqual(errors, []);
+  assert.equal(read('supabase/migrations/20260927180100_course_content.sql').replace(/\r\n/g, '\n'), sql, 'migration igual à saída do gerador');
+  assert.equal((sql.match(/\('unit-[a-z0-9-]+', 'lesson-/g) || []).length, 90);
 });
 
 test('app: rotas de curso recebem os parâmetros de navegação', () => {

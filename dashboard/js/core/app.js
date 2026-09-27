@@ -15,8 +15,12 @@ const renderStats = (...args) => import('../ui/statsView.js').then((m) => m.rend
 const renderLearn = (...args) => import('../ui/learnView.js').then((m) => m.renderLearn(...args));
 const renderProgress = (...args) => import('../ui/progressView.js').then((m) => m.renderProgress(...args));
 const renderAdmin = (...args) => import('../ui/adminView.js').then((m) => m.renderAdmin(...args));
+const renderCourses = (...args) => import('../ui/coursesView.js').then((m) => m.renderCourses(...args));
+const renderCoursePractice = (...args) => import('../ui/coursePracticeView.js').then((m) => m.renderCoursePractice(...args));
 
-const CLIENT_BUILD = '3.0.58';
+const CLIENT_BUILD = '3.0.59';
+// Rotas cujo render recebe os parâmetros de navegação (lição, modo, aba).
+const ROUTES_WITH_PARAMS = new Set(['study', 'courses', 'course-practice']);
 
 // Purga caches de versões anteriores do PWA para impedir que clientes fiquem presos em assets defasados
 if ('caches' in window) {
@@ -358,7 +362,7 @@ class App {
   }
 
   syncShellForRoute(route) {
-    const focus = route === 'study';
+    const focus = route === 'study' || route === 'course-practice';
     document.body.classList.toggle('lf-auth-route', route === 'login');
     document.body.classList.toggle('lf-focus-mode', focus);
     if (this.focusHeader) this.focusHeader.hidden = !focus;
@@ -398,7 +402,8 @@ class App {
     this.routeParams = params || {};
     this.syncShellForRoute(route);
     const routeTitles = {
-      home: 'Hoje', library: 'O Cofre', progress: 'Progresso',
+      home: 'Hoje', courses: 'Cursos da Vida Real', 'course-practice': 'Prática de Curso',
+      library: 'O Cofre', progress: 'Progresso',
       study: 'Sessão de estudo', stories: 'Histórias', reader: 'Leitor',
       stats: 'Estatísticas', leagues: 'Ligas', settings: 'Configurações', login: 'Entrar',
       'fluency-check': 'Check de comunicação',
@@ -499,6 +504,8 @@ class App {
       stats: renderStats,
       learn: renderLearn,
       progress: renderProgress,
+      courses: renderCourses,
+      'course-practice': renderCoursePractice,
       'fluency-check': renderFluencyCheck,
       admin: renderAdmin,
     };
@@ -521,7 +528,7 @@ class App {
     const guardedContainer = this.createGuardedContainer(container, context);
     const guardedApp = this.createGuardedApp(context);
     try {
-      const result = route === 'study'
+      const result = ROUTES_WITH_PARAMS.has(route)
         ? renderer(guardedContainer, guardedApp, params)
         : renderer(guardedContainer, guardedApp);
       // Várias views são async, mas historicamente renderRouteView não as

@@ -15,6 +15,8 @@
     <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" /></noscript>
     <link rel="stylesheet" href="css/globals.css?v=editorial-114" />
     <link rel="stylesheet" href="css/editorial.css?v=116" />
+    <link rel="stylesheet" href="css/course-system.css?v=1.0.0" />
+    <link rel="stylesheet" href="css/course-player.css?v=1.0.0" />
   </head>
   <body class="lf-auth-pending">
     <!-- Top Navigation Bar -->
@@ -27,6 +29,7 @@
       </div>
       <nav class="nav-links">
         <button class="nav-btn active" type="button" data-route="home">Hoje</button>
+        <button class="nav-btn" type="button" data-route="courses">Cursos</button>
         <button class="nav-btn" type="button" data-route="library">O Cofre</button>
         <button class="nav-btn" type="button" data-route="progress" data-nav-group="progress">Progresso</button>
       </nav>
@@ -70,6 +73,7 @@
 
     <nav id="mobile-nav" class="mobile-nav" aria-label="Navegação principal">
       <button class="mobile-nav-btn active" type="button" data-route="home"><span aria-hidden="true">⌂</span><span>Hoje</span></button>
+      <button class="mobile-nav-btn" type="button" data-route="courses"><span aria-hidden="true">⌨</span><span>Cursos</span></button>
       <button class="mobile-nav-btn" type="button" data-route="library"><span aria-hidden="true">◇</span><span>Cofre</span></button>
       <button class="mobile-nav-btn" type="button" data-route="progress" data-nav-group="progress"><span aria-hidden="true">↗</span><span>Progresso</span></button>
     </nav>
@@ -77,6 +81,6 @@
     <!-- Global Toast Container -->
     <div id="toast-container"></div>
 
-    <script type="module" src="js/core/app.js?v=3.0.58"></script>
+    <script type="module" src="js/core/app.js?v=3.0.59"></script>
   </body>
 </html>

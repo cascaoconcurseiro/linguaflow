@@ -1,0 +1,434 @@
+/* ==========================================================================
+   LinguaFlow — Player de Prática Palavra por Palavra (Fullscreen / Modo Foco)
+   Arquivo: dashboard/css/course-player.css
+   Diretriz: Foco imersivo total, latência zero, feedback mecânico e visual.
+   ========================================================================== */
+
+.course-player-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--course-bg, #161b24);
+  color: var(--course-text, #edf0f4);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow-y: auto;
+  user-select: none;
+}
+
+/* 1. Barra Superior de Foco */
+.course-player-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--course-border);
+  position: relative;
+}
+
+.course-player-progress-bar-wrap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--course-surface-alt);
+}
+
+.course-player-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--course-progress-fill);
+  transition: width 240ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.course-player-btn-back {
+  background: transparent;
+  border: 1px solid var(--course-border);
+  color: var(--course-text-muted);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  transition: all 120ms ease;
+}
+
+.course-player-btn-back:hover {
+  border-color: var(--course-border-focus);
+  color: var(--course-text);
+}
+
+.course-player-question-indicator {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--course-text-muted);
+  letter-spacing: 0.02em;
+}
+
+.course-player-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.course-player-btn-icon {
+  background: transparent;
+  border: 1px solid var(--course-border);
+  color: var(--course-text-muted);
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 15px;
+  transition: all 120ms ease;
+}
+
+.course-player-btn-icon:hover {
+  color: var(--course-text);
+  border-color: var(--course-border-focus);
+}
+
+/* 2. HUD de Desempenho em Tempo Real */
+.course-player-hud {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 12px 24px;
+  flex-wrap: wrap;
+}
+
+.course-hud-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--course-surface);
+  border: 1px solid var(--course-border);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--course-text);
+}
+
+.course-hud-pill.combo {
+  background: var(--course-accent-subtle);
+  border-color: var(--course-accent);
+  color: var(--course-accent);
+  transition: transform 120ms ease;
+}
+
+.course-hud-pill.combo.pop {
+  transform: scale(1.12);
+}
+
+/* 3. Área Central de Prática */
+.course-player-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px clamp(16px, 5vw, 64px);
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+  gap: 32px;
+}
+
+/* Botão Central de Áudio (Replay) */
+.course-audio-replay-btn {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--course-accent);
+  color: #ffffff;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 24px;
+  transition: transform 120ms ease, background 120ms ease;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+}
+
+.course-audio-replay-btn:hover {
+  transform: scale(1.06);
+  background: var(--course-accent-hover);
+}
+
+.course-audio-replay-btn:active {
+  transform: scale(0.96);
+}
+
+.course-audio-replay-btn.playing {
+  animation: course-audio-pulse 1s infinite alternate ease-in-out;
+}
+
+@keyframes course-audio-pulse {
+  from { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.5); }
+  to { box-shadow: 0 0 0 16px rgba(99, 102, 241, 0); }
+}
+
+/* 4. Grade de Slots de Palavras */
+.course-sentence-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px 10px;
+  width: 100%;
+  font-family: var(--font-main, sans-serif);
+}
+
+.course-word-unit {
+  display: inline-flex;
+  align-items: baseline;
+  position: relative;
+}
+
+.course-word-input {
+  background: var(--course-surface);
+  border: 1px solid var(--course-border);
+  border-bottom: 2px solid var(--course-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  /* Monoespaçada: 1ch = 1 letra, então a largura calculada em ch comporta a palavra. */
+  font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace;
+  font-size: clamp(18px, 2.5vw, 24px);
+  font-weight: 600;
+  color: var(--course-text);
+  text-align: center;
+  outline: none;
+  min-height: 48px;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 100ms ease;
+  box-sizing: border-box;
+}
+
+/* Modo Easy / Dica com Iniciais */
+.course-word-input::placeholder {
+  color: var(--course-text-muted);
+  opacity: 0.45;
+  font-weight: 500;
+}
+
+/* Estado de Foco Ativo */
+.course-word-input:focus {
+  border-color: var(--course-accent);
+  border-bottom-color: var(--course-accent);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+/* Estado de Acerto */
+.course-word-input.is-correct {
+  border-color: rgba(16, 185, 129, 0.5);
+  border-bottom-color: #10b981;
+  background: rgba(16, 185, 129, 0.05);
+}
+
+/* Estado de Erro com Tremor */
+.course-word-input.is-wrong {
+  border-color: #ef4444;
+  border-bottom-color: #ef4444;
+  background: rgba(239, 68, 68, 0.06);
+  animation: course-word-shake 300ms ease-in-out;
+}
+
+@keyframes course-word-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .course-word-input.is-wrong {
+    animation: none;
+  }
+  .course-audio-replay-btn.playing {
+    animation: none;
+  }
+}
+
+/* Pontuação Externa */
+.course-punctuation-mark {
+  font-size: clamp(18px, 2.5vw, 24px);
+  font-weight: 600;
+  color: var(--course-text-muted);
+  margin-left: 2px;
+}
+
+/* 5. Painel de Tradução e Revelação Sintática (Ctrl+;) */
+.course-breakdown-panel {
+  background: var(--course-surface);
+  border: 1px solid var(--course-border);
+  border-radius: 14px;
+  padding: 20px 24px;
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: lf-route-enter 180ms ease both;
+}
+
+.course-breakdown-translation {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--course-text);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.course-breakdown-ipa {
+  font-family: monospace;
+  font-size: 14px;
+  color: var(--course-accent);
+}
+
+.course-syntax-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.course-syntax-chip {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--course-surface-alt);
+  color: var(--course-text-muted);
+}
+
+.course-syntax-chip.subject { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
+.course-syntax-chip.verb { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+.course-syntax-chip.object { background: rgba(139, 92, 246, 0.12); color: #8b5cf6; }
+.course-syntax-chip.slang { background: rgba(236, 72, 153, 0.12); color: #ec4899; }
+
+/* 6. Barra Inferior de Atalhos & Ações */
+.course-player-bottombar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-top: 1px solid var(--course-border);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.course-shortcuts-guide {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--course-text-muted);
+}
+
+.course-key-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--course-surface-alt);
+  border: 1px solid var(--course-border);
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--course-text);
+  margin-right: 4px;
+}
+
+.course-btn-submit-phrase {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 24px;
+  border-radius: 10px;
+  background: var(--course-accent);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.course-btn-submit-phrase:hover {
+  background: var(--course-accent-hover);
+}
+
+/* 7. Modal de Pausa ("Take a moment") */
+.course-pause-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.course-pause-card {
+  background: var(--course-surface);
+  border: 1px solid var(--course-border);
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 440px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.course-pause-title {
+  font-family: var(--font-reading, 'Libre Caslon Text', serif);
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--course-text);
+}
+
+.course-pause-text {
+  font-size: 14px;
+  color: var(--course-text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.course-btn-resume {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 10px;
+  background: var(--course-accent);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.course-btn-resume:hover {
+  background: var(--course-accent-hover);
+}
+
+/* O atributo hidden precisa vencer o display das classes do player
+   (sem isso, a pausa e o painel de resposta ficavam sempre visíveis). */
+.course-player-shell [hidden] {
+  display: none !important;
+}

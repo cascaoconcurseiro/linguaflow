@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.0.59] - 2026-09-27
+
+### Adicionado
+- **Cursos**: nova área no site para ouvir frases do inglês cotidiano e escrevê-las palavra por palavra (modos fácil, médio e difícil), com tradução, IPA e explicação de cada expressão, Caderno de Erros, revisões espaçadas e vocabulário salvo. Começa com 1 curso (A1, 10 frases); o catálogo mostra só o que tem conteúdo. Resultado gravado por RPC idempotente, com reenvio se a rede cair.
+
+### Corrigido
+- **Voz neural em produção**: a função `tts` passa a fazer o handshake com a Microsoft à mão sobre TLS; antes a Microsoft recusava (403) e todo áudio caía no Google sem aviso.
+
 ## [3.0.58] - 2026-09-27
 
 ### Adicionado

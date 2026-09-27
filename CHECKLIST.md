@@ -584,3 +584,19 @@
 - [x] Implementação de circuit breaker (`_canonicalLexiconDisabled`) em `getCanonicalLexicon` e `saveCanonicalLexicon` contra respostas 404/PGRST205/PGRST202.
 - [x] Verificação ponta a ponta com chamadas REST HTTP 200 OK para leitura e escrita na API remota e suíte de testes 100% verde.
 
+## Issue #200 · Normalização de Tonicidade IPA e Fontes com Glifos Completos (2026-09-26)
+
+- [x] Criação de `normalizeIpaStress` em `utils/ipa-validator.js` para corrigir inversão pós-consonantal de tonicidade (ex: `wˈeɪ` -> `ˈweɪ`, `θˈɔt` -> `ˈθɔt`).
+- [x] Atualização da pilha de fontes em `dashboard/css/editorial.css` e `content/word-popup.js` com `'Lucida Sans Unicode', 'DejaVu Sans'` garantindo renderização de glifos fonéticos sem quebra visual.
+- [x] Suite de testes `tests/ipa-pronunciation-display.test.mjs` validada e 100% verde.
+
+## Issue #201 · Normalização Inteligente de Caixa Alta e Casing em Legendas (2026-09-26)
+
+- [x] Criação do módulo `utils/caption-casing.js` com funções puras `normalizeSubtitleCasing` e `adjustFragmentCasing`.
+- [x] Conversão automática de sentenças em ALL CAPS (gritadas, letras de música como em *Linkin Park - Faint*, ou estilo EIA-608) para Sentence Case.
+- [x] Preservação estrita do pronome `"I"` e suas contrações (`"I'm"`, `"I've"`, `"I'll"`, `"I'd"`), além de siglas consagradas (`USA`, `NASA`, `TV`, `FBI`, `CIA`, etc.).
+- [x] Ajuste automático de casing em fragmentos concatenados no meio de orações sem pontuação em `utils/caption-grouping.js` (`"Because when you"` + `"Start to learn"` -> `"Because when you start to learn"`).
+- [x] Integração na sanitização de legendas `_cleanSubtitleText` em `content/subtitle-engine.js`.
+- [x] Nova suíte de testes `tests/caption-casing.test.mjs` com 10 cenários abrangentes integrada em `npm run test:subtitle-lifecycle`, com 17/17 testes verdes e `biome check` sem erros.
+
+

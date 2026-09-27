@@ -1,5 +1,6 @@
 import { ListeningClock } from '../utils/listening-clock.js';
 import { groupCaptionEvents, attachTranslationsByTime } from '../utils/caption-grouping.js';
+import { normalizeSubtitleCasing } from '../utils/caption-casing.js';
 import { localDateKey } from '../utils/local-day.js';
 import { expressionsDB, matchExpressionCandidate, MAX_EXPRESSION_WORDS } from '../utils/expressions-db.js';
 import { slangsDB } from '../utils/slangs-db.js';
@@ -3834,7 +3835,7 @@ export class SubtitleEngine {
 
   _cleanSubtitleText(text) {
     if (!text) return '';
-    return text
+    const cleaned = text
       .replace(/\[.*?\]/g, '') // Remove [Music], [Laughter]
       .replace(/\(.*?\)/g, '') // Remove (shouting), (music)
       .replace(/\*.*?\*/g, '') // Remove *music*, *applause*
@@ -3861,6 +3862,8 @@ export class SubtitleEngine {
       .replace(/\s*[><]+$/, '')
       .replace(/\s+/g, ' ') // Unifica espaços
       .trim();
+
+    return normalizeSubtitleCasing(cleaned);
   }
 
   _continueLoop(loop, v) {

@@ -1,3 +1,5 @@
+import { adjustFragmentCasing, normalizeSubtitleCasing } from './caption-casing.js';
+
 // Display-sized phrases from the captions already supplied to the player.
 // This is formatting, not speech recognition; keep every original word and time.
 const CJK = /[\u3040-\u30ff\u3400-\u9fff]/;
@@ -12,7 +14,9 @@ export function groupCaptionEvents(events) {
     .map(event => ({
       start:event.tStartMs / 1000,
       end:(event.tStartMs + Math.max(0, Number(event.dDurationMs) || 0)) / 1000,
-      text:event.segs.map(seg => typeof seg?.utf8 === 'string' ? seg.utf8 : '').join('').replace(/\s+/g,' ').trim(),
+      text:normalizeSubtitleCasing(
+        event.segs.map(seg => typeof seg?.utf8 === 'string' ? seg.utf8 : '').join('').replace(/\s+/g,' ').trim()
+      ),
     }))
     .filter(cue => cue.text && !PURE_SOUND_OR_MARKER.test(cue.text))
     .sort((a,b) => a.start-b.start);
@@ -39,7 +43,8 @@ export function groupCaptionEvents(events) {
       continue;
     }
     const separator=CJK.test(previous.text) && CJK.test(fragment.text) ? '' : ' ';
-    previous.text+=separator+fragment.text;
+    const adjustedText=adjustFragmentCasing(previous.text, fragment.text);
+    previous.text+=separator+adjustedText;
     previous.end=Math.max(previous.end,fragment.end);
   }
   // Evita que legendas persistam na tela durante silêncio ou música.

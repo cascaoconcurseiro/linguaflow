@@ -1,41 +1,35 @@
-# Comece aqui
+# Comece Aqui — Guia do Desenvolvedor
 
-Revisado em 09/09/2026: build 3.0.43, FSRS autoritativo e auditoria geral.
+Instruções para inicialização rápida no ecossistema LinguaFlow (Extensão Chrome + Dashboard PWA).
 
-## Referências atuais
+---
 
-1. [Estado atual](ESTADO_ATUAL_2026-07-29.md) — o que existe, evidência e gates.
-2. [README principal](../README.md) — produto, instalação e arquitetura.
-3. [Master Blueprint](../MASTER_BLUEPRINT.md) — decisões que devem ser preservadas.
-4. [Arquitetura de dados](ARQUITETURA_DADOS.md) — fonte de verdade e exceções locais.
-5. [Backlog atual](BACKLOG_PRODUTO_2026-07-17.md) — somente pendências verificadas.
-6. [Handoff](../HANDOFF.md) — último trabalho, próximo passo e bloqueios.
-7. [Checklist](../CHECKLIST.md) — gates executáveis.
-8. [Changelog](../CHANGELOG.md) — histórico de versões atuais.
-9. [Auditoria geral](AUDITORIA_E_RECOMENDACOES_AGENCIA.md) — achados, correções e riscos residuais.
-10. [Política de histórico](HISTORY.md) — material consolidado e recuperação.
+## 1. Documentação de Referência
 
-## Antes de alterar
+1. **[Arquitetura Técnica](ARQUITETURA.md)** — Princípios de fonte da verdade, diagrama do sistema e ADRs.
+2. **[Contrato Pedagógico e Economia](CONTRATO_PEDAGOGICO_ECONOMIA_P0_2_2026-07-14.md)** — Regras de pontuação, integridade FSRS e caps diários.
+3. **[README Principal](../README.md)** — Visão geral do produto, requisitos e comandos de execução.
+4. **[Changelog](../CHANGELOG.md)** — Histórico de releases e entregas.
+5. **[Índice Geral](INDICE.md)** — Mapa de todos os documentos ativos e histórico arquivado.
 
-- Preserve mudanças locais não relacionadas.
-- Crie migrations para mudanças persistentes de schema.
-- Mantenha RLS e propriedade por `auth.uid()` em dados de usuário.
-- Rode `npm run test:release` antes de publicar.
-- Sincronize `manifest.json`, `CLIENT_BUILD`, `dashboard.html` e o cache do Service Worker ao mudar a versão.
-- Não chame a rubrica própria de exame oficial CEFR/Cambridge.
-- Não transforme teste estático em prova de navegador, áudio ou produção live.
+---
 
-## Componentes principais
+## 2. Estrutura do Projeto
 
-| Caminho | Papel |
-| --- | --- |
-| `content/` | integração com players, legendas e leitura na página |
-| `background/` | service worker da extensão, tradução, cache e mensagens |
-| `dashboard/` | PWA e interfaces de estudo |
-| `utils/db.js` | fronteira de acesso autenticado ao Supabase |
-| `supabase/` | migrations e Edge Functions |
-| `tests/` | contratos automatizados e regressões |
+| Diretório | Responsabilidade |
+|---|---|
+| `content/` | Scripts injetados em páginas de streaming (YouTube, Netflix, Max) e Web Reader. |
+| `background/` | Service Worker MV3 da extensão, filas de sincronização e proxy de dados. |
+| `dashboard/` | Aplicação Web Progressiva (PWA) servida pela Vercel (módulos ES nativos). |
+| `utils/` | Utilitários compartilhados: banco (`db.js`), validadores fonéticos IPA, algoritmos linguísticos. |
+| `supabase/` | Migrations SQL append-only e Edge Functions em Deno. |
+| `tests/` | Bateria de testes de release, contratos de banco e ponta a ponta. |
 
-O diretório de trabalho mantém apenas documentos vigentes. Na dúvida,
-prevalecem Estado atual, Blueprint, Checklist, Handoff, contratos ativos e
-código; material consolidado pode ser recuperado pelo histórico Git.
+---
+
+## 3. Regras de Engenharia
+
+- **Preservação de Integridade**: Toda alteração funcional passa por teste automatizado (`npm run test:release`).
+- **Schema Append-Only**: O banco de produção opera com migrations versionadas cronologicamente; nunca altere migrações passadas.
+- **Autoridade Server-Side**: O Supabase PostgreSQL com Row Level Security (RLS) é a única autoridade; o cliente web ou extensão nunca calcula transições FSRS nem grava dados diretamente sem passar pelas RPCs seguras.
+- **Higienização Estrita**: Todo conteúdo de IA ou da web inserido na interface deve ser devidamente escapado contra XSS.

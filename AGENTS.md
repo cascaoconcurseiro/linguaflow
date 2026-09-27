@@ -148,7 +148,8 @@ Não é possível determinar com segurança se uma interface foi feita por IA ap
 
 ## Referências e estado do projeto
 
-- Leia `HANDOFF.md` e `MASTER_BLUEPRINT.md` antes de iniciar uma sessão.
-- Atualize `CHECKLIST.md` e `HANDOFF.md` ao encerrar uma sessão de trabalho.
-- Atualize `MASTER_BLUEPRINT.md` apenas quando uma decisão arquitetural realmente mudar.
+- Consulte `docs/ARQUITETURA.md` e `docs/COMECE_AQUI.md` para entender contratos, autoridades e fluxos.
+- Não crie arquivos de log, checklist, diário de bordo ou prompt na raiz do projeto. O progresso e escopo de cada tarefa vivem na Issue e no Pull Request do GitHub.
+- Atualize `CHANGELOG.md` para registrar novas versões e mudanças de impacto ao usuário.
+- Atualize `docs/ARQUITETURA.md` apenas quando uma decisão arquitetural for alterada ou adicionada (seção 6).
 - A referência de motion solicitada em `github.com/kylezantos/design-principles` não estava acessível/retornou 404 em 2026-09-19; não trate esse endereço como fonte verificada. Até ser fornecida uma URL válida, siga os princípios documentados acima e a skill local de motion.

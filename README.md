@@ -5,7 +5,7 @@
 **Plataforma open-source para aquisição e consolidação do inglês através de imersão contextual, repetição espaçada avançada (FSRS v4.5), leitura guiada e inteligência artificial pedagógica.**
 
 [![Release](https://img.shields.io/badge/release-v3.0.58-blue.svg?style=flat-square)](https://github.com/cascaoconcurseiro/linguaflow/releases)
-[![Tests](https://img.shields.io/badge/tests-80%2F80%20passing-brightgreen.svg?style=flat-square)](https://github.com/cascaoconcurseiro/linguaflow/actions)
+[![CI](https://github.com/cascaoconcurseiro/linguaflow/actions/workflows/release.yml/badge.svg)](https://github.com/cascaoconcurseiro/linguaflow/actions/workflows/release.yml)
 [![FSRS](https://img.shields.io/badge/algorithm-FSRS%20v4.5-orange.svg?style=flat-square)](https://github.com/open-spaced-repetition/fsrs4anki)
 [![Supabase](https://img.shields.io/badge/backend-Supabase%20%7C%20PostgreSQL-3ECF8E.svg?style=flat-square&logo=supabase)](https://supabase.com)
 [![Chrome MV3](https://img.shields.io/badge/extension-Manifest%20V3-yellow.svg?style=flat-square&logo=googlechrome)](https://developer.chrome.com/docs/extensions/mv3/intro/)
@@ -90,7 +90,7 @@ O **LinguaFlow** une o consumo de conteúdo autêntico na web (filmes, séries, 
 └─────────────────────────────────────────────────────────────┘
 ```
 
-> Mais detalhes na especificação completa em [docs/ARQUITETURA.md](docs/ARQUITETURA.md) e no snapshot [docs/ESTADO_ATUAL_2026-09-12.md](docs/ESTADO_ATUAL_2026-09-12.md).
+> Mais detalhes na especificação técnica completa em [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
 
 ---
 
@@ -161,10 +161,9 @@ npm run test:video        # Ingestão de vídeo e legendas
 ## 📚 Documentação Técnica
 
 - 📘 **[Comece Aqui](docs/COMECE_AQUI.md)** — Guia rápido para desenvolvedores e setup.
-- 🏛️ **[Arquitetura Técnica](docs/ARQUITETURA.md)** — Fonte de verdade, fluxos de dados e segurança.
-- 📊 **[Estado Atual do Sistema](docs/ESTADO_ATUAL_2026-09-12.md)** — Snapshot técnico completo da versão atual.
-- 🧭 **[Master Blueprint](MASTER_BLUEPRINT.md)** — Decisões de arquitetura, princípios e roadmap.
-- 🗂️ **[Índice Completo](docs/INDICE.md)** — Mapa de toda a documentação e histórico arquivado.
+- 🏛️ **[Arquitetura Técnica](docs/ARQUITETURA.md)** — Fonte de verdade, fluxos de dados, segurança e ADRs.
+- 📜 **[Contrato Pedagógico](docs/CONTRATO_PEDAGOGICO_ECONOMIA_P0_2_2026-07-14.md)** — Regras de XP, caps competitivos e integridade FSRS.
+- 🗂️ **[Índice Geral](docs/INDICE.md)** — Mapa de toda a documentação ativa e histórico arquivado.
 - 📝 **[Changelog](CHANGELOG.md)** — Histórico completo de versões.
 
 ---

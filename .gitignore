@@ -71,6 +71,10 @@ reports/
 NOTES.md
 TODO.md
 PRIVATE.md
+CHECKLIST.md
+HANDOFF.md
+MASTER_BLUEPRINT.md
+design-qa.md
 
 # Python cache
 __pycache__/

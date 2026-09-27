@@ -1,47 +1,19 @@
-# Documentação do LinguaFlow
+# Documentação Técnica — LinguaFlow
 
-Revisado em 09/09/2026: build 3.0.43 e auditoria geral.
+Este diretório contém a documentação viva e os arquivos históricos do projeto LinguaFlow.
 
-Esta pasta contém contratos ativos e registros históricos. O ponto de entrada
-é [`ESTADO_ATUAL_2026-07-29.md`](ESTADO_ATUAL_2026-07-29.md).
+---
 
-## Ordem de leitura
+## Documentos Vivos
 
-1. [`ESTADO_ATUAL_2026-07-29.md`](ESTADO_ATUAL_2026-07-29.md)
-2. [`../MASTER_BLUEPRINT.md`](../MASTER_BLUEPRINT.md)
-3. [`../CHECKLIST.md`](../CHECKLIST.md)
-4. [`../HANDOFF.md`](../HANDOFF.md)
-5. [`ARQUITETURA_DADOS.md`](ARQUITETURA_DADOS.md)
-6. [`BACKLOG_PRODUTO_2026-07-17.md`](BACKLOG_PRODUTO_2026-07-17.md)
-7. [`AUDITORIA_E_RECOMENDACOES_AGENCIA.md`](AUDITORIA_E_RECOMENDACOES_AGENCIA.md)
+1. **[Comece Aqui](COMECE_AQUI.md)**: Configuração local, fluxo de trabalho e guia de arquitetura para novos contribuidores.
+2. **[Arquitetura Técnica](ARQUITETURA.md)**: Fonte de verdade, modelo cliente-servidor, segurança e registro sintético de ADRs.
+3. **[Contrato Pedagógico e Economia](CONTRATO_PEDAGOGICO_ECONOMIA_P0_2_2026-07-14.md)**: Especificação normativa sobre integridade FSRS e economia de XP.
+4. **[Índice Completo](INDICE.md)**: Relação estruturada de todos os documentos ativos e do histórico.
 
-## Contratos ativos
+---
 
-- [`CONTRATO_PEDAGOGICO_ECONOMIA_P0_2_2026-07-14.md`](CONTRATO_PEDAGOGICO_ECONOMIA_P0_2_2026-07-14.md)
-  — memória, evidência, XP, prática e anti-farm.
-- [`CONTRATO_FLUENCIA_A1_B2_2026-07-28.md`](CONTRATO_FLUENCIA_A1_B2_2026-07-28.md)
-  — tarefas comunicativas, força da evidência e autoridade.
-- [`SUPABASE_FONTE_DE_VERDADE_2026-07-18.md`](SUPABASE_FONTE_DE_VERDADE_2026-07-18.md)
-  — dados, RLS e fronteiras server-side.
-- [`product/ADAPTIVE_RECOVERY_CAPABILITY.md`](product/ADAPTIVE_RECOVERY_CAPABILITY.md)
-  — adaptação por card sem contaminar o FSRS.
+## Histórico (`docs/history/`)
 
-## Regra de autoridade
-
-Quando documentos divergirem, use esta ordem:
-
-1. schema/produção verificada e código de `main`;
-2. testes executados no estado atual;
-3. `ESTADO_ATUAL`, `MASTER_BLUEPRINT`, `CHECKLIST` e `HANDOFF`;
-4. contratos ativos;
-5. histórico Git.
-
-Compilar ou passar em teste estático não prova interface, áudio, Chrome,
-ou Supabase live. A documentação deve dizer explicitamente qual
-superfície foi verificada.
-
-## Histórico
-
-Auditorias, briefings, ondas, etapas e planos datados foram consolidados e
-removidos do diretório de trabalho. A política e a forma de recuperação estão
-em [`HISTORY.md`](HISTORY.md).
+Snapshots de versões anteriores, auditorias concluídas e registros consolidados de sprints passadas residem em [`docs/history/`](history/).
+Consulte [`docs/history/HISTORY.md`](history/HISTORY.md) para detalhes sobre a evolução do projeto.

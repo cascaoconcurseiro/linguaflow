@@ -106,4 +106,31 @@ Para manter o banco limpo, escalável e com custo controlado, os seguintes estad
 
 1. **Row Level Security (RLS)**: Cada consulta ou mutação é delimitada por `auth.uid() = user_id`.
 2. **Offline-First Gratuito**: O cliente suporta quedas temporárias de rede enfileirando revisões em fila local (`sessionQueue.js`), drenando atomicamente assim que a conexão é restaurada.
-3. **Isolamento de Credenciais**: Chaves de API de terceiros (OpenAI, Gemini) residem exclusivamente nas variáveis de ambiente seguras do Supabase Edge Functions, nunca expostas nos bundles dos clientes.
+3. **Isolamento de Credenciais**: Chaves de API de terceiros (OpenAI, Gemini, DeepSeek) residem exclusivamente nas variáveis de ambiente seguras do Supabase Edge Functions, nunca expostas nos bundles dos clientes.
+
+---
+
+## 6. Registro de Decisões de Arquitetura (ADR Sintético)
+
+| Data | Decisão | Racional / Impacto |
+|---|---|---|
+| **2026-09-26** | **Cache Léxico Canônico** (`canonical_lexicon`): cache compartilhado server-side de lemas, classes gramaticais e fonética IPA. | Reduz drasticamente chamadas redundantes a APIs externas e modelos de linguagem para vocábulos comuns. |
+| **2026-09-24** | **Provedor de Listening**: distingue faixa de áudio selecionada (`audio_track`), confirmação do usuário (`user_confirmed`) e estimativa de legenda original (`caption_asr`). | Faixa de áudio selecionada prevalece; faixas ambíguas suspendem a estimativa para evitar falsos créditos de listening. |
+| **2026-09-21** | **Foco em Aprendizagem Sem Mini-Jogos**: prática principal orientada a contexto, repetição FSRS e leitura guiada. Rota antiga redireciona para Aprender. | Evita dispersão com gamificação ornamental; preserva integridade pedagógica. |
+| **2026-09-21** | **Preservação de Contexto em Chunks**: cards novos persistem no `ai_chunks` a ocorrência real como `is_context` e a unidade de aprendizado como `is_learning_unit`. | Impede que a tela trate exemplos genéricos artificiais como se fossem a frase real dita no vídeo. |
+| **2026-09-12** | **Bypass de Dicionário Simples para Expressões**: expressões e phrasal verbs delegam direto para enriquecimento contextual com timeout estrito. | APIs comuns de dicionário não suportam termos multi-palavra e causavam travamentos. |
+| **2026-09-09** | **Tradução via Service Worker na Extensão**: content scripts delegam tradução ao service worker via mensagens estruturadas. | Contorna restrições de CORS da página hospedeira sem abrir brechas de segurança. |
+| **2026-09-07** | **FSRS Server-Authoritative**: transições de revisão são calculadas exclusivamente por RPC no Postgres com lock `FOR UPDATE`. | Impede adulteração de retenção, cálculo incorreto de estabilidade ou manipulação de contadores no cliente. |
+| **2026-07-16** | **Integridade Contábil de XP**: XP competitivo vem de ledger append-only server-side; prática livre nunca altera a economia da liga. | Elimina farming e incentiva revisões consistentes e honestas. |
+
+---
+
+## 7. Invariantes de Engenharia do Sistema
+
+1. **Escrita Segura**: Toda mutação possui tratamento de erro explícito; nenhuma escrita falha silenciosamente.
+2. **Zero Segredos**: Chaves privadas, tokens de serviço e senhas residem exclusivamente em variáveis de ambiente protegidas no backend.
+3. **Autoridade Server-Side**: RPCs e tabelas validam identidade (`auth.uid() = user_id`), limites de cota e constraints de integridade no banco.
+4. **Idempotência**: Requisições de escrita e reconciliações utilizam identificadores imutáveis contra duplicações.
+5. **Ciclo de Vida Limpo**: Ao desmontar uma tela ou trocar de card, todos os recursos (áudio, observadores, listeners globais e timers) são terminados.
+6. **Higienização de Conteúdo**: Textos capturados na web, salvos ou gerados por IA são tratados como entrada não confiável e inseridos via propriedades de texto ou sanitizados rigorosamente antes de entrar no DOM.
+

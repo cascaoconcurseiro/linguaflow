@@ -8,6 +8,10 @@
 - **Padronização de Testes**: Adicionado comando canônico universal `npm test` e atalhos por domínio (`test:fsrs`, `test:ext`, `test:ui`, `test:db`).
 
 ### Corrigido
+- **Atalhos do Player & Auto-Pause**:
+  - Resolução do loop infinito de auto-pause ao pressionar Espaço (a verificação de término de legenda causava re-pausa imediata no syncLoop de 60fps).
+  - Captura prioritária de eventos de teclado com `capture: true` e parada estrita de propagação (`stopPropagation`, `stopImmediatePropagation`), evitando conflitos e cancelamentos mútuos com o player nativo do YouTube.
+  - Eliminação de concorrência na tecla `O` (duplo toggle no painel de configurações), adição do atalho `R` para o overlay de revisão e repetição resiliente com `S` mesmo quando o playback alcança o final exato da frase.
 - **FSRS Math Hardening**: Recuperação resiliente de estabilidade zerada, sanitização de NaN e valores negativos no motor de repetição espaçada.
 - **Normalização Fonética IPA**: Normalização de estresse fonético, fontes tipográficas com glifos completos e eliminação de pronúncia abrasileirada inconsistente.
 - **Persistência de Explicação Contextual**: Reutilização segura da explicação sem requisições redundantes de IA e sem duplicação de texto no card.

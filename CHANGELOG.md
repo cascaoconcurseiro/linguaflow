@@ -3,6 +3,7 @@
 ## [3.0.58] - 2026-09-27
 
 ### Adicionado
+- **Síntese de Voz Neural Microsoft (Edge TTS)**: Integração com vozes neurais de alta fidelidade da Microsoft (`en-US-JennyNeural`, `pt-BR-FranciscaNeural`, `es-ES-ElviraNeural`, etc.) sem custo e sem necessidade de cartão/chave de API, com fallback transparente para Google TTS e compatibilidade total com o cache offline do IndexedDB (`lf-audio-cache`).
 - **Inteligência de Mídia no YouTube**: Detecção automática de palavras por minuto (WPM) e connected speech (reduções coloquiais, linking consoante + vogal, elisões e assimilação palatal).
 - **Temas Expandidos de Histórias**: Geração de contos adaptativos calibrados por CEFR com novos temas de Auto-ajuda e Histórias Reais.
 - **Padronização de Testes**: Adicionado comando canônico universal `npm test` e atalhos por domínio (`test:fsrs`, `test:ext`, `test:ui`, `test:db`).

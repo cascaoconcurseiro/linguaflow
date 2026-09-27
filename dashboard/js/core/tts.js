@@ -141,6 +141,24 @@ async function fetchTTSBlob(text, lang) {
       return await kokoroBlob(text, lang);
     } catch { /* cai na cadeia normal abaixo */ }
   }
+
+  // Tenta o proxy neural da Supabase (Microsoft Edge TTS) se o usuário estiver autenticado
+  try {
+    const token = await lfDb._getToken().catch(() => null);
+    if (token) {
+      const r = await fetch(TTS_PROXY_URL, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, lang }),
+      });
+      if (r.ok) {
+        return await r.blob();
+      }
+    }
+  } catch (e) {
+    console.debug('[TTS] Proxy neural indisponível, tentando fallback...', e?.message);
+  }
+
   if (isExtension) {
     const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${lang}&client=gtx`;
     const res = await new Promise((resolve) => {
@@ -157,23 +175,16 @@ async function fetchTTSBlob(text, lang) {
     return null;
   }
 
-  const token = await lfDb._getToken();
-  if (!token) return null;
-  const r = await fetch(TTS_PROXY_URL, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, lang }),
-  });
-  if (!r.ok) return null;
-  return await r.blob();
+  return null;
 }
 
 /**
  * Retorna o Blob do áudio (cache IndexedDB primeiro, depois rede).
  */
 export async function getAudioBlob(text, lang) {
-  // Motor na chave: áudio Kokoro e Google são qualidades diferentes
-  const key = `${kokoroEnabled() ? 'kk' : 'g'}|${lang}|${text}`;
+  // Motor na chave: 'kk' (Kokoro local), 'ms' (Microsoft Edge TTS neural), ou 'g' legado
+  const prefix = kokoroEnabled() ? 'kk' : 'ms';
+  const key = `${prefix}|${lang}|${text}`;
   const cached = await idbGet(key);
   if (cached) return cached;
   const blob = await fetchTTSBlob(text, lang).catch(() => null);
@@ -181,13 +192,17 @@ export async function getAudioBlob(text, lang) {
     idbSet(key, blob);
     return blob;
   }
+  // Se offline ou falha de rede, verifica cache legado Google
+  const legacy = await idbGet(`g|${lang}|${text}`);
+  if (legacy) return legacy;
   return null;
 }
 
 const MEM_CACHE_MAX = 100;
 
 async function getAudioUrl(text, lang) {
-  const key = `${kokoroEnabled() ? 'kk' : 'g'}|${lang}|${text}`;
+  const prefix = kokoroEnabled() ? 'kk' : 'ms';
+  const key = `${prefix}|${lang}|${text}`;
   if (memCache.has(key)) return memCache.get(key);
   if (pendingAudio.has(key)) return pendingAudio.get(key);
   const promise = (async () => {

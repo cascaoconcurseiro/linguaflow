@@ -4,6 +4,7 @@
 // tocar, cachear em IndexedDB e baixar o arquivo.
 // Mesmo padrão de segurança do deepseek-chat: JWT real + rate-limit por usuário.
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { synthesizeEdgeTTS } from "./edge_tts.ts";
 
 const RATE_LIMIT_PER_MIN = 60;
 const ENDPOINT = "tts";
@@ -119,23 +120,39 @@ Deno.serve(async (req) => {
     const quotaResponse = await consumeQuota(admin, userId, cors);
     if (quotaResponse) return quotaResponse;
 
-    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${encodeURIComponent(lang)}&client=gtx`;
-    const upstream = await fetch(ttsUrl, {
-      signal: AbortSignal.any([req.signal, AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)]),
-      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
-    });
-    if (!upstream.ok) {
-      return new Response(JSON.stringify({ error: "Não foi possível gerar o áudio agora." }), {
-        status: 502, headers: cors,
-      });
+    let audio: ArrayBuffer | null = null;
+    let engine = "edge-tts";
+
+    try {
+      const edgeAudio = await synthesizeEdgeTTS(text, lang, UPSTREAM_TIMEOUT_MS);
+      if (edgeAudio && edgeAudio.byteLength > 0) {
+        audio = edgeAudio.buffer;
+      }
+    } catch (edgeErr) {
+      console.warn("[tts] Edge TTS indisponível, acionando fallback Google:", (edgeErr as Error)?.message);
     }
 
-    const audio = await upstream.arrayBuffer();
+    if (!audio) {
+      engine = "google-tts";
+      const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${encodeURIComponent(lang)}&client=gtx`;
+      const upstream = await fetch(ttsUrl, {
+        signal: AbortSignal.any([req.signal, AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)]),
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+      });
+      if (!upstream.ok) {
+        return new Response(JSON.stringify({ error: "Não foi possível gerar o áudio agora." }), {
+          status: 502, headers: cors,
+        });
+      }
+      audio = await upstream.arrayBuffer();
+    }
+
     return new Response(audio, {
       status: 200,
       headers: {
         ...corsHeadersFor(origin, "audio/mpeg"),
         "Cache-Control": "private, max-age=604800",
+        "X-TTS-Engine": engine,
       },
     });
   } catch (error) {

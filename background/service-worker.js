@@ -401,6 +401,31 @@ Sentido: [Uma única frase super curta explicando o sentido neste contexto]
     return true;
   }
 
+  // Voz neural (Microsoft Edge TTS) pela Edge Function autenticada. Só devolve
+  // áudio quando o servidor confirma o motor neural; caso contrário o chamador
+  // segue para o Google, sem cachear fallback como neural.
+  if (request.type === 'FETCH_NEURAL_TTS') {
+    (async () => {
+      const token = await db._getToken().catch(() => null);
+      if (!token) return { success: false, error: 'not_authenticated' };
+      const r = await fetch('https://qnutoswrufznztoznlql.supabase.co/functions/v1/tts', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: String(request.text || '').slice(0, 500), lang: request.lang || 'en-US' }),
+      });
+      if (!r.ok) return { success: false, error: `HTTP ${r.status}` };
+      const engine = r.headers.get('x-tts-engine') || 'unknown';
+      if (engine !== 'edge-tts') return { success: false, error: `engine_${engine}` };
+      const bytes = new Uint8Array(await r.arrayBuffer());
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+      return { success: true, dataUrl: `data:audio/mpeg;base64,${btoa(binary)}` };
+    })()
+      .then(sendResponse)
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
   if (request.type === 'FETCH_TTS') {
     fetch(request.url)
       .then((r) => {

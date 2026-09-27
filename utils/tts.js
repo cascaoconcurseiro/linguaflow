@@ -6,8 +6,9 @@ import { ExclusivePlayback } from './exclusive-playback.js';
  *
  * Prioridades de qualidade:
  * 1. Audio MP3 do dicionario (melhor qualidade, nativo)
- * 2. Google Translate TTS (voz neural, natural, gratuita)
- * 3. Web Speech API com vozes premium (fallback)
+ * 2. Voz neural Microsoft (Edge Function tts, usuário logado)
+ * 3. Google Translate TTS
+ * 4. Web Speech API com vozes premium (fallback)
  */
 
 class TTS {
@@ -46,7 +47,16 @@ class TTS {
             }
         }
 
-        // Prioridade 2: Google Translate TTS (voz neural, natural)
+        // Prioridade 2: voz neural Microsoft via service worker (usuário logado)
+        try {
+            await this._playNeuralTTS(text, lang, rate, token);
+            return true;
+        } catch {
+            if (!this.playback.isCurrent(token)) return false;
+            console.debug('[TTS] Voz neural indisponível, tentando Google TTS');
+        }
+
+        // Prioridade 3: Google Translate TTS
         try {
             await this._playGoogleTTS(text, lang, rate, token);
             return true;
@@ -55,7 +65,7 @@ class TTS {
             console.debug('[TTS] Google TTS falhou, usando Web Speech API');
         }
 
-        // Prioridade 3 (Fase 4.4 da auditoria, §4p.2): Web Speech como ÚLTIMO
+        // Prioridade 4 (Fase 4.4 da auditoria, §4p.2): Web Speech como ÚLTIMO
         // recurso, religado em paridade com o site (dashboard/js/core/tts.js
         // já fazia isso). Offline/Google fora do ar, card com áudio ruim vale
         // mais que card mudo — e o filtro interno rejeita vozes robóticas.
@@ -64,6 +74,27 @@ class TTS {
         } catch {
             return false;
         }
+    }
+
+    async _playNeuralTTS(text, lang, rate = 1.0, token) {
+        if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) throw new Error('no_extension');
+        const cacheKey = `neural|${lang}|${text}`;
+        let playableUrl = this.audioCache.get(cacheKey);
+        if (!playableUrl) {
+            const res = await new Promise((resolve) => {
+                try { chrome.runtime.sendMessage({ type: 'FETCH_NEURAL_TTS', text, lang }, resolve); }
+                catch { resolve(null); }
+            });
+            if (!this.playback.isCurrent(token)) throw new Error('playback_superseded');
+            if (!res?.success || !res.dataUrl) throw new Error(res?.error || 'neural_unavailable');
+            playableUrl = res.dataUrl;
+            this.audioCache.set(cacheKey, playableUrl);
+            if (this.audioCache.size > 200) {
+                this.audioCache.delete(this.audioCache.keys().next().value);
+            }
+        }
+        await this._playAudioUrl(playableUrl, rate, token);
+        return true;
     }
 
     async _playGoogleTTS(text, lang, rate = 1.0, token) {

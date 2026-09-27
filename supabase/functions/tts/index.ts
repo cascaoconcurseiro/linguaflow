@@ -23,6 +23,7 @@ function corsHeadersFor(origin: string | null, contentType = "application/json")
     "Access-Control-Allow-Origin": allowed ? origin! : "null",
     "Vary": "Origin",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Expose-Headers": "X-TTS-Engine",
     "Content-Type": contentType,
   };
 }
@@ -129,7 +130,7 @@ Deno.serve(async (req) => {
         audio = edgeAudio.buffer;
       }
     } catch (edgeErr) {
-      console.warn("[tts] Edge TTS indisponível, acionando fallback Google:", (edgeErr as Error)?.message);
+      console.warn("[tts] edge_tts_fallback", { reason: String((edgeErr as Error)?.message || "unknown").slice(0, 120) });
     }
 
     if (!audio) {

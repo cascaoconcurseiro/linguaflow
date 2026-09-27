@@ -118,7 +118,31 @@ test('Edge TTS: Contrato arquitetural da Edge Function Supabase', () => {
 
 test('Edge TTS: Contrato do cliente de áudio (dashboard/js/core/tts.js)', () => {
   const clientTts = readFileSync(join(process.cwd(), 'dashboard/js/core/tts.js'), 'utf8');
-  assert.ok(clientTts.includes("const prefix = kokoroEnabled() ? 'kk' : 'ms'"), 'Chave de cache usa prefixo ms para Microsoft neural');
+  assert.ok(clientTts.includes("kokoroEnabled() ? 'kk' : 'msn'"), 'Chave de cache usa prefixo msn (neural verificado) — ms| antigo pode conter Google');
+  assert.ok(!clientTts.includes("? 'kk' : 'ms'"), 'Prefixo ms| contaminado não é mais lido');
+  assert.ok(clientTts.includes("headers.get('x-tts-engine')"), 'Cliente lê o motor que respondeu');
+  assert.ok(/engine === 'edge-tts'/.test(clientTts), 'Só persiste como neural quando o motor é edge-tts');
   assert.ok(clientTts.includes('await idbGet(`g|${lang}|${text}`)'), 'Preserva compatibilidade com cache legado offline');
   assert.ok(clientTts.includes('TTS_PROXY_URL'), 'Chama o proxy autenticado com fallback');
+});
+
+test('Edge TTS: runtime Deno — Buffer importado e motor exposto via CORS', () => {
+  const fnIndex = readFileSync(join(process.cwd(), 'supabase/functions/tts/index.ts'), 'utf8');
+  const fnModule = readFileSync(join(process.cwd(), 'supabase/functions/tts/edge_tts.ts'), 'utf8');
+  // No Edge Runtime, Buffer não é global no código do usuário: sem import, cada
+  // frame binário lança ReferenceError e a síntese cai em timeout -> Google.
+  assert.match(fnModule, /import \{ Buffer \} from "node:buffer";/);
+  assert.match(fnIndex, /"Access-Control-Expose-Headers": "X-TTS-Engine"/);
+  assert.match(fnIndex, /console\.warn\("\[tts\] edge_tts_fallback"/, 'Fallback para Google é logado com evento estável');
+});
+
+test('Edge TTS: extensão usa a voz neural via service worker antes do Google', () => {
+  const sw = readFileSync(join(process.cwd(), 'background/service-worker.js'), 'utf8');
+  const extTts = readFileSync(join(process.cwd(), 'utils/tts.js'), 'utf8');
+  assert.match(sw, /request\.type === 'FETCH_NEURAL_TTS'/, 'service worker expõe FETCH_NEURAL_TTS');
+  assert.match(sw, /functions\/v1\/tts/, 'service worker chama a Edge Function tts com o token do usuário');
+  assert.match(sw, /engine !== 'edge-tts'/, 'service worker só devolve áudio quando o motor é neural');
+  const neuralAt = extTts.indexOf('_playNeuralTTS(text, lang, rate, token)');
+  const googleAt = extTts.indexOf('_playGoogleTTS(text, lang, rate, token)');
+  assert.ok(neuralAt > 0 && neuralAt < googleAt, 'utils/tts.js tenta neural antes do Google');
 });

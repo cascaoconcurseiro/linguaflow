@@ -2,6 +2,7 @@
 // Síntese de voz neural da Microsoft (Edge TTS) via WebSocket.
 // Sem chave de API ou custo, gerando MP3 a 24kHz com vozes neurais de alta fidelidade.
 
+import { Buffer } from "node:buffer";
 import WebSocket from "npm:ws@8.18.0";
 
 export const VOICE_MAP: Record<string, string> = {
@@ -171,6 +172,22 @@ export async function synthesizeEdgeTTS(
       resolved = true;
       clearTimeout(timer);
       reject(err);
+    });
+
+    // Handshake recusado (403) ou conexão encerrada antes de turn.end: falha já,
+    // em vez de esperar o timeout inteiro antes do fallback.
+    ws.on("unexpected-response", (_req: any, res: any) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timer);
+      reject(new Error(`Edge TTS handshake ${res?.statusCode ?? "?"}`));
+    });
+
+    ws.on("close", (code: number) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timer);
+      reject(new Error(`Edge TTS fechou antes do fim (code ${code})`));
     });
   });
 }

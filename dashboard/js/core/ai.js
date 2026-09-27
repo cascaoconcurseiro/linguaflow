@@ -158,56 +158,65 @@ export function safeParseJson(text) {
   return null;
 }
 
+const pendingEnrichments = new Map();
+
 // IPA + traduções da frase e da palavra com Cache Léxico Canônico (FinOps & Latência).
 export async function enrichCard(word, sentence) {
   const normWord = String(word || '').trim();
   const normSentence = String(sentence || '').trim();
+  if (!normWord) return null;
 
-  // 1. Consulta o cache canônico no Supabase / memória local
-  try {
-    const cached = await lfDb.getCanonicalLexicon(normWord);
-    if (cached) {
-      const normSentLower = normSentence.toLowerCase();
-      // Se não há frase ou a frase é a própria palavra, retorna os dados canônicos da palavra
-      if (!normSentence || normSentLower === normWord.toLowerCase()) {
-        const safeCachedWordPhon = isValidIpa(cached.word_phon) ? cleanIpa(cached.word_phon) : '';
-        return {
-          sentence_phon: '',
-          sentence_pt: '',
-          word_phon: safeCachedWordPhon,
-          word_pt: cached.word_pt || '',
-          _cached: true,
-        };
-      }
+  const enrichKey = `${normWord.toLowerCase()}:::${normSentence.toLowerCase()}`;
+  if (pendingEnrichments.has(enrichKey)) {
+    return pendingEnrichments.get(enrichKey);
+  }
 
-      // Se há frase, busca se esse contexto exato já foi enriquecido anteriormente
-      const matchingContext = Array.isArray(cached.contexts)
-        ? cached.contexts.find((ctx) => String(ctx?.sentence || '').trim().toLowerCase() === normSentLower)
-        : null;
-
-      if (matchingContext) {
-        const safeSentPhon = isValidIpa(matchingContext.sentence_phon) ? cleanIpa(matchingContext.sentence_phon) : '';
-        // Se o contexto cacheado tem IPA inválido/abrasileirado, não retornar: deixar cair para a IA regenerar.
-        const sentPhonWasInvalid = matchingContext.sentence_phon && !safeSentPhon;
-        if (!sentPhonWasInvalid) {
-          const safeWordPhon = isValidIpa(cached.word_phon) ? cleanIpa(cached.word_phon) : '';
+  const promise = (async () => {
+    // 1. Consulta o cache canônico no Supabase / armazenamento local
+    try {
+      const cached = await lfDb.getCanonicalLexicon(normWord);
+      if (cached) {
+        const normSentLower = normSentence.toLowerCase();
+        // Se não há frase ou a frase é a própria palavra, retorna os dados canônicos da palavra
+        if (!normSentence || normSentLower === normWord.toLowerCase()) {
+          const safeCachedWordPhon = isValidIpa(cached.word_phon) ? cleanIpa(cached.word_phon) : '';
           return {
-            sentence_phon: safeSentPhon,
-            sentence_pt: matchingContext.sentence_pt || '',
-            word_phon: safeWordPhon,
-            word_pt: matchingContext.word_pt || cached.word_pt || '',
+            sentence_phon: '',
+            sentence_pt: '',
+            word_phon: safeCachedWordPhon,
+            word_pt: cached.word_pt || '',
             _cached: true,
           };
         }
-        // IPA inválido no cache → prossegue para chamada de IA abaixo
-      }
-    }
-  } catch (err) {
-    console.warn('[AI] Erro ao consultar cache canônico, prosseguindo com IA:', err);
-  }
 
-  // 2. Cache miss: chama o modelo de IA com regras estritas de IPA
-  const system = `Você é um linguista e professor de inglês para brasileiros. Responda APENAS com JSON válido, sem texto extra.
+        // Se há frase, busca se esse contexto exato já foi enriquecido anteriormente
+        const matchingContext = Array.isArray(cached.contexts)
+          ? cached.contexts.find((ctx) => String(ctx?.sentence || '').trim().toLowerCase() === normSentLower)
+          : null;
+
+        if (matchingContext) {
+          const safeSentPhon = isValidIpa(matchingContext.sentence_phon) ? cleanIpa(matchingContext.sentence_phon) : '';
+          const safeWordPhon = isValidIpa(cached.word_phon) ? cleanIpa(cached.word_phon) : '';
+          const sentPhonWasInvalid = matchingContext.sentence_phon && !safeSentPhon;
+
+          if (!sentPhonWasInvalid && (safeSentPhon || matchingContext.sentence_pt)) {
+            return {
+              sentence_phon: safeSentPhon,
+              sentence_pt: matchingContext.sentence_pt || '',
+              word_phon: safeWordPhon,
+              word_pt: matchingContext.word_pt || cached.word_pt || '',
+              _cached: true,
+            };
+          }
+          // IPA inválido ou incompleto no cache → prossegue para chamada de IA abaixo
+        }
+      }
+    } catch (err) {
+      console.warn('[AI] Erro ao consultar cache canônico, prosseguindo com IA:', err);
+    }
+
+    // 2. Cache miss: chama o modelo de IA com regras estritas de IPA
+    const system = `Você é um linguista e professor de inglês para brasileiros. Responda APENAS com JSON válido, sem texto extra.
 REGRAS OBRIGATÓRIAS para os campos "*_phon" (IPA):
 - Use EXCLUSIVAMENTE o Alfabeto Fonético Internacional (AFI/IPA) no padrão do inglês americano (General American), sempre entre barras /.../.
 - PROIBIÇÃO TOTAL: NUNCA gere pronúncia abrasileirada, respelling fonético ou aproximações ortográficas em português (JAMAIS escreva coisas como "Uí", "fót", "répin", "bât", "dén", "dídnt", "kent", etc.).
@@ -219,7 +228,7 @@ REGRAS para os campos "*_pt":
 - NÃO deixe palavras ou expressões em inglês dentro da tradução, nem empréstimos como "fist bump". Traduza a intenção.
 - Preserve nomes próprios, mas nunca produza uma mistura de português e inglês.`;
 
-  const user = `Palavra-foco: "${normWord}"
+    const user = `Palavra-foco: "${normWord}"
 Frase: "${normSentence}"
 Retorne exatamente este JSON:
 {
@@ -229,62 +238,70 @@ Retorne exatamente este JSON:
   "word_pt": "tradução da palavra-foco NESTE contexto"
 }`;
 
-  const content = await aiChat(
-    [{ role: 'system', content: system }, { role: 'user', content: user }],
-    { temperature: 0.1, max_tokens: 500 }
-  );
-  let parsed = safeParseJson(content);
+    const content = await aiChat(
+      [{ role: 'system', content: system }, { role: 'user', content: user }],
+      { temperature: 0.1, max_tokens: 500 }
+    );
+    let parsed = safeParseJson(content);
 
-  // Se retornou fonética inválida/abrasileirada, rejeita e regenera uma vez com reforço de IPA
-  const rawSentPhon = parsed?.sentence_phon;
-  const rawWdPhon = parsed?.word_phon;
-  const sentInvalid = rawSentPhon && !isValidIpa(rawSentPhon);
-  const wordInvalid = rawWdPhon && !isValidIpa(rawWdPhon);
+    // Se retornou fonética inválida/abrasileirada, rejeita e regenera uma vez com reforço de IPA
+    const rawSentPhon = parsed?.sentence_phon;
+    const rawWdPhon = parsed?.word_phon;
+    const sentInvalid = rawSentPhon && !isValidIpa(rawSentPhon);
+    const wordInvalid = rawWdPhon && !isValidIpa(rawWdPhon);
 
-  if (sentInvalid || wordInvalid) {
-    try {
-      const retryContent = await aiChat(
-        [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-          { role: 'assistant', content },
-          {
-            role: 'user',
-            content: 'ERRO: A resposta anterior utilizou aproximação fonética/abrasileirada inválida. É PROIBIDO usar ortografia do português. Forneça EXCLUSIVAMENTE o Alfabeto Fonético Internacional (IPA) entre barras /.../ para os campos "*_phon" ou deixe-os vazios "".',
-          },
-        ],
-        { temperature: 0.1, max_tokens: 500 }
-      );
-      const retryParsed = safeParseJson(retryContent);
-      if (retryParsed) {
-        parsed = { ...parsed, ...retryParsed };
+    if (sentInvalid || wordInvalid) {
+      try {
+        const retryContent = await aiChat(
+          [
+            { role: 'system', content: system },
+            { role: 'user', content: user },
+            { role: 'assistant', content },
+            {
+              role: 'user',
+              content: 'ERRO: A resposta anterior utilizou aproximação fonética/abrasileirada inválida. É PROIBIDO usar ortografia do português. Forneça EXCLUSIVAMENTE o Alfabeto Fonético Internacional (IPA) entre barras /.../ para os campos "*_phon" ou deixe-os vazios "".',
+            },
+          ],
+          { temperature: 0.1, max_tokens: 500 }
+        );
+        const retryParsed = safeParseJson(retryContent);
+        if (retryParsed) {
+          parsed = { ...parsed, ...retryParsed };
+        }
+      } catch (e) {
+        console.warn('[AI] Falha na regeneração de IPA:', e);
       }
-    } catch (e) {
-      console.warn('[AI] Falha na regeneração de IPA:', e);
     }
-  }
 
-  if (parsed) {
-    parsed.sentence_phon = isValidIpa(parsed.sentence_phon) ? cleanIpa(parsed.sentence_phon) : '';
-    parsed.word_phon = isValidIpa(parsed.word_phon) ? cleanIpa(parsed.word_phon) : '';
-  }
+    if (parsed) {
+      parsed.sentence_phon = isValidIpa(parsed.sentence_phon) ? cleanIpa(parsed.sentence_phon) : '';
+      parsed.word_phon = isValidIpa(parsed.word_phon) ? cleanIpa(parsed.word_phon) : '';
+    }
 
-  // 3. Persiste assincronamente no cache canônico para os próximos acessos
-  if (parsed && (parsed.word_phon || parsed.sentence_pt || parsed.word_pt)) {
-    lfDb.saveCanonicalLexicon({
-      word: normWord,
-      word_phon: parsed.word_phon || null,
-      word_pt: parsed.word_pt || null,
-      context: normSentence ? {
-        sentence: normSentence,
-        sentence_phon: parsed.sentence_phon || '',
-        sentence_pt: parsed.sentence_pt || '',
-        word_pt: parsed.word_pt || '',
-      } : null,
-    }).catch((err) => console.warn('[AI] Falha ao persistir no cache canônico:', err));
-  }
+    // 3. Persiste assincronamente no cache canônico para os próximos acessos
+    if (parsed && (parsed.word_phon || parsed.sentence_pt || parsed.word_pt)) {
+      lfDb.saveCanonicalLexicon({
+        word: normWord,
+        word_phon: parsed.word_phon || null,
+        word_pt: parsed.word_pt || null,
+        context: normSentence ? {
+          sentence: normSentence,
+          sentence_phon: parsed.sentence_phon || '',
+          sentence_pt: parsed.sentence_pt || '',
+          word_pt: parsed.word_pt || '',
+        } : null,
+      }).catch((err) => console.warn('[AI] Falha ao persistir no cache canônico:', err));
+    }
 
-  return parsed;
+    return parsed;
+  })();
+
+  pendingEnrichments.set(enrichKey, promise);
+  try {
+    return await promise;
+  } finally {
+    pendingEnrichments.delete(enrichKey);
+  }
 }
 
 // Geração de história na web (na extensão o service worker tem 'ai_generate_story').
@@ -390,6 +407,39 @@ Responda APENAS com JSON válido: {"mnemonic": "1-2 frases em português, direto
 
 // Geração de chunks na web (na extensão o service worker já tem essa rotina).
 export async function generateChunksWeb(word, context = '') {
+  const normWord = String(word || '').trim();
+  const normContext = String(context || '').trim();
+  if (!normWord) return [];
+
+  // 1. Tenta reaproveitar do cache léxico canônico antes de gastar tokens com IA
+  try {
+    const cached = await lfDb.getCanonicalLexicon(normWord);
+    if (cached) {
+      const normCtxLower = normContext.toLowerCase();
+      const match = Array.isArray(cached.contexts)
+        ? cached.contexts.find(c => String(c?.sentence || '').trim().toLowerCase() === normCtxLower)
+        : null;
+      if (match && (match.sentence_pt || match.sentence_phon)) {
+        const list = [];
+        if (normContext) {
+          list.push({
+            eng: normContext,
+            pt: match.sentence_pt || '',
+            phon: isValidIpa(match.sentence_phon) ? cleanIpa(match.sentence_phon) : '',
+            is_context: true,
+          });
+        }
+        list.push({
+          eng: normWord,
+          pt: match.word_pt || cached.word_pt || '',
+          phon: isValidIpa(cached.word_phon) ? cleanIpa(cached.word_phon) : '',
+          is_learning_unit: true,
+        });
+        return list;
+      }
+    }
+  } catch {}
+
   const system = `Você é um linguista e professor de inglês para brasileiros focando no aprendizado por 'chunks' (blocos léxicos).
 Seu objetivo é identificar a unidade que vale aprender na ocorrência real e só depois sugerir no máximo 2 variações úteis.
 
@@ -420,9 +470,9 @@ Exemplo de formato esperado:
   ]
 }`;
 
-  const user = context
-    ? `Palavra ou expressão selecionada: "${word}"\nFrase de origem do vídeo: "${context}"\nIdentifique a unidade lexical que deve ser aprendida nesta ocorrência.`
-    : `Palavra ou expressão: "${word}"\nNão há frase de origem disponível. Gere uma ocorrência curta e deixe claro o sentido da unidade.`;
+  const user = normContext
+    ? `Palavra ou expressão selecionada: "${normWord}"\nFrase de origem do vídeo: "${normContext}"\nIdentifique a unidade lexical que deve ser aprendida nesta ocorrência.`
+    : `Palavra ou expressão: "${normWord}"\nNão há frase de origem disponível. Gere uma ocorrência curta e deixe claro o sentido da unidade.`;
 
   const content = await aiChat(
     [{ role: 'system', content: system }, { role: 'user', content: user }],
@@ -463,9 +513,28 @@ Exemplo de formato esperado:
     }
   }
 
-  return list.map((chunk) => {
+  const cleaned = list.map((chunk) => {
     if (!chunk || typeof chunk !== 'object') return chunk;
     const validPhon = isValidIpa(chunk.phon) ? cleanIpa(chunk.phon) : '';
     return { ...chunk, phon: validPhon };
   });
+
+  // Indexa no cache canônico para os próximos acessos
+  const ctxChunk = cleaned.find(c => c && c.is_context);
+  const unitChunk = cleaned.find(c => c && c.is_learning_unit) || cleaned[0];
+  if (unitChunk || ctxChunk) {
+    lfDb.saveCanonicalLexicon({
+      word: normWord,
+      word_phon: unitChunk?.phon || null,
+      word_pt: unitChunk?.pt || null,
+      context: ctxChunk?.eng ? {
+        sentence: ctxChunk.eng,
+        sentence_phon: ctxChunk.phon || '',
+        sentence_pt: ctxChunk.pt || '',
+        word_pt: unitChunk?.pt || '',
+      } : null,
+    }).catch(() => {});
+  }
+
+  return cleaned;
 }

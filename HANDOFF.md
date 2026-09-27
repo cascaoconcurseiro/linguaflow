@@ -1,3 +1,15 @@
+## Sessão: Correção do Bootloader da Extensão e Registro de Web Accessible Resources (2026-09-26)
+
+- **Problema abordado:** Controles do LinguaFlow no player do YouTube não apareciam após a última atualização, e o console exibia o erro `LinguaFlow: Erro crítico no Bootloader do ES Module TypeError: Failed to fetch dynamically imported module: content/index.js`, acompanhado por erros de contexto invalidado (`reading 'local'` e `reading 'sendMessage'`).
+- **Causa raiz:** O módulo `utils/caption-casing.js` (criado na Issue #201) passou a ser importado por `content/subtitle-engine.js` e `utils/caption-grouping.js`. Como o `content/index.js` é carregado dinamicamente via `import()` no contexto da página pelo `content/boot.js`, o Chromium bloqueia qualquer import cujo arquivo não esteja explicitamente listado em `web_accessible_resources` no `manifest.json`. Com o bloqueio de rede, o `boot.js` falhava e o motor da extensão sequer inicializava.
+- **Feito:**
+  - **`manifest.json`**: Adicionados `utils/caption-casing.js` e `utils/offline-dict.js` na seção `web_accessible_resources` para streaming.
+  - **`content/subtitle-engine.js`**: Adicionada navegação segura com optional chaining em `chrome?.storage?.local?.get` e `set`, além de detecção aprimorada de contexto invalidado no sync loop e em `_prefetchTranslations`.
+  - **`tests/release-smoke.mjs`**: Criada validação automatizada que rastreia recursivamente todos os imports transitivos de `content/index.js` e garante que 100% deles estejam presentes em `web_accessible_resources`.
+- **Validação:**
+  - `node tests/release-smoke.mjs`: Todos os 27 módulos transitivos verificados e confirmados em `web_accessible_resources`.
+  - `npm run test:subtitle-lifecycle`, `npm run test:yt-player`, `npm run test:max-ui`, `npm run lint:biome`: 100% verdes.
+
 ## Sessão: Aplicação Remota do Cache Léxico Canônico e Resiliência contra 404 (2026-09-26)
 
 - **Problema abordado:** Erros 404 no console do navegador (`PGRST205: Could not find the table 'public.canonical_lexicon' in the schema cache` e `PGRST202: Could not find the function public.get_or_cache_canonical_lexicon in the schema cache`) ao realizar estudo e enriquecimento de vocabulário com IA.

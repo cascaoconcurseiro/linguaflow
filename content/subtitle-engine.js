@@ -3529,13 +3529,13 @@ export class SubtitleEngine {
               this._rebuildSubtitleList();
               this._rebuildWordsList();
 
-              chrome.storage.local.get('lastYoutubeSubtitleUrls', (res) => {
-                let urls = res.lastYoutubeSubtitleUrls || [];
+              chrome?.storage?.local?.get?.('lastYoutubeSubtitleUrls', (res) => {
+                let urls = res?.lastYoutubeSubtitleUrls || [];
                 const cleanUrl = origUrl.toString();
                 if (!urls.includes(cleanUrl)) {
                   urls.push(cleanUrl);
                   if (urls.length > 10) urls.shift();
-                  chrome.storage.local.set({ lastYoutubeSubtitleUrls: urls });
+                  chrome?.storage?.local?.set?.({ lastYoutubeSubtitleUrls: urls });
                 }
               });
 
@@ -3620,12 +3620,12 @@ export class SubtitleEngine {
         ? (() => { const u = new URL(url); u.searchParams.delete('tlang'); return u.toString(); })()
         : url;
 
-      chrome.storage.local.get('lastYoutubeSubtitleUrls', (res) => {
-        let urls = res.lastYoutubeSubtitleUrls || [];
+      chrome?.storage?.local?.get?.('lastYoutubeSubtitleUrls', (res) => {
+        let urls = res?.lastYoutubeSubtitleUrls || [];
         if (!urls.includes(cleanUrl)) {
           urls.push(cleanUrl);
           if (urls.length > 10) urls.shift();
-          chrome.storage.local.set({ lastYoutubeSubtitleUrls: urls });
+          chrome?.storage?.local?.set?.({ lastYoutubeSubtitleUrls: urls });
         }
       });
 
@@ -3767,7 +3767,15 @@ export class SubtitleEngine {
 
         this._continueLoop(loop, v);
       } catch (err) {
-        if (err.message && err.message.includes('Extension context invalidated')) {
+        if (
+          !chrome?.runtime?.id ||
+          !chrome?.runtime?.sendMessage ||
+          (err.message && (
+            err.message.includes('Extension context invalidated') ||
+            err.message.includes("reading 'sendMessage'") ||
+            err.message.includes("reading 'local'")
+          ))
+        ) {
           console.warn(
             '[LinguaFlow] Contexto da extensão invalidado (atualização). Loop abortado de forma limpa.',
           );
@@ -3814,22 +3822,30 @@ export class SubtitleEngine {
       .filter((c) => !c.translatedText && !c.isTranslating);
     nextCues.forEach((c) => {
       c.isTranslating = true;
-      chrome.runtime.sendMessage(
-        {
-          action: 'translate',
-          text: c.text,
-          from: this.sourceLang,
-          to: this.targetLang,
-        },
-        (res) => {
-          if (!this._isNavigationCurrent(navigation) || !this.cues.includes(c)) return;
-          if (res?.translation) {
-            c.translatedText = res.translation;
-            c._transLang = this.targetLang;
-          }
-          c.isTranslating = false;
-        },
-      );
+      if (!chrome?.runtime?.sendMessage) {
+        c.isTranslating = false;
+        return;
+      }
+      try {
+        chrome.runtime.sendMessage(
+          {
+            action: 'translate',
+            text: c.text,
+            from: this.sourceLang,
+            to: this.targetLang,
+          },
+          (res) => {
+            if (!this._isNavigationCurrent(navigation) || !this.cues.includes(c)) return;
+            if (res?.translation) {
+              c.translatedText = res.translation;
+              c._transLang = this.targetLang;
+            }
+            c.isTranslating = false;
+          },
+        );
+      } catch {
+        c.isTranslating = false;
+      }
     });
   }
 

@@ -76,6 +76,29 @@ try {
   assert(!extensionManifest.chrome_url_overrides?.newtab, 'extensão não sequestra a nova aba do Chrome');
   const legacyNewTabFiles = ['dashboard/newtab.html', 'dashboard/newtab.js'].filter((relative) => existsSync(file(relative)));
   assert(legacyNewTabFiles.length === 0, `recurso legado de nova aba foi removido${legacyNewTabFiles.length ? `: ${legacyNewTabFiles.join(', ')}` : ''}`);
+
+  const streamingWar = (extensionManifest.web_accessible_resources || []).find((entry) =>
+    (entry.matches || []).some((m) => m.includes('youtube'))
+  );
+  const warAllowed = new Set(streamingWar?.resources || []);
+  const visitedWar = new Set();
+  const missingWar = [];
+  function traceWarImports(relPath) {
+    const norm = relPath.replace(/\\/g, '/');
+    if (visitedWar.has(norm)) return;
+    visitedWar.add(norm);
+    if (!warAllowed.has(norm)) missingWar.push(norm);
+    if (!existsSync(file(norm))) return;
+    const content = read(norm);
+    for (const match of content.matchAll(/(?:from|\bimport)\s+['"](\.[^'"]+)['"]/g)) {
+      traceWarImports(path.posix.normalize(path.posix.join(path.posix.dirname(norm), match[1])));
+    }
+    for (const match of content.matchAll(/import\s*\(\s*['"](\.[^'"]+)['"]/g)) {
+      traceWarImports(path.posix.normalize(path.posix.join(path.posix.dirname(norm), match[1])));
+    }
+  }
+  traceWarImports('content/index.js');
+  assert(missingWar.length === 0, `todos os ${visitedWar.size} módulos transitivos de content/index.js estão em web_accessible_resources${missingWar.length ? `: ${missingWar.join(', ')}` : ''}`);
 } catch (error) {
   fail(`manifest.json inválido: ${error.message}`);
 }

@@ -599,4 +599,13 @@
 - [x] Integração na sanitização de legendas `_cleanSubtitleText` em `content/subtitle-engine.js`.
 - [x] Nova suíte de testes `tests/caption-casing.test.mjs` com 10 cenários abrangentes integrada em `npm run test:subtitle-lifecycle`, com 17/17 testes verdes e `biome check` sem erros.
 
+## Issue #202 · Registro de Web Accessible Resources e Blindagem contra Invalidação de Contexto (2026-09-26)
+
+- [x] Inclusão de `utils/caption-casing.js` e `utils/offline-dict.js` na seção `web_accessible_resources` do `manifest.json`, eliminando a falha de carregamento dinâmico no `boot.js` (`Failed to fetch dynamically imported module: content/index.js`).
+- [x] Blindagem com optional chaining (`chrome?.storage?.local?.get` e `set`) em `content/subtitle-engine.js`, impedindo que recargas da extensão em guias abertas gerem `TypeError: Cannot read properties of undefined (reading 'local')`.
+- [x] Detecção abrangente de invalidação de contexto de extensão no sync loop (`Extension context invalidated`, `reading 'sendMessage'`, `reading 'local'`), encerrando o loop de forma limpa sem poluição de logs.
+- [x] Nova validação no script `tests/release-smoke.mjs` garantindo que todos os módulos JS transitivos importados por `content/index.js` estejam sempre presentes em `web_accessible_resources`.
+- [x] Todos os gates validados: `release-smoke`, `test:subtitle-lifecycle`, `test:yt-player` e `lint:biome` 100% verdes.
+
+
 

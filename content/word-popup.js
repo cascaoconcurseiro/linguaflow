@@ -851,7 +851,8 @@ export class WordPopup {
       .then((dict) => {
         if (this.cache[word] === entry) {
           Object.assign(entry, dict || {});
-          this.cache[word].phonetic = dict?.phonetic || '';
+          const rawDictPhon = dict?.phonetic || '';
+          this.cache[word].phonetic = isValidIpa(rawDictPhon) ? cleanIpa(rawDictPhon) : '';
           if (!dict?.definition) entry.definition = 'Definição indisponível no momento.';
         }
         if (this.word === word) this._render(this.cache[word]);
@@ -2206,11 +2207,15 @@ export class WordPopup {
         saved.chunks.forEach((c) => {
           const eng = this._escapeAttr(c.eng);
           const pt = this._escapeAttr(c.pt);
-          const phon = this._escapeAttr(c.phon);
+          const rawPhon = isValidIpa(c.phon) ? cleanIpa(c.phon) : '';
+          const phon = this._escapeAttr(rawPhon);
+          const phonHtml = phon
+            ? `<div style="font-size:13px;color:#fbbf24;font-family:monospace;font-weight:600;background:rgba(251,191,36,.1);padding:4px 8px;border-radius:6px;display:inline-block;border:1px solid rgba(251,191,36,.3);">${phon}</div>`
+            : '';
           html += `<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px;margin-bottom:10px;">
             <div style="font-size:14px;color:#e2e8f0;font-weight:700;margin-bottom:4px;">${eng}</div>
             <div style="font-size:12px;color:#94a3b8;font-style:italic;margin-bottom:8px;">${pt}</div>
-            <div style="font-size:13px;color:#fbbf24;font-family:monospace;font-weight:600;background:rgba(251,191,36,.1);padding:4px 8px;border-radius:6px;display:inline-block;border:1px solid rgba(251,191,36,.3);">${phon}</div>
+            ${phonHtml}
           </div>`;
         });
         if (container) container.innerHTML = html;
@@ -2269,12 +2274,16 @@ export class WordPopup {
         response.chunks.forEach((c) => {
           const eng = this._escapeAttr(c.eng);
           const pt = this._escapeAttr(c.pt);
-          const phon = this._escapeAttr(c.phon);
+          const rawPhon = isValidIpa(c.phon) ? cleanIpa(c.phon) : '';
+          const phon = this._escapeAttr(rawPhon);
+          const phonHtml = phon
+            ? `<div style="font-size:13px; color:#fbbf24; font-family:monospace; font-weight:600; background:rgba(251,191,36,.1); padding:4px 8px; border-radius:6px; display:inline-block; border:1px solid rgba(251,191,36,.3);">${phon}</div>`
+            : '';
           html += `
             <div style="background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:12px; margin-bottom:10px;">
                 <div style="font-size:14px; color:#e2e8f0; font-weight:700; margin-bottom:4px;">${eng}</div>
                 <div style="font-size:12px; color:#94a3b8; font-style:italic; margin-bottom:8px;">${pt}</div>
-                <div style="font-size:13px; color:#fbbf24; font-family:monospace; font-weight:600; background:rgba(251,191,36,.1); padding:4px 8px; border-radius:6px; display:inline-block; border:1px solid rgba(251,191,36,.3);">${phon}</div>
+                ${phonHtml}
             </div>`;
         });
 

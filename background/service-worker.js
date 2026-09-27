@@ -854,7 +854,8 @@ async function fetchDictionary(word) {
         const entry = data[0];
         let audioUrl = entry.phonetics?.find((p) => p.audio)?.audio || '';
         if (audioUrl && audioUrl.startsWith('//')) audioUrl = 'https:' + audioUrl;
-        const phonetic = entry.phonetic || entry.phonetics?.find((p) => p.text)?.text || '';
+        const rawPhonetic = entry.phonetic || entry.phonetics?.find((p) => p.text)?.text || '';
+        const phonetic = isValidIpa(rawPhonetic) ? cleanIpa(rawPhonetic) : '';
         const def = entry.meanings?.[0]?.definitions?.[0]?.definition || '';
         if (def || phonetic) {
           return {
@@ -891,7 +892,8 @@ async function fetchDictionary(word) {
         if (match) {
           const ipaTag = match.tags?.find((t) => t.startsWith('ipa_pron:'));
           const rawIpa = ipaTag ? ipaTag.replace('ipa_pron:', '').trim() : '';
-          const phonetic = rawIpa ? `/${rawIpa}/` : '';
+          const rawPhonetic = rawIpa ? `/${rawIpa}/` : '';
+          const phonetic = isValidIpa(rawPhonetic) ? cleanIpa(rawPhonetic) : '';
 
           let partOfSpeech = '';
           let definition = '';

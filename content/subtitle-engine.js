@@ -726,10 +726,28 @@ export class SubtitleEngine {
   // ── Navegação por Legenda ───────────────────────────────────────────────
 
   repeatSubtitle() {
-    const cue = this._currentCue || (this.cues && this.cues[this.currentCueIndex]);
-    if (cue && this.videoElement) {
-      this.videoElement.currentTime = cue.start;
-      this.videoElement.play();
+    const v = this.videoElement;
+    if (!v) return;
+
+    let cue = this._currentCue || (this.cues && this.cues[this.currentCueIndex]);
+    if (!cue && this.cues && this.cues.length > 0) {
+      const t = v.currentTime;
+      let idx = this._binarySearchCue(this.cues, t);
+      if (idx === -1) {
+        for (let i = this.cues.length - 1; i >= 0; i--) {
+          if (this.cues[i].end <= t || this.cues[i].start <= t) {
+            idx = i;
+            break;
+          }
+        }
+      }
+      if (idx !== -1) cue = this.cues[idx];
+    }
+
+    if (cue && v) {
+      this._lastAutoPausedEndTime = -1;
+      v.currentTime = cue.start;
+      v.play()?.catch?.(() => {});
       console.debug('[LinguaFlow] 🔄 Repetindo legenda:', cue.text);
     }
   }
@@ -739,6 +757,7 @@ export class SubtitleEngine {
     const v = this.videoElement;
     if (!v) return;
 
+    this._lastAutoPausedEndTime = -1;
     // Se estivermos no meio de uma frase, volta pro início dela.
     // Se estivermos no início, volta pra anterior.
     const t = v.currentTime;
@@ -763,7 +782,7 @@ export class SubtitleEngine {
 
     if (idx !== -1) {
       v.currentTime = this.cues[idx].start;
-      v.play();
+      v.play()?.catch?.(() => {});
     }
   }
 
@@ -772,6 +791,7 @@ export class SubtitleEngine {
     const v = this.videoElement;
     if (!v) return;
 
+    this._lastAutoPausedEndTime = -1;
     const t = v.currentTime;
     let idx = this._binarySearchCue(this.cues, t);
 
@@ -789,7 +809,7 @@ export class SubtitleEngine {
 
     if (idx !== -1) {
       v.currentTime = this.cues[idx].start;
-      v.play();
+      v.play()?.catch?.(() => {});
     }
   }
 
@@ -3748,16 +3768,19 @@ export class SubtitleEngine {
           }
 
           if (cue && cue !== this._currentCue) {
+            this._lastAutoPausedEndTime = -1;
             this.lastText = cue.text;
             this.onSubtitle(cue);
           } else if (!cue && this.lastText !== '') {
+            this._lastAutoPausedEndTime = -1;
             this.lastText = '';
             this._currentCue = null;
             this.renderDual('', '');
           }
 
           // Auto-Pause (Shadowing Mode)
-          if (this.autoPause && !v.paused && cue && t >= cue.end - 0.05) {
+          // Só pausa se o fim desta cue específica ainda não foi pausado, permitindo que o usuário dê Play/Espaço e continue
+          if (this.autoPause && !v.paused && cue && t >= cue.end - 0.05 && this._lastAutoPausedEndTime !== cue.end) {
             v.pause();
             this._showAutoPauseIndicator();
             this._lastAutoPausedEndTime = cue.end;

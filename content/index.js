@@ -45,11 +45,17 @@ if (!isSupported) {
       const reviewOverlay = new ReviewOverlay();
       await reviewOverlay.init();
 
-      // Tecla R = toggle review
+      window.addEventListener('LF_TOGGLE_REVIEW', () => {
+        reviewOverlay.toggle();
+      });
+
+      // Tecla R = toggle review (fallback com proteção isEditableTarget)
       document.addEventListener('keydown', (e) => {
         if (e.key === 'r' || e.key === 'R') {
           if (isEditableTarget(e)) return;
           if (e.ctrlKey || e.metaKey || e.altKey) return;
+          e.preventDefault?.();
+          e.stopPropagation?.();
           reviewOverlay.toggle();
         }
       });

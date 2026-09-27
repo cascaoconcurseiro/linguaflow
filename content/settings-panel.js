@@ -855,7 +855,6 @@ export class SettingsPanel {
         return;
       }
       if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
-      if (e.key.toLowerCase() === 'o') this.toggle();
     });
     window.addEventListener('LF_TOGGLE_SETTINGS', () => this.toggle());
 

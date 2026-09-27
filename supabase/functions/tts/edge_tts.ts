@@ -1,9 +1,8 @@
 // supabase/functions/tts/edge_tts.ts
 // Síntese de voz neural da Microsoft (Edge TTS) via WebSocket.
+// Handshake feito à mão sobre TLS: a Microsoft recusa (403) conexões sem o
+// User-Agent do Edge, e o npm:ws no Edge Runtime hospedado não o repassa.
 // Sem chave de API ou custo, gerando MP3 a 24kHz com vozes neurais de alta fidelidade.
-
-import { Buffer } from "node:buffer";
-import WebSocket from "npm:ws@8.18.0";
 
 export const VOICE_MAP: Record<string, string> = {
   "en-US": "en-US-JennyNeural",
@@ -69,6 +68,120 @@ export function escapeSsml(text: string): string {
     .replace(/'/g, "&apos;");
 }
 
+const WS_HOST = "speech.platform.bing.com";
+const WS_PATH = "/consumer/speech/synthesize/readaloud/edge/v1";
+
+function buildMessages(text: string, lang: string, voice: string): string[] {
+  const config =
+    `X-Timestamp:${new Date().toUTCString()}\r\n` +
+    "Content-Type:application/json; charset=utf-8\r\n" +
+    "Path:speech.config\r\n\r\n" +
+    JSON.stringify({
+      context: {
+        synthesis: {
+          audio: {
+            metadataoptions: { sentenceBoundaryEnabled: "false", wordBoundaryEnabled: "false" },
+            outputFormat: "audio-24khz-48kbitrate-mono-mp3",
+          },
+        },
+      },
+    });
+  const reqId = crypto.randomUUID().replaceAll("-", "");
+  const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${escapeSsml(lang)}'><voice name='${voice}'><prosody pitch='+0Hz' rate='+0%' volume='+0%'>${escapeSsml(text)}</prosody></voice></speak>`;
+  const ssmlMsg =
+    `X-RequestId:${reqId}\r\n` +
+    "Content-Type:application/ssml+xml\r\n" +
+    `X-Timestamp:${new Date().toUTCString()}Z\r\n` +
+    "Path:ssml\r\n\r\n" +
+    ssml;
+  return [config, ssmlMsg];
+}
+
+// Frame cliente (RFC 6455 §5.2): FIN + opcode, payload mascarado.
+export function encodeClientFrame(opcode: number, payload: Uint8Array): Uint8Array {
+  const len = payload.length;
+  const headerLen = len < 126 ? 2 : len < 65536 ? 4 : 10;
+  const frame = new Uint8Array(headerLen + 4 + len);
+  frame[0] = 0x80 | opcode;
+  if (len < 126) {
+    frame[1] = 0x80 | len;
+  } else if (len < 65536) {
+    frame[1] = 0x80 | 126;
+    new DataView(frame.buffer).setUint16(2, len);
+  } else {
+    frame[1] = 0x80 | 127;
+    new DataView(frame.buffer).setBigUint64(2, BigInt(len));
+  }
+  const mask = crypto.getRandomValues(new Uint8Array(4));
+  frame.set(mask, headerLen);
+  for (let i = 0; i < len; i++) frame[headerLen + 4 + i] = payload[i] ^ mask[i % 4];
+  return frame;
+}
+
+type ServerFrame = { fin: boolean; opcode: number; payload: Uint8Array };
+
+// Lê frames completos do servidor a partir do buffer acumulado; o resto
+// (frame ainda incompleto) volta para a próxima leitura.
+export function decodeServerFrames(buf: Uint8Array): { frames: ServerFrame[]; rest: Uint8Array } {
+  const frames: ServerFrame[] = [];
+  let off = 0;
+  while (buf.length - off >= 2) {
+    const b0 = buf[off];
+    const b1 = buf[off + 1];
+    let len = b1 & 0x7f;
+    let hdr = 2;
+    if (len === 126) {
+      if (buf.length - off < 4) break;
+      len = (buf[off + 2] << 8) | buf[off + 3];
+      hdr = 4;
+    } else if (len === 127) {
+      if (buf.length - off < 10) break;
+      len = Number(new DataView(buf.buffer, buf.byteOffset + off + 2, 8).getBigUint64(0));
+      hdr = 10;
+    }
+    const maskLen = (b1 & 0x80) !== 0 ? 4 : 0;
+    if (buf.length - off < hdr + maskLen + len) break;
+    let payload = buf.slice(off + hdr + maskLen, off + hdr + maskLen + len);
+    if (maskLen) {
+      const mask = buf.slice(off + hdr, off + hdr + 4);
+      payload = payload.map((v, i) => v ^ mask[i % 4]);
+    }
+    frames.push({ fin: (b0 & 0x80) !== 0, opcode: b0 & 0x0f, payload });
+    off += hdr + maskLen + len;
+  }
+  return { frames, rest: buf.slice(off) };
+}
+
+// Mensagem binária do protocolo: 2 bytes com o tamanho do cabeçalho textual,
+// o cabeçalho ("Path:audio"), depois o trecho de MP3.
+export function extractAudio(message: Uint8Array): Uint8Array | null {
+  if (message.length < 2) return null;
+  const headerLen = (message[0] << 8) | message[1];
+  const header = new TextDecoder().decode(message.subarray(2, 2 + headerLen));
+  if (!header.includes("Path:audio")) return null;
+  const audio = message.subarray(2 + headerLen);
+  return audio.length > 0 ? audio : null;
+}
+
+function concat(a: Uint8Array, b: Uint8Array): Uint8Array {
+  const out = new Uint8Array(a.length + b.length);
+  out.set(a, 0);
+  out.set(b, a.length);
+  return out;
+}
+
+function indexOfCrlfCrlf(buf: Uint8Array): number {
+  for (let i = 0; i + 3 < buf.length; i++) {
+    if (buf[i] === 13 && buf[i + 1] === 10 && buf[i + 2] === 13 && buf[i + 3] === 10) return i;
+  }
+  return -1;
+}
+
+async function writeAll(conn: Deno.TlsConn, data: Uint8Array): Promise<void> {
+  let off = 0;
+  while (off < data.length) off += await conn.write(data.subarray(off));
+}
+
 export async function synthesizeEdgeTTS(
   text: string,
   lang: string,
@@ -76,118 +189,103 @@ export async function synthesizeEdgeTTS(
 ): Promise<Uint8Array> {
   const voice = getVoiceForLang(lang);
   const secMsGec = await generateSecMsGec();
-  const muid = generateMuid();
   const connectionId = crypto.randomUUID().replaceAll("-", "");
-  const wssUrl = `wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=${TRUSTED_CLIENT_TOKEN}&Sec-MS-GEC=${secMsGec}&Sec-MS-GEC-Version=${SEC_MS_GEC_VERSION}&ConnectionId=${connectionId}`;
+  const query = `TrustedClientToken=${TRUSTED_CLIENT_TOKEN}&Sec-MS-GEC=${secMsGec}&Sec-MS-GEC-Version=${SEC_MS_GEC_VERSION}&ConnectionId=${connectionId}`;
+  const key = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
 
-  const headers = {
-    "User-Agent": `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROMIUM_MAJOR_VERSION}.0.0.0 Safari/537.36 Edg/${CHROMIUM_MAJOR_VERSION}.0.0.0`,
-    "Accept-Encoding": "gzip, deflate, br, zstd",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Pragma": "no-cache",
-    "Cache-Control": "no-cache",
-    "Origin": "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold",
-    "Cookie": `muid=${muid};`,
-  };
+  const request =
+    `GET ${WS_PATH}?${query} HTTP/1.1\r\n` +
+    `Host: ${WS_HOST}\r\n` +
+    "Upgrade: websocket\r\n" +
+    "Connection: Upgrade\r\n" +
+    `Sec-WebSocket-Key: ${key}\r\n` +
+    "Sec-WebSocket-Version: 13\r\n" +
+    `User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROMIUM_MAJOR_VERSION}.0.0.0 Safari/537.36 Edg/${CHROMIUM_MAJOR_VERSION}.0.0.0\r\n` +
+    "Origin: chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold\r\n" +
+    "Pragma: no-cache\r\n" +
+    "Cache-Control: no-cache\r\n" +
+    "Accept-Language: en-US,en;q=0.9\r\n" +
+    `Cookie: muid=${generateMuid()};\r\n` +
+    "\r\n";
 
-  return new Promise((resolve, reject) => {
-    let resolved = false;
-    const timer = setTimeout(() => {
-      if (resolved) return;
-      resolved = true;
-      try { ws.close(); } catch { /* ignore */ }
-      reject(new Error("Edge TTS timeout excedido"));
-    }, timeoutMs);
+  let timedOut = false;
+  const conn = await Deno.connectTls({ hostname: WS_HOST, port: 443 });
+  const timer = setTimeout(() => {
+    timedOut = true;
+    try { conn.close(); } catch { /* já fechado */ }
+  }, timeoutMs);
+  const enc = new TextEncoder();
+  const dec = new TextDecoder();
+  const chunk = new Uint8Array(16384);
+  const audioChunks: Uint8Array[] = [];
 
-    const ws = new WebSocket(wssUrl, { headers });
-    const audioChunks: Uint8Array[] = [];
+  try {
+    await writeAll(conn, enc.encode(request));
 
-    ws.on("open", () => {
-      const configMsg =
-        `X-Timestamp:${new Date().toUTCString()}\r\n` +
-        "Content-Type:application/json; charset=utf-8\r\n" +
-        "Path:speech.config\r\n\r\n" +
-        JSON.stringify({
-          context: {
-            synthesis: {
-              audio: {
-                metadataoptions: { sentenceBoundaryEnabled: "false", wordBoundaryEnabled: "false" },
-                outputFormat: "audio-24khz-48kbitrate-mono-mp3",
-              },
-            },
-          },
-        });
-      ws.send(configMsg);
+    // 1. Resposta do handshake
+    let buf = new Uint8Array(0);
+    let headerEnd = -1;
+    while (headerEnd < 0) {
+      const n = await conn.read(chunk);
+      if (n === null) throw new Error("Edge TTS fechou durante o handshake");
+      buf = concat(buf, chunk.subarray(0, n));
+      headerEnd = indexOfCrlfCrlf(buf);
+    }
+    const statusLine = dec.decode(buf.subarray(0, buf.indexOf(13)));
+    const status = Number(statusLine.split(" ")[1]);
+    if (status !== 101) throw new Error(`Edge TTS handshake ${status || "?"}`);
+    buf = buf.slice(headerEnd + 4);
 
-      const reqId = crypto.randomUUID().replaceAll("-", "");
-      const cleanText = escapeSsml(text);
-      const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${lang}'><voice name='${voice}'><prosody pitch='+0Hz' rate='+0%' volume='+0%'>${cleanText}</prosody></voice></speak>`;
-      const ssmlMsg =
-        `X-RequestId:${reqId}\r\n` +
-        "Content-Type:application/ssml+xml\r\n" +
-        `X-Timestamp:${new Date().toUTCString()}Z\r\n` +
-        "Path:ssml\r\n\r\n" +
-        ssml;
-      ws.send(ssmlMsg);
-    });
+    // 2. Pedido de síntese
+    for (const msg of buildMessages(text, lang, voice)) {
+      await writeAll(conn, encodeClientFrame(0x1, enc.encode(msg)));
+    }
 
-    ws.on("message", (data: any, isBinary: boolean) => {
-      if (isBinary) {
-        const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
-        if (buf.length >= 2) {
-          const headerLen = buf.readUInt16BE(0);
-          const headerStr = buf.subarray(2, 2 + headerLen).toString("utf-8");
-          if (headerStr.includes("Path:audio")) {
-            const audioData = buf.subarray(2 + headerLen);
-            if (audioData.length > 0) {
-              audioChunks.push(new Uint8Array(audioData));
-            }
-          }
+    // 3. Frames até turn.end
+    let partial = new Uint8Array(0);
+    let partialOpcode = 0;
+    for (;;) {
+      const { frames, rest } = decodeServerFrames(buf);
+      buf = rest;
+      for (const f of frames) {
+        if (f.opcode === 0x8) throw new Error("Edge TTS fechou antes do fim");
+        if (f.opcode === 0x9) {
+          await writeAll(conn, encodeClientFrame(0xA, f.payload));
+          continue;
         }
-      } else {
-        const textStr = data.toString();
-        if (textStr.includes("Path:turn.end")) {
-          if (resolved) return;
-          resolved = true;
-          clearTimeout(timer);
-          try { ws.close(); } catch { /* ignore */ }
-          if (audioChunks.length === 0) {
-            reject(new Error("Nenhum segmento de áudio retornado pelo Edge TTS"));
-            return;
-          }
-          const totalLength = audioChunks.reduce((acc, chunk) => acc + chunk.length, 0);
-          const merged = new Uint8Array(totalLength);
+        if (f.opcode === 0x1 || f.opcode === 0x2) {
+          partial = f.payload;
+          partialOpcode = f.opcode;
+        } else if (f.opcode === 0x0) {
+          partial = concat(partial, f.payload);
+        } else {
+          continue;
+        }
+        if (!f.fin) continue;
+        if (partialOpcode === 0x2) {
+          const audio = extractAudio(partial);
+          if (audio) audioChunks.push(audio.slice());
+        } else if (dec.decode(partial).includes("Path:turn.end")) {
+          if (audioChunks.length === 0) throw new Error("Nenhum segmento de áudio retornado pelo Edge TTS");
+          const total = audioChunks.reduce((acc, c) => acc + c.length, 0);
+          const merged = new Uint8Array(total);
           let offset = 0;
-          for (const chunk of audioChunks) {
-            merged.set(chunk, offset);
-            offset += chunk.length;
+          for (const c of audioChunks) {
+            merged.set(c, offset);
+            offset += c.length;
           }
-          resolve(merged);
+          return merged;
         }
       }
-    });
-
-    ws.on("error", (err: any) => {
-      if (resolved) return;
-      resolved = true;
-      clearTimeout(timer);
-      reject(err);
-    });
-
-    // Handshake recusado (403) ou conexão encerrada antes de turn.end: falha já,
-    // em vez de esperar o timeout inteiro antes do fallback.
-    ws.on("unexpected-response", (_req: any, res: any) => {
-      if (resolved) return;
-      resolved = true;
-      clearTimeout(timer);
-      reject(new Error(`Edge TTS handshake ${res?.statusCode ?? "?"}`));
-    });
-
-    ws.on("close", (code: number) => {
-      if (resolved) return;
-      resolved = true;
-      clearTimeout(timer);
-      reject(new Error(`Edge TTS fechou antes do fim (code ${code})`));
-    });
-  });
+      const n = await conn.read(chunk);
+      if (n === null) throw new Error("Edge TTS fechou antes do fim");
+      buf = concat(buf, chunk.subarray(0, n));
+    }
+  } catch (err) {
+    if (timedOut) throw new Error("Edge TTS timeout excedido");
+    throw err;
+  } finally {
+    clearTimeout(timer);
+    try { conn.close(); } catch { /* já fechado */ }
+  }
 }

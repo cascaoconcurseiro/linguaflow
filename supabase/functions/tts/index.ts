@@ -23,7 +23,7 @@ function corsHeadersFor(origin: string | null, contentType = "application/json")
     "Access-Control-Allow-Origin": allowed ? origin! : "null",
     "Vary": "Origin",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Expose-Headers": "X-TTS-Engine",
+    "Access-Control-Expose-Headers": "X-TTS-Engine, X-TTS-Fallback-Reason",
     "Content-Type": contentType,
   };
 }
@@ -123,6 +123,7 @@ Deno.serve(async (req) => {
 
     let audio: ArrayBuffer | null = null;
     let engine = "edge-tts";
+    let fallbackReason = "";
 
     try {
       const edgeAudio = await synthesizeEdgeTTS(text, lang, UPSTREAM_TIMEOUT_MS);
@@ -130,7 +131,8 @@ Deno.serve(async (req) => {
         audio = edgeAudio.buffer;
       }
     } catch (edgeErr) {
-      console.warn("[tts] edge_tts_fallback", { reason: String((edgeErr as Error)?.message || "unknown").slice(0, 120) });
+      fallbackReason = String((edgeErr as Error)?.message || "unknown").replace(/[^\w .:()-]/g, "").slice(0, 120);
+      console.warn("[tts] edge_tts_fallback", { reason: fallbackReason });
     }
 
     if (!audio) {
@@ -154,6 +156,7 @@ Deno.serve(async (req) => {
         ...corsHeadersFor(origin, "audio/mpeg"),
         "Cache-Control": "private, max-age=604800",
         "X-TTS-Engine": engine,
+        ...(fallbackReason ? { "X-TTS-Fallback-Reason": fallbackReason } : {}),
       },
     });
   } catch (error) {

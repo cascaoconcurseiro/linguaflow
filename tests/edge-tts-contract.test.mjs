@@ -126,13 +126,15 @@ test('Edge TTS: Contrato do cliente de áudio (dashboard/js/core/tts.js)', () =>
   assert.ok(clientTts.includes('TTS_PROXY_URL'), 'Chama o proxy autenticado com fallback');
 });
 
-test('Edge TTS: runtime Deno — Buffer importado e motor exposto via CORS', () => {
+test('Edge TTS: handshake TLS com User-Agent do Edge e motor exposto via CORS', () => {
   const fnIndex = readFileSync(join(process.cwd(), 'supabase/functions/tts/index.ts'), 'utf8');
   const fnModule = readFileSync(join(process.cwd(), 'supabase/functions/tts/edge_tts.ts'), 'utf8');
-  // No Edge Runtime, Buffer não é global no código do usuário: sem import, cada
-  // frame binário lança ReferenceError e a síntese cai em timeout -> Google.
-  assert.match(fnModule, /import \{ Buffer \} from "node:buffer";/);
-  assert.match(fnIndex, /"Access-Control-Expose-Headers": "X-TTS-Engine"/);
+  // A Microsoft devolve 403 sem o User-Agent do Edge; o npm:ws no runtime
+  // hospedado não o repassa, então o handshake é feito à mão sobre TLS.
+  assert.doesNotMatch(fnModule, /^import .*npm:ws/m);
+  assert.match(fnModule, /Deno\.connectTls\(\{ hostname: WS_HOST, port: 443 \}\)/);
+  assert.match(fnModule, /User-Agent: Mozilla\/5\.0 .*Edg\//);
+  assert.match(fnIndex, /"Access-Control-Expose-Headers": "X-TTS-Engine, X-TTS-Fallback-Reason"/);
   assert.match(fnIndex, /console\.warn\("\[tts\] edge_tts_fallback"/, 'Fallback para Google é logado com evento estável');
 });
 

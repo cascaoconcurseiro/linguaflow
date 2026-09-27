@@ -953,21 +953,30 @@ body.lf-focus-mode .study-focus-header {
 .study-focus-menu button:hover,
 .study-focus-menu button:focus-visible { background: var(--color-bg-alt); }
 
-/* O #app-root é o único dono do scroll durante a sessão. As áreas internas
-   deixam de disputar roda/toque e o shell permanece estável. */
+/* Durante a sessão de estudo, o #app-root não rola — apenas .study-main
+   rola internamente. Isso elimina a scrollbar lateral da janela e mantém
+   topbar + botões de avaliação sempre visíveis. */
 body.lf-focus-mode #app-root {
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
+  overflow: hidden;
 }
 
 body.lf-focus-mode .study-layout {
-  height: auto !important;
-  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - var(--topbar-height, 70px));
+  overflow: hidden;
 }
 
-body.lf-focus-mode .study-main,
-body.lf-focus-mode .study-sidebar { overflow: visible !important; }
+body.lf-focus-mode .study-main {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+body.lf-focus-mode .study-sidebar { overflow: visible; }
 
 /* O shell autenticado nunca aparece enquanto a sessão ainda está sendo
    verificada nem na rota pública de autenticação. A regra também cobre a

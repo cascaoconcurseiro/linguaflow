@@ -28,7 +28,7 @@ test('schema: progresso, sessões, erros e revisões não aceitam escrita direta
   const enrollment = schema.match(/CREATE POLICY \w+ ON public\.user_course_enrollment[^;]+;/g);
   assert.ok(enrollment.every((p) => /FOR (SELECT|DELETE)/.test(p)), 'matrícula: sem INSERT/UPDATE direto');
   assert.match(schema, /UNIQUE \(user_id, client_session_id\)/, 'sessão idempotente');
-  assert.match(schema, /course_user_vocabulary \(\n  user_id UUID NOT NULL DEFAULT auth\.uid\(\)/, 'cliente não envia user_id');
+  assert.match(schema, /course_user_vocabulary \(\r?\n  user_id UUID NOT NULL DEFAULT auth\.uid\(\)/, 'cliente não envia user_id');
 });
 
 test('RPC: autoritativa, sem user_id do cliente e sem acesso anônimo', () => {

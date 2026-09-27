@@ -133,12 +133,14 @@ async function kokoroBlob(text, lang) {
   return await audio.toBlob();
 }
 
+// Retorna { blob, engine } — engine diz quem gerou o áudio, para que um
+// fallback Google nunca seja cacheado como voz neural.
 async function fetchTTSBlob(text, lang) {
   // Voz premium local primeiro (se ativada): grátis, offline e melhor que
   // Google TTS em inglês. Cache IndexedDB por chave diferente (qualidade ≠).
   if (kokoroEnabled() && String(lang).startsWith('en')) {
     try {
-      return await kokoroBlob(text, lang);
+      return { blob: await kokoroBlob(text, lang), engine: 'kokoro' };
     } catch { /* cai na cadeia normal abaixo */ }
   }
 
@@ -152,11 +154,14 @@ async function fetchTTSBlob(text, lang) {
         body: JSON.stringify({ text, lang }),
       });
       if (r.ok) {
-        return await r.blob();
+        const engine = r.headers.get('x-tts-engine') || 'unknown';
+        if (engine !== 'edge-tts') console.warn('[TTS] voz neural indisponível, servidor usou', engine);
+        return { blob: await r.blob(), engine };
       }
+      console.warn('[TTS] proxy neural respondeu', r.status);
     }
   } catch (e) {
-    console.debug('[TTS] Proxy neural indisponível, tentando fallback...', e?.message);
+    console.warn('[TTS] proxy neural indisponível:', e?.message);
   }
 
   if (isExtension) {
@@ -170,7 +175,7 @@ async function fetchTTSBlob(text, lang) {
     });
     if (res && res.success && res.dataUrl) {
       const r = await fetch(res.dataUrl);
-      return await r.blob();
+      return { blob: await r.blob(), engine: 'google-tts' };
     }
     return null;
   }
@@ -182,14 +187,18 @@ async function fetchTTSBlob(text, lang) {
  * Retorna o Blob do áudio (cache IndexedDB primeiro, depois rede).
  */
 export async function getAudioBlob(text, lang) {
-  // Motor na chave: 'kk' (Kokoro local), 'ms' (Microsoft Edge TTS neural), ou 'g' legado
-  const prefix = kokoroEnabled() ? 'kk' : 'ms';
+  // Motor na chave: 'kk' (Kokoro local), 'msn' (Microsoft neural verificado pelo
+  // header X-TTS-Engine) ou 'g' (Google). O antigo 'ms|' não é lido: antes do
+  // #205 ele guardava o fallback Google como se fosse neural.
+  const prefix = kokoroEnabled() ? 'kk' : 'msn';
   const key = `${prefix}|${lang}|${text}`;
   const cached = await idbGet(key);
   if (cached) return cached;
-  const blob = await fetchTTSBlob(text, lang).catch(() => null);
-  if (blob && blob.size > 0) {
-    idbSet(key, blob);
+  const result = await fetchTTSBlob(text, lang).catch(() => null);
+  if (result?.blob && result.blob.size > 0) {
+    const { blob, engine } = result;
+    if (engine === 'edge-tts' || engine === 'kokoro') idbSet(key, blob);
+    else idbSet(`g|${lang}|${text}`, blob);
     return blob;
   }
   // Se offline ou falha de rede, verifica cache legado Google
@@ -201,7 +210,7 @@ export async function getAudioBlob(text, lang) {
 const MEM_CACHE_MAX = 100;
 
 async function getAudioUrl(text, lang) {
-  const prefix = kokoroEnabled() ? 'kk' : 'ms';
+  const prefix = kokoroEnabled() ? 'kk' : 'msn';
   const key = `${prefix}|${lang}|${text}`;
   if (memCache.has(key)) return memCache.get(key);
   if (pendingAudio.has(key)) return pendingAudio.get(key);

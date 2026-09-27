@@ -1,3 +1,17 @@
+## Sessão: Aplicação Remota do Cache Léxico Canônico e Resiliência contra 404 (2026-09-26)
+
+- **Problema abordado:** Erros 404 no console do navegador (`PGRST205: Could not find the table 'public.canonical_lexicon' in the schema cache` e `PGRST202: Could not find the function public.get_or_cache_canonical_lexicon in the schema cache`) ao realizar estudo e enriquecimento de vocabulário com IA.
+- **Causa raiz:** A migration `supabase/migrations/20260926120000_canonical_lexicon_cache.sql` havia sido criada e testada localmente, mas ainda não tinha sido executada no banco de produção remoto (`qnutoswrufznztoznlql`). Além disso, em `utils/db.js`, requisições falhas para endpoints não essenciais de cache disparavam `console.error` e emitiam o evento `lf_read_error` para a interface (causando toast de erro de conexão indevido).
+- **Feito:**
+  - **Execução Remota da Migration**: Executada a migration `20260926120000_canonical_lexicon_cache.sql` via Supabase CLI Management API (`supabase db query --linked -f ...`), criando a tabela `public.canonical_lexicon` com RLS, índices e a RPC `public.get_or_cache_canonical_lexicon`.
+  - **Recarga de Cache do PostgREST**: Disparado `NOTIFY pgrst, 'reload schema'` e registrado o número da migration em `supabase_migrations.schema_migrations`.
+  - **Resiliência e Circuit Breaker no Cliente (`utils/db.js`)**:
+    - Adicionado suporte ao parâmetro `{ silent: true }` no método `_fetch`, suprimindo o `console.error` ruidoso e a emissão do evento global `lf_read_error`.
+    - Implementado circuit breaker `_canonicalLexiconDisabled` em `getCanonicalLexicon` e `saveCanonicalLexicon` para que respostas 404 desativem graciosamente novas tentativas de consulta/salvamento sem degradar a experiência do usuário.
+- **Validação:**
+  - Chamadas de teste via Node/fetch para `GET rest/v1/canonical_lexicon` e `POST rest/v1/rpc/get_or_cache_canonical_lexicon` na URL de produção responderam `HTTP 200 OK`.
+  - `npm run test:ai-routing`, `npm run test:contextual-translation`, `npm run lint:biome`: 100% verdes.
+
 ## Sessão: Auditoria e Eliminação Global de Race Conditions e Código Legado (2026-09-26)
 
 - **Problema abordado:** Eliminação exaustiva de potenciais race conditions no sistema todo (concorrência em cliques rápidos, escrita assíncrona em storage, sobreposição de requisições de IA e mutação de estado de instância durante chamadas assíncronas).

@@ -212,7 +212,7 @@ class Database {
       return JSON.parse(text);
     } catch (e) {
       if (!e.kind) classifyRequestError(e);
-      console.error('[DB] Fetch Error:', e);
+      if (!options.silent) console.error('[DB] Fetch Error:', e);
       // Escritas NÃO podem falhar em silêncio: o chamador precisa saber
       // (word-popup mostra erro, handleGrade loga, backfill pula a palavra).
       // Leituras seguem retornando null (views tratam como vazio).
@@ -220,7 +220,7 @@ class Database {
       if (options.throwOnReadError || method !== 'GET') throw e;
       // Leitura falhou: retorna null (views tratam como vazio) MAS avisa a UI
       // — "nenhuma palavra" quando na verdade a rede caiu era mentira na tela.
-      if (typeof window !== 'undefined') {
+      if (!options.silent && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('lf_read_error', { detail: { endpoint } }));
       }
       return null;
@@ -2174,6 +2174,7 @@ class Database {
 
   // ── CACHE LÉXICO CANÔNICO (FinOps & Latência) ─────────────────────────────
   async getCanonicalLexicon(word, lang = 'en') {
+    if (this._canonicalLexiconDisabled) return null;
     if (this.isProxyMode) return this._proxy('getCanonicalLexicon', [word, lang]);
     const normWord = String(word || '').trim().toLowerCase();
     const normLang = String(lang || 'en').trim().toLowerCase();
@@ -2185,7 +2186,10 @@ class Database {
     }
 
     try {
-      const res = await this._fetch(`canonical_lexicon?word=eq.${encodeURIComponent(normWord)}&lang=eq.${encodeURIComponent(normLang)}&select=*`);
+      const res = await this._fetch(
+        `canonical_lexicon?word=eq.${encodeURIComponent(normWord)}&lang=eq.${encodeURIComponent(normLang)}&select=*`,
+        { silent: true }
+      );
       if (Array.isArray(res) && res.length > 0) {
         const entry = res[0];
         if (!this._canonicalLexiconMemory) this._canonicalLexiconMemory = new Map();
@@ -2198,12 +2202,15 @@ class Database {
       }
       return null;
     } catch (e) {
-      console.warn('[DB] getCanonicalLexicon error:', e);
+      if (e?.status === 404 || e?.code === 'PGRST205') {
+        this._canonicalLexiconDisabled = true;
+      }
       return null;
     }
   }
 
   async saveCanonicalLexicon(entry) {
+    if (this._canonicalLexiconDisabled) return null;
     if (this.isProxyMode) return this._proxy('saveCanonicalLexicon', [entry]);
     if (!entry || !entry.word) return null;
     const normWord = String(entry.word).trim().toLowerCase();
@@ -2214,6 +2221,7 @@ class Database {
     try {
       const saved = await this._fetch('rpc/get_or_cache_canonical_lexicon', {
         method: 'POST',
+        silent: true,
         body: {
           p_word: normWord,
           p_lang: normLang,
@@ -2233,7 +2241,9 @@ class Database {
       }
       return null;
     } catch (e) {
-      console.warn('[DB] saveCanonicalLexicon error:', e);
+      if (e?.status === 404 || e?.code === 'PGRST202') {
+        this._canonicalLexiconDisabled = true;
+      }
       return null;
     }
   }

@@ -574,3 +574,13 @@
 - [x] Persistência resiliente de dados com `Promise.allSettled(fallbackTasks)` garantindo que o card preserve a tradução mesmo se `enrichCard` falhar ou demorar.
 - [x] Criação do teste de contrato `tests/study-empty-translation-fallback.test.mjs` e inclusão em `npm run test:contextual-translation`.
 - [x] Todos os gates validados e verdes: `biome check` e 16 contratos de tradução contextual passando.
+
+## Issue #199 · Aplicação Remota do Cache Léxico Canônico e Blindagem de Erros 404 (2026-09-26)
+
+- [x] Aplicação da migration `20260926120000_canonical_lexicon_cache.sql` no banco remoto de produção (`qnutoswrufznztoznlql.supabase.co`) via Management API.
+- [x] Tabela `public.canonical_lexicon` e RPC `public.get_or_cache_canonical_lexicon` criadas e recarga do cache de schema PostgREST confirmada via `NOTIFY pgrst, 'reload schema'`.
+- [x] Registro da versão `20260926120000` em `supabase_migrations.schema_migrations` sincronizado no Supabase CLI.
+- [x] Blindagem em `utils/db.js`: adição da flag `silent` em `_fetch` para suprimir logs ruidosos e evitar emissão do evento `lf_read_error` (que disparava toast indevido na interface) para chamadas de cache não bloqueantes.
+- [x] Implementação de circuit breaker (`_canonicalLexiconDisabled`) em `getCanonicalLexicon` e `saveCanonicalLexicon` contra respostas 404/PGRST205/PGRST202.
+- [x] Verificação ponta a ponta com chamadas REST HTTP 200 OK para leitura e escrita na API remota e suíte de testes 100% verde.
+

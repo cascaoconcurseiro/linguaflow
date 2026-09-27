@@ -8,6 +8,7 @@
 
 - O catálogo e os índices de capítulos foram examinados em todos os 12 cursos. Nos capítulos bloqueados, só foi possível observar título, quantidade de exercícios e acesso; o conteúdo interno e a execução dessas aulas não foram acessados.
 - Foram exercitados campos de digitação, submissão, erro, correção, revelação de resposta, revisão linguística e saída com retomada numa aula B2 aberta. Foram examinadas preparação, dificuldades, preferências de áudio e uma aula aberta de viagem.
+- Nesta continuação, os modos Medium e Hard foram abertos dentro da aula Travel A1; Easy já havia sido usado para concluir uma questão. Pausa/retomada foi verificada com uma resposta parcial.
 - O navegador disponibiliza a interface e seus estados, mas não uma escuta/captura de áudio para este teste. A audibilidade, qualidade acústica e identidade da voz continuam por validar com reprodução audível num dispositivo.
 - O front-end, serviços, banco de dados e regras de autorização do YouType não estão no escopo acessível. Não se inferem detalhes internos a partir do que aparece no navegador.
 - Esta análise preserva apenas a estrutura de produto. Frases, gravações, ilustrações, marca, textos de lições e composição visual do YouType não devem ser importados ou reproduzidos.
@@ -43,6 +44,17 @@ Antes de começar, uma folha/modal apresenta curso, capítulo, número de quest�
 - **Medium:** áudio com a primeira letra de cada palavra.
 - **Hard:** áudio sem letras iniciais nem pistas de comprimento.
 
+### Descrição da interface e UX observadas
+
+- **Navegação do produto:** barra lateral persistente organiza área de aprendizagem, cursos, análise, revisão, notas, vocabulário, erros e placar. A barra superior concentra idioma, assinatura, ajuda e tema. Em tela de aula, essa navegação some para liberar espaço de foco; ficam “voltar aos capítulos”, capítulo/questão atual, tema, ajustes e pausa.
+- **Preparação:** modal grande sobre a página de capítulos escurecida. Coluna esquerda reúne miniatura do curso, nome do capítulo e resumo; coluna direita tem as três opções Easy/Medium/Hard em cartões clicáveis com ícone e uma linha explicativa que muda com a seleção. Rodapé separa ajustes, repetir o capítulo e continuar. No estado observado, Easy vinha selecionado por padrão.
+- **Exercício:** fundo escuro, texto claro e destaque lilás para foco/seleção; barra fina de progresso junto ao topo. Capítulo e posição ficam centralizados no cabeçalho; cronômetro, pontos e combo ficam agrupados no canto superior direito. O conteúdo ocupa área ampla no centro, com espaço negativo para manter atenção na frase/escuta. Controles de navegação e atalhos ficam alinhados na faixa inferior. Um mascote pequeno aparece no canto inferior direito.
+- **Representação por dificuldade:** Easy mostra a frase e campos sublinhados separados por palavra; o campo ativo recebe sublinhado/foco lilás. Medium troca a frase por iniciais alinhadas a cada campo, mantendo entradas separadas por palavra. Hard troca as iniciais por um indicador de áudio e mantém uma linha única de escrita segmentada pelo avanço atual; não revela iniciais nem tamanho individual das palavras. Isso confirma que os modos alteram efetivamente o exercício, não só a etiqueta na preparação.
+- **Teclado e feedback:** não há teclado virtual na área da aula. Usa-se o teclado físico; Espaço avança de palavra e submete quando todos os campos estão preenchidos. Pontuação opcional fica visualmente junto ao campo final. A faixa inferior exibe Replay (Ctrl + apóstrofo), dica (Ctrl + Shift + ponto e vírgula), conferir (Enter/Espaço), revelar (Ctrl + ponto e vírgula) e navegação. Os atalhos são apresentados como pequenas teclas rotuladas, não como teclado.
+- **Pausa e persistência:** a pausa abre a sobreposição “Take a moment”; continuar preservou os caracteres já digitados no campo atual. Ao encerrar, o site informa que posição e progresso confirmado serão mantidos. Na saída observada, a questão concluída continuou registrada (1/150); a resposta parcial da questão ainda não enviada não foi confirmada como persistente entre sessões.
+- **Estados do áudio:** o áudio inicia ao entrar no exercício; Replay aparece desabilitado enquanto a leitura automática está em andamento e volta a habilitar quando ela termina. As preferências mostravam velocidade 1×, duas leituras, “Exercise audio” ligado, “Typing and feedback sounds” ligado e redução de movimento desligada. A opção “Try key sound” foi acionada com a preferência ligada. Como não há captura/escuta no canal de teste, nenhum desses cliques comprova som audível ou sua qualidade.
+- **Direção útil para LinguaFlow:** manter a hierarquia de preparação → exercício → revisão/resultado, os modos de suporte realmente distintos e a digitação palavra a palavra; redesenhar com identidade editorial própria do LinguaFlow. Não reproduzir o fundo escuro, composição, mascote, ícones, cores ou arte da referência. Garantir alternativa a atalhos, foco anunciado, contraste, responsividade e respeito a movimento reduzido.
+
 ### Exercício de digitação
 
 - A frase-alvo fica visível no Easy e o espaço de resposta é dividido em campos por palavra, sublinhados e focados no campo atual.
@@ -60,6 +72,7 @@ Em configurações foi possível observar os controles de áudio do exercício, 
 - A resposta aceita abre uma revisão com funções gramaticais, IPA, classe gramatical e consulta individual do significado; há ações para salvar palavras e criar uma nota.
 - A sessão mostra questão atual, barra de progresso, tempo ativo, pontos e combo. Erros e dicas afetam a construção de combo.
 - A confirmação de saída informa que posição e progresso do curso serão mantidos para continuar depois.
+- A pausa dentro da sessão preservou a resposta parcial no campo quando o teste foi retomado. A evidência não demonstra persistência dessa resposta parcial após fechar a sessão; a questão confirmada e o progresso geral permaneceram salvos.
 - Ao terminar capítulo B2 anterior, o resumo apresentou questões feitas, precisão e tempo da sessão, progresso no curso e indicação do próximo capítulo.
 
 ## O que já existe no LinguaFlow

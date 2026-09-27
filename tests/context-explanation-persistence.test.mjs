@@ -12,7 +12,7 @@ assert.match(popup, /this\.contextExplanation = ''/,
   'cada abertura começa sem reutilizar explicação de outra palavra');
 assert.match(popup, /const explanation = cleanContextExplanation\(response\.explanation\)[\s\S]*?this\.contextExplanation = explanation/,
   'resposta já gerada é convertida em texto seguro para persistência');
-assert.match(popup, /explanation: this\.contextExplanation \|\| ''/,
+assert.match(popup, /explanation: (?:contextExplanationAtSave|this\.contextExplanation) \|\| ''/,
   'salvamento reutiliza a explicação existente sem nova chamada de IA');
 assert.match(popup, /contextSession\.save = \{[\s\S]*?payload,[\s\S]*?promise:/,
   'a sessão da palavra conserva o payload completo enquanto a primeira gravação está na fila');
@@ -24,7 +24,7 @@ assert.match(popup, /queuedSave\.syncPromise[\s\S]*?\? queuedSave\.syncPromise\.
   'uma tentativa tardia que falhou não envenena as próximas tentativas da sessão');
 assert.match(popup, /if \(!result\?\.ok \|\| !result\?\.queued\)[\s\S]*?this\._syncLateSaveEnrichment\(contextSession\)\.catch/,
   'a confirmação do save reconcilia IA que terminou durante a montagem do payload');
-assert.match(popup, /context_sentence: this\.saveContext \|\| this\.context \|\| ''/,
+assert.match(popup, /context_sentence: (?:saveContextAtSave|this\.saveContext) \|\| (?:contextAtSave|this\.context) \|\| ''/,
   'uma frase gerada depois do clique também atualiza o contexto persistido');
 assert.match(popup, /this\._syncLateSaveEnrichment\(contextSession\)\.catch/,
   'a resposta tardia dispara atualização sem bloquear o popup');

@@ -66,7 +66,7 @@ const datamuseContext = vm.createContext({
 });
 vm.runInContext(method, datamuseContext);
 const datamuseResult = await vm.runInContext("fetchDictionary('good')", datamuseContext);
-assert.equal(datamuseResult.phonetic, '/gˈʊd/', 'fallback Datamuse extrai IPA');
+assert.equal(datamuseResult.phonetic, '/ˈgʊd/', 'fallback Datamuse extrai IPA');
 assert.equal(datamuseResult.partOfSpeech, 'adjective', 'fallback Datamuse mapeia classe gramatical');
 assert.ok(datamuseResult.definition.includes('beneficial'), 'fallback Datamuse extrai definição');
 console.log('Fallback para Datamuse verificado com sucesso.');

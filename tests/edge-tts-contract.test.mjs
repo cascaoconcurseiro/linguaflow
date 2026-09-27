@@ -135,3 +135,14 @@ test('Edge TTS: runtime Deno — Buffer importado e motor exposto via CORS', () 
   assert.match(fnIndex, /"Access-Control-Expose-Headers": "X-TTS-Engine"/);
   assert.match(fnIndex, /console\.warn\("\[tts\] edge_tts_fallback"/, 'Fallback para Google é logado com evento estável');
 });
+
+test('Edge TTS: extensão usa a voz neural via service worker antes do Google', () => {
+  const sw = readFileSync(join(process.cwd(), 'background/service-worker.js'), 'utf8');
+  const extTts = readFileSync(join(process.cwd(), 'utils/tts.js'), 'utf8');
+  assert.match(sw, /request\.type === 'FETCH_NEURAL_TTS'/, 'service worker expõe FETCH_NEURAL_TTS');
+  assert.match(sw, /functions\/v1\/tts/, 'service worker chama a Edge Function tts com o token do usuário');
+  assert.match(sw, /engine !== 'edge-tts'/, 'service worker só devolve áudio quando o motor é neural');
+  const neuralAt = extTts.indexOf('_playNeuralTTS(text, lang, rate, token)');
+  const googleAt = extTts.indexOf('_playGoogleTTS(text, lang, rate, token)');
+  assert.ok(neuralAt > 0 && neuralAt < googleAt, 'utils/tts.js tenta neural antes do Google');
+});

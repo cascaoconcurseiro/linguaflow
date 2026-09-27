@@ -224,6 +224,7 @@ export async function renderStudy(container, app, params = {}) {
   if (!studyViewActive || viewGeneration !== studyViewGeneration) return;
   sessionCardIds = new Set(dueQueue.map(card => card.id));
   publishFocusProgress(app);
+  scheduleBackgroundPipeline();
 
   if (dueQueue.length === 0) {
     const topicLabel = topicFilter ? (TOPIC_LABELS[topicFilter] || topicFilter) : null;
@@ -558,7 +559,14 @@ function parseChunks(card) {
   const raw = (card.wordData && card.wordData.ai_chunks) || card.ai_chunks;
   if (!raw) return [];
   try {
-    const arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    let arr = raw;
+    while (typeof arr === 'string') {
+      try {
+        arr = JSON.parse(arr);
+      } catch {
+        break;
+      }
+    }
     return Array.isArray(arr) ? arr.map(normChunk).filter(c => c.eng) : [];
   } catch {
     return [];
@@ -567,20 +575,22 @@ function parseChunks(card) {
 
 async function persistChunks(card, chunks, context, { updateRuntime = true } = {}) {
   if (!card.wordData) return;
-  const aiChunks = JSON.stringify(chunks);
-  const wordPayload = { ...card.wordData, ai_chunks: aiChunks };
-  if (context) {
-    wordPayload.context_sentence = context;
-  }
+  const cleanChunks = Array.isArray(chunks) ? chunks : [];
   if (updateRuntime) {
-    card.wordData.ai_chunks = aiChunks;
-    card.ai_chunks = aiChunks;
+    card.wordData.ai_chunks = cleanChunks;
+    card.ai_chunks = cleanChunks;
     if (context) {
       card.wordData.context_sentence = context;
       card.context = context;
     }
   }
-  await lfDb.saveWord(wordPayload).catch(console.error);
+  const patch = { ai_chunks: cleanChunks };
+  if (context) patch.context_sentence = context;
+  if (card.wordData.id) {
+    await lfDb.updateWord(card.wordData.id, patch).catch(console.error);
+  } else {
+    await lfDb.saveWord({ ...card.wordData, ...patch }).catch(console.error);
+  }
 }
 
 async function generateChunksForWord(word, context = '') {
@@ -721,6 +731,111 @@ function renderWaitingScreen(app, nextAt) {
       renderSessionComplete(app);
     });
   }, 0);
+}
+
+// ── Pipeline em Segundo Plano (Background Pre-warming) ────────────────────────
+let prewarmRunning = false;
+
+async function prewarmCard(card) {
+  if (!card || !studyViewActive) return;
+  const wordData = card.wordData || {};
+  const word = wordData.word || card.word || '';
+  const context = card._ctx || wordData.context_sentence || card.context || word;
+  if (!word) return;
+
+  // Pré-aquece áudio natural em segundo plano para zero latência ao ouvir
+  const preloadLang = localStorage.getItem('lf_tts_lang') || 'en-US';
+  preloadNaturalAudio(word, { lang: preloadLang });
+  if (context && context !== word) preloadNaturalAudio(context, { lang: preloadLang });
+
+  let chunks = parseChunks(card);
+  let ctxEntry = chunks.find(c => c?.is_context && c?.eng?.toLowerCase() === context?.toLowerCase())
+    || chunks.find(c => !c?.is_word && c?.eng?.toLowerCase() === context?.toLowerCase());
+  let wordEntry = chunks.find(c => c?.is_learning_unit)
+    || chunks.find(c => c?.is_word)
+    || chunks.find(c => c?.eng?.toLowerCase() === word?.toLowerCase());
+
+  const hasValidSentIpa = Boolean(ctxEntry?.phon && isValidIpa(ctxEntry.phon));
+  const isContextSentence = Boolean(context && context.toLowerCase() !== word?.toLowerCase());
+  const needsContextRepair = !ctxEntry || !ctxEntry.pt || hasSourcePhraseLeak(context, ctxEntry.pt) || (isContextSentence && !hasValidSentIpa);
+  const needsWordRepair = !wordEntry || !wordEntry.pt;
+
+  if (!needsContextRepair && !needsWordRepair) {
+    return; // Card já está completo no banco de dados
+  }
+
+  try {
+    const data = await enrichCard(word, context);
+    if (!data || !studyViewActive) return;
+
+    if (needsContextRepair && data.sentence_phon && isValidIpa(data.sentence_phon) && data.sentence_pt && !hasSourcePhraseLeak(context, data.sentence_pt)) {
+      ctxEntry = { eng: context, pt: data.sentence_pt || '', phon: cleanIpa(data.sentence_phon), is_context: true, is_word: false };
+      chunks = [ctxEntry, ...chunks.filter(c => !c?.is_context)];
+    } else if (needsContextRepair && data.sentence_phon && isValidIpa(data.sentence_phon) && ctxEntry?.pt) {
+      ctxEntry = { ...ctxEntry, phon: cleanIpa(data.sentence_phon) };
+      chunks = [ctxEntry, ...chunks.filter(c => !c?.is_context)];
+    } else if (needsContextRepair && data.sentence_pt && !hasSourcePhraseLeak(context, data.sentence_pt)) {
+      ctxEntry = { eng: context, pt: data.sentence_pt || '', phon: ctxEntry?.phon || '', is_context: true, is_word: false };
+      chunks = [ctxEntry, ...chunks.filter(c => !c?.is_context)];
+    }
+
+    if (data.word_phon && isValidIpa(data.word_phon)) {
+      const safeWdPhon = cleanIpa(data.word_phon);
+      wordData.phonetic = safeWdPhon;
+      if (wordEntry) {
+        wordEntry.phon = safeWdPhon;
+      } else {
+        wordEntry = { eng: word, pt: data.word_pt || wordData.translation || '', phon: safeWdPhon, is_context: false, is_word: true };
+        chunks = [...chunks, wordEntry];
+      }
+    }
+
+    if (needsWordRepair && data.word_pt) {
+      wordData.translation = data.word_pt;
+      card.translation = data.word_pt;
+      if (wordEntry) wordEntry.pt = data.word_pt;
+      chunks = [...chunks.filter(c => !c?.is_word && c?.eng?.toLowerCase() !== word?.toLowerCase()), wordEntry];
+    }
+
+    card._chunks = chunks;
+    await persistChunks(card, chunks, context, { updateRuntime: true });
+
+    // Se o card atualizado estiver ativo na tela e já tiver sido revelado, atualiza suavemente
+    if (currentCard === card && document.querySelector('.study-layout')?.classList.contains('is-revealed')) {
+      renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { renderVideo: false });
+    }
+  } catch (err) {
+    console.debug('[Study] Pre-warm em segundo plano silenciado:', err);
+  }
+}
+
+function scheduleBackgroundPipeline() {
+  if (prewarmRunning || !studyViewActive || !dueQueue || dueQueue.length === 0) return;
+  prewarmRunning = true;
+
+  const idleRunner = typeof requestIdleCallback === 'function'
+    ? requestIdleCallback
+    : (cb) => setTimeout(cb, 100);
+
+  idleRunner(async () => {
+    try {
+      if (!studyViewActive) return;
+      // 1. Pré-aquece o card atual se faltar algo
+      if (currentCard) {
+        await prewarmCard(currentCard);
+      }
+      // 2. Pré-aquece a próxima frase da fila (dueQueue[1])
+      if (dueQueue.length > 1 && studyViewActive) {
+        await prewarmCard(dueQueue[1]);
+      }
+      // 3. Pré-aquece a subsequente (dueQueue[2])
+      if (dueQueue.length > 2 && studyViewActive) {
+        await prewarmCard(dueQueue[2]);
+      }
+    } finally {
+      prewarmRunning = false;
+    }
+  });
 }
 
 // ── Fluxo do card ────────────────────────────────────────────────────────────
@@ -914,6 +1029,7 @@ async function loadNextCard(app) {
   // Rótulos REAIS dos botões de nota: o intervalo que o FSRS vai aplicar de
   // verdade — os rótulos fixos antigos ("Bom = 3 dias") mentiam pro aluno.
   updateGradeLabels(card);
+  scheduleBackgroundPipeline();
 }
 
 function formatInterval(ivl) {

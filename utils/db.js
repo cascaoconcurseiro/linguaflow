@@ -642,7 +642,7 @@ class Database {
     if (this.isProxyMode) return this._proxy('updateWord', [id, patch]);
     // video_start/end_ms: ajuste fino do trecho no Estudo (17/07) — o aluno
     // corrige a janela do loop e a correção persiste no card para sempre.
-    const allowed = ['word', 'translation', 'context_sentence', 'category', 'level', 'phonetic', 'mnemonic', 'tags', 'video_start_ms', 'video_end_ms'];
+    const allowed = ['word', 'translation', 'context_sentence', 'category', 'level', 'phonetic', 'mnemonic', 'tags', 'video_start_ms', 'video_end_ms', 'ai_chunks'];
     const body = {};
     allowed.forEach(k => { if (patch && patch[k] !== undefined) body[k] = patch[k]; });
     if (Object.keys(body).length === 0) return { ok: true };
@@ -1979,7 +1979,7 @@ class Database {
             const keysToRemove = [];
             for (let i = 0; i < (globalThis.localStorage?.length || 0); i++) {
               const k = globalThis.localStorage.key(i);
-              if (k && (k.startsWith('lf_tr:') || /^[a-z]{2,5}:[a-z]{2,5}:/.test(k))) {
+              if (k && (k.startsWith('lf_tr:') || k.startsWith('lf_lex:') || /^[a-z]{2,5}:[a-z]{2,5}:/.test(k))) {
                 keysToRemove.push(k);
               }
             }
@@ -2008,6 +2008,7 @@ class Database {
           k.startsWith('linguee_') ||
           k.startsWith('reverso_') ||
           k.startsWith('lf_tr:') ||
+          k.startsWith('lf_lex:') ||
           /^[a-z]{2,5}:[a-z]{2,5}:/.test(k) ||
           k === 'lastYoutubeSubtitleUrls'
         );
@@ -2174,17 +2175,32 @@ class Database {
 
   // ── CACHE LÉXICO CANÔNICO (FinOps & Latência) ─────────────────────────────
   async getCanonicalLexicon(word, lang = 'en') {
-    if (this._canonicalLexiconDisabled) return null;
-    if (this.isProxyMode) return this._proxy('getCanonicalLexicon', [word, lang]);
     const normWord = String(word || '').trim().toLowerCase();
     const normLang = String(lang || 'en').trim().toLowerCase();
     if (!normWord) return null;
 
     const cacheKey = `${normLang}:${normWord}`;
+    const storageKey = `lf_lex:${cacheKey}`;
+
+    // Nível 1: Memória RAM
     if (this._canonicalLexiconMemory?.has(cacheKey)) {
       return this._canonicalLexiconMemory.get(cacheKey);
     }
 
+    // Nível 2: Armazenamento Local Persistente (chrome.storage.local / localStorage)
+    try {
+      const localVal = await this._draftStorage('get', storageKey);
+      if (localVal && (localVal.word || localVal.word_phon || (Array.isArray(localVal.contexts) && localVal.contexts.length > 0))) {
+        if (!this._canonicalLexiconMemory) this._canonicalLexiconMemory = new Map();
+        this._canonicalLexiconMemory.set(cacheKey, localVal);
+        return localVal;
+      }
+    } catch {}
+
+    if (this._canonicalLexiconDisabled) return null;
+    if (this.isProxyMode) return this._proxy('getCanonicalLexicon', [word, lang]);
+
+    // Nível 3: Supabase Remoto
     try {
       const res = await this._fetch(
         `canonical_lexicon?word=eq.${encodeURIComponent(normWord)}&lang=eq.${encodeURIComponent(normLang)}&select=*`,
@@ -2198,6 +2214,7 @@ class Database {
           this._canonicalLexiconMemory.delete(firstKey);
         }
         this._canonicalLexiconMemory.set(cacheKey, entry);
+        this._draftStorage('set', storageKey, entry).catch(() => {});
         return entry;
       }
       return null;
@@ -2210,14 +2227,53 @@ class Database {
   }
 
   async saveCanonicalLexicon(entry) {
-    if (this._canonicalLexiconDisabled) return null;
-    if (this.isProxyMode) return this._proxy('saveCanonicalLexicon', [entry]);
     if (!entry || !entry.word) return null;
     const normWord = String(entry.word).trim().toLowerCase();
     const normLang = String(entry.lang || 'en').trim().toLowerCase();
     if (!normWord) return null;
 
     const cacheKey = `${normLang}:${normWord}`;
+    const storageKey = `lf_lex:${cacheKey}`;
+
+    // Atualiza imediatamente Nível 1 (RAM) e Nível 2 (Storage Local)
+    const existing = this._canonicalLexiconMemory?.get(cacheKey) || null;
+    const existingContexts = Array.isArray(existing?.contexts) ? [...existing.contexts] : [];
+    let updatedContexts = existingContexts;
+
+    if (entry.context && entry.context.sentence) {
+      const sentLower = String(entry.context.sentence).trim().toLowerCase();
+      const idx = updatedContexts.findIndex(c => String(c?.sentence || '').trim().toLowerCase() === sentLower);
+      if (idx >= 0) {
+        updatedContexts[idx] = {
+          ...updatedContexts[idx],
+          ...entry.context,
+          sentence_phon: entry.context.sentence_phon || updatedContexts[idx].sentence_phon || '',
+          sentence_pt: entry.context.sentence_pt || updatedContexts[idx].sentence_pt || '',
+          word_pt: entry.context.word_pt || updatedContexts[idx].word_pt || '',
+        };
+      } else {
+        updatedContexts.push(entry.context);
+      }
+    }
+
+    const localEntry = {
+      word: normWord,
+      lang: normLang,
+      word_phon: entry.word_phon || existing?.word_phon || null,
+      word_pt: entry.word_pt || existing?.word_pt || null,
+      contexts: updatedContexts,
+      source: entry.source || 'deepseek-chat',
+      updated_at: new Date().toISOString(),
+    };
+
+    if (!this._canonicalLexiconMemory) this._canonicalLexiconMemory = new Map();
+    this._canonicalLexiconMemory.set(cacheKey, localEntry);
+    this._draftStorage('set', storageKey, localEntry).catch(() => {});
+
+    if (this._canonicalLexiconDisabled) return localEntry;
+    if (this.isProxyMode) return this._proxy('saveCanonicalLexicon', [entry]);
+
+    // Nível 3: Supabase Remoto via RPC
     try {
       const saved = await this._fetch('rpc/get_or_cache_canonical_lexicon', {
         method: 'POST',
@@ -2237,14 +2293,15 @@ class Database {
       if (saved) {
         if (!this._canonicalLexiconMemory) this._canonicalLexiconMemory = new Map();
         this._canonicalLexiconMemory.set(cacheKey, saved);
+        this._draftStorage('set', storageKey, saved).catch(() => {});
         return saved;
       }
-      return null;
+      return localEntry;
     } catch (e) {
       if (e?.status === 404 || e?.code === 'PGRST202') {
         this._canonicalLexiconDisabled = true;
       }
-      return null;
+      return localEntry;
     }
   }
 }

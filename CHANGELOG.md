@@ -4,6 +4,8 @@
 
 ### Adicionado
 - **Síntese de Voz Neural Microsoft (Edge TTS)**: Integração com vozes neurais de alta fidelidade da Microsoft (`en-US-JennyNeural`, `pt-BR-FranciscaNeural`, `es-ES-ElviraNeural`, etc.) sem custo e sem necessidade de cartão/chave de API, com fallback transparente para Google TTS e compatibilidade total com o cache offline do IndexedDB (`lf-audio-cache`).
+- **Pipeline em Segundo Plano (Background Pre-warming) no Estudo**: Pré-geração e resolução em 2º plano de IPA, traduções contextuais e áudio natural da frase seguinte (`dueQueue[1]`) e subsequente (`dueQueue[2]`), garantindo transições sem espera e sem telas travadas em "Gerando pronúncia...".
+- **Cache Léxico Canônico Multi-tier (FinOps)**: Resolução de IPA e contexto em 3 níveis (L1 RAM, L2 Local Storage offline-first, L3 Supabase RPC) com de-duplicação de requisições concorrentes, impedindo chamadas repetidas à IA para termos ou frases já enriquecidos.
 - **Inteligência de Mídia no YouTube**: Detecção automática de palavras por minuto (WPM) e connected speech (reduções coloquiais, linking consoante + vogal, elisões e assimilação palatal).
 - **Temas Expandidos de Histórias**: Geração de contos adaptativos calibrados por CEFR com novos temas de Auto-ajuda e Histórias Reais.
 - **Padronização de Testes**: Adicionado comando canônico universal `npm test` e atalhos por domínio (`test:fsrs`, `test:ext`, `test:ui`, `test:db`).
@@ -13,6 +15,8 @@
   - Resolução do loop infinito de auto-pause ao pressionar Espaço (a verificação de término de legenda causava re-pausa imediata no syncLoop de 60fps).
   - Captura prioritária de eventos de teclado com `capture: true` e parada estrita de propagação (`stopPropagation`, `stopImmediatePropagation`), evitando conflitos e cancelamentos mútuos com o player nativo do YouTube.
   - Eliminação de concorrência na tecla `O` (duplo toggle no painel de configurações), adição do atalho `R` para o overlay de revisão e repetição resiliente com `S` mesmo quando o playback alcança o final exato da frase.
+- **Persistência de Chunks e Fonética**: Correção de dupla serialização JSON em `parseChunks`/`persistChunks`, inclusão de `ai_chunks` nos campos permitidos de `updateWord` e atualização atômica da tabela `words`.
+- **Merge Inteligente no Banco**: Migration `20260927120000_canonical_lexicon_update_merge.sql` corrigindo a RPC `get_or_cache_canonical_lexicon` para atualizar frases existentes com fonéticas e traduções mais ricas.
 - **FSRS Math Hardening**: Recuperação resiliente de estabilidade zerada, sanitização de NaN e valores negativos no motor de repetição espaçada.
 - **Normalização Fonética IPA**: Normalização de estresse fonético, fontes tipográficas com glifos completos e eliminação de pronúncia abrasileirada inconsistente.
 - **Persistência de Explicação Contextual**: Reutilização segura da explicação sem requisições redundantes de IA e sem duplicação de texto no card.

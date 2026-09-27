@@ -148,7 +148,7 @@ html body .btn-play-audio { width:auto; min-width:114px; height:44px; padding:10
 html body .btn-play-audio[aria-busy="true"] { background:var(--editorial-highlight); color:var(--color-link); }
 html body .study-ipa { display:flex; flex-direction:column; align-items:flex-start; gap:3px; margin:14px 0 12px; padding:8px 14px 10px; border-left:3px solid var(--color-primary); background:var(--editorial-highlight); }
 html body .study-ipa-label { color:var(--color-text-light); font:600 10px/1.3 var(--font-main); letter-spacing:.14em; text-transform:uppercase; }
-html body .study-ipa-value { color:var(--color-text); font:500 clamp(14px,1.6vw,20px)/1.3 ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing:.01em; overflow-wrap:anywhere; }
+html body .study-ipa-value { color:var(--color-text); font:500 clamp(14px,1.6vw,20px)/1.3 'Lucida Sans Unicode','DejaVu Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; letter-spacing:0; overflow-wrap:anywhere; }
 html body #pump-translation { font:400 clamp(17px,1.6vw,22px)/1.5 var(--font-reading) !important; margin:12px 0 18px !important; padding:0 !important; border:0 !important; }
 html body #pump-word-answer { padding:20px 0 12px !important; border:0 !important; border-top:1px solid var(--color-border) !important; border-radius:0 !important; background:transparent !important; }
 html body #pump-word-val, html body #pump-word-trans { font:400 22px/1.4 var(--font-reading) !important; }

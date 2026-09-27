@@ -107,3 +107,18 @@ test('IPA Validator: cleanIpa normalizes formatting to /.../', () => {
   );
   assert.equal(cleanIpa('   /θɔt/   '), '/θɔt/');
 });
+
+test('IPA Validator: normalizes misplaced stress marks and apostrophes to authentic IPA', () => {
+  // Datamuse format (stress mark placed after onset consonants) -> true IPA (stress mark precedes onset)
+  assert.equal(cleanIpa('wˈeɪ'), '/ˈweɪ/');
+  assert.equal(cleanIpa('/wˈeɪ/'), '/ˈweɪ/');
+  assert.equal(cleanIpa('θˈɔt'), '/ˈθɔt/');
+  assert.equal(cleanIpa('rˈæpɪŋ'), '/ˈræpɪŋ/');
+  assert.equal(cleanIpa('bˈi'), '/ˈbi/');
+  assert.equal(cleanIpa('frˈʌm'), '/ˈfrʌm/');
+  assert.equal(cleanIpa('ʌbˈaʊt'), '/ʌˈbaʊt/');
+  assert.equal(cleanIpa('pritˈɛnd'), '/priˈtɛnd/');
+  assert.equal(cleanIpa("w'eɪ"), '/ˈweɪ/');
+  assert.equal(cleanIpa("wi 'θɔt əv 'ræpɪŋ ɪt"), '/wi ˈθɔt əv ˈræpɪŋ ɪt/');
+});
+

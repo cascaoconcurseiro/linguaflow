@@ -333,7 +333,7 @@ export class WordPopup {
     </div>
     <div id="fipa-wrap" style="display:none;margin-top:10px;">
       <div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px;">Pronúncia (IPA)</div>
-      <span id="fipa" style="display:block;font-size:25px;line-height:1.25;color:#f8fafc;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.01em;"></span>
+      <span id="fipa" style="display:block;font-size:25px;line-height:1.25;color:#f8fafc;font-family:'Lucida Sans Unicode','DejaVu Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;letter-spacing:0;"></span>
     </div>
     <div style="display:flex;align-items:center;gap:5px;margin-top:6px;flex-wrap:wrap;">
       <span id="fexprtype" class="lfp-badge" style="display:none;"></span>
@@ -2224,7 +2224,7 @@ export class WordPopup {
           const rawPhon = isValidIpa(c.phon) ? cleanIpa(c.phon) : '';
           const phon = this._escapeAttr(rawPhon);
           const phonHtml = phon
-            ? `<div style="font-size:13px;color:#fbbf24;font-family:monospace;font-weight:600;background:rgba(251,191,36,.1);padding:4px 8px;border-radius:6px;display:inline-block;border:1px solid rgba(251,191,36,.3);">${phon}</div>`
+            ? `<div style="font-size:13px;color:#fbbf24;font-family:'Lucida Sans Unicode','DejaVu Sans',system-ui,-apple-system,sans-serif;font-weight:600;background:rgba(251,191,36,.1);padding:4px 8px;border-radius:6px;display:inline-block;border:1px solid rgba(251,191,36,.3);">${phon}</div>`
             : '';
           html += `<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px;margin-bottom:10px;">
             <div style="font-size:14px;color:#e2e8f0;font-weight:700;margin-bottom:4px;">${eng}</div>
@@ -2291,7 +2291,7 @@ export class WordPopup {
           const rawPhon = isValidIpa(c.phon) ? cleanIpa(c.phon) : '';
           const phon = this._escapeAttr(rawPhon);
           const phonHtml = phon
-            ? `<div style="font-size:13px; color:#fbbf24; font-family:monospace; font-weight:600; background:rgba(251,191,36,.1); padding:4px 8px; border-radius:6px; display:inline-block; border:1px solid rgba(251,191,36,.3);">${phon}</div>`
+            ? `<div style="font-size:13px; color:#fbbf24; font-family:'Lucida Sans Unicode','DejaVu Sans',system-ui,-apple-system,sans-serif; font-weight:600; background:rgba(251,191,36,.1); padding:4px 8px; border-radius:6px; display:inline-block; border:1px solid rgba(251,191,36,.3);">${phon}</div>`
             : '';
           html += `
             <div style="background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:12px; margin-bottom:10px;">

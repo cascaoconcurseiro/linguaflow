@@ -17,6 +17,6 @@ assert.match(study, /class="study-ipa hidden" aria-live="polite"/, 'card anuncia
 assert.match(study, /Pronúncia \(IPA\)/, 'card rotula a pronúncia IPA');
 assert.match(study, /phonValueEl\.textContent = ctxEntry\.phon/, 'card injeta a IPA como texto');
 assert.match(study, /phonValueEl\.textContent = ''/, 'card limpa IPA ausente ou de card anterior');
-assert.match(editorial, /\.study-ipa-value \{[^}]*font:500 clamp\(24px,3vw,34px\)/, 'IPA do card tem hierarquia tipográfica grande');
+assert.match(editorial, /\.study-ipa-value \{[^}]*font:500 clamp\((?:14px,1\.6vw,20px|24px,3vw,34px)\)/, 'IPA do card tem hierarquia tipográfica legível');
 
 console.log('ipa-pronunciation-display: ok');

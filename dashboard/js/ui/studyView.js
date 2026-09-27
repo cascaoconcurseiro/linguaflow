@@ -1393,13 +1393,15 @@ async function revealCard(options = {}) {
   updateYouglish(word);
 
   // 3. Conteúdo antigo pode existir e ainda estar quebrado. Uma expressão
-  // inglesa copiada para o PT ("fist bump", por exemplo) também exige reparo.
-  const needsContextRepair = !ctxEntry || !ctxEntry.pt || hasSourcePhraseLeak(context, ctxEntry.pt) || (ctxEntry.phon && !isValidIpa(ctxEntry.phon));
+  const hasValidSentIpa = Boolean(ctxEntry?.phon && isValidIpa(ctxEntry.phon));
+  const isContextSentence = Boolean(context && context.toLowerCase() !== word?.toLowerCase());
+  const needsContextRepair = !ctxEntry || !ctxEntry.pt || hasSourcePhraseLeak(context, ctxEntry.pt) || (isContextSentence && !hasValidSentIpa);
   const needsWordRepair = !wordEntry || !wordEntry.pt;
   if (needsContextRepair || needsWordRepair) {
     const phonEl = document.getElementById('pump-phonetics');
-    phonEl.textContent = 'Gerando pronúncia…';
-    phonEl.classList.remove('hidden');
+    const phonValEl = document.getElementById('pump-phonetics-value');
+    if (phonValEl) phonValEl.textContent = 'Gerando pronúncia…';
+    if (phonEl) phonEl.classList.remove('hidden');
 
     const fallbackTasks = [];
     if (needsContextRepair && context && context.toLowerCase() !== word.toLowerCase()) {
@@ -1452,15 +1454,30 @@ async function revealCard(options = {}) {
       if (needsContextRepair && data.sentence_phon && isValidIpa(data.sentence_phon) && data.sentence_pt && !hasSourcePhraseLeak(context, data.sentence_pt)) {
         ctxEntry = { eng: context, pt: data.sentence_pt || '', phon: cleanIpa(data.sentence_phon), is_context: true, is_word: false };
         chunks = [ctxEntry, ...chunks.filter(c => !c.is_context)];
+      } else if (needsContextRepair && data.sentence_phon && isValidIpa(data.sentence_phon) && ctxEntry?.pt) {
+        ctxEntry = { ...ctxEntry, phon: cleanIpa(data.sentence_phon) };
+        chunks = [ctxEntry, ...chunks.filter(c => !c.is_context)];
       } else if (needsContextRepair && data.sentence_pt && !hasSourcePhraseLeak(context, data.sentence_pt)) {
         ctxEntry = { eng: context, pt: data.sentence_pt || '', phon: ctxEntry?.phon || '', is_context: true, is_word: false };
         chunks = [ctxEntry, ...chunks.filter(c => !c.is_context)];
       }
+      if (data.word_phon && isValidIpa(data.word_phon)) {
+        const safeWdPhon = cleanIpa(data.word_phon);
+        wordData.phonetic = safeWdPhon;
+        if (wordEntry) {
+          wordEntry.phon = safeWdPhon;
+        } else {
+          wordEntry = { eng: word, pt: data.word_pt || wordData.translation || '', phon: safeWdPhon, is_context: false, is_word: true };
+          chunks = [...chunks, wordEntry];
+        }
+        if (wordData.id) {
+          lfDb.updateWord(wordData.id, { phonetic: safeWdPhon }).catch(() => {});
+        }
+      }
       if (needsWordRepair && data.word_pt) {
-        const safeWdPhon = isValidIpa(data.word_phon) ? cleanIpa(data.word_phon) : (wordEntry?.phon || '');
-        wordEntry = { eng: word, pt: data.word_pt || '', phon: safeWdPhon, is_context: false, is_word: true };
         wordData.translation = data.word_pt;
         card.translation = data.word_pt;
+        if (wordEntry) wordEntry.pt = data.word_pt;
         chunks = [...chunks.filter(c => !c?.is_word && c?.eng?.toLowerCase() !== word?.toLowerCase()), wordEntry];
       }
       card._chunks = chunks;
@@ -1542,7 +1559,7 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
   const safeIpa = isValidIpa(ctxEntry?.phon) ? cleanIpa(ctxEntry.phon) : '';
   if (ctxEntry) ctxEntry.phon = safeIpa;
   if (safeIpa && phonValueEl) {
-    phonValueEl.textContent = safeIpa;
+    phonValueEl.textContent = ctxEntry.phon;
     phonEl.classList.remove('hidden');
   } else {
     if (phonValueEl) phonValueEl.textContent = '';

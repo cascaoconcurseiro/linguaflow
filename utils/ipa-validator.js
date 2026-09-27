@@ -86,6 +86,33 @@ export function isValidIpa(text) {
 }
 
 /**
+ * Normaliza a posição de acentos tônicos e caracteres suprassegmentais no IPA.
+ * Corrige a inversão pós-consonantal de tonicidade vinda de APIs como Datamuse (ex: wˈeɪ -> ˈweɪ, θˈɔt -> ˈθɔt).
+ * Garante que os marcadores suprassegmentais (ˈ, ˌ) antecedam a consoante ou grupo consonantal de ataque.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function normalizeIpaStress(text) {
+  if (typeof text !== 'string' || !text.trim()) return '';
+  let str = text;
+
+  // Substitui apóstrofos ASCII e variantes quando usados como marcador de tonicidade
+  str = str.replace(/['’‘´`](?=[a-zɡθðʃʒŋɹɾʔɫʍæɛɪɔʊʌəɜɝɚɑɒiuo])/gi, 'ˈ');
+  str = str.replace(/([bdfɡghjklmnprstvwzθðʃʒŋɹɾʔɫʍ]+)['’‘´`](?=[æɛɪɔʊʌəɜɝɚɑɒiuo])/gi, (m, cons) => 'ˈ' + cons);
+
+  // 1. Consoantes no início de palavra seguidas por marcador de tonicidade:
+  // e.g. wˈeɪ -> ˈweɪ, θˈɔt -> ˈθɔt, rˈæpɪŋ -> ˈræpɪŋ, frˈʌm -> ˈfrʌm
+  str = str.replace(/(^|[\s/[])([bdfɡghjklmnprstvwzθðʃʒŋɹɾʔɫʍ]+)[ˈˌ]/gi, (m, p1, cons) => p1 + 'ˈ' + cons);
+
+  // 2. Consoantes intervocálicas de ataque antes de vogal tônica:
+  // e.g. ʌbˈaʊt -> ʌˈbaʊt, pritˈɛnd -> priˈtɛnd, tʌgˈɛðɝ -> tʌˈgɛðɝ, ʌndɝstˈænd -> ʌndɝˈstænd
+  str = str.replace(/([æɛɪɔʊʌəɜɝɚɑɒiuo])([bdfɡghjklmnprstvwzθðʃʒŋɹɾʔɫʍ]{1,3})[ˈˌ]/gi, (m, v, cons) => v + 'ˈ' + cons);
+
+  return str;
+}
+
+/**
  * Normaliza e limpa uma transcrição IPA garantindo delimitação padrão /.../.
  * Se a transcrição for inválida ou abrasileirada, retorna string vazia "".
  *
@@ -96,5 +123,7 @@ export function cleanIpa(text) {
   if (!isValidIpa(text)) return '';
   const body = extractIpaBody(text);
   if (!body) return '';
-  return `/${body}/`;
+  const normalized = normalizeIpaStress(body);
+  return `/${normalized}/`;
 }
+

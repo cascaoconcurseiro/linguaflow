@@ -50,7 +50,7 @@ function renderHeatmap(heatmap) {
       ${days.map((d, i) => `<button type="button" role="gridcell" class="course-heat-cell lvl-${heatLevel(d.seconds)}" tabindex="${d.key === today ? 0 : -1}"
         data-index="${i}" aria-label="${formatDate(d.key)}: ${d.seconds ? formatDuration(d.seconds) : 'sem estudo'}" ${d.key > today ? 'disabled' : ''}></button>`).join('')}
     </div>
-    <ul class="course-heat-legend">${HEAT_BUCKETS.map(([, label], i) => `<li><span class="course-heat-cell lvl-${i}" aria-hidden="true"></span>${label}: ${counts[i]} dias</li>`).join('')}</ul>`;
+    <ul class="course-heat-legend">${HEAT_BUCKETS.map(([, label], i) => `<li><span class="course-heat-cell lvl-${i}" aria-hidden="true"></span>${label}: ${counts[i]} ${counts[i] === 1 ? 'dia' : 'dias'}</li>`).join('')}</ul>`;
 }
 
 function bindHeatmap(root) {
@@ -132,7 +132,7 @@ export async function renderCourseAnalysis(panel, ctx) {
 
     <section class="course-metrics course-metrics--kpi" aria-label="Indicadores">
       <div class="course-metric"><span>Tempo ativo</span><strong>${formatDuration(k.active_seconds)}</strong>
-        ${p ? delta(Math.round((k.active_seconds || 0) / 60), Math.round((p.active_seconds || 0) / 60), { unit: ' min' }) : ''}<small>Inclui sessões incompletas</small></div>
+        ${p ? delta(Math.floor((k.active_seconds || 0) / 60), Math.floor((p.active_seconds || 0) / 60), { unit: ' min' }) : ''}<small>Inclui sessões incompletas</small></div>
       <div class="course-metric"><span>Sessões concluídas</span><strong>${k.completed_sessions || 0}</strong>${p ? delta(k.completed_sessions, p.completed_sessions) : ''}</div>
       <div class="course-metric"><span>Acerto de primeira</span><strong>${k.accuracy != null ? `${k.accuracy}%` : '—'}</strong>
         ${p ? delta(k.accuracy, p.accuracy, { unit: ' p.p.' }) : ''}<small>${k.completed_questions || 0} frases concluídas</small></div>

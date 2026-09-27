@@ -365,7 +365,8 @@ class App {
     const focus = route === 'study' || route === 'course-practice';
     document.body.classList.toggle('lf-auth-route', route === 'login');
     document.body.classList.toggle('lf-focus-mode', focus);
-    if (this.focusHeader) this.focusHeader.hidden = !focus;
+    // O player de cursos tem cabeçalho próprio; o do Estudo só aparece no Estudo.
+    if (this.focusHeader) this.focusHeader.hidden = route !== 'study';
     if (!focus) this.setFocusMenuOpen(false);
     this.setProfileMenuOpen(false);
     if (focus) {

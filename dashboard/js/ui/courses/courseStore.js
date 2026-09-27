@@ -145,7 +145,7 @@ export function renderCourseDetail(panel, ctx, courseId, openLessonId = null) {
         ${levelPill(course.level)} <span class="course-card-stats">${escapeHTML(CATEGORY_LABEL[course.category] || course.category)}</span>
         <h2 class="course-hub-title">${escapeHTML(course.title)}</h2>
         <p class="course-hub-subtitle">${escapeHTML(course.long_description || course.short_description)}</p>
-        <p class="course-card-stats">${course.lessons.length} capítulos · ${units} frases · ${course.learners_count} alunos · tradução em português</p>
+        <p class="course-card-stats">${course.lessons.length} capítulos · ${units} frases · ${course.learners_count} ${course.learners_count === 1 ? 'aluno' : 'alunos'} · tradução em português</p>
         <div class="course-hero-progress-track" role="progressbar" aria-label="Progresso no curso" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><div class="course-hero-progress-bar" style="width:${percent}%"></div></div>
         <p class="course-card-stats">${answered} / ${units} frases concluídas · ${percent}%</p>
       </div>

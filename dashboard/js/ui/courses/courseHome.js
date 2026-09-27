@@ -1,7 +1,7 @@
 // Início dos Cursos: continuar, semana, revisão do dia, tempo e recentes.
 
 import { escapeHTML } from '../../../../utils/html.js';
-import { formatDuration, formatDateTime, formatDate, levelPill, lessonProgress, startLesson, renderEmpty } from './courseUi.js';
+import { formatDuration, formatDateTime, formatDate, levelPill, lessonProgress, continueLessonOf, startLesson, renderEmpty } from './courseUi.js';
 
 const WEEKDAYS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
 
@@ -9,7 +9,11 @@ export function renderCourseHome(panel, { app, catalog, summary, navigate }) {
   const lessonIndex = new Map();
   for (const course of catalog) for (const lesson of course.lessons) lessonIndex.set(lesson.id, { course, lesson });
 
-  const cont = summary.continue && lessonIndex.get(summary.continue.lesson_id);
+  // Continuar = próximo capítulo não concluído do curso mais recente.
+  const last = summary.continue && lessonIndex.get(summary.continue.lesson_id);
+  const cont = last && lessonProgress(last.lesson, last.course).done
+    ? (() => { const next = continueLessonOf(last.course); return { course: last.course, lesson: next }; })()
+    : last;
   const firstCourse = catalog.find((c) => c.my?.in_my_courses) || catalog[0];
   const today = new Date().toISOString().slice(0, 10);
   const week = summary.week || [];
@@ -67,7 +71,7 @@ export function renderCourseHome(panel, { app, catalog, summary, navigate }) {
         ${summary.reviews_due_count > 0
           ? `<p><strong>${summary.reviews_due_count}</strong> ${summary.reviews_due_count === 1 ? 'frase vence' : 'frases vencem'} hoje.</p>
              <button class="course-btn-continue" type="button" data-go="review">Revisar agora</button>`
-          : `<p class="course-hub-subtitle">Nada vence hoje.${summary.next_review_at ? ` Próxima revisão: ${formatDate(summary.next_review_at)}.` : ''}</p>`}
+          : `<p class="course-hub-subtitle">Nada vence hoje.${summary.next_review_at ? ` Próxima revisão em ${formatDate(summary.next_review_at)}` : ''}</p>`}
         ${summary.mistakes_count > 0 ? `<p class="course-hub-subtitle">${summary.mistakes_count} ${summary.mistakes_count === 1 ? 'erro pendente' : 'erros pendentes'} no caderno. <button class="course-link" type="button" data-go="mistakes">Treinar</button></p>` : ''}
       </section>
     </div>

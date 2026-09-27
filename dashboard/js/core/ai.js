@@ -187,14 +187,19 @@ export async function enrichCard(word, sentence) {
 
       if (matchingContext) {
         const safeSentPhon = isValidIpa(matchingContext.sentence_phon) ? cleanIpa(matchingContext.sentence_phon) : '';
-        const safeWordPhon = isValidIpa(cached.word_phon) ? cleanIpa(cached.word_phon) : '';
-        return {
-          sentence_phon: safeSentPhon,
-          sentence_pt: matchingContext.sentence_pt || '',
-          word_phon: safeWordPhon,
-          word_pt: matchingContext.word_pt || cached.word_pt || '',
-          _cached: true,
-        };
+        // Se o contexto cacheado tem IPA inválido/abrasileirado, não retornar: deixar cair para a IA regenerar.
+        const sentPhonWasInvalid = matchingContext.sentence_phon && !safeSentPhon;
+        if (!sentPhonWasInvalid) {
+          const safeWordPhon = isValidIpa(cached.word_phon) ? cleanIpa(cached.word_phon) : '';
+          return {
+            sentence_phon: safeSentPhon,
+            sentence_pt: matchingContext.sentence_pt || '',
+            word_phon: safeWordPhon,
+            word_pt: matchingContext.word_pt || cached.word_pt || '',
+            _cached: true,
+          };
+        }
+        // IPA inválido no cache → prossegue para chamada de IA abaixo
       }
     }
   } catch (err) {

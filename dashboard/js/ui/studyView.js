@@ -1483,13 +1483,14 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
     && currentCard === card
     && cardPresentationIds.get(card) === presentationId;
   const phonEl = document.getElementById('pump-phonetics');
+  const phonValueEl = document.getElementById('pump-phonetics-value');
   const safeIpa = isValidIpa(ctxEntry?.phon) ? cleanIpa(ctxEntry.phon) : '';
   if (ctxEntry) ctxEntry.phon = safeIpa;
-  if (safeIpa) {
-    phonValueEl.textContent = ctxEntry.phon;
+  if (safeIpa && phonValueEl) {
+    phonValueEl.textContent = safeIpa;
     phonEl.classList.remove('hidden');
   } else {
-    phonValueEl.textContent = '';
+    if (phonValueEl) phonValueEl.textContent = '';
     phonEl.classList.add('hidden');
   }
 

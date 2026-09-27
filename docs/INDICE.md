@@ -9,7 +9,10 @@ Guia canônico da documentação técnica e arquitetural do projeto.
 - **[Comece Aqui](COMECE_AQUI.md)**: Guia rápido de inicialização, setup de ambiente e execução de testes.
 - **[Arquitetura Técnica](ARQUITETURA.md)**: Arquitetura cliente-servidor, autoridade de dados, fluxos, segurança e Registro de Decisões de Arquitetura (ADR).
 - **[Contrato Pedagógico e Economia](CONTRATO_PEDAGOGICO_ECONOMIA_P0_2_2026-07-14.md)**: Regras normativas de XP, caps competitivos e integridade de aprendizagem FSRS.
+- **[Auditoria de Produto & Cursos por Áudio](product/AUDITORIA_YOUTYPE_E_CURSOS_AUDIO.md)**: Análise de referência (YouType) e planejamento do módulo de digitação/áudio.
 - **[Recuperação Adaptativa](product/ADAPTIVE_RECOVERY_CAPABILITY.md)**: Capacidade pedagógica adaptativa para lacunas de retenção.
+- **[Guia de Contribuição](../CONTRIBUTING.md)**: Diretrizes de código, branches e pull requests.
+- **[Política de Segurança](../SECURITY.md)**: Modelo de segurança RLS, credenciais e reporte de vulnerabilidades.
 - **[Changelog](../CHANGELOG.md)**: Histórico cronológico de versões e lançamentos.
 
 ---

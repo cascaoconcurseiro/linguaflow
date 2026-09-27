@@ -1,5 +1,22 @@
 # Changelog
 
+## [3.0.58] - 2026-09-27
+
+### Adicionado
+- **Inteligência de Mídia no YouTube**: Detecção automática de palavras por minuto (WPM) e connected speech (reduções coloquiais, linking consoante + vogal, elisões e assimilação palatal).
+- **Temas Expandidos de Histórias**: Geração de contos adaptativos calibrados por CEFR com novos temas de Auto-ajuda e Histórias Reais.
+- **Padronização de Testes**: Adicionado comando canônico universal `npm test` e atalhos por domínio (`test:fsrs`, `test:ext`, `test:ui`, `test:db`).
+
+### Corrigido
+- **FSRS Math Hardening**: Recuperação resiliente de estabilidade zerada, sanitização de NaN e valores negativos no motor de repetição espaçada.
+- **Normalização Fonética IPA**: Normalização de estresse fonético, fontes tipográficas com glifos completos e eliminação de pronúncia abrasileirada inconsistente.
+- **Persistência de Explicação Contextual**: Reutilização segura da explicação sem requisições redundantes de IA e sem duplicação de texto no card.
+- **Segurança & Resiliência de Mídia**: Eliminação do proxy de terceiros `allorigins.win`, throttling com `requestAnimationFrame` no MutationObserver do YouTube e prevenção de estouro de quota no `chrome.storage.local`.
+
+### Refatoração
+- **Decomposição Modular**: Modularização em repositórios desacoplados (`settings`, `stories`, `word-popup`, `subtitles`, `service-worker`).
+- **Limpeza de Documentação**: Consolidação da arquitetura viva em `docs/ARQUITETURA.md` e arquivamento de diários de bordo legados em `docs/history/`.
+
 ## [3.0.46] - 2026-09-12
 
 ### Corrigido

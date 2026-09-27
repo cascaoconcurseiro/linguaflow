@@ -109,7 +109,7 @@ npm install
 
 ### 2. Rodar a Suíte de Testes
 ```bash
-npm run test:release
+npm test
 ```
 
 ### 3. Carregar a Extensão no Chrome
@@ -130,7 +130,7 @@ Ou acesse a versão em produção: [linguaflow-web-tau.vercel.app](https://lingu
 
 ## 🧪 Qualidade e Testes
 
-A integridade do sistema é garantida por 80 arquivos de teste nativos (`node --test`), cobrindo:
+A integridade do sistema é garantida por mais de 80 suítes de teste nativos (`node --test`), cobrindo:
 - Motor FSRS v4.5 e transições de estado
 - Isolamento de dados e contratos de RLS
 - Sincronização offline-first e resiliência de filas
@@ -138,13 +138,14 @@ A integridade do sistema é garantida por 80 arquivos de teste nativos (`node --
 - Imutabilidade do ledger contábil de XP e proteção contra farming
 
 ```bash
-# Executa todos os testes e smoke gates de release
-npm run test:release
+# Executa todos os testes e o release smoke gate
+npm test
 
 # Testes de domínios específicos
-npm run test:pedagogy     # Contratos pedagógicos e economia
-npm run test:fsrs         # Agendador FSRS e integridade matemática
-npm run test:video        # Ingestão de vídeo e legendas
+npm run test:fsrs         # Agendador FSRS v4.5 e integridade matemática
+npm run test:ext          # Extensão Chrome e motores de streaming
+npm run test:ui           # Interface, navegação e acessibilidade
+npm run test:db           # Contratos de banco e Row Level Security
 ```
 
 ---
@@ -156,14 +157,18 @@ npm run test:video        # Ingestão de vídeo e legendas
 - **Sessões Isoladas**: A extensão (`chrome.storage.local`) e a PWA (`localStorage`) operam sessões independentes. Nenhum token de autenticação trafega por URLs.
 - **Zero Captura de Voz**: O sistema não armazena nem transmite áudio ou gravações do usuário.
 
+Consulte nossa política completa em [SECURITY.md](SECURITY.md).
+
 ---
 
-## 📚 Documentação Técnica
+## 📚 Documentação Técnica e Comunidade
 
 - 📘 **[Comece Aqui](docs/COMECE_AQUI.md)** — Guia rápido para desenvolvedores e setup.
 - 🏛️ **[Arquitetura Técnica](docs/ARQUITETURA.md)** — Fonte de verdade, fluxos de dados, segurança e ADRs.
 - 📜 **[Contrato Pedagógico](docs/CONTRATO_PEDAGOGICO_ECONOMIA_P0_2_2026-07-14.md)** — Regras de XP, caps competitivos e integridade FSRS.
 - 🗂️ **[Índice Geral](docs/INDICE.md)** — Mapa de toda a documentação ativa e histórico arquivado.
+- 🤝 **[Guia de Contribuição](CONTRIBUTING.md)** — Convenções de código, branches e envio de PRs.
+- 🛡️ **[Política de Segurança](SECURITY.md)** — Diretrizes de proteção de dados e reporte responsável.
 - 📝 **[Changelog](CHANGELOG.md)** — Histórico completo de versões.
 
 ---

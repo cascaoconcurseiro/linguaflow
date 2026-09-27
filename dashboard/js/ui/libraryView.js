@@ -496,7 +496,21 @@ function renderUI(container, app) {
     renderUI(container, app);
   });
 
-  document.getElementById('batch-btn-pause')?.addEventListener('click', async () => {
+  let batchBusy = false;
+  const runBatchAction = async (actionFn) => {
+    if (batchBusy) return;
+    batchBusy = true;
+    const batchButtons = container.querySelectorAll('.batch-actions-bar button');
+    batchButtons.forEach(b => { b.disabled = true; });
+    try {
+      await actionFn();
+    } finally {
+      batchBusy = false;
+      batchButtons.forEach(b => { b.disabled = false; });
+    }
+  };
+
+  document.getElementById('batch-btn-pause')?.addEventListener('click', () => runBatchAction(async () => {
     const ids = Array.from(selectedWordIds);
     let count = 0;
     const chunkSize = 5;
@@ -516,9 +530,9 @@ function renderUI(container, app) {
     selectedWordIds.clear();
     renderUI(container, app);
     app.showToast(`${count} card(s) pausados.`, 'info');
-  });
+  }));
 
-  document.getElementById('batch-btn-resume')?.addEventListener('click', async () => {
+  document.getElementById('batch-btn-resume')?.addEventListener('click', () => runBatchAction(async () => {
     const ids = Array.from(selectedWordIds);
     let count = 0;
     const chunkSize = 5;
@@ -538,9 +552,9 @@ function renderUI(container, app) {
     selectedWordIds.clear();
     renderUI(container, app);
     app.showToast(`${count} card(s) retomados.`, 'info');
-  });
+  }));
 
-  document.getElementById('batch-btn-reset')?.addEventListener('click', async () => {
+  document.getElementById('batch-btn-reset')?.addEventListener('click', () => runBatchAction(async () => {
     const ids = Array.from(selectedWordIds);
     if (!confirm(`Deseja resetar o progresso de ${ids.length} card(s) para Novo (como no Anki Forget)?`)) return;
     let count = 0;
@@ -568,9 +582,9 @@ function renderUI(container, app) {
     selectedWordIds.clear();
     renderUI(container, app);
     app.showToast(`${count} card(s) resetados para Novo.`, 'info');
-  });
+  }));
 
-  document.getElementById('batch-btn-cat')?.addEventListener('click', async () => {
+  document.getElementById('batch-btn-cat')?.addEventListener('click', () => runBatchAction(async () => {
     const newCat = prompt('Digite a categoria de destino (ex: word, phrasal, slang, idiom):');
     if (!newCat || !newCat.trim()) return;
     const catClean = newCat.trim().toLowerCase();
@@ -589,9 +603,9 @@ function renderUI(container, app) {
     selectedWordIds.clear();
     renderUI(container, app);
     app.showToast(`Categoria de ${ids.length} card(s) alterada para "${catClean}".`, 'info');
-  });
+  }));
 
-  document.getElementById('batch-btn-del')?.addEventListener('click', async () => {
+  document.getElementById('batch-btn-del')?.addEventListener('click', () => runBatchAction(async () => {
     const ids = Array.from(selectedWordIds);
     if (!confirm(`Tem certeza que deseja excluir ${ids.length} item(ns) do Cofre?`)) return;
     let deletedCount = 0;
@@ -617,7 +631,7 @@ function renderUI(container, app) {
     } else {
       app.showToast(`${deletedCount} item(ns) excluído(s).`, 'info');
     }
-  });
+  }));
 
   attachVideoContext(container);
 

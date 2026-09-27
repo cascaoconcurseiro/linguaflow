@@ -1,3 +1,36 @@
+## Sessão: Auditoria e Eliminação Global de Race Conditions e Código Legado (2026-09-26)
+
+- **Problema abordado:** Eliminação exaustiva de potenciais race conditions no sistema todo (concorrência em cliques rápidos, escrita assíncrona em storage, sobreposição de requisições de IA e mutação de estado de instância durante chamadas assíncronas).
+- **Causas raízes e correções:**
+  1. **Storage Concorrente no Service Worker (`background/service-worker.js`)**: Em `drainFirstRecalls`, o loop lia um snapshot inicial e no fim fazia um `writeLocal` de bloco, sobrescrevendo e apagando novos recalls enfileirados concorrentemente por `enqueueFirstRecall`. Corrigido com mutex e mutação pontual atômica via `updateQueueItem` re-lendo o storage mais recente para cada item.
+  2. **Sobrescrita de Tradução no Leitor (`dashboard/js/ui/readerView.js`)**: O clique em palavra disparava `translateText` e `enrichCard` em paralelo sem token de requisição. Se o enriquecimento contextual resolvesse antes, a tradução estática genérica sobrescrevia o texto. Corrigido com `clickPopupRequestId` e token `hasContextual`.
+  3. **Duplo Clique no Leitor (`dashboard/js/ui/readerView.js`)**: Botões `#rdp-save` e `#rdp-known` não tinham desabilitação no clique. Adicionada trava `rdpActionBusy` com desabilitação de ambos até a persistência concluir.
+  4. **Vazamento de Estado no WordPopup (`content/word-popup.js`)**:
+     - `_getPhrasalVerbsDB` em `showForWord` não validava `contextRequestId !== this._contextRequestId` após o dynamic import, permitindo que a troca rápida de uma expressão para uma palavra simples exibisse o badge de phrasal verb na palavra errada. Adicionada a guarda de cancelamento.
+     - `_save()` usava `this.word`, `this.context`, etc. após múltiplos awaits (`import`, `_readSession`, `_getVideoUrlWithTimestamp`). Se o usuário clicasse em outro termo nesse intervalo, o card era salvo com metadados misturados. Corrigido capturando constantes imutáveis locais no início do clique.
+  5. **Concorrência nas Ações em Lote do Cofre (`dashboard/js/ui/libraryView.js`)**: Os botões de pausa, retomada, esquecimento, categoria e exclusão não tinham trava de busy. Adicionado `runBatchAction` com `batchBusy = true` e desabilitação de toda a barra de ações em lote durante a execução dos chunks.
+  6. **Duplo Clique em Histórias (`dashboard/js/ui/storiesView.js`)**: Botões de salvar palavra e marcar como conhecida no modal não desabilitavam durante o envio. Adicionada trava `wordModalBusy` com desabilitação mútua.
+  7. **Desfazimento no Estudo (`dashboard/js/ui/studyView.js`)**: `handleUndo` agora aciona `gradeBusy = true` e desabilita botões de nota e bury até a reversão terminar, impedindo avaliação de card em trânsito de undo.
+- **Validação:**
+  - `node tests/release-smoke.mjs --allow-dirty`: 84 arquivos JS parseados, todos os gates validados.
+  - `npm run lint:biome`: 46 arquivos verificados, 0 erros.
+  - `npm run test:words-explorer`, `npm run test:web-reader`, `npm run test:word-popup-hover`, `npm run test:p1-b`: 100% verdes.
+
+## Sessão: Correção de Race Condition de Legendas na Navegação SPA do YouTube (2026-09-26)
+
+- **Problema abordado:** Legendas do LinguaFlow não apareciam após transição de vídeos sem reload (navegação SPA do YouTube) ou exibiam a legenda nativa original até que o usuário fizesse um hard reload (`Ctrl + Shift + R`).
+- **Causa raiz:** O `injector.js` atualizava o canal de segurança (`nonce` e URL) via `setInterval(..., 500)`. Durante navegações SPA rápidas, a requisição `/api/timedtext` do novo vídeo era interceptada pelo `youtube-hook.js` antes da rotação do nonce no injetor. O validador `isTrustedSubtitleBridgeMessage` em `bridge-security.js` descartava silenciosamente a mensagem por descasamento de URL/nonce ou por pequenas variações nos query params dinâmicos do YouTube (`&t=`, `&list=`, `&start_radio=`). Além disso, `subtitle-engine.js` não disparava `LF_PRELOAD_SUBTITLES` no `_onUrlChange`.
+- **Feito:**
+  - **`content/injector.js`**: Adicionados listeners imediatos em `document.addEventListener('yt-navigate-finish', installBridge)`, `document.addEventListener('yt-navigate-start', installBridge)` e `window.addEventListener('popstate', installBridge)`, eliminando a janela de descarte de 500ms durante transições de vídeo.
+  - **`content/subtitles/bridge-security.js`**: Implementada função `isSamePageNavigation(urlA, urlB)`, que normaliza URLs no YouTube garantindo que variações dinâmicas de parâmetros voláteis (`&t=`, `&list=`, `&start_radio=`, etc.) para o mesmo `v` (/watch) não invalidem falsamente as mensagens legítimas de legenda.
+  - **`content/youtube-hook.js`**: Adicionada escuta do evento `yt-navigate-finish` tanto em `document` quanto em `window`, assegurando captura imediata no ciclo de vida do Polymer.
+  - **`content/subtitle-engine.js`**: Em `_onUrlChange()`, adicionado disparo e agendamento de `LF_PRELOAD_SUBTITLES`, garantindo pré-carregamento imediato da trilha original nas trocas de vídeo em SPA.
+  - **`tests/subtitle-bridge-security.test.mjs`**: Expandidos os testes de segurança para cobrir parâmetros dinâmicos de URL no YouTube, rejeição de videoIds distintos e presença dos listeners de navegação imediata.
+- **Validação:**
+  - `npm run test:yt-player`: 12/12 verdes.
+  - `npm run test:subtitle-lifecycle`: 26/26 testes de segurança + 20/20 de integridade + 15/15 de lifecycle verdes.
+  - `npm run lint:biome`: 46 arquivos verificados, 0 erros.
+
 ## Sessão: Limpeza de Código Morto, Prevenção de Inconsistências e Alinhamento de Contratos (2026-09-26)
 
 - **Problema abordado:** Eliminação de código obsoleto e órfão que gerava confusão para futuras modificações por IA, correção de quebras em testes de contrato decorrentes de commits recentes e garantia de layout de estudo sem elementos ocultos pelo grading dock.
@@ -621,3 +654,14 @@ Auditoria e implementação detalhadas em `docs/audits/youtube-caption-integrity
 - Migration append-only `20260924123246_listening_asr_evidence.sql` amplia a validação de evidência da RPC e do ledger sem alterar RLS, grants, janelas de idempotência ou contagem. Aplicada no projeto hospedado antes do merge da extensão 3.0.58; RPC, constraint e grants verificados. Versão antiga permanece compatível.
 - Testes comportamentais do hook, ponte, contador, fila local e replay das 59 migrations em PGlite passaram. QA com extensão instalada no vídeo da captura ainda pendente; o vídeo específico pode não ter faixa ASR original.
 - Rollback: voltar à extensão 3.0.57. A migration aditiva pode permanecer; não remover `caption_asr` enquanto houver intervalos desse tipo na fila local.
+
+## Issue #198 — Fallback Imediato de Tradução no Estudo (2026-09-26)
+
+- Correção em `dashboard/js/ui/studyView.js`:
+  - Safe navigation ao buscar chunks (`c?.eng?.toLowerCase()`, `context?.toLowerCase()`), eliminando `TypeError` não capturado que travava o verso do card.
+  - Indicadores de carregamento explícitos: `#pump-translation` e `#pump-word-trans` exibem `Traduzindo…` em vez de manter a área oculta em silêncio quando um card é estudado antes de ter a tradução gerada pela IA.
+  - Fallback rápido com `translator.translate(context, 'en', 'pt')` e `translator.translate(word, 'en', 'pt')` em paralelo à chamada `enrichCard(word, context)`.
+  - Tratamento resiliente no `.catch` de `enrichCard`: aguarda e preserva a tradução do `translator`, persistindo os dados no cofre (`lfDb`) para que o card nunca mais fique sem tradução no futuro.
+- Contrato de teste criado em `tests/study-empty-translation-fallback.test.mjs` e acoplado ao script `test:contextual-translation`.
+- Todos os testes de tradução contextual e lint Biome aprovados sem regressões.
+

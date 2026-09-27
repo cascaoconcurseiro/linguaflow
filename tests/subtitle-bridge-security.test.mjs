@@ -5,6 +5,10 @@ const injectorSource = readFileSync(new URL('../content/injector.js', import.met
 const youtubeHookSource = readFileSync(new URL('../content/youtube-hook.js', import.meta.url), 'utf8');
 const hboHookSource = readFileSync(new URL('../content/hbo-inject.js', import.meta.url), 'utf8');
 assert.match(injectorSource, /dataset\.lfPreviousNonce = previousNonce/);
+assert.match(injectorSource, /addEventListener\('yt-navigate-finish',\s*installBridge\)/,
+  'injector deve responder imediatamente à navegação SPA do YouTube sem esperar intervalo');
+assert.match(injectorSource, /addEventListener\('popstate',\s*installBridge\)/,
+  'injector deve responder imediatamente ao histórico de navegação');
 for (const hook of [youtubeHookSource, hboHookSource]) {
   assert.match(hook, /currentNonce !== bridgeNonce \|\| !nonce/,
     'rotação do canal deve exigir conhecimento da credencial anterior');
@@ -37,6 +41,34 @@ assert.equal(isTrustedSubtitleBridgeMessage({ ...base, origin: 'https://evil.tes
 assert.equal(isTrustedSubtitleBridgeMessage({ ...base, data: { ...base.data, nonce: 'forged' } }, state, window.location.href), false);
 assert.equal(isTrustedSubtitleBridgeMessage({ ...base, data: { ...base.data, pageUrl: 'https://www.youtube.com/watch?v=old' } }, state, window.location.href), false);
 assert.equal(isTrustedSubtitleBridgeMessage(base, { ...state, url: 'https://www.youtube.com/watch?v=old' }, window.location.href), false);
+
+// YouTube: aceita parâmetros dinâmicos na URL (ex: &t=, &list=, &start_radio=) desde que seja o mesmo vídeo (/watch?v=video-a)
+const youtubeDynamicPageUrl = {
+  ...base,
+  data: {
+    ...base.data,
+    pageUrl: 'https://www.youtube.com/watch?v=video-a&t=15s&list=RD123&start_radio=1',
+  },
+};
+assert.equal(isTrustedSubtitleBridgeMessage(youtubeDynamicPageUrl, state, window.location.href), true,
+  'deve aceitar parâmetros dinâmicos de URL na mensagem se o videoId for o mesmo');
+
+const youtubeDynamicState = {
+  ...state,
+  url: 'https://www.youtube.com/watch?v=video-a&list=RD123',
+};
+assert.equal(isTrustedSubtitleBridgeMessage(base, youtubeDynamicState, window.location.href), true,
+  'deve aceitar parâmetros dinâmicos de URL no bridgeState se o videoId for o mesmo');
+
+const youtubeDifferentVideo = {
+  ...base,
+  data: {
+    ...base.data,
+    pageUrl: 'https://www.youtube.com/watch?v=video-b&list=RD123',
+  },
+};
+assert.equal(isTrustedSubtitleBridgeMessage(youtubeDifferentVideo, state, window.location.href), false,
+  'deve rejeitar se o videoId for diferente mesmo com list');
 assert.equal(isTrustedSubtitleBridgeMessage({ ...base, data: { ...base.data, type: 'LF_UNKNOWN' } }, state, window.location.href), false);
 assert.equal(isTrustedSubtitleBridgeMessage({ ...base, data: { ...base.data, url: 'javascript:alert(1)' } }, state, window.location.href), false);
 assert.equal(isTrustedSubtitleBridgeMessage({ ...base, data: { ...base.data, url: 'https://evil.test/not-a-subtitle' } }, state, window.location.href), false);

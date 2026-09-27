@@ -12,15 +12,38 @@ export const MAX_SUBTITLE_PAYLOAD_BYTES = 5 * 1024 * 1024;
 export const MAX_SUBTITLE_URL_LENGTH = 4096;
 
 /**
+ * Valida se duas URLs pertencem à mesma página/sessão de vídeo,
+ * tolerando variações normais de query params no YouTube (ex: &t=, &list=, &start_radio=).
+ */
+export function isSamePageNavigation(urlA, urlB) {
+  if (urlA === urlB) return true;
+  if (!urlA || !urlB || typeof urlA !== 'string' || typeof urlB !== 'string') return false;
+  try {
+    const a = new URL(urlA);
+    const b = new URL(urlB);
+    if (a.origin !== b.origin || a.pathname !== b.pathname) return false;
+    const isYouTube = a.hostname === 'youtube.com' || a.hostname.endsWith('.youtube.com');
+    if (isYouTube && a.pathname === '/watch') {
+      const vA = a.searchParams.get('v');
+      const vB = b.searchParams.get('v');
+      return Boolean(vA && vA === vB);
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
+/**
  * Valida a autenticidade, origem e conformidade de payload de mensagens postMessage
  * entre o script injetado na página (YouTube/HBO Max/Netflix) e o content script do LinguaFlow.
  */
 export function isTrustedSubtitleBridgeMessage(event, bridgeState, currentUrl) {
   const data = event?.data;
   if (event?.source !== window || event?.origin !== window.location.origin) return false;
-  if (!bridgeState?.nonce || bridgeState.url !== currentUrl) return false;
+  if (!bridgeState?.nonce || !isSamePageNavigation(bridgeState.url, currentUrl)) return false;
   if (!data || typeof data !== 'object' || !SUBTITLE_BRIDGE_TYPES.has(data.type)) return false;
-  if (data.nonce !== bridgeState.nonce || data.pageUrl !== currentUrl) return false;
+  if (data.nonce !== bridgeState.nonce || !isSamePageNavigation(data.pageUrl, currentUrl)) return false;
 
   let currentHostname;
   try {

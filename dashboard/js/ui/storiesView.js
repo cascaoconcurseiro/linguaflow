@@ -1514,8 +1514,12 @@ export function renderStories(container, app) {
     }
   }
 
+  let wordModalBusy = false;
   btnKnownWord?.addEventListener('click', async () => {
-    if (!currentSelectedWord) return;
+    if (!currentSelectedWord || wordModalBusy) return;
+    wordModalBusy = true;
+    if (btnKnownWord) btnKnownWord.disabled = true;
+    if (btnSaveWord) btnSaveWord.disabled = true;
     try {
       const orig = btnKnownWord.textContent;
       btnKnownWord.textContent = 'Gravando…';
@@ -1533,6 +1537,10 @@ export function renderStories(container, app) {
     } catch (e) {
       console.warn('[Stories] Falha ao marcar conhecida:', e);
       app.showToast('Erro ao marcar palavra como conhecida', 'error');
+    } finally {
+      wordModalBusy = false;
+      if (btnKnownWord) btnKnownWord.disabled = false;
+      if (btnSaveWord) btnSaveWord.disabled = false;
     }
   });
 
@@ -1547,6 +1555,10 @@ export function renderStories(container, app) {
   });
 
   btnSaveWord.addEventListener('click', async () => {
+    if (!currentSelectedWord || wordModalBusy) return;
+    wordModalBusy = true;
+    if (btnSaveWord) btnSaveWord.disabled = true;
+    if (btnKnownWord) btnKnownWord.disabled = true;
     try {
       const btnOriginalText = btnSaveWord.innerHTML;
       btnSaveWord.innerHTML = '<span class="lf-spin"></span> Salvando...';
@@ -1576,6 +1588,10 @@ export function renderStories(container, app) {
     } catch (e) {
       app.showToast('Erro ao salvar: ' + e.message, 'error');
       btnSaveWord.innerHTML = 'Salvar';
+    } finally {
+      wordModalBusy = false;
+      if (btnSaveWord) btnSaveWord.disabled = false;
+      if (btnKnownWord) btnKnownWord.disabled = false;
     }
   });
 

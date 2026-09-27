@@ -243,10 +243,12 @@
         }
     });
 
-    window.addEventListener('yt-navigate-finish', () => {
+    const handleNavigate = () => {
         preloadedVideoKey = '';
         setTimeout(() => preloadFullSubtitleTrack(), 250);
-    });
+    };
+    window.addEventListener('yt-navigate-finish', handleNavigate);
+    document.addEventListener('yt-navigate-finish', handleNavigate);
 
     // ── INTERCEPTAÇÃO DO PLAYER (YouTube API) ────────────────────────────────
     

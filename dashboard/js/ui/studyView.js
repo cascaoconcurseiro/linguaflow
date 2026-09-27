@@ -9,6 +9,7 @@ import { hasSourcePhraseLeak } from '../../../utils/translation-quality.js';
 import { mergeContextualChunks } from '../../../utils/context-chunks.js';
 import { isValidIpa, cleanIpa } from '../../../utils/ipa-validator.js';
 import { escapeHtml } from './viewState.js';
+import { translator } from '../../../utils/translator.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
 let dueQueue = [];
@@ -1374,11 +1375,11 @@ async function revealCard(options = {}) {
   scheduleStudyTask(() => document.querySelector('.grade-btn:not(.hidden):not(:disabled)')?.focus({ preventScroll: true }));
 
   // 2. Fonética e tradução DA FRASE DO CARD (não de outra frase — bug antigo)
-  let ctxEntry = chunks.find(c => c.is_context && c.eng.toLowerCase() === context.toLowerCase())
-    || chunks.find(c => !c.is_word && c.eng.toLowerCase() === context.toLowerCase());
-  let wordEntry = chunks.find(c => c.is_learning_unit)
-    || chunks.find(c => c.is_word)
-    || chunks.find(c => c.eng.toLowerCase() === word.toLowerCase());
+  let ctxEntry = chunks.find(c => c?.is_context && c?.eng?.toLowerCase() === context?.toLowerCase())
+    || chunks.find(c => !c?.is_word && c?.eng?.toLowerCase() === context?.toLowerCase());
+  let wordEntry = chunks.find(c => c?.is_learning_unit)
+    || chunks.find(c => c?.is_word)
+    || chunks.find(c => c?.eng?.toLowerCase() === word?.toLowerCase());
 
   if (wordEntry?.pt && wordData.id && wordData.translation !== wordEntry.pt) {
     wordData.translation = wordEntry.pt;
@@ -1400,19 +1401,67 @@ async function revealCard(options = {}) {
     phonEl.textContent = 'Gerando pronúncia…';
     phonEl.classList.remove('hidden');
 
+    const fallbackTasks = [];
+    if (needsContextRepair && context && context.toLowerCase() !== word.toLowerCase()) {
+      fallbackTasks.push(
+        translator.translate(context, 'en', 'pt').then((res) => {
+          if (res?.translation && currentCard === card && (!ctxEntry || !ctxEntry.pt)) {
+            if (!ctxEntry) {
+              ctxEntry = { eng: context, pt: res.translation, phon: '', is_context: true, is_word: false };
+              chunks = [ctxEntry, ...chunks.filter(c => !c?.is_context)];
+            } else {
+              ctxEntry.pt = res.translation;
+            }
+            const tEl = document.getElementById('pump-translation');
+            if (tEl) {
+              tEl.textContent = res.translation;
+              tEl.classList.remove('hidden');
+            }
+          }
+        }).catch(() => {})
+      );
+    }
+    if (needsWordRepair && word) {
+      fallbackTasks.push(
+        translator.translate(word, 'en', 'pt').then((res) => {
+          if (res?.translation && currentCard === card && (!wordEntry || !wordEntry.pt)) {
+            if (!wordEntry) {
+              wordEntry = { eng: word, pt: res.translation, phon: '', is_context: false, is_word: true };
+              chunks = [...chunks, wordEntry];
+            } else {
+              wordEntry.pt = res.translation;
+            }
+            wordData.translation = res.translation;
+            card.translation = res.translation;
+            const wtEl = document.getElementById('pump-word-trans');
+            if (wtEl) wtEl.textContent = res.translation;
+            const waEl = document.getElementById('pump-word-answer');
+            if (waEl) waEl.classList.remove('hidden');
+            const tEl = document.getElementById('pump-translation');
+            if (tEl && (!ctxEntry || !ctxEntry.pt) && tEl.textContent === 'Traduzindo…') {
+              tEl.textContent = res.translation;
+            }
+          }
+        }).catch(() => {})
+      );
+    }
+
     enrichCard(word, context).then(async (data) => {
       if (currentCard !== card || !data) return;
 
       if (needsContextRepair && data.sentence_phon && isValidIpa(data.sentence_phon) && data.sentence_pt && !hasSourcePhraseLeak(context, data.sentence_pt)) {
         ctxEntry = { eng: context, pt: data.sentence_pt || '', phon: cleanIpa(data.sentence_phon), is_context: true, is_word: false };
         chunks = [ctxEntry, ...chunks.filter(c => !c.is_context)];
+      } else if (needsContextRepair && data.sentence_pt && !hasSourcePhraseLeak(context, data.sentence_pt)) {
+        ctxEntry = { eng: context, pt: data.sentence_pt || '', phon: ctxEntry?.phon || '', is_context: true, is_word: false };
+        chunks = [ctxEntry, ...chunks.filter(c => !c.is_context)];
       }
       if (needsWordRepair && data.word_pt) {
-        const safeWdPhon = isValidIpa(data.word_phon) ? cleanIpa(data.word_phon) : '';
+        const safeWdPhon = isValidIpa(data.word_phon) ? cleanIpa(data.word_phon) : (wordEntry?.phon || '');
         wordEntry = { eng: word, pt: data.word_pt || '', phon: safeWdPhon, is_context: false, is_word: true };
         wordData.translation = data.word_pt;
         card.translation = data.word_pt;
-        chunks = [...chunks, wordEntry];
+        chunks = [...chunks.filter(c => !c?.is_word && c?.eng?.toLowerCase() !== word?.toLowerCase()), wordEntry];
       }
       card._chunks = chunks;
       await persistChunks(card, chunks, null);
@@ -1422,9 +1471,15 @@ async function revealCard(options = {}) {
       // perderia o estado play/pause e deixaria o callback do iframe anterior
       // apontando para botões já removidos.
       renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { renderVideo: false });
-    }).catch((e) => {
+    }).catch(async (e) => {
       if (currentCard === card) phonEl.classList.add('hidden');
       console.warn('[Study] Enriquecimento falhou:', e);
+      await Promise.allSettled(fallbackTasks);
+      if (currentCard === card && (ctxEntry?.pt || wordEntry?.pt)) {
+        card._chunks = chunks;
+        await persistChunks(card, chunks, null);
+        renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { renderVideo: false });
+      }
     });
   }
 }
@@ -1500,6 +1555,9 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
   if (sentencePt || fallbackPt) {
     transEl.textContent = sentencePt || fallbackPt;
     transEl.classList.remove('hidden');
+  } else {
+    transEl.textContent = 'Traduzindo…';
+    transEl.classList.remove('hidden');
   }
 
   // Pílula da palavra isolada com tradução, fonética e áudio no verso do card
@@ -1512,7 +1570,7 @@ function renderReveal(word, context, ctxEntry, wordEntry, wordData, card, { rend
     const wordTransEl = document.getElementById('pump-word-trans');
     const wordPhonEl = document.getElementById('pump-word-phon');
     if (wordValEl) wordValEl.textContent = word;
-    if (wordTransEl) wordTransEl.textContent = activeWordTrans ? `${activeWordTrans}` : '';
+    if (wordTransEl) wordTransEl.textContent = activeWordTrans ? `${activeWordTrans}` : 'traduzindo…';
     if (wordPhonEl) {
       wordPhonEl.textContent = activeWordPhon;
       wordPhonEl.style.display = activeWordPhon ? '' : 'none';
@@ -2025,6 +2083,11 @@ async function handleUndo(app) {
   lastReview = null;
   updateUndoButton();
 
+  gradeBusy = true;
+  document.querySelectorAll('.grade-btn').forEach(btn => { btn.disabled = true; });
+  const buryBtn = document.getElementById('bury-btn');
+  if (buryBtn) buryBtn.disabled = true;
+
   let restoredCard = card;
   try {
     const undone = await lfDb.undoReview(prevCard, reviewLogId);
@@ -2038,6 +2101,11 @@ async function handleUndo(app) {
     updateUndoButton();
     app.showToast('Não foi possível desfazer.', 'error');
     return;
+  } finally {
+    gradeBusy = false;
+    document.querySelectorAll('.grade-btn').forEach(btn => { btn.disabled = false; });
+    const currentBuryBtn = document.getElementById('bury-btn');
+    if (currentBuryBtn) currentBuryBtn.disabled = false;
   }
 
   // Reverte o progresso da sessão e recoloca o card no topo da fila.

@@ -42,5 +42,10 @@
 
       installBridge();
       setInterval(installBridge, 500);
+      if (isYouTube) {
+        document.addEventListener('yt-navigate-finish', installBridge);
+        document.addEventListener('yt-navigate-start', installBridge);
+      }
+      window.addEventListener('popstate', installBridge);
     }
 })();

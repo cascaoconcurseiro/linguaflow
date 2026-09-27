@@ -835,6 +835,10 @@ export class SubtitleEngine {
     // Re-inicializa captura específica da plataforma
     if (this.platform === 'youtube') {
       this._injectYouTubeControls();
+      window.postMessage({ type: 'LF_PRELOAD_SUBTITLES' }, window.location.origin);
+      this._scheduleForNavigation(() => {
+        window.postMessage({ type: 'LF_PRELOAD_SUBTITLES' }, window.location.origin);
+      }, 1200, navigation);
       this._scheduleForNavigation((nav) => this._fetchYoutubeSubtitles(nav), 1000, navigation);
     }
   }

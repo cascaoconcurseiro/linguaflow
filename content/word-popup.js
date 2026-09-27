@@ -704,6 +704,7 @@ export class WordPopup {
     // — Expression type badge (async, loads phrasal verbs db) —
     (async () => {
       const phrasalDB = await this._getPhrasalVerbsDB();
+      if (contextRequestId !== this._contextRequestId) return;
       const exprInfo = this._detectExprType(this.word, phrasalDB);
       this._exprType = exprInfo;
       const el = q('#fexprtype');
@@ -1196,7 +1197,15 @@ export class WordPopup {
     btn.textContent = '⏳ Salvando...';
     btn.disabled = true;
 
-    const d = this.cache[this.word] || {};
+    const wordAtSave = this.word;
+    const saveContextAtSave = this.saveContext;
+    const contextAtSave = this.context;
+    const currentCueAtSave = this.currentCue;
+    const exprTypeAtSave = this._exprType;
+    const activeLevelAtSave = this.activeLevel;
+    const contextExplanationAtSave = this.contextExplanation;
+    const contextSession = this._contextSession;
+    const d = this.cache[wordAtSave] || {};
     const BASE = chrome.runtime.getURL('utils/');
 
     try {
@@ -1222,7 +1231,6 @@ export class WordPopup {
 
       // Upsert no servidor resolve duplicidade. Tradução/classificação faltante
       // é enriquecida depois e não bloqueia a intenção de salvar.
-      const contextSession = this._contextSession;
       const translation = contextSession?.translation || d.translation || '';
 
       // SALVA JÁ — nada de esperar a IA gerar chunks (era a "demora ao salvar").
@@ -1238,25 +1246,25 @@ export class WordPopup {
       // Capture o trecho antes de qualquer await: enquanto o dicionário/DB
       // responde, o vídeo pode avançar para outra fala.
       const videoClip = videoUtils.getVideoClip
-        ? videoUtils.getVideoClip(this.currentCue)
+        ? videoUtils.getVideoClip(currentCueAtSave)
         : { video_url: await this._getVideoUrlWithTimestamp(), video_start_ms: null, video_end_ms: null };
 
       // O card nasce com a ocorrência real e a unidade que o aluno deve
       // guardar. A explicação/tradução pode chegar depois, mas não voltamos a
       // criar três frases genéricas desconectadas do vídeo.
       const contextualChunks = mergeContextualChunks(this.generatedChunks, {
-        context: this.saveContext || this.context,
-        learningUnit: this.word,
+        context: saveContextAtSave || contextAtSave,
+        learningUnit: wordAtSave,
         learningTranslation: translation,
         learningPhonetic: d.phonetic || '',
       });
 
       // Capture tags
       const tags = [];
-      if (this._exprType?.label) tags.push(this._exprType.label);
+      if (exprTypeAtSave?.label) tags.push(exprTypeAtSave.label);
       if (d.partOfSpeech) tags.push(this._posLabel(d.partOfSpeech));
       if (this.freqList) {
-        const cleanWord = this.word.toLowerCase().replace(/[^a-z0-9]/gi, '');
+        const cleanWord = wordAtSave.toLowerCase().replace(/[^a-z0-9]/gi, '');
         const rank = this.freqList[cleanWord];
         if (rank) {
           tags.push(rank <= 1000 ? `🔥 Top ${rank}` : rank <= 5000 ? `📊 Top ${rank}` : `✨ Rara (>5k)`);
@@ -1264,26 +1272,26 @@ export class WordPopup {
       }
 
       const payload = {
-        word: this.word,
+        word: wordAtSave,
         lang: this.engine?.sourceLang || 'en',
         translation: translation,
         phonetic: d.phonetic || '',
         definition: d.definition || '',
         // Reutiliza o professor contextual que já rodou no popup. Nenhuma
         // chamada extra é feita no estudo; o texto segue junto com o card.
-        explanation: this.contextExplanation || '',
+        explanation: contextExplanationAtSave || '',
         // saveContext = frase completa (sem "..."); this.context é a versão
         // truncada de exibição e fica só como último fallback (§3.2).
-        context_sentence: this.saveContext || this.context || '',
+        context_sentence: saveContextAtSave || contextAtSave || '',
         video_url: videoClip.video_url,
         video_start_ms: videoClip.video_start_ms,
         video_end_ms: videoClip.video_end_ms,
         video_title: document.title,
         platform: this.platform || 'youtube',
-        level: this.activeLevel || '',
-        category: (['word', 'phrasal', 'idiom', 'slang'].includes(this._exprType?.type)
-          ? this._exprType.type
-          : (this._exprType?.type === 'chunk' || this._exprType?.type === 'collocation' ? 'idiom' : 'word')),
+        level: activeLevelAtSave || '',
+        category: (['word', 'phrasal', 'idiom', 'slang'].includes(exprTypeAtSave?.type)
+          ? exprTypeAtSave.type
+          : (exprTypeAtSave?.type === 'chunk' || exprTypeAtSave?.type === 'collocation' ? 'idiom' : 'word')),
         tags: tags.length ? tags : null,
         synonyms: (d.synonyms || []).join(','),
         antonyms: (d.antonyms || []).join(','),
@@ -1292,7 +1300,7 @@ export class WordPopup {
       };
 
       const savePromise = chrome.runtime.sendMessage({ type: 'QUEUE_WORD_SAVE', payload });
-      if (contextSession?.word === this.word) {
+      if (contextSession?.word === wordAtSave) {
         contextSession.save = {
           payload,
           promise: savePromise,
@@ -1313,11 +1321,13 @@ export class WordPopup {
       // convidava um segundo clique que sobrescrevia a captura original.
       // Fica verde, desabilitado e explicado; showForWord reavalia o estado
       // na próxima palavra/abertura.
-      btn.textContent = '✅ Salvo nos Flashcards';
-      btn.style.background = '#16a34a';
-      btn.style.boxShadow = '0 3px 0 #15803d';
-      btn.title = 'Já está no seu Cofre — re-salvar sobrescreveria a cena original';
-      btn.disabled = true;
+      if (this.word === wordAtSave) {
+        btn.textContent = '✅ Salvo nos Flashcards';
+        btn.style.background = '#16a34a';
+        btn.style.boxShadow = '0 3px 0 #15803d';
+        btn.title = 'Já está no seu Cofre — re-salvar sobrescreveria a cena original';
+        btn.disabled = true;
+      }
 
       // Mostra toast de confirmação
       this._showSaveToast();
@@ -1330,18 +1340,22 @@ export class WordPopup {
       // broadcast quando o servidor confirmar a sincronização.
       window.dispatchEvent(
         new CustomEvent('LF_WORD_SAVED', {
-          detail: { word: this.word, queued: true },
+          detail: { word: wordAtSave, queued: true },
         }),
       );
 
       console.debug('[WordPopup] 📢 Estado local atualizado');
     } catch (e) {
       console.error('[WordPopup] ❌ Erro ao salvar:', e);
-      btn.textContent = '❌ Erro';
-      setTimeout(() => {
-        btn.textContent = originalText;
-        btn.disabled = false;
-      }, 2000);
+      if (this.word === wordAtSave) {
+        btn.textContent = '❌ Erro';
+        setTimeout(() => {
+          if (this.word === wordAtSave) {
+            btn.textContent = originalText;
+            btn.disabled = false;
+          }
+        }, 2000);
+      }
     }
   }
 

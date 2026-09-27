@@ -733,31 +733,53 @@ async function enqueueFirstRecall(payload) {
 // (status new, zero reps), a recuperacao vira a primeira review real —
 // acerto introduz com Bom, erro introduz com Errei (nao e lapso: cards novos
 // nao incrementam lapses). Card ja estudado => entrada obsoleta, descarta.
+let drainFirstRecallsPromise = null;
 async function drainFirstRecalls() {
-  const queue = await readLocal(PENDING_FIRST_RECALL_KEY) || {};
-  for (const [id, entry] of Object.entries(queue)) {
-    try {
-      const wordRow = await db.getWord(entry.word, entry.lang);
-      if (!wordRow) {
-        entry.attempts = (entry.attempts || 0) + 1;
-        if (entry.attempts > 10) delete queue[id]; // save nunca sincronizou
-        continue;
+  if (drainFirstRecallsPromise) return drainFirstRecallsPromise;
+  drainFirstRecallsPromise = (async () => {
+    const queue = await readLocal(PENDING_FIRST_RECALL_KEY) || {};
+    const updateQueueItem = async (id, updater) => {
+      const latest = await readLocal(PENDING_FIRST_RECALL_KEY) || {};
+      if (latest[id]) {
+        updater(latest);
+        await writeLocal({ [PENDING_FIRST_RECALL_KEY]: latest });
       }
-      const card = await db.getCardByWordId(wordRow.id);
-      if (!card) { entry.attempts = (entry.attempts || 0) + 1; continue; }
-      if (card.status === 'new' && !(card.reps > 0)) {
-        await db.logReview(card.id, entry.quality, wordRow.category || null);
-        notifyDashboards(entry.word);
-        updateBadge();
+    };
+
+    for (const [id, entry] of Object.entries(queue)) {
+      try {
+        const wordRow = await db.getWord(entry.word, entry.lang);
+        if (!wordRow) {
+          await updateQueueItem(id, (q) => {
+            q[id].attempts = (q[id].attempts || 0) + 1;
+            if (q[id].attempts > 10) delete q[id];
+          });
+          continue;
+        }
+        const card = await db.getCardByWordId(wordRow.id);
+        if (!card) {
+          await updateQueueItem(id, (q) => {
+            q[id].attempts = (q[id].attempts || 0) + 1;
+            if (q[id].attempts > 10) delete q[id];
+          });
+          continue;
+        }
+        if (card.status === 'new' && !(card.reps > 0)) {
+          await db.logReview(card.id, entry.quality, wordRow.category || null);
+          notifyDashboards(entry.word);
+          updateBadge();
+        }
+        await updateQueueItem(id, (q) => { delete q[id]; });
+      } catch (error) {
+        await updateQueueItem(id, (q) => {
+          q[id].attempts = (q[id].attempts || 0) + 1;
+          if (q[id].attempts > 10) delete q[id];
+        });
+        console.warn('[FirstRecall] adiado:', entry.word, error?.message);
       }
-      delete queue[id];
-    } catch (error) {
-      entry.attempts = (entry.attempts || 0) + 1;
-      if (entry.attempts > 10) delete queue[id];
-      console.warn('[FirstRecall] adiado:', entry.word, error?.message);
     }
-  }
-  await writeLocal({ [PENDING_FIRST_RECALL_KEY]: queue });
+  })().finally(() => { drainFirstRecallsPromise = null; });
+  return drainFirstRecallsPromise;
 }
 
 async function syncPendingWordSaves() {

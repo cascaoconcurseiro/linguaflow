@@ -29,8 +29,8 @@ assert.ok(slangsDB.has('slay'), 'slangsDB contains "slay"');
 const engineSource = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
 
 // Slangs and Expressions imports
-assert.match(engineSource, /import\s*\{\s*slangsDB\s*\}\s*from\s*['"]\.\.\/utils\/slangs-db\.js['"]/);
-assert.match(engineSource, /import\s*\{\s*expressionsDB\s*\}\s*from\s*['"]\.\.\/utils\/expressions-db\.js['"]/);
+assert.match(engineSource, /import\s*\{[^}]*\bslangsDB\b[^}]*\}\s*from\s*['"]\.\.\/utils\/slangs-db\.js['"]/);
+assert.match(engineSource, /import\s*\{[^}]*\bexpressionsDB\b[^}]*\}\s*from\s*['"]\.\.\/utils\/expressions-db\.js['"]/);
 
 // Auto-scroll contract: currentCueIndex updated in onSubtitle
 assert.match(engineSource, /this\.currentCueIndex\s*=\s*idx/, 'onSubtitle must update currentCueIndex to idx');

@@ -375,9 +375,11 @@ export async function renderReader(container, app) {
   const view = document.getElementById('reader-view');
   const popup = document.getElementById('rd-popup');
   let popupWord = null;
+  let clickPopupRequestId = 0;
   let pendingImportSource = 'pasted';
 
   function hidePopup() {
+    clickPopupRequestId++;
     popup.classList.add('hidden');
     hideTooltip?.();
   }
@@ -667,24 +669,30 @@ export async function renderReader(container, app) {
     popup.classList.remove('hidden');
     positionPopup(el.getBoundingClientRect());
 
+    const requestId = ++clickPopupRequestId;
     const wordAtRequest = popupWord.toLowerCase();
     const contextAtRequest = currentText ? sentenceAround(currentText.content, popupWord) : '';
-
-    translateText(wordAtRequest).then(baseTranslation => {
-      if (popupWord.toLowerCase() === wordAtRequest && baseTranslation) {
-        document.getElementById('rdp-trans').textContent = baseTranslation;
-      } else if (popupWord.toLowerCase() === wordAtRequest && document.getElementById('rdp-trans').textContent === '…') {
-        document.getElementById('rdp-trans').textContent = 'Sem tradução.';
-      }
-    });
+    let hasContextual = false;
 
     if (contextAtRequest) {
       enrichCard(wordAtRequest, contextAtRequest).then(contextual => {
-        if (popupWord.toLowerCase() === wordAtRequest && contextual?.word_pt) {
+        if (requestId !== clickPopupRequestId) return;
+        if (popupWord && popupWord.toLowerCase() === wordAtRequest && contextual?.word_pt) {
+          hasContextual = true;
           document.getElementById('rdp-trans').textContent = contextual.word_pt;
         }
       }).catch(() => null);
     }
+
+    translateText(wordAtRequest).then(baseTranslation => {
+      if (requestId !== clickPopupRequestId) return;
+      if (hasContextual) return;
+      if (popupWord && popupWord.toLowerCase() === wordAtRequest && baseTranslation) {
+        document.getElementById('rdp-trans').textContent = baseTranslation;
+      } else if (popupWord && popupWord.toLowerCase() === wordAtRequest && document.getElementById('rdp-trans').textContent === '…') {
+        document.getElementById('rdp-trans').textContent = 'Sem tradução.';
+      }
+    });
   });
 
   document.addEventListener('mousedown', (e) => {
@@ -724,8 +732,14 @@ export async function renderReader(container, app) {
     if (popupWord) playNaturalAudio(popupWord, { lang: localStorage.getItem('lf_tts_lang') || 'en-US' });
   });
 
+  let rdpActionBusy = false;
   document.getElementById('rdp-save').addEventListener('click', async () => {
-    if (!popupWord) return;
+    if (!popupWord || rdpActionBusy) return;
+    const saveBtn = document.getElementById('rdp-save');
+    const knownBtn = document.getElementById('rdp-known');
+    rdpActionBusy = true;
+    if (saveBtn) saveBtn.disabled = true;
+    if (knownBtn) knownBtn.disabled = true;
     const w = popupWord.toLowerCase();
     const trans = document.getElementById('rdp-trans').textContent;
     try {
@@ -740,15 +754,24 @@ export async function renderReader(container, app) {
       knownLemmas.delete(lemma(w));
       recolor(w);
       app.showToast(`"${w}" foi salva no Cofre para revisão.`, 'success');
+      popup.classList.add('hidden');
     } catch (err) {
       console.error(err);
       app.showToast('Não foi possível salvar no Cofre. Tente novamente.', 'error');
+    } finally {
+      rdpActionBusy = false;
+      if (saveBtn) saveBtn.disabled = false;
+      if (knownBtn) knownBtn.disabled = false;
     }
-    popup.classList.add('hidden');
   });
 
   document.getElementById('rdp-known').addEventListener('click', async () => {
-    if (!popupWord) return;
+    if (!popupWord || rdpActionBusy) return;
+    const saveBtn = document.getElementById('rdp-save');
+    const knownBtn = document.getElementById('rdp-known');
+    rdpActionBusy = true;
+    if (saveBtn) saveBtn.disabled = true;
+    if (knownBtn) knownBtn.disabled = true;
     const w = popupWord.toLowerCase();
     try {
       await lfDb.markAsKnown(w, 'en');
@@ -756,11 +779,15 @@ export async function renderReader(container, app) {
       learningLemmas.delete(lemma(w));
       recolor(w);
       app.showToast(`"${w}" marcada como conhecida ✓`, 'success');
+      popup.classList.add('hidden');
     } catch (err) {
       console.error(err);
       app.showToast('Não foi possível marcar este termo como conhecido.', 'error');
+    } finally {
+      rdpActionBusy = false;
+      if (saveBtn) saveBtn.disabled = false;
+      if (knownBtn) knownBtn.disabled = false;
     }
-    popup.classList.add('hidden');
   });
 }
 

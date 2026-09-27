@@ -1,5 +1,6 @@
 ## Limpeza de código legado, race conditions e contratos de teste (2026-09-26)
 
+- [x] Corrigir race condition de legendas na navegação SPA do YouTube: disparo imediato de `installBridge` em `yt-navigate-finish`/`yt-navigate-start` e `popstate` em `injector.js`, tolerância a query params dinâmicos (`isSamePageNavigation`) em `bridge-security.js`, disparo de `LF_PRELOAD_SUBTITLES` em `_onUrlChange` e escuta dupla em `document`/`window` em `youtube-hook.js`.
 - [x] Remover código morto em `background/service-worker.js`: excluída `analyzeGrammarWithAI` (órfã de tutoria de gramática) e `translateText` (não consumida no worker).
 - [x] Manter import de `getCefrLevel` em `dashboard/js/ui/studyView.js` (usado na linha 156) e remover apenas `generateChunksWeb`.
 - [x] Restaurar layout lateral de 2 colunas em `dashboard/css/editorial.css`: `.study-explore` mantido na lateral direita (`grid-column: 2`) com scroll unificado da página em `.study-main`.
@@ -552,5 +553,24 @@
 - [x] Suíte TDD `tests/security-media-and-dead-dom-fixes.test.mjs` integrada no script `test:release`.
 - [x] Validação de gates: `npm run lint:biome` e testes de release 100% verdes.
 
+## Issue #196 · Auditoria e Eliminação Global de Race Conditions e Código Legado (2026-09-26)
 
+- [x] Mutex `drainFirstRecallsPromise` e remoção atômica pontual (`updateQueueItem`) adicionados em `background/service-worker.js`, eliminando perda e sobrescrita de itens concorrentes no storage local.
+- [x] Removidas rotinas mortas e prompts órfãos no service worker (`analyzeGrammarWithAI`, `translateText`).
+- [x] Trava `gradeBusy = true` e desativação temporária de botões adicionadas no `handleUndo` de `dashboard/js/ui/studyView.js`, prevenindo avaliações concorrentes durante reversão de card.
+- [x] Inclusão de `clickPopupRequestId` e token `hasContextual` no clique de palavra em `dashboard/js/ui/readerView.js`, eliminando sobrescrita de traduções contextuais ricas por traduções genéricas assíncronas atrasadas.
+- [x] Travas `rdpActionBusy` aplicadas aos botões `#rdp-save` e `#rdp-known` em `dashboard/js/ui/readerView.js` para evitar duplo clique e requisições simultâneas.
+- [x] Adicionada checagem `if (contextRequestId !== this._contextRequestId) return;` após `_getPhrasalVerbsDB` em `content/word-popup.js`, impedindo vazamento de badges de phrasal verbs para palavras simples durante navegação rápida.
+- [x] Captura imutável de estado (`wordAtSave`, `contextAtSave`, `currentCueAtSave`, `exprTypeAtSave`) no método `_save` de `content/word-popup.js`, blindando o salvamento contra mutação concorrente de instância.
+- [x] Criado wrapper `runBatchAction` com `batchBusy = true` e desativação de botões na barra de lote em `dashboard/js/ui/libraryView.js`, impedindo loops de mutação e exclusão concorrentes.
+- [x] Blindagem com `wordModalBusy` e desativação de botões nos modais de palavra de `dashboard/js/ui/storiesView.js` contra duplo clique em salvar ou marcar como conhecida.
+- [x] Validação integral de gates: release smoke, biome lint e contratos de vocabulário e leitor 100% verdes.
 
+## Issue #198 · Fallback Imediato de Tradução e Prevenção de Tela Vazia no Estudo (2026-09-26)
+
+- [x] Safe navigation em `studyView.js` ao iterar chunks (`c?.eng?.toLowerCase()`), eliminando `TypeError` em cards com propriedades ausentes.
+- [x] Estado de carregamento explícito `Traduzindo…` em `#pump-translation` e `#pump-word-trans`, impedindo que o verso do card fique oculto em silêncio.
+- [x] Fallback rápido com `translator.translate` para frase e palavra isolada quando a IA ainda não tiver gerado as traduções.
+- [x] Persistência resiliente de dados com `Promise.allSettled(fallbackTasks)` garantindo que o card preserve a tradução mesmo se `enrichCard` falhar ou demorar.
+- [x] Criação do teste de contrato `tests/study-empty-translation-fallback.test.mjs` e inclusão em `npm run test:contextual-translation`.
+- [x] Todos os gates validados e verdes: `biome check` e 16 contratos de tradução contextual passando.

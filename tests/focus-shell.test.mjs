@@ -29,8 +29,8 @@ assert.match(app, /--study-progress/);
 assert.match(app, /'updateFocusStatus'/);
 
 assert.match(css, /body\.lf-focus-mode \.topbar \{ display: none; \}/);
-assert.match(css, /body\.lf-focus-mode #app-root[\s\S]*?overflow-y: auto/);
-assert.match(css, /body\.lf-focus-mode \.study-main,[\s\S]*?overflow: visible !important/);
+assert.match(css, /body\.lf-focus-mode #app-root[\s\S]*?overflow: hidden/);
+assert.match(css, /body\.lf-focus-mode \.study-main[\s\S]*?overflow-y: auto/);
 assert.match(css, /env\(safe-area-inset-top\)/);
 assert.match(css, /width: var\(--study-progress, 0%\)/);
 assert.doesNotMatch(css, /lf-focus-progress/);

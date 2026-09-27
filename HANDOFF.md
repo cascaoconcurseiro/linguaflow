@@ -1,4 +1,20 @@
-## Issue #197 — Fix: IPA Estrito e Eliminação de Pronúncia Abrasileirada (2026-09-26)
+## Sessão: Limpeza de Código Morto, Prevenção de Inconsistências e Alinhamento de Contratos (2026-09-26)
+
+- **Problema abordado:** Eliminação de código obsoleto e órfão que gerava confusão para futuras modificações por IA, correção de quebras em testes de contrato decorrentes de commits recentes e garantia de layout de estudo sem elementos ocultos pelo grading dock.
+- **Feito:**
+  - **Remoção de código morto no service worker (`background/service-worker.js`)**: Eliminadas as funções não utilizadas `analyzeGrammarWithAI` (~60 linhas de prompt antigo de gramática) e `translateText` (função auxiliar redundante nunca chamada no worker).
+  - **Preservação de imports em `dashboard/js/ui/studyView.js`**: Mantido `getCefrLevel` (utilizado na linha 156 para obter o nível do usuário na sessão) e removido apenas `generateChunksWeb`.
+  - **Restauração do layout lateral de 2 colunas (`dashboard/css/editorial.css`)**: Mantido `.study-main` em grid de 2 colunas com `.study-explore` na lateral direita (`grid-column: 2`), garantindo que o scroll unificado da página role os blocos juntos sem empilhar a barra lateral embaixo do card.
+  - **Correção em `tests/popup-dictionary-contract.test.mjs`**: Injetados `isValidIpa` e `cleanIpa` nos contextos VM, restaurando a conformidade dos testes de validação de fonética do dicionário.
+  - **Atualização em `tests/untrusted-html-security.test.mjs`**: Regex de escape no `word-popup.js` ajustada para suportar a variável sanitizada `rawPhon`.
+  - **Atualização em `tests/focus-shell.test.mjs`**: Alinhados os contratos de modo foco com a arquitetura de scroll interno unificado (`overflow: hidden` no `#app-root` e `overflow-y: auto` no `.study-main`).
+  - **Garantia de scroll seguro (`dashboard/css/editorial.css`)**: Inserido `scroll-padding-bottom: calc(var(--study-grading-dock-height, 140px) + 48px)` no `.study-main` e restrição de `max-height` proporcional ao dock no `.study-explore`, prevenindo que elementos rolem para trás dos botões fixos.
+  - **Limpeza de arquivos temporários**: Removidos prints e artefatos soltos da raiz (`study_fixed.png`, `study_scroll_working.png`, `test_lateral_fix.png`).
+- **Validação:**
+  - `npm run lint:biome`: 46 arquivos verificados, 0 erros.
+  - `npm run lint:knip`: 0 erros.
+  - `node tests/release-smoke.mjs --allow-dirty`: 84 arquivos JS parseados, todos os gates validados.
+
 
 - **PR:** [#198](https://github.com/cascaoconcurseiro/linguaflow/pull/198), branch `codex/197-ipa-strict-validation`.
 - **Issue:** [#197](https://github.com/cascaoconcurseiro/linguaflow/issues/197).

@@ -1,4 +1,15 @@
-## Issue #197 · Fix: garantir IPA estrito e eliminar pronúncia abrasileirada (2026-09-26)
+## Limpeza de código legado, race conditions e contratos de teste (2026-09-26)
+
+- [x] Remover código morto em `background/service-worker.js`: excluída `analyzeGrammarWithAI` (órfã de tutoria de gramática) e `translateText` (não consumida no worker).
+- [x] Manter import de `getCefrLevel` em `dashboard/js/ui/studyView.js` (usado na linha 156) e remover apenas `generateChunksWeb`.
+- [x] Restaurar layout lateral de 2 colunas em `dashboard/css/editorial.css`: `.study-explore` mantido na lateral direita (`grid-column: 2`) com scroll unificado da página em `.study-main`.
+- [x] Alinhar `tests/popup-dictionary-contract.test.mjs` com injeção de `isValidIpa` e `cleanIpa` nos contextos VM do dicionário.
+- [x] Ajustar regex de sanitização de fonética em `tests/untrusted-html-security.test.mjs` para aceitar `rawPhon`.
+- [x] Sincronizar `tests/focus-shell.test.mjs` com a arquitetura de scroll unificado em foco (`overflow: hidden` no `#app-root`, `overflow-y: auto` no `.study-main`).
+- [x] Restaurar `scroll-padding-bottom` e `max-height` proporcional ao dock em `dashboard/css/editorial.css` (`.study-main` e `.study-explore`), garantindo que elementos nunca terminem atrás do grading dock fixo.
+- [x] Limpar arquivos temporários untracked da raiz.
+- [x] Validar bateria completa de testes: `npm run lint:biome`, `npm run lint:knip`, `tests/release-smoke.mjs` 100% verdes.
+
 
 - [x] Registrar Issue #197 e trabalhar na branch `codex/197-ipa-strict-validation`.
 - [x] Criar `utils/ipa-validator.js` com `isValidIpa()` e `cleanIpa()` — rejeita acentos portugueses, tokens abrasileirados (Uí, fót, répin, bât, dén, dídnt…), dígrafos não-IPA e texto sem marcas fonéticas IPA.

@@ -1,6 +1,6 @@
 import { db as lfDb, createOperationId } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio, downloadAudio, preloadNaturalAudio } from '../core/tts.js';
-import { getCefrLevel, enrichCard, generateChunksWeb } from '../core/ai.js';
+import { enrichCard, getCefrLevel } from '../core/ai.js';
 import { attachVideoContext, renderVideoContext, getVideoContext } from '../core/videoContext.js';
 import { buildSessionQueue, isWeakCard, prioritizeDueLearning } from '../core/sessionQueue.js';
 import { deriveAdaptivePlan, detectSessionFatigue, evaluateActiveRecallHonesty } from '../core/adaptiveLearning.js';

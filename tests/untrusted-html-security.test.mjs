@@ -56,7 +56,7 @@ assert.match(wordPopup, /const eng = this\._escapeAttr\(c\.eng\)/,
   'chunks gerados ou salvos devem escapar inglês antes do innerHTML');
 assert.match(wordPopup, /const pt = this\._escapeAttr\(c\.pt\)/,
   'chunks gerados ou salvos devem escapar tradução antes do innerHTML');
-assert.match(wordPopup, /const phon = this\._escapeAttr\(c\.phon\)/,
+assert.match(wordPopup, /const phon = this\._escapeAttr\((?:c\.phon|rawPhon)\)/,
   'chunks gerados ou salvos devem escapar fonética antes do innerHTML');
 assert.match(wordPopup, /let formatted = this\._escapeAttr\(text\)/,
   '_formatAI deve sanitizar o texto antes de converter markdown em HTML');

@@ -804,12 +804,6 @@ async function syncPendingWordSaves() {
 
 // ── Funções Auxiliares ────────────────────────────────────────────────────────
 
-async function translateText(text, from = 'en', to = 'pt') {
-  // Redireciona para o utilitário que tem cache e fallback
-  const res = await translator.translate(text, from, to);
-  return res.translation || text;
-}
-
 async function fetchDictionary(word) {
   const cleanWord = String(word || '')
     .toLowerCase()
@@ -1277,66 +1271,6 @@ Não há frase de origem disponível. Gere uma ocorrência curta e deixe claro o
     }
   } catch (err) {
     console.error('[LinguaFlow IA] Erro ao gerar chunks:', err);
-    throw err;
-  }
-}
-
-async function analyzeGrammarWithAI(sentence) {
-  try {
-    if (!sentence) return 'Frase vazia.';
-    const config = await getApiConfig();
-    if (!config.apiKey) throw new Error('Faça login no LinguaFlow para usar a IA.');
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-    const grammarPersona = `Atue como um professor de inglês paciente, claro e direto.
-Seu objetivo é ajudar o aluno a entender o USO REAL da expressão ou palavra na frase, sem parecer resposta robótica.
-
-DIRETRIZES ABSOLUTAS:
-- Responda em Português Brasileiro.
-- Seja curto, didático e humano.
-- Não use aula genérica de gramática.
-- Foque no sentido da frase, no bloco de palavras e em como usar depois.
-- Se houver phrasal verb, chunk, idiom, gíria ou colocação, explique o bloco inteiro.
-- Use EXATAMENTE os títulos em negrito abaixo.
-
-ESTRUTURA DE RESPOSTA OBRIGATÓRIA:
-**Nesta frase:** Explique em 1 frase o sentido real.
-
-**Bloco importante:** Mostre qual parte deve ser memorizada junta.
-
-**Não confunda com:** Mostre a armadilha de tradução, se existir.
-
-**Use assim:** Dê 2 exemplos curtos em inglês com tradução.`;
-
-    const userPrompt = `Analise detalhadamente a gramática desta frase: "${sentence}"`;
-
-    let response;
-    
-      response = await fetchWithRetry(config.apiUrl, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: config.model,
-          messages: [
-            { role: 'system', content: grammarPersona },
-            { role: 'user', content: userPrompt },
-          ],
-          temperature: 0.7,
-          max_tokens: 1000,
-        }),
-      });
-    
-
-    clearTimeout(timeoutId);
-    if (!response.ok) throw new Error(`Erro API: ${response.status}`);
-    const data = await response.json();
-
-    
-    return data.choices?.[0]?.message?.content || 'Não foi possível gerar análise.';
-  } catch (err) {
     throw err;
   }
 }

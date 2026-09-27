@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { isValidIpa, cleanIpa } from '../utils/ipa-validator.js';
 
 const source = readFileSync(new URL('../background/service-worker.js', import.meta.url), 'utf8');
 const method = source.slice(
@@ -19,6 +20,8 @@ assert.match(method, /isMultiWord/,
 const context = vm.createContext({
   encodeURIComponent,
   console,
+  isValidIpa,
+  cleanIpa,
   fetch: async () => ({
     ok: true,
     json: async () => [{
@@ -42,6 +45,8 @@ console.log('Dicionário preserva IPA disponível no formato alternativo da API.
 const datamuseContext = vm.createContext({
   encodeURIComponent,
   console,
+  isValidIpa,
+  cleanIpa,
   fetch: async (url) => {
     if (url.includes('dictionaryapi.dev')) throw new Error('Timeout simulado');
     if (url.includes('datamuse.com')) {

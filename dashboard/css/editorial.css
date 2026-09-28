@@ -118,6 +118,8 @@ html body .settings-page { max-width:1080px; }
 html body .settings-group { border-radius:6px; box-shadow:none; }
 /* Review: reading column + contextual rail + stable assessment dock. */
 html body.lf-focus-mode .study-focus-header { background:var(--color-bg); border-bottom:1px solid var(--color-border); min-height:76px; padding:12px 4vw; }
+/* hidden precisa vencer o display do modo foco (o player de Cursos usa o modo foco sem este cabeçalho). */
+html body.lf-focus-mode .study-focus-header[hidden] { display:none !important; }
 html body .study-focus-progress > strong { font:400 18px var(--font-reading); }
 html body .study-focus-icon-btn { width:auto; min-width:48px; color:var(--color-text-light); font-size:15px; background:transparent; border:0; }
 html body .study-focus-track { height:4px; background:var(--color-border); }

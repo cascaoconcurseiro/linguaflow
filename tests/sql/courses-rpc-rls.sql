@@ -39,7 +39,7 @@ BEGIN
     now() - INTERVAL '5 minutes', 99999, 999999, 99, v_results);
 
   IF (v_res->>'replayed')::BOOLEAN THEN RAISE EXCEPTION 'primeiro commit não pode ser replay'; END IF;
-  IF (v_res->>'percent_completed')::NUMERIC <> 100 THEN RAISE EXCEPTION 'curso com 1 lição deveria ir a 100%%: %', v_res; END IF;
+  IF (v_res->>'percent_completed')::NUMERIC <> 25 THEN RAISE EXCEPTION 'curso com 4 lições deveria ir a 25%%: %', v_res; END IF;
   IF (v_res->>'accuracy_rate')::NUMERIC <> 90 THEN RAISE EXCEPTION 'precisão esperada 90: %', v_res; END IF;
   IF (v_res->>'mistakes_count')::INT <> 2 THEN RAISE EXCEPTION 'erros esperados 2: %', v_res; END IF;
   IF (v_res->>'active_time_seconds')::INT > 301 THEN RAISE EXCEPTION 'tempo ativo não foi limitado: %', v_res; END IF;

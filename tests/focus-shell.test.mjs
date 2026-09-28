@@ -17,7 +17,7 @@ assert.match(html, /data-focus-route="library"/);
 assert.match(html, /data-focus-route="settings"/);
 
 assert.match(app, /document\.body\.classList\.toggle\('lf-focus-mode', focus\)/);
-assert.match(app, /this\.focusHeader\.hidden = !focus/);
+assert.match(app, /this\.focusHeader\.hidden = route !== 'study'/, 'cabeçalho de foco só no Estudo; o player de cursos tem o próprio');
 assert.match(app, /if \(!focus\) this\.setFocusMenuOpen\(false\)/);
 assert.match(app, /this\.syncShellForRoute\(route\)/);
 assert.match(app, /this\.syncShellForRoute\(this\.currentRoute\)/);

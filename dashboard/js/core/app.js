@@ -365,7 +365,8 @@ class App {
     const focus = route === 'study' || route === 'course-practice';
     document.body.classList.toggle('lf-auth-route', route === 'login');
     document.body.classList.toggle('lf-focus-mode', focus);
-    if (this.focusHeader) this.focusHeader.hidden = !focus;
+    // O player de cursos tem cabeçalho próprio; o do Estudo só aparece no Estudo.
+    if (this.focusHeader) this.focusHeader.hidden = route !== 'study';
     if (!focus) this.setFocusMenuOpen(false);
     this.setProfileMenuOpen(false);
     if (focus) {
@@ -402,7 +403,7 @@ class App {
     this.routeParams = params || {};
     this.syncShellForRoute(route);
     const routeTitles = {
-      home: 'Hoje', courses: 'Cursos da Vida Real', 'course-practice': 'Prática de Curso',
+      home: 'Hoje', courses: 'Cursos', 'course-practice': 'Prática',
       library: 'O Cofre', progress: 'Progresso',
       study: 'Sessão de estudo', stories: 'Histórias', reader: 'Leitor',
       stats: 'Estatísticas', leagues: 'Ligas', settings: 'Configurações', login: 'Entrar',

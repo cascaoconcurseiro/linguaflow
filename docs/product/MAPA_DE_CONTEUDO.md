@@ -74,7 +74,8 @@ Padrões por tipo:
 
 ## Gramática em uso (A2→B2)
 
-- [ ] **Tempos Verbais** (16): cada tempo com afirmativa, negativa, pergunta e contraste com o português
+- [x] **Tempos Verbais em Uso** (B1) 1–6: presente, passado, present perfect, perfect contínuo, futuro, past perfect (tempos-1)
+- [ ] **Tempos Verbais** 7–16: condicionais, voz passiva, discurso indireto, modais de dedução, revisão
 - [x] **Phrasal Verbs Essenciais** (B1) 1–6: get, take, put, come/go, look, turn/give (phrasal-1)
 - [ ] **Phrasal Verbs** 7–20: make, break, bring, run, set, call, pick, work, fill, check, e por tema
 - [ ] **Preposições e Conectores** (12)

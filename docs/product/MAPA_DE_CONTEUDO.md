@@ -26,16 +26,16 @@ Padrões por tipo:
 - [ ] Módulo 10: sell, eat, drink, sleep, drive, fly, swim, sing, forget, choose
 
 **1000 Palavras Essenciais (A1→A2)** — 50 capítulos de 20 palavras
-- [x] Pessoas e família
-- [ ] Números 1–100 · Números grandes e ordinais · Dias, meses e estações · Horas e partes do dia
-- [ ] Cores · Formas e tamanhos · Corpo humano · Roupas e acessórios · Aparência e personalidade
+- [x] Pessoas e família (fundamentos-1) · Cores · Números 1–20 · Itens essenciais do dia a dia (palavras-1)
+- [ ] Números 21–100 · Números grandes e ordinais · Dias, meses e estações · Horas e partes do dia
+- [ ] Formas e tamanhos · Corpo humano · Roupas e acessórios · Aparência e personalidade
 - [ ] Casa e cômodos · Móveis · Cozinha e utensílios · Banheiro e higiene · Tarefas domésticas
 - [ ] Comida básica · Frutas · Legumes e verduras · Carnes e peixes · Bebidas · Temperos e sabores
 - [ ] Cidade e lugares · Transporte · Direções e posições · Natureza · Clima e tempo · Animais
 - [ ] Escola e estudo · Trabalho e profissões · Escritório · Tecnologia e internet · Dinheiro e compras
 - [ ] Saúde e sintomas · Emoções · Esportes · Lazer e hobbies · Música e cinema · Viagem
 - [ ] Verbos de ação 1–3 · Adjetivos opostos 1–2 · Advérbios de tempo e frequência
-- [ ] Preposições de lugar e tempo · Conectores · Perguntas (wh-) · Quantidades · Itens essenciais do dia a dia
+- [ ] Preposições de lugar e tempo · Conectores · Perguntas (wh-) · Quantidades
 
 **Primeiras Frases (A1)** — 12 capítulos
 - [x] Eu sou, você é

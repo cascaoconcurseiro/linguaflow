@@ -29,8 +29,10 @@ Padrões por tipo:
 - [x] Pessoas e família (fundamentos-1) · Cores · Números 1–20 · Itens essenciais do dia a dia (palavras-1)
 - [x] Números de 21 em diante e ordinais · Dias da semana e meses · Horas e partes do dia (palavras-2)
 - [ ] Estações do ano
-- [ ] Formas e tamanhos · Corpo humano · Roupas e acessórios · Aparência e personalidade
-- [ ] Casa e cômodos · Móveis · Cozinha e utensílios · Banheiro e higiene · Tarefas domésticas
+- [x] Corpo humano · Roupas e acessórios (palavras-3)
+- [ ] Formas e tamanhos · Aparência e personalidade
+- [x] Casa e cômodos (palavras-3)
+- [ ] Móveis · Cozinha e utensílios · Banheiro e higiene · Tarefas domésticas
 - [ ] Comida básica · Frutas · Legumes e verduras · Carnes e peixes · Bebidas · Temperos e sabores
 - [ ] Cidade e lugares · Transporte · Direções e posições · Natureza · Clima e tempo · Animais
 - [ ] Escola e estudo · Trabalho e profissões · Escritório · Tecnologia e internet · Dinheiro e compras

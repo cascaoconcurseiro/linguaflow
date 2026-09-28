@@ -21,6 +21,10 @@ const renderCoursePractice = (...args) => import('../ui/coursePracticeView.js').
 const CLIENT_BUILD = '3.0.59';
 // Rotas cujo render recebe os parâmetros de navegação (lição, modo, aba).
 const ROUTES_WITH_PARAMS = new Set(['study', 'courses', 'course-practice']);
+// Rotas restauradas ao recarregar (hash da URL). O player volta para Cursos:
+// a sessão parcial já foi salva ao sair e a lição precisa de parâmetros.
+const RESTORABLE_ROUTES = new Set(['home', 'courses', 'library', 'progress', 'stories', 'settings', 'fluency-check']);
+const hashRouteFor = (route) => (route === 'course-practice' ? 'courses' : route);
 
 // Purga caches de versões anteriores do PWA para impedir que clientes fiquem presos em assets defasados
 if ('caches' in window) {
@@ -228,8 +232,9 @@ class App {
       this.updateGlobalStats().catch(e => console.warn('[App] Erro ao atualizar stats:', e));
       // Garante perfil de usuário no Supabase (XP/gamificação)
       db.ensureUserStats().catch(() => {});
-      // Load initial route
-      this.navigate('home');
+      // Rota inicial: a do hash (recarregar mantém a tela), senão Hoje
+      const hashRoute = window.location.hash.slice(1);
+      this.navigate(RESTORABLE_ROUTES.has(hashRoute) ? hashRoute : 'home');
       // Escuta mensagens do service worker (palavra salva no player)
       if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
         chrome.runtime.onMessage.addListener((msg) => {
@@ -399,6 +404,10 @@ class App {
     this._runCleanups();
     this.navigationEpoch += 1;
     this.currentRoute = route;
+    const hashRoute = hashRouteFor(route);
+    if (RESTORABLE_ROUTES.has(hashRoute) && window.location.hash !== `#${hashRoute}`) {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${hashRoute}`);
+    }
     observe('navigation.start', { route, navigationEpoch: this.navigationEpoch });
     this.routeParams = params || {};
     this.syncShellForRoute(route);

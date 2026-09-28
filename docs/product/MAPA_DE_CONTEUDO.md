@@ -50,7 +50,7 @@ Padrões por tipo:
 **Viagem sem Aperto** — 24 capítulos
 - [x] No aeroporto · No hotel · Transporte na cidade (lote v1)
 - [x] Restaurante: reserva e mesa · pedido · alergias e problemas · conta e gorjeta (lote viagem-1)
-- [ ] Check-in e bagagem · Segurança e embarque · No avião · Imigração e alfândega · Bagagem extraviada
+- [x] Segurança e embarque · No avião · Imigração e alfândega · Bagagem extraviada e atrasos (lote viagem-3; check-in coberto em "No aeroporto")
 - [ ] Táxi e aplicativo · Ônibus, metrô e trem · Alugar carro · Perdido na cidade
 - [ ] Hotel: check-in · Hotel: problemas no quarto · Hotel: check-out · Airbnb e anfitrião
 - [x] Café e padaria · Farmácia · Pedir direções · Emergências (lote viagem-2)

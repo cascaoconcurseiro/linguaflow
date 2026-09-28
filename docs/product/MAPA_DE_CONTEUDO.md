@@ -44,7 +44,7 @@ Padrões por tipo:
 - [x] Eu sou, você é
 - [x] Perguntas com to be · Negativas · There is / there are · Possessivos (lote frases-1)
 - [x] Presente simples (rotina) · Perguntas com do/does (lote frases-1)
-- [ ] Can (habilidade e pedido) · Imperativo · Like + -ing · Passado com was/were · Revisão
+- [x] Can · Imperativo · Like + -ing · Passado com was/were · Revisão (lote frases-2) — curso completo, 12 capítulos
 
 **Números, Horas e Datas (A1)** — 8 capítulos
 - [ ] Números e idade · Preços e dinheiro · Telefone e e-mail soletrado · Horas · Datas e aniversários · Agenda e compromissos · Medidas · Revisão

@@ -47,16 +47,15 @@ Padrões por tipo:
 
 ## Viagem (A1→B1)
 
-**Viagem sem Aperto** — 24 capítulos
+**Viagem sem Aperto** — 27 capítulos (completo)
 - [x] No aeroporto · No hotel · Transporte na cidade (lote v1)
 - [x] Restaurante: reserva e mesa · pedido · alergias e problemas · conta e gorjeta (lote viagem-1)
 - [x] Segurança e embarque · No avião · Imigração e alfândega · Bagagem extraviada e atrasos (lote viagem-3; check-in coberto em "No aeroporto")
 - [x] Táxi e aplicativo · Trem e ônibus entre cidades · Alugar carro (lote viagem-4; "perdido na cidade" coberto em Pedir direções)
 - [x] Hotel: chegada e check-in · serviços e problemas · check-out e conta · Airbnb e anfitrião (lote viagem-5)
 - [x] Café e padaria · Farmácia · Pedir direções · Emergências (lote viagem-2)
-- [ ] Bar e balada
+- [x] Bar e balada · Passeios e ingressos · Praia e piscina · Revisão da viagem (lote viagem-6)
 - [x] Compras e souvenirs (lote viagem-4)
-- [ ] Passeios e ingressos · Praia e piscina · Revisão
 
 ## Dia a dia (A1→B1)
 

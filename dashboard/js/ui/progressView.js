@@ -216,7 +216,7 @@ export async function renderProgress(container, app) {
             <div><dt>Terminados</dt><dd>${n(rd.texts_completed)}</dd></div>
             <div><dt>Histórias</dt><dd>${n(rd.stories)}</dd></div>
           </dl>
-          <p class="course-card-stats">${n(rd.texts_in_progress)} em andamento · ${n(rd.story_words)} palavras lidas em histórias</p>
+          <p class="course-card-stats">${n(rd.texts_in_progress)} em andamento${rd.story_words > 0 ? ` · ${n(rd.story_words)} palavras nas histórias` : ''}</p>
         </section>
       </div>`}
 

@@ -28,7 +28,18 @@ assert.match(editorial, /\.study-explore\s*\{[^}]*display:\s*flex;[^}]*flex-dire
 assert.match(editorial, /#video-resource-section:not\(\.hidden\)\s*\+\s*\.study-explore-row\s*\{[^}]*border-top:/,
   'deve haver uma divisória visual limpa entre Trecho original e Ouvir em outros contextos quando ambos estiverem visíveis');
 
-assert.match(editorial, /\.study-explore\s*\{[^}]*max-height:\s*calc\([^}]*--study-grading-dock-height/,
-  'o container de aprofundamento deve limitar a altura para não ultrapassar a barra de avaliação');
+// O aprofundamento fica abaixo do card, dentro da coluna que rola (como no
+// player de Cursos). Quem garante que nada fica sob a barra de avaliação é o
+// padding/scroll-padding da coluna, não uma altura própria.
+assert.doesNotMatch(editorial, /\.study-explore\s*\{[^}]*grid-column:\s*2/,
+  'o aprofundamento não deve voltar a ser uma coluna lateral');
+assert.match(editorial, /\.study-main\s*\{[^}]*scroll-padding-bottom:\s*calc\(var\(--study-grading-dock-height/,
+  'a coluna do card deve reservar espaço para a barra de avaliação');
+
+// 3. Verso organizado como o painel do player de Cursos
+assert.match(study, /class="study-breakdown"[\s\S]*?id="pump-translation"[\s\S]*?id="pump-phonetics"[\s\S]*?id="pump-word-answer"[\s\S]*?id="iso-context-details"[\s\S]*?<\/section>/,
+  'o verso deve agrupar tradução, pronúncia, palavra e explicação nesta ordem em um único painel');
+assert.match(editorial, /\.study-layout:not\(\.is-revealed\) \.study-breakdown \{ display:none; \}/,
+  'o painel do verso não pode aparecer antes de revelar');
 
 console.log('Contratos de layout vertical compacto e pausa de áudio/vídeo passaram com sucesso.');

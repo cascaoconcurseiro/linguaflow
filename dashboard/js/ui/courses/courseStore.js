@@ -151,12 +151,12 @@ export function renderCourseDetail(panel, ctx, courseId, openLessonId = null) {
     <button class="course-link" type="button" data-back>← Loja de cursos</button>
     <header class="course-detail-head">
       <div>
-        ${levelPill(course.level)} <span class="course-card-stats">${escapeHTML(TRACK_LABEL[course.track] || CATEGORY_LABEL[course.category] || '')}</span>
+        <div class="course-card-badges">${levelPill(course.level)} <span class="course-card-stats">${escapeHTML(TRACK_LABEL[course.track] || CATEGORY_LABEL[course.category] || '')}</span></div>
         <h2 class="course-hub-title">${escapeHTML(course.title)}</h2>
         <p class="course-hub-subtitle">${escapeHTML(course.long_description || course.short_description)}</p>
         <p class="course-card-stats">${plural(course.lessons.length, 'capítulo', 'capítulos')} · ${unitCount(course, units)} · ${plural(course.learners_count, 'aluno', 'alunos')} · tradução em português</p>
         <div class="course-hero-progress-track" role="progressbar" aria-label="Progresso no curso" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><div class="course-hero-progress-bar" style="width:${percent}%"></div></div>
-        <p class="course-card-stats">${answered} / ${unitCount(course, units)} concluídas · ${percent}%</p>
+        <p class="course-card-stats">Progresso: ${answered} / ${unitCount(course, units)} · ${percent}%</p>
       </div>
       <div class="course-detail-actions">
         <button class="course-btn-primary-lg" type="button" data-continue>${answered > 0 ? 'Continuar' : 'Começar'}</button>

@@ -34,7 +34,8 @@ Padrões por tipo:
 - [x] Casa e cômodos (palavras-3)
 - [ ] Móveis · Cozinha e utensílios · Banheiro e higiene · Tarefas domésticas
 - [x] Comida básica e refeições · Frutas, legumes e verduras · Bebidas, sabores e mesa (palavras-4)
-- [ ] Cidade e lugares · Transporte · Direções e posições · Natureza · Clima e tempo · Animais
+- [x] Cidade e lugares · Transporte · Clima e natureza (palavras-5)
+- [ ] Direções e posições · Animais
 - [ ] Escola e estudo · Trabalho e profissões · Escritório · Tecnologia e internet · Dinheiro e compras
 - [ ] Saúde e sintomas · Emoções · Esportes · Lazer e hobbies · Música e cinema · Viagem
 - [ ] Verbos de ação 1–3 · Adjetivos opostos 1–2 · Advérbios de tempo e frequência

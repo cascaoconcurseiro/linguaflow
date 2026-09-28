@@ -3371,17 +3371,22 @@ export class SubtitleEngine {
       // Injeta botões e controles
       this._injectYouTubeControls();
       this._ensureNativeSubtitlesActive();
-      vid.addEventListener('play', () => {
-        this._injectYouTubeControls();
-        this._ensureNativeSubtitlesActive();
-        this._wasPausedByHover = false;
-      });
       setTimeout(() => this._ensureNativeSubtitlesActive(), 800);
-      vid.addEventListener('seeking', () => {
-        this.lastText = '';
-        this._lastFoundIdx = -1; // Reset do índice otimizado
-        this._lastAutoPausedEndTime = -1;
-      });
+      // YouTube reuses the same <video> across SPA navigations; stacked play
+      // listeners clicked CC several times per play and could switch it off.
+      if (this._boundVideoElement !== vid) {
+        this._boundVideoElement = vid;
+        vid.addEventListener('play', () => {
+          this._injectYouTubeControls();
+          this._ensureNativeSubtitlesActive();
+          this._wasPausedByHover = false;
+        });
+        vid.addEventListener('seeking', () => {
+          this.lastText = '';
+          this._lastFoundIdx = -1; // Reset do índice otimizado
+          this._lastAutoPausedEndTime = -1;
+        });
+      }
 
       // Para HBO/Max: se a legenda foi posicionada em fallback, reposiciona
       // dentro do player agora que o vídeo (e o player) estão prontos

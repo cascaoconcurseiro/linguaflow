@@ -17,6 +17,9 @@
         if (currentNonce !== bridgeNonce || !nonce) return false;
         bridgeNonce = nonce;
         bridgeUrl = navigationUrl;
+        // The player often downloads the new video's track before the bridge
+        // rotates; those messages carried the old nonce and were rejected.
+        replayCapturedCaptions();
         return true;
     };
 
@@ -28,7 +31,32 @@
         pageUrl: bridgeUrl,
     }, window.location.origin);
 
+    // Last player caption responses (bounded), keyed by the timedtext URL, so a
+    // track captured during SPA navigation can be re-sent once the bridge is fresh.
+    const MAX_CAPTURED_CAPTIONS = 4;
+    const capturedCaptions = [];
+    const videoIdOf = (urlStr) => {
+        try { return new URL(urlStr, window.location.href).searchParams.get('v') || ''; }
+        catch { return ''; }
+    };
+    const rememberCaption = (url, body) => {
+        if (!url.includes('timedtext') || typeof body !== 'string' || body.length <= 10) return;
+        const index = capturedCaptions.findIndex((entry) => entry.url === url);
+        if (index !== -1) capturedCaptions.splice(index, 1);
+        capturedCaptions.push({ url, body });
+        if (capturedCaptions.length > MAX_CAPTURED_CAPTIONS) capturedCaptions.shift();
+    };
+    const replayCapturedCaptions = () => {
+        const videoId = new URLSearchParams(window.location.search).get('v');
+        if (!videoId) return;
+        for (const entry of capturedCaptions) {
+            if (videoIdOf(entry.url) !== videoId) continue;
+            postBridgeMessage({ type: 'LF_SUBTITLE_HOOK', url: entry.url, data: entry.body, timestamp: Date.now() });
+        }
+    };
+
     const notifyExt = (url, body) => {
+        rememberCaption(url, body);
         postBridgeMessage({
             type: 'LF_SUBTITLE_HOOK', 
             url: url, 
@@ -88,6 +116,7 @@
             }
             const body = await response.text();
             if (body.length > 10) notifyExt(url.toString(), body);
+            else console.warn('[LinguaFlow] caption_track_empty', { status: Number(response.status) || 0 });
         } catch (error) {
             console.warn('[LinguaFlow] caption_track_error', { code: error?.name || 'network' });
         }
@@ -234,6 +263,7 @@
             } catch { /* The platform may not expose the selected track. */ }
             postBridgeMessage({ type:'LF_AUDIO_LANGUAGE', language, evidence });
         } else if (e.data.type === 'LF_PRELOAD_SUBTITLES') {
+            replayCapturedCaptions();
             preloadFullSubtitleTrack();
         } else if (e.data.type === 'LF_SET_SOURCE_LANG' && typeof e.data.sourceLang === 'string') {
             if (currentSourceLang !== e.data.sourceLang) preloadedVideoKey = '';

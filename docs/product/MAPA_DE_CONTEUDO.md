@@ -17,7 +17,7 @@ Padrões por tipo:
 - [x] Módulo 1: be, have, do, say, go, get, make, know, think, take (lote verbos-1)
 - [x] Módulo 2: see, come, want, look, use, find, give, tell, work, call (lote verbos-2)
 - [x] Módulo 3: try, ask, need, feel, become, leave, put, mean, keep, let (lote verbos-3)
-- [ ] Módulo 4: begin, seem, help, talk, turn, start, show, hear, play, run
+- [x] Módulo 4: begin, seem, help, talk, turn, start, show, hear, play, run (lote verbos-4)
 - [ ] Módulo 5: move, like, live, believe, hold, bring, happen, write, sit, stand
 - [ ] Módulo 6: lose, pay, meet, include, continue, set, learn, change, lead, understand
 - [ ] Módulo 7: watch, follow, stop, create, speak, read, spend, grow, open, walk

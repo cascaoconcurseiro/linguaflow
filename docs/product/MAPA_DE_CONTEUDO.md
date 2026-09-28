@@ -37,8 +37,8 @@ Padrões por tipo:
 - [x] Cidade e lugares · Transporte · Clima e natureza (palavras-5)
 - [x] Direções e posições · Animais (palavras-6)
 - [x] Escola e estudo · Trabalho e profissões (palavras-7)
-- [ ] Escritório · Tecnologia e internet · Dinheiro e compras
-- [ ] Saúde e sintomas · Emoções (palavras-6) · Esportes e lazer (palavras-7) · Música e cinema · Viagem
+- [x] Escritório · Tecnologia e internet · Dinheiro (palavras-9)
+- [x] Saúde e sintomas · Música e cinema · Viagem (palavras-9) · Emoções (palavras-6) · Esportes e lazer (palavras-7)
 - [ ] Verbos de ação 1–3 · Adjetivos opostos 1–2 · Advérbios de tempo e frequência
 - [ ] Preposições de lugar e tempo · Conectores · Perguntas (wh-) · Quantidades
 

@@ -657,15 +657,25 @@ class App {
     document.body.classList.remove('lf-auth-pending');
   }
 
+  // Preferência: 'light', 'dark' ou 'system' (segue o sistema operacional).
   setTheme(theme) {
-    if (theme === 'dark') {
+    const preference = ['light', 'dark', 'system'].includes(theme) ? theme : 'light';
+    this.themePreference = preference;
+    if (!this._systemThemeQuery && window.matchMedia) {
+      this._systemThemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      this._systemThemeQuery.addEventListener?.('change', () => {
+        if (this.themePreference === 'system') this.setTheme('system');
+      });
+    }
+    const dark = preference === 'dark' || (preference === 'system' && Boolean(this._systemThemeQuery?.matches));
+    if (dark) {
       document.documentElement.setAttribute('data-theme', 'dark');
       if (this.themeToggleBtn) this.themeToggleBtn.textContent = 'Usar tema claro';
     } else {
       document.documentElement.removeAttribute('data-theme');
       if (this.themeToggleBtn) this.themeToggleBtn.textContent = 'Usar tema escuro';
     }
-    localStorage.setItem('lf_theme', theme);
+    localStorage.setItem('lf_theme', preference);
   }
 
   // Global Toast function

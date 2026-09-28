@@ -102,7 +102,9 @@ class Database {
   // Renova o access_token se estiver a menos de 5 min de expirar.
   // Mutex (_refreshPromise): o Supabase rotaciona o refresh_token — dois
   // refreshes simultâneos com o mesmo token invalidariam a sessão inteira.
-  async _refreshTokenIfNeeded() {
+  // force: o servidor já recusou o token (401) apesar de expires_at dizer que
+  // ainda vale — relógio local atrasado ou JWT encurtado no projeto.
+  async _refreshTokenIfNeeded({ force = false } = {}) {
     if (this._refreshPromise) return this._refreshPromise;
 
     const session = await this._readSession();
@@ -110,10 +112,10 @@ class Database {
 
     // Sessão legada (salva antes do refresh existir): usa como está;
     // se o token já venceu, o tratamento de 401 em _fetch desloga.
-    if (!session.refresh_token || !session.expires_at) return session;
+    if (!session.refresh_token || (!session.expires_at && !force)) return session;
 
     const FIVE_MIN = 5 * 60 * 1000;
-    if (session.expires_at - Date.now() > FIVE_MIN) return session;
+    if (!force && session.expires_at - Date.now() > FIVE_MIN) return session;
 
     // Re-checa o mutex: outra chamada pode ter iniciado o refresh enquanto
     // esta aguardava o _readSession (o trecho abaixo é síncrono, então é seguro)
@@ -196,6 +198,16 @@ class Database {
       if (!res.ok) {
         if (res.status === 204) return [];
         const err = await res.text();
+        if (res.status === 401 && !options._authRetried) {
+          // O PostgREST recusa o JWT antes de executar qualquer coisa, então
+          // repetir uma escrita aqui não duplica efeito.
+          const refreshed = await this._refreshTokenIfNeeded({ force: true });
+          if (refreshed?.access_token && refreshed.access_token !== token) {
+            const retryHeaders = { ...(options.headers || {}) };
+            if (headers['Content-Type']) retryHeaders['Content-Type'] = headers['Content-Type'];
+            return this._fetch(endpoint, { ...options, headers: retryHeaders, _authRetried: true });
+          }
+        }
         if (res.status === 401) {
           this.logout();
           if (typeof window !== 'undefined') {

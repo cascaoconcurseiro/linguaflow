@@ -27,20 +27,27 @@
   position: relative;
 }
 
+/* Progresso do capítulo: entre o título (topo) e o painel de tempo/pontos. */
 .course-player-progress-bar-wrap {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
+  margin: 12px 24px 0;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
   background: var(--course-surface-alt);
 }
 
 .course-player-progress-bar {
   height: 100%;
-  width: 0%;
+  width: 100%;
+  border-radius: inherit;
   background: var(--course-progress-fill);
-  transition: width 240ms cubic-bezier(0.2, 0, 0, 1);
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 320ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .course-player-progress-bar { transition: none; }
 }
 
 .course-player-btn-back {

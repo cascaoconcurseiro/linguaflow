@@ -236,7 +236,7 @@ export async function renderCoursePractice(container, app, params = {}) {
           </div>
         </header>
         <div class="course-player-progress-bar-wrap" role="progressbar" aria-label="Progresso" aria-valuemin="0" aria-valuemax="${session.total}" aria-valuenow="0">
-          <div class="course-player-progress-bar" id="course-progress" style="width:0%"></div>
+          <div class="course-player-progress-bar" id="course-progress" style="transform:scaleX(0)"></div>
         </div>
 
         <section class="course-player-hud" aria-label="Sessão">
@@ -350,7 +350,7 @@ export async function renderCoursePractice(container, app, params = {}) {
 
     const shown = Math.min(session.index + 1, session.total);
     container.querySelector('#course-question').textContent = `${shown} / ${session.total}`;
-    container.querySelector('#course-progress').style.width = `${Math.round((session.resolvedCount / session.total) * 100)}%`;
+    container.querySelector('#course-progress').style.transform = `scaleX(${(session.resolvedCount / Math.max(1, session.total)).toFixed(4)})`;
     container.querySelector('.course-player-progress-bar-wrap').setAttribute('aria-valuenow', String(session.resolvedCount));
 
     const isWord = WORD_KINDS.has(unit.kind);

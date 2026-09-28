@@ -260,6 +260,7 @@ export async function renderCoursePractice(container, app, params = {}) {
         <main class="course-player-body">
           <p class="course-hub-subtitle" style="margin:0;">${escapeHTML(courseTitle)} · ${DIFFICULTY_LABEL[difficulty]}</p>
           <h2 class="course-player-prompt" id="course-prompt" lang="en"></h2>
+          <div class="course-audio-cue" id="course-audio-cue" aria-hidden="true" hidden><span></span><span></span><span></span><span></span><span></span></div>
           <p class="course-player-cue" id="course-cue" hidden></p>
           <p class="course-player-instruction" id="course-instruction">${INSTRUCTION[difficulty]}</p>
           <div class="course-sentence-wrap" id="sentence-slots" role="group" aria-label="Escreva a frase, uma palavra por campo"></div>
@@ -363,6 +364,8 @@ export async function renderCoursePractice(container, app, params = {}) {
     else if (difficulty === 'medium') prompt.textContent = initialsHint(session.tokens);
     else prompt.textContent = '';
     prompt.hidden = !prompt.textContent;
+    // Sem texto na tela (difícil), o indicador de áudio mostra de onde vem a frase.
+    container.querySelector('#course-audio-cue').hidden = !prompt.hidden;
 
     const slots = container.querySelector('#sentence-slots');
     slots.innerHTML = session.tokens.map((token, idx) => {
@@ -459,6 +462,7 @@ export async function renderCoursePractice(container, app, params = {}) {
     const btn = container.querySelector('[data-action="replay"]');
     audioPlaying = true;
     btn?.classList.add('playing');
+    container.querySelector('#course-audio-cue')?.classList.add('is-playing');
     try {
       for (let i = 0; i < readings; i++) {
         if (token !== audioToken || disposed || paused) break;
@@ -473,6 +477,7 @@ export async function renderCoursePractice(container, app, params = {}) {
       if (token === audioToken) {
         audioPlaying = false;
         btn?.classList.remove('playing');
+        container.querySelector('#course-audio-cue')?.classList.remove('is-playing');
       }
     }
   }
@@ -706,6 +711,15 @@ export async function renderCoursePractice(container, app, params = {}) {
     return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
   }
 
+  function themePreference() {
+    try {
+      const saved = localStorage.getItem('lf_theme');
+      return ['light', 'dark', 'system'].includes(saved) ? saved : currentTheme();
+    } catch {
+      return currentTheme();
+    }
+  }
+
   function applyTheme(theme) {
     if (typeof app.setTheme === 'function') app.setTheme(theme);
     else if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
@@ -723,8 +737,9 @@ export async function renderCoursePractice(container, app, params = {}) {
       <label class="course-setting-row">
         <span>Aparência</span>
         <select data-pref="theme">
-          <option value="light" ${currentTheme() === 'light' ? 'selected' : ''}>Claro</option>
-          <option value="dark" ${currentTheme() === 'dark' ? 'selected' : ''}>Escuro</option>
+          <option value="light" ${themePreference() === 'light' ? 'selected' : ''}>Claro</option>
+          <option value="dark" ${themePreference() === 'dark' ? 'selected' : ''}>Escuro</option>
+          <option value="system" ${themePreference() === 'system' ? 'selected' : ''}>Sistema</option>
         </select>
       </label>
       <label class="course-setting-row"><span>Áudio da frase</span><input type="checkbox" role="switch" data-pref="audio" ${prefs.audio ? 'checked' : ''} /></label>

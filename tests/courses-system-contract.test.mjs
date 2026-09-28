@@ -206,3 +206,15 @@ test('UI: sair da prática usa diálogo próprio e a rota sobrevive ao recarrega
   assert.match(app, /this\.navigate\(RESTORABLE_ROUTES\.has\(hashRoute\) \? hashRoute : 'home'\)/);
   assert.match(app, /route === 'course-practice' \? 'courses'/);
 });
+
+test('UI: tema com opção Sistema e indicador de áudio no modo difícil', () => {
+  const app = read('dashboard/js/core/app.js');
+  assert.match(app, /\['light', 'dark', 'system'\]\.includes\(theme\)/);
+  assert.match(app, /prefers-color-scheme: dark/);
+  const player = read('dashboard/js/ui/coursePracticeView.js');
+  assert.match(player, /<option value="system"/);
+  assert.match(player, /id="course-audio-cue" aria-hidden="true"/);
+  const css = read('dashboard/css/course-player.css');
+  assert.match(css, /prefers-reduced-motion: reduce\)[\s\S]*course-audio-cue\.is-playing span \{ animation: none/);
+  assert.match(css, /\.course-reduce-motion \.course-audio-cue\.is-playing span \{ animation: none/);
+});

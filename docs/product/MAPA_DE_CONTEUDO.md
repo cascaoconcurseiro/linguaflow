@@ -87,4 +87,5 @@ Padrões por tipo:
 - [x] **Inglês no Trabalho** 1–9: reuniões, e-mails, remoto (v1) · apresentações, feedback, prazos, clientes, delegar, small talk (trabalho-1)
 - [x] **Inglês no Trabalho** 10–16: entrevista, e-mails formais, relatórios, networking, conflitos, liderança, revisão (trabalho-2) — curso completo, 16 capítulos
 - [ ] **Entrevista de Emprego** (8)
-- [ ] **Histórias** (10 contos em trechos) · **Expressões Idiomáticas** (12) · **Parágrafos** (10)
+- [x] **Expressões Idiomáticas e Fluência** (B2) 1–6: trabalho, sentimentos, dinheiro e tempo, marcadores, suavizar opiniões, contar histórias (fluencia-1)
+- [ ] **Histórias** (10 contos em trechos) · **Parágrafos** (10)

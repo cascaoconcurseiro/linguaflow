@@ -201,8 +201,7 @@ test('catálogo: expõe unit_kind e a UI nomeia a contagem pelo tipo', async () 
   const sql = read('supabase/migrations/20260928000200_course_catalog_unit_kind.sql');
   assert.match(sql, /'unit_kind', \(SELECT mode\(\) WITHIN GROUP \(ORDER BY u\.kind\)/);
   assert.match(sql, /SECURITY DEFINER[\s\S]*SET search_path = ''/);
-  const { unitCount, plural } = await import('../dashboard/js/ui/courses/courseUi.js').catch(() => ({}));
-  if (!unitCount) return; // módulo depende de DOM; o contrato acima já cobre o SQL
+  const { unitCount, plural } = await import('../dashboard/js/ui/courses/courseUi.js');
   assert.equal(unitCount({ unit_kind: 'word' }, 20), '20 palavras');
   assert.equal(unitCount({ unit_kind: 'verb_forms' }, 1), '1 verbo');
   assert.equal(unitCount({}, 3), '3 frases');
@@ -220,4 +219,28 @@ test('conteúdo: lotes novos exigem nota gramatical em toda unidade que não é 
   assert.deepEqual(word.errors, []);
   const retired = generateFrom([{ ...course({ kind: 'word', text: 'go', pt: 'ir' })[0], retireUnits: ["unit-x-'01"] }], { lexicon });
   assert.ok(retired.sql.includes("DELETE FROM public.course_units WHERE id IN ('unit-x-''01');"));
+});
+
+test('UI: sair da prática usa diálogo próprio e a rota sobrevive ao recarregar', () => {
+  const player = read('dashboard/js/ui/coursePracticeView.js');
+  assert.doesNotMatch(player, /[^.\w]confirm\(/, 'sem confirm() nativo, que congela a página');
+  assert.match(player, /id="course-exit" role="alertdialog" aria-modal="true"/);
+  assert.match(player, /'confirm-exit': leavePractice/);
+  const app = read('dashboard/js/core/app.js');
+  assert.match(app, /const RESTORABLE_ROUTES = new Set\(\[[^\]]*'courses'/);
+  assert.match(app, /this\.navigate\(RESTORABLE_ROUTES\.has\(hashRoute\) \? hashRoute : 'home'\)/);
+  assert.match(app, /route === 'course-practice' \? 'courses'/);
+  assert.match(app, /addEventListener\('hashchange'/);
+});
+
+test('UI: tema com opção Sistema e indicador de áudio no modo difícil', () => {
+  const app = read('dashboard/js/core/app.js');
+  assert.match(app, /\['light', 'dark', 'system'\]\.includes\(theme\)/);
+  assert.match(app, /prefers-color-scheme: dark/);
+  const player = read('dashboard/js/ui/coursePracticeView.js');
+  assert.match(player, /<option value="system"/);
+  assert.match(player, /id="course-audio-cue" aria-hidden="true"/);
+  const css = read('dashboard/css/course-player.css');
+  assert.match(css, /prefers-reduced-motion: reduce\)[\s\S]*course-audio-cue\.is-playing span \{ animation: none/);
+  assert.match(css, /\.course-reduce-motion \.course-audio-cue\.is-playing span \{ animation: none/);
 });

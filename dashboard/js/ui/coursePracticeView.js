@@ -260,6 +260,7 @@ export async function renderCoursePractice(container, app, params = {}) {
         <main class="course-player-body">
           <p class="course-hub-subtitle" style="margin:0;">${escapeHTML(courseTitle)} · ${DIFFICULTY_LABEL[difficulty]}</p>
           <h2 class="course-player-prompt" id="course-prompt" lang="en"></h2>
+          <div class="course-audio-cue" id="course-audio-cue" aria-hidden="true" hidden><span></span><span></span><span></span><span></span><span></span></div>
           <p class="course-player-cue" id="course-cue" hidden></p>
           <p class="course-player-instruction" id="course-instruction">${INSTRUCTION[difficulty]}</p>
           <div class="course-sentence-wrap" id="sentence-slots" role="group" aria-label="Escreva a frase, uma palavra por campo"></div>
@@ -287,6 +288,15 @@ export async function renderCoursePractice(container, app, params = {}) {
           </div>
         </div>
 
+        <div class="course-pause-backdrop" id="course-exit" role="alertdialog" aria-modal="true" aria-labelledby="exit-title" aria-describedby="exit-text" hidden>
+          <div class="course-pause-card">
+            <h2 id="exit-title" class="course-pause-title">Sair da prática?</h2>
+            <p id="exit-text" class="course-pause-text">O que você já respondeu fica salvo como sessão incompleta.</p>
+            <button class="course-btn-resume" type="button" data-action="cancel-exit">Continuar praticando</button>
+            <button class="course-player-btn-back" type="button" data-action="confirm-exit">Sair</button>
+          </div>
+        </div>
+
         <div class="course-pause-backdrop" id="course-settings" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
           <div class="course-pause-card course-settings-card"></div>
         </div>
@@ -299,6 +309,8 @@ export async function renderCoursePractice(container, app, params = {}) {
       const action = target.dataset.action;
       const handlers = {
         exit: exitPractice,
+        'cancel-exit': () => setExitOpen(false),
+        'confirm-exit': leavePractice,
         theme: toggleTheme,
         settings: () => openSettings(),
         'close-settings': closeSettings,
@@ -352,6 +364,8 @@ export async function renderCoursePractice(container, app, params = {}) {
     else if (difficulty === 'medium') prompt.textContent = initialsHint(session.tokens);
     else prompt.textContent = '';
     prompt.hidden = !prompt.textContent;
+    // Sem texto na tela (difícil), o indicador de áudio mostra de onde vem a frase.
+    container.querySelector('#course-audio-cue').hidden = !prompt.hidden;
 
     const slots = container.querySelector('#sentence-slots');
     slots.innerHTML = session.tokens.map((token, idx) => {
@@ -448,6 +462,7 @@ export async function renderCoursePractice(container, app, params = {}) {
     const btn = container.querySelector('[data-action="replay"]');
     audioPlaying = true;
     btn?.classList.add('playing');
+    container.querySelector('#course-audio-cue')?.classList.add('is-playing');
     try {
       for (let i = 0; i < readings; i++) {
         if (token !== audioToken || disposed || paused) break;
@@ -462,6 +477,7 @@ export async function renderCoursePractice(container, app, params = {}) {
       if (token === audioToken) {
         audioPlaying = false;
         btn?.classList.remove('playing');
+        container.querySelector('#course-audio-cue')?.classList.remove('is-playing');
       }
     }
   }
@@ -695,6 +711,15 @@ export async function renderCoursePractice(container, app, params = {}) {
     return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
   }
 
+  function themePreference() {
+    try {
+      const saved = localStorage.getItem('lf_theme');
+      return ['light', 'dark', 'system'].includes(saved) ? saved : currentTheme();
+    } catch {
+      return currentTheme();
+    }
+  }
+
   function applyTheme(theme) {
     if (typeof app.setTheme === 'function') app.setTheme(theme);
     else if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
@@ -712,8 +737,9 @@ export async function renderCoursePractice(container, app, params = {}) {
       <label class="course-setting-row">
         <span>Aparência</span>
         <select data-pref="theme">
-          <option value="light" ${currentTheme() === 'light' ? 'selected' : ''}>Claro</option>
-          <option value="dark" ${currentTheme() === 'dark' ? 'selected' : ''}>Escuro</option>
+          <option value="light" ${themePreference() === 'light' ? 'selected' : ''}>Claro</option>
+          <option value="dark" ${themePreference() === 'dark' ? 'selected' : ''}>Escuro</option>
+          <option value="system" ${themePreference() === 'system' ? 'selected' : ''}>Sistema</option>
         </select>
       </label>
       <label class="course-setting-row"><span>Áudio da frase</span><input type="checkbox" role="switch" data-pref="audio" ${prefs.audio ? 'checked' : ''} /></label>
@@ -755,21 +781,38 @@ export async function renderCoursePractice(container, app, params = {}) {
     }
   }
 
-  function exitPractice() {
-    if (!session.finished && session.resolvedCount > 0
-      && !confirm('Sair da prática? O que você já respondeu fica salvo como sessão incompleta.')) return;
+  function leavePractice() {
     app.navigate(backTarget.route, backTarget.params);
+  }
+
+  // Confirmação própria em vez da caixa nativa do navegador: acessível, no tema do player
+  // e sem congelar a página.
+  function setExitOpen(open) {
+    const dialog = container.querySelector('#course-exit');
+    dialog.hidden = !open;
+    if (open) {
+      stopReading();
+      dialog.querySelector('[data-action="cancel-exit"]')?.focus();
+    } else {
+      container.querySelector('#sentence-slots .course-word-input:not([readonly])')?.focus();
+    }
+  }
+
+  function exitPractice() {
+    if (!session.finished && session.resolvedCount > 0) setExitOpen(true);
+    else leavePractice();
   }
 
   function handleGlobalKey(e) {
     onActivity();
     if (e.key === 'Escape') {
       e.preventDefault();
-      if (!container.querySelector('#course-settings').hidden) closeSettings();
+      if (!container.querySelector('#course-exit').hidden) setExitOpen(false);
+      else if (!container.querySelector('#course-settings').hidden) closeSettings();
       else setPaused(!paused);
       return;
     }
-    if (paused || !(e.ctrlKey || e.metaKey)) return;
+    if (paused || !container.querySelector('#course-exit').hidden || !(e.ctrlKey || e.metaKey)) return;
     // e.code (tecla física) cobre US e ABNT2; e.key cobre teclados virtuais.
     const isSemicolon = e.code === 'Semicolon' || e.code === 'Slash' || e.key === ';' || e.key === ':';
     if (e.code === 'Quote' || e.code === 'Backquote' || e.key === "'" || e.key === '"' || e.code === 'Period' || e.key === '.') {

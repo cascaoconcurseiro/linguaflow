@@ -254,3 +254,15 @@ test('UI: análise de cursos tem a função de comparação definida', () => {
   assert.match(src, /const delta = /, 'delta() usado sem estar definido derruba a página Análise');
   assert.match(src, /import \{ compare \} from '\.\.\/progressView\.js'/);
 });
+
+test('UI: barra de progresso do player fica entre o título e o painel de tempo', () => {
+  const player = read('dashboard/js/ui/coursePracticeView.js');
+  const header = player.indexOf('</header>');
+  const bar = player.indexOf('course-player-progress-bar-wrap');
+  const hud = player.indexOf('course-player-hud');
+  assert.ok(header < bar && bar < hud, 'ordem: título → barra → tempo/pontos');
+  assert.match(player, /style\.transform = `scaleX\(/);
+  const css = read('dashboard/css/course-player.css');
+  const block = css.slice(css.indexOf('.course-player-progress-bar-wrap {'), css.indexOf('.course-player-progress-bar {'));
+  assert.doesNotMatch(block, /position:\s*absolute/, 'a barra não pode flutuar no topo da tela');
+});

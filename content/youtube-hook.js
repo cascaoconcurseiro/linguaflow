@@ -80,25 +80,32 @@
             const response = (typeof player?.getPlayerResponse === 'function' ? player.getPlayerResponse() : null)
                 || window.ytInitialPlayerResponse;
             const currentId = new URLSearchParams(window.location.search).get('v');
-            if (response?.videoDetails?.videoId && response.videoDetails.videoId !== currentId) return [];
+            // null = the player response does not describe the current video yet.
+            if (!currentId || response?.videoDetails?.videoId !== currentId) return null;
             const tracks = response?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
             return Array.isArray(tracks) ? tracks : [];
         } catch {
-            return [];
+            return null;
         }
+    };
+
+    const postCaptionAvailability = (videoId, available) => {
+        postBridgeMessage({ type: 'LF_CAPTION_AVAILABILITY', videoId, available });
     };
 
     const preloadFullSubtitleTrack = async (attempt = 0) => {
         const videoId = new URLSearchParams(window.location.search).get('v');
         if (!videoId) return;
         const tracks = getCaptionTracks();
-        if (!tracks.length) {
+        if (!tracks?.length) {
             if (attempt < 4) setTimeout(() => preloadFullSubtitleTrack(attempt + 1), 400 * (attempt + 1));
+            else if (tracks) postCaptionAvailability(videoId, false);
             return;
         }
 
         const matches = tracks.filter((item) => item.baseUrl && item.languageCode?.toLowerCase().split('-')[0] === currentSourceLang.toLowerCase().split('-')[0]);
         const track = matches.find((item) => item.kind !== 'asr') || matches[0];
+        postCaptionAvailability(videoId, Boolean(track?.baseUrl));
         if (!track?.baseUrl) return;
 
         const url = new URL(track.baseUrl, window.location.href);

@@ -29,6 +29,7 @@
 - **Botão de tradução rápida** não troca mais o ícone por texto depois do primeiro uso e tem nome para leitor de tela.
 - **Legenda do YouTube às vezes não aparecia ao abrir um vídeo**: se o player baixava a legenda antes de a extensão começar a escutar, a resposta se perdia, e a busca direta volta vazia (falta o token do player). Agora, sem legenda capturada, a extensão pede ao próprio player que recarregue a faixa original uma vez por vídeo.
 - **Velocidade escolhida não valia ao abrir outro vídeo**: o botão mostrava 0.75× com o vídeo em 1×, porque o YouTube volta a velocidade ao padrão quando carrega a mídia. Agora a velocidade salva é reaplicada a cada vídeo carregado. O teste dos controles do player (`test:max-ui`) encerrava o processo antes de executar e passa a rodar de verdade.
+- **Vídeo sem legenda ficava em silêncio**: quando o YouTube não tem legenda no idioma do vídeo, a LinguaFlow mostra por alguns segundos "Este vídeo não tem legenda em inglês." (anunciado a leitores de tela), em vez de parecer que falhou.
 
 ## [3.0.59] - 2026-09-27
 

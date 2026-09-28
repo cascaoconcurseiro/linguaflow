@@ -7,6 +7,7 @@ export const SUBTITLE_BRIDGE_TYPES = new Set([
   'LF_PLAYER_STATE',
   'LF_AUDIO_LANGUAGE',
   'LF_YT_SUB_TOGGLE',
+  'LF_CAPTION_AVAILABILITY',
 ]);
 export const MAX_SUBTITLE_PAYLOAD_BYTES = 5 * 1024 * 1024;
 export const MAX_SUBTITLE_URL_LENGTH = 4096;
@@ -67,6 +68,10 @@ export function isTrustedSubtitleBridgeMessage(event, bridgeState, currentUrl) {
     return isYouTube && Number.isInteger(data.state) && data.state >= -1 && data.state <= 5;
   }
   if (data.type === 'LF_YT_SUB_TOGGLE') return isYouTube && typeof data.active === 'boolean';
+  if (data.type === 'LF_CAPTION_AVAILABILITY') {
+    return isYouTube && typeof data.available === 'boolean'
+      && typeof data.videoId === 'string' && /^[\w-]{1,32}$/.test(data.videoId);
+  }
 
   if (typeof data.url !== 'string' || data.url.length === 0 || data.url.length > MAX_SUBTITLE_URL_LENGTH) {
     return false;

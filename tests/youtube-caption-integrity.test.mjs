@@ -374,3 +374,44 @@ test('a player response already captured for the video prevents a caption reload
   while(timers.length)timers.shift()();
   assert.deepEqual(setOptions,[]);
 });
+
+test('hook reports caption availability only for a player response of the current video', async () => {
+  const {readFileSync}=await import('node:fs');
+  const {runInNewContext}=await import('node:vm');
+  const script=readFileSync(new URL('../content/youtube-hook.js',import.meta.url),'utf8');
+  async function simulate({responseVideoId,tracks}){
+    const listeners=new Map();const timers=[];const posted=[];
+    const location=new URL('https://www.youtube.com/watch?v=video123');
+    const player={getPlayerResponse:()=>({videoDetails:{videoId:responseVideoId},captions:tracks?{playerCaptionsTracklistRenderer:{captionTracks:tracks}}:undefined}),getOption:()=>[],addEventListener:()=>{}};
+    const document={currentScript:{dataset:{lfNonce:'nonce',lfNavigationUrl:location.href}},getElementById:()=>player,readyState:'loading',addEventListener:()=>{}};
+    const window={location,fetch:async()=>({ok:true,status:200,text:async()=>''}),addEventListener:(name,fn)=>listeners.set(name,fn),postMessage:(msg)=>posted.push(msg)};
+    class XHR{}XHR.prototype.open=function(){};
+    runInNewContext(script,{window,document,XMLHttpRequest:XHR,URL,URLSearchParams,setTimeout:(fn)=>timers.push(fn),console:{debug:()=>{},warn:()=>{}}});
+    listeners.get('message')({source:window,origin:location.origin,data:{type:'LF_PRELOAD_SUBTITLES'}});
+    for(let i=0;i<10&&timers.length;i++){await new Promise(resolve=>setImmediate(resolve));timers.shift()();}
+    await new Promise(resolve=>setImmediate(resolve));
+    return posted.filter((msg)=>msg.type==='LF_CAPTION_AVAILABILITY').map(({videoId,available})=>({videoId,available}));
+  }
+  assert.deepEqual(await simulate({responseVideoId:'video123',tracks:[]}),[{videoId:'video123',available:false}]);
+  assert.deepEqual(await simulate({responseVideoId:'video123',tracks:[{languageCode:'es',baseUrl:'https://www.youtube.com/api/timedtext?v=video123&lang=es'}]}),[{videoId:'video123',available:false}]);
+  assert.deepEqual(await simulate({responseVideoId:'video123',tracks:[{languageCode:'en',baseUrl:'https://www.youtube.com/api/timedtext?v=video123&lang=en'}]}),[{videoId:'video123',available:true}]);
+  assert.deepEqual(await simulate({responseVideoId:'previous',tracks:[]}),[],'resposta do vídeo anterior não é evidência de vídeo sem legenda');
+});
+
+test('engine shows an announced notice when the video has no source caption and clears it', async () => {
+  const {SubtitleEngine}=await import('../content/subtitle-engine.js');
+  const notice={textContent:'',hidden:true};
+  globalThis.window={location:{href:'https://www.youtube.com/watch?v=vid12'}};
+  const engine=Object.create(SubtitleEngine.prototype);
+  Object.assign(engine,{platform:'youtube',cues:[],sourceLang:'en',shadowContainer:{getElementById:(id)=>id==='lf-notice'?notice:null}});
+  engine._handleCaptionAvailability({videoId:'other',available:false});
+  assert.equal(notice.hidden,true,'aviso de outro vídeo é ignorado');
+  engine._handleCaptionAvailability({videoId:'vid12',available:false});
+  assert.equal(notice.hidden,false);
+  assert.match(notice.textContent,/não tem legenda em inglês/);
+  engine._handleCaptionAvailability({videoId:'vid12',available:true});
+  assert.equal(notice.hidden,true);
+  engine.cues=[{start:0,end:1,text:'Hi'}];
+  engine._handleCaptionAvailability({videoId:'vid12',available:false});
+  assert.equal(notice.hidden,true,'com legenda carregada não há aviso');
+});

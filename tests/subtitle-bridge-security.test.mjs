@@ -96,6 +96,15 @@ for (const patch of [{nonce:'forged'},{pageUrl:'https://www.youtube.com/watch?v=
   assert.equal(isTrustedSubtitleBridgeMessage({ ...audioMessage, data:{ ...audioMessage.data, ...patch } }, state, window.location.href), false);
 }
 
+const availability = {
+  source: window,
+  origin: window.location.origin,
+  data: { type: 'LF_CAPTION_AVAILABILITY', nonce: state.nonce, pageUrl: window.location.href, videoId: 'video-a', available: false },
+};
+assert.equal(isTrustedSubtitleBridgeMessage(availability, state, window.location.href), true);
+assert.equal(isTrustedSubtitleBridgeMessage({ ...availability, data: { ...availability.data, available: 'no' } }, state, window.location.href), false);
+assert.equal(isTrustedSubtitleBridgeMessage({ ...availability, data: { ...availability.data, videoId: '<img>' } }, state, window.location.href), false);
+
 window.location.href = 'https://play.max.com/video/title';
 window.location.origin = 'https://play.max.com';
 const maxState = { nonce: 'b'.repeat(48), url: window.location.href };
@@ -113,4 +122,4 @@ const maxMessage = {
 assert.equal(isTrustedSubtitleBridgeMessage(maxMessage, maxState, window.location.href), true);
 assert.equal(isTrustedSubtitleBridgeMessage({ ...maxMessage, data: { ...maxMessage.data, url: 'https://cdn.max.com/video.mp4' } }, maxState, window.location.href), false);
 
-console.log('26 testes de segurança do canal de legendas passaram — tudo verde ✅');
+console.log('29 testes de segurança do canal de legendas passaram — tudo verde ✅');

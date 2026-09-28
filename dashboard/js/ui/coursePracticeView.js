@@ -252,7 +252,7 @@ export async function renderCoursePractice(container, app, params = {}) {
           </div>
           <div class="course-hud-group">
             <div class="course-hud-pill"><span>Tempo de prática</span><strong id="course-timer">00:00</strong></div>
-            <div class="course-hud-pill"><span>Pontos</span><strong id="course-score">0</strong></div>
+            <div class="course-hud-pill course-score-pill"><span>Pontos</span><strong id="course-score">0</strong></div>
             <div class="course-hud-pill combo" id="course-combo-pill" title="${escapeHTML(COMBO_RULE)}"><span>Combo</span><strong id="course-combo">0</strong></div>
           </div>
         </section>
@@ -344,6 +344,7 @@ export async function renderCoursePractice(container, app, params = {}) {
   function showUnit() {
     const unit = session.unit;
     const reviewing = session.isReviewingPrevious;
+    retrigger(container.querySelector('.course-player-body'), 'is-entering');
     closeBreakdown();
     setFeedback(reviewing ? 'Frase já respondida (só consulta).' : '');
     advancing = false;
@@ -440,10 +441,38 @@ export async function renderCoursePractice(container, app, params = {}) {
     set('skip', reviewing || session.currentDone);
   }
 
+  // Reinicia uma animação CSS de feedback (a mesma classe pode disparar várias vezes).
+  function retrigger(el, cls) {
+    if (!el) return;
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+  }
+
+  // "+N" que sobe ao lado do placar: liga o acerto ao ganho de pontos.
+  function floatGain(amount) {
+    const pill = container.querySelector('.course-score-pill');
+    if (!pill || amount <= 0) return;
+    const chip = document.createElement('span');
+    chip.className = 'course-gain';
+    chip.setAttribute('aria-hidden', 'true');
+    chip.textContent = `+${amount}`;
+    pill.appendChild(chip);
+    setTimeout(() => chip.remove(), 800);
+  }
+
   function updateHud() {
-    container.querySelector('#course-score').textContent = String(session.score);
-    container.querySelector('#course-combo').textContent = String(session.streak);
-    container.querySelector('#course-combo-pill').classList.toggle('pop', session.streak > 0);
+    const scoreEl = container.querySelector('#course-score');
+    const comboEl = container.querySelector('#course-combo');
+    const prevScore = Number(scoreEl.textContent) || 0;
+    const prevCombo = Number(comboEl.textContent) || 0;
+    scoreEl.textContent = String(session.score);
+    comboEl.textContent = String(session.streak);
+    if (session.score > prevScore) floatGain(session.score - prevScore);
+    const pill = container.querySelector('#course-combo-pill');
+    pill.classList.toggle('is-active', session.streak > 0);
+    pill.classList.toggle('is-milestone', session.streak > 0 && session.streak % 5 === 0);
+    if (session.streak > prevCombo) retrigger(pill, 'bump');
   }
 
   function setFeedback(text) {
@@ -519,7 +548,13 @@ export async function renderCoursePractice(container, app, params = {}) {
 
     advancing = true;
     soundEngine.playChord(session.streak > 0 && session.streak % 5 === 0 ? 'milestone' : 'word');
-    inputs.forEach((i) => { i.classList.remove('is-wrong', 'is-hinted'); i.classList.add('is-correct'); i.readOnly = true; });
+    inputs.forEach((i, k) => {
+      i.classList.remove('is-wrong', 'is-hinted');
+      i.classList.add('is-correct');
+      i.readOnly = true;
+      i.style.setProperty('--settle-delay', `${k * 35}ms`);
+      retrigger(i, 'is-settled');
+    });
     const done = session.unit;
     const example = done?.example_en ? ` · Exemplo: ${done.example_en} (${done.example_pt || ''})` : '';
     setFeedback(`${result.clean ? `Certo! +${result.gained}` : `Certo. +${result.gained}`}${example}`);

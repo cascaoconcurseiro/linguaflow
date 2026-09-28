@@ -89,4 +89,4 @@ Padrões por tipo:
 - [x] **Entrevista de Emprego** (B1) 1–8: abertura, fale sobre você, experiência, pontos fortes e fracos, situações (STAR), motivação, salário, perguntas finais e follow-up (entrevista-1)
 - [x] **Expressões Idiomáticas e Fluência** (B2) 1–6: trabalho, sentimentos, dinheiro e tempo, marcadores, suavizar opiniões, contar histórias (fluencia-1)
 - [x] **Histórias em Trechos** (B1) 1–10: dez contos originais em oito trechos cada (historias-1)
-- [ ] **Parágrafos** (10)
+- [x] **Parágrafos** (B2) 1–10: apresentação, rotina, cidade, viagem, opinião, e-mail formal, resenha, processo, comparação, planos; quatro parágrafos cada (paragrafos-1)

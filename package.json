@@ -50,7 +50,7 @@
     "test:onboarding": "node tests/onboarding-p1-c.test.mjs && node tests/home-direct-entry.test.mjs",
     "test:practice-progress": "node tests/practice-progress-p1-d.test.mjs && npm run test:game-removal",
     "test:game-removal": "node tests/game-removal-contract.test.mjs",
-    "test:auth-ux": "node tests/auth-ux-resilience-p0-p1.test.mjs && node tests/signup-session.test.mjs",
+    "test:auth-ux": "node tests/auth-ux-resilience-p0-p1.test.mjs && node tests/signup-session.test.mjs && node tests/auth-401-refresh.test.mjs",
     "test:translation-quality": "node tests/translation-quality.test.mjs",
     "test:eager-sidebar": "node tests/eager-sidebar-translations.test.mjs",
     "test:extension-translation-proxy": "node tests/extension-translation-proxy.test.mjs",

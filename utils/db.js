@@ -4,6 +4,7 @@ import { addLocalDays, localDateKey, localDayBounds } from './local-day.js';
 import { ReaderStoriesRepository } from './db/reader-stories-repo.js';
 import { GamificationRepository } from './db/gamification-repo.js';
 import { CoursesRepository } from './db/courses-repo.js';
+import { StatsRepository } from './db/stats-repo.js';
 
 const SUPABASE_URL = 'https://qnutoswrufznztoznlql.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_sjE7swuyYQz-80x9lttf4Q_awnZ_YlY';
@@ -60,6 +61,7 @@ class Database {
     this._readerStoriesRepo = new ReaderStoriesRepository(this);
     this._gamificationRepo = new GamificationRepository(this);
     this.courses = new CoursesRepository(this);
+    this.stats = new StatsRepository(this);
     this._canonicalLexiconMemory = new Map();
   }
 

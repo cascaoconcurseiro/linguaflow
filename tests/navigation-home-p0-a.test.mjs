@@ -38,9 +38,9 @@ assert.match(css, /\.profile-menu\[hidden\] \{ display:none; \}/);
 assert.match(css, /\.profile-menu button \{[^}]*min-height:44px/);
 for (const route of ['stories', 'reader']) assert.match(learn, new RegExp(`route: '${route}'`));
 assert.doesNotMatch(learn, /route: 'game'/);
-for (const route of ['fluency-check', 'stats', 'leagues']) assert.match(progress, new RegExp(`route: '${route}'`));
+assert.match(progress, /data-go="fluency-check"/, 'Progresso mantém o link para o Check de comunicação');
+assert.doesNotMatch(progress, /route: 'leagues'/, 'Liga saiu da página Progresso');
 assert.match(learn, /data-learn-route="\$\{item\.route\}"/);
-assert.match(progress, /data-progress-route="\$\{item\.route\}"/);
 
 const cases = [
   [{ totalWords:0 }, 'first-context', 'stories'],

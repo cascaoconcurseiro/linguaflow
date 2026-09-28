@@ -105,6 +105,7 @@
         "utils/db/reader-stories-repo.js",
         "utils/db/gamification-repo.js",
         "utils/db/courses-repo.js",
+        "utils/db/stats-repo.js",
         "utils/local-day.js",
         "utils/expressions-db.js",
         "utils/slangs-db.js",

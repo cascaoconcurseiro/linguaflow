@@ -263,3 +263,53 @@ test('subtitles do not persist indefinitely during music or silence', async () =
   assert.ok(grouped[0].end < 21, `Phrase duration should end around 19s, got end: ${grouped[0].end}`);
   assert.equal(grouped[1].text, 'Next sentence.');
 });
+
+test('captions fetched by the player before the SPA bridge rotates are replayed with the new nonce', async () => {
+  const {readFileSync}=await import('node:fs');
+  const {runInNewContext}=await import('node:vm');
+  const script=readFileSync(new URL('../content/youtube-hook.js',import.meta.url),'utf8');
+  const body=JSON.stringify({events:[{tStartMs:0,dDurationMs:2000,segs:[{utf8:'Hello there.'}]}]});
+  const listeners=new Map();const posted=[];
+  const oldUrl='https://www.youtube.com/watch?v=old1';const newUrl='https://www.youtube.com/watch?v=new2';
+  const window={location:new URL(oldUrl),fetch:async()=>({ok:true,status:200,clone:()=>({text:async()=>body})}),
+    addEventListener:(name,fn)=>listeners.set(name,fn),postMessage:(message)=>posted.push(message)};
+  const makeDocument=(nonce,previous,url)=>({currentScript:{dataset:{lfNonce:nonce,lfPreviousNonce:previous,lfNavigationUrl:url}},getElementById:()=>null,readyState:'loading',addEventListener:()=>{}});
+  class XHR{}XHR.prototype.open=()=>{};
+  const run=(document)=>runInNewContext(script,{window,document,XMLHttpRequest:XHR,URL,URLSearchParams,setTimeout:()=>{},console:{debug:()=>{},warn:()=>{}}});
+  run(makeDocument('nonce-1','',oldUrl));
+  // SPA: the URL changes and the player downloads the new track before the injector rotates the nonce.
+  window.location=new URL(newUrl);
+  await window.fetch('https://www.youtube.com/api/timedtext?v=new2&lang=en&pot=signed');
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.ok(posted.every(message=>message.nonce==='nonce-1'),'stale capture is posted with the old nonce and rejected by the engine');
+  run(makeDocument('nonce-2','nonce-1',newUrl));
+  const replayed=posted.filter(message=>message.nonce==='nonce-2'&&message.type==='LF_SUBTITLE_HOOK');
+  assert.equal(replayed.length,1);
+  assert.equal(replayed[0].data,body);
+  assert.equal(replayed[0].pageUrl,newUrl);
+  // A later preload request replays again without refetching; other videos are never replayed.
+  listeners.get('message')({source:window,origin:window.location.origin,data:{type:'LF_PRELOAD_SUBTITLES'}});
+  assert.equal(posted.filter(message=>message.nonce==='nonce-2'&&message.type==='LF_SUBTITLE_HOOK').length,2);
+  window.location=new URL('https://www.youtube.com/watch?v=other3');
+  run(makeDocument('nonce-3','nonce-2','https://www.youtube.com/watch?v=other3'));
+  assert.equal(posted.filter(message=>message.nonce==='nonce-3').length,0);
+});
+
+test('SPA navigations reuse the YouTube <video> without stacking play/seeking listeners', async () => {
+  const {SubtitleEngine}=await import('../content/subtitle-engine.js');
+  const counts={};
+  const vid={addEventListener:(name)=>{counts[name]=(counts[name]||0)+1;}};
+  const previous={setInterval:globalThis.setInterval,clearInterval:globalThis.clearInterval,setTimeout:globalThis.setTimeout,document:globalThis.document};
+  globalThis.setInterval=(fn)=>{fn();return 1;};globalThis.clearInterval=()=>{};globalThis.setTimeout=()=>0;
+  globalThis.document={querySelector:(selector)=>selector==='video'?vid:null,getElementById:()=>null};
+  try {
+    const engine=Object.create(SubtitleEngine.prototype);
+    Object.assign(engine,{platform:'youtube',isActivated:false});
+    engine._injectSubtitleUI=async()=>{};engine._startSyncLoop=()=>{};engine._injectYouTubeControls=()=>{};
+    for(let i=0;i<3;i++)engine._waitForVideo();
+    assert.equal(counts.play,1);
+    assert.equal(counts.seeking,1);
+  } finally {
+    Object.assign(globalThis,previous);
+  }
+});

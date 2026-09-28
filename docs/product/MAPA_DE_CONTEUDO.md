@@ -33,7 +33,7 @@ Padrões por tipo:
 - [ ] Formas e tamanhos · Aparência e personalidade
 - [x] Casa e cômodos (palavras-3)
 - [ ] Móveis · Cozinha e utensílios · Banheiro e higiene · Tarefas domésticas
-- [ ] Comida básica · Frutas · Legumes e verduras · Carnes e peixes · Bebidas · Temperos e sabores
+- [x] Comida básica e refeições · Frutas, legumes e verduras · Bebidas, sabores e mesa (palavras-4)
 - [ ] Cidade e lugares · Transporte · Direções e posições · Natureza · Clima e tempo · Animais
 - [ ] Escola e estudo · Trabalho e profissões · Escritório · Tecnologia e internet · Dinheiro e compras
 - [ ] Saúde e sintomas · Emoções · Esportes · Lazer e hobbies · Música e cinema · Viagem

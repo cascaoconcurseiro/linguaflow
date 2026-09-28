@@ -31,6 +31,23 @@ export const CATEGORY_LABEL = {
   writing: 'Escrita',
 };
 
+export function plural(n, one, many) {
+  return `${n} ${Number(n) === 1 ? one : many}`;
+}
+
+// Nome da unidade pela forma predominante do curso (catálogo: unit_kind).
+const UNIT_NOUN = {
+  word: ['palavra', 'palavras'],
+  verb_forms: ['verbo', 'verbos'],
+  phrasal: ['phrasal verb', 'phrasal verbs'],
+  story: ['trecho', 'trechos'],
+  paragraph: ['parágrafo', 'parágrafos'],
+};
+export function unitCount(course, n) {
+  const [one, many] = UNIT_NOUN[course?.unit_kind] || ['frase', 'frases'];
+  return plural(n, one, many);
+}
+
 export function formatDuration(seconds) {
   const s = Math.max(0, Math.round(Number(seconds) || 0));
   if (s < 60) return `${s} s`;

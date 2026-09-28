@@ -4,6 +4,7 @@
 import { escapeHTML } from '../../../utils/html.js';
 import { soundEngine } from '../core/soundFx.js';
 import { loadPrefs, savePrefs, stepPref, PREF_LIMITS } from '../core/coursePrefs.js';
+import { unitCount } from './courses/courseUi.js';
 
 export const MODES = [
   { id: 'easy', label: 'Fácil', text: 'A frase completa aparece: ouça e copie.' },
@@ -25,7 +26,7 @@ export function openCoursePrepareModal({ lesson, course, onStart }) {
   const meta = [
     course.title,
     lesson.chapter_number ? `Capítulo ${Number(lesson.chapter_number)}` : null,
-    `${Number(lesson.unit_count) || 0} frases`,
+    unitCount(course, Number(lesson.unit_count) || 0),
   ].filter(Boolean).join(' · ');
 
   const root = document.createElement('div');

@@ -2,7 +2,7 @@
 
 import { db } from '../../../../utils/db.js';
 import { escapeHTML } from '../../../../utils/html.js';
-import { CATEGORY_LABEL, TRACKS, TRACK_LABEL, byPathOrder, levelPill, lessonProgress, continueLessonOf, startLesson, renderEmpty } from './courseUi.js';
+import { CATEGORY_LABEL, TRACKS, TRACK_LABEL, byPathOrder, levelPill, lessonProgress, continueLessonOf, startLesson, renderEmpty, plural, unitCount } from './courseUi.js';
 
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1'];
 const SORTS = { recommended: 'Recomendados', popular: 'Mais alunos', newest: 'Mais novos' };
@@ -18,7 +18,7 @@ function courseCard(course, { showToggle = true } = {}) {
           <span class="course-card-stats">${escapeHTML(TRACK_LABEL[course.track] || CATEGORY_LABEL[course.category] || '')}</span></div>
         <h3 id="t-${escapeHTML(course.id)}" class="course-card-title">${escapeHTML(course.title)}</h3>
         <p class="course-card-desc">${escapeHTML(course.short_description)}</p>
-        <p class="course-card-stats">${course.lessons.length} ${course.lessons.length === 1 ? 'capítulo' : 'capítulos'} · ${units} frases · ${course.learners_count} ${course.learners_count === 1 ? 'aluno' : 'alunos'}</p>
+        <p class="course-card-stats">${plural(course.lessons.length, 'capítulo', 'capítulos')} · ${unitCount(course, units)} · ${plural(course.learners_count, 'aluno', 'alunos')}</p>
         ${course.my ? `<div class="course-hero-progress-track" role="progressbar" aria-label="Progresso no curso" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><div class="course-hero-progress-bar" style="width:${percent}%"></div></div>` : ''}
       </div>
       <div class="course-card-actions">
@@ -151,12 +151,12 @@ export function renderCourseDetail(panel, ctx, courseId, openLessonId = null) {
     <button class="course-link" type="button" data-back>← Loja de cursos</button>
     <header class="course-detail-head">
       <div>
-        ${levelPill(course.level)} <span class="course-card-stats">${escapeHTML(CATEGORY_LABEL[course.category] || course.category)}</span>
+        ${levelPill(course.level)} <span class="course-card-stats">${escapeHTML(TRACK_LABEL[course.track] || CATEGORY_LABEL[course.category] || '')}</span>
         <h2 class="course-hub-title">${escapeHTML(course.title)}</h2>
         <p class="course-hub-subtitle">${escapeHTML(course.long_description || course.short_description)}</p>
-        <p class="course-card-stats">${course.lessons.length} capítulos · ${units} frases · ${course.learners_count} ${course.learners_count === 1 ? 'aluno' : 'alunos'} · tradução em português</p>
+        <p class="course-card-stats">${plural(course.lessons.length, 'capítulo', 'capítulos')} · ${unitCount(course, units)} · ${plural(course.learners_count, 'aluno', 'alunos')} · tradução em português</p>
         <div class="course-hero-progress-track" role="progressbar" aria-label="Progresso no curso" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><div class="course-hero-progress-bar" style="width:${percent}%"></div></div>
-        <p class="course-card-stats">${answered} / ${units} frases concluídas · ${percent}%</p>
+        <p class="course-card-stats">${answered} / ${unitCount(course, units)} concluídas · ${percent}%</p>
       </div>
       <div class="course-detail-actions">
         <button class="course-btn-primary-lg" type="button" data-continue>${answered > 0 ? 'Continuar' : 'Começar'}</button>
@@ -171,7 +171,7 @@ export function renderCourseDetail(panel, ctx, courseId, openLessonId = null) {
           <span class="course-chapter-num" aria-hidden="true">${String(lesson.chapter_number).padStart(2, '0')}</span>
           <div class="course-chapter-info">
             <strong>${escapeHTML(lesson.title)}${lesson.id === cont.id && !done ? ' <span class="course-tab-badge">Próximo</span>' : ''}</strong>
-            <span class="course-card-stats">${lesson.unit_count} frases${lesson.description ? ` · ${escapeHTML(lesson.description)}` : ''}</span>
+            <span class="course-card-stats">${unitCount(course, lesson.unit_count)}${lesson.description ? ` · ${escapeHTML(lesson.description)}` : ''}</span>
           </div>
           <div class="course-chapter-progress" role="progressbar" aria-label="Progresso do capítulo ${lesson.chapter_number}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${lp}">
             <span>${done ? '✓ ' : ''}${lp}%</span><div class="course-hero-progress-track"><div class="course-hero-progress-bar" style="width:${lp}%"></div></div>

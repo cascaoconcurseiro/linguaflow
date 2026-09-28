@@ -1,7 +1,7 @@
 // Início dos Cursos: continuar, semana, revisão do dia, tempo e recentes.
 
 import { escapeHTML } from '../../../../utils/html.js';
-import { formatDuration, formatDateTime, formatDate, levelPill, lessonProgress, continueLessonOf, startLesson, renderEmpty } from './courseUi.js';
+import { formatDuration, formatDateTime, formatDate, levelPill, lessonProgress, continueLessonOf, startLesson, renderEmpty, plural, unitCount } from './courseUi.js';
 
 const WEEKDAYS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
 
@@ -59,13 +59,13 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate 
     const { percent } = lessonProgress(cont.lesson, cont.course);
     return `
       <div class="course-continue-body">
-        ${levelPill(cont.course.level)} <span class="course-card-stats">${cont.course.lessons.length} capítulos</span>
+        ${levelPill(cont.course.level)} <span class="course-card-stats">${plural(cont.course.lessons.length, 'capítulo', 'capítulos')}</span>
         <h3 class="course-hero-title">${escapeHTML(cont.course.title)}</h3>
         <p class="course-hub-subtitle">${cont.lesson.chapter_number}. ${escapeHTML(cont.lesson.title)}</p>
         <div class="course-hero-progress-track" role="progressbar" aria-label="Progresso do capítulo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}">
           <div class="course-hero-progress-bar" style="width:${percent}%"></div>
         </div>
-        <p class="course-card-stats">${Math.round((percent / 100) * cont.lesson.unit_count)} / ${cont.lesson.unit_count} frases</p>
+        <p class="course-card-stats">${Math.round((percent / 100) * cont.lesson.unit_count)} / ${unitCount(cont.course, cont.lesson.unit_count)}</p>
         <button class="course-btn-primary-lg" type="button" data-continue>Continuar</button>
       </div>`;
   })() : `

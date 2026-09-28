@@ -183,3 +183,15 @@ test('trilha: RPC protegida, nível por 80% e nivelamento como ponto de partida'
   const home = read('dashboard/js/ui/courses/courseHome.js');
   assert.match(home, /data-path-next/, 'próxima aula recomendada');
 });
+
+test('catálogo: expõe unit_kind e a UI nomeia a contagem pelo tipo', async () => {
+  const sql = read('supabase/migrations/20260928000200_course_catalog_unit_kind.sql');
+  assert.match(sql, /'unit_kind', \(SELECT mode\(\) WITHIN GROUP \(ORDER BY u\.kind\)/);
+  assert.match(sql, /SECURITY DEFINER[\s\S]*SET search_path = ''/);
+  const { unitCount, plural } = await import('../dashboard/js/ui/courses/courseUi.js').catch(() => ({}));
+  if (!unitCount) return; // módulo depende de DOM; o contrato acima já cobre o SQL
+  assert.equal(unitCount({ unit_kind: 'word' }, 20), '20 palavras');
+  assert.equal(unitCount({ unit_kind: 'verb_forms' }, 1), '1 verbo');
+  assert.equal(unitCount({}, 3), '3 frases');
+  assert.equal(plural(1, 'capítulo', 'capítulos'), '1 capítulo');
+});

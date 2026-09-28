@@ -271,3 +271,21 @@ test('UI: barra de progresso do player fica entre o título e o painel de tempo'
   const block = css.slice(css.indexOf('.course-player-progress-bar-wrap {'), css.indexOf('.course-player-progress-bar {'));
   assert.doesNotMatch(block, /position:\s*absolute/, 'a barra não pode flutuar no topo da tela');
 });
+
+test('UI: motion do player é funcional, só transform/opacity e respeita movimento reduzido', () => {
+  const player = read('dashboard/js/ui/coursePracticeView.js');
+  assert.match(player, /retrigger\(i, 'is-settled'\)/, 'acerto: palavras assentam');
+  assert.match(player, /floatGain\(session\.score - prevScore\)/, 'pontos: +N ao ganhar');
+  assert.match(player, /retrigger\(pill, 'bump'\)/, 'combo: pulso a cada acerto seguido');
+  assert.match(player, /retrigger\(container\.querySelector\('\.course-player-body'\), 'is-entering'\)/, 'troca de frase com continuidade');
+  const css = read('dashboard/css/course-player.css');
+  for (const name of ['course-gain-rise', 'course-word-settle', 'course-unit-enter', 'course-combo-bump']) {
+    const block = css.slice(css.indexOf(`@keyframes ${name}`), css.indexOf('}\n}', css.indexOf(`@keyframes ${name}`)) + 3);
+    assert.ok(block.length > 20, `${name} definido`);
+    assert.doesNotMatch(block, /\b(width|height|top|left|margin)\s*:/, `${name} anima só transform/opacity`);
+  }
+  const reduced = css.slice(css.lastIndexOf('@media (prefers-reduced-motion: reduce)'));
+  assert.match(reduced, /\.course-word-input\.is-settled/);
+  assert.match(reduced, /\.course-player-body\.is-entering/);
+  assert.match(css, /\.course-reduce-motion \*, \.course-reduce-motion \*::before, \.course-reduce-motion \*::after \{\s*animation: none !important/);
+});

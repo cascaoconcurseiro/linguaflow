@@ -68,7 +68,7 @@ Padrões por tipo:
 - [x] **Rotina e Vida em Casa** (A2) 1–6: manhã, tarefas, cozinha, hábitos, fim de semana, planos (rotina-1)
 - [x] **Compras sem Mistério** (A2) 1–6: mercado, roupas, pagamento, trocas, online e entregas, reclamar (compras-1)
 - [x] **Saúde e Bem-estar** (A2) 1–6: consulta, sintomas, receita, dentista, academia, hospital e seguro (saude-1)
-- [ ] **Social** (12): apresentar-se, convites, conversa fiada, elogios, desculpas, opiniões, discordar com educação…
+- [x] **Vida Social** (A2) 1–6: conhecer pessoas, convites, puxar conversa, elogios, opinião, desculpas (social-1)
 - [ ] **Sobrevivência** (10): não entendi, repetir, soletrar, pedir ajuda, telefone, banco, correios…
 - [x] **Inglês das Ruas & Gírias** (12 capítulos; 5–12 no lote ruas-1): elogios, reduções, mensagens, dinheiro, cansaço, idiomáticas, discordar, revisão
 

@@ -28,11 +28,11 @@ Padrões por tipo:
 **1000 Palavras Essenciais (A1→A2)** — 50 capítulos de 20 palavras
 - [x] Pessoas e família (fundamentos-1) · Cores · Números 1–20 · Itens essenciais do dia a dia (palavras-1)
 - [x] Números de 21 em diante e ordinais · Dias da semana e meses · Horas e partes do dia (palavras-2)
-- [ ] Estações do ano
+- [x] Estações do ano (coberto em Clima e natureza, palavras-5)
 - [x] Corpo humano · Roupas e acessórios (palavras-3)
-- [ ] Formas e tamanhos · Aparência e personalidade
+- [x] Formas e tamanhos · Aparência · Personalidade (palavras-8)
 - [x] Casa e cômodos (palavras-3)
-- [ ] Móveis · Cozinha e utensílios · Banheiro e higiene · Tarefas domésticas
+- [x] Móveis e objetos · Cozinha e utensílios · Banheiro e higiene (palavras-8) · Tarefas domésticas (curso Rotina, cap. 2)
 - [x] Comida básica e refeições · Frutas, legumes e verduras · Bebidas, sabores e mesa (palavras-4)
 - [x] Cidade e lugares · Transporte · Clima e natureza (palavras-5)
 - [x] Direções e posições · Animais (palavras-6)

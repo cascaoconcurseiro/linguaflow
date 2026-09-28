@@ -42,8 +42,9 @@ Padrões por tipo:
 
 **Primeiras Frases (A1)** — 12 capítulos
 - [x] Eu sou, você é
-- [ ] Perguntas com to be · Negativas · There is / there are · Have got · Possessivos
-- [ ] Presente simples (rotina) · Perguntas com do/does · Can (habilidade e pedido) · Imperativo · Like + -ing · Revisão
+- [x] Perguntas com to be · Negativas · There is / there are · Possessivos (lote frases-1)
+- [x] Presente simples (rotina) · Perguntas com do/does (lote frases-1)
+- [ ] Can (habilidade e pedido) · Imperativo · Like + -ing · Passado com was/were · Revisão
 
 **Números, Horas e Datas (A1)** — 8 capítulos
 - [ ] Números e idade · Preços e dinheiro · Telefone e e-mail soletrado · Horas · Datas e aniversários · Agenda e compromissos · Medidas · Revisão

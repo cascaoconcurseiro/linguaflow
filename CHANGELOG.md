@@ -11,6 +11,7 @@
 - **Botão CC desligando sozinho após várias trocas de vídeo**: cada navegação somava um novo listener de `play` no mesmo `<video>`, clicando o CC várias vezes por play.
 - **Nível CEFR do painel do vídeo não chegava ao site**: trocar o nível no painel de legendas gerava ReferenceError (`db` não importado) e o nível não sincronizava. O teste de variáveis não declaradas passa a cobrir também a extensão (`content`, `background`, `popup`).
 - **Sessão caía com o token de renovação ainda válido**: qualquer 401 deslogava na hora. Com o relógio do PC atrasado alguns minutos, o token parecia válido localmente e o servidor recusava. Agora o 401 força uma renovação e repete a chamada uma vez; só desloga se a renovação for recusada.
+- **Palavra salva que o servidor recusava sumia em silêncio**: o popup confirmava "salvo" e a fila repetia o envio a cada minuto para sempre. Agora uma recusa do servidor (4xx) para de repetir, e o popup da extensão mostra as palavras aguardando sincronização e as que não puderam ser salvas, com "Tentar de novo" e "Descartar" (com confirmação). Deslogado, o popup avisa quantas palavras vão sincronizar ao entrar.
 
 ## [3.0.59] - 2026-09-27
 

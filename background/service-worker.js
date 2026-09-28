@@ -18,6 +18,7 @@ import {
   backfillMissingSentences as backfillMissingSentencesModule,
 } from './ai-generator.js';
 import { isValidIpa, cleanIpa } from '../utils/ipa-validator.js';
+import { isPermanentSaveError, retryableEntries, summarizeWordSaveQueue } from './word-save-queue.js';
 
 // Métodos que páginas da extensão podem chamar através do service worker.
 // A fronteira explícita impede acesso a helpers internos como db._fetch.
@@ -182,6 +183,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     enqueueFirstRecall(request.payload)
       .then(() => { sendResponse({ ok: true }); drainFirstRecalls(); })
       .catch((error) => sendResponse({ ok: false, error: error?.message || String(error) }));
+    return true;
+  }
+
+  // Popup: estado da fila de palavras (pendentes e recusadas pelo servidor).
+  if (['GET_WORD_SAVE_QUEUE', 'RETRY_FAILED_WORD_SAVES', 'DISCARD_FAILED_WORD_SAVES'].includes(request.type)) {
+    if (sender?.id !== chrome.runtime.id || !sender?.url?.startsWith(chrome.runtime.getURL(''))) {
+      sendResponse({ ok: false, error: 'Remetente não autorizado.' });
+      return false;
+    }
+    (async () => {
+      const queue = await readLocal(PENDING_WORD_SAVES_KEY) || {};
+      if (request.type === 'RETRY_FAILED_WORD_SAVES' || request.type === 'DISCARD_FAILED_WORD_SAVES') {
+        for (const [id, item] of Object.entries(queue)) {
+          if (!item?.failed) continue;
+          if (request.type === 'DISCARD_FAILED_WORD_SAVES') delete queue[id];
+          else queue[id] = { ...item, failed: false, attempts: 0, queuedAt: Number(item.queuedAt || 0) + 1 };
+        }
+        await writeLocal({ [PENDING_WORD_SAVES_KEY]: queue });
+        if (request.type === 'RETRY_FAILED_WORD_SAVES') syncPendingWordSaves();
+      }
+      return { ok: true, ...summarizeWordSaveQueue(queue) };
+    })().then(sendResponse).catch((error) => sendResponse({ ok: false, error: error?.message || String(error) }));
     return true;
   }
 
@@ -813,9 +836,7 @@ async function syncPendingWordSaves() {
     const processedVersions = new Set();
     while (true) {
       const queue = await readLocal(PENDING_WORD_SAVES_KEY) || {};
-      const pending = Object.entries(queue).filter(([id, item]) => (
-        !processedVersions.has(`${id}:${item.queuedAt}`)
-      ));
+      const pending = retryableEntries(queue, processedVersions);
       if (pending.length === 0) break;
 
       for (const [id, item] of pending) {
@@ -839,6 +860,8 @@ async function syncPendingWordSaves() {
           if (latest[id]?.queuedAt === item.queuedAt) {
             latest[id].attempts = (latest[id].attempts || 0) + 1;
             latest[id].lastError = String(error?.message || error).slice(0, 160);
+            // Recusa do servidor não melhora repetindo: para e mostra no popup.
+            if (isPermanentSaveError(error)) latest[id].failed = true;
             await writeLocal({ [PENDING_WORD_SAVES_KEY]: latest });
           }
         }

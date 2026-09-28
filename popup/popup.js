@@ -12,8 +12,67 @@ function show(area) {
   area.classList.remove('hidden');
 }
 
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+// Palavras salvas ficam numa fila local até o banco confirmar. O popup mostra
+// o que ainda não sincronizou e o que o servidor recusou (não repete sozinho).
+async function renderWordSaveQueue(type = 'GET_WORD_SAVE_QUEUE') {
+  let summary = null;
+  try { summary = await chrome.runtime.sendMessage({ type }); } catch { /* SW reiniciando */ }
+  if (!summary?.ok) return summary;
+
+  const loginPending = document.getElementById('login-pending');
+  const total = summary.pending + summary.failed.length;
+  loginPending.classList.toggle('hidden', total === 0);
+  loginPending.textContent = total
+    ? `${plural(total, 'palavra salva vai', 'palavras salvas vão')} sincronizar quando você entrar.`
+    : '';
+
+  const box = document.getElementById('sync-box');
+  const list = document.getElementById('sync-failed-list');
+  const actions = document.getElementById('sync-actions');
+  const failed = summary.failed.length;
+  box.classList.toggle('hidden', total === 0);
+  box.classList.toggle('has-failed', failed > 0);
+  actions.classList.toggle('hidden', failed === 0);
+  list.replaceChildren(...summary.failed.slice(0, 5).map((item) => {
+    const li = document.createElement('li');
+    li.textContent = item.word;
+    return li;
+  }));
+  const parts = [];
+  if (failed) parts.push(`${plural(failed, 'palavra não pôde ser salva', 'palavras não puderam ser salvas')}.`);
+  if (summary.pending) parts.push(`${plural(summary.pending, 'palavra aguardando', 'palavras aguardando')} sincronização.`);
+  document.getElementById('sync-text').textContent = parts.join(' ');
+  return summary;
+}
+
+async function runQueueAction(type, button) {
+  const retry = document.getElementById('btn-sync-retry');
+  const discard = document.getElementById('btn-sync-discard');
+  const label = button.textContent;
+  retry.disabled = true;
+  discard.disabled = true;
+  button.textContent = type === 'RETRY_FAILED_WORD_SAVES' ? 'Tentando…' : 'Descartando…';
+  const result = await renderWordSaveQueue(type);
+  if (!result?.ok) document.getElementById('sync-text').textContent = 'Não foi possível atualizar a fila. Tente de novo.';
+  retry.disabled = false;
+  discard.disabled = false;
+  button.textContent = label;
+}
+
+document.getElementById('btn-sync-retry').addEventListener('click', (event) => {
+  runQueueAction('RETRY_FAILED_WORD_SAVES', event.currentTarget);
+});
+document.getElementById('btn-sync-discard').addEventListener('click', (event) => {
+  // Descartar apaga a palavra da fila local de vez: pede confirmação.
+  if (!confirm('Descartar as palavras que não puderam ser salvas? Elas não vão para o seu Cofre.')) return;
+  runQueueAction('DISCARD_FAILED_WORD_SAVES', event.currentTarget);
+});
+
 async function renderLoggedIn() {
   show(areaLogged);
+  renderWordSaveQueue();
 
   // E-mail do usuário logado (lido da sessão salva)
   try {
@@ -131,6 +190,7 @@ async function init() {
     console.warn('[Popup] Erro ao ler sessão local:', e);
   }
   show(areaLogin);
+  renderWordSaveQueue();
 }
 
 // ── Login ────────────────────────────────────────────────────────────────────

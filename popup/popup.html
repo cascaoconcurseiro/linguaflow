@@ -40,6 +40,12 @@
       .tip { font-size:11px; border-top:1px solid var(--color-border); margin:14px 0 0; padding-top:14px; }
       body.is-tab-mode { width:100%; min-height:100vh; display:grid; place-items:center; }
       body.is-tab-mode .popup-card { max-width:380px; }
+      .sync-box { margin:0 0 16px; padding:12px; border:1px solid var(--color-border); border-radius:5px; background:var(--color-surface); font-size:13px; }
+      .sync-box p { margin:0; color:var(--color-text); }
+      .sync-box.has-failed { border-color:var(--color-danger); }
+      .sync-list { margin:8px 0 0; padding-left:18px; color:var(--color-text-light); font-size:12px; overflow-wrap:anywhere; }
+      .sync-actions { display:flex; gap:12px; align-items:center; margin-top:10px; }
+      .sync-actions .btn { width:auto; min-height:40px; margin:0; padding:8px 14px; }
       @media(prefers-reduced-motion:reduce) { * { transition:none!important; } }
     </style>
   </head>
@@ -64,6 +70,7 @@
           <label for="login-password">Senha</label>
           <input type="password" id="login-password" autocomplete="current-password" required />
           <div id="login-error" class="error" role="alert" aria-live="polite"></div>
+          <p id="login-pending" class="hidden" role="status"></p>
           <button type="submit" id="btn-login" class="btn btn-primary">Entrar</button>
         </form>
         <button id="btn-signup-link" class="btn btn-secondary">Criar conta no site</button>
@@ -97,6 +104,15 @@
 
           <div class="cards-due-box" id="cards-due-box">
             <span id="due-cards-text">Você tem <strong id="due-cards-count" style="color:var(--color-secondary);">0</strong> frases para revisar</span>
+          </div>
+        </div>
+
+        <div id="sync-box" class="sync-box hidden" role="status" aria-live="polite">
+          <p id="sync-text"></p>
+          <ul id="sync-failed-list" class="sync-list"></ul>
+          <div id="sync-actions" class="sync-actions hidden">
+            <button type="button" id="btn-sync-retry" class="btn btn-secondary">Tentar de novo</button>
+            <button type="button" id="btn-sync-discard" class="btn-ghost">Descartar</button>
           </div>
         </div>
 

@@ -205,6 +205,7 @@ test('UI: sair da prática usa diálogo próprio e a rota sobrevive ao recarrega
   assert.match(app, /const RESTORABLE_ROUTES = new Set\(\[[^\]]*'courses'/);
   assert.match(app, /this\.navigate\(RESTORABLE_ROUTES\.has\(hashRoute\) \? hashRoute : 'home'\)/);
   assert.match(app, /route === 'course-practice' \? 'courses'/);
+  assert.match(app, /addEventListener\('hashchange'/);
 });
 
 test('UI: tema com opção Sistema e indicador de áudio no modo difícil', () => {

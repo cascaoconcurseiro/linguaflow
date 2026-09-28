@@ -15,7 +15,7 @@ Padrões por tipo:
 
 **Verbos Essenciais (A1→A2)** — 100 verbos em 10 módulos de 10
 - [x] Módulo 1: be, have, do, say, go, get, make, know, think, take (lote verbos-1)
-- [ ] Módulo 2: see, come, want, look, use, find, give, tell, work, call
+- [x] Módulo 2: see, come, want, look, use, find, give, tell, work, call (lote verbos-2)
 - [ ] Módulo 3: try, ask, need, feel, become, leave, put, mean, keep, let
 - [ ] Módulo 4: begin, seem, help, talk, turn, start, show, hear, play, run
 - [ ] Módulo 5: move, like, live, believe, hold, bring, happen, write, sit, stand

@@ -189,6 +189,7 @@ test('conteúdo: cada lote publicado bate com o gerador e usa trilha válida', a
     'palavras-6': 'supabase/migrations/20260928220000_course_content_palavras_6.sql',
     'palavras-7': 'supabase/migrations/20260928230000_course_content_palavras_7.sql',
     'rotina-1': 'supabase/migrations/20260929000000_course_content_rotina_1.sql',
+    'compras-1': 'supabase/migrations/20260929010000_course_content_compras_1.sql',
   };
   for (const [name, file] of Object.entries(batches)) {
     const { sql, errors, courses } = await generateBatch(name);

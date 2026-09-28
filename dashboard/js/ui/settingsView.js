@@ -3,7 +3,8 @@ import { db as lfDb } from '../../../utils/db.js';
 import { preloadKokoro } from '../core/tts.js';
 import { bindViewStateAction, escapeHtml, renderViewState } from './viewState.js';
 
-export { runPlacementTest } from './cefrPlacementTest.js';
+import { runPlacementTest } from './cefrPlacementTest.js';
+export { runPlacementTest };
 
 const isExtensionCtx = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
 

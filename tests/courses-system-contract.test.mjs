@@ -247,3 +247,10 @@ test('UI: tema com opção Sistema e indicador de áudio no modo difícil', () =
   assert.match(css, /prefers-reduced-motion: reduce\)[\s\S]*course-audio-cue\.is-playing span \{ animation: none/);
   assert.match(css, /\.course-reduce-motion \.course-audio-cue\.is-playing span \{ animation: none/);
 });
+
+test('UI: análise de cursos tem a função de comparação definida', () => {
+  const src = read('dashboard/js/ui/courses/courseAnalysis.js');
+  assert.match(src, /delta\(/);
+  assert.match(src, /const delta = /, 'delta() usado sem estar definido derruba a página Análise');
+  assert.match(src, /import \{ compare \} from '\.\.\/progressView\.js'/);
+});

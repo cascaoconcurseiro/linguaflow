@@ -4,6 +4,10 @@ import { db } from '../../../../utils/db.js';
 import { escapeHTML } from '../../../../utils/html.js';
 import { formatDuration, formatDateTime, formatDate, renderLoading, renderLoadError } from './courseUi.js';
 import { renderHeatmap, bindHeatmap } from '../activityHeatmap.js';
+import { compare } from '../progressView.js';
+
+// Seta de comparação com o período anterior (mesma regra da página Progresso).
+const delta = (cur, prev, { unit = '', invert = false } = {}) => compare(cur, prev, { unit, lowerIsBetter: invert });
 
 const PERIODS = [[7, '7 dias'], [30, '30 dias'], [90, '90 dias'], [0, 'Tudo']];
 const MODE_LABEL = { easy: 'Fácil', medium: 'Médio', hard: 'Difícil' };

@@ -80,7 +80,7 @@ Padrões por tipo:
 - [x] **Phrasal Verbs** 7–12: make, break, bring, run, set, call/pick (phrasal-2)
 - [x] **Phrasal Verbs** 13–20: work, fill, check, hang, hold, keep, e por tema (phrasal-3)
 - [x] **Preposições e Conectores** (B1) 1–6: in/on/at tempo e lugar, verbo + prep., adjetivo + prep., contraste, causa e sequência (preposicoes-1)
-- [ ] **Modais** (8): can, could, should, must, might, would, have to, may
+- [x] **Verbos Modais** (B1) 1–8: can, could, should, must, might, would, have to, may (modais-1)
 
 ## Trabalho e Fluência (B1→B2)
 

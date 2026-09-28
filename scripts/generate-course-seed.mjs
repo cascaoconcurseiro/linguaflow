@@ -4,8 +4,11 @@
 //   lote "<nome>"      → supabase/content/batches/<nome>.mjs (formato 2)
 // Falha (exit 1) se uma palavra não estiver no léxico, se um grupo sintático
 // não existir na frase ou se algum IPA não passar no validador do projeto.
+// A partir dos lotes novos, toda unidade que não é palavra exige nota
+// gramatical (aparece em "Mostrar resposta"); "retireUnits" remove unidades
+// que um lote anterior publicou e que o conteúdo novo substituiu.
 
-import { writeFileSync } from 'node:fs';
+import { readdirSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { LEXICON as BASE_LEXICON } from '../supabase/content/lexicon.mjs';
 import { isValidIpa } from '../utils/ipa-validator.js';
@@ -14,6 +17,8 @@ const q = (v) => (v == null ? 'NULL' : `'${String(v).replace(/'/g, "''")}'`);
 const j = (v) => `${q(JSON.stringify(v))}::jsonb`;
 const TRACKS = new Set(['fundamentos', 'dia-a-dia', 'viagem', 'gramatica', 'trabalho', 'fluencia']);
 const KINDS = new Set(['sentence', 'word', 'verb_forms', 'phrasal', 'story']);
+// Lotes já publicados antes da regra de nota obrigatória (saída congelada).
+const LEGACY_BATCHES = new Set(['fundamentos-1']);
 
 export function wordsOf(text) {
   return text.split(/\s+/)
@@ -78,7 +83,7 @@ ON CONFLICT (id) DO UPDATE SET slug = EXCLUDED.slug, title = EXCLUDED.title, sho
   is_core = EXCLUDED.is_core, is_published = EXCLUDED.is_published, updated_at = now();`;
 }
 
-function lessonSql(course, lesson, format, builders, errors) {
+function lessonSql(course, lesson, format, builders, errors, requireNotes) {
   const rows = lesson.units.map((raw, i) => {
     const unitId = `${lesson.id.replace('lesson-', 'unit-')}-${String(i + 1).padStart(2, '0')}`;
     const u = normalizeUnit(raw);
@@ -89,6 +94,7 @@ function lessonSql(course, lesson, format, builders, errors) {
     if (format === 1) {
       return `  (${q(unitId)}, ${q(lesson.id)}, ${i + 1}, 'sentence', ${q(u.text)}, ${q(u.pt)}, ${q(sentenceIpa)}, ${q(u.note)}, ${j(syntax)}, ${j(annotations)})`;
     }
+    if (requireNotes && u.kind !== 'word' && !u.note) errors.push(`${unitId}: nota gramatical obrigatória`);
     if (u.example && (!u.example[0] || !u.example[1])) errors.push(`${unitId}: exemplo precisa de inglês e português`);
     return `  (${q(unitId)}, ${q(lesson.id)}, ${i + 1}, ${q(u.kind)}, ${q(u.text)}, ${q(u.pt)}, ${q(sentenceIpa)}, ${q(u.note)}, ${j(syntax)}, ${j(annotations)}, ${q(u.example?.[0])}, ${q(u.example?.[1])})`;
   });
@@ -108,7 +114,7 @@ ON CONFLICT (id) DO UPDATE SET order_index = EXCLUDED.order_index, text = EXCLUD
   annotations = EXCLUDED.annotations${extraSet};`;
 }
 
-export function generateFrom(courses, { lexicon = BASE_LEXICON, format = 2 } = {}) {
+export function generateFrom(courses, { lexicon = BASE_LEXICON, format = 2, requireNotes = false } = {}) {
   const errors = [];
   const builders = makeBuilders(lexicon, errors);
   const parts = [
@@ -118,11 +124,14 @@ export function generateFrom(courses, { lexicon = BASE_LEXICON, format = 2 } = {
   for (const course of courses) {
     if (format === 2 && !TRACKS.has(course.track)) errors.push(`${course.id}: trilha inválida ${course.track}`);
     parts.push(courseSql(course, format));
+    if (course.retireUnits?.length) {
+      parts.push(`DELETE FROM public.course_units WHERE id IN (${course.retireUnits.map(q).join(', ')});`);
+    }
     const chapters = new Set();
     for (const lesson of course.lessons) {
       if (chapters.has(lesson.chapter)) errors.push(`${lesson.id}: capítulo ${lesson.chapter} repetido`);
       chapters.add(lesson.chapter);
-      parts.push(lessonSql(course, lesson, format, builders, errors));
+      parts.push(lessonSql(course, lesson, format, builders, errors, requireNotes));
     }
   }
   return { sql: `${parts.join('\n\n')}\n`, errors };
@@ -134,10 +143,23 @@ export async function generate() {
   return generateFrom(COURSES, { format: 1 });
 }
 
+const BATCH_DIR = new URL('../supabase/content/batches/', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
+const batchUrl = (file) => pathToFileURL(`${BATCH_DIR}${file}`).href;
+
+// Léxico visível a um lote: palavras dos outros lotes, depois o léxico base e,
+// por último, as do próprio lote (assim a saída de lotes já publicados não muda).
+async function othersLexicon(name) {
+  const others = {};
+  for (const file of readdirSync(BATCH_DIR).filter((f) => f.endsWith('.mjs') && f !== `${name}.mjs`).sort()) {
+    Object.assign(others, (await import(batchUrl(file))).LEXICON || {});
+  }
+  return others;
+}
+
 export async function generateBatch(name) {
-  const mod = await import(pathToFileURL(new URL(`../supabase/content/batches/${name}.mjs`, import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1')).href);
-  const lexicon = { ...BASE_LEXICON, ...(mod.LEXICON || {}) };
-  return { ...generateFrom(mod.COURSES, { lexicon, format: 2 }), courses: mod.COURSES };
+  const mod = await import(batchUrl(`${name}.mjs`));
+  const lexicon = { ...(await othersLexicon(name)), ...BASE_LEXICON, ...(mod.LEXICON || {}) };
+  return { ...generateFrom(mod.COURSES, { lexicon, format: 2, requireNotes: !LEGACY_BATCHES.has(name) }), courses: mod.COURSES };
 }
 
 if (process.argv[1]?.endsWith('generate-course-seed.mjs')) {

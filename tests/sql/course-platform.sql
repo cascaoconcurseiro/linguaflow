@@ -61,7 +61,7 @@ BEGIN
   v_res := public.rpc_course_commit_practice('44444444-4444-4444-8444-444444444444', 'lesson', 'lesson-travel-a2-01', 'hard',
     now() - INTERVAL '6 minutes', 300, 1500, 8, v_results, true);
   IF v_res->>'status' <> 'completed' THEN RAISE EXCEPTION 'esperava concluída: %', v_res; END IF;
-  IF (v_res->>'percent_completed')::NUMERIC <> 33.33 THEN RAISE EXCEPTION 'progresso esperado 33.33 (1 de 3 lições): %', v_res; END IF;
+  IF (v_res->>'percent_completed')::NUMERIC <> (SELECT round(100.0 / count(*), 2) FROM public.course_lessons l WHERE l.course_id = 'course-travel-a2' AND EXISTS (SELECT 1 FROM public.course_units u WHERE u.lesson_id = l.id)) THEN RAISE EXCEPTION 'progresso esperado: 1 lição do total do curso: %', v_res; END IF;
   SELECT count(*) INTO v_count FROM public.course_session_results WHERE session_id = (v_res->>'session_id')::UUID;
   IF v_count <> 10 THEN RAISE EXCEPTION 'resultado por frase não gravado: %', v_count; END IF;
 

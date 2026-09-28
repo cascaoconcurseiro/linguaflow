@@ -39,7 +39,7 @@ Padrões por tipo:
 - [x] Escola e estudo · Trabalho e profissões (palavras-7)
 - [x] Escritório · Tecnologia e internet · Dinheiro (palavras-9)
 - [x] Saúde e sintomas · Música e cinema · Viagem (palavras-9) · Emoções (palavras-6) · Esportes e lazer (palavras-7)
-- [ ] Verbos de ação 1–3 · Adjetivos opostos 1–2 · Advérbios de tempo e frequência
+- [x] Verbos de ação 1–3 · Adjetivos opostos 1–2 · Advérbios de tempo e frequência (palavras-10)
 - [ ] Preposições de lugar e tempo · Conectores · Perguntas (wh-) · Quantidades
 
 **Primeiras Frases (A1)** — 12 capítulos

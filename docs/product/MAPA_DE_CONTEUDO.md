@@ -51,11 +51,12 @@ Padrões por tipo:
 - [x] No aeroporto · No hotel · Transporte na cidade (lote v1)
 - [x] Restaurante: reserva e mesa · pedido · alergias e problemas · conta e gorjeta (lote viagem-1)
 - [x] Segurança e embarque · No avião · Imigração e alfândega · Bagagem extraviada e atrasos (lote viagem-3; check-in coberto em "No aeroporto")
-- [ ] Táxi e aplicativo · Ônibus, metrô e trem · Alugar carro · Perdido na cidade
+- [x] Táxi e aplicativo · Trem e ônibus entre cidades · Alugar carro (lote viagem-4; "perdido na cidade" coberto em Pedir direções)
 - [ ] Hotel: check-in · Hotel: problemas no quarto · Hotel: check-out · Airbnb e anfitrião
 - [x] Café e padaria · Farmácia · Pedir direções · Emergências (lote viagem-2)
 - [ ] Bar e balada
-- [ ] Compras e souvenirs · Passeios e ingressos · Praia e piscina · Revisão
+- [x] Compras e souvenirs (lote viagem-4)
+- [ ] Passeios e ingressos · Praia e piscina · Revisão
 
 ## Dia a dia (A1→B1)
 

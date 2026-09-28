@@ -163,7 +163,10 @@ test('app: rotas de curso recebem os parâmetros de navegação', () => {
 
 test('conteúdo: cada lote publicado bate com o gerador e usa trilha válida', async () => {
   const { generateBatch } = await import('../scripts/generate-course-seed.mjs');
-  const batches = { 'fundamentos-1': 'supabase/migrations/20260928000100_course_content_fundamentos_1.sql' };
+  const batches = {
+    'fundamentos-1': 'supabase/migrations/20260928000100_course_content_fundamentos_1.sql',
+    'verbos-1': 'supabase/migrations/20260928010000_course_content_verbos_1.sql',
+  };
   for (const [name, file] of Object.entries(batches)) {
     const { sql, errors, courses } = await generateBatch(name);
     assert.deepEqual(errors, [], name);
@@ -194,4 +197,17 @@ test('catálogo: expõe unit_kind e a UI nomeia a contagem pelo tipo', async () 
   assert.equal(unitCount({ unit_kind: 'verb_forms' }, 1), '1 verbo');
   assert.equal(unitCount({}, 3), '3 frases');
   assert.equal(plural(1, 'capítulo', 'capítulos'), '1 capítulo');
+});
+
+test('conteúdo: lotes novos exigem nota gramatical em toda unidade que não é palavra', async () => {
+  const { generateFrom } = await import('../scripts/generate-course-seed.mjs');
+  const course = (unit) => [{ id: 'c', slug: 'c', title: 'C', level: 'A1', category: 'grammar', track: 'fundamentos', trackOrder: 1, order: 1,
+    lessons: [{ id: 'lesson-c-01', chapter: 1, title: 'T', units: [unit] }] }];
+  const lexicon = { go: ['verb', '/ɡoʊ/', 'ir'] };
+  const missing = generateFrom(course({ kind: 'sentence', text: 'go', pt: 'ir' }), { lexicon, requireNotes: true });
+  assert.ok(missing.errors.some((e) => e.includes('nota gramatical obrigatória')));
+  const word = generateFrom(course({ kind: 'word', text: 'go', pt: 'ir' }), { lexicon, requireNotes: true });
+  assert.deepEqual(word.errors, []);
+  const retired = generateFrom([{ ...course({ kind: 'word', text: 'go', pt: 'ir' })[0], retireUnits: ["unit-x-'01"] }], { lexicon });
+  assert.ok(retired.sql.includes("DELETE FROM public.course_units WHERE id IN ('unit-x-''01');"));
 });

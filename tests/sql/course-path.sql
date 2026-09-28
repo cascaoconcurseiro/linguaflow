@@ -12,7 +12,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-0000000000e1","role":"authenticated"}', true);
 
 DO $$
-DECLARE p JSONB; a1 JSONB; a1_total INT;
+DECLARE p JSONB; a1 JSONB; a1_total INT; expected INT;
 BEGIN
   -- Sem progresso nem nivelamento: começa no A1, pela trilha Fundamentos
   p := public.rpc_course_path();
@@ -21,17 +21,20 @@ BEGIN
   IF jsonb_array_length(p->'levels') <> 4 THEN RAISE EXCEPTION 'níveis: %', p->'levels'; END IF;
   SELECT l INTO a1 FROM jsonb_array_elements(p->'levels') l WHERE l->>'level' = 'A1';
   a1_total := (a1->>'total')::INT;
-  IF a1_total <> 7 THEN RAISE EXCEPTION 'A1 deveria ter 7 capítulos centrais: %', a1; END IF;
+  SELECT count(*) INTO expected FROM public.course_catalog c JOIN public.course_lessons l ON l.course_id = c.id
+    WHERE c.is_published AND c.is_core AND c.level = 'A1' AND EXISTS (SELECT 1 FROM public.course_units u WHERE u.lesson_id = l.id);
+  IF a1_total <> expected OR a1_total < 5 THEN RAISE EXCEPTION 'A1: % capítulos centrais, esperado %', a1, expected; END IF;
 
 END $$;
 RESET ROLE;
--- Conclui 6 dos 7 capítulos do A1 (86% ≥ 80%). A matrícula só é gravável pela
--- RPC; aqui o teste escreve direto como postgres para montar o cenário.
-INSERT INTO public.user_course_enrollment (user_id, course_id, completed_lessons) VALUES
-  ('00000000-0000-4000-8000-0000000000e1', 'course-first-sentences-a1', ARRAY['lesson-first-sentences-a1-01']),
-  ('00000000-0000-4000-8000-0000000000e1', 'course-1000-words-a1', ARRAY['lesson-1000-words-a1-01']),
-  ('00000000-0000-4000-8000-0000000000e1', 'course-essential-verbs-a1', ARRAY['lesson-essential-verbs-a1-01']),
-  ('00000000-0000-4000-8000-0000000000e1', 'course-street-a1', ARRAY['lesson-street-a1-01', 'lesson-street-a1-02', 'lesson-street-a1-03'])
+-- Conclui todos os capítulos centrais do A1 menos um (≥ 80% com 5+ capítulos).
+-- A matrícula só é gravável pela RPC; aqui o teste escreve direto como postgres.
+INSERT INTO public.user_course_enrollment (user_id, course_id, completed_lessons)
+SELECT '00000000-0000-4000-8000-0000000000e1', c.id, array_agg(l.id)
+FROM public.course_catalog c JOIN public.course_lessons l ON l.course_id = c.id
+WHERE c.is_published AND c.is_core AND c.level = 'A1' AND l.id <> 'lesson-street-a1-04'
+  AND EXISTS (SELECT 1 FROM public.course_units u WHERE u.lesson_id = l.id)
+GROUP BY c.id
 ON CONFLICT (user_id, course_id) DO UPDATE SET completed_lessons = EXCLUDED.completed_lessons;
 INSERT INTO public.settings (user_id, key, value) VALUES ('00000000-0000-4000-8000-0000000000e2', 'lf_cefr_level', '"B1"');
 
@@ -42,7 +45,7 @@ DECLARE p JSONB; a1 JSONB;
 BEGIN
   p := public.rpc_course_path();
   SELECT l INTO a1 FROM jsonb_array_elements(p->'levels') l WHERE l->>'level' = 'A1';
-  IF NOT (a1->>'is_completed')::BOOLEAN THEN RAISE EXCEPTION 'A1 com 6/7 deveria estar concluído: %', a1; END IF;
+  IF NOT (a1->>'is_completed')::BOOLEAN THEN RAISE EXCEPTION 'A1 com todos menos um deveria estar concluído: %', a1; END IF;
   IF p->>'current_level' <> 'A2' THEN RAISE EXCEPTION 'nível atual deveria ser A2: %', p; END IF;
   IF p->'next'->>'lesson_id' <> 'lesson-street-a1-04' THEN RAISE EXCEPTION 'próxima aula (restante do A1 vem primeiro): %', p->'next'; END IF;
 END $$;

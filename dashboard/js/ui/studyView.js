@@ -305,31 +305,37 @@ export async function renderStudy(container, app, params = {}) {
               <span id="audio-status" class="sr-only" role="status" aria-live="polite"></span>
             </div>
           </div>
-          <div id="pump-context-hint" class="study-context-hint hidden" style="margin-top: 14px; font-size: 19px; line-height: 1.5; color: var(--color-text); background: var(--color-surface-2, rgba(255,255,255,0.05)); border: 1px solid var(--color-border); border-radius: 10px; padding: 12px 16px; text-align: left;"></div>
-          <div id="pump-phonetics" class="study-ipa hidden" aria-live="polite">
-            <span class="study-ipa-label">Pronúncia (IPA)</span>
-            <span id="pump-phonetics-value" class="study-ipa-value"></span>
-          </div>
-          <div id="pump-translation" style="font-size: 20px; font-weight: 700; color: var(--color-text); margin-top: 12px; padding-top: 12px; border-top: 2px dashed var(--color-border);" class="hidden"></div>
-          <div id="pump-word-answer" class="study-word-answer-pill hidden" style="margin-top: 14px; padding: 10px 14px; background: var(--color-surface-2, rgba(255,255,255,0.04)); border: 1px solid var(--color-border); border-radius: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
-            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-              <span id="pump-word-val" style="font-weight: 700; font-size: 17px; color: var(--color-primary, #6366f1);"></span>
-              <span style="opacity: 0.6;" aria-hidden="true">→</span>
-              <span id="pump-word-trans" style="font-weight: 600; font-size: 16px;"></span>
-              <span id="pump-word-phon" style="font-size: 14px; opacity: 0.75; font-style: italic;"></span>
+          <div id="pump-context-hint" class="study-context-hint hidden"></div>
+          <!-- Verso organizado como o painel do player de Cursos: tradução,
+               pronúncia, a palavra estudada e a explicação, nesta ordem. -->
+          <section class="study-breakdown" aria-label="Tradução, pronúncia e significado">
+            <p id="pump-translation" class="study-breakdown-translation hidden"></p>
+            <div id="pump-phonetics" class="study-ipa hidden" aria-live="polite">
+              <span class="study-ipa-label">Pronúncia (IPA)</span>
+              <span id="pump-phonetics-value" class="study-ipa-value"></span>
             </div>
-            <button type="button" id="pump-word-audio-btn" class="btn-iso-audio" style="background: none; border: 1px solid var(--color-border); border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 13px;" aria-label="Ouvir palavra isolada">Ouvir palavra</button>
-          </div>
-          <details id="iso-context-details" class="context-explanation-card hidden">
-            <summary id="iso-context-summary">
-              <span><span aria-hidden="true">?</span> Por que esse sentido aparece aqui?</span>
-              <span aria-hidden="true">⌄</span>
-            </summary>
-            <div id="iso-context-explanation" role="region" aria-labelledby="iso-context-summary"></div>
-          </details>
+            <div id="pump-word-answer" class="study-word-block hidden">
+              <span class="study-word-block-role">Sobre esta palavra</span>
+              <div class="study-word-block-row">
+                <span class="study-word-block-main">
+                  <span id="pump-word-phon" class="study-word-block-ipa"></span>
+                  <strong id="pump-word-val" lang="en"></strong>
+                  <span id="pump-word-trans"></span>
+                </span>
+                <button type="button" id="pump-word-audio-btn" class="btn-iso-audio" aria-label="Ouvir palavra isolada">Ouvir palavra</button>
+              </div>
+            </div>
+            <details id="iso-context-details" class="context-explanation-card hidden">
+              <summary id="iso-context-summary">
+                <span>Por que esse sentido aparece aqui?</span>
+                <span aria-hidden="true">⌄</span>
+              </summary>
+              <div id="iso-context-explanation" role="region" aria-labelledby="iso-context-summary"></div>
+            </details>
+          </section>
 
-          <div class="study-front-actions" style="display: flex; gap: 10px; justify-content: center; align-items: center; margin-top: 16px; flex-wrap: wrap;">
-            <button id="hint-btn" type="button" class="btn btn-secondary hidden" style="font-size: 14px; padding: 8px 14px; border-radius: 8px;" title="Ver na frase antes de virar (Atalho: H)">Ver na frase (H)</button>
+          <div class="study-front-actions">
+            <button id="hint-btn" type="button" class="btn btn-secondary hidden" title="Ver na frase antes de virar (Atalho: H)">Ver na frase (H)</button>
             <button id="reveal-btn" class="btn btn-primary reveal-btn">Revelar (Espaço)</button>
           </div>
         </div>
@@ -1484,9 +1490,9 @@ async function revealCard(options = {}) {
   document.getElementById('improve-btn').classList.toggle('hidden', !looksBroken(context, word));
   document.getElementById('grading-area').classList.remove('hidden');
   document.querySelector('.study-layout')?.classList.add('is-revealed');
+  // Aprofundamento fica recolhido abaixo do painel (camada opcional, como no
+  // player de Cursos); o aluno abre quando quiser.
   document.getElementById('study-resources')?.classList.remove('hidden');
-  const resources = document.getElementById('study-resources');
-  if (resources && window.matchMedia?.('(min-width: 721px)').matches) resources.open = true;
   document.getElementById('study-card-menu')?.classList.remove('hidden');
   scheduleStudyTask(() => document.querySelector('.grade-btn:not(.hidden):not(:disabled)')?.focus({ preventScroll: true }));
 
@@ -2957,13 +2963,6 @@ function injectStyles() {
     .wave-bar:nth-child(5) { height:22px; }
     .btn-play-audio { display:inline-flex; align-items:center; justify-content:center; width:auto; min-width:92px; height:44px; margin-left:14px; padding:0 14px; border:1px solid var(--color-secondary); border-radius:8px; border-bottom-width:1px; background:rgba(37,169,255,.14); color:var(--color-secondary); font-size:13px; font-weight:800; }
     .btn-play-audio:active { transform:none; border-bottom-width:1px; }
-    #pump-phonetics { margin-top:6px !important; font-size:16px !important; color:var(--color-text-light) !important; }
-    #pump-translation { margin:18px auto 0 !important; padding-top:18px !important; border-top:1px solid var(--color-border) !important; font-size:22px !important; font-weight:800 !important; }
-    #pump-word-answer { max-width:920px; margin:18px auto 0 !important; padding:16px 0 0 !important; border:0 !important; border-top:1px solid var(--color-border) !important; border-radius:0 !important; background:transparent !important; justify-content:flex-start !important; }
-    #pump-word-answer::before { content:'Sobre esta palavra'; display:block; width:100%; margin-bottom:10px; color:var(--color-text); font-size:15px; font-weight:900; text-align:left; }
-    #pump-word-answer > div { flex:1; justify-content:flex-start; }
-    #pump-word-val { color:var(--color-primary) !important; font-size:22px !important; }
-    #pump-word-trans { font-size:21px !important; }
     .btn-iso-audio { width:auto; min-width:44px; height:44px; padding:0 12px; border:1px solid var(--color-secondary); border-radius:8px; background:transparent; color:var(--color-secondary); }
     .context-explanation-card { max-width:920px; margin:18px auto 0; border:0; border-top:1px solid var(--color-border); }
     .context-explanation-card > summary { min-height:52px; padding:0; background:transparent; font-size:15px; }
@@ -3001,9 +3000,6 @@ function injectStyles() {
       .study-card-meta { margin-bottom:22px; }
       .study-card-meta > div:first-child span { max-width:210px; }
       .sentence-text { font-size:clamp(26px, 8vw, 36px); }
-      #pump-translation { font-size:18px !important; }
-      #pump-word-val, .rich-word-title { font-size:18px !important; }
-      #pump-word-trans, .rich-trans-text { font-size:18px !important; }
       .grading-row { gap:6px; }
       .grade-btn { min-height:72px; padding:8px 3px; font-size:14px; }
     }

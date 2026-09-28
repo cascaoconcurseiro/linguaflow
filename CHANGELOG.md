@@ -1,5 +1,10 @@
 # Changelog
 
+## [Não lançado]
+
+### Alterado
+- **Card de estudo com a organização do player de Cursos**: uma coluna centralizada, contadores em pílulas e, no verso, um painel único com tradução, pronúncia, palavra estudada e explicação, nesta ordem. Trecho original e "Entender melhor" passam a ficar abaixo do painel, recolhidos, em vez de coluna lateral. A lógica de revisão não mudou.
+
 ## [3.0.59] - 2026-09-27
 
 ### Adicionado

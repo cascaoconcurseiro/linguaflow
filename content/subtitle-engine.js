@@ -2216,15 +2216,7 @@ export class SubtitleEngine {
       }
       updateResponsive();
 
-      const curRate = this._readPlaybackRate();
-      this._setPlaybackRate(curRate, { persist: false });
-      if (this.videoElement && !this._videoRateBound) {
-        this._videoRateBound = true;
-        this.videoElement.addEventListener('ratechange', () => {
-          const r = Number(this.videoElement?.playbackRate);
-          if (Number.isFinite(r) && r > 0) this._updateSpeedButtons(r);
-        });
-      }
+      this._bindVideoPlaybackRate();
 
       this.toggleSubtitles(isSubVisible);
       return true;
@@ -2566,6 +2558,22 @@ export class SubtitleEngine {
     } catch {
       return 1;
     }
+  }
+
+  _bindVideoPlaybackRate() {
+    const video = this.videoElement;
+    this._setPlaybackRate(this._readPlaybackRate(), { persist: false });
+    if (!video || this._rateBoundVideo === video) return;
+    this._rateBoundVideo = video;
+    video.addEventListener('ratechange', () => {
+      const r = Number(video.playbackRate);
+      if (Number.isFinite(r) && r > 0) this._updateSpeedButtons(r);
+    });
+    // Loading media resets playbackRate to defaultPlaybackRate without a ratechange.
+    video.addEventListener('loadedmetadata', () => {
+      if (this.videoElement !== video) return;
+      this._setPlaybackRate(this._readPlaybackRate(), { persist: false });
+    });
   }
 
   _setPlaybackRate(rate, { persist = true } = {}) {

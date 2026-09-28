@@ -75,7 +75,8 @@ Padrões por tipo:
 ## Gramática em uso (A2→B2)
 
 - [ ] **Tempos Verbais** (16): cada tempo com afirmativa, negativa, pergunta e contraste com o português
-- [ ] **Phrasal Verbs** (20 × 10 = 200): por verbo-base (get, take, put, come, go, look, turn, give, make, break) e por tema
+- [x] **Phrasal Verbs Essenciais** (B1) 1–6: get, take, put, come/go, look, turn/give (phrasal-1)
+- [ ] **Phrasal Verbs** 7–20: make, break, bring, run, set, call, pick, work, fill, check, e por tema
 - [ ] **Preposições e Conectores** (12)
 - [ ] **Modais** (8): can, could, should, must, might, would, have to, may
 

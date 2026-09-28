@@ -333,6 +333,14 @@ export async function renderStudy(container, app, params = {}) {
               <div id="iso-context-explanation" role="region" aria-labelledby="iso-context-summary"></div>
             </details>
           </section>
+          <!-- Camadas opcionais do verso, como a barra de ações do player de
+               Cursos: uma aberta por vez, no mesmo lugar, sem rolar a tela. -->
+          <div class="study-layer-bar" role="toolbar" aria-label="Mais sobre este card">
+            <button type="button" class="study-layer-btn" data-study-layer="word" aria-pressed="false" aria-controls="pump-word-answer"><kbd class="study-key-badge">P</kbd> Palavra</button>
+            <button type="button" class="study-layer-btn" data-study-layer="why" aria-pressed="false" aria-controls="iso-context-details"><kbd class="study-key-badge">X</kbd> Por quê</button>
+            <button type="button" class="study-layer-btn" data-study-layer="clip" aria-pressed="false" aria-controls="video-resource-section"><kbd class="study-key-badge">V</kbd> Trecho original</button>
+            <button type="button" class="study-layer-btn" data-study-layer="more" aria-pressed="false" aria-controls="study-resources"><kbd class="study-key-badge">O</kbd> Outros contextos</button>
+          </div>
 
           <div class="study-front-actions">
             <button id="hint-btn" type="button" class="btn btn-secondary hidden" title="Ver na frase antes de virar (Atalho: H)">Ver na frase (H)</button>
@@ -454,6 +462,10 @@ export async function renderStudy(container, app, params = {}) {
     }
   });
 
+  document.querySelectorAll('[data-study-layer]').forEach(btn => {
+    btn.addEventListener('click', () => setStudyLayer(btn.dataset.studyLayer, { toggle: true }));
+  });
+
   document.querySelectorAll('.grade-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const grade = parseInt(e.currentTarget.dataset.grade);
@@ -474,6 +486,36 @@ export async function renderStudy(container, app, params = {}) {
   document.addEventListener('keydown', window.currentKeydownHandler);
 
   loadNextCard(app);
+}
+
+const STUDY_LAYERS = {
+  word: { target: 'pump-word-answer', label: 'Palavra' },
+  why: { target: 'iso-context-details', label: 'Por quê' },
+  clip: { target: 'video-resource-section', label: 'Trecho original' },
+  more: { target: 'study-resources', label: 'Outros contextos' },
+};
+const STUDY_LAYER_KEYS = { KeyP: 'word', KeyX: 'why', KeyV: 'clip', KeyO: 'more' };
+
+// Uma camada do verso aberta por vez (como o painel do player de Cursos).
+// Camada sem conteúdo neste card é ignorada; repetir o atalho fecha.
+function setStudyLayer(name, { toggle = false } = {}) {
+  const layout = document.querySelector('.study-layout');
+  if (!layout) return;
+  let next = name && STUDY_LAYERS[name] ? name : '';
+  if (next && document.getElementById(STUDY_LAYERS[next].target)?.classList.contains('hidden')) return;
+  if (toggle && layout.dataset.layer === next) next = '';
+  if (next) layout.dataset.layer = next;
+  else delete layout.dataset.layer;
+  const video = document.getElementById('video-resource-toggle');
+  if (video && video.open !== (next === 'clip')) video.open = next === 'clip';
+  const more = document.getElementById('study-resources');
+  if (more && more.open !== (next === 'more')) more.open = next === 'more';
+  document.querySelectorAll('[data-study-layer]').forEach((btn) => {
+    btn.setAttribute('aria-pressed', String(btn.dataset.studyLayer === next));
+  });
+  if (next && presentationEvidence) presentationEvidence.helpCount = (presentationEvidence.helpCount || 0) + 1;
+  const status = document.getElementById('study-status');
+  if (status && name) status.textContent = next ? `${STUDY_LAYERS[next].label} aberto` : 'Detalhe fechado';
 }
 
 function handleKeydown(e) {
@@ -534,6 +576,17 @@ function handleKeydown(e) {
   }
 
   if (gradingArea && !gradingArea.classList.contains('hidden')) {
+    const layer = !e.ctrlKey && !e.metaKey && !e.altKey && STUDY_LAYER_KEYS[e.code];
+    if (layer) {
+      e.preventDefault();
+      setStudyLayer(layer, { toggle: true });
+      return;
+    }
+    if (e.key === 'Escape' && document.querySelector('.study-layout')?.dataset.layer
+      && !document.getElementById('study-card-menu')?.open) {
+      setStudyLayer('', { toggle: false });
+      return;
+    }
     if (e.code === 'Digit1') document.querySelector('[data-grade="1"]:not(.hidden):not(:disabled)')?.click();
     if (e.code === 'Digit2') document.querySelector('[data-grade="2"]:not(.hidden):not(:disabled)')?.click();
     if (e.code === 'Digit3') document.querySelector('[data-grade="3"]:not(.hidden):not(:disabled)')?.click();
@@ -915,6 +968,7 @@ async function loadNextCard(app) {
     btn.disabled = false;
   });
   document.querySelector('.study-layout')?.classList.remove('is-revealed');
+  setStudyLayer('');
   const resources = document.getElementById('study-resources');
   resources?.classList.add('hidden');
   if (resources) resources.open = false;

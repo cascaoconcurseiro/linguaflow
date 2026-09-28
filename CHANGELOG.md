@@ -4,6 +4,7 @@
 
 ### Alterado
 - **Card de estudo com a organização do player de Cursos**: uma coluna centralizada, contadores em pílulas e, no verso, um painel único com tradução, pronúncia, palavra estudada e explicação, nesta ordem. Trecho original e "Entender melhor" passam a ficar abaixo do painel, recolhidos, em vez de coluna lateral. A lógica de revisão não mudou.
+- **Verso do card sem rolagem, com atalhos como no curso**: após virar aparecem só frase, tradução e IPA. Palavra (P), Por quê (X), Trecho original (V) e Outros contextos (O) abrem por atalho ou botão, um de cada vez, no mesmo lugar; Esc fecha. Botão de algo que o card não tem fica escondido.
 
 ## [3.0.59] - 2026-09-27
 

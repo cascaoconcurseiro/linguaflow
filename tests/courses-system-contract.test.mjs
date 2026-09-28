@@ -195,3 +195,14 @@ test('catálogo: expõe unit_kind e a UI nomeia a contagem pelo tipo', async () 
   assert.equal(unitCount({}, 3), '3 frases');
   assert.equal(plural(1, 'capítulo', 'capítulos'), '1 capítulo');
 });
+
+test('UI: sair da prática usa diálogo próprio e a rota sobrevive ao recarregar', () => {
+  const player = read('dashboard/js/ui/coursePracticeView.js');
+  assert.doesNotMatch(player, /[^.\w]confirm\(/, 'sem confirm() nativo, que congela a página');
+  assert.match(player, /id="course-exit" role="alertdialog" aria-modal="true"/);
+  assert.match(player, /'confirm-exit': leavePractice/);
+  const app = read('dashboard/js/core/app.js');
+  assert.match(app, /const RESTORABLE_ROUTES = new Set\(\[[^\]]*'courses'/);
+  assert.match(app, /this\.navigate\(RESTORABLE_ROUTES\.has\(hashRoute\) \? hashRoute : 'home'\)/);
+  assert.match(app, /route === 'course-practice' \? 'courses'/);
+});

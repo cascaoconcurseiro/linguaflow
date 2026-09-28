@@ -147,6 +147,11 @@ class App {
       this._lastReadErrorToast = now;
       this.showToast?.('Falha de conexão ao carregar dados — a tela pode estar incompleta.', 'error');
     });
+    // Hash editado ou link #rota na mesma página: troca de tela sem recarregar.
+    window.addEventListener('hashchange', () => {
+      const hashRoute = window.location.hash.slice(1);
+      if (RESTORABLE_ROUTES.has(hashRoute) && hashRoute !== hashRouteFor(this.currentRoute)) this.navigate(hashRoute);
+    });
     // Setup Navigation Listeners
     this.navBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {

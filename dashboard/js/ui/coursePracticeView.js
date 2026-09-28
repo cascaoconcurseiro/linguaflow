@@ -24,6 +24,13 @@ const INSTRUCTION = {
   medium: 'Ouça e escreva. Só a primeira letra de cada palavra aparece.',
   hard: 'Ouça e escreva o que ouviu.',
 };
+// Unidades de vocabulário: a pista é o significado (ditado de uma palavra solta
+// sem contexto seria ambíguo).
+const WORD_KINDS = new Set(['word', 'verb_forms']);
+const KIND_INSTRUCTION = {
+  word: { easy: 'Copie a palavra enquanto ouve.', medium: 'Ouça e escreva a palavra.', hard: 'Ouça e escreva a palavra.' },
+  verb_forms: { easy: 'Copie as três formas do verbo.', medium: 'Escreva base, passado e particípio.', hard: 'Escreva base, passado e particípio.' },
+};
 const COMBO_RULE = 'Acertar sem envio errado e sem dica soma combo. Dica, ver resposta ou pular quebram o combo; repetir o áudio não.';
 export const ROLE_LABEL = {
   subject: 'Sujeito',
@@ -253,7 +260,8 @@ export async function renderCoursePractice(container, app, params = {}) {
         <main class="course-player-body">
           <p class="course-hub-subtitle" style="margin:0;">${escapeHTML(courseTitle)} · ${DIFFICULTY_LABEL[difficulty]}</p>
           <h2 class="course-player-prompt" id="course-prompt" lang="en"></h2>
-          <p class="course-player-instruction">${INSTRUCTION[difficulty]}</p>
+          <p class="course-player-cue" id="course-cue" hidden></p>
+          <p class="course-player-instruction" id="course-instruction">${INSTRUCTION[difficulty]}</p>
           <div class="course-sentence-wrap" id="sentence-slots" role="group" aria-label="Escreva a frase, uma palavra por campo"></div>
           <p class="course-player-helper">Espaço: próxima palavra, ou conferir quando tudo estiver preenchido · A pontuação é opcional</p>
           <p id="course-feedback" class="course-pause-text" role="status" aria-live="polite"></p>
@@ -332,6 +340,12 @@ export async function renderCoursePractice(container, app, params = {}) {
     container.querySelector('#course-question').textContent = `${shown} / ${session.total}`;
     container.querySelector('#course-progress').style.width = `${Math.round((session.resolvedCount / session.total) * 100)}%`;
     container.querySelector('.course-player-progress-bar-wrap').setAttribute('aria-valuenow', String(session.resolvedCount));
+
+    const isWord = WORD_KINDS.has(unit.kind);
+    const cue = container.querySelector('#course-cue');
+    cue.hidden = !(isWord && difficulty !== 'easy' && !reviewing);
+    cue.textContent = cue.hidden ? '' : `Significado: ${unit.translation_pt}`;
+    container.querySelector('#course-instruction').textContent = (KIND_INSTRUCTION[unit.kind] || INSTRUCTION)[difficulty] || INSTRUCTION[difficulty];
 
     const prompt = container.querySelector('#course-prompt');
     if (reviewing || difficulty === 'easy') prompt.textContent = unit.text;
@@ -490,11 +504,13 @@ export async function renderCoursePractice(container, app, params = {}) {
     advancing = true;
     soundEngine.playChord(session.streak > 0 && session.streak % 5 === 0 ? 'milestone' : 'word');
     inputs.forEach((i) => { i.classList.remove('is-wrong', 'is-hinted'); i.classList.add('is-correct'); i.readOnly = true; });
-    setFeedback(result.clean ? `Certo! +${result.gained}` : `Certo. +${result.gained}`);
+    const done = session.unit;
+    const example = done?.example_en ? ` · Exemplo: ${done.example_en} (${done.example_pt || ''})` : '';
+    setFeedback(`${result.clean ? `Certo! +${result.gained}` : `Certo. +${result.gained}`}${example}`);
     updateHud();
     updateActionStates();
     stopReading();
-    setTimeout(advance, 500);
+    setTimeout(advance, session.unit?.example_en ? 1600 : 500);
   }
 
   function advance() {
@@ -568,6 +584,7 @@ export async function renderCoursePractice(container, app, params = {}) {
       <p style="margin:0;">${escapeHTML(unit.translation_pt)}</p>
       ${unit.ipa ? `<span class="course-breakdown-ipa">${escapeHTML(unit.ipa)}</span>` : ''}
       ${unit.explanation_note ? `<p class="course-breakdown-note">${escapeHTML(unit.explanation_note)}</p>` : ''}
+      ${unit.example_en ? `<p class="course-breakdown-note"><strong lang="en">${escapeHTML(unit.example_en)}</strong> — ${escapeHTML(unit.example_pt || '')}</p>` : ''}
       <div class="course-structure" aria-label="Estrutura da frase">
         ${groups.map((g) => {
           const ws = wordsFor(g).filter((w) => !rendered.has(w) && rendered.add(w));

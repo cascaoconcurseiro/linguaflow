@@ -3,7 +3,7 @@
 // mudam por RPC. Leituras lançam erro para a view mostrar o estado de falha em
 // vez de "vazio" enganoso.
 
-const UNIT_FIELDS = 'id,lesson_id,order_index,text,translation_pt,ipa,explanation_note,syntax_groups,annotations';
+const UNIT_FIELDS = 'id,lesson_id,order_index,kind,text,translation_pt,ipa,explanation_note,syntax_groups,annotations,example_en,example_pt';
 const ID_PATTERN = /^[a-z0-9-]{1,80}$/;
 const PERIODS = new Set(['daily', 'weekly', 'monthly', 'all']);
 
@@ -65,6 +65,10 @@ export class CoursesRepository {
     );
     const byId = new Map((rows || []).map((u) => [u.id, u]));
     return ids.map((id) => byId.get(id)).filter(Boolean);
+  }
+
+  getPath() {
+    return this._rpc('rpc_course_path');
   }
 
   getHubSummary() {

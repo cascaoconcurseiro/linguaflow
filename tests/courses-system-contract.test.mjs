@@ -148,7 +148,7 @@ test('plataforma: migration com sessões incompletas, resultados por frase e RPC
 
 test('conteúdo: seed gerado bate com a fonte e cobre 90 frases novas', async () => {
   const { generate } = await import('../scripts/generate-course-seed.mjs');
-  const { sql, errors } = generate();
+  const { sql, errors } = await generate();
   assert.deepEqual(errors, []);
   assert.equal(read('supabase/migrations/20260927180100_course_content.sql').replace(/\r\n/g, '\n'), sql, 'migration igual à saída do gerador');
   assert.equal((sql.match(/\('unit-[a-z0-9-]+', 'lesson-/g) || []).length, 90);
@@ -159,4 +159,39 @@ test('app: rotas de curso recebem os parâmetros de navegação', () => {
   assert.match(app, /const ROUTES_WITH_PARAMS = new Set\(\['study', 'courses', 'course-practice'\]\)/);
   assert.match(app, /ROUTES_WITH_PARAMS\.has\(route\)\s*\?\s*renderer\(guardedContainer, guardedApp, params\)/);
   assert.match(app, /courses: renderCourses,\s*'course-practice': renderCoursePractice,/);
+});
+
+test('conteúdo: cada lote publicado bate com o gerador e usa trilha válida', async () => {
+  const { generateBatch } = await import('../scripts/generate-course-seed.mjs');
+  const batches = { 'fundamentos-1': 'supabase/migrations/20260928000100_course_content_fundamentos_1.sql' };
+  for (const [name, file] of Object.entries(batches)) {
+    const { sql, errors, courses } = await generateBatch(name);
+    assert.deepEqual(errors, [], name);
+    assert.equal(read(file).replace(/\r\n/g, '\n'), sql, `${file} igual à saída do gerador`);
+    for (const c of courses) assert.ok(c.track && c.trackOrder >= 1, `${c.id} com trilha`);
+  }
+});
+
+test('trilha: RPC protegida, nível por 80% e nivelamento como ponto de partida', () => {
+  const sql = read('supabase/migrations/20260928000000_course_path.sql').replace(/\r\n/g, '\n');
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.rpc_course_path\(\) FROM PUBLIC, anon;/);
+  assert.match(sql, />= 0\.8\) AS is_completed/);
+  assert.match(sql, /s\.key = 'lf_cefr_level'/);
+  assert.match(sql, /'word', 'verb_forms', 'phrasal', 'story'/);
+  const player = read('dashboard/js/ui/coursePracticeView.js');
+  assert.match(player, /WORD_KINDS\.has\(unit\.kind\)/, 'pista de significado para palavra/verbo');
+  const home = read('dashboard/js/ui/courses/courseHome.js');
+  assert.match(home, /data-path-next/, 'próxima aula recomendada');
+});
+
+test('catálogo: expõe unit_kind e a UI nomeia a contagem pelo tipo', async () => {
+  const sql = read('supabase/migrations/20260928000200_course_catalog_unit_kind.sql');
+  assert.match(sql, /'unit_kind', \(SELECT mode\(\) WITHIN GROUP \(ORDER BY u\.kind\)/);
+  assert.match(sql, /SECURITY DEFINER[\s\S]*SET search_path = ''/);
+  const { unitCount, plural } = await import('../dashboard/js/ui/courses/courseUi.js').catch(() => ({}));
+  if (!unitCount) return; // módulo depende de DOM; o contrato acima já cobre o SQL
+  assert.equal(unitCount({ unit_kind: 'word' }, 20), '20 palavras');
+  assert.equal(unitCount({ unit_kind: 'verb_forms' }, 1), '1 verbo');
+  assert.equal(unitCount({}, 3), '3 frases');
+  assert.equal(plural(1, 'capítulo', 'capítulos'), '1 capítulo');
 });

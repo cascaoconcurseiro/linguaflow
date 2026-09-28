@@ -1,11 +1,42 @@
 // Início dos Cursos: continuar, semana, revisão do dia, tempo e recentes.
 
 import { escapeHTML } from '../../../../utils/html.js';
-import { formatDuration, formatDateTime, formatDate, levelPill, lessonProgress, continueLessonOf, startLesson, renderEmpty } from './courseUi.js';
+import { formatDuration, formatDateTime, formatDate, levelPill, lessonProgress, continueLessonOf, startLesson, renderEmpty, plural, unitCount } from './courseUi.js';
 
 const WEEKDAYS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
 
-export function renderCourseHome(panel, { app, catalog, summary, navigate }) {
+const LEVEL_NAME = { A1: 'Iniciante', A2: 'Básico', B1: 'Intermediário', B2: 'Intermediário avançado' };
+
+function pathHtml(path, lessonIndex) {
+  if (!path?.levels) return '';
+  const next = path.next && lessonIndex.get(path.next.lesson_id);
+  return `
+    <section class="course-panel course-path" aria-labelledby="path-title">
+      <div class="course-section-head">
+        <h2 id="path-title" class="course-section-title">Sua trilha${path.current_level ? ` · nível ${escapeHTML(path.current_level)}` : ''}</h2>
+        ${path.placement_level ? `<span class="course-card-stats">Ponto de partida pelo nivelamento: ${escapeHTML(path.placement_level)}</span>` : ''}
+      </div>
+      <ol class="course-path-levels" aria-label="Progresso por nível">
+        ${path.levels.map((l) => {
+          const state = l.skipped ? 'is-skipped' : l.is_completed ? 'is-done' : l.level === path.current_level ? 'is-current' : '';
+          const label = l.skipped ? 'pulado pelo nivelamento' : l.total === 0 ? 'em breve' : `${l.completed} de ${l.total} capítulos · ${l.percent}%`;
+          return `<li class="course-path-level ${state}">
+            <strong>${escapeHTML(l.level)}</strong><span>${LEVEL_NAME[l.level] || ''}</span>
+            <div class="course-hero-progress-track" role="progressbar" aria-label="Nível ${escapeHTML(l.level)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${l.skipped ? 100 : l.percent}">
+              <div class="course-hero-progress-bar" style="width:${l.skipped ? 100 : l.percent}%"></div></div>
+            <small>${l.is_completed ? '✓ concluído · ' : ''}${label}</small>
+          </li>`;
+        }).join('')}
+      </ol>
+      ${next ? `<div class="course-path-next">
+          <span class="course-card-stats">Próxima aula recomendada</span>
+          <strong>${escapeHTML(next.course.title)} · ${next.lesson.chapter_number}. ${escapeHTML(next.lesson.title)}</strong>
+          <button class="course-btn-primary-lg" type="button" data-path-next>Fazer agora</button>
+        </div>` : '<p class="course-hub-subtitle">Você concluiu todas as aulas disponíveis da trilha. Novas aulas aparecem aqui.</p>'}
+    </section>`;
+}
+
+export function renderCourseHome(panel, { app, catalog, summary, path, navigate }) {
   const lessonIndex = new Map();
   for (const course of catalog) for (const lesson of course.lessons) lessonIndex.set(lesson.id, { course, lesson });
 
@@ -28,13 +59,13 @@ export function renderCourseHome(panel, { app, catalog, summary, navigate }) {
     const { percent } = lessonProgress(cont.lesson, cont.course);
     return `
       <div class="course-continue-body">
-        ${levelPill(cont.course.level)} <span class="course-card-stats">${cont.course.lessons.length} capítulos</span>
+        ${levelPill(cont.course.level)} <span class="course-card-stats">${plural(cont.course.lessons.length, 'capítulo', 'capítulos')}</span>
         <h3 class="course-hero-title">${escapeHTML(cont.course.title)}</h3>
         <p class="course-hub-subtitle">${cont.lesson.chapter_number}. ${escapeHTML(cont.lesson.title)}</p>
         <div class="course-hero-progress-track" role="progressbar" aria-label="Progresso do capítulo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}">
           <div class="course-hero-progress-bar" style="width:${percent}%"></div>
         </div>
-        <p class="course-card-stats">${Math.round((percent / 100) * cont.lesson.unit_count)} / ${cont.lesson.unit_count} frases</p>
+        <p class="course-card-stats">${Math.round((percent / 100) * cont.lesson.unit_count)} / ${unitCount(cont.course, cont.lesson.unit_count)}</p>
         <button class="course-btn-primary-lg" type="button" data-continue>Continuar</button>
       </div>`;
   })() : `
@@ -45,6 +76,7 @@ export function renderCourseHome(panel, { app, catalog, summary, navigate }) {
       </div>`;
 
   panel.innerHTML = `
+    ${pathHtml(path, lessonIndex)}
     <div class="course-home-grid">
       <section class="course-panel course-continue" aria-labelledby="continue-title">
         <h2 id="continue-title" class="course-section-title">Continue seu curso</h2>
@@ -103,6 +135,10 @@ export function renderCourseHome(panel, { app, catalog, summary, navigate }) {
     </section>`;
 
   panel.querySelector('[data-continue]')?.addEventListener('click', () => startLesson(app, cont.course, cont.lesson));
+  panel.querySelector('[data-path-next]')?.addEventListener('click', () => {
+    const found = lessonIndex.get(path.next.lesson_id);
+    if (found) startLesson(app, found.course, found.lesson);
+  });
   panel.querySelector('[data-start-first]')?.addEventListener('click', () => navigate('course', { courseId: firstCourse.id }));
   panel.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => navigate(b.dataset.go)));
   panel.querySelectorAll('[data-open-lesson]').forEach((b) => b.addEventListener('click', () => {

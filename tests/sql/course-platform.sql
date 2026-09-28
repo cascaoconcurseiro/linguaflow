@@ -24,9 +24,10 @@ DECLARE
 BEGIN
   -- Catálogo: 3 cursos, 10 lições, nenhuma lição vazia; ninguém matriculado ainda
   v_catalog := public.rpc_course_catalog();
-  IF jsonb_array_length(v_catalog) <> 3 THEN RAISE EXCEPTION 'catálogo esperava 3 cursos: %', jsonb_array_length(v_catalog); END IF;
+  -- O catálogo cresce a cada lote de conteúdo: confere que bate com as tabelas.
+  IF jsonb_array_length(v_catalog) <> (SELECT count(*) FROM public.course_catalog WHERE is_published) THEN RAISE EXCEPTION 'catálogo: %', jsonb_array_length(v_catalog); END IF;
   SELECT sum(jsonb_array_length(c->'lessons')) INTO v_count FROM jsonb_array_elements(v_catalog) c;
-  IF v_count <> 10 THEN RAISE EXCEPTION 'catálogo esperava 10 lições: %', v_count; END IF;
+  IF v_count <> (SELECT count(DISTINCT lesson_id) FROM public.course_units) THEN RAISE EXCEPTION 'lições no catálogo: %', v_count; END IF;
 
   -- Meus cursos: adicionar sem progresso
   PERFORM public.rpc_set_course_in_my_courses('course-travel-a2', true);

@@ -48,12 +48,17 @@ export async function renderCourses(container, app, params = {}) {
 
   let catalog = [];
   let summary = {};
+  let path = null;
   async function loadData() {
-    const [catalogResult, summaryResult] = await Promise.allSettled([db.courses.listCatalog(), db.courses.getHubSummary()]);
+    const [catalogResult, summaryResult, pathResult] = await Promise.allSettled([
+      db.courses.listCatalog(), db.courses.getHubSummary(), db.courses.getPath(),
+    ]);
     if (catalogResult.status === 'rejected') throw catalogResult.reason;
     catalog = catalogResult.value;
     if (summaryResult.status === 'fulfilled' && summaryResult.value) summary = summaryResult.value;
     else console.warn('[Courses] hub_summary_failed', summaryResult.reason?.kind || summaryResult.reason?.message);
+    if (pathResult.status === 'fulfilled') path = pathResult.value;
+    else console.warn('[Courses] path_failed', pathResult.reason?.kind || pathResult.reason?.message);
   }
 
   try {
@@ -71,6 +76,7 @@ export async function renderCourses(container, app, params = {}) {
     state: sessionState,
     get catalog() { return catalog; },
     get summary() { return summary; },
+    get path() { return path; },
     navigate: (target, extra = {}) => {
       section = target;
       courseId = extra.courseId || null;

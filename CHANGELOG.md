@@ -9,6 +9,7 @@
 ### Corrigido
 - **Legenda do YouTube não iniciava ao trocar de vídeo**: a legenda baixada pelo player durante a navegação interna do YouTube era descartada pela ponte de segurança (nonce antigo) e nunca reenviada; ficava só a legenda nativa traduzida até um Ctrl+Shift+R. Agora a última faixa capturada do vídeo atual é reenviada assim que a ponte é renovada.
 - **Botão CC desligando sozinho após várias trocas de vídeo**: cada navegação somava um novo listener de `play` no mesmo `<video>`, clicando o CC várias vezes por play.
+- **Nível CEFR do painel do vídeo não chegava ao site**: trocar o nível no painel de legendas gerava ReferenceError (`db` não importado) e o nível não sincronizava. O teste de variáveis não declaradas passa a cobrir também a extensão (`content`, `background`, `popup`).
 
 ## [3.0.59] - 2026-09-27
 

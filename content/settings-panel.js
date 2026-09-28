@@ -221,7 +221,10 @@ export class SettingsPanel {
       // Sincroniza com a chave que a IA/histórias do dashboard usam —
       // um nível só, definido em qualquer lugar, vale pro sistema inteiro
       if (e.target.value && e.target.value !== 'none' && e.target.value !== 'all') {
-        db.setSetting('lf_cefr_level', e.target.value).catch(() => {});
+        const level = e.target.value;
+        import('../utils/db.js')
+          .then(({ db }) => db.setSetting('lf_cefr_level', level))
+          .catch((error) => console.warn('[LinguaFlow] cefr_level_sync_failed', { code: error?.kind || error?.name || 'error' }));
       }
     };
 

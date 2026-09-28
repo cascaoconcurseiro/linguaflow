@@ -1378,7 +1378,7 @@ async function explainSentenceWithAI(sentence, fullContext = null) {
 }
 
 async function explainQuickContext(word, sentence) {
-  const cache = (typeof quickContextCache !== 'undefined' ? quickContextCache : (globalThis.__lfQuickCtxCache = globalThis.__lfQuickCtxCache || new Map()));
+  const cache = (globalThis.__lfQuickCtxCache = globalThis.__lfQuickCtxCache || new Map());
   const cleanW = String(word || '').toLowerCase().trim();
   const cleanS = String(sentence || '').toLowerCase().trim();
   const cacheKey = `${cleanW}:::${cleanS}`;

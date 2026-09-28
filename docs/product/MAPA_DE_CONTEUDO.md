@@ -21,9 +21,9 @@ Padrões por tipo:
 - [x] Módulo 5: move, like, live, believe, hold, bring, happen, write, sit, stand (lote verbos-5)
 - [x] Módulo 6: lose, pay, meet, include, continue, set, learn, change, lead, understand (lote verbos-6)
 - [x] Módulo 7: watch, follow, stop, create, speak, read, spend, grow, open, walk (lote verbos-6)
-- [ ] Módulo 8: win, teach, offer, remember, love, consider, appear, buy, wait, serve
-- [ ] Módulo 9: die, send, expect, build, stay, fall, cut, reach, kill, remain
-- [ ] Módulo 10: sell, eat, drink, sleep, drive, fly, swim, sing, forget, choose
+- [x] Módulo 8: win, teach, offer, remember, love, consider, appear, buy, wait, serve (lote verbos-7)
+- [x] Módulo 9: die, send, expect, build, stay, fall, cut, reach, kill, remain (lote verbos-7)
+- [x] Módulo 10: sell, eat, drink, sleep, drive, fly, swim, sing, forget, choose (lote verbos-7)
 
 **1000 Palavras Essenciais (A1→A2)** — 50 capítulos de 20 palavras
 - [x] Pessoas e família (fundamentos-1) · Cores · Números 1–20 · Itens essenciais do dia a dia (palavras-1)

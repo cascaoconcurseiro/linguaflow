@@ -16,7 +16,7 @@ import { isValidIpa } from '../utils/ipa-validator.js';
 const q = (v) => (v == null ? 'NULL' : `'${String(v).replace(/'/g, "''")}'`);
 const j = (v) => `${q(JSON.stringify(v))}::jsonb`;
 const TRACKS = new Set(['fundamentos', 'dia-a-dia', 'viagem', 'gramatica', 'trabalho', 'fluencia']);
-const KINDS = new Set(['sentence', 'word', 'verb_forms', 'phrasal', 'story']);
+const KINDS = new Set(['sentence', 'word', 'verb_forms', 'phrasal', 'story', 'paragraph']);
 // Lotes já publicados antes da regra de nota obrigatória (saída congelada).
 const LEGACY_BATCHES = new Set(['fundamentos-1']);
 

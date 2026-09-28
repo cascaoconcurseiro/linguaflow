@@ -78,7 +78,7 @@ Padrões por tipo:
 - [ ] **Tempos Verbais** 7–16: condicionais, voz passiva, discurso indireto, modais de dedução, revisão
 - [x] **Phrasal Verbs Essenciais** (B1) 1–6: get, take, put, come/go, look, turn/give (phrasal-1)
 - [ ] **Phrasal Verbs** 7–20: make, break, bring, run, set, call, pick, work, fill, check, e por tema
-- [ ] **Preposições e Conectores** (12)
+- [x] **Preposições e Conectores** (B1) 1–6: in/on/at tempo e lugar, verbo + prep., adjetivo + prep., contraste, causa e sequência (preposicoes-1)
 - [ ] **Modais** (8): can, could, should, must, might, would, have to, may
 
 ## Trabalho e Fluência (B1→B2)

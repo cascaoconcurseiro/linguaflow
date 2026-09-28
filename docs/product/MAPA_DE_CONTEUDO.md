@@ -49,7 +49,7 @@ Padrões por tipo:
 - [x] Can · Imperativo · Like + -ing · Passado com was/were · Revisão (lote frases-2) — curso completo, 12 capítulos
 
 **Números, Horas e Datas (A1)** — 8 capítulos
-- [ ] Números e idade · Preços e dinheiro · Telefone e e-mail soletrado · Horas · Datas e aniversários · Agenda e compromissos · Medidas · Revisão
+- [x] Números e idade · Preços · Telefone e soletrar · Horas · Datas e aniversários · Agenda · Medidas · Revisão (numeros-1)
 
 ## Viagem (A1→B1)
 

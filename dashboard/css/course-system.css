@@ -664,3 +664,6 @@
   .stats-bars li { grid-template-columns: 1fr auto; }
   .stats-bar-track { grid-column: 1 / -1; }
 }
+
+.stats-page .course-metrics--kpi { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 860px) { .stats-page .course-metrics--kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

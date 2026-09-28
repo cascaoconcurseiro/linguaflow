@@ -39,6 +39,7 @@ function formatDate(value) {
 }
 
 const n = (v) => Number(v || 0).toLocaleString('pt-BR');
+const pct = (v) => (v == null ? '—' : `${Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`);
 
 export function compare(cur, prev, { unit = '', lowerIsBetter = false, format = (v) => v } = {}) {
   if (prev == null || cur == null) return '';
@@ -148,15 +149,15 @@ export async function renderProgress(container, app) {
         </div>` : `
       <section class="course-metrics course-metrics--kpi" aria-label="Resumo do período">
         <div class="course-metric"><span>Tempo de estudo · ${periodLabel}</span><strong>${formatDuration(t.total_seconds)}</strong>
-          ${compare(Math.floor((t.total_seconds || 0) / 60), t.previous_seconds == null ? null : Math.floor(t.previous_seconds / 60), { unit: ' min' })}
+          ${compare(t.total_seconds || 0, t.previous_seconds, { format: formatDuration })}
           ${t.daily_average_seconds != null ? `<small>média de ${formatDuration(t.daily_average_seconds)} por dia</small>` : ''}</div>
         <div class="course-metric"><span>Sequência</span><strong>${st.current || 0} ${st.current === 1 ? 'dia' : 'dias'}</strong>
           <small>recorde: ${st.best || 0} · ${st.studied_today ? 'hoje já contou' : 'estude hoje para manter'}</small></div>
         <div class="course-metric"><span>Dias com estudo</span><strong>${t.active_days || 0}</strong><small>${n(st.total_days)} no total</small></div>
         <div class="course-metric"><span>Revisões</span><strong>${n(r.count)}</strong>${compare(r.count, r.previous_count)}</div>
-        <div class="course-metric"><span>Acerto nas revisões</span><strong>${r.success_rate != null ? `${r.success_rate}%` : '—'}</strong>
-          ${compare(r.success_rate, r.previous_success_rate, { unit: ' p.p.', format: (x) => x.toFixed(1) })}</div>
-        <div class="course-metric"><span>Retenção (cartões em revisão)</span><strong>${r.retention_mature != null ? `${r.retention_mature}%` : '—'}</strong><small>lembrou sem errar</small></div>
+        <div class="course-metric"><span>Acerto nas revisões</span><strong>${pct(r.success_rate)}</strong>
+          ${compare(r.success_rate, r.previous_success_rate, { unit: ' p.p.', format: (x) => x.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) })}</div>
+        <div class="course-metric"><span>Retenção (cartões em revisão)</span><strong>${pct(r.retention_mature)}</strong><small>lembrou sem errar</small></div>
         <div class="course-metric"><span>Palavras e frases salvas</span><strong>${n(v.total)}</strong><small>+${n(v.added_in_period)} no período</small></div>
         <div class="course-metric"><span>Revisões vencidas agora</span><strong>${n(r.due_now)}</strong>
           ${r.due_now > 0 ? '<button class="course-link" type="button" data-go="study">Revisar agora →</button>' : '<small>nada pendente</small>'}</div>
@@ -205,7 +206,7 @@ export async function renderProgress(container, app) {
           <dl class="course-dl">
             <div><dt>Tempo de prática</dt><dd>${formatDuration(c.active_seconds)}</dd></div>
             <div><dt>Frases respondidas</dt><dd>${n(c.phrases_answered)}</dd></div>
-            <div><dt>Acerto de primeira</dt><dd>${c.accuracy != null ? `${c.accuracy}%` : '—'}</dd></div>
+            <div><dt>Acerto de primeira</dt><dd>${pct(c.accuracy)}</dd></div>
           </dl>
           <p class="course-card-stats">${n(c.chapters_completed)} capítulos concluídos · ${n(c.courses_in_progress)} em andamento · ${n(c.courses_completed)} concluídos</p>
           <button class="course-link" type="button" data-go="courses" data-tab="analysis">Ver análise dos cursos →</button>

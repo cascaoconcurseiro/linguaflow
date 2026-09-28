@@ -57,11 +57,9 @@ assert.match(db, /learning_task_attempts\?select=/);
 assert.match(app, /import \{ renderFluencyCheck \} from '\.\.\/ui\/fluencyCheckView\.js'/);
 assert.match(app, /'fluency-check': renderFluencyCheck/);
 assert.match(app, /const progressRoutes = new Set\(\[[^\]]*'fluency-check'/);
-assert.match(progress, /route: 'fluency-check'/);
-assert.ok(
-  progress.indexOf("route: 'fluency-check'") < progress.indexOf("route: 'stats'"),
-  'evidência de uso real aparece antes de memória e liga',
-);
+// Progresso virou só estatísticas (decisão de 2026-09-27); o Check de
+// comunicação continua acessível por link no rodapé da página.
+assert.match(progress, /data-go="fluency-check"/);
 
 assert.match(view, /renderViewState/);
 assert.match(view, /<main[^>]*aria-labelledby=/);

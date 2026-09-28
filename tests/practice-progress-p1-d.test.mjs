@@ -29,15 +29,12 @@ assert.doesNotMatch(stats, /Expressões na memória/);
 assert.match(stats, /<details class="stats-activity-details">/);
 assert.ok(stats.indexOf('Previsão de revisões') < stats.indexOf('Ver histórico de atividade'), 'agenda aparece antes dos detalhes de atividade');
 
-assert.match(progress, /product-destination-card-\$\{item\.emphasis\}/);
-assert.match(css, /\.product-destination-card-primary/);
-assert.match(css, /\.product-destination-card-optional/);
-assert.match(progress, /Atividade competitiva/);
+// Progresso agora é a página de estatísticas completas (Issue #216).
+assert.match(progress, /db\.stats\.getSystemStats/);
 assert.doesNotMatch(progress, /atividades qualificadas/);
 const leagues = read('dashboard/js/ui/leaguesView.js');
 assert.match(leagues, /Liga opcional:/);
 assert.match(leagues, /Prática livre não pontua/);
 assert.doesNotMatch(leagues, /inativos descem/);
-assert.match(progress, /item\.emphasis === 'primary' \? 'btn-primary' : 'btn-secondary'/);
 
 console.log('✓ P1-D: prática, memória e competição têm papéis distintos');

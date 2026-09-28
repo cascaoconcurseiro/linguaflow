@@ -648,3 +648,19 @@
 @media (prefers-reduced-motion: reduce) {
   .course-difficulty-card { transition: none; }
 }
+
+/* ============================================================================
+   Progresso: estatísticas de todo o sistema
+   ============================================================================ */
+.stats-page { max-width: 1180px; margin: 0 auto; padding: 24px 16px 64px; display: flex; flex-direction: column; gap: 20px; }
+.stats-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.stats-bars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.stats-bars li { display: grid; grid-template-columns: minmax(110px, 38%) 1fr auto; gap: 10px; align-items: center; font-size: 13px; }
+.stats-bar-label { color: var(--course-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stats-bar-track { height: 10px; border-radius: 999px; background: var(--course-surface-alt); overflow: hidden; }
+.stats-bar-fill { display: block; height: 100%; border-radius: inherit; background: var(--course-accent); }
+.stats-footer { border-top: 1px solid var(--course-border); padding-top: 12px; }
+@media (max-width: 520px) {
+  .stats-bars li { grid-template-columns: 1fr auto; }
+  .stats-bar-track { grid-column: 1 / -1; }
+}

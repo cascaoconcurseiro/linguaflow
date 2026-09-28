@@ -42,4 +42,16 @@ assert.match(study, /class="study-breakdown"[\s\S]*?id="pump-translation"[\s\S]*
 assert.match(editorial, /\.study-layout:not\(\.is-revealed\) \.study-breakdown \{ display:none; \}/,
   'o painel do verso não pode aparecer antes de revelar');
 
+// 4. Camadas do verso por atalho (P/X/V/O), uma por vez, fechadas a cada card
+assert.match(study, /STUDY_LAYER_KEYS = \{ KeyP: 'word', KeyX: 'why', KeyV: 'clip', KeyO: 'more' \}/,
+  'atalhos P/X/V/O devem abrir palavra, explicação, trecho e outros contextos');
+assert.match(study, /classList\.remove\('is-revealed'\);\s*setStudyLayer\(''\)/,
+  'trocar de card deve fechar a camada aberta (e pausar vídeo/YouGlish pelos toggles)');
+assert.match(study, /data-study-layer="word" aria-pressed="false"/,
+  'botões de camada devem expor estado pressionado para tecnologia assistiva');
+assert.match(editorial, /\.study-layout:not\(\[data-layer="word"\]\) #pump-word-answer/,
+  'o bloco da palavra só aparece com a camada Palavra ativa');
+assert.match(editorial, /\.study-layout:not\(\[data-layer="clip"\]\):not\(\[data-layer="more"\]\) \.study-explore \{ display:none; \}/,
+  'trecho e outros contextos só aparecem com a camada correspondente');
+
 console.log('Contratos de layout vertical compacto e pausa de áudio/vídeo passaram com sucesso.');

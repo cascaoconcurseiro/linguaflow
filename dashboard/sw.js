@@ -8,7 +8,7 @@ const APP_SHELL = [
   '/',
   '/js/core/app.js?v=3.0.59',
   '/css/globals.css?v=editorial-114',
-  '/css/editorial.css?v=117',
+  '/css/editorial.css?v=118',
   '/manifest.webmanifest',
   '/icons/icon192.png',
   '/icons/icon512.png',

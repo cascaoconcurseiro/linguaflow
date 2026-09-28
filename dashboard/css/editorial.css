@@ -229,6 +229,47 @@ html body .grade-btn kbd { position:absolute; top:6px; right:8px; font:400 10px 
 html body .sentence-container.card-discard-fail, html body .sentence-container.card-discard-pass { transform:translateX(-10px); opacity:0; }
 html body .is-revealed #pump-translation { animation:editorial-reveal 180ms ease-out; }
 @keyframes editorial-reveal { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+/* Camadas do verso (P/X/V/O): só a camada ativa aparece, no mesmo lugar, para
+   o card caber na tela sem rolar. Botão de camada sem conteúdo some. */
+html body .anki-study-header { margin-bottom:16px; }
+html body .study-card-meta { margin-bottom:12px; }
+html body .sentence-text { margin-bottom:14px; }
+html body .study-breakdown { margin-top:12px; padding:16px 20px; gap:10px; }
+html body .study-front-actions { margin-top:16px; }
+html body .study-layout:not([data-layer="word"]) #pump-word-answer,
+html body .study-layout:not([data-layer="why"]) #iso-context-details { display:none !important; }
+html body #iso-context-summary { display:none; }
+html body #iso-context-details { border-top:0; }
+html body #iso-context-explanation { padding-top:0; }
+html body .study-layer-bar { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin:12px auto 0; }
+html body .study-layout:not(.is-revealed) .study-layer-bar { display:none; }
+html body .study-layer-btn { display:inline-flex; align-items:center; gap:6px; min-height:40px; padding:0 12px; border:1px solid var(--color-border); border-radius:8px; background:var(--color-surface); color:var(--color-text); font:500 13px var(--font-main); cursor:pointer; transition:border-color 120ms ease, background-color 120ms ease; }
+html body .study-layer-btn:hover { border-color:var(--color-primary); }
+html body .study-layer-btn[aria-pressed="true"] { border-color:var(--color-primary); background:var(--editorial-highlight); color:var(--color-link); }
+html body .study-key-badge { display:inline-flex; align-items:center; padding:2px 6px; border:1px solid var(--color-border); border-radius:4px; background:var(--color-bg); color:var(--color-text); font:500 11px ui-monospace,Consolas,monospace; }
+html body .study-layout:has(#pump-word-answer.hidden) [data-study-layer="word"],
+html body .study-layout:has(#iso-context-details.hidden) [data-study-layer="why"],
+html body .study-layout:has(#video-resource-section.hidden) [data-study-layer="clip"],
+html body .study-layout:has(#study-resources.hidden) [data-study-layer="more"] { display:none; }
+html body .study-layout:not([data-layer="clip"]):not([data-layer="more"]) .study-explore { display:none; }
+html body .study-layout[data-layer="clip"] .study-explore-row,
+html body .study-layout[data-layer="more"] #video-resource-section { display:none; }
+html body .study-explore { margin-top:12px; padding:16px 20px; box-sizing:border-box; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); }
+html body .study-explore .study-resources { border:0; }
+html body .study-explore .study-video-context { width:100%; margin:0; }
+html body .study-explore #youglish-box { padding:0; background:transparent; }
+html body #video-resource-section, html body .study-explore-row { padding:0; border-top:0; }
+html body #video-resource-toggle > summary, html body .study-resources > summary, html body .study-resource-panel-header { display:none; }
+html body .study-resource-body { padding-top:0; }
+html body .study-resources-content .learning-resource-section { padding:0; border-top:0; }
+html body .study-resources-content .learning-resource-section h3 { display:none; }
+@media (max-width:720px) {
+  html body .study-layer-btn .study-key-badge { display:none; }
+  html body .study-layer-btn { padding:0 10px; font-size:12px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  html body .study-layer-btn { transition:none; }
+}
 @media (max-width:1100px) {
   html body .study-main { column-gap:24px; grid-template-columns:minmax(0,1fr) 280px; padding-left:28px; padding-right:28px; }
   html body .study-explore { padding-left:20px; flex-direction:column; gap:16px; max-width:none; }

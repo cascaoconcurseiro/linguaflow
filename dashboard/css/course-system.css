@@ -667,3 +667,17 @@
 
 .stats-page .course-metrics--kpi { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 @media (max-width: 860px) { .stats-page .course-metrics--kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Trilha por nível no Início dos Cursos */
+.course-path-levels { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.course-path-level { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border: 1px solid var(--course-border); border-radius: 10px; }
+.course-path-level strong { font-size: 18px; }
+.course-path-level span, .course-path-level small { font-size: 12px; color: var(--course-text-muted); }
+.course-path-level.is-current { border-color: var(--course-accent); box-shadow: 0 0 0 1px var(--course-accent); }
+.course-path-level.is-done strong { color: #047857; }
+.course-path-level.is-skipped { opacity: .65; }
+.course-path-next { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 6px; }
+.course-path-next strong { flex: 1; min-width: 200px; }
+@media (max-width: 640px) { .course-path-levels { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.course-store-groups { display: flex; flex-direction: column; gap: 24px; }
+.course-track-group { display: flex; flex-direction: column; gap: 12px; }

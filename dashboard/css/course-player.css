@@ -492,3 +492,5 @@ button.course-hud-pill { font: inherit; cursor: pointer; }
   .course-action { padding: 0 8px; font-size: 12px; }
   .course-action .course-key-badge { display: none; }
 }
+
+.course-player-cue { margin: 0; font-size: 16px; font-weight: 600; color: var(--course-accent-hover); text-align: center; }

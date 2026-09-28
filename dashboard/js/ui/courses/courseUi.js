@@ -3,6 +3,22 @@
 import { escapeHTML } from '../../../../utils/html.js';
 import { openCoursePrepareModal } from '../coursePrepareModal.js';
 
+export const TRACKS = [
+  ['fundamentos', 'Fundamentos'],
+  ['dia-a-dia', 'Dia a dia'],
+  ['viagem', 'Viagem'],
+  ['gramatica', 'Gramática em uso'],
+  ['trabalho', 'Trabalho'],
+  ['fluencia', 'Fluência'],
+];
+export const TRACK_LABEL = Object.fromEntries(TRACKS);
+const LEVEL_RANK = { A1: 1, A2: 2, B1: 3, B2: 4, C1: 5 };
+export function byPathOrder(a, b) {
+  const ta = TRACKS.findIndex(([t]) => t === a.track);
+  const tb = TRACKS.findIndex(([t]) => t === b.track);
+  return (LEVEL_RANK[a.level] || 9) - (LEVEL_RANK[b.level] || 9) || ta - tb || (a.track_order || 0) - (b.track_order || 0);
+}
+
 export const CATEGORY_LABEL = {
   'street-slang': 'Ruas & gírias',
   survival: 'Sobrevivência',

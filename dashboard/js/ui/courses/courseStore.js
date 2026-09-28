@@ -2,7 +2,7 @@
 
 import { db } from '../../../../utils/db.js';
 import { escapeHTML } from '../../../../utils/html.js';
-import { CATEGORY_LABEL, levelPill, lessonProgress, continueLessonOf, startLesson, renderEmpty } from './courseUi.js';
+import { CATEGORY_LABEL, TRACKS, TRACK_LABEL, byPathOrder, levelPill, lessonProgress, continueLessonOf, startLesson, renderEmpty } from './courseUi.js';
 
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1'];
 const SORTS = { recommended: 'Recomendados', popular: 'Mais alunos', newest: 'Mais novos' };
@@ -15,7 +15,7 @@ function courseCard(course, { showToggle = true } = {}) {
     <article class="course-card" aria-labelledby="t-${escapeHTML(course.id)}">
       <div class="course-card-top">
         <div class="course-card-badges">${levelPill(course.level)}
-          <span class="course-card-stats">${escapeHTML(CATEGORY_LABEL[course.category] || course.category)}</span></div>
+          <span class="course-card-stats">${escapeHTML(TRACK_LABEL[course.track] || CATEGORY_LABEL[course.category] || '')}</span></div>
         <h3 id="t-${escapeHTML(course.id)}" class="course-card-title">${escapeHTML(course.title)}</h3>
         <p class="course-card-desc">${escapeHTML(course.short_description)}</p>
         <p class="course-card-stats">${course.lessons.length} ${course.lessons.length === 1 ? 'capítulo' : 'capítulos'} · ${units} frases · ${course.learners_count} ${course.learners_count === 1 ? 'aluno' : 'alunos'}</p>
@@ -50,13 +50,14 @@ function bindCards(panel, { app, catalog, navigate, refresh }) {
 export function renderCourseStore(panel, ctx) {
   const { catalog, state } = ctx;
   const f = state.store || (state.store = { category: 'all', query: '', level: '', sort: 'recommended' });
-  const categories = ['all', ...new Set(catalog.map((c) => c.category))];
+  const tracks = TRACKS.filter(([t]) => catalog.some((c) => c.track === t));
 
   function filtered() {
     const q = f.query.trim().toLowerCase();
-    const list = catalog.filter((c) => (f.category === 'all' || c.category === f.category)
+    const list = catalog.filter((c) => (f.category === 'all' || c.track === f.category)
       && (!f.level || c.level === f.level)
       && (!q || `${c.title} ${c.short_description} ${c.lessons.map((l) => l.title).join(' ')}`.toLowerCase().includes(q)));
+    if (f.sort === 'recommended') list.sort(byPathOrder);
     if (f.sort === 'popular') list.sort((a, b) => b.learners_count - a.learners_count);
     else if (f.sort === 'newest') list.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     return list;
@@ -64,8 +65,9 @@ export function renderCourseStore(panel, ctx) {
 
   panel.innerHTML = `
     <div class="course-filters">
-      <div class="course-subnav course-subnav--pills" role="tablist" aria-label="Categorias">
-        ${categories.map((c) => `<button type="button" role="tab" class="course-tab-btn ${f.category === c ? 'active' : ''}" aria-selected="${f.category === c}" data-category="${c}">${c === 'all' ? 'Todos' : escapeHTML(CATEGORY_LABEL[c] || c)}</button>`).join('')}
+      <div class="course-subnav course-subnav--pills" role="tablist" aria-label="Trilhas">
+        <button type="button" role="tab" class="course-tab-btn ${f.category === 'all' ? 'active' : ''}" aria-selected="${f.category === 'all'}" data-category="all">Todas as trilhas</button>
+        ${tracks.map(([t, label]) => `<button type="button" role="tab" class="course-tab-btn ${f.category === t ? 'active' : ''}" aria-selected="${f.category === t}" data-category="${t}">${label}</button>`).join('')}
       </div>
       <div class="course-filter-row">
         <label class="course-search"><span class="visually-hidden">Buscar cursos ou temas</span>
@@ -77,13 +79,20 @@ export function renderCourseStore(panel, ctx) {
       </div>
     </div>
     <p class="course-hub-subtitle" id="course-store-count" role="status"></p>
-    <div class="course-catalog-grid" id="course-store-grid"></div>`;
+    <div id="course-store-grid" class="course-store-groups"></div>`;
 
   const grid = panel.querySelector('#course-store-grid');
   const paint = () => {
     const list = filtered();
     panel.querySelector('#course-store-count').textContent = `${list.length} ${list.length === 1 ? 'curso' : 'cursos'}`;
-    grid.innerHTML = list.length ? list.map((c) => courseCard(c)).join('') : '<p class="course-hub-subtitle">Nenhum curso encontrado com esses filtros.</p>';
+    if (!list.length) grid.innerHTML = '<p class="course-hub-subtitle">Nenhum curso encontrado com esses filtros.</p>';
+    else if (f.category === 'all' && f.sort === 'recommended' && !f.query) {
+      grid.innerHTML = tracks.map(([t, label]) => {
+        const items = list.filter((c) => c.track === t);
+        return items.length ? `<section class="course-track-group" aria-labelledby="track-${t}"><h2 id="track-${t}" class="course-section-title">${label}</h2>
+          <div class="course-catalog-grid">${items.map((c) => courseCard(c)).join('')}</div></section>` : '';
+      }).join('');
+    } else grid.innerHTML = `<div class="course-catalog-grid">${list.map((c) => courseCard(c)).join('')}</div>`;
     bindCards(grid, ctx);
   };
   panel.querySelectorAll('[data-category]').forEach((b) => b.addEventListener('click', () => { f.category = b.dataset.category; renderCourseStore(panel, ctx); }));
@@ -161,7 +170,7 @@ export function renderCourseDetail(panel, ctx, courseId, openLessonId = null) {
         return `<li class="course-chapter ${done ? 'is-done' : ''}">
           <span class="course-chapter-num" aria-hidden="true">${String(lesson.chapter_number).padStart(2, '0')}</span>
           <div class="course-chapter-info">
-            <strong>${escapeHTML(lesson.title)}</strong>
+            <strong>${escapeHTML(lesson.title)}${lesson.id === cont.id && !done ? ' <span class="course-tab-badge">Próximo</span>' : ''}</strong>
             <span class="course-card-stats">${lesson.unit_count} frases${lesson.description ? ` · ${escapeHTML(lesson.description)}` : ''}</span>
           </div>
           <div class="course-chapter-progress" role="progressbar" aria-label="Progresso do capítulo ${lesson.chapter_number}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${lp}">

@@ -77,7 +77,8 @@ Padrões por tipo:
 - [x] **Tempos Verbais em Uso** (B1) 1–6: presente, passado, present perfect, perfect contínuo, futuro, past perfect (tempos-1)
 - [ ] **Tempos Verbais** 7–16: condicionais, voz passiva, discurso indireto, modais de dedução, revisão
 - [x] **Phrasal Verbs Essenciais** (B1) 1–6: get, take, put, come/go, look, turn/give (phrasal-1)
-- [ ] **Phrasal Verbs** 7–20: make, break, bring, run, set, call, pick, work, fill, check, e por tema
+- [x] **Phrasal Verbs** 7–12: make, break, bring, run, set, call/pick (phrasal-2)
+- [ ] **Phrasal Verbs** 13–20: work, fill, check, hang, hold, keep, e por tema
 - [x] **Preposições e Conectores** (B1) 1–6: in/on/at tempo e lugar, verbo + prep., adjetivo + prep., contraste, causa e sequência (preposicoes-1)
 - [ ] **Modais** (8): can, could, should, must, might, would, have to, may
 

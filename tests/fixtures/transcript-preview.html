@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prévia local · Roteiro do vídeo</title>
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; background: #0f0f0f; color: #eee; }
+    #player { width: min(62vw, 960px); aspect-ratio: 16 / 9; margin: 24px; background: #222; display: grid; place-items: center; border-radius: 12px; }
+    .controls { margin: 0 24px; display: flex; gap: 8px; }
+  </style>
+</head>
+<body>
+  <div id="player"><video id="video" muted style="width:100%;height:100%;"></video></div>
+  <div class="controls">
+    <button id="open" type="button">Abrir roteiro</button>
+    <button id="theme" type="button">Alternar tema</button>
+    <button id="empty" type="button">Simular sem legenda</button>
+  </div>
+  <script type="module" src="/tests/fixtures/transcript-preview.js"></script>
+</body>
+</html>

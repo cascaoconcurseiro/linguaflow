@@ -21,6 +21,7 @@ import {
 import { setupPlayerHotkeys } from './subtitles/player-hotkeys.js';
 import { parseVTT } from './subtitles/vtt-parser.js';
 import { closeDomCue, crossedCueEnd, findActiveCueIndex, recordDomCue } from './subtitles/active-cue.js';
+import { CAPTION_WAIT_MS, highlightMatches, segmentSubtitle, transcriptState } from './subtitles/transcript-render.js';
 import {
   calculateWpm,
   detectConnectedSpeech,
@@ -222,6 +223,7 @@ export class SubtitleEngine {
     this._navigationController = new AbortController();
     this._navigationUrl = url;
     this._navigationEpoch += 1;
+    this._captionsPendingSince = Date.now();
     return this._navigationSnapshot();
   }
 
@@ -1321,7 +1323,6 @@ export class SubtitleEngine {
                     filter: blur(0px) saturate(1);
                     opacity: 1;
                     background: rgba(10, 15, 30, var(--lf-bg-opacity, 0.78));
-                    transform: scale(1.02);
                 }
                 /* Palavras clicáveis */
                 .lf-word {
@@ -2745,22 +2746,12 @@ export class SubtitleEngine {
             pointer-events: none;
         `;
 
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
-            position: absolute;
-            inset: 0;
-            background: rgba(0,0,0,0.4);
-            backdrop-filter: blur(2px);
-            pointer-events: auto;
-            opacity: 0;
-            transition: opacity 0.3s;
-        `;
-
+    // Painel não-modal: o vídeo continua visível e interativo enquanto o
+    // roteiro acompanha a fala (sem escurecer nem desfocar a página).
     const panel = document.createElement('div');
     panel.id = 'lf-subtitle-panel';
     panel.className = this.uiTheme === 'dark' ? 'theme-dark' : 'theme-light';
-    panel.setAttribute('role', 'dialog');
-    panel.setAttribute('aria-modal', 'true');
+    panel.setAttribute('role', 'complementary');
     panel.setAttribute('aria-labelledby', 'lf-panel-heading');
     panel.style.cssText = `
             width: 420px;
@@ -2794,7 +2785,25 @@ export class SubtitleEngine {
             #lf-subtitle-panel .lf-learning { color: #FBBF24; text-decoration: underline dashed; }
             #lf-subtitle-panel .lf-saved { color: #93C5FD; text-decoration: underline dashed; }
             #lf-subtitle-panel .lf-expression { border-bottom: 2px dotted rgba(56, 189, 248, 0.6); }
-            #lf-subtitle-panel .lf-new { color: #f8fafc; }
+            #lf-subtitle-panel .lf-new { color: inherit; }
+            #lf-subtitle-panel.theme-light .lf-known { color: #15803d; }
+            #lf-subtitle-panel.theme-light .lf-mature { color: #047857; }
+            #lf-subtitle-panel.theme-light .lf-review { color: #0369a1; }
+            #lf-subtitle-panel.theme-light .lf-learning { color: #b45309; }
+            #lf-subtitle-panel.theme-light .lf-saved { color: #1d4ed8; }
+            #lf-subtitle-panel.theme-light .lf-word:hover { color: #92400e !important; background: rgba(217, 119, 6, 0.12); }
+            #lf-subtitle-panel .lf-sub-text { margin: 0; }
+            #lf-subtitle-panel .lf-search-hit { background: rgba(251, 191, 36, 0.35); color: inherit; border-radius: 3px; padding: 0 1px; }
+            #lf-subtitle-panel .lf-play-cue {
+                background: transparent; border: none; padding: 2px 4px; margin: 0; cursor: pointer;
+                font: inherit; font-size: 11px; font-weight: 700; color: inherit; border-radius: 4px;
+                flex-shrink: 0; min-width: 40px; text-align: left;
+            }
+            #lf-subtitle-panel .lf-play-cue:focus-visible,
+            #lf-subtitle-panel .lf-loop-cue:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+            #lf-subtitle-panel .lf-skeleton-row { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+            #lf-subtitle-panel .lf-skeleton-bar { height: 12px; border-radius: 4px; background: rgba(148, 163, 184, 0.22); }
+            #lf-subtitle-panel .lf-skeleton-bar.short { width: 55%; }
 
             #lf-subtitle-panel .lf-subtitle-item.active {
                 background: rgba(166, 190, 255, 0.12) !important;
@@ -2806,7 +2815,6 @@ export class SubtitleEngine {
                 background: rgba(2, 132, 199, 0.28) !important;
                 border-left-color: #38bdf8 !important;
                 border-left-width: 4px !important;
-                transform: scale(1.02);
                 z-index: 12;
                 box-shadow: inset 0 0 16px rgba(56, 189, 248, 0.3), 0 4px 14px rgba(0, 0, 0, 0.4) !important;
             }
@@ -2821,11 +2829,6 @@ export class SubtitleEngine {
                 border-radius: 6px !important;
                 box-shadow: 0 0 10px rgba(56, 189, 248, 0.85) !important;
                 padding: 2px 6px !important;
-                animation: lf-loop-pulse 2s infinite ease-in-out;
-            }
-            @keyframes lf-loop-pulse {
-                0%, 100% { box-shadow: 0 0 8px rgba(56, 189, 248, 0.6); }
-                50% { box-shadow: 0 0 16px rgba(56, 189, 248, 1); transform: scale(1.08); }
             }
             #lf-subtitle-panel .lf-subtitle-item {
                 transition: background-color 0.14s, border-color 0.14s;
@@ -2887,7 +2890,13 @@ export class SubtitleEngine {
             #lf-subtitle-panel.theme-light .lf-subtitle-item:not(.active):hover { background: #f3f2ef !important; }
             #lf-subtitle-panel.theme-dark .lf-subtitle-item:not(.active):hover { background: #202733 !important; }
             
-            #lf-subtitle-panel.theme-light .lf-time { color: #afafaf; }
+            #lf-subtitle-panel.theme-light .lf-time { color: #6b7280; }
+            #lf-subtitle-panel.theme-light .lf-tab-btn.active { color: #2052c4 !important; border-bottom-color: #2052c4 !important; }
+            #lf-subtitle-panel.theme-light .lf-tab-btn:not(.active) { color: #6b7280 !important; }
+            #lf-subtitle-panel.theme-light #lf-export-pdf,
+            #lf-subtitle-panel.theme-light #lf-export-csv { color: #475569 !important; border-color: #cbd5e1 !important; }
+            #lf-subtitle-panel.theme-light #lf-export-anki,
+            #lf-subtitle-panel.theme-light #lf-follow-btn { color: #0369a1 !important; }
             #lf-subtitle-panel.theme-dark .lf-time { color: #64748B; }
             
             #lf-subtitle-panel.theme-light .lf-trans-text { color: #2052c4; }
@@ -2898,13 +2907,11 @@ export class SubtitleEngine {
         `;
     panel.appendChild(panelStyle);
 
-    wrapper.appendChild(overlay);
     wrapper.appendChild(panel);
     document.body.appendChild(wrapper);
 
     // Animação de entrada
     requestAnimationFrame(() => {
-      overlay.style.opacity = '1';
       panel.style.transform = 'translateX(0)';
     });
 
@@ -2912,15 +2919,12 @@ export class SubtitleEngine {
     const closePanel = () => {
       if (panelAbort.signal.aborted) return;
       panelAbort.abort();
-      overlay.style.opacity = '0';
       panel.style.transform = 'translateX(100%)';
       setTimeout(() => {
         wrapper.remove();
         if (panelTrigger && document.contains(panelTrigger)) panelTrigger.focus({ preventScroll: true });
       }, 300);
     };
-
-    overlay.onclick = closePanel;
 
     const header = document.createElement('div');
     header.className = 'lf-panel-header';
@@ -3061,10 +3065,10 @@ export class SubtitleEngine {
       }
     }, { passive: true });
 
-    this._rebuildSubtitleList(list);
-
     subtitlePane.appendChild(toolbar);
     subtitlePane.appendChild(list);
+    // Depois de anexar: o status "N trechos" fica na toolbar irmã da lista.
+    this._rebuildSubtitleList(list);
 
     // ── Painel Words (Frequência, Phrasal Verbs e Gírias) ─────────────────
     const wordsPane = document.createElement('div');
@@ -3178,8 +3182,10 @@ export class SubtitleEngine {
       this._updateSubtitlePanelHighlight(true);
     };
 
+    // Não-modal: Esc só fecha com o foco no painel; fora dele, Esc continua
+    // sendo do player (ex.: sair da tela cheia).
     const closeWithEscape = (event) => {
-      if (event.key === 'Escape') closePanel();
+      if (event.key === 'Escape' && panel.contains(document.activeElement)) closePanel();
     };
     document.addEventListener('keydown', closeWithEscape, { signal: panelAbort.signal });
     closeBtn.focus({ preventScroll: true });
@@ -3844,40 +3850,6 @@ export class SubtitleEngine {
     this._continueLoop(loop, this.videoElement || document.querySelector('video'));
   }
 
-  _prefetchTranslations(cues, currentIdx) {
-    const navigation = this._navigationSnapshot();
-    const nextCues = cues
-      .slice(currentIdx + 1, currentIdx + 5)
-      .filter((c) => !c.translatedText && !c.isTranslating);
-    nextCues.forEach((c) => {
-      c.isTranslating = true;
-      if (!chrome?.runtime?.sendMessage) {
-        c.isTranslating = false;
-        return;
-      }
-      try {
-        chrome.runtime.sendMessage(
-          {
-            action: 'translate',
-            text: c.text,
-            from: this.sourceLang,
-            to: this.targetLang,
-          },
-          (res) => {
-            if (!this._isNavigationCurrent(navigation) || !this.cues.includes(c)) return;
-            if (res?.translation) {
-              c.translatedText = res.translation;
-              c._transLang = this.targetLang;
-            }
-            c.isTranslating = false;
-          },
-        );
-      } catch {
-        c.isTranslating = false;
-      }
-    });
-  }
-
   _cleanSubtitleText(text) {
     if (!text) return '';
     const cleaned = text
@@ -4032,7 +4004,6 @@ export class SubtitleEngine {
   // ── Motor de Renderização de Elite (onSubtitle) ──────────────────────────
   onSubtitle(cue) {
     if (!cue) return;
-    console.debug('[LinguaFlow] onSubtitle triggered:', cue.text.substring(0, 30) + '...');
     if (cue === this._currentCue) return;
     this._lastProcessedText = cue.text;
     this._currentCue = cue;
@@ -4056,10 +4027,6 @@ export class SubtitleEngine {
       next: nextText,
     };
 
-    // 1. Pre-renderização: Cria os spans clicáveis antes de mostrar
-    if (!cue._renderedNode) {
-      cue._renderedNode = this._makeClickable(cue.text);
-    }
     if (!cue._speechCadence) {
       cue._speechCadence = annotateCaptionSegment(cue);
     }
@@ -4112,10 +4079,6 @@ export class SubtitleEngine {
     }
     orig = this._cleanSubtitleText ? this._cleanSubtitleText(orig) : (orig || '');
     trans = this._cleanSubtitleText ? this._cleanSubtitleText(trans) : (trans || '');
-    console.debug('[LinguaFlow] renderDual called with:', {
-      orig: orig?.substring(0, 20),
-      trans: trans?.substring(0, 20),
-    });
     const wrap = this.shadowContainer.getElementById('lf-wrap');
     const origDiv = this.shadowContainer.getElementById('lf-orig');
     const transDiv = this.shadowContainer.getElementById('lf-trans');
@@ -4205,9 +4168,6 @@ export class SubtitleEngine {
       wrap.style.display = (isOrigVisible || isTransVisible) ? 'inline-flex' : 'none';
     }
 
-    console.debug(
-      `[LinguaFlow] Render: mode=${mode}, origDisplay=${origDiv.style.display}, transDisplay=${transDiv.style.display}`,
-    );
 
     // Mostra botão de tradução rápida apenas quando tradução está oculta e engine ligado
     const translateBtn = this.shadowContainer.getElementById('lf-translate-btn');
@@ -4223,74 +4183,14 @@ export class SubtitleEngine {
 
   _makeClickable(text, disableHoverPause = false) {
     const frag = document.createDocumentFragment();
-
-    // Normaliza entidades HTML de apostrofo antes de tokenizar
-    const normalized = text
-      .replace(/&#39;/g, "'")
-      .replace(/&apos;/g, "'")
-      .replace(/\u2019/g, "'")
-      .replace(/\u2018/g, "'");
-
-    // Captura palavras e separadores mantendo a ordem original.
-    const tokens = Array.from(
-      normalized.matchAll(/[a-zA-Z\u00C0-\u024F']+|[^a-zA-Z\u00C0-\u024F']+/g),
-      (m) => m[0],
-    );
-
-    const isWord = (token) => /[a-zA-Z\u00C0-\u024F]/.test(token);
-    const cleanWord = (token) => token.toLowerCase().replace(/^'+|'+$/g, '');
-    const maxExpressionWords = this._getMaxExpressionWords();
-
-    for (let i = 0; i < tokens.length; i++) {
-      const token = tokens[i];
-
-      // Se for pontuação ou espaço, apenas adiciona
-      if (!isWord(token)) {
-        frag.appendChild(document.createTextNode(token));
+    for (const segment of segmentSubtitle(text, this._getMaxExpressionWords())) {
+      if (!segment.isWord) {
+        frag.appendChild(document.createTextNode(segment.text));
         continue;
       }
-
-      // --- DETECÇÃO DE EXPRESSÕES ---
-      // Olha para as próximas palavras ignorando espaços/pontuação e escolhe
-      // o maior bloco conhecido. Assim clicar em "put" dentro de "put up with"
-      // abre "put up with", não "put".
-      let longestMatch = null;
-      let longestCanonical = null;
-      let matchEndTokenIndex = i;
-      let seenWords = [];
-
-      for (let j = i; j < tokens.length && seenWords.length < maxExpressionWords; j++) {
-        if (!isWord(tokens[j])) continue;
-        seenWords.push(cleanWord(tokens[j]));
-
-        if (seenWords.length < 2) continue;
-
-        const exprMatch = matchExpressionCandidate(seenWords);
-        if (exprMatch) {
-          longestMatch = exprMatch.matched;
-          longestCanonical = exprMatch.canonical;
-          matchEndTokenIndex = j;
-        } else {
-          const candidate = seenWords.join(' ');
-          if (expressionsDB.has(candidate)) {
-            longestMatch = candidate;
-            longestCanonical = candidate;
-            matchEndTokenIndex = j;
-          }
-        }
-      }
-
-      if (longestMatch) {
-        const matchText = tokens.slice(i, matchEndTokenIndex + 1).join('');
-        const span = this._createWordSpan(matchText, true, disableHoverPause);
-        span.dataset.expression = longestCanonical || longestMatch;
-        frag.appendChild(span);
-        i = matchEndTokenIndex;
-      } else {
-        // Palavra isolada
-        const span = this._createWordSpan(token, false, disableHoverPause);
-        frag.appendChild(span);
-      }
+      const span = this._createWordSpan(segment.text, !!segment.expression, disableHoverPause);
+      if (segment.expression) span.dataset.expression = segment.expression;
+      frag.appendChild(span);
     }
     return frag;
   }
@@ -4601,16 +4501,35 @@ export class SubtitleEngine {
 
     const previousScrollTop = typeof container.scrollTop === 'number' ? container.scrollTop : 0;
     container.innerHTML = '';
+    container._lastActiveIndex = undefined;
+    const status = container.parentElement?.querySelector?.('#lf-panel-search-status');
 
     if (!cues || cues.length === 0) {
+      const state = transcriptState({ cueCount: 0, pendingSince: this._captionsPendingSince });
+      if (state === 'loading') {
+        container.setAttribute?.('aria-busy', 'true');
+        container.innerHTML = Array.from({ length: 6 }, () =>
+          '<div class="lf-skeleton-row" aria-hidden="true"><div class="lf-skeleton-bar"></div><div class="lf-skeleton-bar short"></div></div>',
+        ).join('');
+        if (status) status.textContent = 'Carregando as legendas do vídeo…';
+        clearTimeout(this._transcriptWaitTimer);
+        const remaining = Math.max(0, CAPTION_WAIT_MS - (Date.now() - this._captionsPendingSince));
+        this._transcriptWaitTimer = setTimeout(() => this._rebuildSubtitleList(), remaining + 50);
+        return;
+      }
+      container.removeAttribute?.('aria-busy');
       container.innerHTML =
         '<div style="padding:40px 20px;text-align:center;color:#64748B;font-size:14px;">A faixa de legendas do idioma estudado não está disponível aqui. Confira as legendas originais no player.</div>';
+      if (status) status.textContent = 'Legenda indisponível neste vídeo.';
       return;
     }
+    container.removeAttribute?.('aria-busy');
 
     const showTrans = document.getElementById('lf-show-translation')?.checked ?? true;
     if (showTrans) this._translateAllSidebarCues(cues);
 
+    const normalizedFilter = String(filter || '').trim();
+    const needle = normalizedFilter.toLowerCase();
     let visibleCount = 0;
     cues.forEach((cue, idx) => {
       const cleanText = this._cleanSubtitleText ? this._cleanSubtitleText(cue.text) : (cue.text || '');
@@ -4618,26 +4537,24 @@ export class SubtitleEngine {
       const cleanTrans = cue.translatedText && this._cleanSubtitleText ? this._cleanSubtitleText(cue.translatedText) : (cue.translatedText || '');
 
       const matchesFilter =
-        !filter ||
-        cleanText.toLowerCase().includes(filter.toLowerCase()) ||
-        (cleanTrans && cleanTrans.toLowerCase().includes(filter.toLowerCase()));
+        !needle ||
+        cleanText.toLowerCase().includes(needle) ||
+        (cleanTrans && cleanTrans.toLowerCase().includes(needle));
 
       if (!matchesFilter) return;
       visibleCount += 1;
 
-      // Garante que o tempo está em segundos para formatar
       const startTime = cue.start;
+      const time = this._formatTime(startTime);
 
+      // Sem role no item: a frase é lida como texto e as ações são botões
+      // irmãos (tocar / repetir), nunca aninhados.
       const item = document.createElement('div');
       item.className = 'lf-subtitle-item';
-      item.setAttribute('role', 'button');
-      item.setAttribute('tabindex', '0');
-      item.setAttribute('aria-label', `Ouvir trecho a partir de ${this._formatTime(startTime)}`);
       item.dataset.index = idx;
       item.style.cssText = `
                 padding: 12px 16px;
                 cursor: pointer;
-                transition: all 0.1s;
                 position: relative;
                 display: flex;
                 flex-direction: column;
@@ -4646,44 +4563,47 @@ export class SubtitleEngine {
 
       item.innerHTML = `
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
-                    <span class="lf-time lf-sub-time" style="font-size:11px;font-family:'Nunito',monospace;font-weight:700;flex-shrink:0;margin-top:3px;">${this._formatTime(startTime)}</span>
-                    <div class="lf-sub-text" style="flex:1;font-size:15px;line-height:1.4;font-weight:700;">${escapeHTML(cleanText)}</div>
-                    <div style="display:flex;gap:4px;">
-                        <button class="lf-loop-cue" title="Repetir frase" aria-label="Repetir frase" style="background:transparent;border:none;color:inherit;cursor:pointer;font-size:14px;padding:0 2px;">🔁</button>
-                    </div>
+                    <button type="button" class="lf-time lf-sub-time lf-play-cue" aria-label="Tocar a partir de ${time}">${time}</button>
+                    <p class="lf-sub-text" style="flex:1;font-size:15px;line-height:1.4;font-weight:700;"></p>
+                    <button type="button" class="lf-loop-cue" title="Repetir frase" aria-label="Repetir frase em ${time}" style="background:transparent;border:none;color:inherit;cursor:pointer;font-size:14px;padding:0 2px;">🔁</button>
                 </div>
-                <div class="lf-translation-text lf-trans-text" style="font-size:13px;padding-left:42px;font-weight:600;display:${showTrans ? 'block' : 'none'};">
-                    ${cleanTrans ? escapeHTML(cleanTrans) : '<span style="opacity:0.6;font-style:italic;">traduzindo...</span>'}
-                </div>
+                <p class="lf-translation-text lf-trans-text" style="margin:0;font-size:13px;padding-left:48px;font-weight:600;display:${showTrans ? 'block' : 'none'};">
+                    ${cleanTrans ? highlightMatches(cleanTrans, normalizedFilter) : '<span style="opacity:0.6;font-style:italic;">traduzindo...</span>'}
+                </p>
             `;
 
-      const playCue = (e) => {
+      const textEl = item.querySelector?.('.lf-sub-text');
+      if (textEl) this._renderTranscriptText(textEl, cleanText, normalizedFilter);
 
-        if (e.target.closest?.('.lf-loop-cue')) {
-          this._toggleCueLoop(idx, e.target);
-          return;
-        }
+      const playCue = () => {
         if (this.videoElement) {
           this.videoElement.currentTime = startTime;
           this.videoElement.play();
         }
       };
-      item.onclick = playCue;
-      item.onkeydown = (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          playCue(e);
+      item.onclick = (e) => {
+        if (e.target.closest?.('.lf-loop-cue')) {
+          this._toggleCueLoop(idx, e.target);
+          return;
         }
+        const word = e.target.closest?.('.lf-word');
+        if (word) {
+          e.stopPropagation();
+          this._openTranscriptWord(word, cleanText, cue);
+          return;
+        }
+        playCue();
       };
       container.appendChild(item);
     });
 
-    const status = container.parentElement?.querySelector('#lf-panel-search-status');
     if (status) {
-      const normalizedFilter = String(filter || '').trim();
       status.textContent = normalizedFilter
         ? `${visibleCount} ${visibleCount === 1 ? 'ocorrência encontrada' : 'ocorrências encontradas'}`
         : `${visibleCount} ${visibleCount === 1 ? 'trecho disponível' : 'trechos disponíveis'}`;
+    }
+    if (normalizedFilter && visibleCount === 0) {
+      container.innerHTML = `<div style="padding:32px 20px;text-align:center;color:#64748B;font-size:14px;">Nenhuma fala com "${escapeHTML(normalizedFilter)}".</div>`;
     }
 
     this._updateSubtitlePanelHighlight();
@@ -4691,6 +4611,35 @@ export class SubtitleEngine {
     if (previousScrollTop > 0 && !container._userScrolling) {
       container.scrollTop = previousScrollTop;
     }
+  }
+
+  // Na busca, a frase vira texto com as ocorrências marcadas; sem busca, cada
+  // palavra/expressão é clicável (popup de palavra) com a cor do seu status.
+  _renderTranscriptText(el, text, filter) {
+    if (filter) {
+      el.innerHTML = highlightMatches(text, filter);
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    for (const segment of segmentSubtitle(text, this._getMaxExpressionWords())) {
+      if (!segment.isWord) {
+        frag.appendChild(document.createTextNode(segment.text));
+        continue;
+      }
+      const span = document.createElement('span');
+      span.textContent = segment.text;
+      span.className = segment.expression
+        ? 'lf-word lf-expression'
+        : `lf-word ${this._wordClass(segment.text)}`;
+      if (segment.expression) span.dataset.expression = segment.expression;
+      frag.appendChild(span);
+    }
+    el.appendChild(frag);
+  }
+
+  _openTranscriptWord(wordEl, sentence, cue) {
+    if (!this.wordPopup) return;
+    this.wordPopup.showForWord(wordEl.textContent, sentence, wordEl.getBoundingClientRect(), cue);
   }
 
   _translateAllSidebarCues(cues) {
@@ -5438,7 +5387,6 @@ export class SubtitleEngine {
     if (!list) return;
 
     const autoScroll = document.getElementById('lf-autoscroll-panel')?.checked ?? true;
-    const items = list.querySelectorAll('.lf-subtitle-item') || [];
     const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
 
     if (this.videoElement && cues && cues.length > 0) {
@@ -5458,30 +5406,23 @@ export class SubtitleEngine {
       }
     }
 
+    // Chamado a cada 500 ms e a cada fala: só mexe no DOM quando a fala ativa
+    // muda. O visual de .active/.is-looping vem do CSS do painel.
+    if (!forceInstant && list._lastActiveIndex === this.currentCueIndex) return;
+    list._lastActiveIndex = this.currentCueIndex;
+
+    const items = list.querySelectorAll('.lf-subtitle-item') || [];
     let activeItem = null;
     items.forEach((item) => {
-      const idx = parseInt(item.dataset.index, 10);
-      if (idx === this.currentCueIndex) {
-        activeItem = item;
+      const isActive = parseInt(item.dataset.index, 10) === this.currentCueIndex;
+      if (isActive) activeItem = item;
+      if (!!item.classList?.contains?.('active') === isActive) return;
+      if (isActive) {
         item.classList?.add?.('active');
-        if (item.style) {
-          if (item.classList?.contains?.('is-looping')) {
-            item.style.background = 'rgba(2, 132, 199, 0.28)';
-            item.style.borderLeft = '4px solid #38bdf8';
-            item.style.boxShadow = 'inset 0 0 16px rgba(56, 189, 248, 0.25), 0 4px 12px rgba(0,0,0,0.35)';
-          } else {
-            item.style.background = 'rgba(56, 189, 248, 0.15)';
-            item.style.borderLeft = '3px solid #38BDF8';
-            item.style.boxShadow = '';
-          }
-        }
+        item.setAttribute?.('aria-current', 'true');
       } else {
         item.classList?.remove?.('active');
-        if (item.style && !item.classList?.contains?.('is-looping')) {
-          item.style.background = '';
-          item.style.borderLeft = '';
-          item.style.boxShadow = '';
-        }
+        item.removeAttribute?.('aria-current');
       }
     });
 

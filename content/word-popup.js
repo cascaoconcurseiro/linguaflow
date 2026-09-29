@@ -71,7 +71,8 @@ export class WordPopup {
         const { phrasalVerbsDB } = await import(BASE + 'phrasal-verbs.js');
         const { expressionsDB, matchExpressionCandidate, getBaseVerbCandidates } = await import(BASE + 'expressions-db.js');
         const { slangsDB, slangMatchesContext } = await import(BASE + 'slangs-db.js');
-        const { expressionKind } = await import(BASE + 'expression-detector.js');
+        const { expressionKind, detectExpressions } = await import(BASE + 'expression-detector.js');
+        const { REDUCTIONS } = await import(BASE + 'speech-cadence.js');
         this._phrasalVerbsDB = phrasalVerbsDB || null;
         this._expressionsDB = expressionsDB || null;
         this._matchExpressionCandidate = matchExpressionCandidate || null;
@@ -79,6 +80,8 @@ export class WordPopup {
         this._slangsDB = slangsDB || null;
         this._slangMatchesContext = slangMatchesContext || null;
         this._expressionKind = expressionKind || null;
+        this._detectExpressions = detectExpressions || null;
+        this._reductions = REDUCTIONS || null;
         return this._phrasalVerbsDB;
       } catch {
         this._phrasalVerbsDB = null;
@@ -101,6 +104,8 @@ export class WordPopup {
       context: this.saveContext || this.context || '',
       slangMatchesContext: this._slangMatchesContext,
       expressionKind: this._expressionKind,
+      detectExpressions: this._detectExpressions,
+      reductions: this._reductions,
     });
   }
 
@@ -280,6 +285,7 @@ export class WordPopup {
 .lfp-type-chunk{background:rgba(139,92,246,.1);color:#a78bfa;border:1px solid rgba(139,92,246,.25)}
 .lfp-type-collocation{background:rgba(56,189,248,.1);color:#7dd3fc;border:1px solid rgba(56,189,248,.2)}
 .lfp-type-slang{background:rgba(248,113,113,.1);color:#f87171;border:1px solid rgba(248,113,113,.25)}
+.lfp-type-reduction{background:rgba(52,211,153,.1);color:#34d399;border:1px solid rgba(52,211,153,.25)}
 .lfp-type-formal{background:rgba(99,102,241,.1);color:#818cf8;border:1px solid rgba(99,102,241,.25)}
 .lfp-type-word{background:rgba(255,255,255,.05);color:#94a3b8;border:1px solid rgba(255,255,255,.1)}
 /* False friend alert */

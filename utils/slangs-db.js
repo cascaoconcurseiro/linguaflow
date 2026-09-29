@@ -1,4 +1,5 @@
 // utils/slangs-db.js
+import { REDUCTIONS } from './speech-cadence.js';
 // Gírias, contrações informais e expressões coloquiais em inglês.
 //
 // Dois níveis (Issue #345):
@@ -7,10 +8,10 @@
 //   ("tea" em "here's the tea", não em "I drink tea"). Cada regra tem a forma
 //   canônica, as formas flexionadas e o padrão que precisa casar na frase.
 
+// Reduções escritas (gonna, wanna, 'cause…) vivem em speech-cadence.js e são
+// classificadas como fala reduzida pelo detector, não como gíria.
 export const SLANG_ALWAYS = new Set([
-  // Contrações informais de alta frequência
-  'gonna', 'wanna', 'gotta', 'kinda', 'sorta', "ain't", "y'all", 'dunno', 'lemme', 'gimme',
-  'outta', 'coulda', 'shoulda', 'woulda', 'gotcha', 'betcha', 'innit', 'sup',
+  'sup',
 
   // Gírias modernas e coloquiais
   'dude', 'bro', 'bruh', 'homie', 'bestie', 'fam', 'folks', 'vibe', 'vibes', 'vibing',
@@ -74,7 +75,7 @@ for (const rule of SLANG_CONTEXT_RULES) {
 }
 
 // Compatibilidade: todos os termos reconhecíveis (lookup sem contexto).
-export const slangsDB = new Set([...SLANG_ALWAYS, ...RULE_BY_FORM.keys()]);
+export const slangsDB = new Set([...SLANG_ALWAYS, ...RULE_BY_FORM.keys(), ...Object.keys(REDUCTIONS)]);
 
 export function isContextDependentSlang(term) {
   return RULE_BY_FORM.has(String(term || '').toLowerCase().trim());

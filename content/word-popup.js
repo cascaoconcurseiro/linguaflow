@@ -15,6 +15,7 @@ import {
   getPosPatterns,
 } from './popup/popup-linguistics.js';
 import { isValidIpa, cleanIpa } from '../utils/ipa-validator.js';
+import { findWordInVideo } from './subtitles/video-vocabulary.js';
 import { streamAiRequest } from '../utils/ai-stream.js';
 
 export class WordPopup {
@@ -378,9 +379,11 @@ export class WordPopup {
   <div class="fp" id="lfp-panel-0" role="tabpanel" aria-labelledby="lfp-tab-0" data-p="0">
     <div id="ft" style="font-size:26px;font-weight:800;color:#4ade80;margin-bottom:5px;line-height:1.2;">…</div>
     <div id="fd" style="font-size:13px;color:#94a3b8;line-height:1.6;font-style:italic;margin-bottom:10px;"></div>
+    <section id="fsenses" aria-labelledby="fsenses-title" style="display:none;margin-bottom:12px;"><h3 id="fsenses-title" style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px;">Outras traduções</h3><dl id="fsenses-list" style="font-size:12px;line-height:1.6;color:#e2e8f0;"></dl></section>
     <div id="fff-card" style="display:none;" class="lfp-ff"><div style="font-size:10px;color:#fb923c;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;">⚠️ Falso Cognato — Armadilha!</div><div id="fff-text" style="font-size:12px;color:#fcd34d;line-height:1.6;"></div></div>
     <div id="fctx" style="display:none;background:rgba(139,92,246,.06);border:1px solid rgba(139,92,246,.18);border-radius:10px;padding:10px 13px;margin-bottom:12px;"><div style="font-size:10px;color:#a78bfa;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;display:flex;align-items:center;gap:5px;"><span>💡</span><span>Contexto nesta frase</span></div><div id="fctxt" style="font-size:12px;color:#e2e8f0;line-height:1.7;"></div></div>
     <div id="fc" style="display:none;background:rgba(125,209,252,.04);border-left:3px solid rgba(125,209,252,.3);padding:8px 12px;border-radius:0 8px 8px 0;font-size:12px;color:#cbd5e1;line-height:1.6;margin-bottom:12px;"></div>
+    <section id="fvid" aria-labelledby="fvid-title" style="display:none;margin-bottom:12px;"><h3 id="fvid-title" style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:6px;">Neste vídeo</h3><ul id="fvid-list" style="list-style:none;display:flex;flex-direction:column;gap:6px;"></ul></section>
     <div id="fsyn" style="display:none;margin-bottom:10px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px;">Sinônimos</div><div id="fsyns" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
     <div id="fant" style="display:none;margin-bottom:12px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px;">Antônimos</div><div id="fants" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
     <div style="height:1px;background:rgba(255,255,255,.06);margin-bottom:12px;"></div>
@@ -773,6 +776,8 @@ export class WordPopup {
     q('#ft').textContent = '…';
     q('#fd').textContent = '';
     q('#fc').style.display = 'none';
+    q('#fsenses').style.display = 'none';
+    this._renderVideoExamples(cue);
     q('#fctx').style.display = 'none';
     q('#fsyn').style.display = 'none';
     q('#fant').style.display = 'none';
@@ -876,6 +881,15 @@ export class WordPopup {
         }
         if (this.word === word) this._render(this.cache[word]);
       });
+
+    this._senses(word).then((senses) => {
+      if (this.cache[word] !== entry) return;
+      entry.senses = senses;
+      if (this.word !== word) return;
+      this._renderSenses(senses);
+      // A forma base (filming → film) encontra mais falas do vídeo.
+      if (senses.some((s) => s.base)) this._renderVideoExamples(this._videoExampleCue);
+    });
 
     this._dict(word)
       .then((dict) => {
@@ -1572,6 +1586,82 @@ export class WordPopup {
       this._renderIgnoreButton(!ignore);
       btn.textContent = ignore ? '⚠ Não foi possível ignorar — tentar de novo' : '⚠ Não foi possível desfazer — tentar de novo';
     }
+  // Traduções por classe gramatical (#366). Falha silenciosa: sem lista, o
+  // card fica só com a tradução principal.
+  _senses(word) {
+    return new Promise((res) => {
+      const tid = setTimeout(() => res([]), 4500);
+      try {
+        chrome.runtime.sendMessage(
+          { action: 'wordSenses', word, from: this.engine?.sourceLang || 'en', to: this.engine?.targetLang || 'pt' },
+          (r) => {
+            clearTimeout(tid);
+            res(chrome.runtime.lastError || !Array.isArray(r?.senses) ? [] : r.senses);
+          },
+        );
+      } catch {
+        clearTimeout(tid);
+        res([]);
+      }
+    });
+  }
+
+  _renderSenses(senses) {
+    const section = this._q('#fsenses');
+    const list = this._q('#fsenses-list');
+    if (!section || !list) return;
+    if (!Array.isArray(senses) || !senses.length) {
+      section.style.display = 'none';
+      return;
+    }
+    const esc = (s) => this._escapeAttr(s);
+    const word = String(this.word || '').toLowerCase();
+    list.innerHTML = senses.map((s) => {
+      const base = s.base && s.base.toLowerCase() !== word ? ` <span style="color:#94a3b8;font-weight:400;">(${esc(s.base)})</span>` : '';
+      return `<div style="display:flex;gap:6px;"><dt style="color:#7dd3fc;font-weight:700;flex-shrink:0;">${esc(s.label)}${base}</dt><dd style="margin:0;">${s.terms.map(esc).join(', ')}</dd></div>`;
+    }).join('');
+    section.style.display = '';
+  }
+
+  // Outras falas do vídeo com a mesma palavra (#366): mesmo falante e assunto.
+  _renderVideoExamples(cue) {
+    const section = this._q('#fvid');
+    const list = this._q('#fvid-list');
+    if (!section || !list) return;
+    this._videoExampleCue = cue;
+    const cues = this.engine?.xhrCues?.length ? this.engine.xhrCues : this.engine?.cues;
+    const base = this.cache?.[this.word]?.senses?.find((s) => s.base)?.base || '';
+    const { total, items } = findWordInVideo(cues, this.word, { excludeStart: cue?.start ?? null, base });
+    if (!total) {
+      section.style.display = 'none';
+      list.innerHTML = '';
+      return;
+    }
+    const esc = (s) => this._escapeAttr(s);
+    this._q('#fvid-title').textContent = total === 1 ? 'Neste vídeo · mais 1 vez' : `Neste vídeo · mais ${total} vezes`;
+    list.innerHTML = items.map((item, i) => {
+      const text = esc(item.text).replace(
+        new RegExp(`\\b(${this._escapeRegExp(esc(item.form))})\\b`, 'i'),
+        '<b style="color:#7dd3fc">$1</b>',
+      );
+      const translated = item.translatedText
+        ? `<div style="font-size:11px;color:#94a3b8;margin-top:2px;">${esc(item.translatedText)}</div>`
+        : '';
+      return `<li class="lfp-ex" style="margin:0;display:flex;gap:8px;align-items:flex-start;"><button type="button" class="lfp-vid-play" data-i="${i}" aria-label="Ouvir no vídeo a fala em ${Math.floor(item.start / 60)}:${String(Math.floor(item.start % 60)).padStart(2, '0')}" style="min-width:32px;min-height:32px;flex-shrink:0;background:rgba(125,209,252,.08);border:1px solid rgba(125,209,252,.25);border-radius:8px;color:#7dd3fc;cursor:pointer;font-size:12px;">▶</button><div style="font-size:12px;color:#e2e8f0;line-height:1.5;">${text}${translated}</div></li>`;
+    }).join('');
+    list.querySelectorAll('.lfp-vid-play').forEach((btn) => {
+      btn.addEventListener('click', () => this._playVideoExample(items[Number(btn.dataset.i)]));
+    });
+    section.style.display = '';
+  }
+
+  _playVideoExample(item) {
+    const video = this.engine?.videoElement;
+    if (!item || !video) return;
+    this._wasPlayingBefore = false;
+    this.hide(false);
+    video.currentTime = Math.max(0, item.start - 0.1);
+    video.play().catch(() => {});
   }
 
   _clearLoginWait() {

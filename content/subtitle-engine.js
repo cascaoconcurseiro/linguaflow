@@ -670,6 +670,10 @@ export class SubtitleEngine {
         this._detectedAudio = { language:e.data.language, evidence:e.data.evidence, url:location.href, at:Date.now() };
         return;
       }
+      if (e.data.type === 'LF_CAPTION_AVAILABILITY') {
+        this._handleCaptionAvailability(e.data);
+        return;
+      }
       if (e.data.type === 'LF_HBO_SUB' || e.data.type === 'LF_SUBTITLE_HOOK') {
         let url = e.data.url || '';
         let resp = e.data.response || e.data.data;
@@ -872,6 +876,7 @@ export class SubtitleEngine {
     const navigation = this._beginNavigation(window.location.href);
     if (navigation.epoch === previousEpoch) return;
     console.debug('[LinguaFlow] URL alterada, resetando motor de legendas...');
+    this._setCaptionNotice('');
 
     this.cues = [];
     this.xhrCues = [];
@@ -1332,6 +1337,23 @@ export class SubtitleEngine {
     this.shadowContainer.innerHTML = `
             <style>
                 :host { all: initial; pointer-events: auto; }
+                .lf-notice {
+                    margin: 0;
+                    padding: 6px 12px;
+                    border-radius: 6px;
+                    background: rgba(8, 8, 8, 0.72);
+                    color: #E5E7EB;
+                    font: 600 14px/1.4 'Inter', Arial, sans-serif;
+                    animation: lfNoticeIn 180ms ease-out;
+                }
+                .lf-notice[hidden] { display: none; }
+                @keyframes lfNoticeIn {
+                    from { opacity: 0; transform: translateY(4px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                @media (prefers-reduced-motion: reduce) {
+                    .lf-notice { animation: none; }
+                }
                 .lf-wrap {
                     display: inline-flex;
                     flex-direction: column;
@@ -1495,6 +1517,7 @@ export class SubtitleEngine {
                     <span id="lf-trans-txt"></span>
                 </div>
             </div>
+            <p class="lf-notice" id="lf-notice" role="status" aria-live="polite" hidden></p>
         `;
 
     // Aplica as cores carregadas
@@ -2216,15 +2239,7 @@ export class SubtitleEngine {
       }
       updateResponsive();
 
-      const curRate = this._readPlaybackRate();
-      this._setPlaybackRate(curRate, { persist: false });
-      if (this.videoElement && !this._videoRateBound) {
-        this._videoRateBound = true;
-        this.videoElement.addEventListener('ratechange', () => {
-          const r = Number(this.videoElement?.playbackRate);
-          if (Number.isFinite(r) && r > 0) this._updateSpeedButtons(r);
-        });
-      }
+      this._bindVideoPlaybackRate();
 
       this.toggleSubtitles(isSubVisible);
       return true;
@@ -2559,6 +2574,36 @@ export class SubtitleEngine {
     }
   }
 
+  _handleCaptionAvailability({ videoId, available } = {}) {
+    let currentId = '';
+    try { currentId = new URL(window.location.href).searchParams.get('v') || ''; } catch {}
+    if (!videoId || videoId !== currentId) return;
+    if (available || this.cues?.length) {
+      this._setCaptionNotice('');
+      return;
+    }
+    const code = String(this.sourceLang || 'en').split('-')[0];
+    let language = code;
+    try { language = new Intl.DisplayNames(['pt-BR'], { type: 'language' }).of(code) || code; } catch {}
+    this._setCaptionNotice(`Este vídeo não tem legenda em ${language}.`);
+    // Confirmado sem legenda: o roteiro para de mostrar o esqueleto de carregando.
+    this._captionsPendingSince = 0;
+    if (typeof document !== 'undefined' && document.getElementById?.('lf-subtitle-list')) this._rebuildSubtitleList();
+  }
+
+  _setCaptionNotice(message) {
+    const notice = this.shadowContainer?.getElementById?.('lf-notice');
+    if (!notice) return;
+    if (this._captionNoticeTimer) {
+      clearTimeout(this._captionNoticeTimer);
+      this._captionNoticeTimer = null;
+    }
+    notice.textContent = message;
+    notice.hidden = !message;
+    // Status, not a permanent banner: announced once, then out of the way.
+    if (message) this._captionNoticeTimer = setTimeout(() => this._setCaptionNotice(''), 6000);
+  }
+
   _readPlaybackRate() {
     try {
       const saved = Number(globalThis.localStorage?.getItem('lf_video_playback_rate'));
@@ -2566,6 +2611,22 @@ export class SubtitleEngine {
     } catch {
       return 1;
     }
+  }
+
+  _bindVideoPlaybackRate() {
+    const video = this.videoElement;
+    this._setPlaybackRate(this._readPlaybackRate(), { persist: false });
+    if (!video || this._rateBoundVideo === video) return;
+    this._rateBoundVideo = video;
+    video.addEventListener('ratechange', () => {
+      const r = Number(video.playbackRate);
+      if (Number.isFinite(r) && r > 0) this._updateSpeedButtons(r);
+    });
+    // Loading media resets playbackRate to defaultPlaybackRate without a ratechange.
+    video.addEventListener('loadedmetadata', () => {
+      if (this.videoElement !== video) return;
+      this._setPlaybackRate(this._readPlaybackRate(), { persist: false });
+    });
   }
 
   _setPlaybackRate(rate, { persist = true } = {}) {
@@ -4267,6 +4328,7 @@ export class SubtitleEngine {
     }
     orig = this._cleanSubtitleText ? this._cleanSubtitleText(orig) : (orig || '');
     trans = this._cleanSubtitleText ? this._cleanSubtitleText(trans) : (trans || '');
+    if (orig) this._setCaptionNotice('');
     const wrap = this.shadowContainer.getElementById('lf-wrap');
     const origDiv = this.shadowContainer.getElementById('lf-orig');
     const transDiv = this.shadowContainer.getElementById('lf-trans');

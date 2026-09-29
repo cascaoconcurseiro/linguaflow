@@ -57,6 +57,44 @@ const STOP_WORDS = new Set([
 const TOP5K_WORDS =
   'the,be,to,of,and,a,in,that,have,it,for,not,on,with,he,as,you,do,at,this,but,his,by,from,they,we,say,her,she,or,an,will,my,one,all,would,there,their,what,so,up,out,if,about,who,get,which,go,me,when,make,can,like,time,no,just,him,know,take,people,into,year,your,good,some,could,them,see,other,than,then,now,look,only,come,its,over,think,also,back,after,use,two,how,our,work,first,well,way,even,new,want,because,any,these,give,day,most,us,great,between,need,large,often,hand,high,place,hold,real,life,few,north,open,seem,together,next,white,children,begin,got,walk,example,ease,paper,always,music,those,both,mark,book,letter,until,mile,river,car,feet,care,second,enough,plain,girl,usual,young,ready,above,ever,red,list,though,feel,talk,bird,soon,body,dog,family,direct,pose,leave,song,measure,door,product,black,short,numeral,class,wind,question,happen,complete,ship,area,half,rock,order,fire,south,problem,piece,told,knew,pass,since,top,whole,king,space,heard,best,hour,better,true,during,hundred,five,remember,step,early,hold,west,ground,interest,reach,fast,verb,sing,listen,six,table,travel,less,morning,ten,simple,several,vowel,toward,war,lay,against,pattern,slow,center,love,person,money,serve,appear,road,map,rain,rule,govern,pull,cold,notice,voice,unit,power,town,fine,drive,led,cry,dark,machine,note,wait,plan,figure,star,box,noun,field,rest,correct,able,pound,done,beauty,drive,stood,contain,front,teach,week,final,gave,green,oh,quick,develop,ocean,warm,free,minute,strong,special,mind,behind,clear,tail,produce,fact,street,inch,multiply,nothing,course,stay,wheel,full,force,blue,object,decide,surface,deep,moon,island,foot,system,busy,test,record,boat,common,gold,possible,plane,stead,dry,wonder,laugh,thousand,ago,ran,check,game,shape,equate,hot,miss,brought,heat,snow,tire,bring,yes,distant,fill,east,paint,language,among,grand,ball,yet,wave,drop,heart,am,present,heavy,dance,engine,position,arm,wide,sail,material,size,vary,settle,speak,weight,general,ice,matter,circle,pair,include,divide,syllable,felt,perhaps,pick,sudden,count,square,reason,length,represent,art,subject,region,energy,hunt,probable,bed,brother,egg,ride,cell,believe,fraction,forest,sit,race,window,store,summer,train,sleep,prove,lone,leg,exercise,wall,catch,mount,wish,sky,board,joy,winter,sat,written,wild,instrument,kept,glass,grass,cow,job,edge,sign,visit,past,soft,fun,bright,gas,weather,month,million,bear,finish,happy,hope,flower,clothe,strange,gone,jump,baby,eight,village,meet,root,buy,raise,solve,metal,whether,push,seven,paragraph,third,shall,held,hair,describe,cook,floor,either,result,burn,hill,safe,cat,century,consider,type,law,bit,coast,copy,phrase,silent,tall,sand,soil,roll,temperature,finger,industry,value,fight,lie,beat,excite,natural,view,sense,ear,else,quite,broke,case,middle,kill,son,lake,moment,scale,loud,spring,observe,child,straight,consonant,nation,dictionary,milk,speed,method,organ,pay,age,section,dress,cloud,surprise,quiet,stone,tiny,climb,cool,design,poor,lot,experiment,bottom,key,iron,single,stick,flat,twenty,skin,smile,crease,hole,trade,melody,trip,office,receive,row,mouth,exact,symbol,die,least,trouble,shout,except,wrote,seed,tone,join,suggest,clean,break,lady,yard,rise,bad,blow,oil,blood,touch,grew,cent,mix,team,wire,cost,lost,brown,wear,garden,equal,sent,choose,fell,fit,flow,fair,bank,collect,save,control,decimal,gentle,woman,captain,practice,separate,difficult,doctor,please,protect,noon,whose,locate,ring,character,insect,caught,period,indicate,radio,spoke,atom,human,history,effect,electric,expect,crop,modern,element,hit,student,corner,party,supply,bone,rail,imagine,provide,agree,thus,capital,chair,danger,fruit,rich,thick,soldier,process,operate,guess,necessary,sharp,wing,create,neighbor,wash,bat,rather,crowd,corn,compare,poem,string,bell,depend,meat,rub,tube,famous,dollar,stream,fear,sight,thin,triangle,planet,hurry,chief,colony,clock,mine,tie,enter,major,fresh,search,send,yellow,gun,allow,print,dead,spot,desert,suit,current,lift,rose,continue,block,chart,hat,sell,success,company,subtract,event,particular,deal,swim,term,opposite,wife,shoe,shoulder,spread,arrange,camp,invent,cotton,born,determine,quart,nine,truck,noise,level,chance,gather,shop,stretch,throw,shine,property,column,molecule,select,wrong,gray,repeat,require,broad,prepare,salt,nose,plural,anger,claim,continent,oxygen,sugar,death,pretty,skill,women,season,solution,magnet,silver,thank,branch,match,suffix,especially,fig,afraid,huge,sister,steel,discuss,forward,similar,guide,experience,score,apple,bought,led,pitch,coat,mass,card,band,rope,slip,win,dream,evening,condition,feed,tool,total,basic,smell,valley,nor,double,seat,arrive,master,track,parent,shore,division,sheet,substance,favor,connect,post,spend,chord,fat,glad,original,share,station,dad,bread,charge,proper,bar,offer,segment,slave,duck,instant,market,degree,populate,chick,dear,enemy,reply,drink,occur,support,speech,nature,range,steam,motion,path,liquid,log,meant,quotient,teeth,shell,neck'.split(',');
 
+// Cada tipo tem um traço diferente (não só cor): pontilhado (phrasal),
+// ondulado (gíria), tracejado (fala reduzida/contração), duplo (marcador) e,
+// no "soa como", a forma falada em miniatura depois do trecho. A classe
+// lf-hide-<tipo> no contêiner desliga a marca sem tirar o clique.
+const EXPRESSION_KINDS = ['phrasal', 'slang', 'reduction', 'contraction', 'sounds_like', 'marker'];
+
+function expressionKindCss(scope) {
+  const sel = (kind) => `${scope}.lf-expression[data-kind="${kind}"]`;
+  return `
+    ${sel('slang')} { border-bottom: none; text-decoration: underline wavy rgba(251, 146, 60, 0.9); text-underline-offset: 4px; text-decoration-thickness: 1.5px; }
+    ${sel('reduction')}, ${sel('contraction')} { border-bottom: 2px dashed rgba(52, 211, 153, 0.85); }
+    ${sel('sounds_like')} { border-bottom: 2px dotted rgba(192, 132, 252, 0.85); }
+    ${sel('sounds_like')}::after { content: "≈" attr(data-hint); font-size: 0.55em; font-weight: 700; margin-left: 3px; opacity: 0.85; vertical-align: super; color: #d8b4fe; }
+    ${sel('marker')} { border-bottom: 3px double rgba(148, 163, 184, 0.85); }
+    ${EXPRESSION_KINDS.map((kind) => `${scope.trim() ? scope.replace(/ $/, '') : ''}.lf-hide-${kind} .lf-expression[data-kind="${kind}"]`).join(', ')} { border-bottom: none; text-decoration: none; }
+    ${scope.trim() ? scope.replace(/ $/, '') : ''}.lf-hide-sounds_like .lf-expression[data-kind="sounds_like"]::after { content: none; }
+  `;
+}
+
+const DEFAULT_EXPRESSION_MARKS = { phrasal: true, slang: true, reduction: true, sounds_like: true, marker: false };
+// Chave de configuração de cada marca (contração segue a de fala reduzida).
+export const EXPRESSION_MARK_SETTINGS = {
+  phrasal: 'markPhrasal',
+  slang: 'markSlang',
+  reduction: 'markReduction',
+  sounds_like: 'markSoundsLike',
+  marker: 'markMarkers',
+};
+
+const EXPRESSION_KIND_LABELS = {
+  phrasal: 'Phrasal verb',
+  slang: 'Gíria',
+  reduction: 'Fala reduzida',
+  contraction: 'Contração',
+  sounds_like: 'Na fala',
+  marker: 'Marcador de conversa',
+};
+
 const WORD_STATUS_LABELS = { known: 'conhecida', mature: 'dominada', review: 'revisando', learning: 'aprendendo', new: 'salva' };
 
 const TOP5K_RANK_MAP = new Map();
@@ -109,6 +147,8 @@ export class SubtitleEngine {
     this.cefrTargetLevel = 'none'; // 'none', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'
     this.cefrAutoSave = false;
     this.cefrColorsEnabled = true;
+    // Marcas de expressão por tipo na legenda e no roteiro (Issue #346).
+    this.expressionMarks = { ...DEFAULT_EXPRESSION_MARKS };
     this.maxWordsPerVideo = 15;
     this.maxWordsPerDay = 30;
 
@@ -1018,6 +1058,12 @@ export class SubtitleEngine {
         this.cefrTargetLevel = targetLevel;
       }
 
+      for (const [kind, key] of Object.entries(EXPRESSION_MARK_SETTINGS)) {
+        const value = await db.getSetting(key);
+        if (typeof value === 'boolean') this.expressionMarks[kind] = value;
+      }
+      this._applyExpressionMarks();
+
       const cefrColors = await db.getSetting('cefrColorsEnabled');
       if (cefrColors !== undefined && cefrColors !== null) {
         this.cefrColorsEnabled = cefrColors;
@@ -1355,6 +1401,7 @@ export class SubtitleEngine {
                     padding-bottom: 1px;
                     border-radius: 4px;
                 }
+                ${expressionKindCss('')}
                 .lf-new      { color: #FFF; } /* branco — nunca vista */
 
                 /* Botão de tradução rápida */
@@ -1445,6 +1492,7 @@ export class SubtitleEngine {
 
     // Aplica as cores carregadas
     this._updateSubtitleColors();
+    this._applyExpressionMarks();
 
     // Auto-pause video on hover (Language Reactor feature) e Arrastar Legenda
     const wrap = this.shadowContainer.getElementById('lf-wrap');
@@ -2789,6 +2837,7 @@ export class SubtitleEngine {
             #lf-subtitle-panel .lf-learning { color: #FBBF24; text-decoration: underline dashed; }
             #lf-subtitle-panel .lf-saved { color: #93C5FD; text-decoration: underline dashed; }
             #lf-subtitle-panel .lf-expression { border-bottom: 2px dotted rgba(56, 189, 248, 0.6); }
+            ${expressionKindCss('#lf-subtitle-panel ')}
             #lf-subtitle-panel .lf-new { color: inherit; }
             #lf-subtitle-panel.theme-light .lf-known { color: #15803d; }
             #lf-subtitle-panel.theme-light .lf-mature { color: #047857; }
@@ -3206,6 +3255,7 @@ export class SubtitleEngine {
     wordsPane.appendChild(wordsScroll);
     wordsPane.appendChild(sentenceExplorer);
     this._rebuildWordsList(wordsScroll);
+    this._applyExpressionMarks();
 
     // ── Monta painel ──────────────────────────────────────────────────────
     panel.appendChild(header);
@@ -4304,13 +4354,34 @@ export class SubtitleEngine {
         continue;
       }
       const span = this._createWordSpan(segment.text, !!segment.expression, disableHoverPause);
-      if (segment.expression) {
-        span.dataset.expression = segment.expression;
-        span.dataset.kind = segment.kind || 'phrasal';
-      }
+      if (segment.expression) this._decorateExpressionSpan(span, segment);
       frag.appendChild(span);
     }
     return frag;
+  }
+
+  // Tipo, dica "soa como" e significado curto no próprio trecho: o estilo por
+  // tipo vem do CSS e o significado aparece no title (dica do navegador).
+  _decorateExpressionSpan(span, segment) {
+    span.dataset.expression = segment.expression;
+    span.dataset.kind = segment.kind || 'phrasal';
+    if (segment.hint) span.dataset.hint = segment.hint;
+    const label = EXPRESSION_KIND_LABELS[span.dataset.kind];
+    if (label) span.title = segment.meaning ? `${label}: ${segment.meaning}` : label;
+  }
+
+  _applyExpressionMarks() {
+    const marks = this.expressionMarks || DEFAULT_EXPRESSION_MARKS;
+    const targets = [
+      this.shadowContainer?.getElementById?.('lf-wrap'),
+      typeof document !== 'undefined' ? document.getElementById('lf-subtitle-panel') : null,
+    ].filter(Boolean);
+    for (const target of targets) {
+      for (const kind of EXPRESSION_KINDS) {
+        const hidden = marks[kind === 'contraction' ? 'reduction' : kind] === false;
+        target.classList?.toggle?.(`lf-hide-${kind}`, hidden);
+      }
+    }
   }
 
   _getMaxExpressionWords() {
@@ -4749,10 +4820,7 @@ export class SubtitleEngine {
       span.className = segment.expression
         ? 'lf-word lf-expression'
         : `lf-word ${this._wordClass(segment.text)}`;
-      if (segment.expression) {
-        span.dataset.expression = segment.expression;
-        span.dataset.kind = segment.kind || 'phrasal';
-      }
+      if (segment.expression) this._decorateExpressionSpan(span, segment);
       frag.appendChild(span);
     }
     el.appendChild(frag);

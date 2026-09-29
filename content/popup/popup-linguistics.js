@@ -182,6 +182,8 @@ export function detectExprType(word, {
   context = '',
   slangMatchesContext = null,
   expressionKind = null,
+  detectExpressions = null,
+  reductions = null,
 } = {}) {
   const w = String(word || '').toLowerCase().trim();
   const tokens = w.split(/\s+/);
@@ -197,6 +199,14 @@ export function detectExprType(word, {
     : { type: 'phrasal', label: '🔗 Phrasal Verb', cls: 'lfp-type-phrasal' });
   // Gíria ambígua ("tea", "fire") só vale com a construção de gíria na frase.
   const isSlang = (term) => !!slangsDB?.has(term) && (!slangMatchesContext || slangMatchesContext(term, context));
+
+  // Fala natural: o trecho clicado foi detectado na frase como redução,
+  // contração ("I'd" = had/would), marcador ou forma que soa reduzida.
+  const spoken = speechTypeInContext(w, context, detectExpressions);
+  if (spoken) return spoken;
+  if (reductions?.[w]) {
+    return { type: 'reduction', label: `🗣️ Fala reduzida · ${reductions[w]}`, cls: 'lfp-type-reduction' };
+  }
 
   // 2. Phrasal Verbs (com lematização, formas flexionadas e partículas separáveis)
   if (isMulti) {
@@ -245,6 +255,21 @@ export function detectExprType(word, {
 
   // 5. Palavras simples: verificar registro pelo dicionário depois — placeholder
   return { type: 'word', label: '📖 Palavra', cls: 'lfp-type-word' };
+}
+
+const SPOKEN_TYPES = {
+  reduction: (d) => ({ type: 'reduction', label: `🗣️ Fala reduzida · ${d.meaning}`, cls: 'lfp-type-reduction' }),
+  contraction: (d) => ({ type: 'contraction', label: `🗣️ Contração · ${d.meaning}`, cls: 'lfp-type-reduction' }),
+  sounds_like: (d) => ({ type: 'sounds_like', label: `🗣️ Na fala soa como "${d.hint}"`, cls: 'lfp-type-reduction' }),
+  marker: (d) => ({ type: 'marker', label: `💬 Marcador · ${d.meaning}`, cls: 'lfp-type-collocation' }),
+};
+
+function speechTypeInContext(word, context, detectExpressions) {
+  if (!context || !detectExpressions) return null;
+  const hit = detectExpressions(context).find(
+    (d) => SPOKEN_TYPES[d.type] && d.text.toLowerCase().replace(/[‘’]/g, "'") === word,
+  );
+  return hit ? SPOKEN_TYPES[hit.type](hit) : null;
 }
 
 /**

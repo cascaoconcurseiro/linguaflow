@@ -23,7 +23,7 @@ function plainSegments(chunk) {
   }));
 }
 
-// Divide a fala em segmentos { text, isWord, expression, kind }. Expressões
+// Divide a fala em segmentos { text, isWord, expression, kind, hint, meaning }. Expressões
 // detectadas (phrasal verb idiomático ou gíria) viram um único segmento com o
 // maior bloco possível: clicar em "put" dentro de "put up with" abre "put up with".
 export function segmentSubtitle(text, maxExpressionWords = MAX_EXPRESSION_WORDS) {
@@ -32,7 +32,14 @@ export function segmentSubtitle(text, maxExpressionWords = MAX_EXPRESSION_WORDS)
   let cursor = 0;
   for (const span of detectExpressions(source, { maxWords: maxExpressionWords })) {
     segments.push(...plainSegments(source.slice(cursor, span.index)));
-    segments.push({ text: span.text, isWord: true, expression: span.canonical, kind: span.type });
+    segments.push({
+      text: span.text,
+      isWord: true,
+      expression: span.canonical,
+      kind: span.type,
+      hint: span.hint || null,
+      meaning: span.meaning || null,
+    });
     cursor = span.index + span.length;
   }
   segments.push(...plainSegments(source.slice(cursor)));

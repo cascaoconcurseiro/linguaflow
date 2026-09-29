@@ -66,6 +66,46 @@ export function extractVideoVocabulary(cues, { stopWords = new Set(), rankMap = 
   return vocabulary;
 }
 
+// Outras falas do vídeo com a palavra do card (#366), pelo mesmo lema da aba
+// Palavras (filming/filmed/films → film). Expressões de várias palavras são
+// buscadas como bloco. `excludeStart` tira a fala que abriu o card. `base` é a
+// forma de dicionário quando conhecida (Google: filming → film); sem ela, o
+// lema só é reduzido se a forma base também aparecer no vídeo.
+export function findWordInVideo(cues, term, { excludeStart = null, limit = 3, base = '' } = {}) {
+  const needle = String(term || '').trim().toLowerCase();
+  if (!Array.isArray(cues) || !needle) return { total: 0, items: [] };
+  const others = cues.filter((cue) => cue?.text && !(excludeStart != null && Math.abs(cue.start - excludeStart) < 0.01));
+  const matches = [];
+  if (/\s/.test(needle)) {
+    const pattern = new RegExp(`\\b${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')}\\b`, 'i');
+    for (const cue of others) if (pattern.test(cue.text)) matches.push({ cue, form: needle });
+  } else {
+    const known = String(base || '').trim().toLowerCase();
+    const lexicon = new Set([needle, ...(known ? [known] : [])]);
+    for (const cue of cues) for (const m of String(cue?.text || '').matchAll(WORD_PATTERN)) lexicon.add(m[0].toLowerCase());
+    const target = known || lemmaOf(needle, lexicon);
+    for (const cue of others) {
+      for (const m of cue.text.matchAll(WORD_PATTERN)) {
+        const lower = m[0].replace(/^'+|'+$/g, '').toLowerCase();
+        if (lower === needle || lower === target || lemmaOf(lower, lexicon) === target) {
+          matches.push({ cue, form: lower });
+          break;
+        }
+      }
+    }
+  }
+  return {
+    total: matches.length,
+    items: matches.slice(0, limit).map(({ cue, form }) => ({
+      start: cue.start,
+      end: cue.end,
+      text: cue.text,
+      translatedText: cue.translatedText || '',
+      form,
+    })),
+  };
+}
+
 export function wordStatus(entry, knownWords, savedWords) {
   const keys = [entry.lemma, ...entry.forms];
   if (keys.some((k) => knownWords?.has?.(k))) return 'known';

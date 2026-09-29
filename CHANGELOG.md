@@ -23,6 +23,7 @@
 
 ### Corrigido
 - **"Contexto nesta frase" sem suposições**: a IA deixou de supor o assunto do vídeo além do que a fala diz (ex.: "provavelmente Halloween" para "it's not September yet"). Explicações antigas guardadas no navegador são descartadas e geradas de novo.
+- **Legenda presa depois de pular o vídeo**: ao pular de uma fala para um trecho sem fala (música, silêncio, abertura), a legenda anterior continuava na tela até a próxima fala começar, tocando ou pausado. Agora ela some no mesmo instante.
 - **Legenda do YouTube não iniciava ao trocar de vídeo**: a legenda baixada pelo player durante a navegação interna do YouTube era descartada pela ponte de segurança (nonce antigo) e nunca reenviada; ficava só a legenda nativa traduzida até um Ctrl+Shift+R. Agora a última faixa capturada do vídeo atual é reenviada assim que a ponte é renovada.
 - **Botão CC desligando sozinho após várias trocas de vídeo**: cada navegação somava um novo listener de `play` no mesmo `<video>`, clicando o CC várias vezes por play.
 - **Nível CEFR do painel do vídeo não chegava ao site**: trocar o nível no painel de legendas gerava ReferenceError (`db` não importado) e o nível não sincronizava. O teste de variáveis não declaradas passa a cobrir também a extensão (`content`, `background`, `popup`).

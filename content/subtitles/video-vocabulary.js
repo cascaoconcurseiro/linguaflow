@@ -35,7 +35,8 @@ function isInflectionOf(word, base) {
 
 // Agrupa as palavras das falas por lema. Nomes próprios (só aparecem com
 // inicial maiúscula e ao menos uma vez no meio da frase) ficam de fora.
-export function extractVideoVocabulary(cues, { stopWords = new Set(), rankMap = new Map() } = {}) {
+// `ignored` (#368): palavras que o aluno escolheu ignorar somem, pela forma ou lema.
+export function extractVideoVocabulary(cues, { stopWords = new Set(), rankMap = new Map(), ignored = new Set() } = {}) {
   const occurrences = [];
   const surface = new Set();
   (cues || []).forEach((cue, cueIndex) => {
@@ -43,7 +44,7 @@ export function extractVideoVocabulary(cues, { stopWords = new Set(), rankMap = 
     for (const match of text.matchAll(WORD_PATTERN)) {
       const raw = match[0].replace(/^'+|'+$/g, '');
       const lower = raw.toLowerCase();
-      if (lower.length <= 2 || stopWords.has(lower)) continue;
+      if (lower.length <= 2 || stopWords.has(lower) || ignored.has(lower)) continue;
       const before = text.slice(0, match.index).trimEnd();
       const sentenceStart = before === '' || /[.!?]["')\]]*$/.test(before);
       const capitalized = raw[0] !== lower[0];
@@ -52,11 +53,11 @@ export function extractVideoVocabulary(cues, { stopWords = new Set(), rankMap = 
     }
   });
 
-  const lexicon = new Set([...surface, ...rankMap.keys()]);
+  const lexicon = new Set([...surface, ...rankMap.keys(), ...ignored]);
   const byLemma = new Map();
   for (const occ of occurrences) {
     const lemma = lemmaOf(occ.lower, lexicon);
-    if (stopWords.has(lemma)) continue;
+    if (stopWords.has(lemma) || ignored.has(lemma)) continue;
     let entry = byLemma.get(lemma);
     if (!entry) {
       entry = { lemma, count: 0, forms: new Set(), cueIndexes: new Set(), lowerSeen: false, midCapSeen: false };
@@ -81,6 +82,46 @@ export function extractVideoVocabulary(cues, { stopWords = new Set(), rankMap = 
     });
   }
   return vocabulary;
+}
+
+// Outras falas do vídeo com a palavra do card (#366), pelo mesmo lema da aba
+// Palavras (filming/filmed/films → film). Expressões de várias palavras são
+// buscadas como bloco. `excludeStart` tira a fala que abriu o card. `base` é a
+// forma de dicionário quando conhecida (Google: filming → film); sem ela, o
+// lema só é reduzido se a forma base também aparecer no vídeo.
+export function findWordInVideo(cues, term, { excludeStart = null, limit = 3, base = '' } = {}) {
+  const needle = String(term || '').trim().toLowerCase();
+  if (!Array.isArray(cues) || !needle) return { total: 0, items: [] };
+  const others = cues.filter((cue) => cue?.text && !(excludeStart != null && Math.abs(cue.start - excludeStart) < 0.01));
+  const matches = [];
+  if (/\s/.test(needle)) {
+    const pattern = new RegExp(`\\b${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')}\\b`, 'i');
+    for (const cue of others) if (pattern.test(cue.text)) matches.push({ cue, form: needle });
+  } else {
+    const known = String(base || '').trim().toLowerCase();
+    const lexicon = new Set([needle, ...(known ? [known] : [])]);
+    for (const cue of cues) for (const m of String(cue?.text || '').matchAll(WORD_PATTERN)) lexicon.add(m[0].toLowerCase());
+    const target = known || lemmaOf(needle, lexicon);
+    for (const cue of others) {
+      for (const m of cue.text.matchAll(WORD_PATTERN)) {
+        const lower = m[0].replace(/^'+|'+$/g, '').toLowerCase();
+        if (lower === needle || lower === target || lemmaOf(lower, lexicon) === target) {
+          matches.push({ cue, form: lower });
+          break;
+        }
+      }
+    }
+  }
+  return {
+    total: matches.length,
+    items: matches.slice(0, limit).map(({ cue, form }) => ({
+      start: cue.start,
+      end: cue.end,
+      text: cue.text,
+      translatedText: cue.translatedText || '',
+      form,
+    })),
+  };
 }
 
 export function wordStatus(entry, knownWords, savedWords) {

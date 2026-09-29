@@ -4495,19 +4495,14 @@ export class SubtitleEngine {
     return MAX_EXPRESSION_WORDS;
   }
 
-  // #369: dica leve do hover. Tradução e classes vêm do cache do service
-  // worker (mesmas do card); a tradução da frase só quando a fala já a tem.
+  // #369: dica leve do hover — só a palavra (tradução e classes, do cache do
+  // service worker, as mesmas do card); a legenda traduzida não entra.
   _showHoverTip(span, text) {
     const word = String(text || '').replace(/[.,!?()"]+/g, '').trim();
     if (!word) return;
     this._hoverTip ??= createHoverTip();
-    const cue = this._currentCue;
-    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const sentenceTranslation = cue?.translatedText && new RegExp(`\\b${escaped}\\b`, 'i').test(cue.text || '')
-      ? cue.translatedText
-      : '';
     const popup = this.wordPopup;
-    this._hoverTip.show(span.getBoundingClientRect(), { word, sentenceTranslation }, (update) => {
+    this._hoverTip.show(span.getBoundingClientRect(), { word }, (update) => {
       popup?._translate?.(word).then((translation) => translation && update({ translation })).catch(() => {});
       popup?._senses?.(word).then((senses) => senses?.length && update({ senses })).catch(() => {});
     });

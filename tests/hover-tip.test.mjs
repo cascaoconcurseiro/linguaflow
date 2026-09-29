@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { hoverTipLines, hoverTipPosition } from '../content/subtitles/hover-tip.js';
 
-test('conteúdo: palavra com tradução, até 2 classes sem repetir a principal e a frase', () => {
+test('conteúdo: palavra com tradução e até 2 classes, sem a tradução da frase', () => {
   const lines = hoverTipLines({
     word: 'let',
     translation: 'deixar',
@@ -20,8 +20,7 @@ test('conteúdo: palavra com tradução, até 2 classes sem repetir a principal 
     { kind: 'word', text: 'let: deixar' },
     { kind: 'sense', label: 'verbo', text: 'permitir, alugar, arrendar, impedir' },
     { kind: 'sense', label: 'substantivo', text: 'impedimento' },
-    { kind: 'sentence', text: 'Deixa eu ver.' },
-  ]);
+  ], 'a legenda inteira traduzida não entra na dica do hover');
 });
 
 test('conteúdo: enquanto nada chegou mostra só a palavra; tradução igual não repete', () => {
@@ -38,7 +37,7 @@ test('posição: acima da palavra, abaixo se não couber, sempre dentro da tela'
   assert.equal(hoverTipPosition({ left: 0, width: 10, top: 300, bottom: 320 }, tip, view).left, 8);
 });
 
-test('engine: dica usa tradução/classes do card e só traduz a frase se ela contém a palavra', async () => {
+test('engine: dica usa só tradução e classes do card, sem a fala', async () => {
   globalThis.chrome ??= { runtime: { getURL: (p) => p, sendMessage() {}, onMessage: { addListener() {} } }, storage: { local: { get: async () => ({}), set: async () => {} }, onChanged: { addListener() {}, removeListener() {} } } };
   const { SubtitleEngine } = await import('../content/subtitle-engine.js');
   const engine = Object.create(SubtitleEngine.prototype);
@@ -48,10 +47,8 @@ test('engine: dica usa tradução/classes do card e só traduz a frase se ela co
   engine._currentCue = { text: "Well, I'm filming this", translatedText: 'Bem, estou filmando isso' };
   engine._showHoverTip({ getBoundingClientRect: () => ({}) }, 'filming,');
   await new Promise((r) => setTimeout(r, 0));
-  assert.deepEqual(shown[0].initial, { word: 'filming', sentenceTranslation: 'Bem, estou filmando isso' });
+  assert.deepEqual(shown[0].initial, { word: 'filming' });
   assert.deepEqual(shown[0].patches, [{ translation: 'filmando' }, { senses: [{ label: 'verbo', terms: ['filmar'] }] }]);
-  engine._showHoverTip({ getBoundingClientRect: () => ({}) }, 'September');
-  assert.equal(shown[1].initial.sentenceTranslation, '', 'palavra de outra fala não recebe tradução da fala atual');
 });
 
 test('fiação: hover com card fechado abre a dica, não o card; clique e saída escondem a dica', () => {

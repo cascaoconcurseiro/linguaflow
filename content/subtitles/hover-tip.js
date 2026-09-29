@@ -1,9 +1,10 @@
 // content/subtitles/hover-tip.js — Dica leve ao passar o mouse numa palavra
-// (#369): tradução, traduções por classe e tradução da frase, sem IA e sem
+// (#369): tradução e traduções por classe gramatical, sem IA e sem
 // abrir o card. O clique continua abrindo o card completo.
 
-// Conteúdo da dica a partir do que já chegou; campos vazios somem.
-export function hoverTipLines({ word = '', translation = '', senses = [], sentenceTranslation = '' } = {}) {
+// Conteúdo da dica a partir do que já chegou; campos vazios somem. Só a
+// palavra: a legenda inteira traduzida fica fora da dica (pedido do usuário).
+export function hoverTipLines({ word = '', translation = '', senses = [] } = {}) {
   const lines = [];
   const main = String(translation || '').trim();
   const clean = String(word || '').trim();
@@ -12,8 +13,6 @@ export function hoverTipLines({ word = '', translation = '', senses = [], senten
     const terms = (sense?.terms || []).filter((t) => t && t.toLowerCase() !== main.toLowerCase()).slice(0, 4);
     if (terms.length) lines.push({ kind: 'sense', label: sense.label || sense.pos || '', text: terms.join(', ') });
   }
-  const sentence = String(sentenceTranslation || '').trim();
-  if (sentence) lines.push({ kind: 'sentence', text: sentence });
   return lines;
 }
 
@@ -51,7 +50,6 @@ export function createHoverTip(doc = document) {
     tip.replaceChildren(...lines.map((line) => {
       const row = doc.createElement('div');
       if (line.kind === 'word') row.style.cssText = 'font-weight:800;color:#4ade80;';
-      if (line.kind === 'sentence') row.style.cssText = 'margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,.1);color:#cbd5e1;font-size:12px;';
       if (line.kind === 'sense') {
         const label = doc.createElement('span');
         label.style.cssText = 'color:#7dd3fc;font-weight:700;margin-right:4px;';

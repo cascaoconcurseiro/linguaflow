@@ -156,7 +156,7 @@ test('conteúdo: seed gerado bate com a fonte e cobre 90 frases novas', async ()
 
 test('app: rotas de curso recebem os parâmetros de navegação', () => {
   const app = read('dashboard/js/core/app.js');
-  assert.match(app, /const ROUTES_WITH_PARAMS = new Set\(\['study', 'courses', 'course-practice'\]\)/);
+  assert.match(app, /const ROUTES_WITH_PARAMS = new Set\(\['study', 'courses', 'course-practice'(, 'library')?\]\)/);
   assert.match(app, /ROUTES_WITH_PARAMS\.has\(route\)\s*\?\s*renderer\(guardedContainer, guardedApp, params\)/);
   assert.match(app, /courses: renderCourses,\s*'course-practice': renderCoursePractice,/);
 });

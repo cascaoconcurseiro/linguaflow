@@ -10,6 +10,7 @@ import { mergeContextualChunks } from '../../../utils/context-chunks.js';
 import { isValidIpa, cleanIpa } from '../../../utils/ipa-validator.js';
 import { escapeHtml } from './viewState.js';
 import { translator } from '../../../utils/translator.js';
+import { countBucket, observe } from '../../../utils/observability.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
 let dueQueue = [];
@@ -21,6 +22,7 @@ let consecutiveCorrect = 0;
 let sessionCards = 0;
 let sessionXp = 0;
 let sessionStart = Date.now();
+let sessionWeakOnly = false; // sessão de reforço aberta pela Home (#336)
 let sessionSignals = [];
 let sessionFatiguePromptShown = false;
 let sessionCardIds = new Set();
@@ -139,6 +141,7 @@ export async function renderStudy(container, app, params = {}) {
   hidePlayer(); // qualquer vídeo de uma sessão anterior não deve tocar ao fundo
   const topicFilter = params?.category || null; // Onda 2.2: "Revisar por tópico" vindo do Cofre
   const weakOnly = !!params?.weakOnly; // Onda 9: "Modo de estudo customizado" — revisar só palavras fracas/leech
+  sessionWeakOnly = weakOnly;
 
   app.showToast('Carregando frases...', 'info');
   pendingLearning = [];
@@ -718,6 +721,7 @@ function renderSessionComplete(app) {
   hidePlayer(); // a sessão acabou — nenhum vídeo deve continuar tocando ao fundo
   const sessionTime = Math.round((Date.now() - sessionStart) / 60000);
   const laterCount = pendingLearning.length;
+  if (sessionWeakOnly) observe('study.weak_session.completed', { cards: countBucket(sessionCards) });
   // Fase 4.5 da auditoria (§4g.8): #app-view nunca existiu; cair no <body>
   // destruía o app. Sem container real (rota já trocada), NÃO renderizar —
   // uma tela de fim de sessão fora da view de estudo é sempre errada.

@@ -2,10 +2,14 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { pickHomeBanner, selectStrugglingCards } from '../dashboard/js/ui/homeView.js';
+import { countBucket } from '../utils/observability.js';
 
-const [html, home] = await Promise.all([
+const [html, home, app, library, study] = await Promise.all([
   readFile(new URL('../dashboard/dashboard.html', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/js/ui/homeView.js', import.meta.url), 'utf8'),
+  readFile(new URL('../dashboard/js/core/app.js', import.meta.url), 'utf8'),
+  readFile(new URL('../dashboard/js/ui/libraryView.js', import.meta.url), 'utf8'),
+  readFile(new URL('../dashboard/js/ui/studyView.js', import.meta.url), 'utf8'),
 ]);
 
 // 1. "Hoje" é a rota inicial: vem antes de Cursos nas duas navegações.
@@ -62,5 +66,24 @@ assert.match(today, /home-struggling-words/);
 assert.ok(!/Cards Críticos|badge-diff|Dificuldade \$\{/.test(home), 'bloco antigo e badge de dificuldade removidos');
 assert.ok(/navigate(\?\.)?\('study', \{ weakOnly: true \}\)/.test(home), 'botão abre a sessão de reforço');
 assert.ok(/import \{ isWeakCard \} from '\.\.\/core\/sessionQueue\.js'/.test(home), 'fonte única do critério');
+
+// 5. Ações por palavra: abrir no Cofre (busca pré-preenchida) e pausar com confirmação.
+assert.ok(/data-weak-open="/.test(home) && /data-weak-pause="/.test(home), 'cada palavra tem Ver no Cofre e Pausar');
+assert.ok(/navigate(\?\.)?\('library', \{ search: /.test(home), 'Ver no Cofre abre a busca da palavra');
+assert.ok(/confirm\([^)]*Pausar/.test(home), 'pausar pede confirmação');
+assert.ok(/ROUTES_WITH_PARAMS = new Set\(\[[^\]]*'library'/.test(app), 'Cofre recebe parâmetros');
+assert.ok(/export async function renderLibrary\(container, app, params = \{\}\)/.test(library));
+assert.ok(/params\?\.search/.test(library), 'Cofre aplica a busca recebida');
+
+// 6. Telemetria com cardinalidade limitada (sem id de usuário/palavra).
+assert.equal(countBucket(0), '0');
+assert.equal(countBucket(1), '1');
+assert.equal(countBucket(4), '2-5');
+assert.equal(countBucket(12), '6-20');
+assert.equal(countBucket(99), '21+');
+for (const event of ['home.weak_words.reinforce_click', 'home.weak_words.open_vault', 'home.weak_words.pause']) {
+  assert.ok(home.includes(`observe('${event}'`), `evento ${event}`);
+}
+assert.ok(study.includes("observe('study.weak_session.completed'"), 'conclusão da sessão de reforço é medida');
 
 console.log('home-organization: ok');

@@ -5,6 +5,7 @@ import { computeAchievements, newlyUnlocked } from '../core/achievements.js';
 import { bindViewStateAction, escapeHtml, renderViewState } from './viewState.js';
 import { isFluencyCheckDue } from '../core/fluencyCheck.js';
 import { isWeakCard } from '../core/sessionQueue.js';
+import { countBucket, observe } from '../../../utils/observability.js';
 
 function organizeHomeSections(container) {
     const main = container.querySelector('.dashboard-main');
@@ -637,6 +638,10 @@ export async function renderHome(container, app) {
                                     <span class="badge-lapse">${c.lapses} ${c.lapses === 1 ? 'esquecimento' : 'esquecimentos'}</span>
                                     ${c.isLeech ? '<span class="badge-leech" title="Atingiu o limite de esquecimentos definido nas configurações">Sinalizada</span>' : ''}
                                 </div>
+                                <div class="critical-card-actions">
+                                    <button type="button" class="critical-card-action" data-weak-open="${escapeHtml(c.word)}" aria-label="Ver ${escapeHtml(c.word)} no Cofre">Ver no Cofre</button>
+                                    <button type="button" class="critical-card-action" data-weak-pause="${escapeHtml(String(c.id))}" data-weak-word="${escapeHtml(c.word)}" aria-label="Pausar revisões de ${escapeHtml(c.word)}">Pausar</button>
+                                </div>
                             </li>
                         `).join('')}
                     </ul>
@@ -793,7 +798,34 @@ export async function renderHome(container, app) {
         if (app && app.navigate) app.navigate(todayAction.route);
     });
     document.getElementById('btn-reinforce-weak')?.addEventListener('click', () => {
+        observe('home.weak_words.reinforce_click', { due: countBucket(struggling.dueCount), total: countBucket(struggling.total) });
         app?.navigate?.('study', { weakOnly: true });
+    });
+    const strugglingSection = document.getElementById('home-struggling-words');
+    strugglingSection?.addEventListener('click', async (event) => {
+        const openBtn = event.target.closest('[data-weak-open]');
+        if (openBtn) {
+            observe('home.weak_words.open_vault', {});
+            app?.navigate?.('library', { search: openBtn.dataset.weakOpen });
+            return;
+        }
+        const pauseBtn = event.target.closest('[data-weak-pause]');
+        if (!pauseBtn || pauseBtn.disabled) return;
+        const word = pauseBtn.dataset.weakWord || 'esta expressão';
+        if (!confirm(`Pausar as revisões de "${word}"? Ela sai da fila e continua no Cofre, onde você pode reativar quando quiser.`)) return;
+        pauseBtn.disabled = true;
+        pauseBtn.textContent = 'Pausando…';
+        try {
+            await db.setCardSuspended(pauseBtn.dataset.weakPause, true);
+            observe('home.weak_words.pause', { outcome: 'ok' });
+            app.showToast(`"${word}" pausada. Reative quando quiser no Cofre.`, 'success');
+            renderHome(container, app);
+        } catch (e) {
+            observe('home.weak_words.pause', { outcome: 'error' });
+            pauseBtn.disabled = false;
+            pauseBtn.textContent = 'Pausar';
+            app.showToast('Não foi possível pausar agora. Tente de novo.', 'error');
+        }
     });
     document.getElementById('btn-home-details-retry')?.addEventListener('click', () => {
         renderHome(container, app);
@@ -1259,7 +1291,13 @@ function injectStyles() {
         .critical-card-main { min-width:0; display:grid; gap:2px; }
         .critical-card-word { font-size:14px; }
         .critical-card-trans { color:var(--color-text-light); font-size:12px; }
-        .critical-card-tags { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+        .critical-card-tags { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; margin-left:auto; }
+        .critical-card-item { flex-wrap:wrap; }
+        .critical-card-actions { display:flex; gap:4px; }
+        .critical-card-action { min-height:44px; padding:0 10px; border:0; border-radius:8px; background:transparent; color:var(--color-secondary); font:700 13px var(--font-main); cursor:pointer; transition:background-color .16s ease; }
+        .critical-card-action:hover { background:color-mix(in srgb, var(--color-secondary) 10%, transparent); }
+        .critical-card-action:disabled { color:var(--color-text-light); cursor:progress; }
+        @media (prefers-reduced-motion: reduce) { .critical-card-action { transition:none; } }
         .badge-lapse, .badge-leech { border-radius:999px; padding:5px 9px; font-size:11px; font-weight:800; white-space:nowrap; }
         .badge-lapse { color:var(--color-text); background:rgba(255,75,75,.16); border:1px solid rgba(255,75,75,.5); }
         .badge-leech { color:#2b1b00; background:#ffd977; }

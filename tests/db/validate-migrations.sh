@@ -123,4 +123,7 @@ run_pg "${PSQL[@]}" -f "$ROOT/tests/db/fluency-assessment-authority.sql"
 # Behavioral contracts added after the integrated audit.
 run_pg "${PSQL[@]}" -f "$ROOT/tests/db/stabilization.sql"
 
+echo "── palavras que não estão fixando: esquecimentos e leech reais (#336)"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/db/weak-words.sql"
+
 echo "✅ Migrations reproduzíveis + gates comportamentais P0.1/P0.2/#118 passaram."

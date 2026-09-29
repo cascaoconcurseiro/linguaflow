@@ -51,6 +51,17 @@ assert.equal(selectStrugglingCards(many, words, now).items.length, 5);
 assert.equal(selectStrugglingCards(many, words, now).total, 8);
 assert.deepEqual(selectStrugglingCards(null, null, now), { items: [], total: 0, dueCount: 0 });
 
+// 2b. Card exatamente como a RPC record_card_review devolve após o 3º "Errei"
+// (gate SQL tests/db/weak-words.sql): em reaprendizagem, volta em 1 minuto.
+const afterThirdLapse = { id: 'c1', word_id: 'a', status: 'learning', lapses: 3, is_leech: true, suspended: false,
+  pre_lapse_interval: 4, due_date: new Date(now.getTime() + 60_000).toISOString() };
+const fresh = selectStrugglingCards([afterThirdLapse], words, now);
+assert.equal(fresh.total, 1, 'aparece na Home logo após o 3º esquecimento');
+assert.equal(fresh.dueCount, 0, 'botão de reforço espera o passo de reaprendizagem vencer');
+assert.equal(selectStrugglingCards([afterThirdLapse], words, new Date(now.getTime() + 61_000)).dueCount, 1);
+assert.equal(selectStrugglingCards([{ ...afterThirdLapse, suspended: true }], words, now).total, 0,
+  'leech_action=suspend tira a palavra da Home');
+
 // 3. No máximo um banner de alerta, por prioridade.
 assert.equal(pickHomeBanner({ returning: true, streakAtRisk: true, vault: true }), 'return');
 assert.equal(pickHomeBanner({ returning: false, streakAtRisk: true, vault: true }), 'streak');

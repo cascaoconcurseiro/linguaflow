@@ -3705,7 +3705,7 @@ export class SubtitleEngine {
         if (cue && cue !== this._currentCue) {
           this.lastText = cue.text;
           this.onSubtitle(cue);
-        } else if (!cue && this.lastText !== '') {
+        } else if (!cue && (this.lastText !== '' || this._currentCue)) {
           this._currentCue = null;
           this.lastText = '';
           this.renderDual('', '');
@@ -4045,7 +4045,9 @@ export class SubtitleEngine {
             this._lastAutoPausedEndTime = -1;
             this.lastText = cue.text;
             this.onSubtitle(cue);
-          } else if (!cue && this.lastText !== '') {
+          } else if (!cue && (this.lastText !== '' || this._currentCue)) {
+            // #361: o seek zera lastText; sem checar _currentCue, pular para um
+            // trecho sem fala deixava a legenda anterior presa na tela.
             this._lastAutoPausedEndTime = -1;
             this.lastText = '';
             this._currentCue = null;

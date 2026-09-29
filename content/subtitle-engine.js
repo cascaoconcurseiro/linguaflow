@@ -1,5 +1,5 @@
 import { ListeningClock } from '../utils/listening-clock.js';
-import { groupCaptionEvents, attachTranslationsByTime } from '../utils/caption-grouping.js';
+import { captionLines, groupCaptionEvents, attachTranslationsByTime } from '../utils/caption-grouping.js';
 import { normalizeSubtitleCasing } from '../utils/caption-casing.js';
 import { localDateKey } from '../utils/local-day.js';
 import { MAX_EXPRESSION_WORDS } from '../utils/expressions-db.js';
@@ -3576,9 +3576,11 @@ export class SubtitleEngine {
   }
 
   // ── processYtSub — cópia EXATA do V5 ──────────────────────────────────────
-  _processYtSub(data) {
+  // lines: faixa traduzida fica linha a linha para ser distribuída pelos
+  // trechos originais (#364), que podem juntar linhas em pontos diferentes.
+  _processYtSub(data, { lines = false } = {}) {
     const round = (seconds) => Number.isFinite(seconds) ? Math.round(seconds * 100) / 100 : null;
-    const raw = groupCaptionEvents(data?.events).map((cue) => ({
+    const raw = (lines ? captionLines : groupCaptionEvents)(data?.events).map((cue) => ({
       ...cue,
       text: this._cleanSubtitleText(cue.text),
     })).filter((cue) => cue.text && cue.end > cue.start);
@@ -3757,7 +3759,7 @@ export class SubtitleEngine {
       if (this.cues && this.cues.length > 0) {
         let transCues = [];
         try {
-          if (raw.startsWith('{')) transCues = this._processYtSub(JSON.parse(raw));
+          if (raw.startsWith('{')) transCues = this._processYtSub(JSON.parse(raw), { lines: true });
           else if (raw.includes('WEBVTT') || raw.includes('-->')) transCues = this._parseVTT(raw);
         } catch {}
         if (Array.isArray(transCues) && transCues.length > 0) {
@@ -3791,7 +3793,7 @@ export class SubtitleEngine {
             if (Array.isArray(origCues) && origCues.length > 0 && this._isNavigationCurrent(navigation)) {
               let transCues = [];
               try {
-                if (raw.startsWith('{')) transCues = this._processYtSub(JSON.parse(raw));
+                if (raw.startsWith('{')) transCues = this._processYtSub(JSON.parse(raw), { lines: true });
                 else if (raw.includes('WEBVTT') || raw.includes('-->')) transCues = this._parseVTT(raw);
               } catch {}
 

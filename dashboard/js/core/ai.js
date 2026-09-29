@@ -3,7 +3,7 @@
 // Na web (Vercel): chama a Edge Function segura direto com o token de sessão.
 
 import { db as lfDb } from '../../../utils/db.js';
-import { buildStoryVarietyNote, buildLevelNote, levelSpecFor, recentStorySnippets, resolveStoryLevel } from '../../../utils/story-variety.js';
+import { buildStoryPrompt, levelSpecFor, recentStorySnippets, resolveStoryLevel, storyFormatFor, STORY_PROMPT_VERSION } from '../../../utils/story-variety.js';
 import { isValidIpa, cleanIpa } from '../../../utils/ipa-validator.js';
 
 const EDGE_URL = 'https://qnutoswrufznztoznlql.supabase.co/functions/v1/deepseek-chat';
@@ -324,7 +324,9 @@ export async function generateStoryWeb(genre, onChunk, userWords = [], options =
       const reusable = savedStories.find(s => s.genre === genre
         && (s.requested_level === cefr || (!s.requested_level && s.level === cefr))
         && (!s.target_minutes || Number(s.target_minutes) === targetMinutes)
-        && (!s.learning_goal || s.learning_goal === learningGoal));
+        && (!s.learning_goal || s.learning_goal === learningGoal)
+        // #340: antes do story-v3 todo tema virava conto; não reaproveitar esses textos.
+        && (storyFormatFor(genre) === 'narrative' || s.prompt_version === STORY_PROMPT_VERSION));
       if (reusable && (reusable.content || reusable.story)) {
         const text = reusable.content || reusable.story;
         if (onChunk) onChunk(text, text);
@@ -333,32 +335,16 @@ export async function generateStoryWeb(genre, onChunk, userWords = [], options =
     } catch { /* se falhar o reuso, segue pro streaming normal */ }
   }
 
-  const reencounterNote = reencounter.length
-    ? `\nIMPORTANTE: incorpore NATURALMENTE ${Math.min(6, Math.max(4, reencounter.length))} destas palavras/expressões que o aluno está estudando (sem forçar, sem destacar, sem listar): ${reencounter.join(', ')}.`
-    : '';
   const recent = recentStorySnippets(await lfDb.getStories(15).catch(() => []), genre);
-  const varietyNote = buildStoryVarietyNote(recent);
-  const levelNote = buildLevelNote(cefr, { targetMinutes, learningGoal });
   const spec = levelSpecFor(cefr);
-  const prompt = `Você é um gerador de histórias envolventes em inglês para estudantes.
-Nível do Estudante: CEFR ${cefr}.
-Tema/Gênero da História: ${genre}.
-${reencounterNote}
-${varietyNote}
-${levelNote}
-DIRETRIZES FUNDAMENTAIS DE FORMATO:
-- O texto DEVE ser rico em DIÁLOGOS REAIS entre os personagens (cerca de 60% a 70% da história em conversas diretas que uma pessoa pode usar no mundo real em viagens, trabalho, compras e dia a dia).
-- Use aspas inglesas ("...") para as falas e intercale as falas com reações, sentimentos e ações dos personagens.
-- O vocabulário e a gramática devem estar RIGOROSAMENTE alinhados ao nível CEFR ${cefr} especificado. Se o nível for A1 ou A2, garanta linguagem simples, direta e acessível, sem palavras difíceis ou tempos verbais complexos fora da banda.
-- Não traduza a história. Apenas escreva a história em inglês, diagramada como um livro: separe CADA parágrafo e CADA turno de fala de personagem OBRIGATORIAMENTE com duas quebras de linha (\n\n). NUNCA junte falas de dois personagens no mesmo parágrafo.
-- NÃO use formatação markdown, NÃO coloque um título, apenas o texto da história.`;
+  const prompt = buildStoryPrompt({ genre, cefr, reencounter, recentSnippets: recent, targetMinutes, learningGoal });
 
   const story = await aiChatStream(
     [{ role: 'user', content: prompt }],
     { temperature: 0.8, max_tokens: spec.maxTokens },
     onChunk
   );
-  return { story, level: cefr, requestedWords: reencounter, targetMinutes, learningGoal, promptVersion: 'story-v2' };
+  return { story, level: cefr, requestedWords: reencounter, targetMinutes, learningGoal, promptVersion: STORY_PROMPT_VERSION };
 }
 
 // Onda 3.2 — Fase 4 do nivelamento: corrige a mini-produção escrita como um

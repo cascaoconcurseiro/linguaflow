@@ -1,10 +1,10 @@
 // background/ai-generator.js
 import {
-  buildStoryVarietyNote,
-  buildLevelNote,
+  buildStoryPrompt,
   levelSpecFor,
   recentStorySnippets,
   resolveStoryLevel,
+  STORY_PROMPT_VERSION,
 } from '../utils/story-variety.js';
 
 let isBackfilling = false;
@@ -125,28 +125,10 @@ export async function generateStoryWithAI(genre, options = {}, { db, getApiConfi
     }
 
     const reencounter = await getReencounterWordsSW(db);
-    const reencounterNote = reencounter.length
-      ? `\nIMPORTANTE: incorpore NATURALMENTE ${Math.min(6, Math.max(4, reencounter.length))} destas palavras/expressões que o aluno está estudando (sem forçar, sem destacar, sem listar): ${reencounter.join(', ')}.`
-      : '';
-
     // Bug 17/07: prompt byte-idêntico gerava sempre a mesma história.
     const recent = recentStorySnippets(await db.getStories(15).catch(() => []), genre);
-    const varietyNote = buildStoryVarietyNote(recent);
-    const levelNote = buildLevelNote(cefr, { targetMinutes, learningGoal });
     const spec = levelSpecFor(cefr);
-
-    const prompt = `Você é um gerador de histórias envolventes em inglês para estudantes.
-Nível do Estudante: CEFR ${cefr}.
-Tema/Gênero da História: ${genre}.
-${reencounterNote}
-${varietyNote}
-${levelNote}
-DIRETRIZES FUNDAMENTAIS DE FORMATO:
-- O texto DEVE ser rico em DIÁLOGOS REAIS entre os personagens (cerca de 60% a 70% da história em conversas diretas que uma pessoa pode usar no mundo real em viagens, trabalho, compras e dia a dia).
-- Use aspas inglesas ("...") para as falas e intercale as falas com reações, sentimentos e ações dos personagens.
-- O vocabulário e a gramática devem estar RIGOROSAMENTE alinhados ao nível CEFR ${cefr} especificado. Se o nível for A1 ou A2, garanta linguagem simples, direta e acessível, sem palavras difíceis ou tempos verbais complexos fora da banda.
-- Não traduza a história. Apenas escreva a história em inglês, diagramada como um livro: separe CADA parágrafo e CADA turno de fala de personagem OBRIGATORIAMENTE com duas quebras de linha (\n\n). NUNCA junte falas de dois personagens no mesmo parágrafo.
-- NÃO use formatação markdown, NÃO coloque um título, apenas o texto da história.`;
+    const prompt = buildStoryPrompt({ genre, cefr, reencounter, recentSnippets: recent, targetMinutes, learningGoal });
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
@@ -174,7 +156,7 @@ DIRETRIZES FUNDAMENTAIS DE FORMATO:
       requestedWords: reencounter,
       targetMinutes,
       learningGoal,
-      promptVersion: 'story-v2',
+      promptVersion: STORY_PROMPT_VERSION,
     };
   } catch (err) {
     console.error('Erro ao gerar história:', err);

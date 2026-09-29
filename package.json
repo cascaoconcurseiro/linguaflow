@@ -75,7 +75,7 @@
     "test:focus-suite": "npm run test:focus-shell && npm run test:study-focus",
     "test:dashboard-cards": "node tests/dashboard-cards-audit.test.mjs",
     "test:study-video": "node tests/study-video-race.test.mjs",
-    "test:study-depth-stories": "node tests/study-depth-stories-contract.test.mjs",
+    "test:study-depth-stories": "node tests/study-depth-stories-contract.test.mjs && node --test tests/story-genre-format.test.mjs",
     "test:architectural-resilience": "node tests/architectural-resilience.test.mjs",
     "test:storage-quota": "node --test tests/storage-quota-resilience.test.mjs tests/word-save-queue.test.mjs",
     "test:extension-suite": "npm run test:yt-player && npm run test:video && npm run test:study-video && npm run test:site-boundary && npm run test:web-reader && npm run test:subtitle-lifecycle && npm run test:subtitle-display && npm run test:eager-sidebar && npm run test:extension-translation-proxy && npm run test:word-popup-hover && npm run test:max-ui",

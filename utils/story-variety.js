@@ -110,11 +110,14 @@ export function buildLevelNote(cefr, options = {}) {
     : options.learningGoal === 'challenge'
       ? 'Inclua algum desafio inferível pelo contexto, sem ultrapassar a gramática da banda solicitada.'
       : 'Priorize leitura confortável, transparente e fluida; evite palavras raras que não sejam necessárias.';
+  const formatLine = (STORY_FORMATS[options.format] || STORY_FORMATS.narrative).levelLine;
   return `\nCALIBRAGEM OBRIGATÓRIA para o nível ${cefr}:
 - Duração desejada: cerca de ${length.minutes} minutos (${length.minWords} a ${length.maxWords} palavras).
-- Formato: predominantemente DIÁLOGOS REAIS entre os personagens (falas diretas úteis para a vida real).
+- Formato: ${formatLine}
 - Frases de no máximo ${spec.maxSentence} palavras cada.
-- Estruturas e vocabulário: ${spec.structures}
+- Estruturas e vocabulário: ${spec.structures}${options.format && options.format !== 'narrative'
+    ? ' (use a banda só como limite de gramática e vocabulário; o formato continua o descrito acima, sem diálogos entre personagens)'
+    : ''}
 - Objetivo da missão: ${goal}`;
 }
 
@@ -148,4 +151,96 @@ export function buildStoryVarietyNote(recentSnippets = [], rand = Math.random) {
 - Cenário principal: ${setting}.
 - A trama deve incluir ${first} e ${second}.${avoidNote}
 - Semente de variação: ${Math.floor(rand() * 1e6)}.`;
+}
+
+// Issue #340: o prompt era de conto para qualquer tema — auto-ajuda virava
+// história de personagem e biografia virava ficção. Cada tema do seletor
+// declara o gênero textual que o aluno espera receber.
+export const STORY_PROMPT_VERSION = 'story-v3';
+
+const STORY_FORMATS = {
+  narrative: {
+    role: 'Você é um gerador de histórias envolventes em inglês para estudantes.',
+    levelLine: 'predominantemente DIÁLOGOS REAIS entre os personagens (falas diretas úteis para a vida real).',
+    rules: `- O texto DEVE ser rico em DIÁLOGOS REAIS entre os personagens (cerca de 60% a 70% da história em conversas diretas que uma pessoa pode usar no mundo real em viagens, trabalho, compras e dia a dia).
+- Use aspas inglesas ("...") para as falas e intercale as falas com reações, sentimentos e ações dos personagens.`,
+  },
+  selfhelp: {
+    role: 'Você é um autor de textos de auto-ajuda e desenvolvimento pessoal em inglês para estudantes do idioma.',
+    levelLine: 'texto de auto-ajuda em prosa, falando diretamente com o leitor ("you").',
+    rules: `- Escreva um texto de AUTO-AJUDA de verdade, como um capítulo curto de livro ou artigo de desenvolvimento pessoal — NÃO é um conto.
+- Fale diretamente com o leitor na segunda pessoa ("you"): apresente o problema, explique por que ele acontece e dê conselhos práticos e aplicáveis hoje.
+- Proibido criar protagonista, enredo ou diálogos entre personagens. Um exemplo curto de situação é permitido, mas é ilustração, não trama.
+- Termine com uma síntese ou um pequeno desafio prático para o leitor.`,
+    variety: ['um passo a passo prático', 'um erro comum e como evitá-lo', 'um mito popular e o que funciona de verdade',
+      'uma pequena rotina diária', 'perguntas de reflexão seguidas de ações concretas'],
+  },
+  biography: {
+    role: 'Você é um biógrafo que escreve biografias curtas em inglês para estudantes do idioma.',
+    levelLine: 'biografia narrada em terceira pessoa, em ordem cronológica.',
+    rules: `- Escreva a BIOGRAFIA de uma pessoa real, conhecida e amplamente documentada, cuja trajetória inspire (ciência, esporte, arte, direitos civis, empreendedorismo etc.).
+- Diga o nome completo da pessoa no início e conte, em terceira pessoa e em ordem cronológica: origem, obstáculos, decisões, conquistas e legado.
+- Use apenas fatos amplamente conhecidos e verificáveis. NÃO invente personagens, eventos, datas, diálogos ou citações; se não tiver certeza de um detalhe, omita-o.`,
+    varietyHint: 'Escolha uma pessoa DIFERENTE de qualquer pessoa retratada nos textos anteriores.',
+  },
+  nonfiction: {
+    role: 'Você é um redator de textos informativos de não-ficção em inglês para estudantes do idioma.',
+    levelLine: 'texto informativo em prosa, sem personagens inventados.',
+    rules: `- Escreva um texto INFORMATIVO de não-ficção sobre fatos reais ligados ao tema, como um artigo de revista de divulgação — NÃO é um conto.
+- Escolha um assunto concreto (um evento, uma descoberta, uma empresa, um fenômeno natural) e explique o contexto, o que aconteceu, por que importa e o que aprendemos com isso.
+- Use apenas fatos reais amplamente documentados. NÃO invente personagens, dados, datas, diálogos ou citações; se não tiver certeza de um detalhe, omita-o.`,
+    varietyHint: 'Escolha um assunto DIFERENTE dos abordados nos textos anteriores.',
+  },
+};
+
+const GENRE_FORMATS = {
+  'Motivação & Hábitos': 'selfhelp',
+  'Produtividade & Foco': 'selfhelp',
+  'Relacionamentos & Comunicação': 'selfhelp',
+  'Saúde Mental & Equilíbrio': 'selfhelp',
+  'Finanças Pessoais': 'selfhelp',
+  'Biografia Inspiradora': 'biography',
+  'História (Fatos reais)': 'nonfiction',
+  'Ciência & Descobertas': 'nonfiction',
+  'Empreendedorismo & Inovação': 'nonfiction',
+  'Natureza & Meio Ambiente': 'nonfiction',
+};
+
+export function storyFormatFor(genre = '') {
+  return GENRE_FORMATS[genre] || 'narrative';
+}
+
+function buildNonNarrativeVarietyNote(format, recentSnippets = [], rand = Math.random) {
+  const spec = STORY_FORMATS[format];
+  const avoid = (recentSnippets || []).filter(Boolean).slice(0, 5);
+  const lines = ['\nVARIAÇÃO OBRIGATÓRIA deste texto (cada geração deve ser diferente da anterior):'];
+  if (spec.variety) lines.push(`- Estrutura desta vez: ${pick(spec.variety, rand)}.`);
+  if (spec.varietyHint) lines.push(`- ${spec.varietyHint}`);
+  if (avoid.length) lines.push(`- NÃO repita o assunto nem a abertura destes textos anteriores: ${JSON.stringify(avoid)}.`);
+  lines.push(`- Semente de variação: ${Math.floor(rand() * 1e6)}.`);
+  return lines.join('\n');
+}
+
+// Prompt único da geração (web e extensão), para os dois lados não divergirem.
+export function buildStoryPrompt({ genre, cefr, reencounter = [], recentSnippets = [], targetMinutes, learningGoal, rand = Math.random }) {
+  const format = storyFormatFor(genre);
+  const spec = STORY_FORMATS[format];
+  const reencounterNote = reencounter.length
+    ? `\nIMPORTANTE: incorpore NATURALMENTE ${Math.min(6, Math.max(4, reencounter.length))} destas palavras/expressões que o aluno está estudando (sem forçar, sem destacar, sem listar): ${reencounter.join(', ')}.`
+    : '';
+  const varietyNote = format === 'narrative'
+    ? buildStoryVarietyNote(recentSnippets, rand)
+    : buildNonNarrativeVarietyNote(format, recentSnippets, rand);
+  const levelNote = buildLevelNote(cefr, { targetMinutes, learningGoal, format });
+  return `${spec.role}
+Nível do Estudante: CEFR ${cefr}.
+Tema: ${genre}.
+${reencounterNote}
+${varietyNote}
+${levelNote}
+DIRETRIZES FUNDAMENTAIS DE FORMATO:
+${spec.rules}
+- O vocabulário e a gramática devem estar RIGOROSAMENTE alinhados ao nível CEFR ${cefr} especificado. Se o nível for A1 ou A2, garanta linguagem simples, direta e acessível, sem palavras difíceis ou tempos verbais complexos fora da banda.
+- Não traduza o texto. Escreva apenas em inglês, diagramado como um livro: separe CADA parágrafo${format === 'narrative' ? ' e CADA turno de fala de personagem' : ''} OBRIGATORIAMENTE com duas quebras de linha (\n\n).${format === 'narrative' ? ' NUNCA junte falas de dois personagens no mesmo parágrafo.' : ''}
+- NÃO use formatação markdown, NÃO coloque um título, apenas o texto.`;
 }

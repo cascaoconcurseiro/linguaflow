@@ -2,8 +2,8 @@ import { ListeningClock } from '../utils/listening-clock.js';
 import { groupCaptionEvents, attachTranslationsByTime } from '../utils/caption-grouping.js';
 import { normalizeSubtitleCasing } from '../utils/caption-casing.js';
 import { localDateKey } from '../utils/local-day.js';
-import { expressionsDB, matchExpressionCandidate, MAX_EXPRESSION_WORDS } from '../utils/expressions-db.js';
-import { slangsDB } from '../utils/slangs-db.js';
+import { MAX_EXPRESSION_WORDS } from '../utils/expressions-db.js';
+import { detectExpressions } from '../utils/expression-detector.js';
 import { videoUtils } from '../utils/video-utils.js';
 
 import { escapeHTML } from '../utils/html.js';
@@ -4304,7 +4304,10 @@ export class SubtitleEngine {
         continue;
       }
       const span = this._createWordSpan(segment.text, !!segment.expression, disableHoverPause);
-      if (segment.expression) span.dataset.expression = segment.expression;
+      if (segment.expression) {
+        span.dataset.expression = segment.expression;
+        span.dataset.kind = segment.kind || 'phrasal';
+      }
       frag.appendChild(span);
     }
     return frag;
@@ -4746,7 +4749,10 @@ export class SubtitleEngine {
       span.className = segment.expression
         ? 'lf-word lf-expression'
         : `lf-word ${this._wordClass(segment.text)}`;
-      if (segment.expression) span.dataset.expression = segment.expression;
+      if (segment.expression) {
+        span.dataset.expression = segment.expression;
+        span.dataset.kind = segment.kind || 'phrasal';
+      }
       frag.appendChild(span);
     }
     el.appendChild(frag);
@@ -4869,75 +4875,28 @@ export class SubtitleEngine {
     );
     const totalUnique = vocabulary.size;
 
-    // Prepara texto e índice de cues para detecção de Phrasal Verbs e Slangs
-    const cuesLower = cues.map((c) => ({ cue: c, textLower: (c.text || '').toLowerCase() }));
-    const allTextJoined = ' ' + cuesLower.map((c) => c.textLower).join(' \n ') + ' ';
-
-    // 2. Detecção de Phrasal Verbs (com suporte a formas flexionadas / conjugadas)
+    // 2–3. Phrasal verbs idiomáticos e gírias: mesma detecção da legenda
+    // (utils/expression-detector.js), agregada por forma canônica.
     const phrasalVerbsMap = new Map();
-
-    // 2.1 Escaneamento inteligente por janela deslizante nas legendas
-    cuesLower.forEach((item) => {
-      const words = (item.textLower || '')
-        .split(/[^a-z0-9']+/)
-        .map((w) => w.replace(/^'+|'+$/g, ''))
-        .filter(Boolean);
-      const cueSeenCanonicals = new Set();
-
-      for (let wIdx = 0; wIdx < words.length; wIdx++) {
-        for (let len = 2; len <= 4 && wIdx + len <= words.length; len++) {
-          const slice = words.slice(wIdx, wIdx + len);
-          const match = matchExpressionCandidate(slice);
-          if (match && match.canonical) {
-            if (!phrasalVerbsMap.has(match.canonical)) {
-              phrasalVerbsMap.set(match.canonical, { term: match.canonical, count: 0, cues: [], forms: new Set() });
-            }
-            const entry = phrasalVerbsMap.get(match.canonical);
-            entry.forms.add(match.matched);
-            if (!cueSeenCanonicals.has(match.canonical)) {
-              cueSeenCanonicals.add(match.canonical);
-              entry.count += 1;
-              entry.cues.push(item.cue);
-            }
-          }
+    const slangsMap = new Map();
+    cues.forEach((cue) => {
+      const seenInCue = new Set();
+      for (const found of detectExpressions(clean(cue.text))) {
+        const map = found.type === 'phrasal' ? phrasalVerbsMap : found.type === 'slang' ? slangsMap : null;
+        if (!map) continue;
+        if (!map.has(found.canonical)) {
+          map.set(found.canonical, { term: found.canonical, count: 0, cues: [], forms: new Set() });
         }
-      }
-    });
-
-    // 2.2 Fallback para expressões literais do expressionsDB
-    expressionsDB.forEach((expr) => {
-      if (!allTextJoined.includes(expr)) return;
-      if (phrasalVerbsMap.has(expr)) return;
-      const escaped = expr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-      const regex = new RegExp('\\b' + escaped + '\\b', 'i');
-      const matching = [];
-      for (const item of cuesLower) {
-        if (regex.test(item.textLower)) {
-          matching.push(item.cue);
-        }
-      }
-      if (matching.length > 0) {
-        phrasalVerbsMap.set(expr, { term: expr, count: matching.length, cues: matching, forms: new Set([expr]) });
+        const entry = map.get(found.canonical);
+        entry.forms.add(found.text.toLowerCase());
+        const key = `${found.type}:${found.canonical}`;
+        if (seenInCue.has(key)) continue;
+        seenInCue.add(key);
+        entry.count += 1;
+        entry.cues.push(cue);
       }
     });
     const totalPhrasal = phrasalVerbsMap.size;
-
-    // 3. Detecção de Gírias (Slangs)
-    const slangsMap = new Map();
-    slangsDB.forEach((slang) => {
-      if (!allTextJoined.includes(slang)) return;
-      const escaped = slang.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-      const regex = new RegExp('\\b' + escaped + '\\b', 'i');
-      const matching = [];
-      for (const item of cuesLower) {
-        if (regex.test(item.textLower)) {
-          matching.push(item.cue);
-        }
-      }
-      if (matching.length > 0) {
-        slangsMap.set(slang, { term: slang, count: matching.length, cues: matching, forms: new Set([slang]) });
-      }
-    });
     const totalSlangs = slangsMap.size;
 
     // 4. Resumo: só afirma compreensão com base no que o aluno marcou

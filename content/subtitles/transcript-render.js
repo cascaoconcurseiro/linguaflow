@@ -2,8 +2,10 @@
 // segmentação em palavras/expressões (tela e roteiro), destaque de busca e
 // estado de carregamento do roteiro.
 import { escapeHTML } from '../../utils/html.js';
-import { expressionsDB, matchExpressionCandidate, MAX_EXPRESSION_WORDS } from '../../utils/expressions-db.js';
+import { MAX_EXPRESSION_WORDS } from '../../utils/expressions-db.js';
+import { detectExpressions } from '../../utils/expression-detector.js';
 
+const TOKEN_PATTERN = /[a-zA-ZÀ-ɏ']+|[^a-zA-ZÀ-ɏ']+/g;
 const WORD_CHAR = /[a-zA-ZÀ-ɏ]/;
 
 function normalizeApostrophes(text) {
@@ -13,49 +15,27 @@ function normalizeApostrophes(text) {
     .replace(/[‘’]/g, "'");
 }
 
-const cleanWord = (token) => token.toLowerCase().replace(/^'+|'+$/g, '');
+function plainSegments(chunk) {
+  return Array.from(chunk.matchAll(TOKEN_PATTERN), (m) => ({
+    text: m[0],
+    isWord: WORD_CHAR.test(m[0]),
+    expression: null,
+  }));
+}
 
-// Divide a fala em segmentos { text, isWord, expression }. Cada expressão
-// conhecida vira um único segmento com o maior bloco possível: clicar em
-// "put" dentro de "put up with" abre "put up with", não "put".
+// Divide a fala em segmentos { text, isWord, expression, kind }. Expressões
+// detectadas (phrasal verb idiomático ou gíria) viram um único segmento com o
+// maior bloco possível: clicar em "put" dentro de "put up with" abre "put up with".
 export function segmentSubtitle(text, maxExpressionWords = MAX_EXPRESSION_WORDS) {
-  const tokens = Array.from(
-    normalizeApostrophes(text).matchAll(/[a-zA-ZÀ-ɏ']+|[^a-zA-ZÀ-ɏ']+/g),
-    (m) => m[0],
-  );
+  const source = normalizeApostrophes(text);
   const segments = [];
-  for (let i = 0; i < tokens.length; i++) {
-    const token = tokens[i];
-    if (!WORD_CHAR.test(token)) {
-      segments.push({ text: token, isWord: false });
-      continue;
-    }
-
-    let expression = null;
-    let matchEnd = i;
-    const seenWords = [];
-    for (let j = i; j < tokens.length && seenWords.length < maxExpressionWords; j++) {
-      if (!WORD_CHAR.test(tokens[j])) continue;
-      seenWords.push(cleanWord(tokens[j]));
-      if (seenWords.length < 2) continue;
-      const match = matchExpressionCandidate(seenWords);
-      const candidate = seenWords.join(' ');
-      if (match) {
-        expression = match.canonical || match.matched;
-        matchEnd = j;
-      } else if (expressionsDB.has(candidate)) {
-        expression = candidate;
-        matchEnd = j;
-      }
-    }
-
-    if (expression) {
-      segments.push({ text: tokens.slice(i, matchEnd + 1).join(''), isWord: true, expression });
-      i = matchEnd;
-    } else {
-      segments.push({ text: token, isWord: true, expression: null });
-    }
+  let cursor = 0;
+  for (const span of detectExpressions(source, { maxWords: maxExpressionWords })) {
+    segments.push(...plainSegments(source.slice(cursor, span.index)));
+    segments.push({ text: span.text, isWord: true, expression: span.canonical, kind: span.type });
+    cursor = span.index + span.length;
   }
+  segments.push(...plainSegments(source.slice(cursor)));
   return segments;
 }
 

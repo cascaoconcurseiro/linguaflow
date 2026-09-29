@@ -179,6 +179,9 @@ export function detectExprType(word, {
   getBaseVerbCandidates = null,
   phrasalVerbsDB = null,
   slangsDB = null,
+  context = '',
+  slangMatchesContext = null,
+  expressionKind = null,
 } = {}) {
   const w = String(word || '').toLowerCase().trim();
   const tokens = w.split(/\s+/);
@@ -188,14 +191,18 @@ export function detectExprType(word, {
   if (idiomSet?.has(w)) return { type: 'idiom', label: '🌀 Idiom', cls: 'lfp-type-idiom' };
   if (chunkSet?.has(w)) return { type: 'chunk', label: '🧩 Chunk', cls: 'lfp-type-chunk' };
 
+  // Verbo + preposição transparente ("look at") é colocação, não phrasal.
+  const phrasalOrCollocation = (canonical) => (expressionKind && expressionKind(canonical) === 'prepositional'
+    ? { type: 'collocation', label: '🤝 Colocação', cls: 'lfp-type-collocation' }
+    : { type: 'phrasal', label: '🔗 Phrasal Verb', cls: 'lfp-type-phrasal' });
+  // Gíria ambígua ("tea", "fire") só vale com a construção de gíria na frase.
+  const isSlang = (term) => !!slangsDB?.has(term) && (!slangMatchesContext || slangMatchesContext(term, context));
+
   // 2. Phrasal Verbs (com lematização, formas flexionadas e partículas separáveis)
   if (isMulti) {
-    if (expressionsDB?.has(w)) {
-      return { type: 'phrasal', label: '🔗 Phrasal Verb', cls: 'lfp-type-phrasal' };
-    }
-    if (matchExpressionCandidate && matchExpressionCandidate(tokens)) {
-      return { type: 'phrasal', label: '🔗 Phrasal Verb', cls: 'lfp-type-phrasal' };
-    }
+    if (expressionsDB?.has(w)) return phrasalOrCollocation(w);
+    const candidate = matchExpressionCandidate ? matchExpressionCandidate(tokens) : null;
+    if (candidate) return phrasalOrCollocation(candidate.canonical || w);
 
     if (phrasalVerbsDB) {
       const verbCandidates = getBaseVerbCandidates ? getBaseVerbCandidates(tokens[0]) : [tokens[0]];
@@ -213,18 +220,18 @@ export function detectExprType(word, {
   }
 
   // 3. Gírias (tanto palavras únicas quanto expressões/gírias compostas ou flexionadas)
-  if (slangsDB?.has(w)) {
+  if (isSlang(w)) {
     return { type: 'slang', label: '🔥 Gíria', cls: 'lfp-type-slang' };
   }
   if (getBaseVerbCandidates) {
     const candidates = getBaseVerbCandidates(tokens[0]);
     for (const base of candidates) {
-      if (tokens.length === 1 && slangsDB?.has(base)) {
+      if (tokens.length === 1 && isSlang(base)) {
         return { type: 'slang', label: '🔥 Gíria', cls: 'lfp-type-slang' };
       }
       if (tokens.length > 1) {
         const basePhrase = [base, ...tokens.slice(1)].join(' ');
-        if (slangsDB?.has(basePhrase)) {
+        if (isSlang(basePhrase)) {
           return { type: 'slang', label: '🔥 Gíria', cls: 'lfp-type-slang' };
         }
       }

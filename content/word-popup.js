@@ -70,12 +70,15 @@ export class WordPopup {
       try {
         const { phrasalVerbsDB } = await import(BASE + 'phrasal-verbs.js');
         const { expressionsDB, matchExpressionCandidate, getBaseVerbCandidates } = await import(BASE + 'expressions-db.js');
-        const { slangsDB } = await import(BASE + 'slangs-db.js');
+        const { slangsDB, slangMatchesContext } = await import(BASE + 'slangs-db.js');
+        const { expressionKind } = await import(BASE + 'expression-detector.js');
         this._phrasalVerbsDB = phrasalVerbsDB || null;
         this._expressionsDB = expressionsDB || null;
         this._matchExpressionCandidate = matchExpressionCandidate || null;
         this._getBaseVerbCandidates = getBaseVerbCandidates || null;
         this._slangsDB = slangsDB || null;
+        this._slangMatchesContext = slangMatchesContext || null;
+        this._expressionKind = expressionKind || null;
         return this._phrasalVerbsDB;
       } catch {
         this._phrasalVerbsDB = null;
@@ -95,6 +98,9 @@ export class WordPopup {
       getBaseVerbCandidates: this._getBaseVerbCandidates,
       phrasalVerbsDB: phrasalVerbsDB || this._phrasalVerbsDB,
       slangsDB: this._slangsDB,
+      context: this.saveContext || this.context || '',
+      slangMatchesContext: this._slangMatchesContext,
+      expressionKind: this._expressionKind,
     });
   }
 

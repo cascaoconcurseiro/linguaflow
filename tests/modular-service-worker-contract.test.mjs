@@ -159,7 +159,7 @@ test('ai-generator: generateSentenceWithAI e generateStoryWithAI constroem contr
   const storyResult = await generateStoryWithAI('adventure', { targetMinutes: 5, learningGoal: 'vocabulary' }, mockStoryContext);
   assert.equal(storyResult.level, 'B1');
   assert.equal(storyResult.targetMinutes, 5);
-  assert.equal(storyResult.promptVersion, 'story-v2');
+  assert.equal(storyResult.promptVersion, 'story-v3');
   assert.match(capturedBody.messages[0].content, /CEFR B1/);
 });
 

@@ -6,6 +6,7 @@ import { measureStoryLevel } from '../core/readability.js';
 import { analyzeLexicalProfile, formatLexicalBadge } from '../../../utils/lexical-profile.js';
 import { translator } from '../../../utils/translator.js';
 import { lemma } from '../../../utils/lemma.js';
+import { isWeakCard } from '../../../utils/weak-card.js';
 import { escapeHTML } from '../../../utils/html.js';
 import { bindViewStateAction, renderViewState } from './viewState.js';
 import { bindReadingHeader, renderReadingHeader } from './readingHub.js';
@@ -98,8 +99,8 @@ function generateStory(genre, onChunk, userWords = [], options = {}) {
   return generateStoryWeb(genre, onChunk, userWords, options).catch((e) => ({ error: e.message }));
 }
 
-// Palavras pro REENCONTRO na história (Marco 3): fracas primeiro (3+ lapsos/
-// leech), depois as em aprendizado mais recentes — até 8.
+// Palavras pro REENCONTRO na história (Marco 3): fracas primeiro (isWeakCard:
+// 2+ lapsos/leech), depois as em aprendizado mais recentes — até 8.
 async function getReencounterWords() {
   try {
     const [cards, words] = await Promise.all([db.getAllCards(), db.getAllWords()]);
@@ -107,7 +108,7 @@ async function getReencounterWords() {
     words.forEach(w => { wordById[w.id] = w; });
     const nameOf = (c) => wordById[c.word_id]?.word;
     const weak = cards
-      .filter(c => !c.suspended && ((c.lapses || 0) >= 3 || c.is_leech))
+      .filter(c => !c.suspended && isWeakCard(c))
       .sort((a, b) => (b.lapses || 0) - (a.lapses || 0))
       .map(nameOf).filter(Boolean);
     const inProgress = cards

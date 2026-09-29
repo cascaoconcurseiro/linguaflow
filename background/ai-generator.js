@@ -6,12 +6,13 @@ import {
   recentStorySnippets,
   resolveStoryLevel,
 } from '../utils/story-variety.js';
+import { isWeakCard } from '../utils/weak-card.js';
 
 let isBackfilling = false;
 
 /**
  * Palavras do aluno pro REENCONTRO na história:
- * fracas primeiro (3+ lapsos/leech), depois em aprendizado recente. Máx 8.
+ * fracas primeiro (isWeakCard: 2+ lapsos/leech), depois em aprendizado recente. Máx 8.
  * @param {object} db
  * @returns {Promise<string[]>}
  */
@@ -22,7 +23,7 @@ export async function getReencounterWordsSW(db) {
     words.forEach((w) => { wordById[w.id] = w; });
     const nameOf = (c) => wordById[c.word_id]?.word;
     const weak = cards
-      .filter((c) => !c.suspended && ((c.lapses || 0) >= 3 || c.is_leech))
+      .filter((c) => !c.suspended && isWeakCard(c))
       .sort((a, b) => (b.lapses || 0) - (a.lapses || 0))
       .map(nameOf)
       .filter(Boolean);

@@ -9,7 +9,7 @@ const reader = read('dashboard/js/ui/readerView.js');
 const stories = read('dashboard/js/ui/storiesView.js');
 const study = read('dashboard/js/ui/studyView.js');
 
-assert.match(worker, /"translation": "tradução curta da palavra\/expressão NESTA frase"/,
+assert.match(worker, /TRADUÇÃO: tradução curta da palavra\/expressão NESTA frase/,
   'a IA rápida separa a tradução contextual curta da explicação didática');
 assert.match(worker, /sendResponse\(\{\s*explanation: result\?\.explanation[\s\S]*?translation: result\?\.translation/,
   'o contrato da extensão devolve a tradução contextual estruturada');

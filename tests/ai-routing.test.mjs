@@ -37,10 +37,12 @@ assert.match(popupContext, /await db\._readSession\(\)/,
   'popup verifica presença da sessão no armazenamento local sem uma ida extra ao worker');
 assert.doesNotMatch(popupContext, /db\.checkSession\(\)/,
   'popup não duplica resolução e possível refresh da sessão antes da chamada de IA');
-assert.match(popupContext, /const sentenceTranslationPromise = this\._translate\(sentence\)[\s\S]*const responsePromise = new Promise/,
+assert.match(popupContext, /const sentenceTranslationPromise = this\._translate\(sentence\)[\s\S]*const response = await streamAiRequest\(/,
   'tradução auxiliar e IA começam em paralelo');
-assert.match(popupContext, /Promise\.all\(\[phrasalPromise, responsePromise\]\)/,
-  'IA espera somente o recurso local necessário para montar a resposta');
+assert.match(popupContext, /const nativeHtmlPromise = this\._getPhrasalVerbsDB\(\)[\s\S]*await streamAiRequest\([\s\S]*nativeHtml = await nativeHtmlPromise/,
+  'o stream da IA começa sem esperar o banco local de expressões');
+assert.match(popupContext, /onPartial: \(partial\) => \{[\s\S]*q\('#ft'\)\.textContent = translation/,
+  'a tradução contextual aparece enquanto a IA ainda escreve a explicação');
 assert.match(popupContext, /const sentenceTranslation = await sentenceTranslationPromise[\s\S]*Falha ao obter professor IA/,
   'tradução auxiliar só bloqueia o fallback quando a IA falha');
 const popupDisplayIndex = popup.indexOf('this.popup.style.display = \'block\';');
@@ -51,4 +53,4 @@ assert.ok(earlyContextIndex > popupDisplayIndex && earlyContextIndex < dictionar
 assert.doesNotMatch(source, /\.(?:from|insert|upsert)\(/,
   'proxy não persiste prompts ou respostas em armazenamento compartilhado');
 
-console.log('10 contratos de roteamento DeepSeek-only passaram — tudo verde ✅');
+console.log('11 contratos de roteamento DeepSeek-only passaram — tudo verde ✅');

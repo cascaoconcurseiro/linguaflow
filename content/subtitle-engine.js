@@ -20,6 +20,7 @@ import {
 } from './subtitles/dock-layout.js';
 import { setupPlayerHotkeys } from './subtitles/player-hotkeys.js';
 import { parseVTT } from './subtitles/vtt-parser.js';
+import { closeDomCue, crossedCueEnd, findActiveCueIndex, recordDomCue } from './subtitles/active-cue.js';
 import {
   calculateWpm,
   detectConnectedSpeech,
@@ -1428,7 +1429,7 @@ export class SubtitleEngine {
             <div class="lf-wrap" id="lf-wrap" data-subtitle-mode="native">
                 <div class="lf-orig-row">
                     <div class="lf-orig" id="lf-orig"></div>
-                    <button class="lf-translate-btn" id="lf-translate-btn" style="display:none;" title="Traduzir frase">
+                    <button class="lf-translate-btn" id="lf-translate-btn" type="button" style="display:none;" title="Traduzir frase" aria-label="Traduzir frase">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"></path><path d="m4 14 6-6 2-3"></path><path d="M2 5h12"></path><path d="M7 2h1"></path><path d="m22 22-5-10-5 10"></path><path d="M14 18h6"></path></svg>
                     </button>
                 </div>
@@ -1529,7 +1530,7 @@ export class SubtitleEngine {
         } else if (cue?.text) {
           const navigation = this._navigationSnapshot();
           // Traduz agora
-          translateBtn.textContent = '⏳';
+          translateBtn.setAttribute('aria-busy', 'true');
           translateBtn.disabled = true;
           try {
             const { translator } = await import('../utils/translator.js');
@@ -1540,7 +1541,7 @@ export class SubtitleEngine {
             this._showTranslationFlash(result.translation);
           } catch {}
           if (this._isNavigationCurrent(navigation) && translateBtn.isConnected) {
-            translateBtn.textContent = '🌐 Traduzir';
+            translateBtn.removeAttribute('aria-busy');
             translateBtn.disabled = false;
           }
         }
@@ -2932,11 +2933,14 @@ export class SubtitleEngine {
             <button id="lf-close-panel" class="lf-close-btn" aria-label="Fechar roteiro do vídeo" style="background:transparent;border:none;width:40px;height:40px;border-radius:8px;cursor:pointer;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;transition:0.2s;">✕</button>
         `;
 
-    const listeningControls = document.createElement('div');
+    // Recolhido por padrão (o seletor aberto poluía o painel), mas alcançável:
+    // é a única forma de corrigir um vídeo dublado nas horas de escuta.
+    const listeningControls = document.createElement('details');
     listeningControls.id = 'lf-listening-controls';
-    listeningControls.style.cssText = 'display:none;';
-    listeningControls.innerHTML = `<p id="lf-listening-status" role="status">Idioma não confirmado</p>
-      <label>Idioma do áudio deste vídeo <select id="lf-listening-language" aria-label="Idioma do áudio deste vídeo">
+    listeningControls.className = 'lf-listening-controls';
+    listeningControls.style.cssText = 'padding:8px 24px;font-size:12px;flex-shrink:0;';
+    listeningControls.innerHTML = `<summary style="cursor:pointer;">Áudio: <span id="lf-listening-status">Idioma não confirmado</span> · corrigir</summary>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:8px;">Idioma do áudio deste vídeo <select id="lf-listening-language">
       <option value="">Não confirmado</option><option value="en">Inglês</option><option value="pt">Português</option><option value="es">Espanhol</option><option value="fr">Francês</option><option value="de">Alemão</option><option value="it">Italiano</option><option value="ja">Japonês</option><option value="ko">Coreano</option></select></label>
       <p style="margin:6px 0 0;font-size:11px;">Detectamos a faixa de áudio ou estimamos o idioma pela legenda automática original. Legendas manuais ou traduzidas não confirmam o áudio. Se estiver dublado, corrija aqui.</p>`;
     listeningControls.querySelector('select').value = this._listeningLanguage || '';
@@ -3436,16 +3440,8 @@ export class SubtitleEngine {
           (this.translationAnticipation || 0);
         // Loop legado unificado com o motor de elite
         const cuesToSearch = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
-        const idx = this._binarySearchCue(cuesToSearch, t);
-        let cue = idx !== -1 ? cuesToSearch[idx] : null;
-        if (cue) {
-          const text = cue.text || '';
-          const words = text.split(/\s+/).filter(Boolean).length;
-          const maxDur = Math.min(8.0, Math.max(3.5, 2.0 + Math.max(words * 0.45, text.length * 0.08)));
-          if (t > cue.start + maxDur) {
-            cue = null;
-          }
-        }
+        const idx = findActiveCueIndex(cuesToSearch, t);
+        const cue = idx !== -1 ? cuesToSearch[idx] : null;
 
         if (cue && cue !== this._currentCue) {
           this.lastText = cue.text;
@@ -3658,17 +3654,22 @@ export class SubtitleEngine {
   }
 
   // ── Atualização via DOM (Netflix/etc) ─────────────────────────────────────
-  async _onDomSubtitleUpdate(text, timeMs) {
+  async _onDomSubtitleUpdate(text, timeSec) {
     const navigation = this._navigationSnapshot();
     const subtitleEpoch = ++this._domSubtitleEpoch;
     if (!this._isNavigationCurrent(navigation)) return;
     if (!text) {
+      closeDomCue(this.cues, timeSec);
       this.renderDual('', '');
       return;
     }
 
-    const cue = { start: timeMs, end: timeMs + 8000, text };
-    this.cues.push(cue);
+    const cue = recordDomCue(this.cues, text, timeSec);
+    this._currentCue = cue;
+    if (cue.translatedText) {
+      this.renderDual(text, cue.translatedText);
+      return;
+    }
 
     // Mostra original imediatamente
     this.renderDual(text, '');
@@ -3703,6 +3704,7 @@ export class SubtitleEngine {
 
     let lastSyncPulse = Date.now();
     let lastVideoTime = -1;
+    let playbackTime = Number.NaN;
 
     const loop = (now, metadata) => {
       try {
@@ -3717,6 +3719,8 @@ export class SubtitleEngine {
 
         // SINCRONIA ROBUSTA
         let t = v.currentTime;
+        const previousTime = playbackTime;
+        playbackTime = t;
 
         // Verificação de Popup: Se estiver aberto e não estiver fechando, pausa o vídeo e mantém a legenda
         const isPopupOpen =
@@ -3743,6 +3747,7 @@ export class SubtitleEngine {
               this._onDomSubtitleUpdate(text, t);
             } else if (!text && this.lastText) {
               this.lastText = '';
+              closeDomCue(this.cues, t);
               this.renderDual('', '');
             }
           }
@@ -3756,21 +3761,26 @@ export class SubtitleEngine {
           // Sincronia com Legenda Nativa (YouTube)
           if (this.platform === 'youtube') this._syncYouTubeNativeCaptions();
 
-          // Encontra a cue ativa (com duração máxima de segurança para evitar legendas presas em silêncio ou música)
-          const activeCues = cuesToSearch.filter((c) => {
-            const text = c.text || '';
-            const words = text.split(/\s+/).filter(Boolean).length;
-            const maxDur = Math.min(8.0, Math.max(3.5, 2.0 + Math.max(words * 0.45, text.length * 0.08)));
-            const effectiveEnd = Math.min(c.end, c.start + maxDur);
-            return t >= c.start && t <= effectiveEnd;
-          });
-
-          let cue = null;
-          if (activeCues.length > 0) {
-            cue = activeCues.reduce((prev, current) =>
-              prev.text.length > current.text.length ? prev : current,
-            );
+          // Auto-Pause (Shadowing Mode): avaliada na fala exibida ANTES de trocar
+          // de cue, para pausar mesmo quando a próxima já começou ou o frame
+          // pulou a janela de tolerância. Só pausa uma vez por fim de cue.
+          const shownCue = this._currentCue;
+          if (
+            this.autoPause &&
+            !v.paused &&
+            shownCue &&
+            this._lastAutoPausedEndTime !== shownCue.end &&
+            crossedCueEnd(shownCue, previousTime, t)
+          ) {
+            v.pause();
+            this._showAutoPauseIndicator();
+            this._lastAutoPausedEndTime = shownCue.end;
+            this._continueLoop(loop, v);
+            return;
           }
+
+          const activeIdx = findActiveCueIndex(cuesToSearch, t);
+          const cue = activeIdx >= 0 ? cuesToSearch[activeIdx] : null;
 
           if (cue && cue !== this._currentCue) {
             this._lastAutoPausedEndTime = -1;
@@ -3781,15 +3791,6 @@ export class SubtitleEngine {
             this.lastText = '';
             this._currentCue = null;
             this.renderDual('', '');
-          }
-
-          // Auto-Pause (Shadowing Mode)
-          // Só pausa se o fim desta cue específica ainda não foi pausado, permitindo que o usuário dê Play/Espaço e continue
-          if (this.autoPause && !v.paused && cue && t >= cue.end - 0.05 && this._lastAutoPausedEndTime !== cue.end) {
-            v.pause();
-            this._showAutoPauseIndicator();
-            this._lastAutoPausedEndTime = cue.end;
-            console.log(`[LinguaFlow] Auto-paused at ${cue.end}. _lastAutoPausedEndTime set.`);
           }
         }
 
@@ -4625,7 +4626,7 @@ export class SubtitleEngine {
       visibleCount += 1;
 
       // Garante que o tempo está em segundos para formatar
-      const startTime = cue.start > 100000 ? cue.start / 1000 : cue.start;
+      const startTime = cue.start;
 
       const item = document.createElement('div');
       item.className = 'lf-subtitle-item';
@@ -5355,7 +5356,7 @@ export class SubtitleEngine {
           ? 'background:rgba(2,132,199,0.2); border:1px solid #38bdf8; box-shadow:0 0 14px rgba(56,189,248,0.25); border-radius:8px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; transition:all 0.15s;'
           : 'background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; transition:all 0.15s;';
 
-        const startTime = cue.start > 100000 ? cue.start / 1000 : cue.start;
+        const startTime = cue.start;
         const formattedTime = this._formatTime(startTime);
         const highlighted = escapeHTML(cue.text || '').replace(termRegex, (m) => `<mark style="background:${cat.bg}; color:${cat.color}; padding:1px 4px; border-radius:3px; font-weight:800;">${m}</mark>`);
 
@@ -5441,7 +5442,7 @@ export class SubtitleEngine {
     const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
 
     if (this.videoElement && cues && cues.length > 0) {
-      const liveIdx = this._binarySearchCue(cues, this.videoElement.currentTime);
+      const liveIdx = findActiveCueIndex(cues, this.videoElement.currentTime);
       if (liveIdx >= 0) {
         this.currentCueIndex = liveIdx;
       } else if (this.currentCueIndex < 0) {

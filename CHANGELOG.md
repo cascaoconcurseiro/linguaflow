@@ -14,6 +14,11 @@
 - **Sessão caía com o token de renovação ainda válido**: qualquer 401 deslogava na hora. Com o relógio do PC atrasado alguns minutos, o token parecia válido localmente e o servidor recusava. Agora o 401 força uma renovação e repete a chamada uma vez; só desloga se a renovação for recusada.
 - **Palavra salva que o servidor recusava sumia em silêncio**: o popup confirmava "salvo" e a fila repetia o envio a cada minuto para sempre. Agora uma recusa do servidor (4xx) para de repetir, e o popup da extensão mostra as palavras aguardando sincronização e as que não puderam ser salvas, com "Tentar de novo" e "Descartar" (com confirmação). Deslogado, o popup avisa quantas palavras vão sincronizar ao entrar.
 - **Histórias: cada tema gera o tipo de texto escolhido**: auto-ajuda, biografia e não-ficção geravam um conto de ficção com personagens e diálogos. Agora temas de auto-ajuda geram um texto de auto-ajuda falando com o leitor, "Biografia" gera a biografia de uma pessoa real, e os temas de fatos reais geram um texto informativo, sem diálogos nem personagens inventados. Textos desses temas gerados antes da correção deixam de ser reaproveitados.
+- **Pausa automática em falas longas**: falas com mais de ~8 s nunca pausavam e a legenda sumia antes de a pessoa terminar. Agora a legenda fica até o fim real da fala (com limite só para trechos presos em música/silêncio) e a pausa acontece mesmo a 2x ou quando a próxima fala já começou.
+- **Barra lateral destacava outra frase**: a tela e o roteiro escolhiam a fala ativa por regras diferentes; agora usam a mesma.
+- **Netflix: roteiro, loop e anterior/próxima**: as falas eram gravadas com o fim ~2 horas depois e repetidas a cada mudança de texto. Agora cada fala fecha quando o texto muda ou some, sem duplicar ao voltar o vídeo.
+- **Idioma do áudio do vídeo**: o seletor para corrigir vídeo dublado estava escondido. Volta como uma linha recolhida no topo do roteiro ("Áudio: … · corrigir").
+- **Botão de tradução rápida** não troca mais o ícone por texto depois do primeiro uso e tem nome para leitor de tela.
 
 ## [3.0.59] - 2026-09-27
 

@@ -97,6 +97,7 @@
         "content/subtitles/vtt-parser.js",
         "content/subtitles/active-cue.js",
         "content/subtitles/transcript-render.js",
+        "content/subtitles/video-vocabulary.js",
         "content/max-player-ui.js",
         "content/review-overlay.js",
         "content/word-popup.js",

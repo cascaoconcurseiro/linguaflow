@@ -31,6 +31,7 @@ import {
   parsePartialLineExplanation,
 } from './subtitles/line-explainer.js';
 import { streamAiRequest } from '../utils/ai-stream.js';
+import { createHoverTip } from './subtitles/hover-tip.js';
 import { comprehensionSummary, extractVideoVocabulary, learnerKeywords, wordStatus } from './subtitles/video-vocabulary.js';
 import {
   calculateWpm,
@@ -4494,6 +4495,19 @@ export class SubtitleEngine {
     return MAX_EXPRESSION_WORDS;
   }
 
+  // #369: dica leve do hover — só a palavra (tradução e classes, do cache do
+  // service worker, as mesmas do card); a legenda traduzida não entra.
+  _showHoverTip(span, text) {
+    const word = String(text || '').replace(/[.,!?()"]+/g, '').trim();
+    if (!word) return;
+    this._hoverTip ??= createHoverTip();
+    const popup = this.wordPopup;
+    this._hoverTip.show(span.getBoundingClientRect(), { word }, (update) => {
+      popup?._translate?.(word).then((translation) => translation && update({ translation })).catch(() => {});
+      popup?._senses?.(word).then((senses) => senses?.length && update({ senses })).catch(() => {});
+    });
+  }
+
   _createWordSpan(text, isExpression, disableHoverPause = false) {
     const span = document.createElement('span');
     span.textContent = text;
@@ -4538,10 +4552,13 @@ export class SubtitleEngine {
           this._wasPausedByHover = true;
         }
 
-        // Mostra tradução rápida no popup
-        if (this.wordPopup) {
-          const rect = span.getBoundingClientRect();
-          this.wordPopup.showForWord(text, this.lastText, rect, this._currentCue);
+        // #369: com o card aberto, o hover troca a palavra do card (como antes);
+        // fechado, mostra só a dica leve — sem IA. O clique abre o card.
+        const cardOpen = this.wordPopup?.popup && this.wordPopup.popup.style.display !== 'none';
+        if (cardOpen) {
+          this.wordPopup.showForWord(text, this.lastText, span.getBoundingClientRect(), this._currentCue);
+        } else {
+          this._showHoverTip(span, text);
         }
       }, 150);
     });
@@ -4549,6 +4566,7 @@ export class SubtitleEngine {
     span.addEventListener('pointerleave', (e) => {
       if (e.pointerType === 'touch') return;
       clearHoverIntent();
+      this._hoverTip?.hide();
 
       // NÃO retoma o vídeo aqui. O vídeo só retoma se o usuário clicar fora do popup ou no X.
       // Isso evita que o vídeo volte a tocar enquanto o usuário move o mouse para o popup.
@@ -4563,6 +4581,7 @@ export class SubtitleEngine {
       e.stopPropagation();
       if (e.cancelable) e.preventDefault(); // Evita eventos duplicados no mobile
       clearHoverIntent();
+      this._hoverTip?.hide();
       if (!disableHoverPause && this.videoElement && !this.videoElement.paused) {
         this.videoElement.pause();
         this._wasPausedByHover = true;

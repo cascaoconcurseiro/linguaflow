@@ -3,6 +3,7 @@
 ## [Não lançado]
 
 ### Alterado
+- **Passar o mouse numa palavra mostra uma dica rápida, não o card inteiro**: a dica traz só a palavra: a tradução e as outras traduções por classe gramatical, sem a legenda inteira e sem chamar a IA. O card completo (contexto da IA, salvar, exemplos) abre com um clique. Com o card já aberto, passar o mouse em outra palavra continua trocando o card. A pausa ao passar o mouse segue a configuração que você já tinha.
 - **"Contexto nesta frase" aparece enquanto a IA escreve**: antes, o popup esperava a resposta inteira da IA (alguns segundos) para mostrar qualquer coisa. Agora a tradução no contexto entra no título assim que a IA a escreve, e a explicação vai aparecendo em seguida. Reabrir a mesma palavra na mesma frase é instantâneo, mesmo depois de a extensão ficar ociosa (a resposta fica guardada no navegador por 30 dias). "Analisar frase completa" também aparece enquanto é gerada. Trocar de palavra no meio cancela o pedido anterior.
 - **Leitor em qualquer site mostra a tradução sem esperar a IA**: a tradução rápida aparece assim que chega e é trocada pela tradução no contexto quando a IA responde. Antes, as duas esperavam juntas. O botão Salvar continua liberando só depois da IA, para o card receber o sentido da frase.
 - **"Explicar esta fala" aparece enquanto a IA escreve**: no roteiro do vídeo, a tradução natural e o sentido da fala vão surgindo em vez de ficar só o carregamento; as expressões entram no final. Reabrir continua instantâneo pelo cache.

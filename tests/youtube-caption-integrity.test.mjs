@@ -36,6 +36,28 @@ test('sentence punctuation, pauses, speaker changes and maximum duration bound g
   assert.equal(groupCaptionEvents(long).flatMap(c=>c.text.split(' ')).join(' '),long.map(e=>e.segs[0].utf8.trim()).join(' '));
 });
 
+test('#364 rolling ASR lines overlap on screen but still join into ~two-line phrases', async () => {
+  const { rollingAsrEvents } = await import('./fixtures/youtube-rolling-asr.mjs');
+  const cues = groupCaptionEvents(rollingAsrEvents);
+  const lines = rollingAsrEvents.filter(e => !e.aAppend).map(e => e.segs[0].utf8);
+  assert.ok(cues.length <= 15, `esperava até 15 trechos, veio ${cues.length}`);
+  for (const cue of cues) assert.ok(cue.text.length <= 90, `trecho longo demais: "${cue.text}"`);
+  const words = (texts) => texts.join(' ').toLowerCase().split(/\s+/).filter(Boolean);
+  assert.deepEqual(words(cues.map(c => c.text)), words(lines), 'nenhuma palavra perdida, duplicada ou fora de ordem');
+  for (let i = 1; i < cues.length; i++) assert.ok(cues[i].start >= cues[i - 1].end, 'trechos não se sobrepõem');
+  assert.ok(cues.some(c => c.text.includes('Well, I\'m filming this August 29th, so it\'s not September yet')));
+  assert.ok(cues.every(c => !/\bseptember\b/.test(c.text)), 'nome próprio não vira minúsculo ao juntar');
+  assert.ok(cues.some(c => c.text.includes('"Enjoy life.')), 'início de citação mantém a maiúscula');
+});
+
+test('#364 manual captions that really overlap (two speakers) stay separate', () => {
+  const events = [
+    { tStartMs: 0, dDurationMs: 3000, segs: [{ utf8: 'Where are you going' }] },
+    { tStartMs: 1000, dDurationMs: 3000, segs: [{ utf8: 'nowhere in particular' }] },
+  ];
+  assert.equal(groupCaptionEvents(events).length, 2);
+});
+
 test('translated track aligns by timestamp, never a different line by array position', async () => {
   const { attachTranslationsByTime }=await import('../utils/caption-grouping.js');
   const source=[{start:0,end:2,text:'First'},{start:10,end:12,text:'Second'}];
@@ -43,6 +65,21 @@ test('translated track aligns by timestamp, never a different line by array posi
   assert.equal(source[0].translatedText,undefined);
   assert.equal(source[1].translatedText,'Segundo');
 });
+test('#364 longer translated lines still land on the phrase they belong to', async () => {
+  const { attachTranslationsByTime, captionLines } = await import('../utils/caption-grouping.js');
+  const { rollingAsrEvents } = await import('./fixtures/youtube-rolling-asr.mjs');
+  // Faixa traduzida: mesmas linhas e tempos, texto bem mais longo (como o português).
+  const translatedEvents = rollingAsrEvents.map(e => e.aAppend ? e : { ...e, segs: [{ utf8: `[pt] ${e.segs[0].utf8} traduzido com bem mais texto` }] });
+  const cues = groupCaptionEvents(rollingAsrEvents);
+  const translated = captionLines(translatedEvents);
+  assert.equal(translated.length, rollingAsrEvents.filter(e => !e.aAppend).length, 'faixa traduzida fica linha a linha');
+  attachTranslationsByTime(cues, translated);
+  for (const cue of cues) {
+    const expected = translated.filter(t => t.start >= cue.start && t.start < cue.end).map(t => t.text).join(' ');
+    assert.equal(cue.translatedText, expected, `tradução de "${cue.text}"`);
+  }
+});
+
 test('no source-language track means no preload of an unrelated track', async () => {
   const { selectCaptionTrack }=await import('../utils/caption-grouping.js');
   const es={languageCode:'es',baseUrl:'https://www.youtube.com/api/timedtext?lang=es'};

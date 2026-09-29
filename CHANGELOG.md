@@ -23,6 +23,7 @@
 
 ### Corrigido
 - **"Contexto nesta frase" sem suposições**: a IA deixou de supor o assunto do vídeo além do que a fala diz (ex.: "provavelmente Halloween" para "it's not September yet"). Explicações antigas guardadas no navegador são descartadas e geradas de novo.
+- **Legenda automática do YouTube em trechos maiores e mais fáceis de acompanhar**: a legenda gerada automaticamente aparecia em pedaços de ~7 palavras (cerca de 2 s), cortados no meio da frase. Agora ela mostra até duas linhas por vez (~14 palavras), preferindo terminar no ponto final — o mesmo ritmo do player do YouTube. Vale para a legenda na tela, o roteiro, o "Explicar" e a pausa automática. A tradução continua correspondendo ao trecho exibido, e nomes próprios ("September") e começo de citação não viram mais minúsculos ao juntar pedaços.
 - **Legenda presa depois de pular o vídeo**: ao pular de uma fala para um trecho sem fala (música, silêncio, abertura), a legenda anterior continuava na tela até a próxima fala começar, tocando ou pausado. Agora ela some no mesmo instante.
 - **Legenda do YouTube não iniciava ao trocar de vídeo**: a legenda baixada pelo player durante a navegação interna do YouTube era descartada pela ponte de segurança (nonce antigo) e nunca reenviada; ficava só a legenda nativa traduzida até um Ctrl+Shift+R. Agora a última faixa capturada do vídeo atual é reenviada assim que a ponte é renovada.
 - **Botão CC desligando sozinho após várias trocas de vídeo**: cada navegação somava um novo listener de `play` no mesmo `<video>`, clicando o CC várias vezes por play.

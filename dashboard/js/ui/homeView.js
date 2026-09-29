@@ -4,6 +4,7 @@ import { runPlacementTest } from './settingsView.js';
 import { computeAchievements, newlyUnlocked } from '../core/achievements.js';
 import { bindViewStateAction, escapeHtml, renderViewState } from './viewState.js';
 import { isFluencyCheckDue } from '../core/fluencyCheck.js';
+import { isWeakCard } from '../core/sessionQueue.js';
 
 function organizeHomeSections(container) {
     const main = container.querySelector('.dashboard-main');
@@ -31,8 +32,7 @@ function organizeHomeSections(container) {
     append(today, '#home-return-banner');
     append(today, '#home-streak-banner');
     append(today, '.stats-grid');
-    append(today, '#home-study-hours-card');
-    append(today, '#home-critical-cards');
+    append(today, '#home-struggling-words');
 
     const more = document.createElement('details');
     more.id = 'home-more';
@@ -41,6 +41,7 @@ function organizeHomeSections(container) {
     more.innerHTML = '<summary>Métricas detalhadas, memória e conquistas</summary><div class="home-more-body"></div>';
     const moreBody = more.querySelector('.home-more-body');
     append(moreBody, '#home-memory-insight');
+    append(moreBody, '#home-study-hours-card');
     append(moreBody, '.quests-card');
     append(moreBody, '.achievements-section');
     append(moreBody, '.heatmap-section');
@@ -112,6 +113,38 @@ export function chooseTodayAction(state = {}) {
     if (reviewsToday > 0) return { kind:'completed', route:'stories', label:'Ler histórias', title:'Plano de memória concluído', reason:`Você fez ${reviewsToday} ${reviewsToday === 1 ? 'revisão' : 'revisões'} hoje. As próximas frases voltarão no momento certo.`, meta:dueTomorrow ? `Amanhã: ${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}` : 'Nada mais é obrigatório hoje.' };
     if (daysAway >= 2) return { kind:'return-clear', route:'stories', label:'Ler histórias', title:'Você voltou na hora certa', reason:'Não há revisões vencidas. Escolha uma história e descubra novas frases.', meta:dueTomorrow ? `Amanhã: ${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}` : 'Sua memória está em dia.' };
     return { kind:'clear', route:'stories', label:'Ler histórias', title:'Sua memória está em dia', reason:'Você pode continuar lendo histórias com contexto real ou encerrar por hoje.', meta:dueTomorrow ? `Amanhã: ${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}` : 'Nada mais é obrigatório hoje.' };
+}
+
+// Issue #336: mesmo critério da sessão de reforço (isWeakCard), para que o
+// botão "Reforçar" abra exatamente as palavras listadas. Dificuldade FSRS
+// sozinha não entra: é parâmetro interno do agendador, não sinal para o aluno.
+export function selectStrugglingCards(cards, wordById, now = new Date()) {
+    const weak = (cards || []).filter(c => !c.suspended && isWeakCard(c));
+    const nowMs = now.getTime();
+    const dueCount = weak.filter(c => c.due_date && new Date(c.due_date).getTime() <= nowMs).length;
+    const items = [...weak]
+        .sort((a, b) => Number(b.lapses || 0) - Number(a.lapses || 0))
+        .slice(0, 5)
+        .map(c => {
+            const w = wordById?.[c.word_id] || {};
+            return {
+                id: c.id,
+                word: w.word || 'Expressão',
+                translation: w.translation || '',
+                lapses: Number(c.lapses || 0),
+                isLeech: Boolean(c.is_leech),
+            };
+        });
+    return { items, total: weak.length, dueCount };
+}
+
+// Um alerta por vez: empilhar retorno, ofensiva e cofre competia com o
+// "Próximo passo". Retorno e ofensiva levam à revisão; o cofre é manutenção.
+export function pickHomeBanner({ returning = false, streakAtRisk = false, vault = false } = {}) {
+    if (returning) return 'return';
+    if (streakAtRisk) return 'streak';
+    if (vault) return 'vault';
+    return null;
 }
 
 function parseOnboarding(value) {
@@ -300,7 +333,7 @@ export async function renderHome(container, app) {
     let supplementaryDataAvailable = true;
     let sourceLang = 'en';
     let studyStats = null;
-    let criticalCards = [];
+    let struggling = { items: [], total: 0, dueCount: 0 };
     let currentFlag = 'EN';
     try {
         // Onda 7 (perf): getStats() (wave 1, acima) já buscou 30 dias de
@@ -382,23 +415,7 @@ export async function renderHome(container, app) {
         const wordById = {};
         (allWords || []).forEach(w => { wordById[w.id] = w; });
 
-        // Cards Críticos / Maior Dificuldade (mais lapsos ou alta dificuldade FSRS)
-        criticalCards = (allCards || [])
-            .filter(c => !c.suspended && (Number(c.lapses) > 0 || Number(c.difficulty) >= 7))
-            .sort((a, b) => (Number(b.lapses || 0) * 10 + Number(b.difficulty || 5)) - (Number(a.lapses || 0) * 10 + Number(a.difficulty || 5)))
-            .slice(0, 5)
-            .map(c => {
-                const w = wordById[c.word_id] || {};
-                return {
-                    id: c.id,
-                    wordId: c.word_id,
-                    word: w.word || 'Expressão',
-                    translation: w.translation || '',
-                    lapses: Number(c.lapses || 0),
-                    difficulty: Number(c.difficulty || 0).toFixed(1),
-                    isLeech: Boolean(c.is_leech),
-                };
-            });
+        struggling = selectStrugglingCards(allCards, wordById);
 
         // FRAQUEZA DA SEMANA (Onda 1.2): categoria com pior retenção nos 30d.
         // O diagnóstico do linguista, transformado em missão acionável.
@@ -485,6 +502,12 @@ export async function renderHome(container, app) {
         dueTomorrow,
         retention30,
         ...fluencyState,
+    });
+
+    const activeBanner = pickHomeBanner({
+        returning: isReturning,
+        streakAtRisk: streak > 0 && reviewsToday === 0,
+        vault: vaultCap > 0 && (vaultWaiting.length > 0 || vaultActive >= vaultCap),
     });
 
     const todayLabel = new Intl.DateTimeFormat('pt-BR', {
@@ -597,33 +620,35 @@ export async function renderHome(container, app) {
                     </div>
                 </div>
 
-                ${criticalCards.length > 0 ? `
-                <div id="home-critical-cards" class="home-critical-cards-card">
+                ${struggling.total > 0 ? `
+                <section id="home-struggling-words" class="home-critical-cards-card" aria-labelledby="home-struggling-title">
                     <div class="critical-cards-header">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <div>
-                                <h3 class="critical-cards-title">Cards Críticos (Maior Dificuldade)</h3>
-                                <span class="critical-cards-subtitle">Expressões com maior hesitação ou esquecimentos recentes</span>
-                            </div>
-                        </div>
+                        <h3 id="home-struggling-title" class="critical-cards-title">Palavras que não estão fixando</h3>
+                        <span class="critical-cards-subtitle">Esquecidas 3 vezes ou mais. Uma sessão curta só com elas ajuda a fixar.</span>
                     </div>
-                    <div class="critical-cards-list">
-                        ${criticalCards.map(c => `
-                            <div class="critical-card-item">
+                    <ul class="critical-cards-list">
+                        ${struggling.items.map(c => `
+                            <li class="critical-card-item">
                                 <div class="critical-card-main">
-                                    <strong class="critical-card-word">${escapeHtml(c.word)}</strong>
+                                    <strong class="critical-card-word" lang="${escapeHtml(sourceLang)}">${escapeHtml(c.word)}</strong>
                                     <span class="critical-card-trans">${escapeHtml(c.translation)}</span>
                                 </div>
                                 <div class="critical-card-tags">
-                                    ${c.lapses > 0 ? `<span class="badge-lapse">${c.lapses} ${c.lapses === 1 ? 'esquecimento' : 'esquecimentos'}</span>` : ''}
-                                    ${Number(c.difficulty) > 0 ? `<span class="badge-diff">Dificuldade ${c.difficulty}/10</span>` : ''}
+                                    <span class="badge-lapse">${c.lapses} ${c.lapses === 1 ? 'esquecimento' : 'esquecimentos'}</span>
+                                    ${c.isLeech ? '<span class="badge-leech" title="Atingiu o limite de esquecimentos definido nas configurações">Sinalizada</span>' : ''}
                                 </div>
-                            </div>
+                            </li>
                         `).join('')}
+                    </ul>
+                    <div class="critical-cards-footer">
+                        ${struggling.total > struggling.items.length ? `<span class="critical-cards-subtitle">Mostrando ${struggling.items.length} de ${struggling.total}.</span>` : ''}
+                        ${struggling.dueCount > 0
+                            ? `<button type="button" class="btn btn-secondary" id="btn-reinforce-weak">Reforçar ${struggling.dueCount} ${struggling.dueCount === 1 ? 'vencida' : 'vencidas'} agora</button>`
+                            : '<span class="critical-cards-subtitle">Nenhuma vencida agora. Elas voltam na revisão programada.</span>'}
                     </div>
-                </div>` : ''}
+                </section>` : ''}
 
-                ${vaultCap > 0 && (vaultWaiting.length > 0 || vaultActive >= vaultCap) ? `
+                ${activeBanner === 'vault' ? `
                 <div id="home-vault-banner" class="home-alert-banner home-alert-vault">
                             <div class="home-alert-content">
                         <div class="home-alert-title">Cofre ${vaultActive >= vaultCap ? 'cheio' : 'quase cheio'} (${vaultActive}/${vaultCap})${vaultWaiting.length ? ` · ${vaultWaiting.length} ${vaultWaiting.length === 1 ? 'frase esperando vaga' : 'frases esperando vaga'}` : ''}</div>
@@ -631,7 +656,7 @@ export async function renderHome(container, app) {
                     </div>
                     ${vaultRetireCandidate ? `<button class="btn btn-primary" id="btn-open-slot" style="padding:10px 18px; font-size:13px;">Abrir vaga</button>` : ''}
                 </div>` : ''}
-                ${isReturning ? `
+                ${activeBanner === 'return' ? `
                 <div id="home-return-banner" class="home-alert-banner home-alert-return">
                     <div class="home-alert-content">
                         <div class="home-alert-title">Sentimos sua falta! Você ficou ${daysAway} dias fora.</div>
@@ -639,7 +664,7 @@ export async function renderHome(container, app) {
                     </div>
                     <button class="btn btn-primary" id="btn-comeback" style="padding:10px 18px; font-size:13px;">Voltar agora</button>
                 </div>` : ''}
-                ${streak > 0 && reviewsToday === 0 && !isReturning ? `
+                ${activeBanner === 'streak' ? `
                 <div id="home-streak-banner" class="home-alert-banner home-alert-streak">
                     <div class="home-alert-content">
                         <div class="home-alert-title">Sua ofensiva de ${streak} ${streak === 1 ? 'dia' : 'dias'} está em risco!</div>
@@ -766,6 +791,9 @@ export async function renderHome(container, app) {
     });
     document.getElementById('btn-study-now')?.addEventListener('click', () => {
         if (app && app.navigate) app.navigate(todayAction.route);
+    });
+    document.getElementById('btn-reinforce-weak')?.addEventListener('click', () => {
+        app?.navigate?.('study', { weakOnly: true });
     });
     document.getElementById('btn-home-details-retry')?.addEventListener('click', () => {
         renderHome(container, app);
@@ -1223,15 +1251,18 @@ function injectStyles() {
         .critical-cards-header { margin-bottom:14px; }
         .critical-cards-title { font-size:16px; }
         .critical-cards-subtitle { display:block; margin-top:4px; color:var(--color-text-light); font-size:12px; }
-        .critical-cards-list { display:grid; gap:1px; border:1px solid var(--color-border); border-radius:11px; overflow:hidden; }
+        .critical-cards-list { display:grid; gap:1px; margin:0; padding:0; list-style:none; border:1px solid var(--color-border); border-radius:11px; overflow:hidden; }
+        .critical-cards-footer { margin-top:14px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+        .critical-cards-footer .critical-cards-subtitle { margin-top:0; }
+        .critical-cards-footer .btn { min-height:44px; margin-left:auto; }
         .critical-card-item { min-height:52px; display:flex; align-items:center; justify-content:space-between; gap:14px; padding:9px 14px; background:color-mix(in srgb, var(--color-bg) 48%, var(--color-surface)); }
         .critical-card-main { min-width:0; display:grid; gap:2px; }
         .critical-card-word { font-size:14px; }
         .critical-card-trans { color:var(--color-text-light); font-size:12px; }
         .critical-card-tags { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
-        .badge-lapse, .badge-diff { border-radius:999px; padding:5px 9px; font-size:11px; font-weight:800; white-space:nowrap; }
-        .badge-lapse { color:#ffb5b5; background:rgba(255,75,75,.16); border:1px solid rgba(255,75,75,.4); }
-        .badge-diff { color:#2b1b00; background:#ffd977; }
+        .badge-lapse, .badge-leech { border-radius:999px; padding:5px 9px; font-size:11px; font-weight:800; white-space:nowrap; }
+        .badge-lapse { color:var(--color-text); background:rgba(255,75,75,.16); border:1px solid rgba(255,75,75,.5); }
+        .badge-leech { color:#2b1b00; background:#ffd977; }
         .home-secondary-actions { margin-top:18px; grid-template-columns:repeat(2,minmax(0, 1fr)); }
         .home-secondary-actions .btn-action { justify-content:space-between; padding:0 18px; border:1px solid var(--color-secondary); border-radius:9px; background:transparent; color:var(--color-secondary); }
         .home-secondary-actions .btn-action::after { content:'›'; font-size:24px; line-height:1; }

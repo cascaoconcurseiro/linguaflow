@@ -25,8 +25,12 @@ assert.doesNotMatch(dashboardAi, /assessPronunciationAudio|audio_base64|MediaRec
   'cliente de IA não captura, prepara ou envia gravações');
 assert.match(source, /"Cache-Control":\s*"private, no-store"/,
   'respostas pessoais de IA não podem entrar em cache compartilhado');
-assert.match(source, /admin\.auth\.getUser\(token\)[\s\S]*consumeQuota\(admin, userId/,
-  'cada chamada resolve o usuário autenticado antes de consumir sua cota');
+assert.match(source, /admin\.auth\.getClaims\(token\)[\s\S]*claims\.role !== "authenticated"[\s\S]*const userId = claims\.sub[\s\S]*consumeQuota\(admin, userId/,
+  'cada chamada verifica o JWT de um usuário autenticado (não a anon key) antes de consumir sua cota');
+assert.doesNotMatch(source, /auth\.getUser\(/,
+  'o proxy não faz ida extra ao GoTrue em todo pedido');
+assert.ok(source.indexOf('consumeQuota(admin, userId') < source.indexOf('fetch("https://api.deepseek.com'),
+  'a cota é consumida antes de chamar o DeepSeek (rate-limit protege custo)');
 assert.match(popup, /Sessão expirada na extensão\. Abra o Dashboard do LinguaFlow e entre novamente\./,
   'popup distingue sessão expirada de indisponibilidade da IA');
 assert.doesNotMatch(worker, /pronunciation_pt|ai_phonetic_pt|transliteração PT-BR/,
@@ -53,4 +57,4 @@ assert.ok(earlyContextIndex > popupDisplayIndex && earlyContextIndex < dictionar
 assert.doesNotMatch(source, /\.(?:from|insert|upsert)\(/,
   'proxy não persiste prompts ou respostas em armazenamento compartilhado');
 
-console.log('11 contratos de roteamento DeepSeek-only passaram — tudo verde ✅');
+console.log('13 contratos de roteamento DeepSeek-only passaram — tudo verde ✅');

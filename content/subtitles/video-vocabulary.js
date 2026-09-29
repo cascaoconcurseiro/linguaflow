@@ -18,7 +18,8 @@ export function lemmaOf(word, lexicon) {
 
 // Agrupa as palavras das falas por lema. Nomes próprios (só aparecem com
 // inicial maiúscula e ao menos uma vez no meio da frase) ficam de fora.
-export function extractVideoVocabulary(cues, { stopWords = new Set(), rankMap = new Map() } = {}) {
+// `ignored` (#368): palavras que o aluno escolheu ignorar somem, pela forma ou lema.
+export function extractVideoVocabulary(cues, { stopWords = new Set(), rankMap = new Map(), ignored = new Set() } = {}) {
   const occurrences = [];
   const surface = new Set();
   (cues || []).forEach((cue, cueIndex) => {
@@ -26,7 +27,7 @@ export function extractVideoVocabulary(cues, { stopWords = new Set(), rankMap = 
     for (const match of text.matchAll(WORD_PATTERN)) {
       const raw = match[0].replace(/^'+|'+$/g, '');
       const lower = raw.toLowerCase();
-      if (lower.length <= 2 || stopWords.has(lower)) continue;
+      if (lower.length <= 2 || stopWords.has(lower) || ignored.has(lower)) continue;
       const before = text.slice(0, match.index).trimEnd();
       const sentenceStart = before === '' || /[.!?]["')\]]*$/.test(before);
       const capitalized = raw[0] !== lower[0];
@@ -35,11 +36,11 @@ export function extractVideoVocabulary(cues, { stopWords = new Set(), rankMap = 
     }
   });
 
-  const lexicon = new Set([...surface, ...rankMap.keys()]);
+  const lexicon = new Set([...surface, ...rankMap.keys(), ...ignored]);
   const byLemma = new Map();
   for (const occ of occurrences) {
     const lemma = lemmaOf(occ.lower, lexicon);
-    if (stopWords.has(lemma)) continue;
+    if (stopWords.has(lemma) || ignored.has(lemma)) continue;
     let entry = byLemma.get(lemma);
     if (!entry) {
       entry = { lemma, count: 0, forms: new Set(), cueIndexes: new Set(), lowerSeen: false, midCapSeen: false };

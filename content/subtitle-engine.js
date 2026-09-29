@@ -168,6 +168,7 @@ export class SubtitleEngine {
     // Vocabulário em memória — carregado do banco e atualizado em tempo real
     this.savedWords = new Map(); // word -> status ('new'|'learning'|'review'|'mature')
     this.knownWords = new Set();
+    this.ignoredWords = new Set(); // #368: sem cor e fora da aba Palavras
 
     // Carrega palavras salvas do banco na inicialização
     this._loadSavedWords();
@@ -190,6 +191,15 @@ export class SubtitleEngine {
         this.savedWords.delete(w);
         if (document.getElementById('lf-words-scroll')) this._rebuildWordsList();
       }
+    }, { signal: this._lifecycleController.signal });
+    // #368: card marcou/desmarcou "Ignorar" — recolore e refaz a aba Palavras.
+    window.addEventListener('LF_WORD_IGNORED', (e) => {
+      const w = e.detail?.word?.toLowerCase();
+      if (!w) return;
+      if (e.detail.ignored) this.ignoredWords.add(w);
+      else this.ignoredWords.delete(w);
+      this._updateSubtitleColors();
+      if (document.getElementById('lf-words-scroll')) this._rebuildWordsList();
     }, { signal: this._lifecycleController.signal });
     window.addEventListener('LF_UPDATE_DELAY', (e) => {
       this.translationDelay = e.detail;
@@ -439,11 +449,13 @@ export class SubtitleEngine {
   async _loadSavedWords() {
     try {
       const { db } = await import('../utils/db.js');
-      const [words, cards, known] = await Promise.all([
+      const [words, cards, known, ignored] = await Promise.all([
         db.getAllWords(),
         db.getAllCards(),
         db.getAllKnownWords(),
+        typeof db.getAllIgnoredWords === 'function' ? db.getAllIgnoredWords().catch(() => []) : [],
       ]);
+      this.ignoredWords = new Set((ignored || []).map((w) => String(w.word).toLowerCase()));
       const cardStatus = new Map((cards || []).map(card => [card.word_id, card.status]));
 
       this.savedWords.clear();
@@ -490,7 +502,10 @@ export class SubtitleEngine {
           'lf-known',
           'lf-saved',
         );
-        if (this.knownWords.has(w)) {
+        if (this.ignoredWords?.has(w)) {
+          // #368: ignorada fica neutra, sem status nem cor CEFR
+          [...el.classList].filter((c) => c.startsWith('lf-cefr-')).forEach((c) => el.classList.remove(c));
+        } else if (this.knownWords.has(w)) {
           el.classList.add('lf-known');
         } else if (this.savedWords.has(w)) {
           const status = this.savedWords.get(w);
@@ -4488,7 +4503,8 @@ export class SubtitleEngine {
     let cefrClass = '';
     const wordStatus =
       this.savedWords.get(text.toLowerCase()) ||
-      (this.knownWords.has(text.toLowerCase()) ? 'known' : null);
+      (this.knownWords.has(text.toLowerCase()) ? 'known' : null) ||
+      (this.ignoredWords?.has(text.toLowerCase()) ? 'ignored' : null);
 
     // Aplica a cor CEFR apenas se a palavra for nova (não salva e não conhecida)
     if (this.cefrColorsEnabled && !wordStatus && this.cefrList) {
@@ -4569,6 +4585,7 @@ export class SubtitleEngine {
       .toLowerCase()
       .replace(/\u2019/g, "'")
       .replace(/&#39;/g, "'");
+    if (this.ignoredWords?.has(w)) return '';
     if (this.knownWords.has(w)) return 'lf-known';
     // Tenta lookup com a contracao inteira e tambem com a forma base (antes do apostrofo)
     const status = this.savedWords.get(w) || this.savedWords.get(w.split("'")[0]);
@@ -5135,7 +5152,7 @@ export class SubtitleEngine {
     // 1. Vocabulário por lema (running/ran → run), sem nomes próprios
     const vocabulary = extractVideoVocabulary(
       cues.map((cue) => ({ text: clean(cue.text) })),
-      { stopWords: STOP_WORDS, rankMap: TOP5K_RANK_MAP },
+      { stopWords: STOP_WORDS, rankMap: TOP5K_RANK_MAP, ignored: this.ignoredWords || new Set() },
     );
     const totalUnique = vocabulary.size;
 

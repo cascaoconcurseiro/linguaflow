@@ -114,6 +114,7 @@ Para manter o banco limpo, escalável e com custo controlado, os seguintes estad
 
 | Data | Decisão | Racional / Impacto |
 |---|---|---|
+| **2026-09-29** | **Palavras ignoradas em tabela própria (`ignored_words`)**: "Ignorar" no card grava em tabela separada, com RLS por usuário e só SELECT/INSERT/DELETE para `authenticated`. | Uma coluna em `known_words` obrigaria todos os consumidores de "conhecidas" (Home, Leitor, Histórias, CEFR) a filtrar; com tabela própria, ignorar nunca infla o progresso por esquecimento. |
 | **2026-09-27** | **Síntese Neural Gratuita via Edge TTS**: a Edge Function `tts` utiliza Microsoft Edge TTS como motor primário com fallback transparente para Google TTS. | Elimina voz robótica do Google Tradutor sem gerar custos de API ou exigir cadastros com cartão, mantendo compatibilidade com o cache IndexedDB (`lf-audio-cache`). |
 | **2026-09-26** | **Cache Léxico Canônico** (`canonical_lexicon`): cache compartilhado server-side de lemas, classes gramaticais e fonética IPA. | Reduz drasticamente chamadas redundantes a APIs externas e modelos de linguagem para vocábulos comuns. |
 | **2026-09-24** | **Provedor de Listening**: distingue faixa de áudio selecionada (`audio_track`), confirmação do usuário (`user_confirmed`) e estimativa de legenda original (`caption_asr`). | Faixa de áudio selecionada prevalece; faixas ambíguas suspendem a estimativa para evitar falsos créditos de listening. |

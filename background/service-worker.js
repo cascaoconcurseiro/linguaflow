@@ -37,8 +37,8 @@ const DB_PROXY_METHODS = new Set([
   'getStatsSnapshot', 'getStories', 'getStudyStats', 'getTodayCounts', 'getTranslationCache',
   'getUserStats', 'getWord', 'getWordById', 'getWordsByCategory', 'getWordsByLetter',
   'enqueueListeningInterval', 'getFluencyListeningText',
-  'isKnown', 'issueFluencyTask', 'login', 'logout', 'logManualStudy', 'logReview', 'logSession',
-  'markAsKnown', 'maybeLeagueRollover', 'migrateReaderText', 'predictNextState',
+  'getAllIgnoredWords', 'ignoreWord', 'isKnown', 'issueFluencyTask', 'login', 'logout', 'logManualStudy', 'logReview', 'logSession',
+  'markAsKnown', 'unignoreWord', 'maybeLeagueRollover', 'migrateReaderText', 'predictNextState',
   'recordAdaptiveSignal', 'recordLearningTaskAttempt', 'reportClientError',
   'restoreCardState', 'savePushSubscription', 'saveReaderText', 'saveSentence',
   'saveStory', 'saveWord', 'setCardSuspended', 'setEmailOptIn', 'setSetting',
@@ -325,6 +325,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             'saveSentence',
             'deleteWord',
             'markAsKnown',
+            'ignoreWord',
+            'unignoreWord',
             'resetCardToNew',
           ];
           if (writeMethods.includes(method)) {

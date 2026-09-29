@@ -387,6 +387,7 @@ export class WordPopup {
 
     <button id="fsave" class="lfp-btn-bounce" style="display:block;width:100%;padding:11px;background:#58cc02;box-shadow:0 3px 0 #46a302;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;transition:transform .1s, filter .15s, background .15s;margin-bottom:8px;letter-spacing:.01em;">+ Salvar nos Flashcards</button>
     <button id="fknown" class="lfp-btn-bounce" style="display:block;width:100%;padding:9px;background:rgba(134,239,172,.08);color:#86efac;border:1px solid rgba(134,239,172,.25);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;margin-bottom:8px;">✓ Já sei esta palavra</button>
+    <button id="fignore" type="button" aria-pressed="false" title="Nomes, interjeições e ruído da legenda: sem cor e fora da aba Palavras, sem contar como conhecida" style="display:block;width:100%;min-height:36px;padding:7px;background:none;color:#94a3b8;border:1px dashed rgba(148,163,184,.35);border-radius:11px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px;">⊘ Ignorar esta palavra</button>
     <button id="faisent" class="lfp-btn-bounce" style="display:none;width:100%;padding:9px;background:rgba(251,191,36,.08);color:#fbbf24;border:1px solid rgba(251,191,36,.22);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;margin-bottom:10px;">🔍 Analisar Frase Completa</button>
     <div id="fair-container" style="display:none;position:relative;">
       <div id="fair" class="ai-res" style="background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:12px;font-size:12px;color:#c4b5fd;line-height:1.7;"></div>
@@ -559,6 +560,7 @@ export class WordPopup {
         btn.disabled = false;
       }
     };
+    q('#fignore').onclick = () => this._toggleIgnored();
     q('#faisent').onclick = () => this._aiSentence();
     if (q('#fgenchunks')) q('#fgenchunks').onclick = () => this._generateChunks();
     if (q('#frevbtn')) q('#frevbtn').onclick = () => this._loadReverso();
@@ -806,6 +808,7 @@ export class WordPopup {
       knownBtn.textContent = alreadyKnown ? '✓ Marcada como conhecida' : '✓ Já sei esta palavra';
       knownBtn.style.background = alreadyKnown ? 'rgba(134,239,172,.2)' : 'rgba(134,239,172,.08)';
     }
+    this._renderIgnoreButton(!!this.engine?.ignoredWords?.has?.(this.word.toLowerCase()));
     (async () => {
       const wordAtCheck = this.word; // §3.8: clique rápido A→B não pode rotular B com a resposta de A
       const BASE = chrome.runtime.getURL('utils/');
@@ -1542,6 +1545,35 @@ export class WordPopup {
       }
     });
   }
+  // #368: "Ignorar" é reversível no próprio card ("Deixar de ignorar").
+  _renderIgnoreButton(ignored) {
+    const btn = this._q('#fignore');
+    if (!btn) return;
+    btn.disabled = false;
+    btn.setAttribute('aria-pressed', String(ignored));
+    btn.textContent = ignored ? '↺ Deixar de ignorar' : '⊘ Ignorar esta palavra';
+  }
+
+  async _toggleIgnored() {
+    const btn = this._q('#fignore');
+    if (!btn || btn.disabled) return;
+    const word = String(this.word || '').toLowerCase();
+    const lang = this.engine?.sourceLang || 'en';
+    const ignore = btn.getAttribute('aria-pressed') !== 'true';
+    btn.disabled = true;
+    btn.textContent = ignore ? '⏳ Ignorando…' : '⏳ Desfazendo…';
+    try {
+      if (ignore) await db.ignoreWord(word, lang);
+      else await db.unignoreWord(word, lang);
+      window.dispatchEvent(new CustomEvent('LF_WORD_IGNORED', { detail: { word, ignored: ignore } }));
+      this._renderIgnoreButton(ignore);
+    } catch (e) {
+      console.warn('[WordPopup] ignorar falhou:', e?.message);
+      this._renderIgnoreButton(!ignore);
+      btn.textContent = ignore ? '⚠ Não foi possível ignorar — tentar de novo' : '⚠ Não foi possível desfazer — tentar de novo';
+    }
+  }
+
   _clearLoginWait() {
     if (this._loginListener) chrome.storage.onChanged.removeListener(this._loginListener);
     this._loginListener = null;

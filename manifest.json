@@ -95,6 +95,7 @@
         "content/subtitles/dock-layout.js",
         "content/subtitles/player-hotkeys.js",
         "content/subtitles/vtt-parser.js",
+        "content/subtitles/active-cue.js",
         "content/max-player-ui.js",
         "content/review-overlay.js",
         "content/word-popup.js",

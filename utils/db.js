@@ -1464,6 +1464,35 @@ class Database {
     return !!res;
   }
 
+  // #368: "Ignorar" (nomes, interjeições, ruído da legenda). Tabela própria:
+  // ignorar nunca conta como conhecida. Sem UPDATE: duplicata é descartada.
+  async ignoreWord(word, lang) {
+    this._invalidateReadCache();
+    if (this.isProxyMode) return this._proxy('ignoreWord', [word, lang]);
+    await this._fetch('ignored_words?on_conflict=user_id,word,lang', {
+      method: 'POST',
+      headers: { 'Prefer': 'resolution=ignore-duplicates,return=minimal' },
+      body: { word: String(word).toLowerCase(), lang },
+    });
+    return true;
+  }
+
+  async unignoreWord(word, lang) {
+    this._invalidateReadCache();
+    if (this.isProxyMode) return this._proxy('unignoreWord', [word, lang]);
+    await this._fetch(`ignored_words?word=eq.${encodeURIComponent(String(word).toLowerCase())}&lang=eq.${encodeURIComponent(lang)}`, { method: 'DELETE' });
+    return true;
+  }
+
+  async getAllIgnoredWords() {
+    if (this.isProxyMode) return this._proxy('getAllIgnoredWords', []);
+    try {
+      return (await this._fetch('ignored_words?select=word,lang')) || [];
+    } catch {
+      return []; // tabela ausente (rollback) = nada ignorado
+    }
+  }
+
   async isKnown(word, lang) {
     if (this.isProxyMode) return this._proxy('isKnown', [word, lang]);
     const res = await this._fetch(`known_words?word=eq.${encodeURIComponent(word.toLowerCase())}&lang=eq.${encodeURIComponent(lang)}&limit=1`);

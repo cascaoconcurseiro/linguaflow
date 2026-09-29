@@ -15,6 +15,7 @@ import {
   getPosPatterns,
 } from './popup/popup-linguistics.js';
 import { isValidIpa, cleanIpa } from '../utils/ipa-validator.js';
+import { streamAiRequest } from '../utils/ai-stream.js';
 
 export class WordPopup {
   constructor(engine, platform) {
@@ -39,6 +40,9 @@ export class WordPopup {
   async init() {
     this._build();
     this._initData();
+    // O primeiro clique aguarda estes bancos (_expandTermInContext) antes de
+    // abrir o popup; carregá-los agora tira essa espera do clique.
+    this._getPhrasalVerbsDB();
 
     try {
       const res = await fetch(chrome.runtime.getURL('utils/frequency-en.json'));
@@ -68,11 +72,19 @@ export class WordPopup {
       : '../utils/';
     this._phrasalPromise = (async () => {
       try {
-        const { phrasalVerbsDB } = await import(BASE + 'phrasal-verbs.js');
-        const { expressionsDB, matchExpressionCandidate, getBaseVerbCandidates } = await import(BASE + 'expressions-db.js');
-        const { slangsDB, slangMatchesContext } = await import(BASE + 'slangs-db.js');
-        const { expressionKind, detectExpressions } = await import(BASE + 'expression-detector.js');
-        const { REDUCTIONS } = await import(BASE + 'speech-cadence.js');
+        const [
+          { phrasalVerbsDB },
+          { expressionsDB, matchExpressionCandidate, getBaseVerbCandidates },
+          { slangsDB, slangMatchesContext },
+          { expressionKind, detectExpressions },
+          { REDUCTIONS },
+        ] = await Promise.all([
+          import(BASE + 'phrasal-verbs.js'),
+          import(BASE + 'expressions-db.js'),
+          import(BASE + 'slangs-db.js'),
+          import(BASE + 'expression-detector.js'),
+          import(BASE + 'speech-cadence.js'),
+        ]);
         this._phrasalVerbsDB = phrasalVerbsDB || null;
         this._expressionsDB = expressionsDB || null;
         this._matchExpressionCandidate = matchExpressionCandidate || null;
@@ -850,7 +862,9 @@ export class WordPopup {
     // Busca tradução e dicionário em paralelo, mas atualiza a tela assim que cada um chegar
     this._translate(word)
       .then((tr) => {
-        if (this.cache[word]) this.cache[word].translation = tr || '—';
+        // A tradução contextual da IA (stream ou cache) pode chegar antes da
+        // tradução isolada; não a sobrescreva com o sentido fora da frase.
+        if (this.cache[word] && !this.cache[word].contextual) this.cache[word].translation = tr || '—';
         if (this.word === word) this._render(this.cache[word]);
       })
       .catch(() => {
@@ -1590,23 +1604,6 @@ export class WordPopup {
         return;
       }
       const sentenceTranslationPromise = this._translate(sentence);
-      const phrasalPromise = this._getPhrasalVerbsDB();
-      const responsePromise = new Promise((resolve) => {
-        chrome.runtime.sendMessage(
-          {
-            action: 'ai_quick_context',
-            word,
-            sentence,
-          },
-          (result) => {
-            if (chrome.runtime.lastError) resolve(null);
-            else resolve(result);
-          },
-        );
-      });
-      const [phrasalVerbsDB, response] = await Promise.all([phrasalPromise, responsePromise]);
-      const exprInfo = this._detectExprType(word, phrasalVerbsDB);
-
       const typeDescriptions = {
         phrasal: {
           title: 'Phrasal verb',
@@ -1636,17 +1633,48 @@ export class WordPopup {
         },
       };
 
-      const tinfo = typeDescriptions[exprInfo.type];
-      let nativeHtml = '';
-
-      if (tinfo) {
-        nativeHtml = `
+      const nativeHtmlFor = (phrasalVerbsDB) => {
+        const tinfo = typeDescriptions[this._detectExprType(word, phrasalVerbsDB).type];
+        if (!tinfo) return '';
+        return `
               <div style="background:rgba(251,191,36,0.1); border-left:3px solid #fbbf24; padding:8px; border-radius:4px; margin-bottom:8px;">
                 <b style="color:#fbbf24; font-size:13px;">${tinfo.icon} ${tinfo.title}</b><br>
                 <span style="color:#cbd5e1; font-size:12px;">${tinfo.desc}</span>
               </div>
             `;
-      }
+      };
+      let nativeHtml = '';
+      const nativeHtmlPromise = this._getPhrasalVerbsDB().then((phrasalVerbsDB) => {
+        nativeHtml = nativeHtmlFor(phrasalVerbsDB);
+        return nativeHtml;
+      });
+
+      // Streaming: a tradução contextual entra no título assim que a primeira
+      // linha fecha e a explicação vai aparecendo enquanto a IA escreve.
+      // Trocar de palavra cancela o pedido (a porta aborta a IA), exceto se a
+      // palavra já foi salva: aí o resultado ainda enriquece o card em segundo plano.
+      let partialTranslation = '';
+      const response = await streamAiRequest(
+        { action: 'ai_quick_context', word, sentence },
+        {
+          isStale: () => this._contextSession !== contextSession && !contextSession?.save,
+          onPartial: (partial) => {
+            if (this._contextSession !== contextSession) return;
+            const translation = String(partial.translation || '').trim();
+            if (translation && translation !== partialTranslation && this.cache[word]) {
+              partialTranslation = translation;
+              this.cache[word].translation = translation;
+              this.cache[word].contextual = true;
+              q('#ft').textContent = translation;
+            }
+            if (partial.explanation) {
+              el.innerHTML = nativeHtml
+                + this._escapeAttr(cleanContextExplanation(partial.explanation)).replace(/\n/g, '<br>');
+            }
+          },
+        },
+      );
+      nativeHtml = await nativeHtmlPromise;
 
       if (response?.translation || response?.explanation) {
         const explanation = cleanContextExplanation(response.explanation);
@@ -1663,6 +1691,7 @@ export class WordPopup {
         if (this._contextSession !== contextSession) return;
         if (contextualTranslation && this.cache[word]) {
           this.cache[word].translation = contextualTranslation;
+          this.cache[word].contextual = true;
         }
         if (this.cache[word] && contextualTranslation) {
           this._render(this.cache[word]);
@@ -2177,22 +2206,24 @@ export class WordPopup {
     resEl.innerHTML =
       '<div style="padding:10px;text-align:center;"><span class="lfp-spin" style="border-top-color:#fbbf24"></span> Desconstruindo a frase com IA...</div>';
     try {
-      const response = await new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage(
-          {
-            action: 'ai_explain_sentence',
-            sentence: this.context,
-            fullContext: this.currentCue?.fullContext || null, // Passa o diálogo ao redor
+      // Streaming: a análise aparece enquanto a IA escreve. Trocar de frase
+      // desconecta a porta e cancela o pedido.
+      const sentenceAtStart = this.context;
+      const response = await streamAiRequest(
+        {
+          action: 'ai_explain_sentence',
+          sentence: sentenceAtStart,
+          fullContext: this.currentCue?.fullContext || null, // Passa o diálogo ao redor
+        },
+        {
+          isStale: () => this.context !== sentenceAtStart,
+          onPartial: (partial) => {
+            if (partial.text) resEl.innerHTML = this._formatAI(partial.text);
           },
-          (res) => {
-            if (chrome.runtime.lastError) {
-              reject(chrome.runtime.lastError);
-            } else {
-              resolve(res);
-            }
-          },
-        );
-      });
+        },
+      );
+      if (this.context !== sentenceAtStart) return;
+      if (!response) throw new Error('ai_stream_unavailable');
 
       if (response?.analysis) {
         resEl.innerHTML = this._formatAI(response.analysis);

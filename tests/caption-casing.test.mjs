@@ -64,6 +64,13 @@ test('ajusta casing de fragmento concatenado no meio da oração sem pontuação
   assert.equal(adjustFragmentCasing(prev, next), "start to learn");
 });
 
+test('#364 preserva nomes próprios e início de citação ao concatenar fragmentos', () => {
+  assert.equal(adjustFragmentCasing("That's the vibe for", 'September, but it is 8'), 'September, but it is 8');
+  assert.equal(adjustFragmentCasing('I met', 'Sarah at the park'), 'Sarah at the park');
+  assert.equal(adjustFragmentCasing('from a fortune cookie,', '"Enjoy life. It is better'), '"Enjoy life. It is better');
+  assert.equal(adjustFragmentCasing('I said', 'And then we left'), 'and then we left');
+});
+
 test('preserva pronome I e siglas ao concatenar fragmentos no meio da oração', () => {
   const prev = "And then";
   assert.equal(adjustFragmentCasing(prev, "I saw him"), "I saw him");

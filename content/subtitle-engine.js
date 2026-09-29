@@ -1,5 +1,5 @@
 import { ListeningClock } from '../utils/listening-clock.js';
-import { groupCaptionEvents, attachTranslationsByTime } from '../utils/caption-grouping.js';
+import { captionLines, groupCaptionEvents, attachTranslationsByTime } from '../utils/caption-grouping.js';
 import { normalizeSubtitleCasing } from '../utils/caption-casing.js';
 import { localDateKey } from '../utils/local-day.js';
 import { MAX_EXPRESSION_WORDS } from '../utils/expressions-db.js';
@@ -28,7 +28,10 @@ import {
   isAuthError,
   lineExplanationKey,
   parseLineExplanation,
+  parsePartialLineExplanation,
 } from './subtitles/line-explainer.js';
+import { streamAiRequest } from '../utils/ai-stream.js';
+import { createHoverTip } from './subtitles/hover-tip.js';
 import { comprehensionSummary, extractVideoVocabulary, learnerKeywords, wordStatus } from './subtitles/video-vocabulary.js';
 import {
   calculateWpm,
@@ -166,6 +169,7 @@ export class SubtitleEngine {
     // Vocabulário em memória — carregado do banco e atualizado em tempo real
     this.savedWords = new Map(); // word -> status ('new'|'learning'|'review'|'mature')
     this.knownWords = new Set();
+    this.ignoredWords = new Set(); // #368: sem cor e fora da aba Palavras
 
     // Carrega palavras salvas do banco na inicialização
     this._loadSavedWords();
@@ -188,6 +192,15 @@ export class SubtitleEngine {
         this.savedWords.delete(w);
         if (document.getElementById('lf-words-scroll')) this._rebuildWordsList();
       }
+    }, { signal: this._lifecycleController.signal });
+    // #368: card marcou/desmarcou "Ignorar" — recolore e refaz a aba Palavras.
+    window.addEventListener('LF_WORD_IGNORED', (e) => {
+      const w = e.detail?.word?.toLowerCase();
+      if (!w) return;
+      if (e.detail.ignored) this.ignoredWords.add(w);
+      else this.ignoredWords.delete(w);
+      this._updateSubtitleColors();
+      if (document.getElementById('lf-words-scroll')) this._rebuildWordsList();
     }, { signal: this._lifecycleController.signal });
     window.addEventListener('LF_UPDATE_DELAY', (e) => {
       this.translationDelay = e.detail;
@@ -437,11 +450,13 @@ export class SubtitleEngine {
   async _loadSavedWords() {
     try {
       const { db } = await import('../utils/db.js');
-      const [words, cards, known] = await Promise.all([
+      const [words, cards, known, ignored] = await Promise.all([
         db.getAllWords(),
         db.getAllCards(),
         db.getAllKnownWords(),
+        typeof db.getAllIgnoredWords === 'function' ? db.getAllIgnoredWords().catch(() => []) : [],
       ]);
+      this.ignoredWords = new Set((ignored || []).map((w) => String(w.word).toLowerCase()));
       const cardStatus = new Map((cards || []).map(card => [card.word_id, card.status]));
 
       this.savedWords.clear();
@@ -488,7 +503,10 @@ export class SubtitleEngine {
           'lf-known',
           'lf-saved',
         );
-        if (this.knownWords.has(w)) {
+        if (this.ignoredWords?.has(w)) {
+          // #368: ignorada fica neutra, sem status nem cor CEFR
+          [...el.classList].filter((c) => c.startsWith('lf-cefr-')).forEach((c) => el.classList.remove(c));
+        } else if (this.knownWords.has(w)) {
           el.classList.add('lf-known');
         } else if (this.savedWords.has(w)) {
           const status = this.savedWords.get(w);
@@ -3574,9 +3592,11 @@ export class SubtitleEngine {
   }
 
   // ── processYtSub — cópia EXATA do V5 ──────────────────────────────────────
-  _processYtSub(data) {
+  // lines: faixa traduzida fica linha a linha para ser distribuída pelos
+  // trechos originais (#364), que podem juntar linhas em pontos diferentes.
+  _processYtSub(data, { lines = false } = {}) {
     const round = (seconds) => Number.isFinite(seconds) ? Math.round(seconds * 100) / 100 : null;
-    const raw = groupCaptionEvents(data?.events).map((cue) => ({
+    const raw = (lines ? captionLines : groupCaptionEvents)(data?.events).map((cue) => ({
       ...cue,
       text: this._cleanSubtitleText(cue.text),
     })).filter((cue) => cue.text && cue.end > cue.start);
@@ -3701,7 +3721,7 @@ export class SubtitleEngine {
         if (cue && cue !== this._currentCue) {
           this.lastText = cue.text;
           this.onSubtitle(cue);
-        } else if (!cue && this.lastText !== '') {
+        } else if (!cue && (this.lastText !== '' || this._currentCue)) {
           this._currentCue = null;
           this.lastText = '';
           this.renderDual('', '');
@@ -3755,7 +3775,7 @@ export class SubtitleEngine {
       if (this.cues && this.cues.length > 0) {
         let transCues = [];
         try {
-          if (raw.startsWith('{')) transCues = this._processYtSub(JSON.parse(raw));
+          if (raw.startsWith('{')) transCues = this._processYtSub(JSON.parse(raw), { lines: true });
           else if (raw.includes('WEBVTT') || raw.includes('-->')) transCues = this._parseVTT(raw);
         } catch {}
         if (Array.isArray(transCues) && transCues.length > 0) {
@@ -3789,7 +3809,7 @@ export class SubtitleEngine {
             if (Array.isArray(origCues) && origCues.length > 0 && this._isNavigationCurrent(navigation)) {
               let transCues = [];
               try {
-                if (raw.startsWith('{')) transCues = this._processYtSub(JSON.parse(raw));
+                if (raw.startsWith('{')) transCues = this._processYtSub(JSON.parse(raw), { lines: true });
                 else if (raw.includes('WEBVTT') || raw.includes('-->')) transCues = this._parseVTT(raw);
               } catch {}
 
@@ -4041,7 +4061,9 @@ export class SubtitleEngine {
             this._lastAutoPausedEndTime = -1;
             this.lastText = cue.text;
             this.onSubtitle(cue);
-          } else if (!cue && this.lastText !== '') {
+          } else if (!cue && (this.lastText !== '' || this._currentCue)) {
+            // #361: o seek zera lastText; sem checar _currentCue, pular para um
+            // trecho sem fala deixava a legenda anterior presa na tela.
             this._lastAutoPausedEndTime = -1;
             this.lastText = '';
             this._currentCue = null;
@@ -4473,6 +4495,19 @@ export class SubtitleEngine {
     return MAX_EXPRESSION_WORDS;
   }
 
+  // #369: dica leve do hover — só a palavra (tradução e classes, do cache do
+  // service worker, as mesmas do card); a legenda traduzida não entra.
+  _showHoverTip(span, text) {
+    const word = String(text || '').replace(/[.,!?()"]+/g, '').trim();
+    if (!word) return;
+    this._hoverTip ??= createHoverTip();
+    const popup = this.wordPopup;
+    this._hoverTip.show(span.getBoundingClientRect(), { word }, (update) => {
+      popup?._translate?.(word).then((translation) => translation && update({ translation })).catch(() => {});
+      popup?._senses?.(word).then((senses) => senses?.length && update({ senses })).catch(() => {});
+    });
+  }
+
   _createWordSpan(text, isExpression, disableHoverPause = false) {
     const span = document.createElement('span');
     span.textContent = text;
@@ -4482,7 +4517,8 @@ export class SubtitleEngine {
     let cefrClass = '';
     const wordStatus =
       this.savedWords.get(text.toLowerCase()) ||
-      (this.knownWords.has(text.toLowerCase()) ? 'known' : null);
+      (this.knownWords.has(text.toLowerCase()) ? 'known' : null) ||
+      (this.ignoredWords?.has(text.toLowerCase()) ? 'ignored' : null);
 
     // Aplica a cor CEFR apenas se a palavra for nova (não salva e não conhecida)
     if (this.cefrColorsEnabled && !wordStatus && this.cefrList) {
@@ -4516,10 +4552,13 @@ export class SubtitleEngine {
           this._wasPausedByHover = true;
         }
 
-        // Mostra tradução rápida no popup
-        if (this.wordPopup) {
-          const rect = span.getBoundingClientRect();
-          this.wordPopup.showForWord(text, this.lastText, rect, this._currentCue);
+        // #369: com o card aberto, o hover troca a palavra do card (como antes);
+        // fechado, mostra só a dica leve — sem IA. O clique abre o card.
+        const cardOpen = this.wordPopup?.popup && this.wordPopup.popup.style.display !== 'none';
+        if (cardOpen) {
+          this.wordPopup.showForWord(text, this.lastText, span.getBoundingClientRect(), this._currentCue);
+        } else {
+          this._showHoverTip(span, text);
         }
       }, 150);
     });
@@ -4527,6 +4566,7 @@ export class SubtitleEngine {
     span.addEventListener('pointerleave', (e) => {
       if (e.pointerType === 'touch') return;
       clearHoverIntent();
+      this._hoverTip?.hide();
 
       // NÃO retoma o vídeo aqui. O vídeo só retoma se o usuário clicar fora do popup ou no X.
       // Isso evita que o vídeo volte a tocar enquanto o usuário move o mouse para o popup.
@@ -4541,6 +4581,7 @@ export class SubtitleEngine {
       e.stopPropagation();
       if (e.cancelable) e.preventDefault(); // Evita eventos duplicados no mobile
       clearHoverIntent();
+      this._hoverTip?.hide();
       if (!disableHoverPause && this.videoElement && !this.videoElement.paused) {
         this.videoElement.pause();
         this._wasPausedByHover = true;
@@ -4563,6 +4604,7 @@ export class SubtitleEngine {
       .toLowerCase()
       .replace(/\u2019/g, "'")
       .replace(/&#39;/g, "'");
+    if (this.ignoredWords?.has(w)) return '';
     if (this.knownWords.has(w)) return 'lf-known';
     // Tenta lookup com a contracao inteira e tambem com a forma base (antes do apostrofo)
     const status = this.savedWords.get(w) || this.savedWords.get(w.split("'")[0]);
@@ -4941,17 +4983,22 @@ export class SubtitleEngine {
       expressions: detectExpressions(line),
       targetLang: this.targetLang,
     });
-    const response = await new Promise((resolve) => {
-      try {
-        chrome.runtime.sendMessage({ action: 'ai_chat', messages, options: { temperature: 0.3, max_tokens: 600 } }, (result) => {
-          resolve(chrome.runtime.lastError ? { error: chrome.runtime.lastError.message } : result);
-        });
-      } catch (error) {
-        resolve({ error: error?.message });
-      }
-    });
+    // Streaming: tradução e sentido aparecem enquanto a IA escreve (o JSON
+    // parcial é lido campo a campo); fechar a explicação cancela o pedido.
+    const response = await streamAiRequest(
+      { action: 'ai_chat', messages, options: { temperature: 0.3, max_tokens: 600 } },
+      {
+        isStale: () => !region.isConnected || region.hidden,
+        onPartial: (partial) => {
+          const draft = parsePartialLineExplanation(partial.text);
+          if (!draft.translation && !draft.meaning) return;
+          this._renderLineExplanation(region, draft, { streaming: true });
+        },
+      },
+    );
     button.disabled = false;
     region.removeAttribute('aria-busy');
+    if (!region.isConnected || region.hidden) return;
 
     const parsed = parseLineExplanation(response?.content);
     if (parsed) {
@@ -4974,7 +5021,7 @@ export class SubtitleEngine {
     }
   }
 
-  _renderLineExplanation(region, data) {
+  _renderLineExplanation(region, data, { streaming = false } = {}) {
     delete region.dataset.error;
     const items = (data.expressions || [])
       .map((e) => `<li><strong>${escapeHTML(e.text)}</strong>: ${escapeHTML(e.meaning)}</li>`)
@@ -4983,7 +5030,7 @@ export class SubtitleEngine {
       ${data.translation ? `<p><span class="lf-line-explain-label">Tradução natural</span> ${escapeHTML(data.translation)}</p>` : ''}
       ${data.meaning ? `<p><span class="lf-line-explain-label">Sentido</span> ${escapeHTML(data.meaning)}</p>` : ''}
       ${items ? `<ul>${items}</ul>` : ''}
-      <p class="lf-line-explain-note">Explicação gerada por IA; confira no contexto do vídeo.</p>
+      <p class="lf-line-explain-note">${streaming ? 'Escrevendo…' : 'Explicação gerada por IA; confira no contexto do vídeo.'}</p>
     `;
   }
 
@@ -5124,7 +5171,7 @@ export class SubtitleEngine {
     // 1. Vocabulário por lema (running/ran → run), sem nomes próprios
     const vocabulary = extractVideoVocabulary(
       cues.map((cue) => ({ text: clean(cue.text) })),
-      { stopWords: STOP_WORDS, rankMap: TOP5K_RANK_MAP },
+      { stopWords: STOP_WORDS, rankMap: TOP5K_RANK_MAP, ignored: this.ignoredWords || new Set() },
     );
     const totalUnique = vocabulary.size;
 

@@ -119,13 +119,18 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { data: userData, error: userErr } = await admin.auth.getUser(token);
-    if (userErr || !userData?.user) {
+    // getClaims verifica assinatura (ES256, JWKS em cache) e expiração
+    // localmente — sem a ida ao GoTrue que getUser fazia em todo pedido.
+    // Trade-off: sessão revogada vale até o exp do access token (#357).
+    // A anon key também é um JWT válido: exige role authenticated + sub.
+    const { data: claimsData, error: claimsErr } = await admin.auth.getClaims(token);
+    const claims = claimsData?.claims;
+    if (claimsErr || !claims?.sub || claims.role !== "authenticated") {
       return new Response(JSON.stringify({ error: "Sessão inválida ou expirada. Faça login novamente." }), {
         status: 401, headers: cors,
       });
     }
-    const userId = userData.user.id;
+    const userId = claims.sub;
 
     // 2. Sanitiza o body antes de consumir a quota.
     let body: Record<string, any>;

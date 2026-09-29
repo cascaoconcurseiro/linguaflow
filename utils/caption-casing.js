@@ -156,9 +156,12 @@ export function adjustFragmentCasing(previousText, nextText) {
     return nextText;
   }
 
-  // Se for uma palavra comum ou se o primeiro caractere for maiúsculo e o resto minúsculo (TitleCase de início de linha)
-  // e pertencer ao vocabulário comum de quebra de linha
-  if (COMMON_LOWERCASE_WORDS.has(lower) || /^[A-Z][a-z]+$/.test(firstWord)) {
+  // Início de citação ("Enjoy life...) começa uma nova oração.
+  if (/["“]/.test(prefix)) return nextText;
+
+  // #364: só palavras comuns em Title Case de início de linha viram minúsculas;
+  // nomes próprios (September, Sarah) mantêm a maiúscula.
+  if (COMMON_LOWERCASE_WORDS.has(lower) && /^[A-Z][a-z']*$/.test(firstWord)) {
     const loweredWord = lower;
     const restOfText = nextText.slice(match[0].length);
     return `${prefix}${loweredWord}${restOfText}`;

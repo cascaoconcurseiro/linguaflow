@@ -109,20 +109,45 @@
     return null;
   }
 
-  async function contextualTranslate(word, sentence) {
-    if (!sentence || !sentence.trim()) return null;
+  // Streaming pelo service worker (porta 'lf_ai_stream', mesmo contrato de
+  // utils/ai-stream.js — inline porque este script roda em qualquer site e não
+  // expomos módulos extras a todas as origens). onPartial recebe a tradução
+  // contextual assim que a primeira linha da IA fecha.
+  function contextualTranslate(word, sentence, { onPartial, isStale } = {}) {
+    if (!sentence || !sentence.trim()) return Promise.resolve(null);
     return new Promise((resolve) => {
-      chrome.runtime.sendMessage({
-        action: 'ai_quick_context',
-        word,
-        sentence,
-      }, (response) => {
-        if (chrome.runtime.lastError) resolve(null);
-        else resolve(response ? {
-          translation: String(response.translation || '').trim(),
-          explanation: String(response.explanation || '').trim(),
-        } : null);
+      let port;
+      try {
+        port = chrome.runtime.connect({ name: 'lf_ai_stream' });
+      } catch {
+        resolve(null);
+        return;
+      }
+      let settled = false;
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        try { port.disconnect(); } catch { /* já desconectada */ }
+        resolve(value);
+      };
+      port.onMessage.addListener((msg) => {
+        if (isStale?.()) return finish(null);
+        if (msg?.type === 'partial') onPartial?.(msg);
+        else if (msg?.type === 'done') finish({
+          translation: String(msg.translation || '').trim(),
+          explanation: String(msg.explanation || '').trim(),
+        });
+        else if (msg?.type === 'error') finish(null);
       });
+      port.onDisconnect.addListener(() => {
+        void chrome.runtime.lastError;
+        finish(null);
+      });
+      try {
+        port.postMessage({ action: 'ai_quick_context', word, sentence });
+      } catch {
+        finish(null);
+      }
     });
   }
 
@@ -290,21 +315,47 @@
     const interactionEpoch = ++lifecycle.interactionEpoch;
     showPopup(x, y, word, null);
 
-    // Tradução assíncrona
+    // A tradução isolada (rápida) aparece assim que chega; a contextual da IA
+    // a substitui quando a primeira linha do stream fecha. Salvar só libera
+    // depois da IA, para o card receber o sentido e a explicação da frase.
     const contextAtStart = currentContext;
+    const isCurrent = () =>
+      isActive() && interactionEpoch === lifecycle.interactionEpoch && currentWord === word;
+    const transEl = () => {
+      const el = popupEl?.querySelector('#lf-r-translation');
+      return el && popupEl?.isConnected && popupEl.style.display !== 'none' ? el : null;
+    };
+    let contextualShown = false;
+    const showTranslation = (text) => {
+      const el = transEl();
+      if (!el || !text) return;
+      el.textContent = text;
+      el.classList.remove('lf-r-loading');
+    };
+
     const [baseTranslation, contextResult] = await Promise.all([
-      quickTranslate(word),
-      contextualTranslate(word, contextAtStart),
+      quickTranslate(word).then((base) => {
+        if (isCurrent() && !contextualShown) showTranslation(base);
+        return base;
+      }),
+      contextualTranslate(word, contextAtStart, {
+        isStale: () => !isCurrent(),
+        onPartial: (partial) => {
+          if (!isCurrent() || !partial.translation) return;
+          contextualShown = true;
+          showTranslation(partial.translation);
+        },
+      }),
     ]);
-    if (!isActive() || interactionEpoch !== lifecycle.interactionEpoch || currentWord !== word) return;
+    if (!isCurrent()) return;
     const translation = contextResult?.translation || baseTranslation;
     currentTranslation = translation || '';
     currentExplanation = contextResult?.explanation || '';
-    const transEl = popupEl?.querySelector('#lf-r-translation');
-    const saveBtn = popupEl?.querySelector('#lf-r-save');
-    if (transEl && popupEl?.isConnected && popupEl.style.display !== 'none') {
-      transEl.textContent = translation || '(sem tradução)';
-      transEl.classList.remove('lf-r-loading');
+    const el = transEl();
+    if (el) {
+      el.textContent = translation || '(sem tradução)';
+      el.classList.remove('lf-r-loading');
+      const saveBtn = popupEl.querySelector('#lf-r-save');
       if (saveBtn) saveBtn.style.display = '';
     }
   }

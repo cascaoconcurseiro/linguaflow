@@ -7,8 +7,10 @@ assert.match(source, /if \(isLinguaFlowPage\(window\.location, document\)\) retu
   'o leitor não inicializa dentro do LinguaFlow');
 assert.match(source, /const interactionEpoch = \+\+lifecycle\.interactionEpoch;/,
   'cada seleção recebe um epoch');
-assert.match(source, /interactionEpoch !== lifecycle\.interactionEpoch \|\| currentWord !== word/,
+assert.match(source, /const isCurrent = \(\) =>\s*isActive\(\) && interactionEpoch === lifecycle\.interactionEpoch && currentWord === word/,
   'tradução antiga não publica na seleção atual');
+assert.match(source, /isStale: \(\) => !isCurrent\(\)/,
+  'nova seleção cancela o stream de IA da seleção anterior');
 assert.match(source, /const handleDoubleClick = \(e\) => \{[\s\S]*clearTimeout\(lifecycle\.selectionTimer\);[\s\S]*handleWordClick\(e\);/,
   'dblclick cancela o mouseup agendado do mesmo gesto');
 assert.match(source, /type: 'QUEUE_WORD_SAVE'/,

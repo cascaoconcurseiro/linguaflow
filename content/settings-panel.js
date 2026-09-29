@@ -28,6 +28,11 @@ async function readAllSettings() {
     'popupMode',
     'cefrTargetLevel',
     'cefrColorsEnabled',
+    'markPhrasal',
+    'markSlang',
+    'markReduction',
+    'markSoundsLike',
+    'markMarkers',
     'cefrColorA1',
     'cefrColorA2',
     'cefrColorB1',
@@ -49,6 +54,15 @@ async function writeSetting(key, value) {
     console.warn('[LinguaFlow Settings] Falha ao salvar', key, e?.message);
   });
 }
+
+// Marcas de expressão na legenda (Issue #346); o estilo de cada tipo fica no motor.
+const EXPRESSION_MARK_OPTIONS = [
+  { key: 'markPhrasal', label: 'Phrasal verbs', hint: 'Sublinhado pontilhado azul (give up, look after).' },
+  { key: 'markSlang', label: 'Gírias', hint: 'Sublinhado ondulado laranja (no cap, my bad).' },
+  { key: 'markReduction', label: 'Fala reduzida e contrações', hint: "Tracejado verde (gonna, 'cause, I'd = I had)." },
+  { key: 'markSoundsLike', label: 'Como soa na fala', hint: 'Pontilhado roxo com a forma falada: going to ≈gonna.' },
+  { key: 'markMarkers', label: 'Marcadores de conversa', hint: 'Linha dupla cinza (you know, I mean, like).' },
+];
 
 export class SettingsPanel {
   constructor(engine) {
@@ -82,6 +96,11 @@ export class SettingsPanel {
       popupMode: 'floating',
       cefrTargetLevel: 'none',
       cefrColorsEnabled: true,
+      markPhrasal: true,
+      markSlang: true,
+      markReduction: true,
+      markSoundsLike: true,
+      markMarkers: false,
       cefrColorA1: '#4ade80', // Verde Claro
       cefrColorA2: '#22d3ee', // Ciano
       cefrColorB1: '#facc15', // Amarelo
@@ -171,6 +190,10 @@ export class SettingsPanel {
     if (selBlur) selBlur.value = this.cfg.blurSubtitles ? 'on' : 'off';
     s.getElementById('sel-cefr-level').value = this.cfg.cefrTargetLevel;
     s.getElementById('sel-cefr-colors').value = this.cfg.cefrColorsEnabled ? 'on' : 'off';
+    for (const { key } of EXPRESSION_MARK_OPTIONS) {
+      const box = s.getElementById(`chk-${key}`);
+      if (box) box.checked = this.cfg[key] !== false;
+    }
 
     s.getElementById('val-font').textContent = `${this.cfg.fontSize}px`;
     s.getElementById('val-font-trans').textContent = `${this.cfg.fontSizeTrans}px`;
@@ -231,6 +254,11 @@ export class SettingsPanel {
     s.getElementById('sel-cefr-colors').onchange = (e) => {
       this._save('cefrColorsEnabled', e.target.value === 'on');
     };
+
+    for (const { key } of EXPRESSION_MARK_OPTIONS) {
+      const box = s.getElementById(`chk-${key}`);
+      if (box) box.onchange = (e) => this._save(key, e.target.checked);
+    }
 
     // Tamanho legenda original
     s.getElementById('rng-font').oninput = (e) => {
@@ -774,6 +802,11 @@ export class SettingsPanel {
                                     <option value="off">Desativado</option>
                                 </select>
                             </div>
+                            <fieldset class="group" style="border:none;padding:0;margin:0;">
+                                <legend style="padding:0;margin-bottom:6px;">Marcar na legenda</legend>
+                                ${EXPRESSION_MARK_OPTIONS.map(({ key, label, hint }) => `<label style="display:flex;gap:8px;align-items:flex-start;margin:6px 0;cursor:pointer;"><input type="checkbox" id="chk-${key}" style="margin-top:2px;"><span>${label}<small style="display:block;">${hint}</small></span></label>`).join('')}
+                                <small>Clicar continua abrindo a expressão inteira mesmo com a marca desligada.</small>
+                            </fieldset>
                         </div>
                     </div>
 
@@ -921,6 +954,14 @@ export class SettingsPanel {
     this.engine.flashDuration = this.cfg.flashDuration;
 
     this.engine.cefrColorsEnabled = this.cfg.cefrColorsEnabled;
+    this.engine.expressionMarks = {
+      phrasal: this.cfg.markPhrasal !== false,
+      slang: this.cfg.markSlang !== false,
+      reduction: this.cfg.markReduction !== false,
+      sounds_like: this.cfg.markSoundsLike !== false,
+      marker: this.cfg.markMarkers === true,
+    };
+    this.engine._applyExpressionMarks?.();
 
     // Passar cores do CEFR para a engine
     this.engine.cefrColors = {

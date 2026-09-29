@@ -35,10 +35,9 @@ export function parseVTT(vttStr, cleanSubtitleTextFn = null) {
     if (text) {
       const start = parseTime(startStr);
       const parsedEnd = parseTime(endStr);
-      const words = text.split(/\s+/).filter(Boolean).length;
-      const maxDur = Math.min(8.0, Math.max(3.5, 2.0 + Math.max(words * 0.45, text.length * 0.08)));
-      const end = Math.min(parsedEnd, start + maxDur);
-      cues.push({ start, end, text });
+      // O fim real é preservado; o limite contra legenda presa em música é
+      // aplicado na sincronia (effectiveCueEnd), igual para todas as fontes.
+      cues.push({ start, end: parsedEnd, text });
     }
   });
   return cues;

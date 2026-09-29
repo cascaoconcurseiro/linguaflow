@@ -130,4 +130,38 @@ test('Player Controls: _onUrlChange preserva isActivated e reseta _hboAutoEnable
   );
 });
 
-process.exit(0);
+test('Player Controls: velocidade salva é reaplicada quando o YouTube carrega a mídia', () => {
+  const previous = { document: globalThis.document, localStorage: globalThis.localStorage, chrome: globalThis.chrome };
+  try {
+    const listeners = {};
+    let adds = 0;
+    const video = {
+      playbackRate: 1,
+      addEventListener(name, fn) { adds++; (listeners[name] ||= []).push(fn); },
+    };
+    const speedBtn = { textContent: '', title: '', setAttribute() {}, classList: { toggle() {} } };
+    globalThis.document = { querySelectorAll: () => [speedBtn] };
+    globalThis.localStorage = { getItem: () => '0.75', setItem() {} };
+    globalThis.chrome = { storage: { local: { set() {} } } };
+
+    const engine = Object.create(SubtitleEngine.prototype);
+    engine.videoElement = video;
+    engine._bindVideoPlaybackRate();
+    engine._bindVideoPlaybackRate();
+    assert.equal(video.playbackRate, 0.75);
+    assert.equal(adds, 2, 'ratechange e loadedmetadata registrados uma vez por vídeo');
+
+    // Carregar a mídia redefine playbackRate para o padrão sem disparar ratechange.
+    video.playbackRate = 1;
+    speedBtn.textContent = '0.75×';
+    for (const fn of listeners.loadedmetadata) fn();
+    assert.equal(video.playbackRate, 0.75);
+    assert.equal(speedBtn.textContent, '0.75×');
+
+    video.playbackRate = 1.5;
+    for (const fn of listeners.ratechange) fn();
+    assert.equal(speedBtn.textContent, '1.5×');
+  } finally {
+    Object.assign(globalThis, previous);
+  }
+});

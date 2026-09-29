@@ -205,7 +205,7 @@ assert.match(engineSource, /setAttribute\('role', 'tablist'\)/);
 assert.match(engineSource, /aria-label="Buscar no roteiro do vídeo"/);
 assert.match(engineSource, /lf-panel-search-status/);
 assert.match(engineSource, /setTimeout\(\(\) => this\._filterSubtitleList\(e\.target\.value\), 140\)/);
-assert.match(engineSource, /item\.setAttribute\('role', 'button'\)/);
-assert.match(engineSource, /item\.onkeydown/);
+// Cada trecho é acionável por teclado via botão nativo "Tocar a partir de…" (#343).
+assert.match(engineSource, /class="lf-time lf-sub-time lf-play-cue" aria-label="Tocar a partir de/);
 
 console.log('Max/HBO player UI contracts passed.');

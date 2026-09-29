@@ -2,8 +2,8 @@ import { ListeningClock } from '../utils/listening-clock.js';
 import { groupCaptionEvents, attachTranslationsByTime } from '../utils/caption-grouping.js';
 import { normalizeSubtitleCasing } from '../utils/caption-casing.js';
 import { localDateKey } from '../utils/local-day.js';
-import { expressionsDB, matchExpressionCandidate, MAX_EXPRESSION_WORDS } from '../utils/expressions-db.js';
-import { slangsDB } from '../utils/slangs-db.js';
+import { MAX_EXPRESSION_WORDS } from '../utils/expressions-db.js';
+import { detectExpressions } from '../utils/expression-detector.js';
 import { videoUtils } from '../utils/video-utils.js';
 
 import { escapeHTML } from '../utils/html.js';
@@ -20,6 +20,16 @@ import {
 } from './subtitles/dock-layout.js';
 import { setupPlayerHotkeys } from './subtitles/player-hotkeys.js';
 import { parseVTT } from './subtitles/vtt-parser.js';
+import { closeDomCue, crossedCueEnd, findActiveCueIndex, recordDomCue } from './subtitles/active-cue.js';
+import { CAPTION_WAIT_MS, highlightMatches, highlightTerms, segmentSubtitle, transcriptState } from './subtitles/transcript-render.js';
+import {
+  buildLineExplainMessages,
+  createLineExplanationCache,
+  isAuthError,
+  lineExplanationKey,
+  parseLineExplanation,
+} from './subtitles/line-explainer.js';
+import { comprehensionSummary, extractVideoVocabulary, learnerKeywords, wordStatus } from './subtitles/video-vocabulary.js';
 import {
   calculateWpm,
   detectConnectedSpeech,
@@ -53,6 +63,46 @@ const STOP_WORDS = new Set([
 
 const TOP5K_WORDS =
   'the,be,to,of,and,a,in,that,have,it,for,not,on,with,he,as,you,do,at,this,but,his,by,from,they,we,say,her,she,or,an,will,my,one,all,would,there,their,what,so,up,out,if,about,who,get,which,go,me,when,make,can,like,time,no,just,him,know,take,people,into,year,your,good,some,could,them,see,other,than,then,now,look,only,come,its,over,think,also,back,after,use,two,how,our,work,first,well,way,even,new,want,because,any,these,give,day,most,us,great,between,need,large,often,hand,high,place,hold,real,life,few,north,open,seem,together,next,white,children,begin,got,walk,example,ease,paper,always,music,those,both,mark,book,letter,until,mile,river,car,feet,care,second,enough,plain,girl,usual,young,ready,above,ever,red,list,though,feel,talk,bird,soon,body,dog,family,direct,pose,leave,song,measure,door,product,black,short,numeral,class,wind,question,happen,complete,ship,area,half,rock,order,fire,south,problem,piece,told,knew,pass,since,top,whole,king,space,heard,best,hour,better,true,during,hundred,five,remember,step,early,hold,west,ground,interest,reach,fast,verb,sing,listen,six,table,travel,less,morning,ten,simple,several,vowel,toward,war,lay,against,pattern,slow,center,love,person,money,serve,appear,road,map,rain,rule,govern,pull,cold,notice,voice,unit,power,town,fine,drive,led,cry,dark,machine,note,wait,plan,figure,star,box,noun,field,rest,correct,able,pound,done,beauty,drive,stood,contain,front,teach,week,final,gave,green,oh,quick,develop,ocean,warm,free,minute,strong,special,mind,behind,clear,tail,produce,fact,street,inch,multiply,nothing,course,stay,wheel,full,force,blue,object,decide,surface,deep,moon,island,foot,system,busy,test,record,boat,common,gold,possible,plane,stead,dry,wonder,laugh,thousand,ago,ran,check,game,shape,equate,hot,miss,brought,heat,snow,tire,bring,yes,distant,fill,east,paint,language,among,grand,ball,yet,wave,drop,heart,am,present,heavy,dance,engine,position,arm,wide,sail,material,size,vary,settle,speak,weight,general,ice,matter,circle,pair,include,divide,syllable,felt,perhaps,pick,sudden,count,square,reason,length,represent,art,subject,region,energy,hunt,probable,bed,brother,egg,ride,cell,believe,fraction,forest,sit,race,window,store,summer,train,sleep,prove,lone,leg,exercise,wall,catch,mount,wish,sky,board,joy,winter,sat,written,wild,instrument,kept,glass,grass,cow,job,edge,sign,visit,past,soft,fun,bright,gas,weather,month,million,bear,finish,happy,hope,flower,clothe,strange,gone,jump,baby,eight,village,meet,root,buy,raise,solve,metal,whether,push,seven,paragraph,third,shall,held,hair,describe,cook,floor,either,result,burn,hill,safe,cat,century,consider,type,law,bit,coast,copy,phrase,silent,tall,sand,soil,roll,temperature,finger,industry,value,fight,lie,beat,excite,natural,view,sense,ear,else,quite,broke,case,middle,kill,son,lake,moment,scale,loud,spring,observe,child,straight,consonant,nation,dictionary,milk,speed,method,organ,pay,age,section,dress,cloud,surprise,quiet,stone,tiny,climb,cool,design,poor,lot,experiment,bottom,key,iron,single,stick,flat,twenty,skin,smile,crease,hole,trade,melody,trip,office,receive,row,mouth,exact,symbol,die,least,trouble,shout,except,wrote,seed,tone,join,suggest,clean,break,lady,yard,rise,bad,blow,oil,blood,touch,grew,cent,mix,team,wire,cost,lost,brown,wear,garden,equal,sent,choose,fell,fit,flow,fair,bank,collect,save,control,decimal,gentle,woman,captain,practice,separate,difficult,doctor,please,protect,noon,whose,locate,ring,character,insect,caught,period,indicate,radio,spoke,atom,human,history,effect,electric,expect,crop,modern,element,hit,student,corner,party,supply,bone,rail,imagine,provide,agree,thus,capital,chair,danger,fruit,rich,thick,soldier,process,operate,guess,necessary,sharp,wing,create,neighbor,wash,bat,rather,crowd,corn,compare,poem,string,bell,depend,meat,rub,tube,famous,dollar,stream,fear,sight,thin,triangle,planet,hurry,chief,colony,clock,mine,tie,enter,major,fresh,search,send,yellow,gun,allow,print,dead,spot,desert,suit,current,lift,rose,continue,block,chart,hat,sell,success,company,subtract,event,particular,deal,swim,term,opposite,wife,shoe,shoulder,spread,arrange,camp,invent,cotton,born,determine,quart,nine,truck,noise,level,chance,gather,shop,stretch,throw,shine,property,column,molecule,select,wrong,gray,repeat,require,broad,prepare,salt,nose,plural,anger,claim,continent,oxygen,sugar,death,pretty,skill,women,season,solution,magnet,silver,thank,branch,match,suffix,especially,fig,afraid,huge,sister,steel,discuss,forward,similar,guide,experience,score,apple,bought,led,pitch,coat,mass,card,band,rope,slip,win,dream,evening,condition,feed,tool,total,basic,smell,valley,nor,double,seat,arrive,master,track,parent,shore,division,sheet,substance,favor,connect,post,spend,chord,fat,glad,original,share,station,dad,bread,charge,proper,bar,offer,segment,slave,duck,instant,market,degree,populate,chick,dear,enemy,reply,drink,occur,support,speech,nature,range,steam,motion,path,liquid,log,meant,quotient,teeth,shell,neck'.split(',');
+
+// Cada tipo tem um traço diferente (não só cor): pontilhado (phrasal),
+// ondulado (gíria), tracejado (fala reduzida/contração), duplo (marcador) e,
+// no "soa como", a forma falada em miniatura depois do trecho. A classe
+// lf-hide-<tipo> no contêiner desliga a marca sem tirar o clique.
+const EXPRESSION_KINDS = ['phrasal', 'slang', 'reduction', 'contraction', 'sounds_like', 'marker'];
+
+function expressionKindCss(scope) {
+  const sel = (kind) => `${scope}.lf-expression[data-kind="${kind}"]`;
+  return `
+    ${sel('slang')} { border-bottom: none; text-decoration: underline wavy rgba(251, 146, 60, 0.9); text-underline-offset: 4px; text-decoration-thickness: 1.5px; }
+    ${sel('reduction')}, ${sel('contraction')} { border-bottom: 2px dashed rgba(52, 211, 153, 0.85); }
+    ${sel('sounds_like')} { border-bottom: 2px dotted rgba(192, 132, 252, 0.85); }
+    ${sel('sounds_like')}::after { content: "≈" attr(data-hint); font-size: 0.55em; font-weight: 700; margin-left: 3px; opacity: 0.85; vertical-align: super; color: #d8b4fe; }
+    ${sel('marker')} { border-bottom: 3px double rgba(148, 163, 184, 0.85); }
+    ${EXPRESSION_KINDS.map((kind) => `${scope.trim() ? scope.replace(/ $/, '') : ''}.lf-hide-${kind} .lf-expression[data-kind="${kind}"]`).join(', ')} { border-bottom: none; text-decoration: none; }
+    ${scope.trim() ? scope.replace(/ $/, '') : ''}.lf-hide-sounds_like .lf-expression[data-kind="sounds_like"]::after { content: none; }
+  `;
+}
+
+const DEFAULT_EXPRESSION_MARKS = { phrasal: true, slang: true, reduction: true, sounds_like: true, marker: false };
+// Chave de configuração de cada marca (contração segue a de fala reduzida).
+export const EXPRESSION_MARK_SETTINGS = {
+  phrasal: 'markPhrasal',
+  slang: 'markSlang',
+  reduction: 'markReduction',
+  sounds_like: 'markSoundsLike',
+  marker: 'markMarkers',
+};
+
+const EXPRESSION_KIND_LABELS = {
+  phrasal: 'Phrasal verb',
+  slang: 'Gíria',
+  reduction: 'Fala reduzida',
+  contraction: 'Contração',
+  sounds_like: 'Na fala',
+  marker: 'Marcador de conversa',
+};
+
+const WORD_STATUS_LABELS = { known: 'conhecida', mature: 'dominada', review: 'revisando', learning: 'aprendendo', new: 'salva' };
 
 const TOP5K_RANK_MAP = new Map();
 TOP5K_WORDS.forEach((w, i) => TOP5K_RANK_MAP.set(w, i + 1));
@@ -104,6 +154,8 @@ export class SubtitleEngine {
     this.cefrTargetLevel = 'none'; // 'none', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'
     this.cefrAutoSave = false;
     this.cefrColorsEnabled = true;
+    // Marcas de expressão por tipo na legenda e no roteiro (Issue #346).
+    this.expressionMarks = { ...DEFAULT_EXPRESSION_MARKS };
     this.maxWordsPerVideo = 15;
     this.maxWordsPerDay = 30;
 
@@ -221,6 +273,7 @@ export class SubtitleEngine {
     this._navigationController = new AbortController();
     this._navigationUrl = url;
     this._navigationEpoch += 1;
+    this._captionsPendingSince = Date.now();
     return this._navigationSnapshot();
   }
 
@@ -617,6 +670,10 @@ export class SubtitleEngine {
         this._detectedAudio = { language:e.data.language, evidence:e.data.evidence, url:location.href, at:Date.now() };
         return;
       }
+      if (e.data.type === 'LF_CAPTION_AVAILABILITY') {
+        this._handleCaptionAvailability(e.data);
+        return;
+      }
       if (e.data.type === 'LF_HBO_SUB' || e.data.type === 'LF_SUBTITLE_HOOK') {
         let url = e.data.url || '';
         let resp = e.data.response || e.data.data;
@@ -819,6 +876,7 @@ export class SubtitleEngine {
     const navigation = this._beginNavigation(window.location.href);
     if (navigation.epoch === previousEpoch) return;
     console.debug('[LinguaFlow] URL alterada, resetando motor de legendas...');
+    this._setCaptionNotice('');
 
     this.cues = [];
     this.xhrCues = [];
@@ -1011,6 +1069,12 @@ export class SubtitleEngine {
       if (targetLevel !== undefined && targetLevel !== null) {
         this.cefrTargetLevel = targetLevel;
       }
+
+      for (const [kind, key] of Object.entries(EXPRESSION_MARK_SETTINGS)) {
+        const value = await db.getSetting(key);
+        if (typeof value === 'boolean') this.expressionMarks[kind] = value;
+      }
+      this._applyExpressionMarks();
 
       const cefrColors = await db.getSetting('cefrColorsEnabled');
       if (cefrColors !== undefined && cefrColors !== null) {
@@ -1273,6 +1337,23 @@ export class SubtitleEngine {
     this.shadowContainer.innerHTML = `
             <style>
                 :host { all: initial; pointer-events: auto; }
+                .lf-notice {
+                    margin: 0;
+                    padding: 6px 12px;
+                    border-radius: 6px;
+                    background: rgba(8, 8, 8, 0.72);
+                    color: #E5E7EB;
+                    font: 600 14px/1.4 'Inter', Arial, sans-serif;
+                    animation: lfNoticeIn 180ms ease-out;
+                }
+                .lf-notice[hidden] { display: none; }
+                @keyframes lfNoticeIn {
+                    from { opacity: 0; transform: translateY(4px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                @media (prefers-reduced-motion: reduce) {
+                    .lf-notice { animation: none; }
+                }
                 .lf-wrap {
                     display: inline-flex;
                     flex-direction: column;
@@ -1320,7 +1401,6 @@ export class SubtitleEngine {
                     filter: blur(0px) saturate(1);
                     opacity: 1;
                     background: rgba(10, 15, 30, var(--lf-bg-opacity, 0.78));
-                    transform: scale(1.02);
                 }
                 /* Palavras clicáveis */
                 .lf-word {
@@ -1350,6 +1430,7 @@ export class SubtitleEngine {
                     padding-bottom: 1px;
                     border-radius: 4px;
                 }
+                ${expressionKindCss('')}
                 .lf-new      { color: #FFF; } /* branco — nunca vista */
 
                 /* Botão de tradução rápida */
@@ -1428,7 +1509,7 @@ export class SubtitleEngine {
             <div class="lf-wrap" id="lf-wrap" data-subtitle-mode="native">
                 <div class="lf-orig-row">
                     <div class="lf-orig" id="lf-orig"></div>
-                    <button class="lf-translate-btn" id="lf-translate-btn" style="display:none;" title="Traduzir frase">
+                    <button class="lf-translate-btn" id="lf-translate-btn" type="button" style="display:none;" title="Traduzir frase" aria-label="Traduzir frase">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"></path><path d="m4 14 6-6 2-3"></path><path d="M2 5h12"></path><path d="M7 2h1"></path><path d="m22 22-5-10-5 10"></path><path d="M14 18h6"></path></svg>
                     </button>
                 </div>
@@ -1436,10 +1517,12 @@ export class SubtitleEngine {
                     <span id="lf-trans-txt"></span>
                 </div>
             </div>
+            <p class="lf-notice" id="lf-notice" role="status" aria-live="polite" hidden></p>
         `;
 
     // Aplica as cores carregadas
     this._updateSubtitleColors();
+    this._applyExpressionMarks();
 
     // Auto-pause video on hover (Language Reactor feature) e Arrastar Legenda
     const wrap = this.shadowContainer.getElementById('lf-wrap');
@@ -1529,7 +1612,7 @@ export class SubtitleEngine {
         } else if (cue?.text) {
           const navigation = this._navigationSnapshot();
           // Traduz agora
-          translateBtn.textContent = '⏳';
+          translateBtn.setAttribute('aria-busy', 'true');
           translateBtn.disabled = true;
           try {
             const { translator } = await import('../utils/translator.js');
@@ -1540,7 +1623,7 @@ export class SubtitleEngine {
             this._showTranslationFlash(result.translation);
           } catch {}
           if (this._isNavigationCurrent(navigation) && translateBtn.isConnected) {
-            translateBtn.textContent = '🌐 Traduzir';
+            translateBtn.removeAttribute('aria-busy');
             translateBtn.disabled = false;
           }
         }
@@ -2156,15 +2239,7 @@ export class SubtitleEngine {
       }
       updateResponsive();
 
-      const curRate = this._readPlaybackRate();
-      this._setPlaybackRate(curRate, { persist: false });
-      if (this.videoElement && !this._videoRateBound) {
-        this._videoRateBound = true;
-        this.videoElement.addEventListener('ratechange', () => {
-          const r = Number(this.videoElement?.playbackRate);
-          if (Number.isFinite(r) && r > 0) this._updateSpeedButtons(r);
-        });
-      }
+      this._bindVideoPlaybackRate();
 
       this.toggleSubtitles(isSubVisible);
       return true;
@@ -2499,6 +2574,36 @@ export class SubtitleEngine {
     }
   }
 
+  _handleCaptionAvailability({ videoId, available } = {}) {
+    let currentId = '';
+    try { currentId = new URL(window.location.href).searchParams.get('v') || ''; } catch {}
+    if (!videoId || videoId !== currentId) return;
+    if (available || this.cues?.length) {
+      this._setCaptionNotice('');
+      return;
+    }
+    const code = String(this.sourceLang || 'en').split('-')[0];
+    let language = code;
+    try { language = new Intl.DisplayNames(['pt-BR'], { type: 'language' }).of(code) || code; } catch {}
+    this._setCaptionNotice(`Este vídeo não tem legenda em ${language}.`);
+    // Confirmado sem legenda: o roteiro para de mostrar o esqueleto de carregando.
+    this._captionsPendingSince = 0;
+    if (typeof document !== 'undefined' && document.getElementById?.('lf-subtitle-list')) this._rebuildSubtitleList();
+  }
+
+  _setCaptionNotice(message) {
+    const notice = this.shadowContainer?.getElementById?.('lf-notice');
+    if (!notice) return;
+    if (this._captionNoticeTimer) {
+      clearTimeout(this._captionNoticeTimer);
+      this._captionNoticeTimer = null;
+    }
+    notice.textContent = message;
+    notice.hidden = !message;
+    // Status, not a permanent banner: announced once, then out of the way.
+    if (message) this._captionNoticeTimer = setTimeout(() => this._setCaptionNotice(''), 6000);
+  }
+
   _readPlaybackRate() {
     try {
       const saved = Number(globalThis.localStorage?.getItem('lf_video_playback_rate'));
@@ -2506,6 +2611,22 @@ export class SubtitleEngine {
     } catch {
       return 1;
     }
+  }
+
+  _bindVideoPlaybackRate() {
+    const video = this.videoElement;
+    this._setPlaybackRate(this._readPlaybackRate(), { persist: false });
+    if (!video || this._rateBoundVideo === video) return;
+    this._rateBoundVideo = video;
+    video.addEventListener('ratechange', () => {
+      const r = Number(video.playbackRate);
+      if (Number.isFinite(r) && r > 0) this._updateSpeedButtons(r);
+    });
+    // Loading media resets playbackRate to defaultPlaybackRate without a ratechange.
+    video.addEventListener('loadedmetadata', () => {
+      if (this.videoElement !== video) return;
+      this._setPlaybackRate(this._readPlaybackRate(), { persist: false });
+    });
   }
 
   _setPlaybackRate(rate, { persist = true } = {}) {
@@ -2729,6 +2850,7 @@ export class SubtitleEngine {
     if (existing) return;
 
     const panelTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    this._wordsDeckLoaded = false;
 
     const wrapper = document.createElement('div');
     wrapper.id = 'lf-subtitle-panel-wrapper';
@@ -2744,22 +2866,12 @@ export class SubtitleEngine {
             pointer-events: none;
         `;
 
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
-            position: absolute;
-            inset: 0;
-            background: rgba(0,0,0,0.4);
-            backdrop-filter: blur(2px);
-            pointer-events: auto;
-            opacity: 0;
-            transition: opacity 0.3s;
-        `;
-
+    // Painel não-modal: o vídeo continua visível e interativo enquanto o
+    // roteiro acompanha a fala (sem escurecer nem desfocar a página).
     const panel = document.createElement('div');
     panel.id = 'lf-subtitle-panel';
     panel.className = this.uiTheme === 'dark' ? 'theme-dark' : 'theme-light';
-    panel.setAttribute('role', 'dialog');
-    panel.setAttribute('aria-modal', 'true');
+    panel.setAttribute('role', 'complementary');
     panel.setAttribute('aria-labelledby', 'lf-panel-heading');
     panel.style.cssText = `
             width: 420px;
@@ -2793,7 +2905,153 @@ export class SubtitleEngine {
             #lf-subtitle-panel .lf-learning { color: #FBBF24; text-decoration: underline dashed; }
             #lf-subtitle-panel .lf-saved { color: #93C5FD; text-decoration: underline dashed; }
             #lf-subtitle-panel .lf-expression { border-bottom: 2px dotted rgba(56, 189, 248, 0.6); }
-            #lf-subtitle-panel .lf-new { color: #f8fafc; }
+            ${expressionKindCss('#lf-subtitle-panel ')}
+            #lf-subtitle-panel .lf-new { color: inherit; }
+            #lf-subtitle-panel.theme-light .lf-known { color: #15803d; }
+            #lf-subtitle-panel.theme-light .lf-mature { color: #047857; }
+            #lf-subtitle-panel.theme-light .lf-review { color: #0369a1; }
+            #lf-subtitle-panel.theme-light .lf-learning { color: #b45309; }
+            #lf-subtitle-panel.theme-light .lf-saved { color: #1d4ed8; }
+            #lf-subtitle-panel.theme-light .lf-word:hover { color: #92400e !important; background: rgba(217, 119, 6, 0.12); }
+            #lf-subtitle-panel .lf-sub-text { margin: 0; }
+            #lf-subtitle-panel .lf-search-hit { background: rgba(251, 191, 36, 0.35); color: inherit; border-radius: 3px; padding: 0 1px; }
+            #lf-subtitle-panel .lf-play-cue {
+                background: transparent; border: none; padding: 2px 4px; margin: 0; cursor: pointer;
+                font: inherit; font-size: 11px; font-weight: 700; color: inherit; border-radius: 4px;
+                flex-shrink: 0; min-width: 40px; text-align: left;
+            }
+            #lf-subtitle-panel .lf-play-cue:focus-visible,
+            #lf-subtitle-panel .lf-loop-cue:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+            #lf-subtitle-panel .lf-skeleton-row { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+            #lf-subtitle-panel .lf-skeleton-bar { height: 12px; border-radius: 4px; background: rgba(148, 163, 184, 0.22); }
+            #lf-subtitle-panel .lf-skeleton-bar.short { width: 55%; }
+            #lf-subtitle-panel .lf-cue-actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+            #lf-subtitle-panel .lf-explain-cue { font: inherit; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; cursor: pointer; background: transparent; border: 1px solid rgba(148,163,184,0.45); color: inherit; }
+            #lf-subtitle-panel .lf-explain-cue[aria-expanded="true"] { border-color: #38bdf8; color: #7dd3fc; }
+            #lf-subtitle-panel .lf-explain-cue:disabled { opacity: 0.6; cursor: progress; }
+            #lf-subtitle-panel .lf-explain-cue:focus-visible,
+            #lf-subtitle-panel .lf-line-explain-retry:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+            #lf-subtitle-panel .lf-line-explain { margin: 6px 0 0 48px; padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(148,163,184,0.3); font-size: 13px; line-height: 1.45; display: flex; flex-direction: column; gap: 6px; cursor: default; }
+            #lf-subtitle-panel .lf-line-explain[hidden] { display: none; }
+            #lf-subtitle-panel .lf-line-explain p, #lf-subtitle-panel .lf-line-explain ul { margin: 0; }
+            #lf-subtitle-panel .lf-line-explain ul { padding-left: 18px; }
+            #lf-subtitle-panel .lf-line-explain-label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.75; }
+            #lf-subtitle-panel .lf-line-explain-note { font-size: 11px; opacity: 0.7; }
+            #lf-subtitle-panel .lf-line-explain-error { color: #fca5a5; }
+            #lf-subtitle-panel.theme-light .lf-line-explain-error { color: #b91c1c; }
+            #lf-subtitle-panel.theme-light .lf-explain-cue[aria-expanded="true"] { border-color: #0369a1; color: #0369a1; }
+            #lf-subtitle-panel .lf-line-explain-retry { align-self: flex-start; font: inherit; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 6px; cursor: pointer; background: transparent; border: 1px solid currentColor; color: inherit; }
+
+            /* --- Aba Palavras e explorador (tema escuro padrão) --- */
+            #lf-subtitle-panel .lf-words-card { background: rgba(255,255,255,0.04); border: 1px solid #384352; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+            #lf-subtitle-panel .lf-words-score { margin: 0 0 8px; font-size: 13px; line-height: 1.4; color: #cbd5e1; }
+            #lf-subtitle-panel .lf-words-score strong { font-size: 22px; color: #f1f5f9; margin-right: 4px; }
+            #lf-subtitle-panel .lf-words-score-empty { margin: 0 0 8px; font-size: 13px; line-height: 1.4; color: #cbd5e1; }
+            #lf-subtitle-panel .lf-words-bar { height: 6px; border-radius: 6px; background: rgba(255,255,255,0.08); overflow: hidden; margin-bottom: 10px; }
+            #lf-subtitle-panel .lf-words-bar span { display: block; height: 100%; background: #34d399; }
+            #lf-subtitle-panel .lf-words-counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; }
+            #lf-subtitle-panel .lf-words-counts div { display: flex; flex-direction: column-reverse; }
+            #lf-subtitle-panel .lf-words-counts dt { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; font-weight: 700; }
+            #lf-subtitle-panel .lf-words-counts dd { margin: 0; font-size: 18px; font-weight: 800; color: #f1f5f9; }
+            #lf-subtitle-panel .lf-words-status { margin: 0 0 8px; min-height: 16px; font-size: 12px; color: #94a3b8; }
+            #lf-subtitle-panel .lf-words-empty { text-align: center; color: #94a3b8; font-size: 13px; padding: 30px 15px; margin: 0; }
+            #lf-subtitle-panel .lf-words-nav { display: flex; gap: 6px; margin-bottom: 14px; padding: 4px; border-radius: 10px; border: 1px solid #384352; }
+            #lf-subtitle-panel .lf-words-nav-btn { flex: 1; padding: 7px 8px; border-radius: 8px; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid transparent; background: transparent; color: #94a3b8; white-space: nowrap; }
+            #lf-subtitle-panel .lf-words-nav-btn[aria-pressed="true"] { border-color: currentColor; background: rgba(56,189,248,0.12); color: #7dd3fc; }
+            #lf-subtitle-panel .lf-keywords-title { margin: 4px 0 4px; font-size: 13px; font-weight: 800; color: #f1f5f9; }
+            #lf-subtitle-panel .lf-keywords-hint { margin: 0 0 8px; font-size: 12px; color: #94a3b8; }
+            #lf-subtitle-panel .lf-keywords-list { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+            #lf-subtitle-panel .lf-keyword { display: flex; align-items: center; gap: 6px; }
+            #lf-subtitle-panel .lf-keyword .lf-chip { flex: 1; text-align: left; }
+            #lf-subtitle-panel .lf-keyword-action { font: inherit; font-size: 11px; font-weight: 700; padding: 5px 9px; border-radius: 8px; cursor: pointer; background: transparent; border: 1px solid #475569; color: #cbd5e1; }
+            #lf-subtitle-panel .lf-keyword-action:disabled { opacity: 0.6; cursor: progress; }
+            #lf-subtitle-panel .lf-chip-grid { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 2px 12px; }
+            #lf-subtitle-panel .lf-chip { font: inherit; font-size: 12px; font-weight: 700; padding: 5px 11px; border-radius: 999px; cursor: pointer; border: 1px solid rgba(148,163,184,0.35); background: rgba(255,255,255,0.04); color: #cbd5e1; transition: background-color 0.12s, border-color 0.12s; }
+            #lf-subtitle-panel .lf-chip:hover { background: rgba(255,255,255,0.1); }
+            #lf-subtitle-panel .lf-chip-phrasal { color: #f9a8d4; border-color: rgba(244,114,182,0.4); }
+            #lf-subtitle-panel .lf-chip-slang { color: #fdba74; border-color: rgba(251,146,60,0.4); }
+            #lf-subtitle-panel .lf-chip-status-known { color: #86efac; border-color: rgba(134,239,172,0.35); }
+            #lf-subtitle-panel .lf-chip-status-mature { color: #34d399; border-color: rgba(52,211,153,0.35); }
+            #lf-subtitle-panel .lf-chip-status-review { color: #7dd3fc; border-color: rgba(125,211,252,0.35); }
+            #lf-subtitle-panel .lf-chip-status-learning { color: #fbbf24; border-color: rgba(251,191,36,0.35); }
+            #lf-subtitle-panel .lf-chip-status-new { color: #93c5fd; border-color: rgba(147,197,253,0.35); }
+            #lf-subtitle-panel .lf-band { margin-bottom: 8px; }
+            #lf-subtitle-panel .lf-band-header { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; border-radius: 7px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 700; background: rgba(255,255,255,0.05); border: none; border-left: 3px solid #94a3b8; color: #cbd5e1; margin-bottom: 6px; }
+            #lf-subtitle-panel .lf-band-top1k { border-left-color: #fbbf24; }
+            #lf-subtitle-panel .lf-band-top2k { border-left-color: #fb923c; }
+            #lf-subtitle-panel .lf-band-top3k { border-left-color: #38bdf8; }
+            #lf-subtitle-panel .lf-band-count { font-weight: 600; color: #94a3b8; }
+            #lf-subtitle-panel .lf-words-nav-btn:focus-visible,
+            #lf-subtitle-panel .lf-chip:focus-visible,
+            #lf-subtitle-panel .lf-keyword-action:focus-visible,
+            #lf-subtitle-panel .lf-band-header:focus-visible,
+            #lf-subtitle-panel .lf-se-btn:focus-visible,
+            #lf-subtitle-panel .lf-se-time-btn:focus-visible,
+            #lf-subtitle-panel .lf-se-loop-btn:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+            #lf-subtitle-panel .lf-se-header { padding: 14px 16px; border-bottom: 1px solid #384352; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; }
+            #lf-subtitle-panel .lf-se-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+            #lf-subtitle-panel .lf-se-title-row { align-items: baseline; }
+            #lf-subtitle-panel .lf-se-term { margin: 0; font-size: 18px; font-weight: 800; color: #f8fafc; }
+            #lf-subtitle-panel .lf-se-count { font-size: 11px; color: #94a3b8; font-weight: 600; }
+            #lf-subtitle-panel .lf-se-exports .lf-se-btn { flex: 1; justify-content: center; }
+            #lf-subtitle-panel .lf-se-btn { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 8px; cursor: pointer; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); color: #e2e8f0; }
+            #lf-subtitle-panel .lf-se-btn-accent { color: #7dd3fc; border-color: rgba(56,189,248,0.4); }
+            #lf-subtitle-panel .lf-se-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 3px 8px; border-radius: 6px; border: 1px solid currentColor; color: #7dd3fc; }
+            #lf-subtitle-panel .lf-se-list { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; scrollbar-width: thin; }
+            #lf-subtitle-panel .lf-sentence-card { border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+            #lf-subtitle-panel .lf-sentence-card.is-looping { border-color: #38bdf8; background: rgba(2,132,199,0.2); }
+            #lf-subtitle-panel .lf-se-time-btn { font: inherit; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; border: none; cursor: pointer; background: rgba(56,189,248,0.12); color: #7dd3fc; }
+            #lf-subtitle-panel .lf-se-loop-btn { font-size: 12px; padding: 2px 6px; border-radius: 4px; border: none; cursor: pointer; background: rgba(255,255,255,0.06); color: #94a3b8; }
+            #lf-subtitle-panel .lf-se-text { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.4; color: #f1f5f9; }
+            #lf-subtitle-panel .lf-se-trans-line { margin: 0; font-size: 12.5px; font-weight: 600; line-height: 1.4; color: #94a3b8; }
+            #lf-subtitle-panel .lf-se-pending { opacity: 0.7; font-style: italic; }
+            #lf-subtitle-panel .lf-term-hit { background: rgba(56,189,248,0.18); color: inherit; padding: 0 3px; border-radius: 3px; font-weight: 800; border: none; }
+            #lf-subtitle-panel .lf-term-hit.lf-chip-phrasal { background: rgba(244,114,182,0.2); }
+            #lf-subtitle-panel .lf-term-hit.lf-chip-slang { background: rgba(251,146,60,0.22); }
+
+            /* --- Tema claro --- */
+            #lf-subtitle-panel.theme-light .lf-words-card { background: #ffffff; border-color: #dddfdf; }
+            #lf-subtitle-panel.theme-light .lf-words-score,
+            #lf-subtitle-panel.theme-light .lf-words-score-empty,
+            #lf-subtitle-panel.theme-light .lf-keyword-action,
+            #lf-subtitle-panel.theme-light .lf-chip,
+            #lf-subtitle-panel.theme-light .lf-band-header { color: #334155; }
+            #lf-subtitle-panel.theme-light .lf-words-score strong,
+            #lf-subtitle-panel.theme-light .lf-words-counts dd,
+            #lf-subtitle-panel.theme-light .lf-keywords-title,
+            #lf-subtitle-panel.theme-light .lf-se-term,
+            #lf-subtitle-panel.theme-light .lf-se-text { color: #162338; }
+            #lf-subtitle-panel.theme-light .lf-words-counts dt,
+            #lf-subtitle-panel.theme-light .lf-words-status,
+            #lf-subtitle-panel.theme-light .lf-words-empty,
+            #lf-subtitle-panel.theme-light .lf-keywords-hint,
+            #lf-subtitle-panel.theme-light .lf-band-count,
+            #lf-subtitle-panel.theme-light .lf-se-count,
+            #lf-subtitle-panel.theme-light .lf-se-trans-line,
+            #lf-subtitle-panel.theme-light .lf-se-loop-btn { color: #5b6472; }
+            #lf-subtitle-panel.theme-light .lf-words-bar { background: #e5e7eb; }
+            #lf-subtitle-panel.theme-light .lf-words-bar span { background: #047857; }
+            #lf-subtitle-panel.theme-light .lf-words-nav { border-color: #dddfdf; }
+            #lf-subtitle-panel.theme-light .lf-words-nav-btn { color: #5b6472; }
+            #lf-subtitle-panel.theme-light .lf-words-nav-btn[aria-pressed="true"] { color: #0369a1; background: rgba(3,105,161,0.08); }
+            #lf-subtitle-panel.theme-light .lf-chip,
+            #lf-subtitle-panel.theme-light .lf-keyword-action { background: #ffffff; border-color: #cbd5e1; }
+            #lf-subtitle-panel.theme-light .lf-chip:hover { background: #f3f2ef; }
+            #lf-subtitle-panel.theme-light .lf-chip-phrasal { color: #be185d; border-color: rgba(190,24,93,0.35); }
+            #lf-subtitle-panel.theme-light .lf-chip-slang { color: #c2410c; border-color: rgba(194,65,12,0.35); }
+            #lf-subtitle-panel.theme-light .lf-chip-status-known { color: #15803d; }
+            #lf-subtitle-panel.theme-light .lf-chip-status-mature { color: #047857; }
+            #lf-subtitle-panel.theme-light .lf-chip-status-review { color: #0369a1; }
+            #lf-subtitle-panel.theme-light .lf-chip-status-learning { color: #b45309; }
+            #lf-subtitle-panel.theme-light .lf-chip-status-new { color: #1d4ed8; }
+            #lf-subtitle-panel.theme-light .lf-band-header { background: #f3f2ef; }
+            #lf-subtitle-panel.theme-light .lf-se-header { border-bottom-color: #dddfdf; }
+            #lf-subtitle-panel.theme-light .lf-se-btn { background: #ffffff; border-color: #cbd5e1; color: #334155; }
+            #lf-subtitle-panel.theme-light .lf-se-btn-accent,
+            #lf-subtitle-panel.theme-light .lf-se-badge,
+            #lf-subtitle-panel.theme-light .lf-se-time-btn { color: #0369a1; }
+            #lf-subtitle-panel.theme-light .lf-sentence-card { background: #ffffff; border-color: #dddfdf; }
+            #lf-subtitle-panel.theme-light .lf-se-loop-btn { background: #f3f2ef; }
 
             #lf-subtitle-panel .lf-subtitle-item.active {
                 background: rgba(166, 190, 255, 0.12) !important;
@@ -2805,7 +3063,6 @@ export class SubtitleEngine {
                 background: rgba(2, 132, 199, 0.28) !important;
                 border-left-color: #38bdf8 !important;
                 border-left-width: 4px !important;
-                transform: scale(1.02);
                 z-index: 12;
                 box-shadow: inset 0 0 16px rgba(56, 189, 248, 0.3), 0 4px 14px rgba(0, 0, 0, 0.4) !important;
             }
@@ -2820,11 +3077,6 @@ export class SubtitleEngine {
                 border-radius: 6px !important;
                 box-shadow: 0 0 10px rgba(56, 189, 248, 0.85) !important;
                 padding: 2px 6px !important;
-                animation: lf-loop-pulse 2s infinite ease-in-out;
-            }
-            @keyframes lf-loop-pulse {
-                0%, 100% { box-shadow: 0 0 8px rgba(56, 189, 248, 0.6); }
-                50% { box-shadow: 0 0 16px rgba(56, 189, 248, 1); transform: scale(1.08); }
             }
             #lf-subtitle-panel .lf-subtitle-item {
                 transition: background-color 0.14s, border-color 0.14s;
@@ -2886,7 +3138,13 @@ export class SubtitleEngine {
             #lf-subtitle-panel.theme-light .lf-subtitle-item:not(.active):hover { background: #f3f2ef !important; }
             #lf-subtitle-panel.theme-dark .lf-subtitle-item:not(.active):hover { background: #202733 !important; }
             
-            #lf-subtitle-panel.theme-light .lf-time { color: #afafaf; }
+            #lf-subtitle-panel.theme-light .lf-time { color: #6b7280; }
+            #lf-subtitle-panel.theme-light .lf-tab-btn.active { color: #2052c4 !important; border-bottom-color: #2052c4 !important; }
+            #lf-subtitle-panel.theme-light .lf-tab-btn:not(.active) { color: #6b7280 !important; }
+            #lf-subtitle-panel.theme-light #lf-export-pdf,
+            #lf-subtitle-panel.theme-light #lf-export-csv { color: #475569 !important; border-color: #cbd5e1 !important; }
+            #lf-subtitle-panel.theme-light #lf-export-anki,
+            #lf-subtitle-panel.theme-light #lf-follow-btn { color: #0369a1 !important; }
             #lf-subtitle-panel.theme-dark .lf-time { color: #64748B; }
             
             #lf-subtitle-panel.theme-light .lf-trans-text { color: #2052c4; }
@@ -2897,13 +3155,11 @@ export class SubtitleEngine {
         `;
     panel.appendChild(panelStyle);
 
-    wrapper.appendChild(overlay);
     wrapper.appendChild(panel);
     document.body.appendChild(wrapper);
 
     // Animação de entrada
     requestAnimationFrame(() => {
-      overlay.style.opacity = '1';
       panel.style.transform = 'translateX(0)';
     });
 
@@ -2911,15 +3167,12 @@ export class SubtitleEngine {
     const closePanel = () => {
       if (panelAbort.signal.aborted) return;
       panelAbort.abort();
-      overlay.style.opacity = '0';
       panel.style.transform = 'translateX(100%)';
       setTimeout(() => {
         wrapper.remove();
         if (panelTrigger && document.contains(panelTrigger)) panelTrigger.focus({ preventScroll: true });
       }, 300);
     };
-
-    overlay.onclick = closePanel;
 
     const header = document.createElement('div');
     header.className = 'lf-panel-header';
@@ -2932,11 +3185,14 @@ export class SubtitleEngine {
             <button id="lf-close-panel" class="lf-close-btn" aria-label="Fechar roteiro do vídeo" style="background:transparent;border:none;width:40px;height:40px;border-radius:8px;cursor:pointer;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;transition:0.2s;">✕</button>
         `;
 
-    const listeningControls = document.createElement('div');
+    // Recolhido por padrão (o seletor aberto poluía o painel), mas alcançável:
+    // é a única forma de corrigir um vídeo dublado nas horas de escuta.
+    const listeningControls = document.createElement('details');
     listeningControls.id = 'lf-listening-controls';
-    listeningControls.style.cssText = 'display:none;';
-    listeningControls.innerHTML = `<p id="lf-listening-status" role="status">Idioma não confirmado</p>
-      <label>Idioma do áudio deste vídeo <select id="lf-listening-language" aria-label="Idioma do áudio deste vídeo">
+    listeningControls.className = 'lf-listening-controls';
+    listeningControls.style.cssText = 'padding:8px 24px;font-size:12px;flex-shrink:0;';
+    listeningControls.innerHTML = `<summary style="cursor:pointer;">Áudio: <span id="lf-listening-status">Idioma não confirmado</span> · corrigir</summary>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:8px;">Idioma do áudio deste vídeo <select id="lf-listening-language">
       <option value="">Não confirmado</option><option value="en">Inglês</option><option value="pt">Português</option><option value="es">Espanhol</option><option value="fr">Francês</option><option value="de">Alemão</option><option value="it">Italiano</option><option value="ja">Japonês</option><option value="ko">Coreano</option></select></label>
       <p style="margin:6px 0 0;font-size:11px;">Detectamos a faixa de áudio ou estimamos o idioma pela legenda automática original. Legendas manuais ou traduzidas não confirmam o áudio. Se estiver dublado, corrija aqui.</p>`;
     listeningControls.querySelector('select').value = this._listeningLanguage || '';
@@ -3057,10 +3313,10 @@ export class SubtitleEngine {
       }
     }, { passive: true });
 
-    this._rebuildSubtitleList(list);
-
     subtitlePane.appendChild(toolbar);
     subtitlePane.appendChild(list);
+    // Depois de anexar: o status "N trechos" fica na toolbar irmã da lista.
+    this._rebuildSubtitleList(list);
 
     // ── Painel Words (Frequência, Phrasal Verbs e Gírias) ─────────────────
     const wordsPane = document.createElement('div');
@@ -3078,11 +3334,12 @@ export class SubtitleEngine {
     const sentenceExplorer = document.createElement('div');
     sentenceExplorer.id = 'lf-sentence-explorer';
     sentenceExplorer.style.cssText =
-      'flex:1;display:none;flex-direction:column;overflow:hidden;background:#0f172a;';
+      'flex:1;display:none;flex-direction:column;overflow:hidden;';
 
     wordsPane.appendChild(wordsScroll);
     wordsPane.appendChild(sentenceExplorer);
     this._rebuildWordsList(wordsScroll);
+    this._applyExpressionMarks();
 
     // ── Monta painel ──────────────────────────────────────────────────────
     panel.appendChild(header);
@@ -3174,8 +3431,10 @@ export class SubtitleEngine {
       this._updateSubtitlePanelHighlight(true);
     };
 
+    // Não-modal: Esc só fecha com o foco no painel; fora dele, Esc continua
+    // sendo do player (ex.: sair da tela cheia).
     const closeWithEscape = (event) => {
-      if (event.key === 'Escape') closePanel();
+      if (event.key === 'Escape' && panel.contains(document.activeElement)) closePanel();
     };
     document.addEventListener('keydown', closeWithEscape, { signal: panelAbort.signal });
     closeBtn.focus({ preventScroll: true });
@@ -3436,16 +3695,8 @@ export class SubtitleEngine {
           (this.translationAnticipation || 0);
         // Loop legado unificado com o motor de elite
         const cuesToSearch = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
-        const idx = this._binarySearchCue(cuesToSearch, t);
-        let cue = idx !== -1 ? cuesToSearch[idx] : null;
-        if (cue) {
-          const text = cue.text || '';
-          const words = text.split(/\s+/).filter(Boolean).length;
-          const maxDur = Math.min(8.0, Math.max(3.5, 2.0 + Math.max(words * 0.45, text.length * 0.08)));
-          if (t > cue.start + maxDur) {
-            cue = null;
-          }
-        }
+        const idx = findActiveCueIndex(cuesToSearch, t);
+        const cue = idx !== -1 ? cuesToSearch[idx] : null;
 
         if (cue && cue !== this._currentCue) {
           this.lastText = cue.text;
@@ -3658,17 +3909,22 @@ export class SubtitleEngine {
   }
 
   // ── Atualização via DOM (Netflix/etc) ─────────────────────────────────────
-  async _onDomSubtitleUpdate(text, timeMs) {
+  async _onDomSubtitleUpdate(text, timeSec) {
     const navigation = this._navigationSnapshot();
     const subtitleEpoch = ++this._domSubtitleEpoch;
     if (!this._isNavigationCurrent(navigation)) return;
     if (!text) {
+      closeDomCue(this.cues, timeSec);
       this.renderDual('', '');
       return;
     }
 
-    const cue = { start: timeMs, end: timeMs + 8000, text };
-    this.cues.push(cue);
+    const cue = recordDomCue(this.cues, text, timeSec);
+    this._currentCue = cue;
+    if (cue.translatedText) {
+      this.renderDual(text, cue.translatedText);
+      return;
+    }
 
     // Mostra original imediatamente
     this.renderDual(text, '');
@@ -3703,6 +3959,7 @@ export class SubtitleEngine {
 
     let lastSyncPulse = Date.now();
     let lastVideoTime = -1;
+    let playbackTime = Number.NaN;
 
     const loop = (now, metadata) => {
       try {
@@ -3717,6 +3974,8 @@ export class SubtitleEngine {
 
         // SINCRONIA ROBUSTA
         let t = v.currentTime;
+        const previousTime = playbackTime;
+        playbackTime = t;
 
         // Verificação de Popup: Se estiver aberto e não estiver fechando, pausa o vídeo e mantém a legenda
         const isPopupOpen =
@@ -3743,6 +4002,7 @@ export class SubtitleEngine {
               this._onDomSubtitleUpdate(text, t);
             } else if (!text && this.lastText) {
               this.lastText = '';
+              closeDomCue(this.cues, t);
               this.renderDual('', '');
             }
           }
@@ -3756,21 +4016,26 @@ export class SubtitleEngine {
           // Sincronia com Legenda Nativa (YouTube)
           if (this.platform === 'youtube') this._syncYouTubeNativeCaptions();
 
-          // Encontra a cue ativa (com duração máxima de segurança para evitar legendas presas em silêncio ou música)
-          const activeCues = cuesToSearch.filter((c) => {
-            const text = c.text || '';
-            const words = text.split(/\s+/).filter(Boolean).length;
-            const maxDur = Math.min(8.0, Math.max(3.5, 2.0 + Math.max(words * 0.45, text.length * 0.08)));
-            const effectiveEnd = Math.min(c.end, c.start + maxDur);
-            return t >= c.start && t <= effectiveEnd;
-          });
-
-          let cue = null;
-          if (activeCues.length > 0) {
-            cue = activeCues.reduce((prev, current) =>
-              prev.text.length > current.text.length ? prev : current,
-            );
+          // Auto-Pause (Shadowing Mode): avaliada na fala exibida ANTES de trocar
+          // de cue, para pausar mesmo quando a próxima já começou ou o frame
+          // pulou a janela de tolerância. Só pausa uma vez por fim de cue.
+          const shownCue = this._currentCue;
+          if (
+            this.autoPause &&
+            !v.paused &&
+            shownCue &&
+            this._lastAutoPausedEndTime !== shownCue.end &&
+            crossedCueEnd(shownCue, previousTime, t)
+          ) {
+            v.pause();
+            this._showAutoPauseIndicator();
+            this._lastAutoPausedEndTime = shownCue.end;
+            this._continueLoop(loop, v);
+            return;
           }
+
+          const activeIdx = findActiveCueIndex(cuesToSearch, t);
+          const cue = activeIdx >= 0 ? cuesToSearch[activeIdx] : null;
 
           if (cue && cue !== this._currentCue) {
             this._lastAutoPausedEndTime = -1;
@@ -3781,15 +4046,6 @@ export class SubtitleEngine {
             this.lastText = '';
             this._currentCue = null;
             this.renderDual('', '');
-          }
-
-          // Auto-Pause (Shadowing Mode)
-          // Só pausa se o fim desta cue específica ainda não foi pausado, permitindo que o usuário dê Play/Espaço e continue
-          if (this.autoPause && !v.paused && cue && t >= cue.end - 0.05 && this._lastAutoPausedEndTime !== cue.end) {
-            v.pause();
-            this._showAutoPauseIndicator();
-            this._lastAutoPausedEndTime = cue.end;
-            console.log(`[LinguaFlow] Auto-paused at ${cue.end}. _lastAutoPausedEndTime set.`);
           }
         }
 
@@ -3841,40 +4097,6 @@ export class SubtitleEngine {
     }, 3000);
 
     this._continueLoop(loop, this.videoElement || document.querySelector('video'));
-  }
-
-  _prefetchTranslations(cues, currentIdx) {
-    const navigation = this._navigationSnapshot();
-    const nextCues = cues
-      .slice(currentIdx + 1, currentIdx + 5)
-      .filter((c) => !c.translatedText && !c.isTranslating);
-    nextCues.forEach((c) => {
-      c.isTranslating = true;
-      if (!chrome?.runtime?.sendMessage) {
-        c.isTranslating = false;
-        return;
-      }
-      try {
-        chrome.runtime.sendMessage(
-          {
-            action: 'translate',
-            text: c.text,
-            from: this.sourceLang,
-            to: this.targetLang,
-          },
-          (res) => {
-            if (!this._isNavigationCurrent(navigation) || !this.cues.includes(c)) return;
-            if (res?.translation) {
-              c.translatedText = res.translation;
-              c._transLang = this.targetLang;
-            }
-            c.isTranslating = false;
-          },
-        );
-      } catch {
-        c.isTranslating = false;
-      }
-    });
   }
 
   _cleanSubtitleText(text) {
@@ -4031,7 +4253,6 @@ export class SubtitleEngine {
   // ── Motor de Renderização de Elite (onSubtitle) ──────────────────────────
   onSubtitle(cue) {
     if (!cue) return;
-    console.debug('[LinguaFlow] onSubtitle triggered:', cue.text.substring(0, 30) + '...');
     if (cue === this._currentCue) return;
     this._lastProcessedText = cue.text;
     this._currentCue = cue;
@@ -4055,10 +4276,6 @@ export class SubtitleEngine {
       next: nextText,
     };
 
-    // 1. Pre-renderização: Cria os spans clicáveis antes de mostrar
-    if (!cue._renderedNode) {
-      cue._renderedNode = this._makeClickable(cue.text);
-    }
     if (!cue._speechCadence) {
       cue._speechCadence = annotateCaptionSegment(cue);
     }
@@ -4111,10 +4328,7 @@ export class SubtitleEngine {
     }
     orig = this._cleanSubtitleText ? this._cleanSubtitleText(orig) : (orig || '');
     trans = this._cleanSubtitleText ? this._cleanSubtitleText(trans) : (trans || '');
-    console.debug('[LinguaFlow] renderDual called with:', {
-      orig: orig?.substring(0, 20),
-      trans: trans?.substring(0, 20),
-    });
+    if (orig) this._setCaptionNotice('');
     const wrap = this.shadowContainer.getElementById('lf-wrap');
     const origDiv = this.shadowContainer.getElementById('lf-orig');
     const transDiv = this.shadowContainer.getElementById('lf-trans');
@@ -4204,9 +4418,6 @@ export class SubtitleEngine {
       wrap.style.display = (isOrigVisible || isTransVisible) ? 'inline-flex' : 'none';
     }
 
-    console.debug(
-      `[LinguaFlow] Render: mode=${mode}, origDisplay=${origDiv.style.display}, transDisplay=${transDiv.style.display}`,
-    );
 
     // Mostra botão de tradução rápida apenas quando tradução está oculta e engine ligado
     const translateBtn = this.shadowContainer.getElementById('lf-translate-btn');
@@ -4222,76 +4433,40 @@ export class SubtitleEngine {
 
   _makeClickable(text, disableHoverPause = false) {
     const frag = document.createDocumentFragment();
-
-    // Normaliza entidades HTML de apostrofo antes de tokenizar
-    const normalized = text
-      .replace(/&#39;/g, "'")
-      .replace(/&apos;/g, "'")
-      .replace(/\u2019/g, "'")
-      .replace(/\u2018/g, "'");
-
-    // Captura palavras e separadores mantendo a ordem original.
-    const tokens = Array.from(
-      normalized.matchAll(/[a-zA-Z\u00C0-\u024F']+|[^a-zA-Z\u00C0-\u024F']+/g),
-      (m) => m[0],
-    );
-
-    const isWord = (token) => /[a-zA-Z\u00C0-\u024F]/.test(token);
-    const cleanWord = (token) => token.toLowerCase().replace(/^'+|'+$/g, '');
-    const maxExpressionWords = this._getMaxExpressionWords();
-
-    for (let i = 0; i < tokens.length; i++) {
-      const token = tokens[i];
-
-      // Se for pontuação ou espaço, apenas adiciona
-      if (!isWord(token)) {
-        frag.appendChild(document.createTextNode(token));
+    for (const segment of segmentSubtitle(text, this._getMaxExpressionWords())) {
+      if (!segment.isWord) {
+        frag.appendChild(document.createTextNode(segment.text));
         continue;
       }
-
-      // --- DETECÇÃO DE EXPRESSÕES ---
-      // Olha para as próximas palavras ignorando espaços/pontuação e escolhe
-      // o maior bloco conhecido. Assim clicar em "put" dentro de "put up with"
-      // abre "put up with", não "put".
-      let longestMatch = null;
-      let longestCanonical = null;
-      let matchEndTokenIndex = i;
-      let seenWords = [];
-
-      for (let j = i; j < tokens.length && seenWords.length < maxExpressionWords; j++) {
-        if (!isWord(tokens[j])) continue;
-        seenWords.push(cleanWord(tokens[j]));
-
-        if (seenWords.length < 2) continue;
-
-        const exprMatch = matchExpressionCandidate(seenWords);
-        if (exprMatch) {
-          longestMatch = exprMatch.matched;
-          longestCanonical = exprMatch.canonical;
-          matchEndTokenIndex = j;
-        } else {
-          const candidate = seenWords.join(' ');
-          if (expressionsDB.has(candidate)) {
-            longestMatch = candidate;
-            longestCanonical = candidate;
-            matchEndTokenIndex = j;
-          }
-        }
-      }
-
-      if (longestMatch) {
-        const matchText = tokens.slice(i, matchEndTokenIndex + 1).join('');
-        const span = this._createWordSpan(matchText, true, disableHoverPause);
-        span.dataset.expression = longestCanonical || longestMatch;
-        frag.appendChild(span);
-        i = matchEndTokenIndex;
-      } else {
-        // Palavra isolada
-        const span = this._createWordSpan(token, false, disableHoverPause);
-        frag.appendChild(span);
-      }
+      const span = this._createWordSpan(segment.text, !!segment.expression, disableHoverPause);
+      if (segment.expression) this._decorateExpressionSpan(span, segment);
+      frag.appendChild(span);
     }
     return frag;
+  }
+
+  // Tipo, dica "soa como" e significado curto no próprio trecho: o estilo por
+  // tipo vem do CSS e o significado aparece no title (dica do navegador).
+  _decorateExpressionSpan(span, segment) {
+    span.dataset.expression = segment.expression;
+    span.dataset.kind = segment.kind || 'phrasal';
+    if (segment.hint) span.dataset.hint = segment.hint;
+    const label = EXPRESSION_KIND_LABELS[span.dataset.kind];
+    if (label) span.title = segment.meaning ? `${label}: ${segment.meaning}` : label;
+  }
+
+  _applyExpressionMarks() {
+    const marks = this.expressionMarks || DEFAULT_EXPRESSION_MARKS;
+    const targets = [
+      this.shadowContainer?.getElementById?.('lf-wrap'),
+      typeof document !== 'undefined' ? document.getElementById('lf-subtitle-panel') : null,
+    ].filter(Boolean);
+    for (const target of targets) {
+      for (const kind of EXPRESSION_KINDS) {
+        const hidden = marks[kind === 'contraction' ? 'reduction' : kind] === false;
+        target.classList?.toggle?.(`lf-hide-${kind}`, hidden);
+      }
+    }
   }
 
   _getMaxExpressionWords() {
@@ -4600,16 +4775,35 @@ export class SubtitleEngine {
 
     const previousScrollTop = typeof container.scrollTop === 'number' ? container.scrollTop : 0;
     container.innerHTML = '';
+    container._lastActiveIndex = undefined;
+    const status = container.parentElement?.querySelector?.('#lf-panel-search-status');
 
     if (!cues || cues.length === 0) {
+      const state = transcriptState({ cueCount: 0, pendingSince: this._captionsPendingSince });
+      if (state === 'loading') {
+        container.setAttribute?.('aria-busy', 'true');
+        container.innerHTML = Array.from({ length: 6 }, () =>
+          '<div class="lf-skeleton-row" aria-hidden="true"><div class="lf-skeleton-bar"></div><div class="lf-skeleton-bar short"></div></div>',
+        ).join('');
+        if (status) status.textContent = 'Carregando as legendas do vídeo…';
+        clearTimeout(this._transcriptWaitTimer);
+        const remaining = Math.max(0, CAPTION_WAIT_MS - (Date.now() - this._captionsPendingSince));
+        this._transcriptWaitTimer = setTimeout(() => this._rebuildSubtitleList(), remaining + 50);
+        return;
+      }
+      container.removeAttribute?.('aria-busy');
       container.innerHTML =
         '<div style="padding:40px 20px;text-align:center;color:#64748B;font-size:14px;">A faixa de legendas do idioma estudado não está disponível aqui. Confira as legendas originais no player.</div>';
+      if (status) status.textContent = 'Legenda indisponível neste vídeo.';
       return;
     }
+    container.removeAttribute?.('aria-busy');
 
     const showTrans = document.getElementById('lf-show-translation')?.checked ?? true;
     if (showTrans) this._translateAllSidebarCues(cues);
 
+    const normalizedFilter = String(filter || '').trim();
+    const needle = normalizedFilter.toLowerCase();
     let visibleCount = 0;
     cues.forEach((cue, idx) => {
       const cleanText = this._cleanSubtitleText ? this._cleanSubtitleText(cue.text) : (cue.text || '');
@@ -4617,26 +4811,24 @@ export class SubtitleEngine {
       const cleanTrans = cue.translatedText && this._cleanSubtitleText ? this._cleanSubtitleText(cue.translatedText) : (cue.translatedText || '');
 
       const matchesFilter =
-        !filter ||
-        cleanText.toLowerCase().includes(filter.toLowerCase()) ||
-        (cleanTrans && cleanTrans.toLowerCase().includes(filter.toLowerCase()));
+        !needle ||
+        cleanText.toLowerCase().includes(needle) ||
+        (cleanTrans && cleanTrans.toLowerCase().includes(needle));
 
       if (!matchesFilter) return;
       visibleCount += 1;
 
-      // Garante que o tempo está em segundos para formatar
-      const startTime = cue.start > 100000 ? cue.start / 1000 : cue.start;
+      const startTime = cue.start;
+      const time = this._formatTime(startTime);
 
+      // Sem role no item: a frase é lida como texto e as ações são botões
+      // irmãos (tocar / repetir), nunca aninhados.
       const item = document.createElement('div');
       item.className = 'lf-subtitle-item';
-      item.setAttribute('role', 'button');
-      item.setAttribute('tabindex', '0');
-      item.setAttribute('aria-label', `Ouvir trecho a partir de ${this._formatTime(startTime)}`);
       item.dataset.index = idx;
       item.style.cssText = `
                 padding: 12px 16px;
                 cursor: pointer;
-                transition: all 0.1s;
                 position: relative;
                 display: flex;
                 flex-direction: column;
@@ -4645,44 +4837,57 @@ export class SubtitleEngine {
 
       item.innerHTML = `
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
-                    <span class="lf-time lf-sub-time" style="font-size:11px;font-family:'Nunito',monospace;font-weight:700;flex-shrink:0;margin-top:3px;">${this._formatTime(startTime)}</span>
-                    <div class="lf-sub-text" style="flex:1;font-size:15px;line-height:1.4;font-weight:700;">${escapeHTML(cleanText)}</div>
-                    <div style="display:flex;gap:4px;">
-                        <button class="lf-loop-cue" title="Repetir frase" aria-label="Repetir frase" style="background:transparent;border:none;color:inherit;cursor:pointer;font-size:14px;padding:0 2px;">🔁</button>
+                    <button type="button" class="lf-time lf-sub-time lf-play-cue" aria-label="Tocar a partir de ${time}">${time}</button>
+                    <p class="lf-sub-text" style="flex:1;font-size:15px;line-height:1.4;font-weight:700;"></p>
+                    <div class="lf-cue-actions">
+                        <button type="button" class="lf-explain-cue" aria-expanded="false" aria-controls="lf-explain-${idx}" aria-label="Explicar a fala em ${time}">Explicar</button>
+                        <button type="button" class="lf-loop-cue" title="Repetir frase" aria-label="Repetir frase em ${time}" style="background:transparent;border:none;color:inherit;cursor:pointer;font-size:14px;padding:0 2px;">🔁</button>
                     </div>
                 </div>
-                <div class="lf-translation-text lf-trans-text" style="font-size:13px;padding-left:42px;font-weight:600;display:${showTrans ? 'block' : 'none'};">
-                    ${cleanTrans ? escapeHTML(cleanTrans) : '<span style="opacity:0.6;font-style:italic;">traduzindo...</span>'}
-                </div>
+                <p class="lf-translation-text lf-trans-text" style="margin:0;font-size:13px;padding-left:48px;font-weight:600;display:${showTrans ? 'block' : 'none'};">
+                    ${cleanTrans ? highlightMatches(cleanTrans, normalizedFilter) : '<span style="opacity:0.6;font-style:italic;">traduzindo...</span>'}
+                </p>
+                <div class="lf-line-explain" id="lf-explain-${idx}" aria-live="polite" hidden></div>
             `;
 
-      const playCue = (e) => {
+      const textEl = item.querySelector?.('.lf-sub-text');
+      if (textEl) this._renderTranscriptText(textEl, cleanText, normalizedFilter);
 
-        if (e.target.closest?.('.lf-loop-cue')) {
-          this._toggleCueLoop(idx, e.target);
-          return;
-        }
+      const playCue = () => {
         if (this.videoElement) {
           this.videoElement.currentTime = startTime;
           this.videoElement.play();
         }
       };
-      item.onclick = playCue;
-      item.onkeydown = (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          playCue(e);
+      item.onclick = (e) => {
+        if (e.target.closest?.('.lf-line-explain')) return;
+        const explainBtn = e.target.closest?.('.lf-explain-cue');
+        if (explainBtn) {
+          this._explainLine(idx, cue, item, explainBtn);
+          return;
         }
+        if (e.target.closest?.('.lf-loop-cue')) {
+          this._toggleCueLoop(idx, e.target);
+          return;
+        }
+        const word = e.target.closest?.('.lf-word');
+        if (word) {
+          e.stopPropagation();
+          this._openTranscriptWord(word, cleanText, cue);
+          return;
+        }
+        playCue();
       };
       container.appendChild(item);
     });
 
-    const status = container.parentElement?.querySelector('#lf-panel-search-status');
     if (status) {
-      const normalizedFilter = String(filter || '').trim();
       status.textContent = normalizedFilter
         ? `${visibleCount} ${visibleCount === 1 ? 'ocorrência encontrada' : 'ocorrências encontradas'}`
         : `${visibleCount} ${visibleCount === 1 ? 'trecho disponível' : 'trechos disponíveis'}`;
+    }
+    if (normalizedFilter && visibleCount === 0) {
+      container.innerHTML = `<div style="padding:32px 20px;text-align:center;color:#64748B;font-size:14px;">Nenhuma fala com "${escapeHTML(normalizedFilter)}".</div>`;
     }
 
     this._updateSubtitlePanelHighlight();
@@ -4690,6 +4895,125 @@ export class SubtitleEngine {
     if (previousScrollTop > 0 && !container._userScrolling) {
       container.scrollTop = previousScrollTop;
     }
+  }
+
+  // "Explicar esta fala": IA com a fala + vizinhas, pela mesma rota do tutor
+  // (respeita chave própria ou proxy). Resultado fica em cache local por
+  // vídeo + início da fala + idioma; segundo clique recolhe.
+  async _explainLine(idx, cue, item, button) {
+    const region = item.querySelector?.('.lf-line-explain');
+    if (!region) return;
+    if (button.getAttribute('aria-expanded') === 'true' && !region.dataset.error) {
+      button.setAttribute('aria-expanded', 'false');
+      region.hidden = true;
+      return;
+    }
+    button.setAttribute('aria-expanded', 'true');
+    region.hidden = false;
+    delete region.dataset.error;
+
+    const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
+    const clean = (c) => (c ? (this._cleanSubtitleText ? this._cleanSubtitleText(c.text) : c.text || '') : '');
+    const line = clean(cue);
+    const key = lineExplanationKey({
+      videoId: new URLSearchParams(window.location.search).get('v') || window.location.pathname,
+      start: cue.start,
+      targetLang: this.targetLang,
+    });
+    this._lineExplainCache ||= createLineExplanationCache({
+      get: (k) => chrome.storage.local.get(k),
+      set: (value) => chrome.storage.local.set(value),
+    });
+
+    const cached = await this._lineExplainCache.get(key);
+    if (cached) {
+      this._renderLineExplanation(region, cached);
+      return;
+    }
+
+    region.setAttribute('aria-busy', 'true');
+    region.innerHTML = '<p class="lf-line-explain-status">Explicando a fala com o contexto…</p><div class="lf-skeleton-bar" aria-hidden="true"></div><div class="lf-skeleton-bar short" aria-hidden="true"></div>';
+    button.disabled = true;
+    const messages = buildLineExplainMessages({
+      previous: clean(cues[idx - 1]),
+      line,
+      next: clean(cues[idx + 1]),
+      expressions: detectExpressions(line),
+      targetLang: this.targetLang,
+    });
+    const response = await new Promise((resolve) => {
+      try {
+        chrome.runtime.sendMessage({ action: 'ai_chat', messages, options: { temperature: 0.3, max_tokens: 600 } }, (result) => {
+          resolve(chrome.runtime.lastError ? { error: chrome.runtime.lastError.message } : result);
+        });
+      } catch (error) {
+        resolve({ error: error?.message });
+      }
+    });
+    button.disabled = false;
+    region.removeAttribute('aria-busy');
+
+    const parsed = parseLineExplanation(response?.content);
+    if (parsed) {
+      await this._lineExplainCache.set(key, parsed);
+      this._renderLineExplanation(region, parsed);
+      return;
+    }
+    region.dataset.error = '1';
+    if (isAuthError(response?.error)) {
+      region.innerHTML = '<p class="lf-line-explain-error">Entre na sua conta do LinguaFlow (ou configure sua chave de IA) para usar a explicação.</p>';
+      return;
+    }
+    region.innerHTML = '<p class="lf-line-explain-error">Não foi possível explicar esta fala agora.</p><button type="button" class="lf-line-explain-retry">Tentar de novo</button>';
+    const retry = region.querySelector('.lf-line-explain-retry');
+    if (retry) {
+      retry.onclick = (event) => {
+        event.stopPropagation();
+        this._explainLine(idx, cue, item, button);
+      };
+    }
+  }
+
+  _renderLineExplanation(region, data) {
+    delete region.dataset.error;
+    const items = (data.expressions || [])
+      .map((e) => `<li><strong>${escapeHTML(e.text)}</strong>: ${escapeHTML(e.meaning)}</li>`)
+      .join('');
+    region.innerHTML = `
+      ${data.translation ? `<p><span class="lf-line-explain-label">Tradução natural</span> ${escapeHTML(data.translation)}</p>` : ''}
+      ${data.meaning ? `<p><span class="lf-line-explain-label">Sentido</span> ${escapeHTML(data.meaning)}</p>` : ''}
+      ${items ? `<ul>${items}</ul>` : ''}
+      <p class="lf-line-explain-note">Explicação gerada por IA; confira no contexto do vídeo.</p>
+    `;
+  }
+
+  // Na busca, a frase vira texto com as ocorrências marcadas; sem busca, cada
+  // palavra/expressão é clicável (popup de palavra) com a cor do seu status.
+  _renderTranscriptText(el, text, filter) {
+    if (filter) {
+      el.innerHTML = highlightMatches(text, filter);
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    for (const segment of segmentSubtitle(text, this._getMaxExpressionWords())) {
+      if (!segment.isWord) {
+        frag.appendChild(document.createTextNode(segment.text));
+        continue;
+      }
+      const span = document.createElement('span');
+      span.textContent = segment.text;
+      span.className = segment.expression
+        ? 'lf-word lf-expression'
+        : `lf-word ${this._wordClass(segment.text)}`;
+      if (segment.expression) this._decorateExpressionSpan(span, segment);
+      frag.appendChild(span);
+    }
+    el.appendChild(frag);
+  }
+
+  _openTranscriptWord(wordEl, sentence, cue) {
+    if (!this.wordPopup) return;
+    this.wordPopup.showForWord(wordEl.textContent, sentence, wordEl.getBoundingClientRect(), cue);
   }
 
   _translateAllSidebarCues(cues) {
@@ -4788,274 +5112,96 @@ export class SubtitleEngine {
     container.innerHTML = '';
 
     if (!cues || cues.length === 0) {
-      const empty = document.createElement('div');
-      empty.style.cssText = 'text-align:center;color:#475569;font-size:13px;padding:40px 20px;';
+      const empty = document.createElement('p');
+      empty.className = 'lf-words-empty';
       empty.textContent = 'Nenhuma legenda carregada ainda. Inicie o vídeo para ver as palavras.';
       container.appendChild(empty);
       return;
     }
 
-    // 1. Extração de palavras e frequência
-    const freqMap = new Map();
-    cues.forEach((cue) => {
-      const cleanText = this._cleanSubtitleText ? this._cleanSubtitleText(cue.text || '') : (cue.text || '');
-      cleanText
-        .toLowerCase()
-        .match(/[a-z\u00C0-\u024F][a-z\u00C0-\u024F'-]{1,}/gu)
-        ?.forEach((w) => {
-          const clean = w.replace(/^'+|'+$/g, '');
-          if (clean.length > 2 && !STOP_WORDS.has(clean)) {
-            freqMap.set(clean, (freqMap.get(clean) || 0) + 1);
-          }
-        });
-    });
+    const clean = (text) => (this._cleanSubtitleText ? this._cleanSubtitleText(text || '') : (text || ''));
 
-    const totalUnique = freqMap.size;
-    const inTop5k = [...freqMap.keys()].filter((w) => TOP5K_RANK_MAP.has(w)).length;
+    // 1. Vocabulário por lema (running/ran → run), sem nomes próprios
+    const vocabulary = extractVideoVocabulary(
+      cues.map((cue) => ({ text: clean(cue.text) })),
+      { stopWords: STOP_WORDS, rankMap: TOP5K_RANK_MAP },
+    );
+    const totalUnique = vocabulary.size;
 
-    // Prepara texto e índice de cues para detecção de Phrasal Verbs e Slangs
-    const cuesLower = cues.map((c) => ({ cue: c, textLower: (c.text || '').toLowerCase() }));
-    const allTextJoined = ' ' + cuesLower.map((c) => c.textLower).join(' \n ') + ' ';
-
-    // 2. Detecção de Phrasal Verbs (com suporte a formas flexionadas / conjugadas)
+    // 2–3. Phrasal verbs idiomáticos e gírias: mesma detecção da legenda
+    // (utils/expression-detector.js), agregada por forma canônica.
     const phrasalVerbsMap = new Map();
-
-    // 2.1 Escaneamento inteligente por janela deslizante nas legendas
-    cuesLower.forEach((item) => {
-      const words = (item.textLower || '')
-        .split(/[^a-z0-9']+/)
-        .map((w) => w.replace(/^'+|'+$/g, ''))
-        .filter(Boolean);
-      const cueSeenCanonicals = new Set();
-
-      for (let wIdx = 0; wIdx < words.length; wIdx++) {
-        for (let len = 2; len <= 4 && wIdx + len <= words.length; len++) {
-          const slice = words.slice(wIdx, wIdx + len);
-          const match = matchExpressionCandidate(slice);
-          if (match && match.canonical) {
-            if (!cueSeenCanonicals.has(match.canonical)) {
-              cueSeenCanonicals.add(match.canonical);
-              if (!phrasalVerbsMap.has(match.canonical)) {
-                phrasalVerbsMap.set(match.canonical, { term: match.canonical, count: 0, cues: [] });
-              }
-              const entry = phrasalVerbsMap.get(match.canonical);
-              entry.count += 1;
-              entry.cues.push(item.cue);
-            }
-          }
+    const slangsMap = new Map();
+    cues.forEach((cue) => {
+      const seenInCue = new Set();
+      for (const found of detectExpressions(clean(cue.text))) {
+        const map = found.type === 'phrasal' ? phrasalVerbsMap : found.type === 'slang' ? slangsMap : null;
+        if (!map) continue;
+        if (!map.has(found.canonical)) {
+          map.set(found.canonical, { term: found.canonical, count: 0, cues: [], forms: new Set() });
         }
-      }
-    });
-
-    // 2.2 Fallback para expressões literais do expressionsDB
-    expressionsDB.forEach((expr) => {
-      if (!allTextJoined.includes(expr)) return;
-      if (phrasalVerbsMap.has(expr)) return;
-      const escaped = expr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-      const regex = new RegExp('\\b' + escaped + '\\b', 'i');
-      const matching = [];
-      for (const item of cuesLower) {
-        if (regex.test(item.textLower)) {
-          matching.push(item.cue);
-        }
-      }
-      if (matching.length > 0) {
-        phrasalVerbsMap.set(expr, { term: expr, count: matching.length, cues: matching });
+        const entry = map.get(found.canonical);
+        entry.forms.add(found.text.toLowerCase());
+        const key = `${found.type}:${found.canonical}`;
+        if (seenInCue.has(key)) continue;
+        seenInCue.add(key);
+        entry.count += 1;
+        entry.cues.push(cue);
       }
     });
     const totalPhrasal = phrasalVerbsMap.size;
-
-    // 3. Detecção de Gírias (Slangs)
-    const slangsMap = new Map();
-    slangsDB.forEach((slang) => {
-      if (!allTextJoined.includes(slang)) return;
-      const escaped = slang.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-      const regex = new RegExp('\\b' + escaped + '\\b', 'i');
-      const matching = [];
-      for (const item of cuesLower) {
-        if (regex.test(item.textLower)) {
-          matching.push(item.cue);
-        }
-      }
-      if (matching.length > 0) {
-        slangsMap.set(slang, { term: slang, count: matching.length, cues: matching });
-      }
-    });
     const totalSlangs = slangsMap.size;
 
-    // 4. Stats card com compreensão e contadores interativos
-    const statsDiv = document.createElement('div');
-    statsDiv.style.cssText =
-      'background:rgba(255,255,255,0.04);border-radius:10px;padding:14px 16px;margin-bottom:14px;';
+    // 4. Resumo: só afirma compreensão com base no que o aluno marcou
+    const statsDiv = document.createElement('section');
+    statsDiv.className = 'lf-words-card';
+    statsDiv.setAttribute?.('aria-label', 'Resumo das palavras do vídeo');
 
     const renderStats = (knownWords, savedWords) => {
-      const videoWords = [...freqMap.keys()];
-      const cKnown = videoWords.filter((w) => knownWords.has(w)).length;
-      const cLearning = videoWords.filter((w) => savedWords.get(w) === 'learning').length;
-      const cReview = videoWords.filter((w) => savedWords.get(w) === 'review').length;
-      const cMature = videoWords.filter((w) => savedWords.get(w) === 'mature').length;
-      const cSaved = videoWords.filter((w) => savedWords.get(w) === 'new').length;
-      const cNew = videoWords.filter((w) => !knownWords.has(w) && !savedWords.has(w)).length;
-      const pct = (val) => Math.round((val / totalUnique) * 100) || 0;
-
-      let totalTokens = 0,
-        understoodTokens = 0;
-      freqMap.forEach((freq, w) => {
-        totalTokens += freq;
-        if (knownWords.has(w) || savedWords.get(w) === 'mature' || savedWords.get(w) === 'review') {
-          understoodTokens += freq;
-        } else if (savedWords.get(w) === 'learning') {
-          understoodTokens += Math.round(freq * 0.5);
-        }
-      });
-      const comprehension =
-        totalTokens > 0 ? Math.round((understoodTokens / totalTokens) * 100) : 0;
-      const compColor =
-        comprehension >= 80 ? '#34D399' : comprehension >= 60 ? '#FBBF24' : '#f87171';
-      const compLabel =
-        comprehension >= 95
-          ? 'Fluente'
-          : comprehension >= 80
-            ? 'Compreensão alta'
-            : comprehension >= 60
-              ? 'Intermediário'
-              : 'Desafio';
-
+      const summary = comprehensionSummary(vocabulary, knownWords, savedWords);
+      const { counts } = summary;
+      const inDeck = counts.saved + counts.learning + counts.review + counts.mature;
+      const score = summary.hasData
+        ? `<p class="lf-words-score"><strong>${summary.percent}%</strong> das palavras que aparecem neste vídeo você já marcou como conhecidas ou dominadas.</p>
+           <div class="lf-words-bar" aria-hidden="true"><span style="width:${summary.percent}%"></span></div>`
+        : '<p class="lf-words-score-empty">Use <strong>Já sei</strong> nas palavras-chave abaixo para medir quanto deste vídeo você entende.</p>';
       statsDiv.innerHTML = `
-        <div style="background:rgba(0,0,0,0.3);border:1px solid ${compColor}33;border-radius:14px;padding:14px 16px;margin-bottom:14px;text-align:center;">
-          <div style="font-size:36px;font-weight:900;color:${compColor};line-height:1;letter-spacing:-1px;">${comprehension}%</div>
-          <div style="font-size:11px;color:${compColor};font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">${compLabel}</div>
-          <div style="font-size:10px;color:#475569;margin-top:4px;">Score de compreensão deste episódio</div>
-          <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;margin-top:8px;">
-            <div style="height:100%;width:${comprehension}%;background:linear-gradient(90deg,${compColor}88,${compColor});border-radius:6px;transition:width 0.8s;"></div>
-          </div>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:8px;">
-          <div id="lf-stat-btn-words" style="cursor:pointer;flex:1;" title="Ver todas as palavras">
-            <div style="font-size:26px;font-weight:800;color:#F1F5F9;line-height:1;">${totalUnique}</div>
-            <div style="font-size:9px;color:#64748B;text-transform:uppercase;letter-spacing:0.8px;font-weight:700;margin-top:2px;">PALAVRAS</div>
-          </div>
-          <div id="lf-stat-btn-phrasal" style="cursor:pointer;text-align:center;flex:1;" title="Ver Phrasal Verbs">
-            <div style="font-size:20px;font-weight:800;color:#f472b6;line-height:1;">${totalPhrasal}</div>
-            <div style="font-size:9px;color:#f472b6;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-top:2px;">PHRASAL VERBS</div>
-          </div>
-          <div id="lf-stat-btn-slang" style="cursor:pointer;text-align:right;flex:1;" title="Ver Gírias (Slangs)">
-            <div style="font-size:20px;font-weight:800;color:#fb923c;line-height:1;">${totalSlangs}</div>
-            <div style="font-size:9px;color:#fb923c;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-top:2px;">GÍRIAS</div>
-          </div>
-        </div>
-
-        <div style="margin-bottom:9px;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-            <span style="font-size:11px;color:#94A3B8;font-weight:600;">Top-5k frequência</span>
-            <span style="font-size:11px;color:#FFD700;font-weight:700;">${inTop5k}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-          </div>
-          <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-            <div style="height:100%;width:${pct(inTop5k)}%;background:linear-gradient(90deg,#FF8C00,#FFD700);border-radius:6px;transition:width 0.5s;"></div>
-          </div>
-        </div>
-
-        <div style="margin-bottom:9px;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-            <span style="font-size:11px;color:#94A3B8;font-weight:600;">Novas (nunca vistas)</span>
-            <span style="font-size:11px;color:#E2E8F0;font-weight:700;">${cNew}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-          </div>
-          <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-            <div style="height:100%;width:${pct(cNew)}%;background:linear-gradient(90deg,#475569,#94A3B8);border-radius:6px;transition:width 0.5s;"></div>
-          </div>
-        </div>
-
-        <div style="margin-bottom:9px;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-            <span style="font-size:11px;color:#94A3B8;font-weight:600;">Salvas no deck</span>
-            <span style="font-size:11px;color:#93C5FD;font-weight:700;">${cSaved}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-          </div>
-          <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-            <div style="height:100%;width:${pct(cSaved)}%;background:linear-gradient(90deg,#2563EB,#93C5FD);border-radius:6px;transition:width 0.5s;"></div>
-          </div>
-        </div>
-
-        <div style="margin-bottom:9px;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-            <span style="font-size:11px;color:#94A3B8;font-weight:600;">Aprendendo</span>
-            <span style="font-size:11px;color:#FBBF24;font-weight:700;">${cLearning}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-          </div>
-          <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-            <div style="height:100%;width:${pct(cLearning)}%;background:linear-gradient(90deg,#D97706,#FBBF24);border-radius:6px;transition:width 0.5s;"></div>
-          </div>
-        </div>
-
-        <div style="margin-bottom:9px;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-            <span style="font-size:11px;color:#94A3B8;font-weight:600;">Revisando</span>
-            <span style="font-size:11px;color:#38BDF8;font-weight:700;">${cReview}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-          </div>
-          <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-            <div style="height:100%;width:${pct(cReview)}%;background:linear-gradient(90deg,#0284C7,#38BDF8);border-radius:6px;transition:width 0.5s;"></div>
-          </div>
-        </div>
-
-        <div style="margin-bottom:9px;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-            <span style="font-size:11px;color:#94A3B8;font-weight:600;">Dominadas</span>
-            <span style="font-size:11px;color:#34D399;font-weight:700;">${cMature}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-          </div>
-          <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-            <div style="height:100%;width:${pct(cMature)}%;background:linear-gradient(90deg,#059669,#34D399);border-radius:6px;transition:width 0.5s;"></div>
-          </div>
-        </div>
-
-        <div style="margin-bottom:0;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-            <span style="font-size:11px;color:#94A3B8;font-weight:600;">Conhecidas</span>
-            <span style="font-size:11px;color:#86EFAC;font-weight:700;">${cKnown}<span style="color:#475569;font-weight:400;"> / ${totalUnique}</span></span>
-          </div>
-          <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
-            <div style="height:100%;width:${pct(cKnown)}%;background:linear-gradient(90deg,#16A34A,#86EFAC);border-radius:6px;transition:width 0.5s;"></div>
-          </div>
-        </div>
+        ${score}
+        <dl class="lf-words-counts">
+          <div><dt>Palavras no vídeo</dt><dd>${totalUnique}</dd></div>
+          <div><dt>Conhecidas</dt><dd>${counts.known}</dd></div>
+          <div><dt>No seu deck</dt><dd>${inDeck}</dd></div>
+          <div><dt>Dominadas</dt><dd>${counts.mature}</dd></div>
+          <div><dt>Revisando</dt><dd>${counts.review}</dd></div>
+          <div><dt>Aprendendo</dt><dd>${counts.learning}</dd></div>
+        </dl>
       `;
-
-      // Cliques nos botões de estatística para alternar subabas
-      const btnW = statsDiv.querySelector?.('#lf-stat-btn-words');
-      if (btnW) btnW.onclick = () => { this._wordsSubTab = 'words'; this._rebuildWordsList(container); };
-      const btnP = statsDiv.querySelector?.('#lf-stat-btn-phrasal');
-      if (btnP) btnP.onclick = () => { this._wordsSubTab = 'phrasal'; this._rebuildWordsList(container); };
-      const btnS = statsDiv.querySelector?.('#lf-stat-btn-slang');
-      if (btnS) btnS.onclick = () => { this._wordsSubTab = 'slang'; this._rebuildWordsList(container); };
     };
 
     renderStats(this.knownWords, this.savedWords);
     container.appendChild(statsDiv);
 
+    const wordsStatus = document.createElement('p');
+    wordsStatus.className = 'lf-words-status';
+    wordsStatus.setAttribute?.('role', 'status');
+    container.appendChild(wordsStatus);
+
     // 5. Barra de Navegação Interna da aba Words
     const navBar = document.createElement('div');
-    navBar.style.cssText = 'display:flex;gap:6px;margin-bottom:14px;background:rgba(255,255,255,0.04);padding:4px;border-radius:10px;border:1px solid rgba(255,255,255,0.07);';
+    navBar.className = 'lf-words-nav';
+    navBar.setAttribute?.('aria-label', 'Tipo de item');
 
     const tabsData = [
-      { id: 'words', label: `📚 Palavras (${totalUnique})`, activeColor: '#38BDF8', activeBg: 'rgba(56,189,248,0.15)' },
-      { id: 'phrasal', label: `⚡ Phrasal (${totalPhrasal})`, activeColor: '#F472B6', activeBg: 'rgba(244,114,182,0.15)' },
-      { id: 'slang', label: `🔥 Gírias (${totalSlangs})`, activeColor: '#FB923C', activeBg: 'rgba(251,146,60,0.15)' },
+      { id: 'words', label: `📚 Palavras (${totalUnique})` },
+      { id: 'phrasal', label: `⚡ Phrasal (${totalPhrasal})` },
+      { id: 'slang', label: `🔥 Gírias (${totalSlangs})` },
     ];
 
     tabsData.forEach((t) => {
       const btn = document.createElement('button');
       btn.type = 'button';
-      const isActive = this._wordsSubTab === t.id;
-      btn.style.cssText = `
-        flex: 1;
-        padding: 7px 8px;
-        border-radius: 8px;
-        font-size: 11px;
-        font-weight: 700;
-        cursor: pointer;
-        border: 1px solid ${isActive ? t.activeColor : 'transparent'};
-        background: ${isActive ? t.activeBg : 'transparent'};
-        color: ${isActive ? t.activeColor : '#94A3B8'};
-        transition: all 0.15s ease;
-        text-align: center;
-        white-space: nowrap;
-      `;
+      btn.className = `lf-words-nav-btn lf-words-nav-${t.id}`;
+      btn.setAttribute?.('aria-pressed', String(this._wordsSubTab === t.id));
       btn.textContent = t.label;
       btn.onclick = () => {
         this._wordsSubTab = t.id;
@@ -5066,96 +5212,129 @@ export class SubtitleEngine {
 
     container.appendChild(navBar);
 
-    import('../utils/db.js').then(async ({ db }) => {
-      try {
-        await db.initPromise;
-        const words = await db.getAllWords();
-        const cards = await db.getAllCards();
-        const cardStatus = {};
-        if (cards) {
-          cards.forEach((c) => {
+    // Estado do deck: lido do banco uma vez por abertura do painel; depois
+    // os eventos LF_WORD_SAVED / LF_WORD_KNOWN mantêm a memória atualizada.
+    if (!this._wordsDeckLoaded) {
+      this._wordsDeckLoaded = true;
+      import('../utils/db.js').then(async ({ db }) => {
+        try {
+          await db.initPromise;
+          const words = await db.getAllWords();
+          const cards = await db.getAllCards();
+          const cardStatus = {};
+          (cards || []).forEach((c) => {
             cardStatus[c.word_id] = c.status;
           });
+          const freshSaved = new Map();
+          (words || []).forEach((w) => {
+            freshSaved.set(w.word.toLowerCase(), cardStatus[w.id] || 'new');
+          });
+          this.savedWords = freshSaved;
+          renderStats(this.knownWords, freshSaved);
+          this._updateSubtitleColors();
+        } catch (e) {
+          this._wordsDeckLoaded = false;
+          console.warn('[LinguaFlow] Stats: erro ao recarregar do DB', e.message);
         }
-        const freshSaved = new Map();
-        const freshKnown = new Set(this.knownWords);
-        words.forEach((w) => {
-          freshSaved.set(w.word.toLowerCase(), cardStatus[w.id] || 'new');
-        });
-        this.savedWords = freshSaved;
-        renderStats(freshKnown, freshSaved);
-        this._updateSubtitleColors();
-      } catch (e) {
-        console.warn('[LinguaFlow] Stats: erro ao recarregar do DB', e.message);
-      }
-    });
+      });
+    }
+
+    const openExplorer = (term, category, matchingCues, forms) =>
+      this._showSentenceExplorer(term, category, matchingCues, forms);
+
+    const makeChip = (label, category, onClick, extraClass = '') => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = `lf-chip lf-chip-${category}${extraClass ? ` ${extraClass}` : ''}`;
+      chip.textContent = label;
+      chip.addEventListener?.('click', onClick);
+      return chip;
+    };
 
     // 6. Renderização conforme a subaba ativa
-    if (this._wordsSubTab === 'phrasal') {
-      // --- SUBABA PHRASAL VERBS ---
-      const phrasalList = Array.from(phrasalVerbsMap.values()).sort((a, b) => b.count - a.count || a.term.localeCompare(b.term));
-      if (phrasalList.length === 0) {
-        const emptyP = document.createElement('div');
-        emptyP.style.cssText = 'text-align:center;color:#64748B;font-size:13px;padding:30px 15px;';
-        emptyP.textContent = 'Nenhum phrasal verb identificado nas legendas deste vídeo.';
-        container.appendChild(emptyP);
+    if (this._wordsSubTab === 'phrasal' || this._wordsSubTab === 'slang') {
+      const isPhrasal = this._wordsSubTab === 'phrasal';
+      const map = isPhrasal ? phrasalVerbsMap : slangsMap;
+      const list = Array.from(map.values()).sort((a, b) => b.count - a.count || a.term.localeCompare(b.term));
+      if (list.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'lf-words-empty';
+        empty.textContent = isPhrasal
+          ? 'Nenhum phrasal verb identificado nas legendas deste vídeo.'
+          : 'Nenhuma gíria identificada nas legendas deste vídeo.';
+        container.appendChild(empty);
       } else {
-        const gridP = document.createElement('div');
-        gridP.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:4px 2px 14px;';
-        phrasalList.forEach((item) => {
-          const chip = document.createElement('button');
-          chip.type = 'button';
-          chip.style.cssText = 'background:rgba(244,114,182,0.1);border:1px solid rgba(244,114,182,0.3);color:#F472B6;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;transition:all 0.15s;';
-          chip.textContent = item.count > 1 ? `${item.term} ×${item.count}` : item.term;
-          chip.title = `Ver ${item.count} frase(s) com "${item.term}"`;
-          chip.addEventListener?.('mouseenter', () => { chip.style.transform = 'scale(1.06)'; });
-          chip.addEventListener?.('mouseleave', () => { chip.style.transform = ''; });
-          chip.addEventListener?.('click', () => {
-            this._showSentenceExplorer(item.term, 'phrasal', item.cues);
-          });
-          gridP.appendChild(chip);
+        const grid = document.createElement('div');
+        grid.className = 'lf-chip-grid';
+        list.forEach((item) => {
+          const chip = makeChip(
+            item.count > 1 ? `${item.term} ×${item.count}` : item.term,
+            this._wordsSubTab,
+            () => openExplorer(item.term, this._wordsSubTab, item.cues, [...item.forms]),
+          );
+          chip.setAttribute?.('aria-label', `${item.term}: ver ${item.count} ${item.count === 1 ? 'frase' : 'frases'}`);
+          grid.appendChild(chip);
         });
-        container.appendChild(gridP);
-      }
-    } else if (this._wordsSubTab === 'slang') {
-      // --- SUBABA GÍRIAS (SLANGS) ---
-      const slangList = Array.from(slangsMap.values()).sort((a, b) => b.count - a.count || a.term.localeCompare(b.term));
-      if (slangList.length === 0) {
-        const emptyS = document.createElement('div');
-        emptyS.style.cssText = 'text-align:center;color:#64748B;font-size:13px;padding:30px 15px;';
-        emptyS.textContent = 'Nenhuma gíria identificada nas legendas deste vídeo.';
-        container.appendChild(emptyS);
-      } else {
-        const gridS = document.createElement('div');
-        gridS.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:4px 2px 14px;';
-        slangList.forEach((item) => {
-          const chip = document.createElement('button');
-          chip.type = 'button';
-          chip.style.cssText = 'background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.3);color:#FB923C;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;transition:all 0.15s;';
-          chip.textContent = item.count > 1 ? `${item.term} ×${item.count}` : item.term;
-          chip.title = `Ver ${item.count} frase(s) com "${item.term}"`;
-          chip.addEventListener?.('mouseenter', () => { chip.style.transform = 'scale(1.06)'; });
-          chip.addEventListener?.('mouseleave', () => { chip.style.transform = ''; });
-          chip.addEventListener?.('click', () => {
-            this._showSentenceExplorer(item.term, 'slang', item.cues);
-          });
-          gridS.appendChild(chip);
-        });
-        container.appendChild(gridS);
+        container.appendChild(grid);
       }
     } else {
-      // --- SUBABA PALAVRAS (PADRÃO) ---
+      // --- PALAVRAS-CHAVE: o que estudar antes/depois de assistir ---
+      const keywords = learnerKeywords(vocabulary, this.knownWords, this.savedWords, 12);
+      const kwSection = document.createElement('section');
+      kwSection.className = 'lf-keywords';
+      kwSection.innerHTML = `
+        <h3 class="lf-keywords-title">Palavras-chave deste vídeo</h3>
+        <p class="lf-keywords-hint">${keywords.length
+          ? 'As que mais aparecem aqui e você ainda não marcou.'
+          : 'Você já marcou todas as palavras que aparecem neste vídeo.'}</p>
+      `;
+      const kwList = document.createElement('ul');
+      kwList.className = 'lf-keywords-list';
+      keywords.forEach((entry) => {
+        const row = document.createElement('li');
+        row.className = 'lf-keyword';
+        const matching = entry.cueIndexes.map((i) => cues[i]).filter(Boolean);
+        const wordBtn = makeChip(
+          entry.count > 1 ? `${entry.lemma} ×${entry.count}` : entry.lemma,
+          'word',
+          () => openExplorer(entry.lemma, 'word', matching, entry.forms),
+        );
+        wordBtn.setAttribute?.('aria-label', `${entry.lemma}: ver ${matching.length} ${matching.length === 1 ? 'frase' : 'frases'}`);
+        const knownBtn = document.createElement('button');
+        knownBtn.type = 'button';
+        knownBtn.className = 'lf-keyword-action';
+        knownBtn.textContent = 'Já sei';
+        knownBtn.setAttribute?.('aria-label', `Já sei "${entry.lemma}"`);
+        knownBtn.onclick = () => this._markVideoWordKnown(entry, knownBtn, wordsStatus);
+        const saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.className = 'lf-keyword-action';
+        saveBtn.textContent = 'Ver e salvar';
+        saveBtn.setAttribute?.('aria-label', `Ver tradução e salvar "${entry.lemma}"`);
+        saveBtn.onclick = () => {
+          const sentence = clean(matching[0]?.text || '');
+          const surface = entry.forms.find((f) => sentence.toLowerCase().includes(f)) || entry.lemma;
+          this.wordPopup?.showForWord(surface, sentence, saveBtn.getBoundingClientRect?.() || null, matching[0]);
+        };
+        row.appendChild(wordBtn);
+        row.appendChild(knownBtn);
+        row.appendChild(saveBtn);
+        kwList.appendChild(row);
+      });
+      kwSection.appendChild(kwList);
+      container.appendChild(kwSection);
+
+      // --- TODAS AS PALAVRAS por faixa de frequência no idioma ---
       const bands = [];
       for (let s = 1; s <= 5000; s += 100)
-        bands.push({ label: s + ' – ' + (s + 99), start: s, end: s + 99, words: [] });
-      const outOfTop = { label: 'Fora do top-5k', words: [] };
+        bands.push({ label: `${s} – ${s + 99}`, start: s, words: [] });
+      const outOfTop = { label: 'Fora do top-5k', start: null, words: [] };
 
-      freqMap.forEach((count, word) => {
-        const rank = TOP5K_RANK_MAP.get(word);
-        if (rank) {
-          const bi = Math.floor((rank - 1) / 100);
-          if (bands[bi]) bands[bi].words.push({ word, count, rank });
-        } else outOfTop.words.push({ word, count, rank: 99999 });
+      vocabulary.forEach((entry) => {
+        if (entry.rank) {
+          const bi = Math.floor((entry.rank - 1) / 100);
+          if (bands[bi]) bands[bi].words.push(entry);
+        } else outOfTop.words.push(entry);
       });
 
       const allBands = [
@@ -5164,109 +5343,61 @@ export class SubtitleEngine {
       ];
 
       if (allBands.length === 0) {
-        const empty = document.createElement('div');
-        empty.style.cssText = 'text-align:center;color:#475569;font-size:13px;padding:40px 20px;';
+        const empty = document.createElement('p');
+        empty.className = 'lf-words-empty';
         empty.textContent = 'Nenhuma palavra encontrada nas legendas deste vídeo.';
         container.appendChild(empty);
         return;
       }
 
-      allBands.forEach((band) => {
-        band.words.sort((a, b) => (a.rank || 99999) - (b.rank || 99999));
-        const section = document.createElement('div');
-        section.style.cssText = 'margin-bottom:10px;';
+      const allTitle = document.createElement('h3');
+      allTitle.className = 'lf-keywords-title';
+      allTitle.textContent = 'Todas as palavras, por frequência no inglês';
+      container.appendChild(allTitle);
 
-        const isTop1k = band.start && band.start <= 1000;
-        const hColor = isTop1k
-          ? '#FFD700'
-          : band.start <= 2000
-            ? '#FF8C00'
-            : band.start <= 3000
-              ? '#38BDF8'
-              : '#94A3B8';
-        const bandHeader = document.createElement('div');
-        bandHeader.style.cssText =
-          'display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:rgba(255,255,255,0.05);border-radius:7px;cursor:pointer;margin-bottom:6px;border-left:3px solid ' +
-          hColor +
-          ';';
-        bandHeader.innerHTML =
-          '<span style="font-size:12px;font-weight:700;color:' +
-          hColor +
-          '">' +
-          band.label +
-          '</span><span style="font-size:11px;color:#64748B;">' +
-          band.words.length +
-          ' palavras <span class="lf-band-arrow" style="margin-left:4px;">▼</span></span>';
+      allBands.forEach((band, bandIndex) => {
+        band.words.sort((a, b) => (a.rank || 99999) - (b.rank || 99999) || b.count - a.count);
+        const section = document.createElement('div');
+        section.className = 'lf-band';
+
+        const tier = !band.start ? 'rare' : band.start <= 1000 ? 'top1k' : band.start <= 2000 ? 'top2k' : band.start <= 3000 ? 'top3k' : 'top5k';
+        const gridId = `lf-band-grid-${bandIndex}`;
+        const bandHeader = document.createElement('button');
+        bandHeader.type = 'button';
+        bandHeader.className = `lf-band-header lf-band-${tier}`;
+        bandHeader.setAttribute?.('aria-controls', gridId);
+        bandHeader.innerHTML = `<span class="lf-band-label">${band.label}</span><span class="lf-band-count">${band.words.length} ${band.words.length === 1 ? 'palavra' : 'palavras'} <span class="lf-band-arrow" aria-hidden="true">▼</span></span>`;
 
         const wordGrid = document.createElement('div');
-        wordGrid.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;padding:4px 2px 8px;';
+        wordGrid.className = 'lf-chip-grid';
+        wordGrid.id = gridId;
 
-        band.words.forEach(({ word, count }) => {
-          const chip = document.createElement('button');
-          chip.type = 'button';
-          const isKnown = this.knownWords?.has?.(word);
-          const status = this.savedWords?.get?.(word);
-          let cc = '#94A3B8',
-            cb = 'rgba(255,255,255,0.05)',
-            cbo = 'rgba(255,255,255,0.1)';
-          if (isKnown) {
-            cc = '#86EFAC';
-            cb = 'rgba(134,239,172,0.1)';
-            cbo = 'rgba(134,239,172,0.25)';
-          } else if (status === 'mature') {
-            cc = '#34D399';
-            cb = 'rgba(52,211,153,0.1)';
-            cbo = 'rgba(52,211,153,0.25)';
-          } else if (status === 'learning') {
-            cc = '#FBBF24';
-            cb = 'rgba(251,191,36,0.1)';
-            cbo = 'rgba(251,191,36,0.25)';
-          } else if (status === 'new') {
-            cc = '#93C5FD';
-            cb = 'rgba(147,197,253,0.1)';
-            cbo = 'rgba(147,197,253,0.25)';
-          }
-          chip.style.cssText =
-            'background:' +
-            cb +
-            ';border:1px solid ' +
-            cbo +
-            ';color:' +
-            cc +
-            ';border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;transition:all 0.15s;';
-          chip.textContent = count > 1 ? word + ' ×' + count : word;
-          chip.title = `Ver ${count} frase(s) com "${word}"`;
-          chip.addEventListener?.('mouseenter', () => {
-            chip.style.transform = 'scale(1.08)';
-          });
-          chip.addEventListener?.('mouseleave', () => {
-            chip.style.transform = '';
-          });
-          chip.addEventListener?.('click', () => {
-            const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const wordRegex = new RegExp('\\b' + escaped + '\\b', 'i');
-            const matching = cues.filter((cue) => wordRegex.test(cue.text || ''));
-            this._showSentenceExplorer(word, 'word', matching);
-          });
+        band.words.forEach((entry) => {
+          const status = wordStatus(entry, this.knownWords, this.savedWords);
+          const matching = entry.cueIndexes.map((i) => cues[i]).filter(Boolean);
+          const chip = makeChip(
+            entry.count > 1 ? `${entry.lemma} ×${entry.count}` : entry.lemma,
+            'word',
+            () => openExplorer(entry.lemma, 'word', matching, entry.forms),
+            status ? `lf-chip-status-${status}` : '',
+          );
+          chip.setAttribute?.('aria-label', `${entry.lemma}${status ? ` (${WORD_STATUS_LABELS[status] || status})` : ''}: ver ${matching.length} ${matching.length === 1 ? 'frase' : 'frases'}`);
           wordGrid.appendChild(chip);
         });
 
         let collapsed = this._collapsedBands.has(band.label);
-        if (collapsed) {
-          wordGrid.style.display = 'none';
-          const arrow = bandHeader.querySelector?.('.lf-band-arrow');
-          if (arrow) arrow.textContent = '▶';
-        }
-        bandHeader.addEventListener?.('click', () => {
-          collapsed = !collapsed;
-          if (collapsed) {
-            this._collapsedBands.add(band.label);
-          } else {
-            this._collapsedBands.delete(band.label);
-          }
+        const applyCollapsed = () => {
           wordGrid.style.display = collapsed ? 'none' : 'flex';
+          bandHeader.setAttribute?.('aria-expanded', String(!collapsed));
           const arrow = bandHeader.querySelector?.('.lf-band-arrow');
           if (arrow) arrow.textContent = collapsed ? '▶' : '▼';
+        };
+        applyCollapsed();
+        bandHeader.addEventListener?.('click', () => {
+          collapsed = !collapsed;
+          if (collapsed) this._collapsedBands.add(band.label);
+          else this._collapsedBands.delete(band.label);
+          applyCollapsed();
         });
 
         section.appendChild(bandHeader);
@@ -5280,7 +5411,29 @@ export class SubtitleEngine {
     }
   }
 
-  _showSentenceExplorer(term, category, matchingCues) {
+  async _markVideoWordKnown(entry, button, statusEl) {
+    button.disabled = true;
+    button.textContent = 'Marcando…';
+    try {
+      const { db } = await import('../utils/db.js');
+      await db.markAsKnown(entry.lemma, this.sourceLang || 'en');
+      [entry.lemma, ...entry.forms].forEach((w) => {
+        this.knownWords.add(w);
+        this.savedWords?.delete?.(w);
+      });
+      this._rebuildWordsList();
+      this._updateSubtitleColors?.();
+      const status = document.querySelector?.('#lf-words-scroll .lf-words-status');
+      if (status) status.textContent = `"${entry.lemma}" marcada como conhecida.`;
+    } catch (error) {
+      console.warn('[LinguaFlow] markAsKnown falhou:', error?.message);
+      button.disabled = false;
+      button.textContent = 'Tentar de novo';
+      if (statusEl) statusEl.textContent = `Não foi possível marcar "${entry.lemma}". Verifique a conexão e se você está na sua conta.`;
+    }
+  }
+
+  _showSentenceExplorer(term, category, matchingCues, forms = [term]) {
     const explorer = document.getElementById('lf-sentence-explorer');
     const wordsScroll = document.getElementById('lf-words-scroll');
     if (!explorer || !wordsScroll) return;
@@ -5294,103 +5447,70 @@ export class SubtitleEngine {
       this._translateAllSidebarCues(matchingCues);
     }
 
-    const categoryLabels = {
-      word: { label: 'Palavra', color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.15)', border: 'rgba(56, 189, 248, 0.3)' },
-      phrasal: { label: 'Phrasal Verb', color: '#F472B6', bg: 'rgba(244, 114, 182, 0.15)', border: 'rgba(244, 114, 182, 0.3)' },
-      slang: { label: 'Gíria', color: '#FB923C', bg: 'rgba(251, 146, 60, 0.15)', border: 'rgba(251, 146, 60, 0.3)' },
-    };
-    const cat = categoryLabels[category] || categoryLabels.word;
+    const categoryLabels = { word: 'Palavra', phrasal: 'Phrasal Verb', slang: 'Gíria' };
+    const catKey = categoryLabels[category] ? category : 'word';
+    const catLabel = categoryLabels[catKey];
     const count = matchingCues ? matchingCues.length : 0;
 
     // 1. Header do Explorador
     const header = document.createElement('div');
-    header.style.cssText = 'padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); background: #0f172a; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px;';
+    header.className = 'lf-se-header';
 
     header.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <button id="lf-se-back-btn" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:#E2E8F0; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px; transition:all 0.15s;">
-          <span>←</span> Voltar
-        </button>
-        <span style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; padding:3px 8px; border-radius:6px; background:${cat.bg}; color:${cat.color}; border:1px solid ${cat.border};">
-          ${cat.label}
-        </span>
+      <div class="lf-se-row">
+        <button id="lf-se-back-btn" type="button" class="lf-se-btn"><span aria-hidden="true">←</span> Voltar</button>
+        <span class="lf-se-badge lf-chip-${catKey}">${catLabel}</span>
       </div>
-      <div style="display:flex; justify-content:space-between; align-items:baseline;">
-        <div style="font-size:18px; font-weight:800; color:#F8FAFC; letter-spacing:-0.02em;">
-          ${escapeHTML(term)}
-        </div>
-        <div style="font-size:11px; color:#94A3B8; font-weight:600;">
-          ${count} ${count === 1 ? 'frase no vídeo' : 'frases no vídeo'}
-        </div>
+      <div class="lf-se-row lf-se-title-row">
+        <h3 class="lf-se-term">${escapeHTML(term)}</h3>
+        <span class="lf-se-count">${count} ${count === 1 ? 'frase no vídeo' : 'frases no vídeo'}</span>
       </div>
-      <div style="display:flex; gap:6px; padding-top:4px;">
-        <button id="lf-se-export-pdf" style="flex:1; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:#CBD5E1; padding:6px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px;">
-          📄 PDF
-        </button>
-        <button id="lf-se-export-csv" style="flex:1; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:#CBD5E1; padding:6px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px;">
-          📊 Excel
-        </button>
-        <button id="lf-se-export-anki" style="flex:1; background:rgba(56,189,248,0.15); border:1px solid rgba(56,189,248,0.3); color:#38BDF8; padding:6px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px;">
-          🗂️ Anki
-        </button>
+      <div class="lf-se-row lf-se-exports">
+        <button id="lf-se-export-pdf" type="button" class="lf-se-btn">PDF</button>
+        <button id="lf-se-export-csv" type="button" class="lf-se-btn">Excel (CSV)</button>
+        <button id="lf-se-export-anki" type="button" class="lf-se-btn lf-se-btn-accent">Anki</button>
       </div>
     `;
 
     // 2. Lista com scroll de ocorrências
     const list = document.createElement('div');
     list.id = 'lf-se-sentences-list';
-    list.style.cssText = 'flex:1; overflow-y:auto; padding:12px; scrollbar-width:thin; scrollbar-color:#334155 transparent; display:flex; flex-direction:column; gap:8px;';
+    list.className = 'lf-se-list';
 
     if (!matchingCues || matchingCues.length === 0) {
-      list.innerHTML = `<div style="text-align:center; color:#64748B; font-size:13px; padding:30px 10px;">Nenhuma frase encontrada para "${escapeHTML(term)}".</div>`;
+      list.innerHTML = `<p class="lf-words-empty">Nenhuma frase encontrada para "${escapeHTML(term)}".</p>`;
     } else {
-      const termEscaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-      const termRegex = new RegExp(`\\b(${termEscaped})\\b`, 'gi');
+      const highlightForms = [...new Set([term, ...(forms || [])])];
 
       matchingCues.forEach((cue) => {
         const isLoopingThis = this.isLooping && Math.abs(this.loopStartTime - cue.start) < 0.1;
         const item = document.createElement('div');
         item.className = `lf-sentence-card ${isLoopingThis ? 'is-looping' : ''}`;
-        item.style.cssText = isLoopingThis
-          ? 'background:rgba(2,132,199,0.2); border:1px solid #38bdf8; box-shadow:0 0 14px rgba(56,189,248,0.25); border-radius:8px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; transition:all 0.15s;'
-          : 'background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; transition:all 0.15s;';
 
-        const startTime = cue.start > 100000 ? cue.start / 1000 : cue.start;
+        const startTime = cue.start;
         const formattedTime = this._formatTime(startTime);
-        const highlighted = escapeHTML(cue.text || '').replace(termRegex, (m) => `<mark style="background:${cat.bg}; color:${cat.color}; padding:1px 4px; border-radius:3px; font-weight:800;">${m}</mark>`);
+        const highlighted = highlightTerms(cue.text || '', highlightForms, `class="lf-term-hit lf-chip-${catKey}"`);
 
         item.innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-            <button class="lf-se-time-btn" data-time="${startTime}" style="background:rgba(56,189,248,0.1); border:none; color:#38BDF8; font-family:'Nunito',monospace; font-size:11px; font-weight:700; padding:2px 6px; border-radius:4px; cursor:pointer;" title="Pular para ${formattedTime}">
-              ⏱️ ${formattedTime}
-            </button>
-            <div style="display:flex; gap:6px;">
-              <button class="lf-se-play-btn" data-time="${startTime}" style="background:rgba(255,255,255,0.06); border:none; color:#E2E8F0; font-size:12px; padding:2px 6px; border-radius:4px; cursor:pointer;" title="Tocar frase">
-                ▶
-              </button>
-              <button class="lf-se-loop-btn ${isLoopingThis ? 'is-active' : ''}" data-cue-start="${cue.start}" style="background:${isLoopingThis ? '#0284c7' : 'rgba(255,255,255,0.06)'}; border:none; color:${isLoopingThis ? '#fff' : '#94A3B8'}; font-size:12px; padding:2px 6px; border-radius:4px; cursor:pointer;" title="${isLoopingThis ? 'Desativar loop' : 'Repetir em loop'}">
-                🔁
-              </button>
-            </div>
+          <div class="lf-se-row">
+            <button type="button" class="lf-se-time-btn" data-time="${startTime}" aria-label="Tocar a partir de ${formattedTime}">${formattedTime}</button>
+            <button type="button" class="lf-se-loop-btn ${isLoopingThis ? 'is-active' : ''}" data-cue-start="${cue.start}" aria-label="${isLoopingThis ? 'Desativar loop' : 'Repetir em loop'} a frase em ${formattedTime}">🔁</button>
           </div>
-          <div style="font-size:14px; font-weight:700; color:#F1F5F9; line-height:1.4;">
-            ${highlighted}
-          </div>
-          <div class="lf-se-trans-line" style="font-size:12.5px; font-weight:600; color:#94A3B8; line-height:1.4;">
-            ${cue.translatedText ? escapeHTML(cue.translatedText) : '<span style="opacity:0.6; font-style:italic;">traduzindo...</span>'}
-          </div>
+          <p class="lf-se-text">${highlighted}</p>
+          <p class="lf-se-trans-line">
+            ${cue.translatedText ? escapeHTML(cue.translatedText) : '<span class="lf-se-pending">traduzindo...</span>'}
+          </p>
         `;
 
-        const playBtn = item.querySelector?.('.lf-se-play-btn');
         const timeBtn = item.querySelector?.('.lf-se-time-btn');
-        const playHandler = () => {
-          if (this.videoElement) {
-            this.videoElement.currentTime = startTime;
-            this.videoElement.play().catch(() => {});
-          }
-        };
-        if (playBtn) playBtn.onclick = playHandler;
-        if (timeBtn) timeBtn.onclick = playHandler;
+        if (timeBtn) {
+          timeBtn.onclick = () => {
+            if (this.videoElement) {
+              this.videoElement.currentTime = startTime;
+              this.videoElement.play().catch(() => {});
+            }
+          };
+        }
 
         const loopBtn = item.querySelector?.('.lf-se-loop-btn');
         if (loopBtn) {
@@ -5413,11 +5533,12 @@ export class SubtitleEngine {
         explorer.style.display = 'none';
         wordsScroll.style.display = 'block';
       };
+      backBtn.focus?.({ preventScroll: true });
     }
 
     const pdfBtn = header.querySelector?.('#lf-se-export-pdf');
     if (pdfBtn) {
-      pdfBtn.onclick = () => this._exportPDF(matchingCues, `${term} (${cat.label})`);
+      pdfBtn.onclick = () => this._exportPDF(matchingCues, `${term} (${catLabel})`);
     }
 
     const csvBtn = header.querySelector?.('#lf-se-export-csv');
@@ -5437,11 +5558,10 @@ export class SubtitleEngine {
     if (!list) return;
 
     const autoScroll = document.getElementById('lf-autoscroll-panel')?.checked ?? true;
-    const items = list.querySelectorAll('.lf-subtitle-item') || [];
     const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
 
     if (this.videoElement && cues && cues.length > 0) {
-      const liveIdx = this._binarySearchCue(cues, this.videoElement.currentTime);
+      const liveIdx = findActiveCueIndex(cues, this.videoElement.currentTime);
       if (liveIdx >= 0) {
         this.currentCueIndex = liveIdx;
       } else if (this.currentCueIndex < 0) {
@@ -5457,30 +5577,23 @@ export class SubtitleEngine {
       }
     }
 
+    // Chamado a cada 500 ms e a cada fala: só mexe no DOM quando a fala ativa
+    // muda. O visual de .active/.is-looping vem do CSS do painel.
+    if (!forceInstant && list._lastActiveIndex === this.currentCueIndex) return;
+    list._lastActiveIndex = this.currentCueIndex;
+
+    const items = list.querySelectorAll('.lf-subtitle-item') || [];
     let activeItem = null;
     items.forEach((item) => {
-      const idx = parseInt(item.dataset.index, 10);
-      if (idx === this.currentCueIndex) {
-        activeItem = item;
+      const isActive = parseInt(item.dataset.index, 10) === this.currentCueIndex;
+      if (isActive) activeItem = item;
+      if (!!item.classList?.contains?.('active') === isActive) return;
+      if (isActive) {
         item.classList?.add?.('active');
-        if (item.style) {
-          if (item.classList?.contains?.('is-looping')) {
-            item.style.background = 'rgba(2, 132, 199, 0.28)';
-            item.style.borderLeft = '4px solid #38bdf8';
-            item.style.boxShadow = 'inset 0 0 16px rgba(56, 189, 248, 0.25), 0 4px 12px rgba(0,0,0,0.35)';
-          } else {
-            item.style.background = 'rgba(56, 189, 248, 0.15)';
-            item.style.borderLeft = '3px solid #38BDF8';
-            item.style.boxShadow = '';
-          }
-        }
+        item.setAttribute?.('aria-current', 'true');
       } else {
         item.classList?.remove?.('active');
-        if (item.style && !item.classList?.contains?.('is-looping')) {
-          item.style.background = '';
-          item.style.borderLeft = '';
-          item.style.boxShadow = '';
-        }
+        item.removeAttribute?.('aria-current');
       }
     });
 

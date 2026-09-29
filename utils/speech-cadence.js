@@ -3,7 +3,8 @@
 // pontos de junção fonética (linking, assimilações palatais, elisões e reduções),
 // auxiliando na superação das principais barreiras de compreensão oral no listening.
 
-const REDUCTIONS = {
+// Fonte única das reduções escritas da fala (legenda, detector e popup).
+export const REDUCTIONS = {
   gonna: 'going to',
   wanna: 'want to',
   gotta: 'got to / have got to',
@@ -17,7 +18,79 @@ const REDUCTIONS = {
   gimme: 'give me',
   hafta: 'have to',
   outta: 'out of',
+  tryna: 'trying to',
+  finna: 'going to (prestes a)',
+  lotta: 'lot of',
+  whatcha: 'what are you / what have you',
+  gotcha: 'got you (entendi / te peguei)',
+  betcha: 'bet you',
+  innit: "isn't it",
+  "ain't": "am not / isn't / haven't",
+  "y'all": 'you all',
+  "y'know": 'you know',
+  "c'mon": 'come on',
+  "'cause": 'because',
+  "'em": 'them',
+  "'til": 'until',
+  ya: 'you',
 };
+
+// Legenda automática escreve a forma cheia ("going to") mesmo quando a pessoa
+// fala reduzido ("gonna"). Estas regras apontam como o trecho costuma soar.
+const PLACE_OR_DETERMINER = "the|a|an|my|your|his|her|our|their|this|that|these|those|school|work|bed|church|class|college|jail|prison|hospital|town|sleep";
+export const SOUNDS_LIKE_RULES = [
+  { pattern: new RegExp(`\\bgoing to(?=\\s+(?!(?:${PLACE_OR_DETERMINER})\\b)[a-z])`, 'g'), sound: 'gonna', full: 'going to' },
+  { pattern: /\bwant to\b/g, sound: 'wanna', full: 'want to' },
+  { pattern: /(?<=(?:'ve|have|has|'s)\s)got to\b(?!\s+(?:the|a|an|my|your|his|her|our|their|this|that|know)\b)/g, sound: 'gotta', full: 'have got to' },
+  { pattern: /\bhave to\b/g, sound: 'hafta', full: 'have to' },
+  { pattern: /\bhas to\b/g, sound: 'hasta', full: 'has to' },
+  { pattern: /\btrying to\b/g, sound: 'tryna', full: 'trying to' },
+  { pattern: /\b(?<!(?:a|the|this|that|what|some|any|every|one|same|which|no)\s)kind of\b/g, sound: 'kinda', full: 'kind of' },
+  { pattern: /\b(?<!(?:a|the|this|that|what|some|any|every|one|same|which|no)\s)sort of\b/g, sound: 'sorta', full: 'sort of' },
+  { pattern: /\bout of\b/g, sound: 'outta', full: 'out of' },
+  { pattern: /\blet me\b/g, sound: 'lemme', full: 'let me' },
+  { pattern: /\bgive me\b/g, sound: 'gimme', full: 'give me' },
+  { pattern: /\bi don't know\b/g, sound: 'dunno', full: "I don't know" },
+  { pattern: /\bwhat are you\b/g, sound: 'whatcha', full: 'what are you' },
+  { pattern: /\bdid you\b/g, sound: 'didja', full: 'did you' },
+  { pattern: /\bdon't you\b/g, sound: 'dontcha', full: "don't you" },
+  { pattern: /\bgot you\b/g, sound: 'gotcha', full: 'got you' },
+  { pattern: /\b(should|could|would) have\b/g, sound: (m) => `${m[1]}a`, full: (m) => `${m[1]} have` },
+  { pattern: /\b(should|could|would)'ve\b/g, sound: (m) => `${m[1]}a`, full: (m) => `${m[1]} have` },
+  { pattern: /\bbecause\b/g, sound: "'cause", full: 'because' },
+];
+
+// [{ sound, full, index, length }] com posições no texto original.
+export function findSoundsLike(text) {
+  const source = String(text || '').toLowerCase().replace(/[‘’]/g, "'");
+  const found = [];
+  for (const rule of SOUNDS_LIKE_RULES) {
+    for (const match of source.matchAll(new RegExp(rule.pattern.source, 'g'))) {
+      found.push({
+        sound: typeof rule.sound === 'function' ? rule.sound(match) : rule.sound,
+        full: typeof rule.full === 'function' ? rule.full(match) : rule.full,
+        index: match.index,
+        length: match[0].length,
+      });
+    }
+  }
+  return found.sort((a, b) => a.index - b.index);
+}
+
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const REDUCTION_PATTERN = new RegExp(
+  `(?<![\\p{L}'])(?:${Object.keys(REDUCTIONS).sort((a, b) => b.length - a.length).map(escapeRegExp).join('|')})(?![\\p{L}'])`,
+  'giu',
+);
+
+// Reduções já escritas na legenda: [{ term, full, index, length }].
+export function findReductions(text) {
+  const source = String(text || '').replace(/[‘’]/g, "'");
+  return Array.from(source.matchAll(REDUCTION_PATTERN), (match) => {
+    const term = match[0].toLowerCase();
+    return { term, full: REDUCTIONS[term], index: match.index, length: match[0].length };
+  });
+}
 
 const PALATAL_ASSIMILATIONS = [
   { pattern: /\bdid\s+you\b/gi, phrase: 'did you', sound: '/ˈdɪdʒə/ (com /dʒ/)' },

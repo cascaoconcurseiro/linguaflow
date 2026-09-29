@@ -68,6 +68,9 @@
     const originalFetch = window.fetch;
     let currentSourceLang = 'en';
     let preloadedVideoKey = '';
+    let reloadedCaptionKey = '';
+    // Grace period for the player's own timedtext request before asking it again.
+    const PLAYER_CAPTION_GRACE_MS = 2500;
     // A failed track is not retried on every player event or button click.
     // Navigation/source-language changes allow a fresh, single attempt.
 
@@ -77,25 +80,32 @@
             const response = (typeof player?.getPlayerResponse === 'function' ? player.getPlayerResponse() : null)
                 || window.ytInitialPlayerResponse;
             const currentId = new URLSearchParams(window.location.search).get('v');
-            if (response?.videoDetails?.videoId && response.videoDetails.videoId !== currentId) return [];
+            // null = the player response does not describe the current video yet.
+            if (!currentId || response?.videoDetails?.videoId !== currentId) return null;
             const tracks = response?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
             return Array.isArray(tracks) ? tracks : [];
         } catch {
-            return [];
+            return null;
         }
+    };
+
+    const postCaptionAvailability = (videoId, available) => {
+        postBridgeMessage({ type: 'LF_CAPTION_AVAILABILITY', videoId, available });
     };
 
     const preloadFullSubtitleTrack = async (attempt = 0) => {
         const videoId = new URLSearchParams(window.location.search).get('v');
         if (!videoId) return;
         const tracks = getCaptionTracks();
-        if (!tracks.length) {
+        if (!tracks?.length) {
             if (attempt < 4) setTimeout(() => preloadFullSubtitleTrack(attempt + 1), 400 * (attempt + 1));
+            else if (tracks) postCaptionAvailability(videoId, false);
             return;
         }
 
         const matches = tracks.filter((item) => item.baseUrl && item.languageCode?.toLowerCase().split('-')[0] === currentSourceLang.toLowerCase().split('-')[0]);
         const track = matches.find((item) => item.kind !== 'asr') || matches[0];
+        postCaptionAvailability(videoId, Boolean(track?.baseUrl));
         if (!track?.baseUrl) return;
 
         const url = new URL(track.baseUrl, window.location.href);
@@ -116,7 +126,11 @@
             }
             const body = await response.text();
             if (body.length > 10) notifyExt(url.toString(), body);
-            else console.warn('[LinguaFlow] caption_track_empty', { status: Number(response.status) || 0 });
+            else {
+                // Direct requests lack the player's `pot` token and come back empty.
+                console.warn('[LinguaFlow] caption_track_empty', { status: Number(response.status) || 0 });
+                setTimeout(() => requestPlayerCaptionReload(videoId), PLAYER_CAPTION_GRACE_MS);
+            }
         } catch (error) {
             console.warn('[LinguaFlow] caption_track_error', { code: error?.name || 'network' });
         }
@@ -220,6 +234,30 @@
             console.debug('[LinguaFlow] Erro ao selecionar trilha original:', err);
         }
         return false;
+    };
+
+    // The player may download the track before this hook exists (async injection);
+    // with the source track already active nothing asks for it again. Ask the
+    // player itself, once per video and language, so the request carries `pot`.
+    const requestPlayerCaptionReload = (videoId) => {
+        if (!videoId || videoId !== new URLSearchParams(window.location.search).get('v')) return;
+        if (capturedCaptions.some((entry) => videoIdOf(entry.url) === videoId)) return;
+        const reloadKey = `${videoId}:${currentSourceLang}`;
+        if (reloadedCaptionKey === reloadKey) return;
+        const moviePlayer = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
+        if (!moviePlayer || typeof moviePlayer.getOption !== 'function' || typeof moviePlayer.setOption !== 'function') return;
+        reloadedCaptionKey = reloadKey;
+        try {
+            const currentTrack = moviePlayer.getOption('captions', 'track') || {};
+            const isSourceTrack = String(currentTrack.languageCode || '').toLowerCase().split('-')[0]
+                === currentSourceLang.toLowerCase().split('-')[0] && !currentTrack.translationLanguage;
+            if (!isSourceTrack) {
+                ensureOriginalTrack();
+                return;
+            }
+            console.debug('[LinguaFlow] caption_player_reload');
+            moviePlayer.setOption('captions', 'reload', true);
+        } catch { /* Playback must never depend on the caption reload. */ }
     };
 
     window.addEventListener('message', (e) => {

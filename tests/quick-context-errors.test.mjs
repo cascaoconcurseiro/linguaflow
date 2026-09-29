@@ -42,6 +42,9 @@ assert.match(messages[0].content, /Não faça análise gramatical/);
 assert.match(messages[0].content, /até 80 palavras/);
 assert.match(messages[0].content, /apenas uma palavra do bloco/);
 assert.match(messages[0].content, /Não invente expressões/);
+// #366: "it's not September yet" virou "provavelmente clima de volta às aulas ou Halloween".
+assert.match(messages[0].content, /Não suponha assunto, motivo, lugar, data ou evento que a frase não diz/);
+assert.match(source, /createQuickContextCache\(chrome\.storage\.local, \{ key: 'lf_quick_ctx_v2' \}\)/, 'respostas antigas com especulação saem do cache');
 assert.match(messages[1].content, /Termo selecionado: "got"/);
 assert.match(messages[1].content, /She finally got over her fear of flying/);
 assert.match(messages[1].content, /"got over" significa "superou"/);

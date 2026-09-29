@@ -11,9 +11,26 @@ export function lemmaOf(word, lexicon) {
   if (IRREGULAR_VERB_MAP[lower]) return IRREGULAR_VERB_MAP[lower];
   if (NOT_INFLECTED.has(lower)) return lower;
   for (const candidate of getBaseVerbCandidates(lower)) {
-    if (candidate !== lower && candidate.length > 1 && lexicon.has(candidate)) return candidate;
+    if (candidate !== lower && candidate.length > 1 && lexicon.has(candidate) && isInflectionOf(lower, candidate)) return candidate;
   }
   return lower;
+}
+
+// #371: a palavra precisa ser flexão real da base pelas regras do inglês —
+// "thing" não é "the" + ing, e "hoping" é de "hope" (hop → hopping).
+function isInflectionOf(word, base) {
+  const forms = new Set([`${base}s`, `${base}es`]);
+  const endsCvc = /[^aeiou][aeiou][^aeiouwxy]$/.test(base);
+  const shortCvc = base.length === 3 && endsCvc; // hop, run, sit: sempre dobram
+  if (!shortCvc) forms.add(`${base}ed`).add(`${base}ing`);
+  if (endsCvc) forms.add(`${base}${base.at(-1)}ed`).add(`${base}${base.at(-1)}ing`);
+  if (/[^aeiou]y$/.test(base)) forms.add(`${base.slice(0, -1)}ies`).add(`${base.slice(0, -1)}ied`);
+  if (base.endsWith('e')) {
+    forms.add(`${base}d`);
+    const stem = base.slice(0, -1);
+    if (/[aeiouy]/.test(stem)) forms.add(`${stem}ing`); // love → loving; "the" → "thing" não
+  }
+  return forms.has(word);
 }
 
 // Agrupa as palavras das falas por lema. Nomes próprios (só aparecem com

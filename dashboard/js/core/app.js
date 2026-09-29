@@ -20,7 +20,7 @@ const renderCoursePractice = (...args) => import('../ui/coursePracticeView.js').
 
 const CLIENT_BUILD = '3.0.59';
 // Rotas cujo render recebe os parâmetros de navegação (lição, modo, aba).
-const ROUTES_WITH_PARAMS = new Set(['study', 'courses', 'course-practice']);
+const ROUTES_WITH_PARAMS = new Set(['study', 'courses', 'course-practice', 'library']);
 // Rotas restauradas ao recarregar (hash da URL). O player volta para Cursos:
 // a sessão parcial já foi salva ao sair e a lição precisa de parâmetros.
 const RESTORABLE_ROUTES = new Set(['home', 'courses', 'library', 'progress', 'stories', 'settings', 'fluency-check']);

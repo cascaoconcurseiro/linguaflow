@@ -17,8 +17,10 @@ let searchDebounceTimer = null;
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
 
-export async function renderLibrary(container, app) {
+export async function renderLibrary(container, app, params = {}) {
   clearTimeout(searchDebounceTimer);
+  // Vindo de "Ver no Cofre" na Home: abre já filtrado pela palavra.
+  if (typeof params?.search === 'string') searchQuery = params.search.trim().slice(0, 200);
   app.onLeaveView?.(() => {
     clearTimeout(searchDebounceTimer);
   });

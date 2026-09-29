@@ -52,9 +52,9 @@ const engineContent = readFileSync('content/subtitle-engine.js', 'utf8');
 assert.match(engineContent, /db\.enqueueListeningInterval/, 'subtitle-engine envia intervalos com identidade estável');
 assert.doesNotMatch(engineContent, /db\.logSession\(10/, 'timer não presume dez segundos nem idioma configurado');
 
-// 5. Contrato do Dashboard (Cards Críticos e Cronômetro de Card)
+// 5. Contrato do Dashboard (Palavras que não estão fixando e Cronômetro de Card)
 const homeViewContent = readFileSync('dashboard/js/ui/homeView.js', 'utf8');
-assert.match(homeViewContent, /home-critical-cards|criticalCards/, 'homeView deve mapear e renderizar cards críticos');
+assert.match(homeViewContent, /home-struggling-words/, 'homeView deve renderizar palavras que não estão fixando');
 
 const studyViewContent = readFileSync('dashboard/js/ui/studyView.js', 'utf8');
 assert.match(studyViewContent, /card-live-timer/, 'studyView deve conter o cronômetro do card #card-live-timer');

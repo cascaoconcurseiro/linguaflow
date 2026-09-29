@@ -108,6 +108,16 @@ export function startSpan(name, attributes = {}) {
   };
 }
 
+// Contagens viram faixas fixas para manter a cardinalidade dos atributos baixa.
+export function countBucket(n) {
+  const v = Math.max(0, Math.floor(Number(n) || 0));
+  if (v === 0) return '0';
+  if (v === 1) return '1';
+  if (v <= 5) return '2-5';
+  if (v <= 20) return '6-20';
+  return '21+';
+}
+
 export function configureObservability(config = {}) {
   if (typeof globalThis === 'undefined') return;
   globalThis.LF_OBSERVABILITY = { ...(globalThis.LF_OBSERVABILITY || {}), ...config };

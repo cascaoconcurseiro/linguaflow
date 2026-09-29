@@ -3,6 +3,7 @@
 ## [Não lançado]
 
 ### Alterado
+- **Home mais enxuta e acionável**: "Hoje" volta a ser o primeiro item do menu, antes de Cursos. "Cards Críticos" vira "Palavras que não estão fixando": lista só palavras esquecidas 3+ vezes (mesmo critério da sessão de reforço), mostra quando o item foi sinalizado e tem o botão "Reforçar" para as vencidas. A dificuldade interna do FSRS deixou de aparecer. A Home mostra no máximo um alerta por vez (retorno, ofensiva ou cofre), e as horas de estudo foram para "Métricas detalhadas". Cada palavra tem "Ver no Cofre" (abre o Cofre já filtrado) e "Pausar" (com confirmação; reativável no Cofre).
 - **Card de estudo com a organização do player de Cursos**: uma coluna centralizada, contadores em pílulas e, no verso, um painel único com tradução, pronúncia, palavra estudada e explicação, nesta ordem. Trecho original e "Entender melhor" passam a ficar abaixo do painel, recolhidos, em vez de coluna lateral. A lógica de revisão não mudou.
 - **Verso do card sem rolagem, com atalhos como no curso**: após virar aparecem só frase, tradução e IPA. Palavra (P), Por quê (X), Trecho original (V) e Outros contextos (O) abrem por atalho ou botão, um de cada vez, no mesmo lugar; Esc fecha. Botão de algo que o card não tem fica escondido.
 

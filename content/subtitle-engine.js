@@ -22,6 +22,13 @@ import { setupPlayerHotkeys } from './subtitles/player-hotkeys.js';
 import { parseVTT } from './subtitles/vtt-parser.js';
 import { closeDomCue, crossedCueEnd, findActiveCueIndex, recordDomCue } from './subtitles/active-cue.js';
 import { CAPTION_WAIT_MS, highlightMatches, highlightTerms, segmentSubtitle, transcriptState } from './subtitles/transcript-render.js';
+import {
+  buildLineExplainMessages,
+  createLineExplanationCache,
+  isAuthError,
+  lineExplanationKey,
+  parseLineExplanation,
+} from './subtitles/line-explainer.js';
 import { comprehensionSummary, extractVideoVocabulary, learnerKeywords, wordStatus } from './subtitles/video-vocabulary.js';
 import {
   calculateWpm,
@@ -2857,6 +2864,22 @@ export class SubtitleEngine {
             #lf-subtitle-panel .lf-skeleton-row { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
             #lf-subtitle-panel .lf-skeleton-bar { height: 12px; border-radius: 4px; background: rgba(148, 163, 184, 0.22); }
             #lf-subtitle-panel .lf-skeleton-bar.short { width: 55%; }
+            #lf-subtitle-panel .lf-cue-actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+            #lf-subtitle-panel .lf-explain-cue { font: inherit; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; cursor: pointer; background: transparent; border: 1px solid rgba(148,163,184,0.45); color: inherit; }
+            #lf-subtitle-panel .lf-explain-cue[aria-expanded="true"] { border-color: #38bdf8; color: #7dd3fc; }
+            #lf-subtitle-panel .lf-explain-cue:disabled { opacity: 0.6; cursor: progress; }
+            #lf-subtitle-panel .lf-explain-cue:focus-visible,
+            #lf-subtitle-panel .lf-line-explain-retry:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+            #lf-subtitle-panel .lf-line-explain { margin: 6px 0 0 48px; padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(148,163,184,0.3); font-size: 13px; line-height: 1.45; display: flex; flex-direction: column; gap: 6px; cursor: default; }
+            #lf-subtitle-panel .lf-line-explain[hidden] { display: none; }
+            #lf-subtitle-panel .lf-line-explain p, #lf-subtitle-panel .lf-line-explain ul { margin: 0; }
+            #lf-subtitle-panel .lf-line-explain ul { padding-left: 18px; }
+            #lf-subtitle-panel .lf-line-explain-label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.75; }
+            #lf-subtitle-panel .lf-line-explain-note { font-size: 11px; opacity: 0.7; }
+            #lf-subtitle-panel .lf-line-explain-error { color: #fca5a5; }
+            #lf-subtitle-panel.theme-light .lf-line-explain-error { color: #b91c1c; }
+            #lf-subtitle-panel.theme-light .lf-explain-cue[aria-expanded="true"] { border-color: #0369a1; color: #0369a1; }
+            #lf-subtitle-panel .lf-line-explain-retry { align-self: flex-start; font: inherit; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 6px; cursor: pointer; background: transparent; border: 1px solid currentColor; color: inherit; }
 
             /* --- Aba Palavras e explorador (tema escuro padrão) --- */
             #lf-subtitle-panel .lf-words-card { background: rgba(255,255,255,0.04); border: 1px solid #384352; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
@@ -4754,11 +4777,15 @@ export class SubtitleEngine {
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
                     <button type="button" class="lf-time lf-sub-time lf-play-cue" aria-label="Tocar a partir de ${time}">${time}</button>
                     <p class="lf-sub-text" style="flex:1;font-size:15px;line-height:1.4;font-weight:700;"></p>
-                    <button type="button" class="lf-loop-cue" title="Repetir frase" aria-label="Repetir frase em ${time}" style="background:transparent;border:none;color:inherit;cursor:pointer;font-size:14px;padding:0 2px;">🔁</button>
+                    <div class="lf-cue-actions">
+                        <button type="button" class="lf-explain-cue" aria-expanded="false" aria-controls="lf-explain-${idx}" aria-label="Explicar a fala em ${time}">Explicar</button>
+                        <button type="button" class="lf-loop-cue" title="Repetir frase" aria-label="Repetir frase em ${time}" style="background:transparent;border:none;color:inherit;cursor:pointer;font-size:14px;padding:0 2px;">🔁</button>
+                    </div>
                 </div>
                 <p class="lf-translation-text lf-trans-text" style="margin:0;font-size:13px;padding-left:48px;font-weight:600;display:${showTrans ? 'block' : 'none'};">
                     ${cleanTrans ? highlightMatches(cleanTrans, normalizedFilter) : '<span style="opacity:0.6;font-style:italic;">traduzindo...</span>'}
                 </p>
+                <div class="lf-line-explain" id="lf-explain-${idx}" aria-live="polite" hidden></div>
             `;
 
       const textEl = item.querySelector?.('.lf-sub-text');
@@ -4771,6 +4798,12 @@ export class SubtitleEngine {
         }
       };
       item.onclick = (e) => {
+        if (e.target.closest?.('.lf-line-explain')) return;
+        const explainBtn = e.target.closest?.('.lf-explain-cue');
+        if (explainBtn) {
+          this._explainLine(idx, cue, item, explainBtn);
+          return;
+        }
         if (e.target.closest?.('.lf-loop-cue')) {
           this._toggleCueLoop(idx, e.target);
           return;
@@ -4800,6 +4833,96 @@ export class SubtitleEngine {
     if (previousScrollTop > 0 && !container._userScrolling) {
       container.scrollTop = previousScrollTop;
     }
+  }
+
+  // "Explicar esta fala": IA com a fala + vizinhas, pela mesma rota do tutor
+  // (respeita chave própria ou proxy). Resultado fica em cache local por
+  // vídeo + início da fala + idioma; segundo clique recolhe.
+  async _explainLine(idx, cue, item, button) {
+    const region = item.querySelector?.('.lf-line-explain');
+    if (!region) return;
+    if (button.getAttribute('aria-expanded') === 'true' && !region.dataset.error) {
+      button.setAttribute('aria-expanded', 'false');
+      region.hidden = true;
+      return;
+    }
+    button.setAttribute('aria-expanded', 'true');
+    region.hidden = false;
+    delete region.dataset.error;
+
+    const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
+    const clean = (c) => (c ? (this._cleanSubtitleText ? this._cleanSubtitleText(c.text) : c.text || '') : '');
+    const line = clean(cue);
+    const key = lineExplanationKey({
+      videoId: new URLSearchParams(window.location.search).get('v') || window.location.pathname,
+      start: cue.start,
+      targetLang: this.targetLang,
+    });
+    this._lineExplainCache ||= createLineExplanationCache({
+      get: (k) => chrome.storage.local.get(k),
+      set: (value) => chrome.storage.local.set(value),
+    });
+
+    const cached = await this._lineExplainCache.get(key);
+    if (cached) {
+      this._renderLineExplanation(region, cached);
+      return;
+    }
+
+    region.setAttribute('aria-busy', 'true');
+    region.innerHTML = '<p class="lf-line-explain-status">Explicando a fala com o contexto…</p><div class="lf-skeleton-bar" aria-hidden="true"></div><div class="lf-skeleton-bar short" aria-hidden="true"></div>';
+    button.disabled = true;
+    const messages = buildLineExplainMessages({
+      previous: clean(cues[idx - 1]),
+      line,
+      next: clean(cues[idx + 1]),
+      expressions: detectExpressions(line),
+      targetLang: this.targetLang,
+    });
+    const response = await new Promise((resolve) => {
+      try {
+        chrome.runtime.sendMessage({ action: 'ai_chat', messages, options: { temperature: 0.3, max_tokens: 600 } }, (result) => {
+          resolve(chrome.runtime.lastError ? { error: chrome.runtime.lastError.message } : result);
+        });
+      } catch (error) {
+        resolve({ error: error?.message });
+      }
+    });
+    button.disabled = false;
+    region.removeAttribute('aria-busy');
+
+    const parsed = parseLineExplanation(response?.content);
+    if (parsed) {
+      await this._lineExplainCache.set(key, parsed);
+      this._renderLineExplanation(region, parsed);
+      return;
+    }
+    region.dataset.error = '1';
+    if (isAuthError(response?.error)) {
+      region.innerHTML = '<p class="lf-line-explain-error">Entre na sua conta do LinguaFlow (ou configure sua chave de IA) para usar a explicação.</p>';
+      return;
+    }
+    region.innerHTML = '<p class="lf-line-explain-error">Não foi possível explicar esta fala agora.</p><button type="button" class="lf-line-explain-retry">Tentar de novo</button>';
+    const retry = region.querySelector('.lf-line-explain-retry');
+    if (retry) {
+      retry.onclick = (event) => {
+        event.stopPropagation();
+        this._explainLine(idx, cue, item, button);
+      };
+    }
+  }
+
+  _renderLineExplanation(region, data) {
+    delete region.dataset.error;
+    const items = (data.expressions || [])
+      .map((e) => `<li><strong>${escapeHTML(e.text)}</strong>: ${escapeHTML(e.meaning)}</li>`)
+      .join('');
+    region.innerHTML = `
+      ${data.translation ? `<p><span class="lf-line-explain-label">Tradução natural</span> ${escapeHTML(data.translation)}</p>` : ''}
+      ${data.meaning ? `<p><span class="lf-line-explain-label">Sentido</span> ${escapeHTML(data.meaning)}</p>` : ''}
+      ${items ? `<ul>${items}</ul>` : ''}
+      <p class="lf-line-explain-note">Explicação gerada por IA; confira no contexto do vídeo.</p>
+    `;
   }
 
   // Na busca, a frase vira texto com as ocorrências marcadas; sem busca, cada

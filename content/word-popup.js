@@ -1586,6 +1586,8 @@ export class WordPopup {
       this._renderIgnoreButton(!ignore);
       btn.textContent = ignore ? '⚠ Não foi possível ignorar — tentar de novo' : '⚠ Não foi possível desfazer — tentar de novo';
     }
+  }
+
   // Traduções por classe gramatical (#366). Falha silenciosa: sem lista, o
   // card fica só com a tradução principal.
   _senses(word) {

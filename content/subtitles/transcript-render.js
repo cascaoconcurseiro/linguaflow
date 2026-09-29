@@ -78,6 +78,25 @@ export function highlightMatches(text, filter) {
   return html + escapeHTML(source.slice(cursor));
 }
 
+// HTML escapado com cada forma (palavra inteira, sem diferenciar caixa) em
+// <mark>. Formas com várias palavras aceitam qualquer espaço entre elas.
+export function highlightTerms(text, forms, markAttrs = 'class="lf-term-hit"') {
+  const source = String(text || '');
+  const patterns = [...new Set((forms || []).map((f) => String(f || '').trim()).filter(Boolean))]
+    .sort((a, b) => b.length - a.length)
+    .map((f) => f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'));
+  if (!patterns.length) return escapeHTML(source);
+  const regex = new RegExp(`(?<![\\p{L}'])(?:${patterns.join('|')})(?![\\p{L}'])`, 'giu');
+  let html = '';
+  let cursor = 0;
+  for (const match of source.matchAll(regex)) {
+    html += escapeHTML(source.slice(cursor, match.index));
+    html += `<mark ${markAttrs}>${escapeHTML(match[0])}</mark>`;
+    cursor = match.index + match[0].length;
+  }
+  return html + escapeHTML(source.slice(cursor));
+}
+
 export const CAPTION_WAIT_MS = 10000;
 
 // 'ready' com falas; 'loading' enquanto a legenda ainda pode chegar;

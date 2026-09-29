@@ -28,7 +28,9 @@ import {
   isAuthError,
   lineExplanationKey,
   parseLineExplanation,
+  parsePartialLineExplanation,
 } from './subtitles/line-explainer.js';
+import { streamAiRequest } from '../utils/ai-stream.js';
 import { comprehensionSummary, extractVideoVocabulary, learnerKeywords, wordStatus } from './subtitles/video-vocabulary.js';
 import {
   calculateWpm,
@@ -4941,17 +4943,22 @@ export class SubtitleEngine {
       expressions: detectExpressions(line),
       targetLang: this.targetLang,
     });
-    const response = await new Promise((resolve) => {
-      try {
-        chrome.runtime.sendMessage({ action: 'ai_chat', messages, options: { temperature: 0.3, max_tokens: 600 } }, (result) => {
-          resolve(chrome.runtime.lastError ? { error: chrome.runtime.lastError.message } : result);
-        });
-      } catch (error) {
-        resolve({ error: error?.message });
-      }
-    });
+    // Streaming: tradução e sentido aparecem enquanto a IA escreve (o JSON
+    // parcial é lido campo a campo); fechar a explicação cancela o pedido.
+    const response = await streamAiRequest(
+      { action: 'ai_chat', messages, options: { temperature: 0.3, max_tokens: 600 } },
+      {
+        isStale: () => !region.isConnected || region.hidden,
+        onPartial: (partial) => {
+          const draft = parsePartialLineExplanation(partial.text);
+          if (!draft.translation && !draft.meaning) return;
+          this._renderLineExplanation(region, draft, { streaming: true });
+        },
+      },
+    );
     button.disabled = false;
     region.removeAttribute('aria-busy');
+    if (!region.isConnected || region.hidden) return;
 
     const parsed = parseLineExplanation(response?.content);
     if (parsed) {
@@ -4974,7 +4981,7 @@ export class SubtitleEngine {
     }
   }
 
-  _renderLineExplanation(region, data) {
+  _renderLineExplanation(region, data, { streaming = false } = {}) {
     delete region.dataset.error;
     const items = (data.expressions || [])
       .map((e) => `<li><strong>${escapeHTML(e.text)}</strong>: ${escapeHTML(e.meaning)}</li>`)
@@ -4983,7 +4990,7 @@ export class SubtitleEngine {
       ${data.translation ? `<p><span class="lf-line-explain-label">Tradução natural</span> ${escapeHTML(data.translation)}</p>` : ''}
       ${data.meaning ? `<p><span class="lf-line-explain-label">Sentido</span> ${escapeHTML(data.meaning)}</p>` : ''}
       ${items ? `<ul>${items}</ul>` : ''}
-      <p class="lf-line-explain-note">Explicação gerada por IA; confira no contexto do vídeo.</p>
+      <p class="lf-line-explain-note">${streaming ? 'Escrevendo…' : 'Explicação gerada por IA; confira no contexto do vídeo.'}</p>
     `;
   }
 

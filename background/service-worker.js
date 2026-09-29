@@ -104,6 +104,13 @@ chrome.runtime.onConnect.addListener((port) => {
       })
         .then((analysis) => post({ type: 'done', analysis }))
         .catch((err) => post({ type: 'error', error: err.message }));
+    } else if (request?.action === 'ai_chat') {
+      aiChatPassthrough(request.messages, request.options || {}, {
+        signal: controller.signal,
+        onPartial: (text) => post({ type: 'partial', text }),
+      })
+        .then((content) => post({ type: 'done', content }))
+        .catch((err) => post({ type: 'error', error: err.message }));
     } else {
       post({ type: 'error', error: 'Pedido de IA desconhecido.' });
     }
@@ -1211,12 +1218,13 @@ Gere a explicação amigável seguindo a estrutura obrigatória (A ideia aqui, O
   }
 }
 
-async function aiChatPassthrough(messages, options = {}) {
+async function aiChatPassthrough(messages, options = {}, { onPartial, signal } = {}) {
   if (!Array.isArray(messages) || messages.length === 0) throw new Error('Mensagens vazias.');
   const config = await getApiConfig();
   if (!config.apiKey) throw new Error('Faça login no LinguaFlow para usar a IA.');
 
   const controller = new AbortController();
+  signal?.addEventListener('abort', () => controller.abort(), { once: true });
   const timeoutId = setTimeout(() => controller.abort(), 20000);
 
   const response = await fetchWithRetry(config.apiUrl, {
@@ -1228,19 +1236,27 @@ async function aiChatPassthrough(messages, options = {}) {
       messages,
       temperature: typeof options.temperature === 'number' ? options.temperature : 0.6,
       max_tokens: Math.min(Number(options.max_tokens) || 800, 1200),
+      stream: Boolean(onPartial),
     }),
   });
 
-  clearTimeout(timeoutId);
-  if (!response.ok) {
-    const errBody = await response.text().catch(() => '');
-    throw new Error(`Erro API (${response.status}): ${errBody}`);
+  try {
+    if (!response.ok) {
+      const errBody = await response.text().catch(() => '');
+      throw new Error(`Erro API (${response.status}): ${errBody}`);
+    }
+    let content;
+    if (onPartial && response.body && /event-stream/i.test(response.headers?.get?.('content-type') || '')) {
+      content = await readSseText(response, onPartial);
+    } else {
+      const data = await response.json();
+      content = data.choices?.[0]?.message?.content;
+    }
+    if (!content) throw new Error('IA não retornou conteúdo.');
+    return content;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) throw new Error('IA não retornou conteúdo.');
-  return content;
 }
 
 async function generateChunksWithAI(word, context = '') {

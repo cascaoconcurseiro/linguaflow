@@ -62,6 +62,29 @@ export function parseLineExplanation(content) {
   return { translation, meaning, expressions };
 }
 
+// Durante o streaming o JSON ainda está aberto: lê "translation" e "meaning"
+// mesmo sem a aspa de fechamento, para mostrar o texto enquanto a IA escreve.
+// A versão final continua vindo de parseLineExplanation.
+function partialJsonString(raw, field) {
+  const match = raw.match(new RegExp(`"${field}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)`));
+  if (!match) return '';
+  const body = match[1].replace(/\\(u[0-9a-fA-F]{0,3})?$/, '');
+  try {
+    return clip(JSON.parse(`"${body}"`));
+  } catch {
+    return clip(body);
+  }
+}
+
+export function parsePartialLineExplanation(content) {
+  const raw = String(content || '');
+  return {
+    translation: partialJsonString(raw, 'translation'),
+    meaning: partialJsonString(raw, 'meaning'),
+    expressions: [],
+  };
+}
+
 export function lineExplanationKey({ videoId, start, targetLang = 'pt' }) {
   return `${videoId || 'video'}|${Math.round(Number(start || 0) * 10) / 10}|${targetLang}`;
 }

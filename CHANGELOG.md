@@ -7,6 +7,8 @@
 - **Card de estudo com a organização do player de Cursos**: uma coluna centralizada, contadores em pílulas e, no verso, um painel único com tradução, pronúncia, palavra estudada e explicação, nesta ordem. Trecho original e "Entender melhor" passam a ficar abaixo do painel, recolhidos, em vez de coluna lateral. A lógica de revisão não mudou.
 - **Verso do card sem rolagem, com atalhos como no curso**: após virar aparecem só frase, tradução e IPA. Palavra (P), Por quê (X), Trecho original (V) e Outros contextos (O) abrem por atalho ou botão, um de cada vez, no mesmo lugar; Esc fecha. Botão de algo que o card não tem fica escondido.
 
+- **Roteiro do vídeo ao lado, sem cobrir o vídeo**: a barra lateral deixou de escurecer e desfocar a página; dá para assistir e ler ao mesmo tempo. As palavras do roteiro são clicáveis (abre o popup de palavra) e têm a cor do seu status; a busca destaca o termo em cada fala; enquanto a legenda carrega aparece um esqueleto, separado do aviso de "legenda indisponível". Cada trecho tem botões "Tocar a partir de…" e "Repetir" acessíveis por teclado e leitor de tela.
+
 ### Corrigido
 - **Legenda do YouTube não iniciava ao trocar de vídeo**: a legenda baixada pelo player durante a navegação interna do YouTube era descartada pela ponte de segurança (nonce antigo) e nunca reenviada; ficava só a legenda nativa traduzida até um Ctrl+Shift+R. Agora a última faixa capturada do vídeo atual é reenviada assim que a ponte é renovada.
 - **Botão CC desligando sozinho após várias trocas de vídeo**: cada navegação somava um novo listener de `play` no mesmo `<video>`, clicando o CC várias vezes por play.

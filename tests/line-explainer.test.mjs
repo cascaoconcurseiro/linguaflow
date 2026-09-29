@@ -10,6 +10,7 @@ import {
   LINE_EXPLAIN_CACHE_LIMIT,
   lineExplanationKey,
   parseLineExplanation,
+  parsePartialLineExplanation,
 } from '../content/subtitles/line-explainer.js';
 
 test('prompt leva a fala, as vizinhas e o que já foi detectado, como dado', () => {
@@ -75,4 +76,26 @@ test('roteiro: botão "Explicar" com estados de carregando, erro, login e sucess
   assert.match(fn, /isAuthError/);
   assert.match(fn, /Tentar de novo/);
   assert.match(fn, /lineExplanationKey/);
+});
+
+test('JSON parcial do stream mostra tradução e sentido antes de fechar', () => {
+  assert.deepEqual(parsePartialLineExplanation('{"translation":"Eu vou'),
+    { translation: 'Eu vou', meaning: '', expressions: [] });
+  const escaped = parsePartialLineExplanation(String.raw`{"translation":"Ele disse \"oi\" e","meaning":"quis dizer ` + '\\');
+  assert.equal(escaped.translation, 'Ele disse "oi" e');
+  assert.equal(escaped.meaning, 'quis dizer', 'barra de escape pendente no fim é descartada');
+  assert.equal(parsePartialLineExplanation(String.raw`{"translation":"caf\u00e`).translation, 'caf',
+    'escape unicode incompleto não quebra');
+  assert.deepEqual(parsePartialLineExplanation('{"transl'), { translation: '', meaning: '', expressions: [] });
+  assert.equal(parsePartialLineExplanation('{"translation":"Olá","meaning":"x"}').translation, 'Olá');
+});
+
+test('explicação da fala usa a porta de streaming e cancela ao fechar', async () => {
+  const engine = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+  const start = engine.indexOf('  async _explainLine(');
+  const fn = engine.slice(start, engine.indexOf('\n  _renderLineExplanation(', start));
+  assert.match(fn, /streamAiRequest\(\s*\{ action: 'ai_chat'/);
+  assert.match(fn, /onPartial:[\s\S]*parsePartialLineExplanation/);
+  assert.match(fn, /isStale: \(\) => !region\.isConnected \|\| region\.hidden/);
+  assert.match(fn, /parseLineExplanation\(response\?\.content\)/, 'resultado final continua validado pelo parser completo');
 });

@@ -2586,6 +2586,9 @@ export class SubtitleEngine {
     let language = code;
     try { language = new Intl.DisplayNames(['pt-BR'], { type: 'language' }).of(code) || code; } catch {}
     this._setCaptionNotice(`Este vídeo não tem legenda em ${language}.`);
+    // Confirmado sem legenda: o roteiro para de mostrar o esqueleto de carregando.
+    this._captionsPendingSince = 0;
+    if (typeof document !== 'undefined' && document.getElementById?.('lf-subtitle-list')) this._rebuildSubtitleList();
   }
 
   _setCaptionNotice(message) {

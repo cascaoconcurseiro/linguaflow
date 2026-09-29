@@ -106,3 +106,27 @@ test('destaque do roteiro só mexe no DOM quando a fala ativa muda', () => {
     globalThis.document = previousDocument;
   }
 });
+
+test('vídeo confirmado sem legenda: roteiro sai do carregando na hora', () => {
+  const engine = Object.create(SubtitleEngine.prototype);
+  let rebuilt = 0;
+  const previousWindow = globalThis.window;
+  const previousDocument = globalThis.document;
+  globalThis.window = { location: { href: 'https://www.youtube.com/watch?v=vid12' } };
+  globalThis.document = { getElementById: (id) => (id === 'lf-subtitle-list' ? {} : null) };
+  try {
+    Object.assign(engine, {
+      cues: [],
+      sourceLang: 'en',
+      _captionsPendingSince: Date.now(),
+      _setCaptionNotice() {},
+      _rebuildSubtitleList() { rebuilt += 1; },
+    });
+    engine._handleCaptionAvailability({ videoId: 'vid12', available: false });
+    assert.equal(transcriptState({ cueCount: 0, pendingSince: engine._captionsPendingSince }), 'unavailable');
+    assert.equal(rebuilt, 1);
+  } finally {
+    globalThis.window = previousWindow;
+    globalThis.document = previousDocument;
+  }
+});

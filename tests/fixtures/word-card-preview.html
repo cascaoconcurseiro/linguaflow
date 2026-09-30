@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prévia local · Card da palavra</title>
+  <style>
+    body { margin: 0; min-height: 100vh; font-family: system-ui, sans-serif; background: #0f0f0f; color: #eee; }
+    #player { position: relative; width: 900px; height: 720px; margin: 16px; background: #1b1b1b; border-radius: 12px; }
+    #sub { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); font-size: 22px; }
+  </style>
+</head>
+<body>
+  <!-- Fixture local (#383): código real do card, dados simulados, sem rede. -->
+  <div id="player" class="html5-video-player"><span id="sub">I bet it's fake, <b id="anchor">too</b>. Like,</span></div>
+  <script type="module">
+    const replies = {
+      translate: { translation: 'também' },
+      wordSenses: { senses: [{ pos: 'adverb', label: 'advérbio', base: 'too', terms: ['também', 'demasiado', 'muito', 'demais', 'igualmente'] }] },
+      dictionary: { ok: true, data: { phonetic: '/tuː/', partOfSpeech: 'adverb', definition: 'To an excessive degree.' } },
+    };
+    window.chrome = {
+      runtime: {
+        getURL: (p) => `/${p}`,
+        lastError: null,
+        sendMessage: (msg, cb) => setTimeout(() => cb?.(replies[msg?.action] || {}), 120),
+        onMessage: { addListener() {} },
+        connect: () => {
+          const listeners = [];
+          return {
+            onMessage: { addListener: (fn) => listeners.push(fn) },
+            onDisconnect: { addListener() {} },
+            disconnect() {},
+            postMessage() {
+              setTimeout(() => listeners.forEach((fn) => fn({ type: 'done', translation: 'também', explanation: 'Aqui "too" significa "também": a pessoa acrescenta que aquilo também é falso. É diferente de "too" como "demais/excessivamente".' })), 300);
+            },
+          };
+        },
+      },
+      storage: { local: { get: async () => ({}), set: async () => {} }, onChanged: { addListener() {}, removeListener() {} } },
+    };
+    const { WordPopup } = await import('/content/word-popup.js');
+    const { db } = await import('/utils/db.js');
+    db.getWord = async () => null;
+    db._readSession = async () => ({ access_token: 'fixture-only' });
+    const video = document.createElement('video');
+    const engine = {
+      sourceLang: 'en', targetLang: 'pt', videoElement: video, knownWords: new Set(), savedWords: new Map(), ignoredWords: new Set(),
+      cefrList: { too: 'A1' },
+      xhrCues: [
+        { start: 10, end: 13, text: "I bet it's fake, too. Like," },
+        { start: 40, end: 43, text: 'That was too much for me.', translatedText: 'Aquilo foi demais pra mim.' },
+      ],
+    };
+    const popup = new WordPopup(engine, 'youtube');
+    await popup.init?.();
+    popup._lookupCEFR = () => 'A1';
+    const rect = document.getElementById('anchor').getBoundingClientRect();
+    await popup.showForWord('too', "I bet it's fake, too. Like,", rect, engine.xhrCues[0]);
+    window.__cardReady = true;
+  </script>
+</body>
+</html>

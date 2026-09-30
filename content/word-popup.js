@@ -347,76 +347,56 @@ export class WordPopup {
       transform: 'translateY(10px) scale(0.95)',
     });
     this.popup.innerHTML = `
-<div style="padding:16px 18px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+<div style="padding:14px 16px 10px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;border-bottom:1px solid rgba(255,255,255,.07);">
   <div style="flex:1;min-width:0;">
-    <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;">
-      <span id="fw" style="font-size:28px;font-weight:800;color:#f8fafc;letter-spacing:-.03em;line-height:1;"></span>
-      <span id="fcefr" class="lfp-badge" style="display:none;"></span>
-      <span id="fcefr-prog" style="display:none;font-size:10px;color:#94a3b8;font-family:monospace;align-self:center;"></span>
-    </div>
-    <div id="fipa-wrap" style="display:none;margin-top:10px;">
-      <div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px;">Pronúncia (IPA)</div>
-      <span id="fipa" style="display:block;font-size:25px;line-height:1.25;color:#f8fafc;font-family:'Lucida Sans Unicode','DejaVu Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;letter-spacing:0;"></span>
+    <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
+      <span id="fw" style="font-size:26px;font-weight:800;color:#f8fafc;letter-spacing:-.03em;line-height:1.1;"></span>
+      <span id="fipa-wrap" style="display:none;"><span id="fipa" title="Pronúncia (IPA)" style="font-size:17px;line-height:1.25;color:#cbd5e1;font-family:'Lucida Sans Unicode','DejaVu Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;letter-spacing:0;"></span></span>
     </div>
     <div style="display:flex;align-items:center;gap:5px;margin-top:6px;flex-wrap:wrap;">
+      <span id="fcefr" class="lfp-badge" style="display:none;"></span>
       <span id="fexprtype" class="lfp-badge" style="display:none;"></span>
       <span id="fpos" class="lfp-badge" style="display:none;background:rgba(125,209,252,.1);color:#7dd3fc;border:1px solid rgba(125,209,252,.2)"></span>
       <span id="ffreq" style="display:none;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:20px;"></span>
     </div>
   </div>
-  <div style="display:flex;gap:6px;flex-shrink:0;margin-top:2px;">
-    <button id="ftts" type="button" title="Ouvir pronúncia" aria-label="Ouvir pronúncia da palavra" style="min-width:44px;min-height:44px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#7dd3fc;cursor:pointer;padding:6px 9px;font-size:16px;line-height:1;transition:all .15s;">🔊</button>
-    <button id="fx" type="button" aria-label="Fechar popup" style="min-width:44px;min-height:44px;background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px 7px;border-radius:6px;line-height:1;">✕</button>
+  <div style="display:flex;gap:6px;flex-shrink:0;">
+    <button id="ftts" type="button" title="Ouvir pronúncia" aria-label="Ouvir pronúncia da palavra" style="min-width:40px;min-height:40px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#7dd3fc;cursor:pointer;padding:6px 9px;font-size:16px;line-height:1;transition:all .15s;">🔊</button>
+    <button id="fx" type="button" aria-label="Fechar popup" style="min-width:40px;min-height:40px;background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px 7px;border-radius:6px;line-height:1;">✕</button>
   </div>
 </div>
-<div role="tablist" aria-label="Fontes da palavra" style="display:flex;border-bottom:1px solid rgba(255,255,255,.07);margin-top:12px;padding:0 4px;">
-  ${['Tradução', 'Dicionários', 'Pronúncia'].map((l, i) => `<button class="ftab" type="button" role="tab" id="lfp-tab-${i}" aria-controls="lfp-panel-${i}" aria-selected="${i === 0}" tabindex="${i === 0 ? '0' : '-1'}" data-i="${i}" style="flex:1;padding:9px 2px;font-size:11px;font-weight:700;color:${i === 0 ? '#7dd3fc' : '#94a3b8'};background:none;border:none;border-bottom:2px solid ${i === 0 ? '#7dd3fc' : 'transparent'};cursor:pointer;letter-spacing:.03em;white-space:nowrap;transition:all .15s;">${l}</button>`).join('')}
-</div>
-<div class="lfp-panels" style="padding:14px 18px 18px;max-height:400px;overflow-y:auto;">
-
-  <div class="fp" id="lfp-panel-0" role="tabpanel" aria-labelledby="lfp-tab-0" data-p="0">
-    <div id="ft" style="font-size:26px;font-weight:800;color:#4ade80;margin-bottom:5px;line-height:1.2;">…</div>
-    <section id="fsenses" aria-labelledby="fsenses-title" style="display:none;margin-bottom:12px;"><h3 id="fsenses-title" style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px;">Outras traduções</h3><dl id="fsenses-list" style="font-size:12px;line-height:1.6;color:#e2e8f0;"></dl></section>
+<div id="fbody" class="lfp-panels" style="padding:12px 16px 14px;max-height:360px;overflow-y:auto;">
+    <div id="ft" style="font-size:24px;font-weight:800;color:#4ade80;margin-bottom:10px;line-height:1.2;">…</div>
     <div id="fff-card" style="display:none;" class="lfp-ff"><div style="font-size:10px;color:#fb923c;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;">⚠️ Falso Cognato — Armadilha!</div><div id="fff-text" style="font-size:12px;color:#fcd34d;line-height:1.6;"></div></div>
     <div id="fctx" style="display:none;background:rgba(139,92,246,.06);border:1px solid rgba(139,92,246,.18);border-radius:10px;padding:10px 13px;margin-bottom:12px;"><div style="font-size:10px;color:#a78bfa;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;display:flex;align-items:center;gap:5px;"><span>💡</span><span>Contexto nesta frase</span></div><div id="fctxt" style="font-size:12px;color:#e2e8f0;line-height:1.7;"></div></div>
     <div id="fc" style="display:none;background:rgba(125,209,252,.04);border-left:3px solid rgba(125,209,252,.3);padding:8px 12px;border-radius:0 8px 8px 0;font-size:12px;color:#cbd5e1;line-height:1.6;margin-bottom:12px;"></div>
+    <section id="fsenses" aria-labelledby="fsenses-title" style="display:none;margin-bottom:12px;"><h3 id="fsenses-title" style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px;">Outras traduções</h3><dl id="fsenses-list" style="font-size:12px;line-height:1.6;color:#e2e8f0;"></dl></section>
     <section id="fvid" aria-labelledby="fvid-title" style="display:none;margin-bottom:12px;"><h3 id="fvid-title" style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:6px;">Neste vídeo</h3><ul id="fvid-list" style="list-style:none;display:flex;flex-direction:column;gap:6px;"></ul></section>
     <div id="fsyn" style="display:none;margin-bottom:10px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px;">Sinônimos</div><div id="fsyns" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
     <div id="fant" style="display:none;margin-bottom:12px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px;">Antônimos</div><div id="fants" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
-    <div style="height:1px;background:rgba(255,255,255,.06);margin-bottom:12px;"></div>
-
-    <button id="fsave" class="lfp-btn-bounce" style="display:block;width:100%;padding:11px;background:#58cc02;box-shadow:0 3px 0 #46a302;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;transition:transform .1s, filter .15s, background .15s;margin-bottom:8px;letter-spacing:.01em;">+ Salvar nos Flashcards</button>
-    <button id="fknown" class="lfp-btn-bounce" style="display:block;width:100%;padding:9px;background:rgba(134,239,172,.08);color:#86efac;border:1px solid rgba(134,239,172,.25);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;margin-bottom:8px;">✓ Já sei esta palavra</button>
-    <button id="fignore" type="button" aria-pressed="false" title="Nomes, interjeições e ruído da legenda: sem cor e fora da aba Palavras, sem contar como conhecida" style="display:block;width:100%;min-height:36px;padding:7px;background:none;color:#94a3b8;border:1px dashed rgba(148,163,184,.35);border-radius:11px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px;">⊘ Ignorar esta palavra</button>
     <button id="faisent" class="lfp-btn-bounce" style="display:none;width:100%;padding:9px;background:rgba(251,191,36,.08);color:#fbbf24;border:1px solid rgba(251,191,36,.22);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;margin-bottom:10px;">🔍 Analisar Frase Completa</button>
-    <div id="fair-container" style="display:none;position:relative;">
+    <div id="fair-container" style="display:none;position:relative;margin-bottom:12px;">
       <div id="fair" class="ai-res" style="background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:12px;font-size:12px;color:#c4b5fd;line-height:1.7;"></div>
       <button id="fcopy-ai" style="position:absolute;top:8px;right:8px;background:rgba(255,255,255,.1);border:none;border-radius:6px;color:#fff;padding:4px 8px;font-size:10px;cursor:pointer;opacity:0.6;">📋 Copiar</button>
     </div>
-  </div>
-
-  <div class="fp" id="lfp-panel-1" role="tabpanel" aria-labelledby="lfp-tab-1" data-p="1" style="display:none;padding-top:8px;">
-    <div style="font-size:13px;color:#94a3b8;line-height:1.8;margin-bottom:14px;text-align:center;">Traduções em contexto real de textos bilíngues — ideal para ver uso nativo.</div>
-    <div id="frev" style="display:none;margin-bottom:14px;max-height:280px;overflow-y:auto;"></div>
-    <button id="frevbtn" class="lfp-btn-bounce" style="display:block;width:100%;padding:11px;background:linear-gradient(135deg,#0c4a6e,#0369a1);color:#7dd3fc;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;">🔄 Reverso Context — Exemplos Reais</button>
-    <button id="fl1" style="display:block;width:100%;padding:10px;background:rgba(74,222,128,.08);color:#4ade80;border:1px solid rgba(74,222,128,.25);border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;">🔗 Linguee — EN ↔ PT</button>
-    <button id="fl2" style="display:block;width:100%;padding:9px;background:rgba(74,222,128,.05);color:#4ade80;border:1px solid rgba(74,222,128,.15);border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;">🇬🇧 Linguee — EN definitions</button>
-    <button id="fl3" style="display:block;width:100%;padding:9px;background:rgba(74,222,128,.03);color:#4ade80;border:1px solid rgba(74,222,128,.1);border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;">🌐 Google Translate</button>
-  </div>
-
-  <div class="fp" id="lfp-panel-2" role="tabpanel" aria-labelledby="lfp-tab-2" data-p="2" style="display:none;text-align:center;padding-top:8px;">
-    <div style="font-size:13px;color:#94a3b8;line-height:1.8;margin-bottom:14px;">Ouça como nativos pronunciam em vídeos reais do YouTube.</div>
-    <button id="fy1" class="lfp-btn-bounce" style="display:block;width:100%;padding:12px;background:linear-gradient(135deg,#7c1010,#b91c1c);color:#f87171;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;">🎬 YouGlish — Qualquer sotaque</button>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-      <button id="fy2" style="padding:10px;background:rgba(248,113,113,.07);color:#f87171;border:1px solid rgba(248,113,113,.2);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🇺🇸 American</button>
-      <button id="fy3" style="padding:10px;background:rgba(248,113,113,.07);color:#f87171;border:1px solid rgba(248,113,113,.2);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🇬🇧 British</button>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-      <button id="fy4" style="padding:10px;background:rgba(248,113,113,.04);color:#f87171;border:1px solid rgba(248,113,113,.12);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🇦🇺 Australian</button>
-      <button id="fy5" style="padding:10px;background:rgba(248,113,113,.04);color:#f87171;border:1px solid rgba(248,113,113,.12);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🎓 Academic</button>
-    </div>
-  </div>
-
+    <section id="fmore" aria-labelledby="fmore-title" style="padding-top:10px;border-top:1px solid rgba(255,255,255,.06);">
+      <h3 id="fmore-title" style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:6px;">Mais fontes</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <button id="frevbtn" type="button" class="lfp-chip" aria-label="Carregar exemplos reais do Reverso Context">Exemplos reais</button>
+        <button id="fl1" type="button" class="lfp-chip" aria-label="Abrir no Linguee">Linguee</button>
+        <button id="fl3" type="button" class="lfp-chip" aria-label="Abrir no Google Tradutor">Google Tradutor</button>
+        <button id="fy1" type="button" class="lfp-chip" aria-label="Ouvir nativos no YouGlish">YouGlish</button>
+        <button id="fy2" type="button" class="lfp-chip" aria-label="YouGlish com sotaque americano">EUA</button>
+        <button id="fy3" type="button" class="lfp-chip" aria-label="YouGlish com sotaque britânico">Reino Unido</button>
+        <button id="fy4" type="button" class="lfp-chip" aria-label="YouGlish com sotaque australiano">Austrália</button>
+      </div>
+      <div id="frev" style="display:none;margin-top:10px;max-height:240px;overflow-y:auto;"></div>
+    </section>
+</div>
+<div id="factions" role="group" aria-label="Ações da palavra" style="padding:10px 16px 12px;border-top:1px solid rgba(255,255,255,.08);display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+    <button id="fsave" class="lfp-btn-bounce" style="grid-column:1 / -1;display:block;width:100%;padding:10px;background:#58cc02;box-shadow:0 3px 0 #46a302;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;transition:transform .1s, filter .15s, background .15s;letter-spacing:.01em;">+ Salvar nos Flashcards</button>
+    <button id="fknown" class="lfp-btn-bounce" style="display:block;width:100%;min-height:36px;padding:7px;background:rgba(134,239,172,.08);color:#86efac;border:1px solid rgba(134,239,172,.25);border-radius:11px;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;">✓ Já sei esta palavra</button>
+    <button id="fignore" type="button" aria-pressed="false" title="Nomes, interjeições e ruído da legenda: sem cor e fora da aba Palavras, sem contar como conhecida" style="display:block;width:100%;min-height:36px;padding:7px;background:none;color:#94a3b8;border:1px dashed rgba(148,163,184,.35);border-radius:11px;font-size:12px;font-weight:700;cursor:pointer;">⊘ Ignorar esta palavra</button>
 </div>`;
     document.body.appendChild(this.popup);
     window.__lfpopup = this;
@@ -456,38 +436,6 @@ export class WordPopup {
 
       this._mousedownAttached = true;
     }
-    const activateTab = (tab, focus = false) => {
-      const i = parseInt(tab.dataset.i, 10);
-      this.popup.querySelectorAll('.ftab').forEach((item, j) => {
-        const selected = j === i;
-        item.style.color = selected ? '#7dd3fc' : '#94a3b8';
-        item.style.borderBottomColor = selected ? '#7dd3fc' : 'transparent';
-        item.setAttribute('aria-selected', String(selected));
-        item.tabIndex = selected ? 0 : -1;
-      });
-      this.popup.querySelectorAll('.fp').forEach((panel, j) => {
-        panel.style.display = j === i ? '' : 'none';
-      });
-      if (focus) tab.focus();
-    };
-
-    // Tabs: setas seguem o padrao WAI-ARIA; Home/End saltam para as pontas.
-    this.popup.querySelectorAll('.ftab').forEach((tab) => {
-      tab.onclick = () => activateTab(tab);
-      tab.onkeydown = (event) => {
-        const tabs = [...this.popup.querySelectorAll('.ftab')];
-        const current = tabs.indexOf(tab);
-        let next = null;
-        if (event.key === 'ArrowRight') next = (current + 1) % tabs.length;
-        if (event.key === 'ArrowLeft') next = (current - 1 + tabs.length) % tabs.length;
-        if (event.key === 'Home') next = 0;
-        if (event.key === 'End') next = tabs.length - 1;
-        if (next === null) return;
-        event.preventDefault();
-        activateTab(tabs[next], true);
-      };
-    });
-
     if (this._keydownHandler) {
       document.removeEventListener('keydown', this._keydownHandler, true);
       this._keydownHandler = null;
@@ -577,11 +525,6 @@ export class WordPopup {
         `https://www.linguee.com/english-portuguese/search?source=auto&query=${encodeURIComponent(this.word)}`,
         '_blank',
       );
-    q('#fl2').onclick = () =>
-      window.open(
-        `https://www.linguee.com/english-portuguese/search?source=english&query=${encodeURIComponent(this.word)}`,
-        '_blank',
-      );
     q('#fl3').onclick = () =>
       window.open(
         `https://translate.google.com/?sl=${this.engine?.sourceLang || 'en'}&tl=${this.engine?.targetLang || 'pt'}&text=${encodeURIComponent(this.word)}`,
@@ -606,11 +549,6 @@ export class WordPopup {
     q('#fy4').onclick = () =>
       window.open(
         `https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english/aus`,
-        '_blank',
-      );
-    q('#fy5').onclick = () =>
-      window.open(
-        `https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english/academic`,
         '_blank',
       );
   }
@@ -677,23 +615,17 @@ export class WordPopup {
     if (this.popup.parentElement !== targetParent) {
       targetParent.appendChild(this.popup);
     }
-    // Reset tabs
-    this.popup.querySelectorAll('.ftab').forEach((t, i) => {
-      t.style.color = i === 0 ? '#7dd3fc' : '#94a3b8';
-      t.style.borderBottomColor = i === 0 ? '#7dd3fc' : 'transparent';
-      t.setAttribute('aria-selected', String(i === 0));
-      t.tabIndex = i === 0 ? 0 : -1;
-    });
-    this.popup.querySelectorAll('.fp').forEach((p, i) => (p.style.display = i === 0 ? '' : 'none'));
     const q = (s) => this.popup.querySelector(s);
     q('#fw').textContent = this.word;
     q('#fipa').textContent = '';
     q('#fpos').style.display = 'none';
     q('#ffreq').style.display = 'none';
     q('#fcefr').style.display = 'none';
-    q('#fcefr-prog').style.display = 'none';
     q('#fexprtype').style.display = 'none';
     q('#fff-card').style.display = 'none';
+    const moreRev = q('#frev');
+    if (moreRev) moreRev.style.display = 'none';
+    q('#fbody')?.scrollTo?.(0, 0);
 
     // — CEFR badge —
     const cefr = this._lookupCEFR(this.word);
@@ -703,25 +635,6 @@ export class WordPopup {
       el.className = `lfp-badge lfp-${cefr.toLowerCase()}`;
       el.style.display = 'inline-block';
       this.activeLevel = cefr;
-
-      // Progresso CEFR
-      (async () => {
-        const progEl = q('#fcefr-prog');
-        const cefrList = this.engine?.cefrList || this.cefrList;
-        if (progEl && cefrList) {
-          const allLevel = Object.values(cefrList).filter((v) => v === cefr).length;
-          const knownAtLevel =
-            [...(this.engine.savedWords?.keys() || [])].filter(
-              (w) => cefrList[w] === cefr,
-            ).length +
-            [...(this.engine.knownWords || [])].filter((w) => cefrList[w] === cefr)
-              .length;
-          if (allLevel > 0) {
-            progEl.textContent = `${knownAtLevel} de ${allLevel} aprendidas`;
-            progEl.style.display = 'inline';
-          }
-        }
-      })();
     } else {
       this.activeLevel = null;
     }
@@ -736,7 +649,8 @@ export class WordPopup {
       if (el) {
         el.textContent = exprInfo.label;
         el.className = `lfp-badge ${exprInfo.cls}`;
-        el.style.display = 'inline-block';
+        // #383: "📖 Palavra" é o caso comum; o selo só aparece para expressão/gíria.
+        el.style.display = exprInfo.cls === 'lfp-type-word' ? 'none' : 'inline-block';
       }
     })();
 
@@ -837,7 +751,7 @@ export class WordPopup {
     requestAnimationFrame(() => {
       this.popup.style.opacity = '1';
       this.popup.style.transform = this.platform === 'max' ? 'none' : 'translateY(0) scale(1)';
-      this.popup.querySelector('.ftab[aria-selected="true"]')?.focus({ preventScroll: true });
+      this.popup.focus({ preventScroll: true }); // #383: foco no diálogo (nome = palavra)
     });
 
     this._loadData(this.word);
@@ -909,11 +823,12 @@ export class WordPopup {
   _render(d) {
     const q = (s) => this._q(s);
     q('#ft').textContent = d.translation || '—';
+    if (d.senses) this._renderSenses(d.senses);
     d.phonetic = isValidIpa(d.phonetic) ? cleanIpa(d.phonetic) : '';
     const ipaWrap = q('#fipa-wrap');
     if (d.phonetic) {
       q('#fipa').textContent = d.phonetic;
-      ipaWrap.style.display = 'block';
+      ipaWrap.style.display = 'inline';
     } else {
       q('#fipa').textContent = '';
       ipaWrap.style.display = 'none';
@@ -942,6 +857,7 @@ export class WordPopup {
         if (label && el.textContent === '📖 Palavra') {
           el.textContent = label;
           el.className = `lfp-badge ${cls}`;
+          el.style.display = 'inline-block';
           this._exprType = { type: d.register, label, cls };
         }
       }
@@ -1405,7 +1321,16 @@ export class WordPopup {
     }
     const esc = (s) => this._escapeAttr(s);
     const word = String(this.word || '').toLowerCase();
-    list.innerHTML = senses.map((s) => {
+    // #383: a tradução principal (já em destaque acima) não se repete aqui.
+    const main = new Set(String(this._q('#ft')?.textContent || '').toLowerCase().split(/[,;/]/).map((t) => t.trim()).filter(Boolean));
+    const rows = senses
+      .map((s) => ({ ...s, terms: (s.terms || []).filter((t) => !main.has(String(t).toLowerCase())) }))
+      .filter((s) => s.terms.length);
+    if (!rows.length) {
+      section.style.display = 'none';
+      return;
+    }
+    list.innerHTML = rows.map((s) => {
       const base = s.base && s.base.toLowerCase() !== word ? ` <span style="color:#94a3b8;font-weight:400;">(${esc(s.base)})</span>` : '';
       return `<div style="display:flex;gap:6px;"><dt style="color:#7dd3fc;font-weight:700;flex-shrink:0;">${esc(s.label)}${base}</dt><dd style="margin:0;">${s.terms.map(esc).join(', ')}</dd></div>`;
     }).join('');
@@ -1577,6 +1502,7 @@ export class WordPopup {
               this.cache[word].translation = translation;
               this.cache[word].contextual = true;
               q('#ft').textContent = translation;
+              if (this.cache[word]?.senses) this._renderSenses(this.cache[word].senses);
             }
             if (partial.explanation) {
               el.innerHTML = nativeHtml

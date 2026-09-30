@@ -53,7 +53,7 @@
     "test:auth-ux": "node tests/auth-ux-resilience-p0-p1.test.mjs && node tests/signup-session.test.mjs && node tests/auth-401-refresh.test.mjs",
     "test:translation-quality": "node tests/translation-quality.test.mjs",
     "test:eager-sidebar": "node tests/eager-sidebar-translations.test.mjs",
-    "test:extension-translation-proxy": "node tests/extension-translation-proxy.test.mjs",
+    "test:extension-translation-proxy": "node tests/extension-translation-proxy.test.mjs && node --test tests/translation-cache-timeout.test.mjs",
     "test:audit-fixes": "node tests/audit-fixes-p0.test.mjs",
     "test:admin": "node tests/admin-authority.test.mjs",
     "test:untrusted-content": "node tests/untrusted-html-security.test.mjs && node tests/subtitle-saved-status.test.mjs && node tests/wiring-audit.test.mjs && node tests/audit-fixes-p0.test.mjs",

@@ -370,13 +370,12 @@ export class WordPopup {
   </div>
 </div>
 <div role="tablist" aria-label="Fontes da palavra" style="display:flex;border-bottom:1px solid rgba(255,255,255,.07);margin-top:12px;padding:0 4px;">
-  ${['Tradução', 'Linguee', 'YouGlish'].map((l, i) => `<button class="ftab" type="button" role="tab" id="lfp-tab-${i}" aria-controls="lfp-panel-${i}" aria-selected="${i === 0}" tabindex="${i === 0 ? '0' : '-1'}" data-i="${i}" style="flex:1;padding:9px 2px;font-size:11px;font-weight:700;color:${i === 0 ? '#7dd3fc' : '#94a3b8'};background:none;border:none;border-bottom:2px solid ${i === 0 ? '#7dd3fc' : 'transparent'};cursor:pointer;letter-spacing:.03em;white-space:nowrap;transition:all .15s;">${l}</button>`).join('')}
+  ${['Tradução', 'Dicionários', 'Pronúncia'].map((l, i) => `<button class="ftab" type="button" role="tab" id="lfp-tab-${i}" aria-controls="lfp-panel-${i}" aria-selected="${i === 0}" tabindex="${i === 0 ? '0' : '-1'}" data-i="${i}" style="flex:1;padding:9px 2px;font-size:11px;font-weight:700;color:${i === 0 ? '#7dd3fc' : '#94a3b8'};background:none;border:none;border-bottom:2px solid ${i === 0 ? '#7dd3fc' : 'transparent'};cursor:pointer;letter-spacing:.03em;white-space:nowrap;transition:all .15s;">${l}</button>`).join('')}
 </div>
 <div class="lfp-panels" style="padding:14px 18px 18px;max-height:400px;overflow-y:auto;">
 
   <div class="fp" id="lfp-panel-0" role="tabpanel" aria-labelledby="lfp-tab-0" data-p="0">
     <div id="ft" style="font-size:26px;font-weight:800;color:#4ade80;margin-bottom:5px;line-height:1.2;">…</div>
-    <div id="fd" style="font-size:13px;color:#94a3b8;line-height:1.6;font-style:italic;margin-bottom:10px;"></div>
     <section id="fsenses" aria-labelledby="fsenses-title" style="display:none;margin-bottom:12px;"><h3 id="fsenses-title" style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px;">Outras traduções</h3><dl id="fsenses-list" style="font-size:12px;line-height:1.6;color:#e2e8f0;"></dl></section>
     <div id="fff-card" style="display:none;" class="lfp-ff"><div style="font-size:10px;color:#fb923c;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;">⚠️ Falso Cognato — Armadilha!</div><div id="fff-text" style="font-size:12px;color:#fcd34d;line-height:1.6;"></div></div>
     <div id="fctx" style="display:none;background:rgba(139,92,246,.06);border:1px solid rgba(139,92,246,.18);border-radius:10px;padding:10px 13px;margin-bottom:12px;"><div style="font-size:10px;color:#a78bfa;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;display:flex;align-items:center;gap:5px;"><span>💡</span><span>Contexto nesta frase</span></div><div id="fctxt" style="font-size:12px;color:#e2e8f0;line-height:1.7;"></div></div>
@@ -771,7 +770,6 @@ export class WordPopup {
     }
 
     q('#ft').textContent = '…';
-    q('#fd').textContent = '';
     q('#fc').style.display = 'none';
     q('#fsenses').style.display = 'none';
     this._renderVideoExamples(cue);
@@ -948,7 +946,6 @@ export class WordPopup {
         }
       }
     }
-    if (d.definition) q('#fd').textContent = d.definition;
     if (d.synonyms?.length) {
       const syns = q('#fsyns');
       syns.innerHTML = d.synonyms

@@ -94,7 +94,8 @@ class Translator {
                     return { translation: localCached, source: 'local_cache', cached: true };
                 }
 
-                const cached = await db.getTranslationCache(cacheKey).catch(() => null);
+                const proxyTranslation = shouldProxyTranslationThroughExtension();
+                const cached = proxyTranslation ? null : await db.getTranslationCache(cacheKey).catch(() => null);
                 if (cached) {
                     this._updateMemoryCache(key, cached);
                     this._setLocalCache(cacheKey, cached);
@@ -107,7 +108,8 @@ class Translator {
                         const dictEntry = await offlineDict.lookup(text);
                         if (dictEntry && dictEntry.def) {
                             this._updateMemoryCache(key, dictEntry.def);
-                            db.setTranslationCache(cacheKey, dictEntry.def).catch(() => {});
+                            this._setLocalCache(cacheKey, dictEntry.def);
+                            if (!proxyTranslation) db.setTranslationCache(cacheKey, dictEntry.def).catch(() => {});
                             return { translation: dictEntry.def, source: 'offline_dict', cached: true };
                         }
                     } catch {
@@ -122,7 +124,6 @@ class Translator {
                     }
                     this._updateMemoryCache(key, proxied.translation);
                     this._setLocalCache(cacheKey, proxied.translation);
-                    db.setTranslationCache(cacheKey, proxied.translation).catch(() => {});
                     return {
                         translation: proxied.translation,
                         source: proxied.source || 'extension_proxy',

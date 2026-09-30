@@ -10,12 +10,12 @@ assert.match(source, /this\._previousFocus\?\.isConnected[\s\S]*?\.focus\(\{ pre
 assert.match(source, /event\.key === 'Escape'[\s\S]*?this\.hide\(true\)/, 'Escape deve fechar o popup');
 assert.match(source, /event\.key !== 'Tab'[\s\S]*?focusable/, 'dialogo deve conter a navegacao por Tab');
 
-assert.match(source, /role="tablist" aria-label="Fontes da palavra"/, 'abas devem ter tablist nomeada');
-assert.match(source, /role="tab"[\s\S]*?aria-controls="lfp-panel-/, 'abas devem controlar paineis');
-assert.match(source, /role="tabpanel" aria-labelledby="lfp-tab-/, 'paineis devem apontar para suas abas');
-for (const key of ['ArrowRight', 'ArrowLeft', 'Home', 'End']) {
-  assert.match(source, new RegExp(`event\\.key === '${key}'`), `abas devem responder a ${key}`);
-}
+// #383: sem abas (modelo antigo na tag popup-card-v1). Seções nomeadas e
+// ações agrupadas substituem o tablist.
+assert.match(source, /id="factions" role="group" aria-label="Ações da palavra"/, 'ações devem formar grupo nomeado');
+assert.match(source, /<section id="fmore" aria-labelledby="fmore-title">|<section id="fmore" aria-labelledby="fmore-title" /, 'mais fontes deve ser seção nomeada');
+assert.match(source, /id="frevbtn" type="button" class="lfp-chip" aria-label="Carregar exemplos reais do Reverso Context"/, 'links de fontes precisam de nome acessível');
+assert.match(source, /this\.popup\.focus\(\{ preventScroll: true \}\)/, 'abertura deve levar o foco ao diálogo');
 
 assert.match(source, /<button type="button" class="lfp-chip"[^>]*aria-label="Consultar sinônimo/, 'sinonimos devem ser botoes nomeados');
 assert.match(source, /<button type="button" class="lfp-chip red"[^>]*aria-label="Consultar antônimo/, 'antonimos devem ser botoes nomeados');

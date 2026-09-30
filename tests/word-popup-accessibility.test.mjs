@@ -14,7 +14,7 @@ assert.match(source, /event\.key !== 'Tab'[\s\S]*?focusable/, 'dialogo deve cont
 // ações agrupadas substituem o tablist.
 assert.match(source, /id="factions" role="group" aria-label="Ações da palavra"/, 'ações devem formar grupo nomeado');
 assert.match(source, /<section id="fmore" aria-labelledby="fmore-title">|<section id="fmore" aria-labelledby="fmore-title" /, 'mais fontes deve ser seção nomeada');
-assert.match(source, /id="fy2" type="button" class="lfp-chip" aria-label="YouGlish com sotaque americano"/, 'links só com bandeira precisam de nome acessível');
+assert.match(source, /id="frevbtn" type="button" class="lfp-chip" aria-label="Carregar exemplos reais do Reverso Context"/, 'links de fontes precisam de nome acessível');
 assert.match(source, /this\.popup\.focus\(\{ preventScroll: true \}\)/, 'abertura deve levar o foco ao diálogo');
 
 assert.match(source, /<button type="button" class="lfp-chip"[^>]*aria-label="Consultar sinônimo/, 'sinonimos devem ser botoes nomeados');

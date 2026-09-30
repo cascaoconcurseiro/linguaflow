@@ -382,13 +382,10 @@ export class WordPopup {
     <section id="fmore" aria-labelledby="fmore-title" style="padding-top:10px;border-top:1px solid rgba(255,255,255,.06);">
       <h3 id="fmore-title" style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:6px;">Mais fontes</h3>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">
-        <button id="frevbtn" type="button" class="lfp-chip" aria-label="Carregar exemplos reais do Reverso Context">Exemplos reais</button>
+        <button id="frevbtn" type="button" class="lfp-chip" aria-label="Carregar exemplos reais do Reverso Context">Reverso</button>
         <button id="fl1" type="button" class="lfp-chip" aria-label="Abrir no Linguee">Linguee</button>
         <button id="fl3" type="button" class="lfp-chip" aria-label="Abrir no Google Tradutor">Google Tradutor</button>
         <button id="fy1" type="button" class="lfp-chip" aria-label="Ouvir nativos no YouGlish">YouGlish</button>
-        <button id="fy2" type="button" class="lfp-chip" aria-label="YouGlish com sotaque americano">EUA</button>
-        <button id="fy3" type="button" class="lfp-chip" aria-label="YouGlish com sotaque britânico">Reino Unido</button>
-        <button id="fy4" type="button" class="lfp-chip" aria-label="YouGlish com sotaque australiano">Austrália</button>
       </div>
       <div id="frev" style="display:none;margin-top:10px;max-height:240px;overflow-y:auto;"></div>
     </section>
@@ -534,21 +531,6 @@ export class WordPopup {
     q('#fy1').onclick = () =>
       window.open(
         `https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english`,
-        '_blank',
-      );
-    q('#fy2').onclick = () =>
-      window.open(
-        `https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english/us`,
-        '_blank',
-      );
-    q('#fy3').onclick = () =>
-      window.open(
-        `https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english/uk`,
-        '_blank',
-      );
-    q('#fy4').onclick = () =>
-      window.open(
-        `https://youglish.com/pronounce/${encodeURIComponent(this.word)}/english/aus`,
         '_blank',
       );
   }

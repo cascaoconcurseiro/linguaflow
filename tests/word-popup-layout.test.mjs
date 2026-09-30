@@ -39,9 +39,11 @@ test('#383 cabeçalho compacto: IPA junto da palavra, sem título nem progresso'
   assert.match(src, /exprInfo\.cls === 'lfp-type-word' \? 'none' : 'inline-block'/, '"📖 Palavra" só some quando é palavra comum');
 });
 
-test('#383 mais fontes: Reverso inline, Linguee, Google e YouGlish com sotaques', () => {
-  for (const id of ['frevbtn', 'frev', 'fl1', 'fl3', 'fy1', 'fy2', 'fy3', 'fy4']) assert.ok(at(id) > at('fmore'), id);
-  assert.match(html, /id="fy2"[^>]*aria-label="YouGlish com sotaque americano"/);
+test('#383 mais fontes: Reverso (inline), Linguee, Google Tradutor e YouGlish, pelo nome do site', () => {
+  for (const id of ['frevbtn', 'frev', 'fl1', 'fl3', 'fy1']) assert.ok(at(id) > at('fmore'), id);
+  assert.match(html, /id="frevbtn"[^>]*>Reverso<\/button>/);
+  assert.doesNotMatch(html, /id="fy[2-5]"/, 'sotaques do YouGlish ficam dentro do próprio site');
+  assert.doesNotMatch(src, /q\('#fy[2-5]'\)/);
 });
 
 test('#383 outras traduções não repetem a tradução principal', async () => {

@@ -128,7 +128,9 @@
             if (body.length > 10) notifyExt(url.toString(), body);
             else {
                 // Direct requests lack the player's `pot` token and come back empty.
-                console.warn('[LinguaFlow] caption_track_empty', { status: Number(response.status) || 0 });
+                // Expected path (the player is asked to reload next): debug, not a
+                // warning in the extension's error list (#379).
+                console.debug('[LinguaFlow] caption_track_empty', { status: Number(response.status) || 0 });
                 setTimeout(() => requestPlayerCaptionReload(videoId), PLAYER_CAPTION_GRACE_MS);
             }
         } catch (error) {

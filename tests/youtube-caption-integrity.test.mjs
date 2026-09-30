@@ -356,7 +356,7 @@ test('an empty direct preload asks the player to reload its own source track onc
   const {runInNewContext}=await import('node:vm');
   const script=readFileSync(new URL('../content/youtube-hook.js',import.meta.url),'utf8');
   async function simulate({activeTrack}){
-    const listeners=new Map();const timers=[];const setOptions=[];let directRequests=0;
+    const listeners=new Map();const timers=[];const setOptions=[];const warnings=[];let directRequests=0;
     const location=new URL('https://www.youtube.com/watch?v=video123');
     const tracks=[{languageCode:'en',baseUrl:'https://www.youtube.com/api/timedtext?v=video123&lang=en'}];
     const player={
@@ -368,7 +368,7 @@ test('an empty direct preload asks the player to reload its own source track onc
     const document={currentScript:{dataset:{lfNonce:'nonce',lfNavigationUrl:location.href}},getElementById:()=>player,readyState:'complete',addEventListener:()=>{}};
     const window={location,fetch:async()=>{directRequests++;return {ok:true,status:200,text:async()=>'',clone(){return this;}};},addEventListener:(name,fn)=>listeners.set(name,fn),postMessage:()=>{}};
     class XHR{}XHR.prototype.open=function(){};
-    runInNewContext(script,{window,document,XMLHttpRequest:XHR,URL,URLSearchParams,setTimeout:(fn)=>timers.push(fn),console:{debug:()=>{},warn:()=>{}}});
+    runInNewContext(script,{window,document,XMLHttpRequest:XHR,URL,URLSearchParams,setTimeout:(fn)=>timers.push(fn),console:{debug:()=>{},warn:(...a)=>warnings.push(a[0])}});
     await new Promise(resolve=>setImmediate(resolve));
     listeners.get('message')({source:window,origin:location.origin,data:{type:'LF_PRELOAD_SUBTITLES'}});
     await new Promise(resolve=>setImmediate(resolve));
@@ -376,11 +376,13 @@ test('an empty direct preload asks the player to reload its own source track onc
     listeners.get('message')({source:window,origin:location.origin,data:{type:'LF_PRELOAD_SUBTITLES'}});
     await new Promise(resolve=>setImmediate(resolve));
     while(timers.length)timers.shift()();
-    return {setOptions,directRequests};
+    return {setOptions,directRequests,warnings};
   }
   const source=await simulate({activeTrack:{languageCode:'en'}});
   assert.deepEqual(source.setOptions,[['captions','reload',true]]);
   assert.equal(source.directRequests,1);
+  // #379: vazio sem o token pot é o caminho esperado; não vai para a lista de erros da extensão.
+  assert.deepEqual(source.warnings,[]);
 
   const translated=await simulate({activeTrack:{languageCode:'pt'}});
   assert.equal(translated.setOptions.some(([,key])=>key==='reload'),false);

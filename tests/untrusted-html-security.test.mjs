@@ -60,7 +60,9 @@ assert.match(wordPopup, /const phon = this\._escapeAttr\((?:c\.phon|rawPhon)\)/,
   'chunks gerados ou salvos devem escapar fonética antes do innerHTML');
 assert.match(wordPopup, /let formatted = this\._escapeAttr\(text\)/,
   '_formatAI deve sanitizar o texto antes de converter markdown em HTML');
-assert.match(wordPopup, /const safeWord = this\._escapeAttr\(r\.word\)/,
+// #376: a decomposição de frase (_renderBasicGrammarFallback) foi removida
+// como código morto; a regra continua: termo externo nunca entra cru no HTML.
+assert.doesNotMatch(wordPopup, /\$\{r\.word\}/,
   'decomposição de frase deve escapar termos antes de injetar no DOM');
 assert.match(wordPopup, /const safeSentenceTranslation = this\._escapeAttr\(/,
   'tradução externa da frase deve ser escapada antes do innerHTML');

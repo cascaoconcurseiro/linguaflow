@@ -3335,6 +3335,7 @@ export class SubtitleEngine {
   async _fetchYoutubeSubtitles(navigation = this._navigationSnapshot()) {
     if (!this._isNavigationCurrent(navigation)) return;
     if (this.cues.length > 0) return;
+    if (!globalThis.chrome?.runtime?.id || !globalThis.chrome?.storage?.local?.get) return;
 
     try {
       const { lastYoutubeSubtitleUrls } = await chrome.storage.local.get('lastYoutubeSubtitleUrls');
@@ -3436,6 +3437,7 @@ export class SubtitleEngine {
       }
     } catch (e) {
       if (e?.name === 'AbortError' || !this._isNavigationCurrent(navigation)) return;
+      if (!globalThis.chrome?.runtime?.id || /Extension context invalidated/i.test(e?.message || '')) return;
       console.error('[LinguaFlow] Erro ao recuperar legendas:', e);
     }
   }

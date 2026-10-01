@@ -246,38 +246,52 @@ class Database {
 
   async _proxy(method, args) {
     if (!this.isProxyMode) return null;
+    if (!globalThis.chrome?.runtime?.id || !globalThis.chrome?.runtime?.sendMessage) {
+      throw new Error('Contexto da extensão indisponível. Recarregue a página para continuar.');
+    }
     return new Promise((resolve, reject) => {
       const proxyTimeoutMs = method === 'assessFluencySubmission' ? 65000 : 10000;
       const timeoutId = setTimeout(() => {
+        if (!globalThis.chrome?.runtime?.id) {
+          reject(new Error('Contexto da extensão indisponível. Recarregue a página para continuar.'));
+          return;
+        }
         console.error(`[LinguaFlow DB] Timeout na chamada ${method}.`);
         reject(classifyRequestError(new Error(`DB proxy timeout: ${method}`)));
       }, proxyTimeoutMs);
 
-      chrome.runtime.sendMessage(
-        {
-          type: 'DB_CALL',
-          method,
-          args: JSON.parse(JSON.stringify(args || [])),
-        },
-        (response) => {
-          clearTimeout(timeoutId);
-          if (chrome.runtime.lastError) {
-            console.error('[LinguaFlow DB] Erro no proxy:', chrome.runtime.lastError.message);
-            reject(classifyRequestError(new Error(chrome.runtime.lastError.message)));
-          } else if (response && response.error) {
-            console.error('[LinguaFlow DB] Erro retornado do worker:', response.error);
-            const error = new Error(response.error);
-            error.name = response.errorName || 'Error';
-            error.status = response.errorStatus || null;
-            error.code = response.errorCode || null;
-            error.kind = response.errorKind || null;
-            error.retryable = Boolean(response.errorRetryable);
-            reject(error.kind ? error : classifyRequestError(error, error.status));
-          } else {
-            resolve(response ? response.result : null);
+      try {
+        chrome.runtime.sendMessage(
+          {
+            type: 'DB_CALL',
+            method,
+            args: JSON.parse(JSON.stringify(args || [])),
+          },
+          (response) => {
+            clearTimeout(timeoutId);
+            if (!globalThis.chrome?.runtime?.id) {
+              reject(new Error('Contexto da extensão indisponível. Recarregue a página para continuar.'));
+            } else if (chrome.runtime.lastError) {
+              console.error('[LinguaFlow DB] Erro no proxy:', chrome.runtime.lastError.message);
+              reject(classifyRequestError(new Error(chrome.runtime.lastError.message)));
+            } else if (response && response.error) {
+              console.error('[LinguaFlow DB] Erro retornado do worker:', response.error);
+              const error = new Error(response.error);
+              error.name = response.errorName || 'Error';
+              error.status = response.errorStatus || null;
+              error.code = response.errorCode || null;
+              error.kind = response.errorKind || null;
+              error.retryable = Boolean(response.errorRetryable);
+              reject(error.kind ? error : classifyRequestError(error, error.status));
+            } else {
+              resolve(response ? response.result : null);
+            }
           }
-        }
-      );
+        );
+      } catch (error) {
+        clearTimeout(timeoutId);
+        reject(error);
+      }
     });
   }
 

@@ -27,6 +27,7 @@
 - **"Explicar" em cada fala do roteiro**: a IA explica a fala usando a anterior e a seguinte, com tradução natural, o que a pessoa quis dizer e o sentido das expressões naquele contexto ("take off" = decolar, tirar a roupa ou fazer sucesso). Usa a mesma conta/chave de IA do tutor, mostra "Explicando…" enquanto carrega, pede login quando não há sessão e oferece "Tentar de novo" se falhar. Fica guardado no navegador por vídeo e fala, então reabrir é instantâneo.
 
 ### Corrigido
+- **Extensão após atualização**: a bridge encerra timer e listeners quando perde o contexto; a leitura de legendas evita acessar storage indisponível e o proxy limpa timers quando sendMessage falha. Recarregue abas abertas após atualizar a extensão. Timeouts reais do worker continuam visíveis (#389).
 - **Aviso falso na lista de erros da extensão**: todo vídeo registrava "caption_track_empty" como aviso, embora a legenda carregasse normalmente pelo próprio player. Agora esse caso esperado só aparece no log de depuração, e a lista de erros mostra apenas falhas reais.
 - **Segurança do cache de palavras compartilhado**: o dicionário comum que acelera as explicações passou a recusar gravações gigantes e guarda no máximo 20 contextos por palavra, para ninguém conseguir inchar ou poluir o cache de todos. Nenhuma conta pode mais esvaziar tabelas inteiras (TRUNCATE).
 - **Aba Palavras não perde mais "thing"**: o agrupamento por forma base juntava "thing" com "the" (e ela sumia da lista) e "hoping" com "hop". Agora só junta flexões de verdade (films → film, hoping → hope, running → run).

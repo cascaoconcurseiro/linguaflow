@@ -39,6 +39,7 @@ const fetchEngine = bareEngine('https://www.youtube.com/watch?v=old');
 const fetchNavigation = fetchEngine._beginNavigation(window.location.href);
 let releaseStorage;
 globalThis.chrome = {
+  runtime: { id: 'test-extension' },
   storage: {
     local: {
       get: () => new Promise((resolve) => { releaseStorage = resolve; }),

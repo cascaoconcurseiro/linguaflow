@@ -177,28 +177,4 @@ test('translator namespaces keys and gracefully reads legacy keys', async () => 
   }
 });
 
-test('subtitle-engine applies backoff and avoids 1s loop on flush errors', () => {
-  const engineSource = readFileSync(join(root, 'content/subtitle-engine.js'), 'utf8');
 
-  // Verify backoff tracking and interval checks
-  assert.match(
-    engineSource,
-    /_listeningFlushNextAttempt/,
-    'Engine deve controlar _listeningFlushNextAttempt'
-  );
-  assert.match(
-    engineSource,
-    /Date\.now\(\)\s*>=\s*\(this\._listeningFlushNextAttempt\s*\|\|\s*0\)/,
-    'Engine deve respeitar janela de backoff antes de invocar _flushListeningInterval'
-  );
-  assert.match(
-    engineSource,
-    /Math\.min\(60000,\s*5000\s*\*\s*Math\.pow\(2,\s*failures\s*-\s*1\)\)/,
-    'Engine deve aplicar backoff exponencial limitado a 60s'
-  );
-  assert.match(
-    engineSource,
-    /_listeningLastErrorLogged/,
-    'Engine deve evitar log duplicado a cada segundo de erro de listening'
-  );
-});

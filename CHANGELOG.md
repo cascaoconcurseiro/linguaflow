@@ -3,6 +3,7 @@
 ## [Não lançado]
 
 ### Alterado
+- **Contador automático de listening removido**: o controle "Áudio: Idioma não confirmado · corrigir" saiu do roteiro do vídeo, junto com a contagem automática de tempo de escuta que dependia dele (a detecção do idioma do áudio falhava na maioria dos vídeos). O registro manual de listening no site continua, e Listening hoje/total no popup e no site seguem mostrando o histórico e o que você registrar à mão (#387).
 - **Tradução no YouTube**: remove consultas e gravações duplicadas no cache remoto pelo content script. O cache remoto tem prazo de 2,5 segundos; indisponibilidade do cache permite continuar a tradução e preservar o resultado localmente (#385).
 - **Card da palavra mais limpo**: a definição em inglês do dicionário saiu de baixo da tradução (às vezes contradizia o sentido da frase). As abas agora dizem o que têm: "Dicionários" (Reverso, Linguee e Google Tradutor) e "Pronúncia" (vídeos do YouGlish).
 - **Passar o mouse numa palavra mostra uma dica rápida, não o card inteiro**: a dica traz só a palavra: a tradução e as outras traduções por classe gramatical, sem a legenda inteira e sem chamar a IA. O card completo (contexto da IA, salvar, exemplos) abre com um clique. Com o card já aberto, passar o mouse em outra palavra continua trocando o card. A pausa ao passar o mouse segue a configuração que você já tinha.

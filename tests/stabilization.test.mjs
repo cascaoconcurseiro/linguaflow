@@ -43,14 +43,13 @@ test('custom study minutes reach the RPC exactly; invalid durations never write'
  assert.equal(writes.length,0);await d.logManualStudy({skill:'listening',minutes:27,language:'en'});
  assert.equal(writes[0].path,'rpc/log_manual_study');assert.equal(writes[0].body.p_minutes,27);assert.equal(writes[0].body.p_language,'en');
 });
-test('listening queue preserves audio evidence through an idempotent retry',async()=>{
+test('legacy listening queue drains with evidence through an idempotent retry',async()=>{
  const d=makeDb();const storage=new Map();d.getCurrentUserId=async()=> '12300000-0000-4000-8000-000000000001';
  d._draftStorage=async(op,key,value)=>op==='get'?structuredClone(storage.get(key)):storage.set(key,structuredClone(value));
  const sent=[];let fail=true;d._fetch=async(_,opts)=>{sent.push(opts.body);if(fail)throw new Error('offline');return {credited_seconds:10};};
  const interval={id:'12300000-0000-4000-8000-000000000002',accountId:await d.getCurrentUserId(),seconds:10,language:'en',evidence:'audio_track',startedAt:new Date(Date.now()-20000).toISOString(),endedAt:new Date(Date.now()-10000).toISOString(),date:'2026-09-23'};
- await d.enqueueListeningInterval(interval);await d.drainListeningQueue();fail=false;await d.drainListeningQueue();
+ const key=`lf_listening_queue_v1:${interval.accountId}`;storage.set(key,[interval]);await d.drainListeningQueue();fail=false;await d.drainListeningQueue();
  assert.equal(sent.at(-1).p_evidence,'audio_track');assert.deepEqual(sent[0],sent.at(-1));assert.equal([...storage.values()][0].length,0);
- await d.enqueueListeningInterval({...interval,id:'12300000-0000-4000-8000-000000000003',evidence:'caption_asr'});
+ storage.set(key,[{...interval,id:'12300000-0000-4000-8000-000000000003',evidence:'caption_asr'}]);
  await d.drainListeningQueue();assert.equal(sent.at(-1).p_evidence,'caption_asr');
- await assert.rejects(d.enqueueListeningInterval({...interval,evidence:'captions'}));
 });

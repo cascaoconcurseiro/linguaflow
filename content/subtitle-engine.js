@@ -1,7 +1,5 @@
-import { ListeningClock } from '../utils/listening-clock.js';
 import { captionLines, groupCaptionEvents, attachTranslationsByTime } from '../utils/caption-grouping.js';
 import { normalizeSubtitleCasing } from '../utils/caption-casing.js';
-import { localDateKey } from '../utils/local-day.js';
 import { MAX_EXPRESSION_WORDS } from '../utils/expressions-db.js';
 import { detectExpressions } from '../utils/expression-detector.js';
 import { videoUtils } from '../utils/video-utils.js';
@@ -231,7 +229,6 @@ export class SubtitleEngine {
     }, { signal: this._lifecycleController.signal });
 
     // Inicia log de imersão
-    this._startImmersionLog();
 
     // Sincronização global de vocabulário
     this._runtimeMessageListener = (request) => {
@@ -323,128 +320,6 @@ export class SubtitleEngine {
         panel.classList.remove('theme-dark');
       }
     }
-  }
-
-  _startImmersionLog() {
-    this._listeningClock = new ListeningClock();
-    this._listeningKey = '';
-    this._listeningLanguage = null;
-    this._listeningEvidence = null;
-    this._listeningOwner = null;
-    this._listeningManual = false;
-    this._listeningFlushFailures = 0;
-    this._listeningFlushNextAttempt = 0;
-    this._listeningLastErrorLogged = null;
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState !== 'visible') void this._flushListeningInterval().catch(() => {});
-    }, { signal:this._lifecycleController.signal });
-    window.addEventListener('pagehide', () => { void this._flushListeningInterval().catch(() => {}); }, { signal:this._lifecycleController.signal });
-    let busy = false;
-    this._setManagedInterval(async () => {
-      if (busy) return;
-      busy = true;
-      try {
-        const { db } = await import('../utils/db.js');
-        const owner = await db.getCurrentUserId();
-        const video = this.videoElement;
-        const key = `${location.href}|${video?.currentSrc || ''}`;
-        if (key !== this._listeningKey || owner !== this._listeningOwner) {
-          if (owner === this._listeningOwner) {
-            try { await this._flushListeningInterval(); } catch {}
-          }
-          this._listeningClock = new ListeningClock();
-          this._listeningLanguage = null;
-          this._listeningEvidence = null;
-          this._listeningManual = false;
-          this._listeningTrack = undefined;
-          this._listeningKey = key;
-          this._listeningOwner = owner;
-          const selector = document.querySelector('#lf-listening-language');
-          if (selector) selector.value = '';
-        }
-        if (this.platform === 'youtube') window.postMessage({ type:'LF_GET_AUDIO_LANGUAGE' }, location.origin);
-        const audioTrack = Array.from(video?.audioTracks || []).find(track => track.enabled);
-        const nativeLanguage = String(audioTrack?.language || '').toLowerCase();
-        const bridge = this._detectedAudio?.url === location.href && Date.now() - this._detectedAudio.at < 5000 ? this._detectedAudio : null;
-        const bridgeLanguage = bridge?.language;
-        const detected = /^[a-z]{2,3}(-[a-z0-9]{2,8})?$/.test(nativeLanguage) ? nativeLanguage.split('-')[0] : bridgeLanguage?.split('-')[0] || null;
-        const evidence = /^[a-z]{2,3}(-[a-z0-9]{2,8})?$/.test(nativeLanguage) ? 'audio_track' : bridge?.evidence || null;
-        // An actual audio-track switch invalidates manual confirmation. ASR alone
-        // never overrides the learner's selection.
-        const trackKey = audioTrack ? `${audioTrack.id}:${audioTrack.language}` : evidence === 'audio_track' ? detected : '';
-        if (trackKey && ((this._listeningTrack && this._listeningTrack !== trackKey)
-          || (this._listeningManual && !this._listeningTrack && this._listeningLanguage !== detected))) {
-          try { await this._flushListeningInterval(); } catch {}
-          this._listeningLanguage = null;
-          this._listeningManual = false;
-          const selector = document.querySelector('#lf-listening-language');
-          if (selector) selector.value = '';
-        }
-        if (trackKey) this._listeningTrack = trackKey;
-        if (!this._listeningManual && (detected !== this._listeningLanguage || evidence !== this._listeningEvidence)) {
-          try { await this._flushListeningInterval(); } catch {}
-          this._listeningClock = new ListeningClock();
-          this._listeningLanguage = detected;
-          this._listeningEvidence = evidence;
-        }
-        const selector = document.querySelector('#lf-listening-language');
-        if (selector) selector.value = this._listeningLanguage || '';
-        this._listeningClock.sample({
-          key, evidence:this._listeningManual ? 'user_confirmed' : this._listeningEvidence, language:owner ? this._listeningLanguage : null, now:Date.now(), time:Number(video?.currentTime || 0),
-          rate:Number(video?.playbackRate || 1), active:!this._lifecycleController.signal.aborted, visible:document.visibilityState === 'visible' || (!!video && document.pictureInPictureElement === video),
-          paused:!video || video.paused, ended:video?.ended, seeking:video?.seeking,
-          muted:video?.muted, volume:video?.volume, readyState:video?.readyState || 0,
-          ad:!!document.querySelector('.ad-showing, .ad-interrupting'),
-        });
-        const pending = this._listeningClock.pending;
-        if (pending && (pending.seconds >= 10 || !this._listeningClock.state.startsWith('Contando'))) {
-          if (Date.now() >= (this._listeningFlushNextAttempt || 0)) {
-            await this._flushListeningInterval();
-          }
-        }
-        const status = document.getElementById('lf-listening-status');
-        if (status) status.textContent = !owner ? 'Entre na conta para registrar listening' : this._listeningSyncPending ? `${this._listeningClock.state} · salvo neste dispositivo, sincronização automática` : this._listeningClock.state;
-      } catch (error) {
-        const status = document.getElementById('lf-listening-status');
-        if (status) status.textContent = 'Não foi possível registrar. Verifique sua conexão e conta.';
-        const errKey = `${error.code || error.name || 'err'}:${error.message || ''}`;
-        if (this._listeningLastErrorLogged !== errKey) {
-          this._listeningLastErrorLogged = errKey;
-          console.warn('[Listening] interval_failed', { code:error.code || 'unavailable' });
-        }
-      } finally { busy = false; }
-    }, 1000);
-  }
-
-  async _flushListeningInterval() {
-    if (this._flushingListeningInterval) return this._flushingListeningInterval;
-    this._flushingListeningInterval = (async () => {
-      const measured = this._listeningClock?.take();
-      const interval = measured ? (({ key, ...value }) => value)(measured) : null;
-      if (!interval || !this._listeningOwner) return;
-      const { db } = await import('../utils/db.js');
-      try {
-        await db.enqueueListeningInterval({ ...interval, id:crypto.randomUUID(), accountId:this._listeningOwner, date:localDateKey(new Date(interval.startedAt)) });
-        this._listeningSyncPending = true;
-        this._listeningFlushFailures = 0;
-        this._listeningFlushNextAttempt = 0;
-        this._listeningLastErrorLogged = null;
-      } catch (error) {
-        // Preserve unsaved data for the next sample; never reassign it to another account.
-        const remainder = this._listeningClock.pending;
-        this._listeningClock.pending = remainder && remainder.key === measured.key
-          ? { ...measured, seconds:measured.seconds + remainder.seconds, endedAt:remainder.endedAt }
-          : measured;
-        const failures = (this._listeningFlushFailures || 0) + 1;
-        this._listeningFlushFailures = failures;
-        const backoffMs = Math.min(60000, 5000 * Math.pow(2, failures - 1));
-        this._listeningFlushNextAttempt = Date.now() + backoffMs;
-        throw error;
-      }
-    })().finally(() => {
-      this._flushingListeningInterval = null;
-    });
-    return this._flushingListeningInterval;
   }
 
   async _loadSavedWords() {
@@ -684,10 +559,6 @@ export class SubtitleEngine {
       const bridgeState = window.__linguaFlowSubtitleBridge;
       if (!isTrustedSubtitleBridgeMessage(e, bridgeState, window.location.href)) return;
 
-      if (e.data.type === 'LF_AUDIO_LANGUAGE') {
-        this._detectedAudio = { language:e.data.language, evidence:e.data.evidence, url:location.href, at:Date.now() };
-        return;
-      }
       if (e.data.type === 'LF_CAPTION_AVAILABILITY') {
         this._handleCaptionAvailability(e.data);
         return;
@@ -3203,27 +3074,6 @@ export class SubtitleEngine {
             <button id="lf-close-panel" class="lf-close-btn" aria-label="Fechar roteiro do vídeo" style="background:transparent;border:none;width:40px;height:40px;border-radius:8px;cursor:pointer;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;transition:0.2s;">✕</button>
         `;
 
-    // Recolhido por padrão (o seletor aberto poluía o painel), mas alcançável:
-    // é a única forma de corrigir um vídeo dublado nas horas de escuta.
-    const listeningControls = document.createElement('details');
-    listeningControls.id = 'lf-listening-controls';
-    listeningControls.className = 'lf-listening-controls';
-    listeningControls.style.cssText = 'padding:8px 24px;font-size:12px;flex-shrink:0;';
-    listeningControls.innerHTML = `<summary style="cursor:pointer;">Áudio: <span id="lf-listening-status">Idioma não confirmado</span> · corrigir</summary>
-      <label style="display:flex;gap:8px;align-items:center;margin-top:8px;">Idioma do áudio deste vídeo <select id="lf-listening-language">
-      <option value="">Não confirmado</option><option value="en">Inglês</option><option value="pt">Português</option><option value="es">Espanhol</option><option value="fr">Francês</option><option value="de">Alemão</option><option value="it">Italiano</option><option value="ja">Japonês</option><option value="ko">Coreano</option></select></label>
-      <p style="margin:6px 0 0;font-size:11px;">Detectamos a faixa de áudio ou estimamos o idioma pela legenda automática original. Legendas manuais ou traduzidas não confirmam o áudio. Se estiver dublado, corrija aqui.</p>`;
-    listeningControls.querySelector('select').value = this._listeningLanguage || '';
-    listeningControls.querySelector('select').addEventListener('change', async event => {
-      try { await this._flushListeningInterval(); } catch {
-        event.target.value = this._listeningLanguage || '';
-        document.getElementById('lf-listening-status').textContent = 'Não foi possível salvar o tempo. Tente novamente.';
-        return;
-      }
-      this._listeningClock = new ListeningClock();
-      this._listeningLanguage = event.target.value || null;
-      this._listeningManual = !!this._listeningLanguage;
-    }, { signal:panelAbort.signal });
     const closeBtn = header.querySelector('#lf-close-panel');
     closeBtn.onclick = closePanel;
 
@@ -3361,7 +3211,6 @@ export class SubtitleEngine {
 
     // ── Monta painel ──────────────────────────────────────────────────────
     panel.appendChild(header);
-    panel.appendChild(listeningControls);
     panel.appendChild(tabs);
     panel.appendChild(subtitlePane);
     panel.appendChild(wordsPane);
@@ -6080,7 +5929,6 @@ export class SubtitleEngine {
 
   destroy() {
     if (this._disposed) return;
-    void this._flushListeningInterval().catch(() => {});
     this._disposed = true;
     if (this._hiddenYouTubeCaptions) {
       this._hiddenYouTubeCaptions.style.display = '';

@@ -90,10 +90,9 @@ test('Netflix: fala do DOM em segundos, fechada quando muda/some e sem duplicar'
   assert.ok(cues.every((c) => c.end - c.start < 60), 'sem fim a 8000 s');
 });
 
-test('botão de tradução rápida mantém o ícone e tem nome acessível; idioma do áudio alcançável', async () => {
+test('botão de tradução rápida mantém o ícone e tem nome acessível; sem controle de idioma do áudio', async () => {
   const src = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
   assert.doesNotMatch(src, /translateBtn\.textContent = /, 'não troca o ícone SVG por texto');
   assert.match(src, /id="lf-translate-btn"[^>]*aria-label="Traduzir frase"/);
-  assert.doesNotMatch(src, /listeningControls\.style\.cssText = 'display:none;'/, 'controle de idioma do áudio não pode ficar inalcançável');
-  assert.match(src, /createElement\('details'\);\s*listeningControls\.id = 'lf-listening-controls'/);
+  assert.doesNotMatch(src, /lf-listening-controls|ListeningClock/, 'contador automático de listening foi removido (#387)');
 });

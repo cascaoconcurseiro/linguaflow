@@ -1522,29 +1522,7 @@ class Database {
     return data || [];
   }
 
-  async enqueueListeningInterval(interval) {
-    if (this.isProxyMode) return this._proxy('enqueueListeningInterval', [interval]);
-    const userId = await this.getCurrentUserId();
-    if (!userId || interval.accountId !== userId) throw new Error('Sessão do contador mudou. Confirme o idioma novamente.');
-    if (!UUID_PATTERN.test(interval.id) || !Number.isInteger(interval.seconds) || interval.seconds < 1 || interval.seconds > 60
-      || !['user_confirmed', 'audio_track', 'caption_asr'].includes(interval.evidence || 'user_confirmed')
-      || !/^[a-z]{2,3}(-[a-z0-9]{2,8})?$/.test(interval.language || '')) throw new Error('Intervalo de listening inválido.');
-    const save = async () => {
-      const key = `lf_listening_queue_v1:${userId}`;
-      const queue = await this._draftStorage('get', key) || [];
-      if (!queue.some(item => item.id === interval.id)) {
-        if (queue.length >= 2000) throw new Error('Fila de listening cheia. Reconecte para sincronizar.');
-        queue.push(interval);
-        await this._draftStorage('set', key, queue);
-      }
-    };
-    const write = (this._listeningWrite || Promise.resolve()).then(save);
-    this._listeningWrite = write.catch(() => {});
-    await write;
-    void this.drainListeningQueue().catch(() => {});
-    return { pending: true };
-  }
-
+  // Contador automático removido (#387): só drena intervalos que ficaram na fila do dispositivo.
   async drainListeningQueue() {
     if (this._listeningDrain) return this._listeningDrain;
     this._listeningDrain = (async () => {

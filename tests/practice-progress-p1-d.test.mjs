@@ -22,8 +22,8 @@ assert.ok(retentionIndex >= 0 && retentionIndex < activityIndex, 'retenção apa
 assert.match(stats, /Tempo e volume mostram atividade — não comprovam domínio do idioma/);
 assert.match(stats, /histórico de atividade \(\$\{summary\.totalMinutes\} min em 60 dias\)/);
 const subtitleEngine = read('content/subtitle-engine.js');
-assert.match(subtitleEngine, /this\.isActivated[\s\S]*document\.visibilityState === 'visible'[\s\S]*muted:video/ ,
-  'vídeo passivo ou aba em segundo plano não pode inflar tempo de estudo');
+assert.doesNotMatch(subtitleEngine, /enqueueListeningInterval|ListeningClock/,
+  'vídeo passivo não soma tempo de estudo automaticamente (#387); listening vem de registro manual');
 assert.match(stats, /Expressões na revisão/);
 assert.doesNotMatch(stats, /Expressões na memória/);
 assert.match(stats, /<details class="stats-activity-details">/);

@@ -39,7 +39,7 @@ const DB_PROXY_METHODS = new Set([
   'getSettings', 'getSRSCategoryOverrides', 'getSRSSettings', 'getStats',
   'getStatsSnapshot', 'getStories', 'getStudyStats', 'getTodayCounts', 'getTranslationCache',
   'getUserStats', 'getWord', 'getWordById', 'getWordsByCategory', 'getWordsByLetter',
-  'enqueueListeningInterval', 'getFluencyListeningText',
+  'getFluencyListeningText',
   'getAllIgnoredWords', 'ignoreWord', 'isKnown', 'issueFluencyTask', 'login', 'logout', 'logManualStudy', 'logReview', 'logSession',
   'markAsKnown', 'unignoreWord', 'maybeLeagueRollover', 'migrateReaderText', 'predictNextState',
   'recordAdaptiveSignal', 'recordLearningTaskAttempt', 'reportClientError',

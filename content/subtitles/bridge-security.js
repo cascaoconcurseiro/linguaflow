@@ -5,7 +5,6 @@ export const SUBTITLE_BRIDGE_TYPES = new Set([
   'LF_HBO_SUB',
   'LF_SUBTITLE_HOOK',
   'LF_PLAYER_STATE',
-  'LF_AUDIO_LANGUAGE',
   'LF_YT_SUB_TOGGLE',
   'LF_CAPTION_AVAILABILITY',
 ]);
@@ -57,13 +56,6 @@ export function isTrustedSubtitleBridgeMessage(event, bridgeState, currentUrl) {
     (domain) => currentHostname === domain || currentHostname.endsWith(`.${domain}`),
   );
 
-  if (data.type === 'LF_AUDIO_LANGUAGE') {
-    return isYouTube && (
-      (data.language === null && data.evidence === null)
-      || (typeof data.language === 'string' && /^[a-z]{2,3}(-[a-z0-9]{2,8})?$/.test(data.language)
-        && ['audio_track', 'caption_asr'].includes(data.evidence))
-    );
-  }
   if (data.type === 'LF_PLAYER_STATE') {
     return isYouTube && Number.isInteger(data.state) && data.state >= -1 && data.state <= 5;
   }

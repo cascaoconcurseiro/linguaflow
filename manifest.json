@@ -121,7 +121,6 @@
         "utils/phrasal-verbs.js",
         "utils/translator.js",
         "utils/offline-dict.js",
-        "utils/listening-clock.js",
         "utils/caption-grouping.js",
         "utils/caption-casing.js",
         "utils/context-chunks.js",

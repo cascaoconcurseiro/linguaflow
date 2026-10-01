@@ -174,6 +174,7 @@ class Database {
     }
 
     const token = await this._getToken();
+    options.signal?.throwIfAborted();
     if (!token) {
        console.warn('[DB] Sessão Supabase não encontrada. Operação cancelada:', endpoint);
        const error = classifyRequestError(new Error('Sessão expirada. Entre novamente para continuar.'), 401);
@@ -1803,15 +1804,34 @@ class Database {
   }
 
   // ── CACHE DE TRADUÇÃO (tabela própria — NUNCA mais dentro de settings) ────
+  async _translationCacheRequest(endpoint, options = {}) {
+    const controller = new AbortController();
+    let timeoutId;
+    const deadline = new Promise((resolve) => {
+      timeoutId = setTimeout(() => {
+        controller.abort();
+        resolve(null);
+      }, 2500);
+    });
+    try {
+      return await Promise.race([
+        this._fetch(endpoint, { ...options, signal: controller.signal, silent: true }).catch(() => null),
+        deadline,
+      ]);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
   async getTranslationCache(cacheKey) {
     if (this.isProxyMode) return this._proxy('getTranslationCache', [cacheKey]);
-    const res = await this._fetch(`translation_cache?cache_key=eq.${encodeURIComponent(cacheKey)}&select=value&limit=1`);
+    const res = await this._translationCacheRequest(`translation_cache?cache_key=eq.${encodeURIComponent(cacheKey)}&select=value&limit=1`);
     return res && res.length > 0 ? res[0].value : null;
   }
 
   async setTranslationCache(cacheKey, value) {
     if (this.isProxyMode) return this._proxy('setTranslationCache', [cacheKey, value]);
-    const res = await this._fetch('translation_cache?on_conflict=user_id,cache_key', {
+    const res = await this._translationCacheRequest('translation_cache?on_conflict=user_id,cache_key', {
       method: 'POST',
       headers: { 'Prefer': 'resolution=merge-duplicates' },
       body: { cache_key: cacheKey, value },

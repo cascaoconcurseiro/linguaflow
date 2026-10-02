@@ -7,7 +7,7 @@ import { CATEGORY_LABEL, TRACKS, TRACK_LABEL, byPathOrder, levelPill, lessonProg
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1'];
 const SORTS = { recommended: 'Recomendados', popular: 'Mais alunos', newest: 'Mais novos' };
 
-function courseCard(course, { showToggle = true } = {}) {
+function courseCard(course, { showToggle = true, inMineLabel = '✓ Em Meus cursos' } = {}) {
   const inMine = Boolean(course.my?.in_my_courses);
   const percent = Number(course.my?.percent_completed || 0);
   const units = course.lessons.reduce((n, l) => n + l.unit_count, 0);
@@ -24,7 +24,7 @@ function courseCard(course, { showToggle = true } = {}) {
       <div class="course-card-actions">
         <button class="course-btn-continue" type="button" data-open-course="${escapeHTML(course.id)}">${percent >= 100 ? 'Revisar curso' : percent > 0 ? 'Continuar' : 'Ver capítulos'}</button>
         ${showToggle ? `<button class="course-player-btn-back" type="button" data-toggle-mine="${escapeHTML(course.id)}" aria-pressed="${inMine}"
-          aria-label="${inMine ? 'Remover de Meus cursos' : 'Adicionar a Meus cursos'}: ${escapeHTML(course.title)}">${inMine ? '✓ Em Meus cursos' : '+ Meus cursos'}</button>` : ''}
+          aria-label="${inMine ? 'Remover de Meus cursos' : 'Adicionar a Meus cursos'}: ${escapeHTML(course.title)}">${inMine ? inMineLabel : '+ Meus cursos'}</button>` : ''}
       </div>
     </article>`;
 }
@@ -37,7 +37,7 @@ function bindCards(panel, { app, catalog, navigate, refresh }) {
     b.disabled = true;
     try {
       await db.courses.setInMyCourses(course.id, next);
-      app.showToast?.(next ? 'Curso adicionado a Meus cursos.' : 'Curso removido de Meus cursos. O progresso continua salvo.', 'success');
+      app.showToast?.(next ? 'Curso adicionado a Meus cursos.' : 'Curso removido de Meus cursos. O progresso continua salvo. Para voltar, use a Loja.', 'success');
       await refresh();
     } catch (err) {
       b.disabled = false;
@@ -128,7 +128,7 @@ export function renderMyCourses(panel, ctx) {
       <label class="course-search"><span class="visually-hidden">Buscar em meus cursos</span>
         <input type="search" id="course-mine-search" placeholder="Buscar em meus cursos" value="${escapeHTML(f.query)}" /></label>
     </div>
-    <div class="course-catalog-grid">${list.map((c) => courseCard(c)).join('') || '<p class="course-hub-subtitle">Nenhum curso nesta aba.</p>'}</div>`;
+    <div class="course-catalog-grid">${list.map((c) => courseCard(c, { inMineLabel: 'Remover da lista' })).join('') || '<p class="course-hub-subtitle">Nenhum curso nesta aba.</p>'}</div>`;
   panel.querySelectorAll('[data-mine-tab]').forEach((b) => b.addEventListener('click', () => { f.tab = b.dataset.mineTab; renderMyCourses(panel, ctx); }));
   panel.querySelector('#course-mine-search').addEventListener('change', (e) => { f.query = e.target.value; renderMyCourses(panel, ctx); });
   bindCards(panel, ctx);

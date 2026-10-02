@@ -80,6 +80,7 @@ export async function renderCourses(container, app, params = {}) {
     navigate: (target, extra = {}) => {
       section = target;
       courseId = extra.courseId || null;
+      app.syncCourseHash?.({ tab: target, courseId });
       renderShell(extra);
       container.querySelector('#course-area-panel')?.focus({ preventScroll: true });
     },

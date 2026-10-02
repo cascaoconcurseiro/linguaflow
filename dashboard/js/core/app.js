@@ -3,6 +3,7 @@ import { renderFluencyCheck } from '../ui/fluencyCheckView.js';
 import { bindViewStateAction, renderViewState } from '../ui/viewState.js';
 import { db } from '../../../utils/db.js';
 import { observe, observeError, startSpan } from '../../../utils/observability.js';
+import { courseHashFor, parseRouteHash } from './routeHash.js';
 
 const renderLibrary = (...args) => import('../ui/libraryView.js').then((m) => m.renderLibrary(...args));
 const renderStudy = (...args) => import(`../ui/studyView.js?v=${CLIENT_BUILD}`).then((m) => m.renderStudy(...args));
@@ -149,8 +150,10 @@ class App {
     });
     // Hash editado ou link #rota na mesma página: troca de tela sem recarregar.
     window.addEventListener('hashchange', () => {
-      const hashRoute = window.location.hash.slice(1);
-      if (RESTORABLE_ROUTES.has(hashRoute) && hashRoute !== hashRouteFor(this.currentRoute)) this.navigate(hashRoute);
+      const { route: hashRoute, params } = parseRouteHash(window.location.hash);
+      if (!RESTORABLE_ROUTES.has(hashRoute)) return;
+      if (hashRoute !== hashRouteFor(this.currentRoute)) this.navigate(hashRoute, params);
+      else if (this.currentRoute === 'courses' && window.location.hash.slice(1) !== courseHashFor(this.routeParams)) this.navigate('courses', params);
     });
     // Setup Navigation Listeners
     this.navBtns.forEach(btn => {
@@ -238,8 +241,9 @@ class App {
       // Garante perfil de usuário no Supabase (XP/gamificação)
       db.ensureUserStats().catch(() => {});
       // Rota inicial: a do hash (recarregar mantém a tela), senão Hoje
-      const hashRoute = window.location.hash.slice(1);
-      this.navigate(RESTORABLE_ROUTES.has(hashRoute) ? hashRoute : 'home');
+      const { route: hashRoute, params: hashParams } = parseRouteHash(window.location.hash);
+      if (RESTORABLE_ROUTES.has(hashRoute)) this.navigate(hashRoute, hashParams);
+      else this.navigate('home');
       // Escuta mensagens do service worker (palavra salva no player)
       if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
         chrome.runtime.onMessage.addListener((msg) => {
@@ -390,6 +394,15 @@ class App {
     if (this.root) this.root.scrollTop = 0;
   }
 
+  // Navegação interna de Cursos: empilha a seção no histórico (voltar/recarregar restauram).
+  syncCourseHash(params) {
+    this.routeParams = params;
+    const target = `#${courseHashFor(params)}`;
+    if (window.location.hash !== target) {
+      window.history.pushState(null, '', `${window.location.pathname}${window.location.search}${target}`);
+    }
+  }
+
   navigate(route, params = {}) {
     // A rota de jogos e a antiga rota Aprender foram aposentadas. Bookmarks antigos continuam seguros,
     // mas redirecionam diretamente para Histórias.
@@ -410,8 +423,10 @@ class App {
     this.navigationEpoch += 1;
     this.currentRoute = route;
     const hashRoute = hashRouteFor(route);
-    if (RESTORABLE_ROUTES.has(hashRoute) && window.location.hash !== `#${hashRoute}`) {
-      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${hashRoute}`);
+    // Cursos guarda a seção no hash; a prática mantém o hash de onde veio.
+    const targetHash = route === 'courses' ? courseHashFor(params) : hashRoute;
+    if (RESTORABLE_ROUTES.has(hashRoute) && route !== 'course-practice' && window.location.hash !== `#${targetHash}`) {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${targetHash}`);
     }
     observe('navigation.start', { route, navigationEpoch: this.navigationEpoch });
     this.routeParams = params || {};

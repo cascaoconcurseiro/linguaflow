@@ -58,7 +58,7 @@ export function formatDuration(seconds) {
 
 export function formatDateTime(value) {
   if (!value) return '';
-  return new Date(value).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) + ' UTC';
+  return new Date(value).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 export function formatDate(value) {

@@ -3,6 +3,7 @@
 ## [Não lançado]
 
 ### Corrigido
+- **Nomes que não se contradizem**: o Início agora diz "Ofensiva de revisões" e "Cartões para hoje"; o Progresso diz "Dias seguidos de estudo" (qualquer atividade, inclusive vídeo); Cursos diz "frases dos cursos vencem hoje". Horários de "Estudados recentemente" aparecem no seu fuso, sem "UTC". O Progresso deixa de mostrar "▲312 vs. período anterior" quando o período anterior tem menos de 10 revisões (#395).
 - **Cursos lembra a seção no endereço**: Início, Meus cursos, Loja, Revisão, Erros, Análise etc. agora ficam no endereço (`#courses/review`, `#courses/course/<id>`). Recarregar a página e os botões voltar/avançar do navegador mantêm onde você estava (#393).
 - **"Continue seu curso" não recomeça mais cursos concluídos**: ao terminar todos os capítulos, o Início mostrava o capítulo 1 a 100% com "Continuar". Agora ele leva ao curso em andamento mais recente ou, se não houver, à próxima aula da trilha ou à loja; na página do curso concluído o botão vira "Revisar do início" (#391). A lista "Frases em revisão" também avisa quando mostra só as 100 primeiras.
 

@@ -174,7 +174,7 @@ export async function renderProgress(container, app) {
         </section>
         <section class="course-panel" aria-labelledby="mem-title"><h2 id="mem-title" class="course-section-title">Memória (cartões)</h2>
           ${bars(statuses, { label: 'Cartões por estado' })}
-          <p class="course-card-stats">${n(v.leeches)} ${v.leeches === 1 ? 'cartão difícil' : 'cartões difíceis'} (erra com frequência) · ${n(v.suspended)} ${v.suspended === 1 ? 'suspenso' : 'suspensos'}</p>
+          <p class="course-card-stats">${n(v.leeches)} ${v.leeches === 1 ? 'cartão difícil' : 'cartões difíceis'} (sinalizados após muitos esquecimentos; o limite está nas configurações) · ${n(v.suspended)} ${v.suspended === 1 ? 'suspenso' : 'suspensos'}</p>
         </section>
       </div>
 

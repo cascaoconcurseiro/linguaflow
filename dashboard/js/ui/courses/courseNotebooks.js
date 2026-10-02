@@ -3,6 +3,7 @@
 import { db } from '../../../../utils/db.js';
 import { escapeHTML } from '../../../../utils/html.js';
 import { playNaturalAudio } from '../../core/tts.js';
+import { reviewBatchPlan } from '../../core/reviewBatches.js';
 import { formatDate, formatDateTime, renderLoading, renderLoadError, renderEmpty, startNotebookPractice } from './courseUi.js';
 
 const PRACTICE_BATCH = 20;
@@ -39,13 +40,18 @@ export async function renderReviewNotebook(panel, { app }) {
     byDay.set(day, (byDay.get(day) || 0) + 1);
   }
 
+  const plan = reviewBatchPlan(due.length);
   panel.innerHTML = `
     <section class="course-panel">
       <h2 class="course-section-title">Para hoje</h2>
       ${due.length
         ? `<p><strong>${due.length}</strong> ${due.length === 1 ? 'frase vencida' : 'frases vencidas'}.</p>
-           <button class="course-btn-primary-lg" type="button" data-practice>Revisar ${Math.min(due.length, PRACTICE_BATCH)} agora</button>
-           ${due.length > PRACTICE_BATCH ? `<p class="course-hub-subtitle">Revisões em blocos de ${PRACTICE_BATCH}.</p>` : ''}`
+           <div class="course-filter-row">
+             <button class="course-btn-primary-lg" type="button" data-practice>Revisar ${plan.full} agora</button>
+             ${plan.quick ? `<button class="course-player-btn-back" type="button" data-practice-quick>Sessão rápida · ${plan.quick} frases (~5 min)</button>` : ''}
+           </div>
+           ${due.length > PRACTICE_BATCH ? `<p class="course-hub-subtitle">Revisões em blocos de ${PRACTICE_BATCH}.</p>` : ''}
+           ${plan.backlog ? '<p class="course-hub-subtitle" role="status">Fila grande não é problema: 10 frases por dia já fazem ela encolher. Sem pressa de zerar.</p>' : ''}`
         : '<p class="course-hub-subtitle">Nada vence hoje. Bom trabalho.</p>'}
     </section>
     <section class="course-panel">
@@ -66,6 +72,9 @@ export async function renderReviewNotebook(panel, { app }) {
     </section>`;
   panel.querySelector('[data-practice]')?.addEventListener('click', () => {
     startNotebookPractice(app, 'review', due.slice(0, PRACTICE_BATCH).map((r) => r.unit_id), 'Revisão');
+  });
+  panel.querySelector('[data-practice-quick]')?.addEventListener('click', () => {
+    startNotebookPractice(app, 'review', due.slice(0, plan.quick).map((r) => r.unit_id), 'Revisão rápida');
   });
 }
 

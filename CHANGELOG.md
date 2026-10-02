@@ -9,6 +9,9 @@
 - **Cursos lembra a seção no endereço**: Início, Meus cursos, Loja, Revisão, Erros, Análise etc. agora ficam no endereço (`#courses/review`, `#courses/course/<id>`). Recarregar a página e os botões voltar/avançar do navegador mantêm onde você estava (#393).
 - **"Continue seu curso" não recomeça mais cursos concluídos**: ao terminar todos os capítulos, o Início mostrava o capítulo 1 a 100% com "Continuar". Agora ele leva ao curso em andamento mais recente ou, se não houver, à próxima aula da trilha ou à loja; na página do curso concluído o botão vira "Revisar do início" (#391). A lista "Frases em revisão" também avisa quando mostra só as 100 primeiras.
 
+### Adicionado
+- **Sessão rápida na Revisão dos Cursos**: com mais de 10 frases vencidas, um botão "Sessão rápida · 10 frases (~5 min)" aparece ao lado do bloco de 20. Com 60 ou mais vencidas, a tela avisa que a fila grande não é problema e que 10 por dia já a fazem encolher (#398).
+
 ### Alterado
 - **Contador automático de listening removido**: o controle "Áudio: Idioma não confirmado · corrigir" saiu do roteiro do vídeo, junto com a contagem automática de tempo de escuta que dependia dele (a detecção do idioma do áudio falhava na maioria dos vídeos). O registro manual de listening no site continua, e Listening hoje/total no popup e no site seguem mostrando o histórico e o que você registrar à mão (#387).
 - **Tradução no YouTube**: remove consultas e gravações duplicadas no cache remoto pelo content script. O cache remoto tem prazo de 2,5 segundos; indisponibilidade do cache permite continuar a tradução e preservar o resultado localmente (#385).

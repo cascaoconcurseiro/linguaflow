@@ -557,7 +557,7 @@ export async function renderHome(container, app) {
                     <div class="stat-card">
                         <span class="stat-symbol" aria-hidden="true">▤</span>
                         <div class="stat-value">${safeStats.dueCards || 0}</div>
-                        <div class="stat-label">Revisões de hoje</div>
+                        <div class="stat-label">Cartões para hoje</div>
                         ${dueLearningNow > 0 ? `<div class="stat-note" title="Frases começando voltam em minutos dentro desta sessão">${dueLearningNow} começando</div>` : ''}
                     </div>
                     <div class="stat-card">
@@ -573,7 +573,7 @@ export async function renderHome(container, app) {
                     <div class="stat-card">
                         <span class="stat-symbol" aria-hidden="true">◔</span>
                         <div class="stat-value" id="stat-streak">${streak}</div>
-                        <div class="stat-label">Dias de Ofensiva</div>
+                        <div class="stat-label">Ofensiva de revisões</div>
                     </div>
                 </div>
 
@@ -672,7 +672,7 @@ export async function renderHome(container, app) {
                 ${activeBanner === 'streak' ? `
                 <div id="home-streak-banner" class="home-alert-banner home-alert-streak">
                     <div class="home-alert-content">
-                        <div class="home-alert-title">Sua ofensiva de ${streak} ${streak === 1 ? 'dia' : 'dias'} está em risco!</div>
+                        <div class="home-alert-title">Sua ofensiva de revisões de ${streak} ${streak === 1 ? 'dia' : 'dias'} está em risco!</div>
                         <div class="home-alert-desc">Conclua 1 revisão hoje para manter a ofensiva.</div>
                     </div>
                     <button class="btn btn-primary" id="btn-save-streak" style="padding:10px 18px; font-size:13px;">Salvar ofensiva</button>

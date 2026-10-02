@@ -42,7 +42,7 @@
     "test:pedagogy": "node tests/pedagogy-economy-contract.test.mjs",
     "test:review-economy": "node tests/review-economy-p0-2.test.mjs && node tests/review-daily-limits-authority.test.mjs && node tests/review-server-fsrs-authority.test.mjs && node tests/review-server-fsrs-hardening.test.mjs && node tests/review-fsrs-stability-and-undo-quota.test.mjs",
     "test:product-ux": "node tests/product-ux-stage4.test.mjs && node tests/ux-accessibility-hardening.test.mjs",
-    "test:nav-home": "node tests/navigation-home-p0-a.test.mjs && node tests/home-organization.test.mjs",
+    "test:nav-home": "node tests/navigation-home-p0-a.test.mjs && node tests/home-organization.test.mjs && node tests/ux-labels-395.test.mjs",
     "test:understand-panel": "node tests/understand-panel-p0-b.test.mjs",
     "test:language-state": "node tests/product-language-state-p0-c.test.mjs",
     "test:vault-settings": "node tests/cofre-settings-p1-a.test.mjs",

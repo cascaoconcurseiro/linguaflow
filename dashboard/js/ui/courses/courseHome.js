@@ -105,7 +105,7 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate 
       <section class="course-panel" aria-labelledby="review-title">
         <h2 id="review-title" class="course-section-title">Sua revisão do dia</h2>
         ${summary.reviews_due_count > 0
-          ? `<p><strong>${summary.reviews_due_count}</strong> ${summary.reviews_due_count === 1 ? 'frase vence' : 'frases vencem'} hoje.</p>
+          ? `<p><strong>${summary.reviews_due_count}</strong> ${summary.reviews_due_count === 1 ? 'frase dos cursos vence' : 'frases dos cursos vencem'} hoje.</p>
              <button class="course-btn-continue" type="button" data-go="review">Revisar agora</button>`
           : `<p class="course-hub-subtitle">Nada vence hoje.${summary.next_review_at ? ` Próxima revisão em ${formatDate(summary.next_review_at)}` : ''}</p>`}
         ${summary.mistakes_count > 0 ? `<p class="course-hub-subtitle">${summary.mistakes_count} ${summary.mistakes_count === 1 ? 'erro pendente' : 'erros pendentes'} no caderno. <button class="course-link" type="button" data-go="mistakes">Treinar</button></p>` : ''}

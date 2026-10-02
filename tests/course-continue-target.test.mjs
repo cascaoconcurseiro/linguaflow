@@ -42,3 +42,9 @@ test('cartão do curso: rótulo do botão reflete o progresso real', async () =>
   assert.match(src, /percent >= 100 \? 'Revisar curso' : percent > 0 \? 'Continuar' : 'Ver capítulos'/);
   assert.doesNotMatch(src, /course\.my \? 'Continuar'/);
 });
+
+test('revisão: lista truncada em 100 avisa quantas frases existem', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../dashboard/js/ui/courses/courseNotebooks.js', import.meta.url), 'utf8');
+  assert.match(src, /Mostrando as 100 primeiras de \$\{rows\.length\}/);
+});

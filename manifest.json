@@ -99,6 +99,7 @@
         "content/subtitles/transcript-render.js",
         "content/subtitles/video-vocabulary.js",
         "content/subtitles/hover-tip.js",
+        "content/subtitles/caption-conflict.js",
         "content/subtitles/line-explainer.js",
         "content/max-player-ui.js",
         "content/review-overlay.js",

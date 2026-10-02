@@ -176,7 +176,8 @@ export async function renderNotesNotebook(panel, ctx) {
   const rows = await load(panel, 'Carregando notas…', () => db.courses.listNotes(), () => renderNotesNotebook(panel, ctx));
   if (!rows) return;
   if (!rows.length) {
-    renderEmpty(panel, 'Nenhuma nota ainda', 'Durante a prática, abra "Mostrar resposta" e escreva uma nota pessoal: ela fica ligada à frase de origem.');
+    renderEmpty(panel, 'Nenhuma nota ainda', 'Durante a prática, abra "Mostrar resposta" e escreva uma nota pessoal: ela fica ligada à frase de origem. Exemplo de nota: "usar 'would' para pedidos educados".',
+      { label: 'Ir para Meus cursos', onClick: () => ctx.navigate('my-courses') });
     return;
   }
   panel.innerHTML = `

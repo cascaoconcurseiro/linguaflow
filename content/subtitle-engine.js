@@ -30,6 +30,7 @@ import {
 } from './subtitles/line-explainer.js';
 import { streamAiRequest } from '../utils/ai-stream.js';
 import { createHoverTip } from './subtitles/hover-tip.js';
+import { CAPTION_CONFLICT_NOTICE, hasLanguageReactor } from './subtitles/caption-conflict.js';
 import { comprehensionSummary, extractVideoVocabulary, learnerKeywords, wordStatus } from './subtitles/video-vocabulary.js';
 import {
   calculateWpm,
@@ -827,6 +828,10 @@ export class SubtitleEngine {
     } else if (this._hiddenYouTubeCaptions === nativeWindow) {
       nativeWindow.style.display = '';
       this._hiddenYouTubeCaptions = null;
+    }
+    if (this.isActivated && this.cues?.length && !this._captionConflictNoticed && hasLanguageReactor(document)) {
+      this._captionConflictNoticed = true;
+      this._setCaptionNotice(CAPTION_CONFLICT_NOTICE);
     }
   }
 

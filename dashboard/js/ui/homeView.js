@@ -5,6 +5,7 @@ import { computeAchievements, newlyUnlocked } from '../core/achievements.js';
 import { bindViewStateAction, escapeHtml, renderViewState } from './viewState.js';
 import { isFluencyCheckDue } from '../core/fluencyCheck.js';
 import { isWeakCard } from '../core/sessionQueue.js';
+import { videoWordStats } from '../core/videoWordStats.js';
 import { countBucket, observe } from '../../../utils/observability.js';
 
 function organizeHomeSections(container) {
@@ -332,6 +333,7 @@ export async function renderHome(container, app) {
     let storiesCount = 0;
     let vaultCap = 0, vaultActive = 0, vaultWaiting = [], vaultRetireCandidate = null, vaultWordById = {};      // Onda 8: usado nas conquistas ("1ª história" etc.)
     let supplementaryDataAvailable = true;
+    let videoWords = { total: 0, stable: 0 };
     let sourceLang = 'en';
     let studyStats = null;
     let struggling = { items: [], total: 0, dueCount: 0 };
@@ -390,6 +392,7 @@ export async function renderHome(container, app) {
         (knownWords || []).forEach(k => { const l = lemma(k.word); if (l) fams.add(l); });
         (allWords || []).forEach(w => { if (matureByWordId[w.id]) { const l = lemma(w.word); if (l) fams.add(l); } });
         knownFamilies = fams.size;
+        videoWords = videoWordStats(allWords, allCards);
 
         if (log30 && log30.length >= 5) {
             const hits = log30.filter(r => r.quality >= 2).length;
@@ -680,6 +683,7 @@ export async function renderHome(container, app) {
                 <div id="home-memory-insight" class="home-memory-insight-card">
                     <div class="memory-insight-badges">
                         <div class="memory-badge"><strong>Memória</strong></div>
+                        ${videoWords.total > 0 ? `<div class="memory-badge" title="Palavras salvas ao assistir vídeos e quantas já estão em memória estável">De vídeos: <strong>${videoWords.total}</strong> · ${videoWords.stable} fixadas</div>` : ''}
                         <div class="memory-badge">Itens familiares: <strong style="color:var(--color-primary);">${knownFamilies}</strong></div>
                         <div class="memory-badge">Retenção 30d: <strong style="color:${retention30 === null ? 'var(--color-text-light)' : retention30 >= 85 ? 'var(--color-primary)' : retention30 >= 70 ? '#ffc800' : 'var(--color-danger)'};">${retention30 === null ? '—' : retention30 + '%'}</strong></div>
                         <div class="memory-badge">Amanhã: <strong>${dueTomorrow} ${dueTomorrow === 1 ? 'revisão' : 'revisões'}</strong></div>

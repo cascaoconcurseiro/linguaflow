@@ -11,6 +11,7 @@
 
 ### Adicionado
 - **Sessão rápida na Revisão dos Cursos**: com mais de 10 frases vencidas, um botão "Sessão rápida · 10 frases (~5 min)" aparece ao lado do bloco de 20. Com 60 ou mais vencidas, a tela avisa que a fila grande não é problema e que 10 por dia já a fazem encolher (#398).
+- **Palavras de vídeo no Início**: em "Métricas detalhadas", o selo "De vídeos" mostra quantas palavras você salvou assistindo e quantas já estão fixadas (#399).
 
 ### Alterado
 - **Contador automático de listening removido**: o controle "Áudio: Idioma não confirmado · corrigir" saiu do roteiro do vídeo, junto com a contagem automática de tempo de escuta que dependia dele (a detecção do idioma do áudio falhava na maioria dos vídeos). O registro manual de listening no site continua, e Listening hoje/total no popup e no site seguem mostrando o histórico e o que você registrar à mão (#387).

@@ -62,6 +62,7 @@ export async function renderReviewNotebook(panel, { app }) {
             <span class="course-card-stats">${escapeHTML(origin(r.course_units))} · revisão ${formatDate(r.due_date)} · intervalo ${r.interval_days} ${r.interval_days === 1 ? 'dia' : 'dias'}</span>
           </div>
         </li>`).join('')}</ul>
+      ${rows.length > 100 ? `<p class="course-hub-subtitle" role="status">Mostrando as 100 primeiras de ${rows.length} frases em revisão.</p>` : ''}
     </section>`;
   panel.querySelector('[data-practice]')?.addEventListener('click', () => {
     startNotebookPractice(app, 'review', due.slice(0, PRACTICE_BATCH).map((r) => r.unit_id), 'Revisão');

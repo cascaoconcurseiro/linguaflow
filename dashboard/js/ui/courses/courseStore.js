@@ -22,7 +22,7 @@ function courseCard(course, { showToggle = true } = {}) {
         ${course.my ? `<div class="course-hero-progress-track" role="progressbar" aria-label="Progresso no curso" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><div class="course-hero-progress-bar" style="width:${percent}%"></div></div>` : ''}
       </div>
       <div class="course-card-actions">
-        <button class="course-btn-continue" type="button" data-open-course="${escapeHTML(course.id)}">${course.my ? 'Continuar' : 'Ver capítulos'}</button>
+        <button class="course-btn-continue" type="button" data-open-course="${escapeHTML(course.id)}">${percent >= 100 ? 'Revisar curso' : percent > 0 ? 'Continuar' : 'Ver capítulos'}</button>
         ${showToggle ? `<button class="course-player-btn-back" type="button" data-toggle-mine="${escapeHTML(course.id)}" aria-pressed="${inMine}"
           aria-label="${inMine ? 'Remover de Meus cursos' : 'Adicionar a Meus cursos'}: ${escapeHTML(course.title)}">${inMine ? '✓ Em Meus cursos' : '+ Meus cursos'}</button>` : ''}
       </div>
@@ -145,6 +145,7 @@ export function renderCourseDetail(panel, ctx, courseId, openLessonId = null) {
   const answered = course.lessons.reduce((n, l) => n + Math.min(l.unit_count, Number(l.my_best_answered || 0)), 0);
   const percent = Math.round((answered / Math.max(1, units)) * 100);
   const cont = continueLessonOf(course);
+  const finished = !cont;
   const inMine = Boolean(course.my?.in_my_courses);
 
   panel.innerHTML = `
@@ -159,7 +160,7 @@ export function renderCourseDetail(panel, ctx, courseId, openLessonId = null) {
         <p class="course-card-stats">Progresso: ${answered} / ${unitCount(course, units)} · ${percent}%</p>
       </div>
       <div class="course-detail-actions">
-        <button class="course-btn-primary-lg" type="button" data-continue>${answered > 0 ? 'Continuar' : 'Começar'}</button>
+        <button class="course-btn-primary-lg" type="button" data-continue>${finished ? 'Revisar do início' : answered > 0 ? 'Continuar' : 'Começar'}</button>
         <button class="course-player-btn-back" type="button" data-toggle-mine="${escapeHTML(course.id)}" aria-pressed="${inMine}">${inMine ? '✓ Em Meus cursos' : '+ Meus cursos'}</button>
       </div>
     </header>
@@ -170,7 +171,7 @@ export function renderCourseDetail(panel, ctx, courseId, openLessonId = null) {
         return `<li class="course-chapter ${done ? 'is-done' : ''}">
           <span class="course-chapter-num" aria-hidden="true">${String(lesson.chapter_number).padStart(2, '0')}</span>
           <div class="course-chapter-info">
-            <strong>${escapeHTML(lesson.title)}${lesson.id === cont.id && !done ? ' <span class="course-tab-badge">Próximo</span>' : ''}</strong>
+            <strong>${escapeHTML(lesson.title)}${lesson.id === cont?.id && !done ? ' <span class="course-tab-badge">Próximo</span>' : ''}</strong>
             <span class="course-card-stats">${unitCount(course, lesson.unit_count)}${lesson.description ? ` · ${escapeHTML(lesson.description)}` : ''}</span>
           </div>
           <div class="course-chapter-progress" role="progressbar" aria-label="Progresso do capítulo ${lesson.chapter_number}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${lp}">
@@ -182,7 +183,7 @@ export function renderCourseDetail(panel, ctx, courseId, openLessonId = null) {
     </ol>`;
 
   panel.querySelector('[data-back]').addEventListener('click', () => navigate('store'));
-  panel.querySelector('[data-continue]').addEventListener('click', () => startLesson(app, course, cont));
+  panel.querySelector('[data-continue]').addEventListener('click', () => startLesson(app, course, cont || course.lessons[0]));
   panel.querySelectorAll('[data-lesson]').forEach((b) => b.addEventListener('click', () => {
     startLesson(app, course, course.lessons.find((l) => l.id === b.dataset.lesson));
   }));

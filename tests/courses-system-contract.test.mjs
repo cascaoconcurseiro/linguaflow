@@ -263,7 +263,7 @@ test('UI: sair da prática usa diálogo próprio e a rota sobrevive ao recarrega
   assert.match(player, /'confirm-exit': leavePractice/);
   const app = read('dashboard/js/core/app.js');
   assert.match(app, /const RESTORABLE_ROUTES = new Set\(\[[^\]]*'courses'/);
-  assert.match(app, /this\.navigate\(RESTORABLE_ROUTES\.has\(hashRoute\) \? hashRoute : 'home'\)/);
+  assert.match(app, /if \(RESTORABLE_ROUTES\.has\(hashRoute\)\) this\.navigate\(hashRoute, hashParams\);\s+else this\.navigate\('home'\)/);
   assert.match(app, /route === 'course-practice' \? 'courses'/);
   assert.match(app, /addEventListener\('hashchange'/);
 });

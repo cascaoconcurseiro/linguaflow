@@ -109,9 +109,21 @@ export function nextLessonOf(course, lessonId) {
   return i >= 0 ? course.lessons[i + 1] || null : null;
 }
 
+// Próximo capítulo pendente; null quando o curso já foi concluído (nunca recomeça no 1).
 export function continueLessonOf(course) {
   const done = new Set(course.my?.completed_lessons || []);
-  return course.lessons.find((l) => !done.has(l.id)) || course.lessons[0];
+  return course.lessons.find((l) => !done.has(l.id)) || null;
+}
+
+// Alvo do card "Continue seu curso": o curso mais recente que ainda tem capítulo pendente.
+export function pickContinueTarget({ lessonIndex, summary }) {
+  const ids = [summary.continue?.lesson_id, ...(summary.recent || []).map((r) => r.lesson_id)];
+  for (const id of ids) {
+    const found = id && lessonIndex.get(id);
+    const lesson = found && continueLessonOf(found.course);
+    if (lesson) return { course: found.course, lesson };
+  }
+  return null;
 }
 
 // Abre o modal de preparo e navega para o player da lição.

@@ -92,7 +92,7 @@
     "test:stage3": "npm run test:focus-suite",
     "dev": "node tests/fixtures/preview-server.mjs",
     "test:stabilization": "node --test tests/stabilization.test.mjs",
-    "test:courses": "node tests/sound-engine.test.mjs && node --test tests/input-engine.test.mjs tests/course-practice-session.test.mjs tests/courses-system-contract.test.mjs tests/progress-stats-contract.test.mjs tests/undeclared-variables.test.mjs"
+    "test:courses": "node tests/sound-engine.test.mjs && node --test tests/input-engine.test.mjs tests/course-practice-session.test.mjs tests/course-continue-target.test.mjs tests/courses-system-contract.test.mjs tests/progress-stats-contract.test.mjs tests/undeclared-variables.test.mjs"
   },
   "dependencies": {
     "acorn": "^8.17.0"

@@ -22,7 +22,7 @@ function courseCard(course, { showToggle = true } = {}) {
         ${course.my ? `<div class="course-hero-progress-track" role="progressbar" aria-label="Progresso no curso" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><div class="course-hero-progress-bar" style="width:${percent}%"></div></div>` : ''}
       </div>
       <div class="course-card-actions">
-        <button class="course-btn-continue" type="button" data-open-course="${escapeHTML(course.id)}">${course.my ? 'Continuar' : 'Ver capítulos'}</button>
+        <button class="course-btn-continue" type="button" data-open-course="${escapeHTML(course.id)}">${percent >= 100 ? 'Revisar curso' : percent > 0 ? 'Continuar' : 'Ver capítulos'}</button>
         ${showToggle ? `<button class="course-player-btn-back" type="button" data-toggle-mine="${escapeHTML(course.id)}" aria-pressed="${inMine}"
           aria-label="${inMine ? 'Remover de Meus cursos' : 'Adicionar a Meus cursos'}: ${escapeHTML(course.title)}">${inMine ? '✓ Em Meus cursos' : '+ Meus cursos'}</button>` : ''}
       </div>

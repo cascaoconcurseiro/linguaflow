@@ -35,3 +35,10 @@ test('pickContinueTarget: tudo concluído devolve null', () => {
   const a = course('a', ['a1'], ['a1']);
   assert.equal(pickContinueTarget({ lessonIndex: index([a]), summary: { continue: { lesson_id: 'a1' }, recent: [] } }), null);
 });
+
+test('cartão do curso: rótulo do botão reflete o progresso real', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../dashboard/js/ui/courses/courseStore.js', import.meta.url), 'utf8');
+  assert.match(src, /percent >= 100 \? 'Revisar curso' : percent > 0 \? 'Continuar' : 'Ver capítulos'/);
+  assert.doesNotMatch(src, /course\.my \? 'Continuar'/);
+});

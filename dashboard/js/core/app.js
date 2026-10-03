@@ -19,7 +19,7 @@ const renderAdmin = (...args) => import('../ui/adminView.js').then((m) => m.rend
 const renderCourses = (...args) => import('../ui/coursesView.js').then((m) => m.renderCourses(...args));
 const renderCoursePractice = (...args) => import('../ui/coursePracticeView.js').then((m) => m.renderCoursePractice(...args));
 
-const CLIENT_BUILD = '3.0.60';
+const CLIENT_BUILD = '3.0.61';
 // Rotas cujo render recebe os parâmetros de navegação (lição, modo, aba).
 const ROUTES_WITH_PARAMS = new Set(['study', 'courses', 'course-practice', 'library']);
 // Rotas restauradas ao recarregar (hash da URL). O player volta para Cursos:
@@ -138,6 +138,7 @@ class App {
   }
 
   async init() {
+    this.clientBuild = CLIENT_BUILD;
     window.addEventListener('error', event => this.reportUnexpectedError('window.error', event.error));
     window.addEventListener('unhandledrejection', event => this.reportUnexpectedError('window.rejection', event.reason));
     // Falha de LEITURA não pode virar "lista vazia" silenciosa (auditoria):
@@ -241,6 +242,7 @@ class App {
       // Garante perfil de usuário no Supabase (XP/gamificação)
       db.ensureUserStats().catch(() => {});
       import('../ui/systemNotice.js').then((m) => m.showSystemNotice(db)).catch(() => {});
+      this.revealAdminEntry();
       // Rota inicial: a do hash (recarregar mantém a tela), senão Hoje
       const { route: hashRoute, params: hashParams } = parseRouteHash(window.location.hash);
       if (RESTORABLE_ROUTES.has(hashRoute)) this.navigate(hashRoute, hashParams);
@@ -313,7 +315,7 @@ class App {
 
   handleMenuKeydown(event, menu) {
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
-    const items = [...menu.querySelectorAll('[role="menuitem"]')];
+    const items = [...menu.querySelectorAll('[role="menuitem"]:not([hidden])')];
     if (!items.length) return;
     event.preventDefault();
     const current = Math.max(0, items.indexOf(document.activeElement));
@@ -330,6 +332,21 @@ class App {
     this.focusMenuToggle.setAttribute('aria-expanded', String(open));
     if (open) this.focusMenu.querySelector('[role="menuitem"]')?.focus();
     else if (restoreFocus) this.focusMenuToggle.focus();
+  }
+
+  // A entrada "Administração" só existe para quem a RLS reconhece como admin (admin_users);
+  // para os demais usuários o item continua oculto e o servidor recusa qualquer RPC admin.
+  async revealAdminEntry() {
+    const item = document.getElementById('profile-admin-item');
+    if (!item) return;
+    const isAdmin = await db.isAdmin().catch(() => false);
+    if (!isAdmin) return;
+    item.hidden = false;
+    item.addEventListener('click', () => {
+      this.setProfileMenuOpen(false);
+      if (db._getAdminSessionToken()) this.navigate('admin');
+      else this.navigate('settings', { adminPin: true });
+    });
   }
 
   setProfileMenuOpen(open, restoreFocus = false) {

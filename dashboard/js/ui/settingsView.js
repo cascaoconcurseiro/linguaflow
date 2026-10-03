@@ -320,8 +320,9 @@ export async function renderSettings(container, app) {
           Sair da conta
         </button>
         ${isAdmin ? `
-          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px dashed var(--color-border); text-align: center;">
-            <button id="btn-admin-gate" type="button" class="btn btn-outline" style="font-size: 13px; font-weight: 700; padding: 8px 18px; opacity: 0.75; border-color: var(--color-border); color: var(--color-text-light); cursor: pointer; border-radius: 8px; transition: all 0.2s;" title="Painel Administrativo">
+          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--color-border);">
+            <p style="font-size: 13px; color: var(--color-text-light); margin: 0 0 8px;">Área restrita à sua conta de administrador.</p>
+            <button id="btn-admin-gate" type="button" class="btn btn-outline" style="width: 100%; font-size: 14px; font-weight: 700; padding: 12px 18px; cursor: pointer;" title="Painel Administrativo">
               Administração do sistema
             </button>
           </div>
@@ -992,6 +993,8 @@ export async function renderSettings(container, app) {
     document.getElementById('btn-admin-gate')?.addEventListener('click', () => {
       openAdminPinModal(app);
     });
+    // Vindo do menu do perfil sem sessão de PIN: abre direto o campo do PIN.
+    if (app.routeParams?.adminPin) openAdminPinModal(app);
   }
 }
 

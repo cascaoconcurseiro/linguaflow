@@ -43,16 +43,38 @@ function renderNotice(el, ctx, notice) {
 }
 
 // ── Erros ────────────────────────────────────────────────────────────────────
+// Compara versões "a.b.c" numericamente; versão desconhecida nunca é marcada como antiga.
+function isOlderVersion(version, current) {
+  const parse = (value) => String(value || '').split('.').map((part) => parseInt(part, 10));
+  const a = parse(version);
+  const b = parse(current);
+  if (!a.length || !b.length || a.some(Number.isNaN) || b.some(Number.isNaN)) return false;
+  for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
+    const diff = (a[index] || 0) - (b[index] || 0);
+    if (diff !== 0) return diff < 0;
+  }
+  return false;
+}
+
 function renderErrors(el, ctx, data, reload) {
   const groups = data.groups || [];
   const recent = data.recent || [];
+  const current = ctx.app.clientBuild;
+  const stillHappening = groups.filter((group) => !isOlderVersion(group.app_version, current));
   el.innerHTML = `
+    <p class="adm-note" role="status" style="margin-bottom:10px">${stillHappening.length
+    ? `${fmtNumber(stillHappening.length)} tipo(s) de erro ocorrem na versão atual (${escapeHtml(current || '—')}) ou em versão desconhecida: investigar.`
+    : `Nenhum erro na versão atual${current ? ` (${escapeHtml(current)})` : ''}. Os registros abaixo vêm de versões antigas, já substituídas.`}</p>
     ${groups.length ? `<div class="adm-table-wrap"><table class="adm-table">
-      <caption>Erros agrupados (7 dias)</caption>
-      <thead><tr><th scope="col">Origem</th><th scope="col">Erro</th><th scope="col" class="adm-r">Ocorrências</th><th scope="col">Última vez</th></tr></thead>
-      <tbody>${groups.map((group) => `<tr><td>${escapeHtml(group.source || '—')}</td><td>${escapeHtml(group.error_name || '—')}</td>
-        <td class="adm-r adm-num">${fmtNumber(group.count)}</td><td>${fmtDateTime(group.last_seen)}</td></tr>`).join('')}</tbody></table></div>`
-    : '<p class="adm-note" role="status">Nenhum erro nos últimos 7 dias.</p>'}
+      <caption>Erros agrupados (30 dias)</caption>
+      <thead><tr><th scope="col">Origem</th><th scope="col">Erro</th><th scope="col">Versão</th><th scope="col" class="adm-r">Ocorrências</th><th scope="col">Última vez</th></tr></thead>
+      <tbody>${groups.map((group) => {
+    const old = isOlderVersion(group.app_version, current);
+    return `<tr><td>${escapeHtml(group.source || '—')}</td><td>${escapeHtml(group.error_name || '—')}</td>
+        <td>${escapeHtml(group.app_version || '—')}${old ? '<span class="adm-badge" data-tone="ok">versão antiga</span>' : '<span class="adm-badge" data-tone="danger">atual</span>'}</td>
+        <td class="adm-r adm-num">${fmtNumber(group.count)}</td><td>${fmtDateTime(group.last_seen)}</td></tr>`;
+  }).join('')}</tbody></table></div>`
+    : '<p class="adm-note" role="status">Nenhum erro nos últimos 30 dias.</p>'}
     ${recent.length ? `<h3 style="font-size:15px;margin:18px 0 6px">Mais recentes</h3><div class="adm-table-wrap"><table class="adm-table">
       <caption class="adm-sr">Erros recentes</caption>
       <thead><tr><th scope="col">Quando</th><th scope="col">Usuário</th><th scope="col">Origem</th><th scope="col">Erro</th><th scope="col">Rota</th><th scope="col">Versão</th></tr></thead>

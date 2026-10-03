@@ -139,3 +139,28 @@ test('nenhum módulo do console contém e-mail pessoal ou PIN', () => {
     assert.doesNotMatch(content, /\b\d{6}\b/, `${file} sem PIN literal`);
   }
 });
+
+test('entrada Administração: oculta por padrão, só revelada para admin e abre o PIN direto', () => {
+  const html = read('dashboard', 'dashboard.html');
+  assert.match(html, /id="profile-admin-item" hidden>Administração<\/button>/, 'item nasce oculto');
+
+  const app = read('dashboard', 'js', 'core', 'app.js');
+  assert.match(app, /async revealAdminEntry\(\)/);
+  assert.match(app, /const isAdmin = await db\.isAdmin\(\)\.catch\(\(\) => false\);\s+if \(!isAdmin\) return;\s+item\.hidden = false;/,
+    'só revela depois de isAdmin() verdadeiro');
+  assert.match(app, /this\.navigate\('settings', \{ adminPin: true \}\)/, 'sem sessão de PIN vai ao PIN');
+  assert.match(app, /this\.clientBuild = CLIENT_BUILD;/, 'versão atual exposta ao painel');
+
+  const settings = read('dashboard', 'js', 'ui', 'settingsView.js');
+  assert.match(settings, /app\.routeParams\?\.adminPin\) openAdminPinModal\(app\)/);
+  assert.match(settings, /\$\{isAdmin \? `[\s\S]*btn-admin-gate/, 'botão das Configurações só para admin');
+});
+
+test('erros agrupados por versão e marcados como versão antiga', () => {
+  const sql = read('supabase', 'migrations', '20261003130000_admin_errors_by_version.sql');
+  assert.match(sql, /GROUP BY 1, 2, 3/);
+  assert.match(sql, /REVOKE INSERT, UPDATE, DELETE, REFERENCES, TRIGGER ON public\.admin_users FROM authenticated;/);
+  const system = read('dashboard', 'js', 'ui', 'admin', 'adminSystem.js');
+  assert.match(system, /function isOlderVersion/);
+  assert.match(system, /versão antiga/);
+});

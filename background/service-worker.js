@@ -48,8 +48,12 @@ const DB_PROXY_METHODS = new Set([
   'setSRSCategoryOverride', 'setTranslationCache', 'signUp', 'submitFluencyTask',
   'suspendCard', 'undoReview', 'updateReaderProgress', 'updateWord', 'resetCardToNew',
   'getCanonicalLexicon', 'saveCanonicalLexicon',
-  'getCurrentUser', 'isAdmin', 'adminVerifyPin', 'adminGetMetrics', 'adminListUsers', 'adminResetUserDeck',
-  'adminResetAllDecks', 'adminDeleteUser', 'adminClearErrors',
+  'getCurrentUser', 'isAdmin', 'adminVerifyPin', 'adminGetRole', 'adminGetOverview', 'adminUsersPage',
+  'adminGetUserDetail', 'adminExportUserData', 'adminResetUserData', 'adminResetAllUsersData',
+  'adminListBackups', 'adminRestoreBackup', 'adminDeleteBackup', 'adminSetUserSuspended',
+  'adminRevokeUserSessions', 'adminDeleteUser', 'adminListErrors', 'adminClearErrors', 'adminApiUsage',
+  'adminListAudit', 'adminListAdmins', 'adminSetAdminRole', 'adminGetSystemNotice', 'adminSetSystemNotice',
+  'getSystemNotice',
 ]);
 
 // Garbage Collector e limpador de cache (delegado a background/cache-cleaner.js)

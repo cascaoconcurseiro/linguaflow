@@ -1707,6 +1707,17 @@ class Database {
     return this._listeningDrain;
   }
 
+  // Funil de uso (#426): só evento + plataforma de uma lista fechada; nunca conteúdo, URL ou título.
+  async logUsageEvent(event, platform = 'none') {
+    if (this.isProxyMode) return this._proxy('logUsageEvent', [event, platform]);
+    await this._fetch('rpc/log_usage_event', { method: 'POST', body: { p_event: event, p_platform: platform } });
+  }
+
+  async adminGetUsageFunnel(days = 14) {
+    if (this.isProxyMode) return this._proxy('adminGetUsageFunnel', [days]);
+    return await this._adminRpc('admin_usage_funnel', { p_days: days }) || {};
+  }
+
   async logSession(seconds, platform, language = 'en') {
     if (this.isProxyMode) return this._proxy('logSession', [seconds, platform, language]);
     const date = localDateKey();

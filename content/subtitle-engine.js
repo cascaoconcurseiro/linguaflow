@@ -4513,6 +4513,7 @@ export class SubtitleEngine {
       if (active) this._ensureNativeSubtitlesActive();
     }
     this._maybeShowStartTip();
+    this._trackUsage('player_opened');
   }
 
   // Alternância feita pelo usuário (botão LF ou tecla C): é a única que persiste.
@@ -4520,8 +4521,21 @@ export class SubtitleEngine {
     this._activationTouched = true;
     this.toggleSubtitles(forceState);
     saveActivation(this.isActivated);
+    this._trackUsage(this.isActivated ? 'lf_enabled' : 'lf_disabled');
     this._dismissStartTip?.();
     this._showNotification(this.isActivated ? '👁️ LinguaFlow ligado' : '🙈 LinguaFlow desligado');
+  }
+
+  // Telemetria de produto (#426): fire-and-forget, uma vez por evento por página; nunca atrapalha o player.
+  _trackUsage(event) {
+    if (!platformHasSwitch(this.platform)) return;
+    this._usageSent = this._usageSent || new Set();
+    const key = `${event}:${this.platform}`;
+    if (this._usageSent.has(key)) return;
+    this._usageSent.add(key);
+    import('../utils/db.js')
+      .then(({ db }) => db.logUsageEvent(event, this.platform))
+      .catch(() => {});
   }
 
   // Dica única de primeira vez, ancorada no botão LF enquanto ele está desligado (#421).

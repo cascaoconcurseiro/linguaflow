@@ -126,4 +126,7 @@ run_pg "${PSQL[@]}" -f "$ROOT/tests/db/stabilization.sql"
 echo "── palavras que não estão fixando: esquecimentos e leech reais (#336)"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/db/weak-words.sql"
 
+echo "── funil de uso sem dados pessoais (#426)"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/usage-events.sql"
+
 echo "✅ Migrations reproduzíveis + gates comportamentais P0.1/P0.2/#118 passaram."

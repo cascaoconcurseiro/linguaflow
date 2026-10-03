@@ -94,7 +94,9 @@ test('desligado: atalhos A/S/D/Q/L/O/Espaço voltam ao player; C continua ligand
 test('contrato: docks escondem controles quando desligado e só o clique persiste', async () => {
   const engineSrc = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
   const maxSrc = await readFile(new URL('../content/max-player-ui.js', import.meta.url), 'utf8');
-  assert.match(engineSrc, /#lf-yt-horizontal-dock\.lf-off > :not\(\.lf-dock-toggle\)/);
+  const dockCss = await readFile(new URL('../content/subtitles/youtube-dock-styles.js', import.meta.url), 'utf8');
+  assert.match(dockCss, /#lf-yt-horizontal-dock\.lf-off > :not\(\.lf-dock-toggle\)/);
+  assert.match(engineSrc, /style\.textContent = YOUTUBE_DOCK_CSS/);
   assert.match(maxSrc, /#lf-max-controls\.lf-off>:not\(\.lf-dock-toggle\)/);
   assert.match(engineSrc, /userToggleSubtitles\(forceState = null\)[\s\S]*saveActivation/);
   assert.doesNotMatch(engineSrc, /lf_sub_visible/);

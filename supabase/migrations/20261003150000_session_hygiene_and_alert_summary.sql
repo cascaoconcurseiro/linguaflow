@@ -27,6 +27,11 @@ REVOKE ALL ON FUNCTION public.prune_stale_sessions(int) FROM PUBLIC, anon, authe
 
 DO $cron$
 BEGIN
+  -- pg_cron pode não existir fora do Supabase (ex.: validação local/CI): sem agendamento, só o botão manual.
+  IF to_regnamespace('cron') IS NULL THEN
+    RAISE NOTICE 'pg_cron indisponível: limpeza diária de sessões não agendada';
+    RETURN;
+  END IF;
   IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'prune-stale-sessions') THEN
     PERFORM cron.unschedule('prune-stale-sessions');
   END IF;

@@ -26,9 +26,9 @@ if (!isSupported) {
     const engine = new SubtitleEngine();
     engine.init();
 
-    // Max/HBO recebe a camada visual do dock lateral. No YouTube, os controles agora
+    // Max/HBO, Netflix, Disney+ e Prime recebem o dock lateral. No YouTube, os controles
     // vivem fixos na barra inferior horizontal.
-    if (engine.platform === 'max') {
+    if (['max', 'netflix', 'disney', 'prime'].includes(engine.platform)) {
       const { MaxPlayerUI } = await import(chrome.runtime.getURL('content/max-player-ui.js'));
       const maxPlayerUI = new MaxPlayerUI(engine);
       maxPlayerUI.init();

@@ -2,7 +2,13 @@
 
 ## [Não lançado]
 
+### Adicionado
+- **Botão LinguaFlow também na Netflix, Disney+ e Prime Video**, com os mesmos controles do HBO Max e a mesma regra de começar desligado. O painel lateral pode ser arrastado na vertical (a posição fica salva) para não cobrir a cena (#423, #424).
+- **Aviso ao ligar/desligar e dica de primeira vez**: ligar ou desligar mostra um aviso curto, e na primeira vez o botão LF ganha uma dica explicando o que ele faz e o atalho `C` (#421).
+- **"Configurações do player" no popup da extensão**, para abrir os ajustes mesmo com o LinguaFlow desligado (#422).
+
 ### Alterado
+- **Desligado não traduz nada**: com o LinguaFlow desligado, as falas deixam de ser traduzidas e processadas, economizando rede e custo de tradução (#420).
 - **LinguaFlow começa desligado no YouTube e no HBO Max**: o botão LF abre desligado, com só ele visível (anterior, loop, próxima, velocidade, roteiro e configurações ficam escondidos) e os atalhos A/S/D/Q/L/O/Espaço voltam a ser do player; `C` liga. Se você ligar, continua ligado nos próximos vídeos até fechar o navegador. Em Configurações → Reprodução, "Ao abrir um vídeo" permite escolher: desligado e lembrar na sessão (padrão), sempre desligado, sempre ligado ou lembrar para sempre. Netflix, Disney+ e Prime seguem ligados, pois ainda não têm botão visível (#418).
 
 ### Corrigido

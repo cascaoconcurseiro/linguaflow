@@ -16,9 +16,9 @@ export const DEFAULT_START_MODE = START_MODES.SESSION;
 export const SESSION_KEY = 'lf_activation_session';
 export const REMEMBER_KEY = 'lf_activation_remembered';
 
-// Só YouTube e HBO/Max têm botão visível; nas demais, desligar deixaria o
-// usuário sem como religar (só existe o atalho C).
-const PLATFORMS_WITH_SWITCH = new Set(['youtube', 'max']);
+// Plataformas com botão LF visível (dock). Onde não há botão, desligar deixaria
+// o usuário sem como religar (só existe o atalho C).
+const PLATFORMS_WITH_SWITCH = new Set(['youtube', 'max', 'netflix', 'disney', 'prime']);
 
 export function platformHasSwitch(platform) {
   return PLATFORMS_WITH_SWITCH.has(platform);

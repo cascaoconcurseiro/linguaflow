@@ -110,8 +110,6 @@ export function setupPlayerHotkeys(engine, signal) {
       e.stopPropagation?.();
       e.stopImmediatePropagation?.();
       engine.userToggleSubtitles();
-      const isVisible = engine.isActivated === true;
-      engine._showNotification(isVisible ? '👁️ Legendas Ativadas' : '🙈 Legendas Ocultas');
       return;
     }
 

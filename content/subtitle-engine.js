@@ -244,12 +244,13 @@ export class SubtitleEngine {
     // Inicia log de imersão
 
     // Sincronização global de vocabulário
-    this._runtimeMessageListener = (request) => {
+    this._runtimeMessageListener = (request, _sender, sendResponse) => {
       if (request.type === 'REFRESH_VOCAB') {
         console.debug('[LinguaFlow] Sincronizando vocabulário...');
         this._loadSavedWords();
       } else if (request.action === 'LF_TOGGLE_SETTINGS') {
         window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
+        sendResponse?.({ ok: true });
       } else if (request.action === 'openWordPopup' && request.payload?.word) {
         this.wordPopup?.showForWord?.(request.payload.word, request.payload.word, null, null);
       }
@@ -2711,6 +2712,8 @@ export class SubtitleEngine {
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             animation: slideDown 0.3s ease-out;
         `;
+    notif.setAttribute('role', 'status');
+    notif.setAttribute('aria-live', 'polite');
     notif.textContent = message;
 
     const style = document.createElement('style');
@@ -3810,6 +3813,7 @@ export class SubtitleEngine {
       return;
     }
 
+    if (this.isActivated === false) return;
     const cue = recordDomCue(this.cues, text, timeSec);
     this._currentCue = cue;
     if (cue.translatedText) {
@@ -4146,6 +4150,11 @@ export class SubtitleEngine {
   // ── Motor de Renderização de Elite (onSubtitle) ──────────────────────────
   onSubtitle(cue) {
     if (!cue) return;
+    // Desligado: nada de índice, painel nem tradução (#420). Ao ligar, a fala atual reaparece.
+    if (this.isActivated === false) {
+      this._currentCue = null;
+      return;
+    }
     if (cue === this._currentCue) return;
     this._lastProcessedText = cue.text;
     this._currentCue = cue;
@@ -4503,6 +4512,7 @@ export class SubtitleEngine {
       this.toggleSubtitles(active);
       if (active) this._ensureNativeSubtitlesActive();
     }
+    this._maybeShowStartTip();
   }
 
   // Alternância feita pelo usuário (botão LF ou tecla C): é a única que persiste.
@@ -4510,6 +4520,33 @@ export class SubtitleEngine {
     this._activationTouched = true;
     this.toggleSubtitles(forceState);
     saveActivation(this.isActivated);
+    this._dismissStartTip?.();
+    this._showNotification(this.isActivated ? '👁️ LinguaFlow ligado' : '🙈 LinguaFlow desligado');
+  }
+
+  // Dica única de primeira vez, ancorada no botão LF enquanto ele está desligado (#421).
+  async _maybeShowStartTip() {
+    if (this._startTipScheduled || this.isActivated || !platformHasSwitch(this.platform)) return;
+    this._startTipScheduled = true;
+    const { wasStartTipSeen, markStartTipSeen, showStartTip } = await import('./subtitles/start-tip.js');
+    if (await wasStartTipSeen()) return;
+    let attempts = 0;
+    const iv = this._setManagedInterval(() => {
+      attempts++;
+      if (this.isActivated || attempts > 20) return clearInterval(iv);
+      const maxToggle = document.querySelector('#lf-max-controls [data-action="toggle"]');
+      const anchor = document.getElementById('lf-yt-toggle-wrapper') || maxToggle;
+      if (!anchor || anchor.getBoundingClientRect().width === 0) return;
+      clearInterval(iv);
+      const tip = showStartTip(anchor, {
+        placement: anchor === maxToggle ? 'left' : 'above',
+        onClose: () => markStartTipSeen(),
+      });
+      this._dismissStartTip = () => {
+        tip?.close();
+        this._dismissStartTip = null;
+      };
+    }, 1500);
   }
 
   toggleSubtitles(forceState = null) {

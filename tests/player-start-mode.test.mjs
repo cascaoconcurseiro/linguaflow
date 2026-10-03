@@ -29,10 +29,11 @@ test('cada modo respeita sua regra', () => {
   assert.equal(normalizeStartMode('lixo'), 'session');
 });
 
-test('plataformas sem botão visível continuam ligadas', () => {
-  for (const platform of ['netflix', 'disney', 'prime']) {
-    assert.equal(resolveInitialActivation({ platform, startMode: 'off' }), true);
+test('todas as plataformas com dock iniciam desligadas; sem botão (genérico) fica ligada', () => {
+  for (const platform of ['youtube', 'max', 'netflix', 'disney', 'prime']) {
+    assert.equal(resolveInitialActivation({ platform }), false);
   }
+  assert.equal(resolveInitialActivation({ platform: 'generic' }), true);
 });
 
 test('persistência: sessão em storage.session, "lembrar" em storage.local, falha não quebra', async () => {
@@ -103,4 +104,42 @@ test('contrato: docks escondem controles quando desligado e só o clique persist
   assert.match(sw, /storage\.session\?\.setAccessLevel/);
   const manifest = await readFile(new URL('../manifest.json', import.meta.url), 'utf8');
   assert.match(manifest, /content\/subtitles\/activation-state\.js/);
+});
+
+test('desligado: onSubtitle não traduz nem indexa; ao ligar a fala reaparece (#420)', async () => {
+  const { SubtitleEngine } = await import('../content/subtitle-engine.js');
+  const engine = Object.create(SubtitleEngine.prototype);
+  engine.isActivated = false;
+  engine._currentCue = { text: 'x' };
+  let sent = 0;
+  globalThis.chrome = { runtime: { sendMessage: () => { sent++; } } };
+  engine.onSubtitle({ text: 'hello', start: 1, end: 2 });
+  assert.equal(sent, 0);
+  assert.equal(engine._currentCue, null, 'zera a fala atual para repintar ao ligar');
+  delete globalThis.chrome;
+});
+
+test('dock lateral: hosts, deslocamento limitado à tela e arraste sem religar (#423, #424)', async () => {
+  const { isDockHost, clampDockOffset } = await import('../content/max-player-ui.js');
+  for (const h of ['www.netflix.com', 'www.disneyplus.com', 'www.primevideo.com', 'play.max.com']) assert.equal(isDockHost(h), true);
+  assert.equal(isDockHost('example.com'), false);
+  assert.equal(clampDockOffset(9999, 800, 200), 292);
+  assert.equal(clampDockOffset(-9999, 800, 200), -292);
+  assert.equal(clampDockOffset('x', 800), 0);
+  const src = await readFile(new URL('../content/max-player-ui.js', import.meta.url), 'utf8');
+  assert.match(src, /_justDragged/);
+});
+
+test('dica de primeira vez: posição dentro da tela e persistência única (#421)', async () => {
+  const { tipPosition } = await import('../content/subtitles/start-tip.js');
+  const above = tipPosition({ left: 5, top: 500, width: 40, height: 30 }, { viewportWidth: 1000, placement: 'above' });
+  assert.ok(above.left >= 10 && above.top >= 10);
+  const edge = tipPosition({ left: 990, top: 500, width: 40, height: 30 }, { viewportWidth: 1000, placement: 'above' });
+  assert.ok(edge.left + 260 <= 1000);
+  const left = tipPosition({ left: 900, top: 400, width: 44, height: 46 }, { viewportWidth: 1000, placement: 'left' });
+  assert.ok(left.left + 260 < 900);
+  const popup = await readFile(new URL('../popup/popup.js', import.meta.url), 'utf8');
+  assert.match(popup, /LF_TOGGLE_SETTINGS/);
+  const html = await readFile(new URL('../popup/popup.html', import.meta.url), 'utf8');
+  assert.match(html, /id="btn-player-settings"/);
 });

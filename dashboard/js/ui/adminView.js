@@ -10,6 +10,8 @@ const TAB_KEY = 'lf_admin_tab';
 const TABS = [
   { id: 'overview', label: 'Visão geral', load: () => import('./admin/adminOverview.js').then((m) => m.renderOverview) },
   { id: 'users', label: 'Usuários', load: () => import('./admin/adminUsers.js').then((m) => m.renderUsers) },
+  { id: 'reports', label: 'Relatos', load: () => import('./admin/adminReports.js').then((m) => m.renderReports) },
+  { id: 'security', label: 'Segurança', load: () => import('./admin/adminSecurity.js').then((m) => m.renderSecurity) },
   { id: 'backups', label: 'Backups', load: () => import('./admin/adminBackups.js').then((m) => m.renderBackups) },
   { id: 'audit', label: 'Auditoria', load: () => import('./admin/adminAudit.js').then((m) => m.renderAudit) },
   { id: 'system', label: 'Sistema', load: () => import('./admin/adminSystem.js').then((m) => m.renderSystem) },

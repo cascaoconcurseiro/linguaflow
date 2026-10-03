@@ -3,6 +3,7 @@
 ## [Não lançado]
 
 ### Corrigido
+- **Área administrativa fácil de achar (só para o administrador)**: o menu do perfil ganha o item "Administração" (aparece apenas para a conta administradora e abre direto o campo do PIN); o botão em Configurações deixou de ser discreto. Na aba Sistema, os erros passam a mostrar a versão do app e são marcados como "versão antiga" quando já foram substituídos (#410).
 - **Nomes que não se contradizem**: o Início agora diz "Ofensiva de revisões" e "Cartões para hoje"; o Progresso diz "Dias seguidos de estudo" (qualquer atividade, inclusive vídeo); Cursos diz "frases dos cursos vencem hoje". Horários de "Estudados recentemente" aparecem no seu fuso, sem "UTC". O Progresso deixa de mostrar "▲312 vs. período anterior" quando o período anterior tem menos de 10 revisões (#395).
 - **Notas e cartões difíceis mais claros**: a tela de Notas vazia mostra um exemplo e leva a Meus cursos; no Progresso, "cartões difíceis" explica que o limite vem das configurações (#402).
 - **Tirar curso de Meus cursos ficou óbvio**: na aba Meus cursos o botão agora diz "Remover da lista" (antes "✓ Em Meus cursos", que parecia só um selo). O progresso continua salvo e o aviso explica como voltar pela Loja (#401).

@@ -62,7 +62,7 @@ export async function renderAdmin(container, app) {
       message: 'Por segurança, valide seu PIN mestre em Configurações para iniciar uma sessão administrativa (30 minutos).',
       actionLabel: 'Ir para Configurações',
       actionId: 'btn-admin-go-settings',
-      onAction: () => app.navigate('settings'),
+      onAction: () => app.navigate('settings', { adminPin: true }),
     });
     return;
   }

@@ -3,6 +3,9 @@
 ## [Não lançado]
 
 ### Adicionado
+- **"Primeiros passos" na tela Hoje**: quem ainda não salvou nenhuma palavra vê o caminho em três passos (instalar a extensão, ligar o LF num vídeo, salvar a primeira palavra) em vez de um plano vazio; a leitura de histórias continua como alternativa. Também entra o documento de público e promessa (#427).
+- **Funil de uso no painel do administrador**: quantos usuários abrem um player, ligam o LinguaFlow, salvam uma palavra e revisam. Registra só evento e plataforma, nunca conteúdo de vídeo (#426).
+- **Teste real da extensão no navegador**: a CI passa a carregar a extensão num Chromium e verificar o início desligado, a persistência na sessão e o painel lateral (#418, #423).
 - **Botão LinguaFlow também na Netflix, Disney+ e Prime Video**, com os mesmos controles do HBO Max e a mesma regra de começar desligado. O painel lateral pode ser arrastado na vertical (a posição fica salva) para não cobrir a cena (#423, #424).
 - **Aviso ao ligar/desligar e dica de primeira vez**: ligar ou desligar mostra um aviso curto, e na primeira vez o botão LF ganha uma dica explicando o que ele faz e o atalho `C` (#421).
 - **"Configurações do player" no popup da extensão**, para abrir os ajustes mesmo com o LinguaFlow desligado (#422).
@@ -12,6 +15,7 @@
 - **LinguaFlow começa desligado no YouTube e no HBO Max**: o botão LF abre desligado, com só ele visível (anterior, loop, próxima, velocidade, roteiro e configurações ficam escondidos) e os atalhos A/S/D/Q/L/O/Espaço voltam a ser do player; `C` liga. Se você ligar, continua ligado nos próximos vídeos até fechar o navegador. Em Configurações → Reprodução, "Ao abrir um vídeo" permite escolher: desligado e lembrar na sessão (padrão), sempre desligado, sempre ligado ou lembrar para sempre. Netflix, Disney+ e Prime seguem ligados, pois ainda não têm botão visível (#418).
 
 ### Corrigido
+- **Atalhos do player funcionam de novo**: A, S, D, Q, L, O, C e Espaço eram ignorados até a revisão rápida ser aberta uma vez, porque ela escondida era tratada como aberta (#425).
 - **Sessões inativas encerradas e selo de alertas**: sessões que não renovam há 30+ dias passam a ser encerradas automaticamente todo dia (e podem ser encerradas na hora em Administração → Segurança). O item Administração do menu mostra quantas pendências existem (relatos novos, painel bloqueado, muitos erros) (#416).
 - **Segurança do repositório**: varredura automática de código (CodeQL), política de segurança com relato privado de vulnerabilidades e alertas de dependências ligados; a `main` agora exige o check de CI e não aceita force-push nem exclusão (#414).
 - **Área administrativa fácil de achar (só para o administrador)**: o menu do perfil ganha o item "Administração" (aparece apenas para a conta administradora e abre direto o campo do PIN); o botão em Configurações deixou de ser discreto. Na aba Sistema, os erros passam a mostrar a versão do app e são marcados como "versão antiga" quando já foram substituídos (#410).

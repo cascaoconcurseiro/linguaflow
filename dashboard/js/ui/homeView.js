@@ -69,6 +69,8 @@ let _homeRenderGen = 0;
 const LEVEL_TO_CEFR = { beginner: 'A1', intermediate: 'B1', advanced: 'B2' };
 const GOAL_TO_NEW_PER_DAY = { 10: 5, 20: 10, 40: 20 };
 
+import { FIRST_STEPS_KEY, buildFirstSteps, parseFirstSteps, renderFirstSteps } from './firstSteps.js';
+
 const ONBOARDING_KEY = 'onboarding_v1';
 const ONBOARDING_LEVELS = new Set(['beginner', 'intermediate', 'advanced']);
 
@@ -508,6 +510,13 @@ export async function renderHome(container, app) {
         ...fluencyState,
     });
 
+    // Quem ainda não salvou nenhuma palavra vê o caminho da promessa (vídeo → palavra), não um plano vazio (#427).
+    let firstSteps = null;
+    if (todayAction.kind === 'first-context') {
+        const stored = await db?.getSetting?.(FIRST_STEPS_KEY).catch(() => null);
+        firstSteps = buildFirstSteps(parseFirstSteps(stored));
+    }
+
     const activeBanner = pickHomeBanner({
         returning: isReturning,
         streakAtRisk: streak > 0 && reviewsToday === 0,
@@ -539,7 +548,7 @@ export async function renderHome(container, app) {
                     <button type="button" id="btn-home-details-retry">Tentar novamente</button>
                 </div>`}
 
-                <section id="home-primary-plan" class="home-primary-plan" data-plan-kind="${todayAction.kind}" aria-labelledby="home-primary-title">
+                ${firstSteps ? renderFirstSteps(firstSteps) : `<section id="home-primary-plan" class="home-primary-plan" data-plan-kind="${todayAction.kind}" aria-labelledby="home-primary-title">
                     <div class="home-primary-copy">
                         <p class="product-kicker">PRÓXIMO PASSO</p>
                         <h1 id="home-primary-title">${todayAction.title}</h1>
@@ -554,7 +563,7 @@ export async function renderHome(container, app) {
                             <span>Escolha nível, duração e objetivo</span>
                         </button>
                     </div>
-                </section>
+                </section>`}
                 
                 <div class="stats-grid">
                     <div class="stat-card">
@@ -832,6 +841,19 @@ export async function renderHome(container, app) {
         }
     });
     document.getElementById('btn-home-details-retry')?.addEventListener('click', () => {
+        renderHome(container, app);
+    });
+    document.getElementById('home-first-steps')?.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-first-step]');
+        if (!button || button.disabled) return;
+        button.disabled = true;
+        const current = parseFirstSteps(await db?.getSetting?.(FIRST_STEPS_KEY).catch(() => null));
+        const saved = await db?.setSetting?.(FIRST_STEPS_KEY, JSON.stringify({ ...current, [button.dataset.firstStep]: true }));
+        if (saved === false) {
+            button.disabled = false;
+            app?.showToast?.('Não foi possível salvar este passo agora. Tente de novo.', 'error');
+            return;
+        }
         renderHome(container, app);
     });
     document.getElementById('btn-primary-stories')?.addEventListener('click', () => app?.navigate?.('stories'));

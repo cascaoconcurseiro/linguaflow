@@ -628,7 +628,7 @@ export async function renderHome(container, app) {
                 <section id="home-struggling-words" class="home-critical-cards-card" aria-labelledby="home-struggling-title">
                     <div class="critical-cards-header">
                         <h3 id="home-struggling-title" class="critical-cards-title">Palavras que não estão fixando</h3>
-                        <span class="critical-cards-subtitle">Esquecidas 3 vezes ou mais. Uma sessão curta só com elas ajuda a fixar.</span>
+                        <span class="critical-cards-subtitle">Esquecidas 2 vezes ou mais. Uma sessão curta só com elas ajuda a fixar.</span>
                     </div>
                     <ul class="critical-cards-list">
                         ${struggling.items.map(c => `

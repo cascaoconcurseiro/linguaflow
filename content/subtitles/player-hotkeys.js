@@ -3,6 +3,18 @@
 
 import { isEditableTarget } from '../../utils/dom-events.js';
 
+// O overlay nasce escondido pela folha de estilo (style.display === ''), então só o
+// estilo computado diz se ele está de fato aberto (#425).
+function isElementShown(element) {
+  if (!element) return false;
+  try {
+    if (typeof getComputedStyle === 'function') return getComputedStyle(element).display !== 'none';
+  } catch {
+    // Sem DOM real (testes): cai no estilo inline.
+  }
+  return element.style?.display !== 'none' && element.style?.display !== '';
+}
+
 /**
  * Registra os listeners de teclado globais do player com suporte a ciclo de vida via AbortSignal.
  * @param {import('../subtitle-engine.js').SubtitleEngine} engine
@@ -22,8 +34,7 @@ export function setupPlayerHotkeys(engine, signal) {
     }
 
     // 3. Se o overlay de revisão rápida estiver visível, deixa o overlay controlar as teclas
-    const reviewOverlay = document.getElementById?.('lf-review-overlay');
-    if (reviewOverlay && reviewOverlay.style.display !== 'none') {
+    if (isElementShown(document.getElementById?.('lf-review-overlay'))) {
       return;
     }
 
@@ -38,6 +49,9 @@ export function setupPlayerHotkeys(engine, signal) {
 
     const code = e.code || '';
     const key = (e.key || '').toLowerCase();
+
+    // LinguaFlow desligado (#418): só a tecla C age; o resto volta ao player nativo.
+    if (engine.isActivated === false && code !== 'KeyC' && key !== 'c') return;
 
     // Trecho anterior (A)
     if (code === 'KeyA' || key === 'a') {
@@ -106,11 +120,7 @@ export function setupPlayerHotkeys(engine, signal) {
       e.preventDefault?.();
       e.stopPropagation?.();
       e.stopImmediatePropagation?.();
-      const ytSwitch = document.getElementById?.('lf-yt-toggle-wrapper');
-      if (ytSwitch) ytSwitch.click();
-      else engine.toggleSubtitles();
-      const isVisible = (typeof localStorage !== 'undefined' ? localStorage.getItem('lf_sub_visible') : null) === 'true';
-      engine._showNotification(isVisible ? '👁️ Legendas Ativadas' : '🙈 Legendas Ocultas');
+      engine.userToggleSubtitles();
       return;
     }
 

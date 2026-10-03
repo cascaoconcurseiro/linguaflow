@@ -26,6 +26,14 @@ import { AI_STREAM_PORT, createQuickContextCache, parseQuickContext, readSseText
 const quickContextCache = createQuickContextCache(chrome.storage.local, { key: 'lf_quick_ctx_v2' });
 chrome.storage.local.remove('lf_quick_ctx_v1').catch(() => {});
 
+// Estado "LF ligado" que dura até fechar o navegador (#418): o content script lê/grava
+// chrome.storage.session, que por padrão só o service worker enxerga.
+try {
+  chrome.storage.session?.setAccessLevel?.({ accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS' })?.catch?.(() => {});
+} catch {
+  // Sem acesso, o player cai no padrão do modo escolhido (desligado).
+}
+
 // Métodos que páginas da extensão podem chamar através do service worker.
 // A fronteira explícita impede acesso a helpers internos como db._fetch.
 const DB_PROXY_METHODS = new Set([
@@ -55,6 +63,7 @@ const DB_PROXY_METHODS = new Set([
   'adminListAudit', 'adminListAdmins', 'adminSetAdminRole', 'adminGetSystemNotice', 'adminSetSystemNotice',
   'getSystemNotice', 'submitUserReport', 'listMyReports', 'adminSecurityOverview', 'adminListReports',
   'adminUpdateReport', 'adminSessionHygiene', 'adminPruneStaleSessions', 'adminAlertSummary',
+  'logUsageEvent', 'adminGetUsageFunnel',
 ]);
 
 // Garbage Collector e limpador de cache (delegado a background/cache-cleaner.js)

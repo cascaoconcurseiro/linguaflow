@@ -28,7 +28,7 @@
     "test:subtitle-lifecycle": "node --test tests/extension-context-lifecycle.test.mjs && node tests/subtitle-lifecycle.test.mjs && node tests/subtitle-bridge-security.test.mjs && node --test tests/youtube-caption-integrity.test.mjs && node --test tests/caption-popup-startup.test.mjs tests/modular-subtitles-contract.test.mjs tests/player-hotkeys-and-autopause.test.mjs && node --test tests/speech-cadence-and-connected-speech.test.mjs tests/caption-casing.test.mjs tests/subtitle-active-cue.test.mjs tests/video-vocabulary-lemma.test.mjs tests/subtitle-seek-gap.test.mjs tests/word-popup-layout.test.mjs tests/security-hardening-lexicon.test.mjs tests/hover-tip.test.mjs tests/ignored-words.test.mjs tests/word-senses.test.mjs tests/word-in-video.test.mjs tests/word-popup-senses-and-video.test.mjs tests/subtitle-transcript-panel.test.mjs tests/subtitle-words-tab.test.mjs tests/expression-detection-precision.test.mjs tests/expression-detection-rules.test.mjs tests/line-explainer.test.mjs tests/caption-conflict.test.mjs",
     "test:subtitle-display": "node tests/subtitle-display-mode.test.mjs",
     "test:word-popup-hover": "node tests/word-popup-hover-race.test.mjs && node tests/word-popup-accessibility.test.mjs",
-    "test:max-ui": "node tests/max-player-ui.test.mjs && node tests/player-controls-sync.test.mjs",
+    "test:max-ui": "node tests/max-player-ui.test.mjs && node tests/player-controls-sync.test.mjs && node --test tests/player-start-mode.test.mjs tests/usage-events-contract.test.mjs",
     "test:study-hours": "node tests/multimodal-study-hours.test.mjs",
     "test:words-explorer": "node tests/words-explorer-contract.test.mjs && node tests/popup-phrasal-slang-detector.test.mjs && node --test tests/modular-popup-linguistics-contract.test.mjs",
     "test:focus-shell": "node tests/focus-shell.test.mjs",
@@ -92,7 +92,8 @@
     "test:stage3": "npm run test:focus-suite",
     "dev": "node tests/fixtures/preview-server.mjs",
     "test:stabilization": "node --test tests/stabilization.test.mjs",
-    "test:courses": "node tests/sound-engine.test.mjs && node tests/remove-course-401.test.mjs && node --test tests/courses-hash-route.test.mjs tests/review-batches-398.test.mjs tests/input-engine.test.mjs tests/course-practice-session.test.mjs tests/course-continue-target.test.mjs tests/courses-system-contract.test.mjs tests/progress-stats-contract.test.mjs tests/undeclared-variables.test.mjs"
+    "content:check": "node scripts/content-check.mjs",
+    "test:courses": "node tests/content-check.test.mjs && node tests/sound-engine.test.mjs && node tests/remove-course-401.test.mjs && node --test tests/courses-hash-route.test.mjs tests/review-batches-398.test.mjs tests/input-engine.test.mjs tests/course-practice-session.test.mjs tests/course-continue-target.test.mjs tests/courses-system-contract.test.mjs tests/progress-stats-contract.test.mjs tests/undeclared-variables.test.mjs"
   },
   "dependencies": {
     "acorn": "^8.17.0"

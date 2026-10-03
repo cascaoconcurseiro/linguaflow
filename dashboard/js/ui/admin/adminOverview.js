@@ -25,11 +25,43 @@ function buildAlerts(data) {
   return alerts;
 }
 
+function pct(part, whole) {
+  return whole > 0 ? `${Math.round((part / whole) * 100)}% do passo anterior` : '';
+}
+
+// Funil de uso (#426): quem abre o player, liga o LinguaFlow, salva e revisa. Só conta usuários logados.
+function renderUsageFunnel(funnel) {
+  if (!funnel || typeof funnel.player_opened !== 'number') {
+    return `<section class="adm-section" aria-labelledby="adm-ov-funnel">
+      <header><h2 id="adm-ov-funnel">Funil de uso</h2><p>Ainda sem dados ou indisponível. Aparece depois que a migration de eventos for aplicada.</p></header>
+    </section>`;
+  }
+  const steps = [
+    ['Abriram um player', funnel.player_opened, ''],
+    ['Ligaram o LinguaFlow', funnel.lf_enabled, pct(funnel.lf_enabled, funnel.player_opened)],
+    ['Salvaram uma palavra', funnel.saved_word, pct(funnel.saved_word, funnel.lf_enabled)],
+    ['Fizeram uma revisão', funnel.reviewed, pct(funnel.reviewed, funnel.saved_word)],
+  ];
+  const platforms = (funnel.enabled_by_platform || []).map((p) => `${p.platform}: ${fmtNumber(p.users)}`).join(' · ');
+  return `<section class="adm-section" aria-labelledby="adm-ov-funnel">
+    <header><h2 id="adm-ov-funnel">Funil de uso (${fmtNumber(funnel.days)} dias)</h2>
+      <p>Usuários distintos logados, sem conteúdo de vídeo.${platforms ? ` Ligaram por plataforma — ${escapeHtml(platforms)}.` : ''}</p></header>
+    <dl class="adm-kpis">${steps.map(([label, value, sub]) => kpi(label, value, { sub })).join('')}
+      ${kpi('Desligaram depois de ligar', funnel.lf_disabled)}</dl>
+  </section>`;
+}
+
 export function renderOverview(el, ctx) {
   return mountAsync(el, {
     errorTitle: 'Não foi possível carregar a visão geral',
     onSessionError: () => ctx.app.navigate('settings'),
-    load: () => ctx.db.adminGetOverview(),
+    load: async () => {
+      const [overview, funnel] = await Promise.all([
+        ctx.db.adminGetOverview(),
+        ctx.db.adminGetUsageFunnel?.(14).catch(() => null) ?? null,
+      ]);
+      return { ...overview, usage_funnel: funnel };
+    },
     render: (data) => {
       const totals = data.totals || {};
       const growth = data.growth || {};
@@ -53,6 +85,8 @@ export function renderOverview(el, ctx) {
             ${kpi('Suspensos', totals.suspended, { tone: totals.suspended > 0 ? 'danger' : '' })}
           </dl>
         </section>
+
+        ${renderUsageFunnel(data.usage_funnel)}
 
         <div class="adm-split adm-section">
           <section aria-labelledby="adm-ov-signups">

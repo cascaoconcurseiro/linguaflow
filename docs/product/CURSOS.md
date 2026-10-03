@@ -44,4 +44,4 @@ Migrations `20260927150000_course_system.sql`, `…150100_course_rpcs.sql`, `…
 
 - Mais lições e cursos (seed por migration, com revisão de tradução/IPA por humano).
 - Treino só das frases com erro/revisão (hoje reabre a lição inteira).
-- Ferramenta editorial para conteúdo.
+- Interface gráfica de edição de conteúdo (hoje o fluxo editorial é por lotes e `npm run content:check`; ver `EDITORIAL_CURSOS.md`).

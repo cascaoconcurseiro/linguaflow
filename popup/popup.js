@@ -240,6 +240,27 @@ document.getElementById('btn-signup-link').addEventListener('click', openDashboa
 // ── Logado ───────────────────────────────────────────────────────────────────
 document.getElementById('btn-dash').addEventListener('click', openDashboard);
 
+// Abre as configurações do player na aba ativa (#422). Com o LF desligado o ⚙ some do player.
+async function openPlayerSettings() {
+  const button = document.getElementById('btn-player-settings');
+  const status = document.getElementById('player-settings-status');
+  button.disabled = true;
+  status.classList.add('hidden');
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) throw new Error('no_tab');
+    const reply = await chrome.tabs.sendMessage(tab.id, { action: 'LF_TOGGLE_SETTINGS' });
+    if (!reply?.ok) throw new Error('no_player');
+    window.close();
+  } catch {
+    status.textContent = 'Abra um vídeo no YouTube, HBO Max, Netflix, Disney+ ou Prime Video e tente de novo.';
+    status.classList.remove('hidden');
+  } finally {
+    button.disabled = false;
+  }
+}
+document.getElementById('btn-player-settings').addEventListener('click', openPlayerSettings);
+
 document.getElementById('btn-logout').addEventListener('click', async () => {
   try { await lfDb.logout(); } catch { /* limpa mesmo assim */ }
   show(areaLogin);

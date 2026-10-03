@@ -181,7 +181,7 @@ test('player-hotkeys: setupPlayerHotkeys intercepta atalhos do teclado e respeit
 
     // Dispara KeyC (toggle legendas)
     let subtitlesToggled = false;
-    fakeEngine.toggleSubtitles = () => { subtitlesToggled = true; };
+    fakeEngine.userToggleSubtitles = () => { subtitlesToggled = true; };
     listeners[0]({ code: 'KeyC', preventDefault() {} });
     assert.equal(subtitlesToggled, true, 'KeyC deve alternar legendas');
 

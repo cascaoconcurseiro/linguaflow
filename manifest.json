@@ -96,6 +96,7 @@
         "content/subtitles/player-hotkeys.js",
         "content/subtitles/vtt-parser.js",
         "content/subtitles/active-cue.js",
+        "content/subtitles/activation-state.js",
         "content/subtitles/transcript-render.js",
         "content/subtitles/video-vocabulary.js",
         "content/subtitles/hover-tip.js",

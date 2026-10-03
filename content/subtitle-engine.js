@@ -17,6 +17,14 @@ import {
   applyDockResponsiveClass,
 } from './subtitles/dock-layout.js';
 import { setupPlayerHotkeys } from './subtitles/player-hotkeys.js';
+import {
+  DEFAULT_START_MODE,
+  loadStoredActivation,
+  normalizeStartMode,
+  platformHasSwitch,
+  resolveInitialActivation,
+  saveActivation,
+} from './subtitles/activation-state.js';
 import { parseVTT } from './subtitles/vtt-parser.js';
 import { closeDomCue, crossedCueEnd, findActiveCueIndex, recordDomCue } from './subtitles/active-cue.js';
 import { CAPTION_WAIT_MS, highlightMatches, highlightTerms, segmentSubtitle, transcriptState } from './subtitles/transcript-render.js';
@@ -136,7 +144,11 @@ export class SubtitleEngine {
     this._lastFoundIdx = -1; // Índice otimizado para busca de legendas
     this._lastAutoPausedEndTime = -1;
     this._wasPausedByHover = false;
-    this.isActivated = true; // Ativado por padrão — usuário pode desligar nas configs
+    // Desligado por padrão onde há botão LF visível (#418); o estado real é resolvido
+    // em _resolveInitialActivation() depois de ler a configuração "startMode".
+    this.isActivated = !platformHasSwitch(this.platform);
+    this.startMode = DEFAULT_START_MODE;
+    this._activationResolved = false;
 
     // Settings (defaults) — serão sobrescritos pelo SettingsPanel
     this.displayMode = 'native'; // Padrão: Apenas Original
@@ -959,6 +971,10 @@ export class SubtitleEngine {
         this._applyThemeToPanel();
       }
 
+      const startMode = await db.getSetting('startMode');
+      this.startMode = normalizeStartMode(startMode);
+      await this._resolveInitialActivation();
+
       const targetLevel = await db.getSetting('cefrTargetLevel');
       if (targetLevel !== undefined && targetLevel !== null) {
         this.cefrTargetLevel = targetLevel;
@@ -1676,6 +1692,7 @@ export class SubtitleEngine {
             color: #38bdf8;
             transform: scale(0.92);
           }
+          #lf-yt-horizontal-dock.lf-off > :not(.lf-dock-toggle) { display: none !important; }
           .lf-dock-sep {
             width: 1px;
             height: 18px;
@@ -2065,7 +2082,7 @@ export class SubtitleEngine {
 
       const dock = document.createElement('div');
       dock.id = 'lf-yt-horizontal-dock';
-      dock.className = 'lf-yt-dock';
+      dock.className = isSubVisible ? 'lf-yt-dock' : 'lf-yt-dock lf-off';
       dock.setAttribute('role', 'toolbar');
       dock.setAttribute('aria-label', 'Controles LinguaFlow');
       dock.innerHTML = `
@@ -2089,9 +2106,7 @@ export class SubtitleEngine {
         if (!btn) return;
         const action = btn.dataset.action;
         if (action === 'toggle') {
-          const nowVisible = !this.isActivated;
-          localStorage.setItem('lf_sub_visible', String(nowVisible));
-          this.toggleSubtitles(nowVisible);
+          this.userToggleSubtitles(!this.isActivated);
         } else if (action === 'previous') {
           this.gotoPreviousCue();
         } else if (action === 'loop') {
@@ -4471,6 +4486,32 @@ export class SubtitleEngine {
     return 'lf-new';
   }
 
+  // Aplica o modo de início uma única vez por página. Navegações SPA mantêm o
+  // estado atual (this.isActivated), e uma escolha do usuário nunca é sobrescrita.
+  async _resolveInitialActivation() {
+    if (this._activationResolved) return;
+    this._activationResolved = true;
+    if (!platformHasSwitch(this.platform)) return;
+    const stored = await loadStoredActivation();
+    if (this._activationTouched) return;
+    const active = resolveInitialActivation({
+      platform: this.platform,
+      startMode: this.startMode,
+      ...stored,
+    });
+    if (active !== this.isActivated) {
+      this.toggleSubtitles(active);
+      if (active) this._ensureNativeSubtitlesActive();
+    }
+  }
+
+  // Alternância feita pelo usuário (botão LF ou tecla C): é a única que persiste.
+  userToggleSubtitles(forceState = null) {
+    this._activationTouched = true;
+    this.toggleSubtitles(forceState);
+    saveActivation(this.isActivated);
+  }
+
   toggleSubtitles(forceState = null) {
     const host = document.getElementById('linguaflow-subtitle-host');
     if (!host) return;
@@ -4482,9 +4523,7 @@ export class SubtitleEngine {
       // Se chamado sem argumentos (ex: tecla C), alterna o estado atual
       isVisible = !this.isActivated;
     }
-    try {
-      localStorage.setItem('lf_sub_visible', String(isVisible));
-    } catch {}
+    const changed = isVisible !== this.isActivated;
 
     host.style.visibility = isVisible ? 'visible' : 'hidden';
     host.style.opacity = isVisible ? '1' : '0';
@@ -4514,12 +4553,22 @@ export class SubtitleEngine {
       window.__lfMaxPlayerUI.syncActiveState(isVisible);
     }
 
-    // Sincronização Automática com o botão de Legendas Ocultas (CC) do YouTube
+    // Desligado: some tudo do dock, exceto o botão LF (#418)
+    for (const id of ['lf-yt-horizontal-dock', 'lf-max-controls']) {
+      document.getElementById(id)?.classList?.toggle('lf-off', !isVisible);
+    }
+    if (!isVisible) {
+      if (document.getElementById('lf-subtitle-panel-wrapper')) this.toggleSubtitlePanel();
+      document.getElementById('lf-speed-popover')?.remove?.();
+    }
+
+    // Sincroniza com o CC nativo do YouTube. Ao iniciar desligado não mexemos
+    // no CC do usuário; só ao ligar, ou ao desligar por clique (changed).
     if (this.platform === 'youtube') {
       const ytSubBtn = document.querySelector('.ytp-subtitles-button');
       if (ytSubBtn) {
         const isYtSubActive = ytSubBtn.getAttribute('aria-pressed') === 'true';
-        if (isVisible !== isYtSubActive) {
+        if (isVisible !== isYtSubActive && (isVisible || changed)) {
           ytSubBtn.click();
         }
       }

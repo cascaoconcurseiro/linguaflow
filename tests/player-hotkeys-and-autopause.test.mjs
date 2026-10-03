@@ -106,6 +106,7 @@ test('Player Hotkeys: cobertura integral de atalhos e prevenção de double-paus
       nextSubtitle: () => { next = true; },
       toggleSubtitlePanel: () => { panel = true; },
       toggleSubtitles: () => { subs = true; },
+      userToggleSubtitles: () => { subs = true; },
       _showNotification: () => {},
       _showAutoPauseIndicator: () => {},
     };

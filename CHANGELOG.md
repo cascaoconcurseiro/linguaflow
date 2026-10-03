@@ -2,6 +2,9 @@
 
 ## [Não lançado]
 
+### Alterado
+- **LinguaFlow começa desligado no YouTube e no HBO Max**: o botão LF abre desligado, com só ele visível (anterior, loop, próxima, velocidade, roteiro e configurações ficam escondidos) e os atalhos A/S/D/Q/L/O/Espaço voltam a ser do player; `C` liga. Se você ligar, continua ligado nos próximos vídeos até fechar o navegador. Em Configurações → Reprodução, "Ao abrir um vídeo" permite escolher: desligado e lembrar na sessão (padrão), sempre desligado, sempre ligado ou lembrar para sempre. Netflix, Disney+ e Prime seguem ligados, pois ainda não têm botão visível (#418).
+
 ### Corrigido
 - **Sessões inativas encerradas e selo de alertas**: sessões que não renovam há 30+ dias passam a ser encerradas automaticamente todo dia (e podem ser encerradas na hora em Administração → Segurança). O item Administração do menu mostra quantas pendências existem (relatos novos, painel bloqueado, muitos erros) (#416).
 - **Segurança do repositório**: varredura automática de código (CodeQL), política de segurança com relato privado de vulnerabilidades e alertas de dependências ligados; a `main` agora exige o check de CI e não aceita force-push nem exclusão (#414).

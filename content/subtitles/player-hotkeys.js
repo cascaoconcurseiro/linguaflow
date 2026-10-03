@@ -39,6 +39,9 @@ export function setupPlayerHotkeys(engine, signal) {
     const code = e.code || '';
     const key = (e.key || '').toLowerCase();
 
+    // LinguaFlow desligado (#418): só a tecla C age; o resto volta ao player nativo.
+    if (engine.isActivated === false && code !== 'KeyC' && key !== 'c') return;
+
     // Trecho anterior (A)
     if (code === 'KeyA' || key === 'a') {
       e.preventDefault?.();
@@ -106,10 +109,8 @@ export function setupPlayerHotkeys(engine, signal) {
       e.preventDefault?.();
       e.stopPropagation?.();
       e.stopImmediatePropagation?.();
-      const ytSwitch = document.getElementById?.('lf-yt-toggle-wrapper');
-      if (ytSwitch) ytSwitch.click();
-      else engine.toggleSubtitles();
-      const isVisible = (typeof localStorage !== 'undefined' ? localStorage.getItem('lf_sub_visible') : null) === 'true';
+      engine.userToggleSubtitles();
+      const isVisible = engine.isActivated === true;
       engine._showNotification(isVisible ? '👁️ Legendas Ativadas' : '🙈 Legendas Ocultas');
       return;
     }

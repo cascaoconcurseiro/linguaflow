@@ -164,6 +164,7 @@ export class MaxPlayerUI {
 
   syncActiveState(active) {
     this.visible = Boolean(active);
+    this.dock?.classList.toggle('lf-off', !this.visible);
     const button = this.dock?.querySelector('button[data-action="toggle"]');
     if (button) {
       button.setAttribute('aria-pressed', String(this.visible));
@@ -233,6 +234,7 @@ export class MaxPlayerUI {
     dock.id = 'lf-max-controls';
     dock.setAttribute('role', 'toolbar');
     dock.setAttribute('aria-label', 'Controles LinguaFlow');
+    dock.classList.toggle('lf-off', !this.visible);
     dock.innerHTML = `
       <button type="button" data-action="toggle" class="lf-dock-toggle" aria-pressed="${this.visible}" title="Ativar ou ocultar legendas LinguaFlow (C)">
         <span class="lf-toggle-text">LF</span>
@@ -273,6 +275,7 @@ export class MaxPlayerUI {
       #lf-max-controls button[data-action="speed"].is-altered{color:#facc15;background:rgba(250,204,21,.15);box-shadow:inset 0 0 0 1px rgba(250,204,21,.35);}
       #lf-max-controls button[data-action="panel"].is-active{background:rgba(168,85,247,.25);color:#c084fc;box-shadow:0 0 10px rgba(168,85,247,.35), inset 0 0 0 1px rgba(168,85,247,.5);}
       #lf-max-controls button[data-action="previous"]:active,#lf-max-controls button[data-action="next"]:active{background:rgba(56,189,248,.3);color:#38bdf8;transform:scale(0.92);}
+      #lf-max-controls.lf-off>:not(.lf-dock-toggle){display:none !important;}
       #lf-max-controls .lf-max-separator{width:20px;height:1px;background:rgba(255,255,255,.14);margin:2px 0;}
       @media (max-width:640px),(max-height:540px){
         #lf-max-controls{right:8px;gap:2px;padding:5px 2px;width:38px;}
@@ -292,9 +295,8 @@ export class MaxPlayerUI {
       if (!button) return;
       const action = button.dataset.action;
       if (action === 'toggle') {
-        this.visible = !this.visible;
-        button.setAttribute('aria-pressed', String(this.visible));
-        this.engine.toggleSubtitles(this.visible);
+        this.engine.userToggleSubtitles(!this.engine.isActivated);
+        this.syncActiveState(this.engine.isActivated);
       } else if (action === 'previous') this.engine.prevSubtitle();
       else if (action === 'loop') {
         const active = this.engine.toggleLoop() === true;

@@ -119,6 +119,7 @@ export const ACTION_LABELS = {
   clear_client_errors: 'Logs de erro limpos',
   set_admin_role: 'Papel administrativo alterado',
   set_system_notice: 'Aviso do sistema alterado',
+  update_report: 'Relato de usuário triado',
 };
 
 export const actionLabel = (action) => ACTION_LABELS[action] || action;

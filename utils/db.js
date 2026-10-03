@@ -573,6 +573,39 @@ class Database {
     }
   }
 
+  async submitUserReport({ kind, message, route = '', appVersion = '', userAgent = '' }) {
+    if (this.isProxyMode) return this._proxy('submitUserReport', [{ kind, message, route, appVersion, userAgent }]);
+    return await this._fetch('rpc/submit_user_report', {
+      method: 'POST',
+      body: {
+        p_kind: kind, p_message: message, p_route: route || null,
+        p_app_version: appVersion || null, p_user_agent: userAgent || null,
+      },
+    });
+  }
+
+  async listMyReports() {
+    if (this.isProxyMode) return this._proxy('listMyReports', []);
+    return await this._fetch('user_reports?select=id,kind,message,status,admin_note,created_at&order=created_at.desc&limit=10') || [];
+  }
+
+  async adminSecurityOverview() {
+    if (this.isProxyMode) return this._proxy('adminSecurityOverview', []);
+    return await this._adminRpc('admin_security_overview') || {};
+  }
+
+  async adminListReports({ status = null, kind = null, limit = 50, offset = 0 } = {}) {
+    if (this.isProxyMode) return this._proxy('adminListReports', [{ status, kind, limit, offset }]);
+    return await this._adminRpc('admin_list_reports', {
+      p_status: status || null, p_kind: kind || null, p_limit: limit, p_offset: offset,
+    }) || { counts: {}, total: 0, rows: [] };
+  }
+
+  async adminUpdateReport(reportId, status, note = null) {
+    if (this.isProxyMode) return this._proxy('adminUpdateReport', [reportId, status, note]);
+    return await this._adminRpc('admin_update_report', { p_report_id: reportId, p_status: status, p_note: note });
+  }
+
   // ── CONFIGURAÇÕES ─────────────────────────────────────────────────────────
   _normalizeSettingValue(value) {
     if (value === 'true') return true;

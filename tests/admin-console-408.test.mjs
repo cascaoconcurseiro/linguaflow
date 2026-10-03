@@ -164,3 +164,43 @@ test('erros agrupados por versão e marcados como versão antiga', () => {
   assert.match(system, /function isOlderVersion/);
   assert.match(system, /versão antiga/);
 });
+
+test('central de segurança e relatos (#412): RPCs, limites e UI', () => {
+  const sql = read('supabase', 'migrations', '20261003140000_security_center_and_reports.sql');
+  assert.match(sql, /REVOKE ALL ON public\.user_reports FROM PUBLIC, anon, authenticated;\s*GRANT SELECT ON public\.user_reports TO authenticated;/,
+    'clientes só leem; escrita só pela RPC');
+  assert.match(sql, /USING \(user_id = \(SELECT auth\.uid\(\)\)\)/, 'cada usuário lê só os próprios relatos');
+  assert.match(sql, />= 5 THEN\s+RAISE EXCEPTION 'Limite de 5 relatos por dia/, 'limite diário no servidor');
+  assert.match(sql, /interval '10 minutes'/, 'deduplicação');
+  assert.match(sql, /auth\.uid\(\) IS NULL|v_uid IS NULL/, 'login obrigatório');
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.submit_user_report\(text, text, text, text, text\) FROM PUBLIC, anon;/);
+  for (const name of ['admin_list_reports', 'admin_security_overview']) {
+    assert.match(sql, new RegExp(String.raw`FUNCTION public\.${name}[\s\S]*?admin_assert_role\(p_session_token, false\)`), `${name} somente leitura`);
+  }
+  assert.match(sql, /FUNCTION public\.admin_update_report[\s\S]*?admin_assert_role\(p_session_token, true\)[\s\S]*?admin_write_audit\('update_report'/);
+  assert.doesNotMatch(sql, /inet_client_addr|x-forwarded-for/i, 'não grava IP bruto em tabela nova');
+
+  const db = read('utils', 'db.js');
+  const sw = read('background', 'service-worker.js');
+  for (const method of ['submitUserReport', 'listMyReports', 'adminSecurityOverview', 'adminListReports', 'adminUpdateReport']) {
+    assert.ok(db.includes(`async ${method}(`), `${method} em db.js`);
+    assert.ok(sw.includes(`'${method}'`), `${method} no proxy`);
+  }
+
+  const view = read('dashboard', 'js', 'ui', 'adminView.js');
+  assert.match(view, /id: 'reports'/);
+  assert.match(view, /id: 'security'/);
+
+  const settings = read('dashboard', 'js', 'ui', 'settingsView.js');
+  assert.match(settings, /Ajuda e relatos/);
+  assert.match(settings, /mountReportCard/);
+  const report = read('dashboard', 'js', 'ui', 'reportProblem.js');
+  assert.match(report, /aria-live="polite"/);
+  assert.match(report, /maxlength="2000"/);
+  assert.match(report, /escapeHtml\(report\.message/, 'relatos são escapados ao renderizar');
+
+  const security = read('dashboard', 'js', 'ui', 'admin', 'adminSecurity.js');
+  assert.match(security, /Vercel → Firewall/);
+  assert.match(security, /Challenge/);
+  assert.match(security, /exige plano Pro|Exige plano Pro/, 'deixa claro o que é pago');
+});

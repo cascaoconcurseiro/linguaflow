@@ -53,7 +53,8 @@ const DB_PROXY_METHODS = new Set([
   'adminListBackups', 'adminRestoreBackup', 'adminDeleteBackup', 'adminSetUserSuspended',
   'adminRevokeUserSessions', 'adminDeleteUser', 'adminListErrors', 'adminClearErrors', 'adminApiUsage',
   'adminListAudit', 'adminListAdmins', 'adminSetAdminRole', 'adminGetSystemNotice', 'adminSetSystemNotice',
-  'getSystemNotice',
+  'getSystemNotice', 'submitUserReport', 'listMyReports', 'adminSecurityOverview', 'adminListReports',
+  'adminUpdateReport',
 ]);
 
 // Garbage Collector e limpador de cache (delegado a background/cache-cleaner.js)

@@ -204,3 +204,28 @@ test('central de segurança e relatos (#412): RPCs, limites e UI', () => {
   assert.match(security, /Challenge/);
   assert.match(security, /exige plano Pro|Exige plano Pro/, 'deixa claro o que é pago');
 });
+
+test('higiene de sessões e selo de alertas (#416)', () => {
+  const sql = read('supabase', 'migrations', '20261003150000_session_hygiene_and_alert_summary.sql');
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.prune_stale_sessions\(int\) FROM PUBLIC, anon, authenticated;/,
+    'a rotina de limpeza não é chamável por clientes');
+  assert.match(sql, /cron\.schedule\(\s*'prune-stale-sessions', '17 4 \* \* \*'/);
+  assert.match(sql, /LEAST\(GREATEST\(COALESCE\(p_days, 30\), 7\), 365\)/, 'janela mínima de 7 dias');
+  assert.ok(sql.includes("admin_assert_role(p_session_token, true);\n  v_n := public.prune_stale_sessions(p_days);"),
+    'encerrar manualmente exige escrita');
+  assert.match(sql, /admin_write_audit\('prune_sessions'/);
+  assert.match(sql, /IF NOT EXISTS \(SELECT 1 FROM public\.admin_users WHERE user_id = auth\.uid\(\)\) THEN\s+RETURN jsonb_build_object\('admin', false\);/,
+    'não-admin só recebe admin:false');
+  assert.doesNotMatch(sql, /RETURN jsonb_build_object\(\s+'admin', true,[\s\S]*email/, 'resumo não expõe e-mails');
+
+  const app = read('dashboard', 'js', 'core', 'app.js');
+  assert.match(app, /db\.adminAlertSummary\(\)/);
+  assert.match(app, /Administração \(\$\{pending\}\)/);
+  const security = read('dashboard', 'js', 'ui', 'admin', 'adminSecurity.js');
+  assert.match(security, /Higiene de sessões/);
+  assert.match(security, /adminPruneStaleSessions\(30\)/);
+  const sw = read('background', 'service-worker.js');
+  for (const method of ['adminSessionHygiene', 'adminPruneStaleSessions', 'adminAlertSummary']) {
+    assert.ok(sw.includes(`'${method}'`), method);
+  }
+});

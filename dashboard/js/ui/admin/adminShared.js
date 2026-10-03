@@ -120,6 +120,8 @@ export const ACTION_LABELS = {
   set_admin_role: 'Papel administrativo alterado',
   set_system_notice: 'Aviso do sistema alterado',
   update_report: 'Relato de usuário triado',
+  prune_sessions: 'Sessões inativas encerradas',
+  prune_sessions_auto: 'Sessões inativas encerradas (automático)',
 };
 
 export const actionLabel = (action) => ACTION_LABELS[action] || action;

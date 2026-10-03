@@ -2,7 +2,7 @@
 // Aba "Segurança": checagens ao vivo do banco, relatórios de acesso e a lista do que só pode ser
 // ligado nos painéis da Vercel/Supabase (o app não consegue configurar firewall nem Auth por conta própria).
 import {
-  escapeHtml, fmtDateTime, fmtNumber, mountAsync,
+  adminErrorMessage, escapeHtml, fmtDateTime, fmtNumber, mountAsync, setBusy,
 } from './adminShared.js';
 
 const LEVEL = { ok: ['OK', 'ok'], warn: ['Atenção', 'warn'], fail: ['Falha', 'danger'] };
@@ -65,6 +65,28 @@ function checkRow(check) {
     <td><strong>${escapeHtml(check.title)}</strong></td><td class="adm-note">${escapeHtml(check.detail)}</td></tr>`;
 }
 
+async function mountHygiene(box, ctx) {
+  try {
+    const info = await ctx.db.adminSessionHygiene(30);
+    box.innerHTML = `<p style="margin-bottom:8px">${fmtNumber(info.total)} sessão(ões) no total; <strong>${fmtNumber(info.stale)}</strong> parada(s) há ${fmtNumber(info.days)}+ dias.</p>
+      ${ctx.canWrite ? `<button type="button" class="adm-btn" id="adm-prune-btn" ${info.stale ? '' : 'disabled'}>Encerrar agora as ${fmtNumber(info.stale)} sessão(ões) inativa(s)</button>` : ''}`;
+    box.querySelector('#adm-prune-btn')?.addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      setBusy(button, true, 'Encerrando…');
+      try {
+        const result = await ctx.db.adminPruneStaleSessions(30);
+        ctx.app.showToast(`${fmtNumber(result.sessions_ended)} sessão(ões) encerrada(s).`, 'success');
+        mountHygiene(box, ctx);
+      } catch (error) {
+        setBusy(button, false);
+        ctx.app.showToast(adminErrorMessage(error), 'error');
+      }
+    });
+  } catch (error) {
+    box.innerHTML = `<p class="adm-inline-error" role="alert">${escapeHtml(adminErrorMessage(error))}</p>`;
+  }
+}
+
 export function renderSecurity(el, ctx) {
   return mountAsync(el, {
     errorTitle: 'Não foi possível carregar a central de segurança',
@@ -108,6 +130,12 @@ export function renderSecurity(el, ctx) {
               <td>${escapeHtml(row.email || '—')}</td><td>${escapeHtml(row.ip || '—')}</td><td class="adm-note">${escapeHtml(row.user_agent || '—')}</td></tr>`).join('')}</tbody></table></div>
         </section>
 
+        <section class="adm-section" aria-labelledby="adm-sec-hygiene">
+          <header><h2 id="adm-sec-hygiene">Higiene de sessões</h2>
+            <p>Sessões sem renovação há 30+ dias são encerradas todo dia às 04:17 (UTC). Quem ficou parado só entra de novo.</p></header>
+          <div id="adm-hygiene-box" aria-live="polite"><p class="adm-note">Carregando…</p></div>
+        </section>
+
         <div class="adm-split adm-section">
           <section aria-labelledby="adm-sec-heavy">
             <header class="adm-sec-h" style="margin-bottom:10px"><h2 id="adm-sec-heavy" style="font-size:17px">Maiores consumidores (24 h)</h2></header>
@@ -131,6 +159,7 @@ export function renderSecurity(el, ctx) {
               <td><strong>${escapeHtml(item.title)}</strong></td><td class="adm-note">${escapeHtml(item.how)}</td>
               <td>${escapeHtml(item.plan)}</td></tr>`).join('')}</tbody></table></div>
         </section>`;
+      mountHygiene(el.querySelector('#adm-hygiene-box'), ctx);
     },
   });
 }

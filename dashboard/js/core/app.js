@@ -19,7 +19,7 @@ const renderAdmin = (...args) => import('../ui/adminView.js').then((m) => m.rend
 const renderCourses = (...args) => import('../ui/coursesView.js').then((m) => m.renderCourses(...args));
 const renderCoursePractice = (...args) => import('../ui/coursePracticeView.js').then((m) => m.renderCoursePractice(...args));
 
-const CLIENT_BUILD = '3.0.63';
+const CLIENT_BUILD = '3.0.64';
 // Rotas cujo render recebe os parâmetros de navegação (lição, modo, aba).
 const ROUTES_WITH_PARAMS = new Set(['study', 'courses', 'course-practice', 'library']);
 // Rotas restauradas ao recarregar (hash da URL). O player volta para Cursos:

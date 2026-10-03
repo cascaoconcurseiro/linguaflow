@@ -589,6 +589,26 @@ class Database {
     return await this._fetch('user_reports?select=id,kind,message,status,admin_note,created_at&order=created_at.desc&limit=10') || [];
   }
 
+  async adminSessionHygiene(days = 30) {
+    if (this.isProxyMode) return this._proxy('adminSessionHygiene', [days]);
+    return await this._adminRpc('admin_session_hygiene', { p_days: days }) || { total: 0, stale: 0, days };
+  }
+
+  async adminPruneStaleSessions(days = 30) {
+    if (this.isProxyMode) return this._proxy('adminPruneStaleSessions', [days]);
+    return await this._adminRpc('admin_prune_stale_sessions', { p_days: days });
+  }
+
+  // Resumo para o selo do menu: só exige ser administrador (sem PIN) e devolve contagens, nunca dados.
+  async adminAlertSummary() {
+    if (this.isProxyMode) return this._proxy('adminAlertSummary', []);
+    try {
+      return await this._fetch('rpc/admin_alert_summary', { method: 'POST', body: {} });
+    } catch {
+      return { admin: false };
+    }
+  }
+
   async adminSecurityOverview() {
     if (this.isProxyMode) return this._proxy('adminSecurityOverview', []);
     return await this._adminRpc('admin_security_overview') || {};

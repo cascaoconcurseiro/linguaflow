@@ -19,7 +19,7 @@ const renderAdmin = (...args) => import('../ui/adminView.js').then((m) => m.rend
 const renderCourses = (...args) => import('../ui/coursesView.js').then((m) => m.renderCourses(...args));
 const renderCoursePractice = (...args) => import('../ui/coursePracticeView.js').then((m) => m.renderCoursePractice(...args));
 
-const CLIENT_BUILD = '3.0.62';
+const CLIENT_BUILD = '3.0.63';
 // Rotas cujo render recebe os parâmetros de navegação (lição, modo, aba).
 const ROUTES_WITH_PARAMS = new Set(['study', 'courses', 'course-practice', 'library']);
 // Rotas restauradas ao recarregar (hash da URL). O player volta para Cursos:
@@ -342,6 +342,12 @@ class App {
     const isAdmin = await db.isAdmin().catch(() => false);
     if (!isAdmin) return;
     item.hidden = false;
+    db.adminAlertSummary().then((summary) => {
+      const pending = (summary?.reports_new || 0) + (summary?.pin_locked ? 1 : 0) + (summary?.errors_1h > 10 ? 1 : 0);
+      if (!summary?.admin || !pending) return;
+      item.textContent = `Administração (${pending})`;
+      item.setAttribute('aria-label', `Administração, ${pending} pendência(s): ${summary.reports_new} relato(s) novo(s)${summary.pin_locked ? ', painel bloqueado' : ''}${summary.errors_1h > 10 ? ', muitos erros na última hora' : ''}`);
+    }).catch(() => {});
     item.addEventListener('click', () => {
       this.setProfileMenuOpen(false);
       if (db._getAdminSessionToken()) this.navigate('admin');

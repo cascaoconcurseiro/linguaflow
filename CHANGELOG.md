@@ -3,6 +3,7 @@
 ## [Não lançado]
 
 ### Corrigido
+- **Segurança do repositório**: varredura automática de código (CodeQL), política de segurança com relato privado de vulnerabilidades e alertas de dependências ligados; a `main` agora exige o check de CI e não aceita force-push nem exclusão (#414).
 - **Área administrativa fácil de achar (só para o administrador)**: o menu do perfil ganha o item "Administração" (aparece apenas para a conta administradora e abre direto o campo do PIN); o botão em Configurações deixou de ser discreto. Na aba Sistema, os erros passam a mostrar a versão do app e são marcados como "versão antiga" quando já foram substituídos (#410).
 - **Nomes que não se contradizem**: o Início agora diz "Ofensiva de revisões" e "Cartões para hoje"; o Progresso diz "Dias seguidos de estudo" (qualquer atividade, inclusive vídeo); Cursos diz "frases dos cursos vencem hoje". Horários de "Estudados recentemente" aparecem no seu fuso, sem "UTC". O Progresso deixa de mostrar "▲312 vs. período anterior" quando o período anterior tem menos de 10 revisões (#395).
 - **Notas e cartões difíceis mais claros**: a tela de Notas vazia mostra um exemplo e leva a Meus cursos; no Progresso, "cartões difíceis" explica que o limite vem das configurações (#402).

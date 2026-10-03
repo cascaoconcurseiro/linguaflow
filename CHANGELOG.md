@@ -3,6 +3,7 @@
 ## [Não lançado]
 
 ### Adicionado
+- **Verificador editorial dos cursos**: `npm run content:check` valida os 48 lotes de conteúdo, lista as palavras que faltam no léxico num formato pronto para completar e reprova lote alterado depois de publicado. Guia em `docs/product/EDITORIAL_CURSOS.md` (#428).
 - **"Primeiros passos" na tela Hoje**: quem ainda não salvou nenhuma palavra vê o caminho em três passos (instalar a extensão, ligar o LF num vídeo, salvar a primeira palavra) em vez de um plano vazio; a leitura de histórias continua como alternativa. Também entra o documento de público e promessa (#427).
 - **Funil de uso no painel do administrador**: quantos usuários abrem um player, ligam o LinguaFlow, salvam uma palavra e revisam. Registra só evento e plataforma, nunca conteúdo de vídeo (#426).
 - **Teste real da extensão no navegador**: a CI passa a carregar a extensão num Chromium e verificar o início desligado, a persistência na sessão e o painel lateral (#418, #423).

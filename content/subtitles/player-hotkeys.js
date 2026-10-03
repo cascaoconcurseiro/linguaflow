@@ -3,6 +3,18 @@
 
 import { isEditableTarget } from '../../utils/dom-events.js';
 
+// O overlay nasce escondido pela folha de estilo (style.display === ''), então só o
+// estilo computado diz se ele está de fato aberto (#425).
+function isElementShown(element) {
+  if (!element) return false;
+  try {
+    if (typeof getComputedStyle === 'function') return getComputedStyle(element).display !== 'none';
+  } catch {
+    // Sem DOM real (testes): cai no estilo inline.
+  }
+  return element.style?.display !== 'none' && element.style?.display !== '';
+}
+
 /**
  * Registra os listeners de teclado globais do player com suporte a ciclo de vida via AbortSignal.
  * @param {import('../subtitle-engine.js').SubtitleEngine} engine
@@ -22,8 +34,7 @@ export function setupPlayerHotkeys(engine, signal) {
     }
 
     // 3. Se o overlay de revisão rápida estiver visível, deixa o overlay controlar as teclas
-    const reviewOverlay = document.getElementById?.('lf-review-overlay');
-    if (reviewOverlay && reviewOverlay.style.display !== 'none') {
+    if (isElementShown(document.getElementById?.('lf-review-overlay'))) {
       return;
     }
 

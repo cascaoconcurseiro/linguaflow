@@ -143,3 +143,39 @@ test('dica de primeira vez: posição dentro da tela e persistência única (#42
   const html = await readFile(new URL('../popup/popup.html', import.meta.url), 'utf8');
   assert.match(html, /id="btn-player-settings"/);
 });
+
+test('atalhos funcionam com a revisão rápida escondida por CSS (#425)', () => {
+  const calls = [];
+  const video = { paused: true, play() { return Promise.resolve(); }, pause() {} };
+  const engine = {
+    isActivated: true,
+    videoElement: video,
+    prevSubtitle: () => calls.push('prev'),
+    _showNotification() {},
+  };
+  const listeners = [];
+  const prev = { document: globalThis.document, window: globalThis.window, getComputedStyle: globalThis.getComputedStyle };
+  const overlay = { style: { display: '' } }; // escondido só pela folha de estilo
+  let computed = 'none';
+  globalThis.getComputedStyle = () => ({ display: computed });
+  globalThis.document = {
+    activeElement: { tagName: 'BODY' },
+    addEventListener: (_, fn) => listeners.push(fn),
+    removeEventListener() {},
+    querySelector: () => video,
+    getElementById: (id) => (id === 'lf-review-overlay' ? overlay : null),
+  };
+  globalThis.window = { dispatchEvent() {} };
+  try {
+    setupPlayerHotkeys(engine);
+    listeners[0]({ code: 'KeyA', preventDefault() {} });
+    assert.deepEqual(calls, ['prev'], 'revisão escondida não bloqueia atalhos');
+    computed = 'block'; // revisão aberta: ela fica com as teclas
+    listeners[0]({ code: 'KeyA', preventDefault() {} });
+    assert.deepEqual(calls, ['prev']);
+  } finally {
+    globalThis.document = prev.document;
+    globalThis.window = prev.window;
+    if (prev.getComputedStyle) globalThis.getComputedStyle = prev.getComputedStyle; else delete globalThis.getComputedStyle;
+  }
+});

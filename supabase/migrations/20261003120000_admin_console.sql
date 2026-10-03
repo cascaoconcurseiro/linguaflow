@@ -319,7 +319,6 @@ DECLARE
   v_n bigint;
   v_backup_id uuid;
   v_email text;
-  v_row record;
 BEGIN
   PERFORM public.admin_assert_role(p_session_token, NOT p_dry_run);
 
@@ -875,7 +874,7 @@ BEGIN
       'active_30d', (SELECT count(*) FROM public.user_stats WHERE last_study_date >= CURRENT_DATE - 30)
     ),
     'signups_14d', COALESCE((
-      SELECT jsonb_agg(jsonb_build_object('day', d.day, 'count', COALESCE(c.n, 0)) ORDER BY d.day)
+      SELECT jsonb_agg(jsonb_build_object('day', d.day::date, 'count', COALESCE(c.n, 0)) ORDER BY d.day)
       FROM generate_series(CURRENT_DATE - 13, CURRENT_DATE, interval '1 day') AS d(day)
       LEFT JOIN (SELECT created_at::date AS day, count(*) AS n FROM auth.users
                  WHERE created_at >= CURRENT_DATE - 13 GROUP BY 1) c ON c.day = d.day::date
@@ -943,7 +942,7 @@ BEGIN
     'days', v_days,
     'total', (SELECT count(*) FROM public.api_usage_log WHERE created_at >= now() - make_interval(days => v_days)),
     'by_day', COALESCE((
-      SELECT jsonb_agg(jsonb_build_object('day', d.day, 'count', COALESCE(c.n, 0)) ORDER BY d.day)
+      SELECT jsonb_agg(jsonb_build_object('day', d.day::date, 'count', COALESCE(c.n, 0)) ORDER BY d.day)
       FROM generate_series(CURRENT_DATE - (v_days - 1), CURRENT_DATE, interval '1 day') AS d(day)
       LEFT JOIN (SELECT created_at::date AS day, count(*) AS n FROM public.api_usage_log
                  WHERE created_at >= CURRENT_DATE - (v_days - 1) GROUP BY 1) c ON c.day = d.day::date
@@ -1149,3 +1148,12 @@ $grants$;
 
 REVOKE ALL ON FUNCTION public.get_system_notice() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_system_notice() TO authenticated;
+
+-- ── 17. Endurecimento pós-aplicação (advisors do Supabase) ────────────────────
+-- Índice da FK de admin_sessions; helpers de asserção deixam de ser chamáveis pelo cliente
+-- (as RPCs SECURITY DEFINER os executam como dono); RPCs antigas substituídas são removidas.
+CREATE INDEX IF NOT EXISTS admin_sessions_user_id_idx ON public.admin_sessions (user_id);
+REVOKE ALL ON FUNCTION public.admin_assert_authority() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.admin_assert_session(uuid) FROM PUBLIC, anon, authenticated;
+DROP FUNCTION IF EXISTS public.admin_list_users(uuid);
+DROP FUNCTION IF EXISTS public.admin_get_system_metrics(uuid);

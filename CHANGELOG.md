@@ -11,6 +11,7 @@
 - **"Continue seu curso" não recomeça mais cursos concluídos**: ao terminar todos os capítulos, o Início mostrava o capítulo 1 a 100% com "Continuar". Agora ele leva ao curso em andamento mais recente ou, se não houver, à próxima aula da trilha ou à loja; na página do curso concluído o botão vira "Revisar do início" (#391). A lista "Frases em revisão" também avisa quando mostra só as 100 primeiras.
 
 ### Adicionado
+- **Painel do administrador completo**: abas Visão geral (cadastros, ativos, erros, IA, pendências), Usuários (busca e filtros no servidor, paginação, detalhe com dados armazenados), Backups, Auditoria, Sistema (aviso global, erros agrupados, uso de IA, equipe) e Zona de perigo. Resetar dados agora é por escopo (cards, cursos, fluência, XP/ofensiva, textos, telemetria, configurações), mostra o impacto antes e cria um backup restaurável por 7 dias. Também há suspender/reativar conta, encerrar sessões, exportar dados em JSON, papel de suporte somente leitura e toda ação administrativa registrada numa trilha imutável. O reset global exige PIN validado há menos de 5 minutos e não tem backup (#408).
 - **Sessão rápida na Revisão dos Cursos**: com mais de 10 frases vencidas, um botão "Sessão rápida · 10 frases (~5 min)" aparece ao lado do bloco de 20. Com 60 ou mais vencidas, a tela avisa que a fila grande não é problema e que 10 por dia já a fazem encolher (#398).
 - **Palavras de vídeo no Início**: em "Métricas detalhadas", o selo "De vídeos" mostra quantas palavras você salvou assistindo e quantas já estão fixadas (#399).
 

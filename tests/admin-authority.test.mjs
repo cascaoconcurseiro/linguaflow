@@ -30,10 +30,10 @@ test('utils/db.js exposes all required admin methods without hardcoding PII', ()
 
   assert.match(content, /isAdmin\(\)/, 'Must expose isAdmin()');
   assert.match(content, /adminVerifyPin\(/, 'Must expose adminVerifyPin()');
-  assert.match(content, /adminGetMetrics\(\)/, 'Must expose adminGetMetrics()');
-  assert.match(content, /adminListUsers\(\)/, 'Must expose adminListUsers()');
-  assert.match(content, /adminResetUserDeck\(/, 'Must expose adminResetUserDeck()');
-  assert.match(content, /adminResetAllDecks\(\)/, 'Must expose adminResetAllDecks()');
+  assert.match(content, /adminGetOverview\(\)/, 'Must expose adminGetOverview()');
+  assert.match(content, /adminUsersPage\(/, 'Must expose adminUsersPage()');
+  assert.match(content, /adminResetUserData\(/, 'Must expose adminResetUserData()');
+  assert.match(content, /adminResetAllUsersData\(/, 'Must expose adminResetAllUsersData()');
   assert.match(content, /adminDeleteUser\(/, 'Must expose adminDeleteUser()');
   assert.match(content, /adminClearErrors\(\)/, 'Must expose adminClearErrors()');
 
@@ -46,10 +46,10 @@ test('background/service-worker.js whitelists admin methods in DB_PROXY_METHODS'
 
   assert.match(content, /'isAdmin'/, 'DB_PROXY_METHODS must include isAdmin');
   assert.match(content, /'adminVerifyPin'/, 'DB_PROXY_METHODS must include adminVerifyPin');
-  assert.match(content, /'adminGetMetrics'/, 'DB_PROXY_METHODS must include adminGetMetrics');
-  assert.match(content, /'adminListUsers'/, 'DB_PROXY_METHODS must include adminListUsers');
-  assert.match(content, /'adminResetUserDeck'/, 'DB_PROXY_METHODS must include adminResetUserDeck');
-  assert.match(content, /'adminResetAllDecks'/, 'DB_PROXY_METHODS must include adminResetAllDecks');
+  assert.match(content, /'adminGetOverview'/, 'DB_PROXY_METHODS must include adminGetOverview');
+  assert.match(content, /'adminUsersPage'/, 'DB_PROXY_METHODS must include adminUsersPage');
+  assert.match(content, /'adminResetUserData'/, 'DB_PROXY_METHODS must include adminResetUserData');
+  assert.match(content, /'adminResetAllUsersData'/, 'DB_PROXY_METHODS must include adminResetAllUsersData');
   assert.match(content, /'adminDeleteUser'/, 'DB_PROXY_METHODS must include adminDeleteUser');
   assert.match(content, /'adminClearErrors'/, 'DB_PROXY_METHODS must include adminClearErrors');
 });
@@ -83,10 +83,11 @@ test('dashboard/js/ui/adminView.js protects against unauthorized access with zer
   const content = fs.readFileSync(adminViewPath, 'utf8');
   assert.match(content, /lfDb\.isAdmin\(\)/, 'adminView must verify isAdmin()');
   assert.match(content, /lfDb\._getAdminSessionToken\(\)/, 'adminView must verify active session token before rendering');
-  assert.match(content, /btn-admin-reset-my-deck/, 'Must have button to reset own deck');
-  assert.match(content, /btn-admin-reset-all-decks/, 'Must have button to reset all decks');
-  assert.match(content, /LIMPAR TUDO/, 'Must require typed confirmation phrase for resetting all decks');
-  assert.match(content, /admin-user-search/, 'Must have user search input');
+  assert.match(content, /adminGetRole\(\)/, 'adminView must resolve the admin role');
+  const usersView = fs.readFileSync(path.join(ROOT, 'dashboard', 'js', 'ui', 'admin', 'adminUsers.js'), 'utf8');
+  assert.match(usersView, /admin-user-search/, 'Must have user search input');
+  const dangerView = fs.readFileSync(path.join(ROOT, 'dashboard', 'js', 'ui', 'admin', 'adminDanger.js'), 'utf8');
+  assert.match(dangerView, /RESETAR TODOS/, 'Must require typed confirmation phrase for the global reset');
 
   assert.doesNotMatch(content, /@gmail\.com/i, 'adminView.js must not contain personal email');
 });

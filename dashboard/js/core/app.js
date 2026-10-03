@@ -240,6 +240,7 @@ class App {
       this.updateGlobalStats().catch(e => console.warn('[App] Erro ao atualizar stats:', e));
       // Garante perfil de usuário no Supabase (XP/gamificação)
       db.ensureUserStats().catch(() => {});
+      import('../ui/systemNotice.js').then((m) => m.showSystemNotice(db)).catch(() => {});
       // Rota inicial: a do hash (recarregar mantém a tela), senão Hoje
       const { route: hashRoute, params: hashParams } = parseRouteHash(window.location.hash);
       if (RESTORABLE_ROUTES.has(hashRoute)) this.navigate(hashRoute, hashParams);

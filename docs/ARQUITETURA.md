@@ -73,7 +73,7 @@ Nenhuma escrita local tem autoridade para sobrescrever o servidor sem reconcilia
 
 ### 3.2. Ciclo de Revisão FSRS (Dashboard PWA)
 1. Ao iniciar sessão, o cliente invoca a query de cards vencidos (`due_date <= NOW()`).
-2. Cartão é apresentado em um dos 4 modos (Flashcard, Digitação, Áudio, Speed Review).
+2. Cartão é apresentado em uma de 4 formas (clássico com a palavra escondida na frase, montar a frase, ditado e inverso), escolhida pelo nível do aluno e em rotação (`dashboard/js/ui/studyView.js`).
 3. O usuário classifica a retenção (`Again`, `Hard`, `Good`, `Easy`).
 4. Algoritmo FSRS v4.5 calcula novos valores de Estabilidade ($S$), Dificuldade ($D$) e próxima data de vencimento ($I$).
 5. Cliente dispara RPC `record_card_review(card_id, rating, review_duration)` (autoridade server-side FSRS).

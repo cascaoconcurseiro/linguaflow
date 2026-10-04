@@ -49,7 +49,9 @@ assert.match(popupJs, /getStudyStats/, 'popup.js deve chamar getStudyStats');
 
 // 4. Contrato do Subtitle Engine
 const engineContent = readFileSync('content/subtitle-engine.js', 'utf8');
-assert.match(engineContent, /db\.enqueueListeningInterval/, 'subtitle-engine envia intervalos com identidade estável');
+// #387 removeu o contador automático de listening (a detecção do idioma do áudio falhava na maioria dos
+// vídeos). O contrato atual é a AUSÊNCIA dele no motor; o registro manual e os totais seguem no popup/site.
+assert.doesNotMatch(engineContent, /enqueueListeningInterval|ListeningClock/, 'subtitle-engine não conta escuta automaticamente (#387)');
 assert.doesNotMatch(engineContent, /db\.logSession\(10/, 'timer não presume dez segundos nem idioma configurado');
 
 // 5. Contrato do Dashboard (Palavras que não estão fixando e Cronômetro de Card)

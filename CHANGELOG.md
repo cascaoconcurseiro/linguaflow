@@ -3,11 +3,14 @@
 ## [Não lançado]
 
 ### Adicionado
+- **Amostra para revisão humana do conteúdo**: `npm run content:review` gera uma planilha reproduzível (por semente) com frase, tradução, IPA e nota de cada curso, com colunas para o revisor aprovar ou corrigir (#435).
 - **Frases dos cursos podem ir para o Cofre**: o botão "＋ Enviar ao Cofre" (na resposta da prática e no caderno de vocabulário) coloca a frase na mesma fila de revisão das palavras de vídeo. Nunca sobrescreve uma palavra que você já tem, respeita o limite do Cofre e não envia parágrafos nem histórias (#434).
 - **Memória de longo prazo no Progresso**: mostra quanto você lembrou nas revisões feitas depois de 7 dias ou mais, e de 30 dias ou mais, sem ver o cartão. Só aparece o percentual com pelo menos 10 revisões; antes disso o painel explica o que falta. É a medida mais direta de que a palavra ficou na memória (#433).
 - **Mais controle no player**: `Z`/`X` ajustam a sincronia da legenda em 0,1 s sem abrir as configurações; `B` marca um laço entre dois pontos (A–B); `V` liga a escuta primeiro (legenda original escondida); `F` escolhe palavras da legenda só com o teclado (setas, Enter abre o card, Esc volta); `?` abre a lista de todos os atalhos. Com o LinguaFlow desligado, nenhum deles age (#432).
 
 ### Corrigido
+- **Nota errada em "ninety" corrigida**: dizia que a palavra "mantém o 'e' de 'nine'"; é o contrário (perde o 'e'). Achado pela amostra de revisão humana; corrigido por um lote novo, já que migrations publicadas não se editam (#435).
+- **Documentação alinhada ao que o app faz**: README e arquitetura citavam modos de revisão "Speed Review" e "Reconhecimento de Áudio" que não existem; agora descrevem as 4 formas reais de revisar. O teste obsoleto de horas de estudo passa a verificar a ausência do contador automático removido em #387 (#435).
 - **A tecla `Q` (pausa automática) agora salva a escolha**: ela chamava um método que não existe e a preferência se perdia ao recarregar. O painel de configurações também passa a refletir mudanças feitas por atalho, em vez de mostrar o valor antigo (#432).
 
 ## [3.0.64] - 2026-10-03

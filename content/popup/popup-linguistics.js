@@ -1,4 +1,4 @@
-// content/popup/popup-linguistics.js
+// content/popup/popup-linguistics.js — Regras puras do popup de palavra: limpa explicações de IA, detecta falsos cognatos, expressões e blocos comuns e rotula a classe gramatical.
 
 /**
  * Normaliza e limpa explicações textuais de IA e dicionário.

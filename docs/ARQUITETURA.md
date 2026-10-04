@@ -22,16 +22,17 @@ O LinguaFlow é estruturado como um sistema híbrido distribuído, operando com 
 │                  CAMADA BACKEND (SUPABASE)                  │
 ├─────────────────────────────────────────────────────────────┤
 │  - Supabase Auth: JWT, RBAC, isolamento por usuário         │
-│  - PostgreSQL 15: Schema relacional com RLS em 100%         │
-│  - RPCs Atômicas (PL/pgSQL com locks transacionais):        │
+│  - PostgreSQL: schema relacional com RLS em 100%            │
+│  - RPCs atômicas (PL/pgSQL com locks transacionais):        │
 │    • record_card_review (lock FOR UPDATE)                   │
+│    • save_word_with_card (palavra e card, mesma transação)  │
 │    • log_study_time (agregação multicanal atômica)          │
-│    • sync_pull / sync_push (reconciliação offline)          │
 │    • commit_fluency_assessment (perfil de proficiência)     │
 │  - Supabase Edge Functions (Deno Runtime):                  │
-│    • ai-explainer (Gemini Flash / OpenAI GPT-4o-mini)       │
-│    • ai-story (gerador de histórias personalizadas)         │
-│    • ai-chat (assistente de conversação guiada)             │
+│    • deepseek-chat (proxy de IA; chave só no Supabase)      │
+│    • tts (áudio neural) e url-import (URL para o Leitor)    │
+│    • fluency-assessment (avalia a Checagem de Fluência)     │
+│    • push-reminder e email-reengagement (via pg_cron)       │
 └─────────────────────────────────────────────────────────────┘
 ```
 

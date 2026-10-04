@@ -6,10 +6,11 @@ Este diretório contém a documentação viva e os arquivos históricos do proje
 
 ## Documentos Vivos
 
-1. **[Comece Aqui](COMECE_AQUI.md)**: Configuração local, fluxo de trabalho e guia de arquitetura para novos contribuidores.
-2. **[Arquitetura Técnica](ARQUITETURA.md)**: Fonte de verdade, modelo cliente-servidor, segurança e registro sintético de ADRs.
-3. **[Contrato Pedagógico e Economia](CONTRATO_PEDAGOGICO_ECONOMIA_P0_2_2026-07-14.md)**: Especificação normativa sobre integridade FSRS e economia de XP.
-4. **[Índice Completo](INDICE.md)**: Relação estruturada de todos os documentos ativos e do histórico.
+1. **[Mapa do Projeto](MAPA_DO_PROJETO.md)**: Mapa completo e atualizado do sistema, para quem chega agora.
+2. **[Comece Aqui](COMECE_AQUI.md)**: Configuração local, fluxo de trabalho e guia de arquitetura para novos contribuidores.
+3. **[Arquitetura Técnica](ARQUITETURA.md)**: Fonte de verdade, modelo cliente-servidor, segurança e registro sintético de ADRs.
+4. **[Contrato Pedagógico e Economia](CONTRATO_PEDAGOGICO_ECONOMIA_P0_2_2026-07-14.md)**: Especificação normativa sobre integridade FSRS e economia de XP.
+5. **[Índice Completo](INDICE.md)**: Relação estruturada de todos os documentos ativos e do histórico.
 
 ---
 

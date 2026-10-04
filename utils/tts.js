@@ -1,4 +1,4 @@
-// utils/tts.js
+// utils/tts.js — Voz do LinguaFlow na extensão: áudio do dicionário, voz neural, Google Tradutor e voz do navegador, nessa ordem.
 import { ExclusivePlayback } from './exclusive-playback.js';
 
 /**

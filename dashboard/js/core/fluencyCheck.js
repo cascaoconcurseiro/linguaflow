@@ -1,3 +1,4 @@
+// dashboard/js/core/fluencyCheck.js — Modelo de domínio da Checagem de Fluência: níveis A1–B2, habilidades, decisão de tentativa e força da evidência.
 export const FLUENCY_LEVELS = Object.freeze(['A1', 'A2', 'B1', 'B2']);
 
 export const FLUENCY_SKILLS = Object.freeze([

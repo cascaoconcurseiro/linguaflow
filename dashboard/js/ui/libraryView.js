@@ -1,3 +1,4 @@
+// dashboard/js/ui/libraryView.js — Tela Cofre: palavras e frases salvas por baralho ou por palavra, busca, revisão por tema e preenchimento do contexto que falta.
 import { db as lfDb } from '../../../utils/db.js';
 import { generateChunksWeb } from '../core/ai.js';
 import { attachVideoContext, renderVideoContext } from '../core/videoContext.js';

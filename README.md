@@ -12,7 +12,7 @@
 [![PWA Live](https://img.shields.io/badge/demo-linguaflow--web.vercel.app-000000.svg?style=flat-square&logo=vercel)](https://linguaflow-web-tau.vercel.app)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg?style=flat-square)](LICENSE)
 
-[🚀 Acessar Web App](https://linguaflow-web-tau.vercel.app) · [📖 Documentação](docs/INDICE.md) · [🐛 Reportar Problema](https://github.com/cascaoconcurseiro/linguaflow/issues)
+[🚀 Acessar Web App](https://linguaflow-web-tau.vercel.app) · [🗺️ Mapa do Projeto](docs/MAPA_DO_PROJETO.md) · [📖 Documentação](docs/INDICE.md) · [🐛 Reportar Problema](https://github.com/cascaoconcurseiro/linguaflow/issues)
 
 </div>
 
@@ -78,16 +78,17 @@ O **LinguaFlow** une o consumo de conteúdo autêntico na web (filmes, séries, 
 │                  CAMADA BACKEND (SUPABASE)                  │
 ├─────────────────────────────────────────────────────────────┤
 │  - Supabase Auth: JWT, RBAC, isolamento por usuário         │
-│  - PostgreSQL 15: Schema relacional com RLS em 100%         │
-│  - RPCs Atômicas (PL/pgSQL com locks transacionais):        │
+│  - PostgreSQL: schema relacional com RLS em 100%            │
+│  - RPCs atômicas (PL/pgSQL com locks transacionais):        │
 │    • record_card_review (lock FOR UPDATE)                   │
+│    • save_word_with_card (palavra e card, mesma transação)  │
 │    • log_study_time (agregação multicanal atômica)          │
-│    • sync_pull / sync_push (reconciliação offline-first)    │
-│    • commit_fluency_assessment (motor de proficiência)      │
+│    • commit_fluency_assessment (perfil de proficiência)     │
 │  - Supabase Edge Functions (Deno Runtime):                  │
-│    • ai-explainer (Gemini Flash / DeepSeek)                 │
-│    • ai-story (gerador de histórias personalizadas)         │
-│    • ai-chat (assistente de conversação guiada)             │
+│    • deepseek-chat (proxy de IA; chave só no Supabase)      │
+│    • tts (áudio neural) e url-import (URL para o Leitor)    │
+│    • fluency-assessment (avalia a Checagem de Fluência)     │
+│    • push-reminder e email-reengagement (via pg_cron)       │
 └─────────────────────────────────────────────────────────────┘
 ```
 

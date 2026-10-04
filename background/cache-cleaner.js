@@ -1,4 +1,4 @@
-// background/cache-cleaner.js
+// background/cache-cleaner.js — Limpeza dos caches descartáveis (dicionários, Linguee, Reverso, traduções) para liberar espaço quando o armazenamento enche.
 
 /**
  * Garbage Collector para limpar dicionários velhos e liberar espaço (QuotaExceeded).

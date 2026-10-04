@@ -1,3 +1,4 @@
+// dashboard/js/ui/viewState.js — Estados padrão de tela (carregando, vazio, erro, sucesso) e escape de HTML para as views.
 export function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')

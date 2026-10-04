@@ -1,4 +1,4 @@
-// dashboard/js/ui/settingsView.js
+// dashboard/js/ui/settingsView.js — Tela Configurações: nível aproximado, limites diários, motor de memória (FSRS) e perfis de SRS, áudio, lembretes e e-mail, dados e portabilidade, ajuda e relatos, conta e acesso administrativo.
 import { db as lfDb } from '../../../utils/db.js';
 import { preloadKokoro } from '../core/tts.js';
 import { bindViewStateAction, escapeHtml, renderViewState } from './viewState.js';

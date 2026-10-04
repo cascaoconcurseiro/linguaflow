@@ -1,4 +1,4 @@
-// dashboard/js/ui/storiesQuiz.js
+// dashboard/js/ui/storiesQuiz.js — Quiz das histórias: valida as perguntas devolvidas pela IA (3 a 5, com 4 opções), gera o quiz e o desenha na tela.
 
 /**
  * Normaliza e valida o array de questões retornado pela IA.

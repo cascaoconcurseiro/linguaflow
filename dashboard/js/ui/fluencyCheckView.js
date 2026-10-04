@@ -1,3 +1,4 @@
+// dashboard/js/ui/fluencyCheckView.js — Tela da Checagem de Fluência: passos, envio das respostas, estados de carregamento/erro e adaptador de dados.
 import { escapeHtml, renderViewState } from './viewState.js';
 import { playNaturalAudio, stopAudio } from '../core/tts.js';
 

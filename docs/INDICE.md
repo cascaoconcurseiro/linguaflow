@@ -6,6 +6,7 @@ Guia canônico da documentação técnica e arquitetural do projeto.
 
 ## 1. Documentação Ativa
 
+- **[Mapa do Projeto](MAPA_DO_PROJETO.md)**: Visão completa e atualizada do sistema (peças, pastas, fluxos, segurança, onde mexer e inventário de arquivos gerado do código). Comece por aqui.
 - **[Comece Aqui](COMECE_AQUI.md)**: Guia rápido de inicialização, setup de ambiente e execução de testes.
 - **[Arquitetura Técnica](ARQUITETURA.md)**: Arquitetura cliente-servidor, autoridade de dados, fluxos, segurança e Registro de Decisões de Arquitetura (ADR).
 - **[Contrato Pedagógico e Economia](CONTRATO_PEDAGOGICO_ECONOMIA_P0_2_2026-07-14.md)**: Regras normativas de XP, caps competitivos e integridade de aprendizagem FSRS.

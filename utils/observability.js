@@ -1,3 +1,4 @@
+// utils/observability.js — Observabilidade neutra de fornecedor: eventos, erros e spans com redação de dados sensíveis, emitidos como evento do navegador.
 const OBSERVABILITY_VERSION = '1';
 
 function getConfig() {

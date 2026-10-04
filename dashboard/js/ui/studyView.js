@@ -1,3 +1,4 @@
+// dashboard/js/ui/studyView.js — Tela Estudar (revisão FSRS): fila de cards, 4 formas de revisar, avaliação idempotente, desfazer, áudio e sessão.
 import { db as lfDb, createOperationId } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio, downloadAudio, preloadNaturalAudio } from '../core/tts.js';
 import { enrichCard, getCefrLevel, generateChunksWeb } from '../core/ai.js';

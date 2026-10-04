@@ -1,3 +1,4 @@
+// dashboard/js/ui/leaguesView.js — Tela de Ligas: liga atual, ranking da semana e os 5 que avançam.
 import { db as lfDb } from '../../../utils/db.js';
 
 export async function renderLeagues(container, app) {

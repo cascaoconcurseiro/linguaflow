@@ -1,4 +1,4 @@
-// dashboard/js/ui/cefrPlacementTest.js
+// dashboard/js/ui/cefrPlacementTest.js — Teste de nível (CEFR): roda a prova de nivelamento e entrega o nível estimado ao chamador.
 import { db as lfDb } from '../../../utils/db.js';
 import {
   buildPlacementTest, scorePlacement, shuffleItem, LEVELS,

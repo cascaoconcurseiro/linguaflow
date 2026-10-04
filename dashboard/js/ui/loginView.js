@@ -1,3 +1,4 @@
+// dashboard/js/ui/loginView.js — Tela de login e cadastro (entrar ou criar conta).
 import { db } from '../../../utils/db.js';
 
 export function renderLogin(container, app) {

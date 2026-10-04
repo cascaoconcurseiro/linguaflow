@@ -1,3 +1,4 @@
+// content/index.js — Entrada dos scripts de vídeo: só roda em sites suportados e monta o motor de legendas, o dock, o painel de configurações e a revisão rápida.
 import { SettingsPanel } from './settings-panel.js';
 import { SubtitleEngine } from './subtitle-engine.js';
 import { isEditableTarget } from '../utils/dom-events.js';

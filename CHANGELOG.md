@@ -5,6 +5,10 @@
 ### Adicionado
 - **Palavra e depois a frase, nos cursos de vocabulário**: depois de acertar a palavra, você digita a frase de exemplo com ela (com áudio e tradução como pista), em vez de só vê-la por um instante. Erros na frase não rebaixam a palavra na revisão.
 
+### Corrigido
+- **CC do YouTube ficava ligado com o LinguaFlow desligado**: o YouTube memoriza o CC que o LinguaFlow liga e o reaplicava nos vídeos seguintes. Agora, desligado, o LinguaFlow desliga o CC nativo; se você mesmo ligar o CC com um clique, ele é respeitado.
+- **Atalho da lista de atalhos**: o aviso ao ligar e a lista mostram "Shift + ?" em vez de só "?".
+
 ## [3.0.65] - 2026-10-04
 
 ### Corrigido

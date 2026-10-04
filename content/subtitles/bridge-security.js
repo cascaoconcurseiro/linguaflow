@@ -59,7 +59,10 @@ export function isTrustedSubtitleBridgeMessage(event, bridgeState, currentUrl) {
   if (data.type === 'LF_PLAYER_STATE') {
     return isYouTube && Number.isInteger(data.state) && data.state >= -1 && data.state <= 5;
   }
-  if (data.type === 'LF_YT_SUB_TOGGLE') return isYouTube && typeof data.active === 'boolean';
+  if (data.type === 'LF_YT_SUB_TOGGLE') {
+    return isYouTube && typeof data.active === 'boolean'
+      && (data.trusted === undefined || typeof data.trusted === 'boolean');
+  }
   if (data.type === 'LF_CAPTION_AVAILABILITY') {
     return isYouTube && typeof data.available === 'boolean'
       && typeof data.videoId === 'string' && /^[\w-]{1,32}$/.test(data.videoId);

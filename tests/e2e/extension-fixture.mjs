@@ -25,7 +25,12 @@ export const YOUTUBE_HTML = `<!doctype html><html><head><title>Vídeo de teste</
     <button class="ytp-subtitles-button" aria-pressed="true" title="Legendas"></button>
   </div></div>
 </div>
-<script>setTimeout(() => fetch('https://www.youtube.com/api/timedtext?v=lf-test&lang=en&fmt=json3').catch(() => {}), 800);</script>
+<script>
+// Como no YouTube real: o botão CC alterna aria-pressed a cada clique.
+document.querySelector('.ytp-subtitles-button').addEventListener('click', (e) => {
+  e.currentTarget.setAttribute('aria-pressed', String(e.currentTarget.getAttribute('aria-pressed') !== 'true'));
+});
+setTimeout(() => fetch('https://www.youtube.com/api/timedtext?v=lf-test&lang=en&fmt=json3').catch(() => {}), 800);</script>
 </body></html>`;
 
 export const NETFLIX_HTML = `<!doctype html><html><head><title>Netflix teste</title></head><body>

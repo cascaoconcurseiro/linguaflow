@@ -165,3 +165,57 @@ test('Player Controls: velocidade salva é reaplicada quando o YouTube carrega a
     Object.assign(globalThis, previous);
   }
 });
+
+// #438: com o LinguaFlow desligado o CC nativo do YouTube fica desligado,
+// a menos que o próprio usuário o ligue com um clique real nesta página.
+function mockYouTubeCc(pressed) {
+  const btn = {
+    pressed,
+    clicks: 0,
+    getAttribute(attr) { return attr === 'aria-pressed' ? String(this.pressed) : null; },
+    click() { this.clicks++; this.pressed = !this.pressed; },
+  };
+  globalThis.document = { querySelector: (sel) => (sel === '.ytp-subtitles-button' ? btn : null) };
+  return btn;
+}
+
+test('#438: desligado, o CC memorizado pelo YouTube é desligado ao carregar/play', () => {
+  const engine = Object.create(SubtitleEngine.prototype);
+  engine.isActivated = false;
+  engine.platform = 'youtube';
+  const btn = mockYouTubeCc(true);
+  engine._syncNativeCCButton();
+  assert.equal(btn.pressed, false, 'CC nativo deve desligar com o LinguaFlow desligado');
+  engine._syncNativeCCButton();
+  assert.equal(btn.clicks, 1, 'não alterna o CC de novo quando já está desligado');
+});
+
+test('#438: clique real do usuário no CC com o LinguaFlow desligado é respeitado', () => {
+  const engine = Object.create(SubtitleEngine.prototype);
+  engine.isActivated = false;
+  engine.platform = 'youtube';
+  const btn = mockYouTubeCc(true);
+  engine._onNativeCaptionToggle({ active: true, trusted: true });
+  engine._syncNativeCCButton();
+  assert.equal(btn.pressed, true, 'usuário ligou o CC na mão: não desligar');
+  engine._onNativeCaptionToggle({ active: true, trusted: false });
+  engine._userWantsNativeCC = false;
+  engine._onNativeCaptionToggle({ active: true, trusted: false });
+  assert.equal(engine._userWantsNativeCC, false, 'clique feito por código não conta como escolha do usuário');
+});
+
+test('#438: ligado, o CC nativo continua sendo ligado', () => {
+  const engine = Object.create(SubtitleEngine.prototype);
+  engine.isActivated = true;
+  engine.platform = 'youtube';
+  const btn = mockYouTubeCc(false);
+  engine._syncNativeCCButton();
+  assert.equal(btn.pressed, true);
+});
+
+test('#438: a ponte envia isTrusted do clique no CC e a validação aceita só booleano', async () => {
+  const hook = await readFile(new URL('../content/youtube-hook.js', import.meta.url), 'utf8');
+  assert.match(hook, /LF_YT_SUB_TOGGLE', active: !isActive, trusted: e\.isTrusted/);
+  const bridge = await readFile(new URL('../content/subtitles/bridge-security.js', import.meta.url), 'utf8');
+  assert.match(bridge, /data\.trusted === undefined \|\| typeof data\.trusted === 'boolean'/);
+});

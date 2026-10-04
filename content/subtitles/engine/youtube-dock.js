@@ -4,7 +4,6 @@ import { YOUTUBE_DOCK_CSS } from '../youtube-dock-styles.js';
 import { DOCK_COLLAPSE_BUTTON_HTML, applyDockCollapsed, dockCollapseCss, loadDockCollapsed, saveDockCollapsed } from '../dock-collapse.js';
 
 export class YouTubeDockMethods {
-
   // ── Injeção dos Botões na Barra do YouTube (Dock Horizontal) ───────────────
   _injectYouTubeControls() {
     if (this.platform !== 'youtube') return;

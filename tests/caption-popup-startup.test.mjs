@@ -22,11 +22,20 @@ function listFiles(directory, prefix = '') {
 test('every static popup dependency is exposed on the same video sites as the popup', () => {
   const popupAccess = manifest.web_accessible_resources.find(({ resources }) => resources.includes('content/word-popup.js'));
   assert.ok(popupAccess);
-  for (const [, relative] of popup.matchAll(/\bimport\s+(?:[^'";]+\s+from\s+)?['"](\.\.[^'"]+|\.[^'"]+)['"]/g)) {
-    const path = new URL(relative, 'file:///content/word-popup.js').pathname.slice(1);
-    assert.ok(manifest.web_accessible_resources.some(({ resources, matches }) =>
-      resources.includes(path) && popupAccess.matches.every(match => matches.includes(match))),
-    `Popup dependency not available on video sites: ${path}`);
+  // O popup e os módulos por assunto (content/word-popup/*.js): cada import é resolvido a partir do arquivo que o declara.
+  const partsDir = new URL('../content/word-popup/', import.meta.url);
+  const files = [
+    ['content/word-popup.js', popup],
+    ...readdirSync(partsDir).filter((f) => f.endsWith('.js')).map((f) => [`content/word-popup/${f}`, readFileSync(new URL(f, partsDir), 'utf8')]),
+  ];
+  for (const [file, source] of files) {
+    assert.ok(popupAccess.resources.includes(file), `Popup module not exposed: ${file}`);
+    for (const [, relative] of source.matchAll(/\bimport\s+(?:[^'";]+\s+from\s+)?['"](\.\.[^'"]+|\.[^'"]+)['"]/g)) {
+      const path = new URL(relative, `file:///${file}`).pathname.slice(1);
+      assert.ok(manifest.web_accessible_resources.some(({ resources, matches }) =>
+        resources.includes(path) && popupAccess.matches.every(match => matches.includes(match))),
+      `Popup dependency not available on video sites: ${path}`);
+    }
   }
 });
 

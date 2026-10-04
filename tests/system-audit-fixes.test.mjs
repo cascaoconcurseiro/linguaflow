@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readEngineSourceSync } from './helpers/engine-source.mjs';
+import { readPopupSourceSync } from './helpers/popup-source.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
@@ -10,7 +11,7 @@ const read = (p) => readFileSync(join(root, p), 'utf8');
 const storiesView = read('dashboard/js/ui/storiesView.js');
 const storiesQuiz = read('dashboard/js/ui/storiesQuiz.js');
 const youtubeHook = read('content/youtube-hook.js');
-const wordPopup = read('content/word-popup.js');
+const wordPopup = readPopupSourceSync();
 const subtitleEngine = readEngineSourceSync();
 const libraryView = read('dashboard/js/ui/libraryView.js');
 

@@ -4,13 +4,14 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { readPopupSourceSync } from './helpers/popup-source.mjs';
 
 globalThis.chrome = {
   runtime: { getURL: (p) => p, sendMessage() {}, onMessage: { addListener() {} } },
   storage: { local: { get: async () => ({}), set: async () => {} }, onChanged: { addListener() {}, removeListener() {} } },
 };
 const { WordPopup } = await import('../content/word-popup.js');
-const source = readFileSync(new URL('../content/word-popup.js', import.meta.url), 'utf8');
+const source = readPopupSourceSync();
 
 function fakePopup(engine = {}) {
   const els = {};

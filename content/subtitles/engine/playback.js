@@ -4,7 +4,6 @@ import { shadowContext, shadowProgress, writeShadowPref } from '../shadow-mode.j
 import { showShortcutsHelp } from '../shortcuts-help.js';
 
 export class PlaybackMethods {
-
   _setupKeyboardShortcuts() {
     setupPlayerHotkeys(this, this._lifecycleController?.signal);
   }

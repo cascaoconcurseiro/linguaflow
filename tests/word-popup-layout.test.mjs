@@ -3,8 +3,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { readPopupSourceSync } from './helpers/popup-source.mjs';
 
-const src = readFileSync(new URL('../content/word-popup.js', import.meta.url), 'utf8');
+const src = readPopupSourceSync();
 
 test('definição em inglês não aparece no card', () => {
   assert.doesNotMatch(src, /id="fd"/);

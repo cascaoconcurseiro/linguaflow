@@ -43,7 +43,7 @@ import { SidebarPanelMethods } from './subtitles/engine/sidebar-panel.js';
 import { TranscriptTabMethods } from './subtitles/engine/transcript-tab.js';
 import { WordsTabMethods } from './subtitles/engine/words-tab.js';
 import { ExportMethods } from './subtitles/engine/export.js';
-import { installEngineMethods } from './subtitles/engine/install-methods.js';
+import { installMethods } from '../utils/install-methods.js';
 
 // ─── Engine Principal ─────────────────────────────────────────────────────────
 export class SubtitleEngine {
@@ -946,4 +946,4 @@ export class SubtitleEngine {
   }
 }
 
-installEngineMethods(SubtitleEngine, [CaptureMethods, CaptionDisplayMethods, PlaybackMethods, YouTubeDockMethods, SidebarPanelMethods, TranscriptTabMethods, WordsTabMethods, ExportMethods]);
+installMethods(SubtitleEngine, [CaptureMethods, CaptionDisplayMethods, PlaybackMethods, YouTubeDockMethods, SidebarPanelMethods, TranscriptTabMethods, WordsTabMethods, ExportMethods]);

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { readPopupSourceSync } from './helpers/popup-source.mjs';
 
-const source = readFileSync(new URL('../content/word-popup.js', import.meta.url), 'utf8');
+const source = readPopupSourceSync();
 
 assert.match(source, /setAttribute\('role', 'dialog'\)/, 'popup deve expor semantica de dialogo');
 assert.match(source, /setAttribute\('aria-labelledby', 'fw'\)/, 'dialogo deve ter nome pela palavra');

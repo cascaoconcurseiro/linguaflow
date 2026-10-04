@@ -8,7 +8,6 @@ import { MAX_EXPRESSION_WORDS } from '../../../utils/expressions-db.js';
 import { createHoverTip } from '../hover-tip.js';
 
 export class CaptionDisplayMethods {
-
   // ── UI de Legendas (Shadow DOM) ──────────────────────────────────────────
   async _injectSubtitleUI(force = false) {
     // Captions, video discovery and SPA navigation can request the mount at once.

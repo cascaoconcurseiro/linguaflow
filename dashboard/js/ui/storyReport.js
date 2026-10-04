@@ -71,7 +71,7 @@ export function mountStoryReport({ button, panel, db, app, read }) {
     status.style.color = 'var(--color-text-light)';
     status.textContent = 'Enviando…';
     try {
-      const result = await db.submitUserReport({ ...report, route: 'stories', appVersion: app?.clientBuild || '', userAgent: (navigator.userAgent || '').slice(0, 300) });
+      const result = await db.submitUserReport({ ...report, route: 'stories', appVersion: app?.clientBuild || '', userAgent: (typeof navigator !== 'undefined' ? navigator.userAgent || '' : '').slice(0, 300) });
       status.style.color = 'var(--color-success-text)';
       status.textContent = result?.duplicate ? 'Você já tinha enviado este relato.' : 'Relato recebido. Obrigado!';
       note.value = '';

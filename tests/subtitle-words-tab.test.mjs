@@ -10,6 +10,7 @@ import {
   lemmaOf,
 } from '../content/subtitles/video-vocabulary.js';
 import { highlightTerms } from '../content/subtitles/transcript-render.js';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
 const rankMap = new Map([['run', 1], ['thing', 2], ['make', 3], ['new', 4], ['coffee', 900]]);
 
@@ -67,7 +68,7 @@ test('explorador destaca a forma encontrada, inclusive separada', () => {
 });
 
 test('aba Palavras: tokens de tema, controles de teclado, sem scale no hover', async () => {
-  const src = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+  const src = await readEngineSource();
   const words = src.slice(src.indexOf('  _rebuildWordsList(container) {'), src.indexOf('  _showSentenceExplorer('));
   const explorer = src.slice(src.indexOf('  _showSentenceExplorer('), src.indexOf('  _updateSubtitlePanelHighlight('));
   assert.doesNotMatch(words, /scale\(1\.0[68]\)/);

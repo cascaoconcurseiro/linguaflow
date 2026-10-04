@@ -2,15 +2,17 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
+// Algumas telas têm o CSS num módulo próprio; as exigências valem para a tela e o CSS juntos.
+const readView = async (view) => `${await read(`dashboard/js/ui/${view}.js`)}\n${await read(`dashboard/js/ui/${view}Styles.js`)}`;
 const [popup, popupJs, html, css, home, study, library, stories, reader, settings, stats, leagues, admin] = await Promise.all([
   read('popup/popup.html'),
   read('popup/popup.js'),
   read('dashboard/dashboard.html'),
   read('dashboard/css/globals.css'),
-  read('dashboard/js/ui/homeView.js'),
-  read('dashboard/js/ui/studyView.js'),
-  read('dashboard/js/ui/libraryView.js'),
-  read('dashboard/js/ui/storiesView.js'),
+  readView('homeView'),
+  readView('studyView'),
+  readView('libraryView'),
+  readView('storiesView'),
   read('dashboard/js/ui/readerView.js'),
   read('dashboard/js/ui/settingsView.js'),
   read('dashboard/js/ui/statsView.js'),
@@ -31,8 +33,12 @@ for (const [name, source] of [
 }
 
 assert.match(popup, /id="btn-dash" class="btn btn-primary">Abrir dashboard<\/button>/);
-assert.match(popup, /id="listening-today"/);
-assert.match(popupJs, /getStudyStats\?\.\(sourceLang\)/);
+// O contador de "Listening" foi removido do popup (sem fonte viva); os números de hoje são revisões e palavras salvas.
+assert.match(popup, /id="reviews-today"/);
+assert.match(popup, /id="words-today"/);
+assert.doesNotMatch(popup, /id="listening-today"/);
+assert.match(popupJs, /getElementById\('reviews-today'\)/);
+assert.match(popupJs, /getElementById\('words-today'\)/);
 assert.match(html, /id="topbar-search-btn"[^>]*aria-label="Buscar no cofre"/);
 assert.match(html, /class="logo-mark"/);
 assert.match(html, /class="profile-status"/);

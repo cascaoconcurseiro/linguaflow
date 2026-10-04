@@ -4,7 +4,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const source = readFileSync(join(root, 'dashboard/js/ui/studyView.js'), 'utf8');
+// O CSS da tela vive em studyViewStyles.js; as exigências valem para os dois arquivos juntos.
+const source = ['dashboard/js/ui/studyView.js', 'dashboard/js/ui/studyViewStyles.js']
+  .map((file) => readFileSync(join(root, file), 'utf8'))
+  .join('\n');
 const aiSource = readFileSync(join(root, 'dashboard/js/core/ai.js'), 'utf8');
 
 assert.doesNotMatch(source, /class="study-sidebar"/,

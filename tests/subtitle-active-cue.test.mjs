@@ -10,6 +10,7 @@ import {
   MAX_CUE_SECONDS,
 } from '../content/subtitles/active-cue.js';
 import { parseVTT } from '../content/subtitles/vtt-parser.js';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
 const words = (n) => Array.from({ length: n }, (_, i) => `word${i}`).join(' ');
 
@@ -59,7 +60,7 @@ test('pausa automática dispara ao cruzar o fim, mesmo quando o frame pula a jan
 });
 
 test('motor usa a mesma regra na tela, na pausa e na barra lateral', async () => {
-  const src = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+  const src = await readEngineSource();
   assert.match(src, /findActiveCueIndex\(/);
   assert.match(src, /crossedCueEnd\(/);
   assert.doesNotMatch(src, /Math\.min\(8\.0/, 'teto de 8 s removido do sync loop');
@@ -91,7 +92,7 @@ test('Netflix: fala do DOM em segundos, fechada quando muda/some e sem duplicar'
 });
 
 test('botão de tradução rápida mantém o ícone e tem nome acessível; sem controle de idioma do áudio', async () => {
-  const src = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+  const src = await readEngineSource();
   assert.doesNotMatch(src, /translateBtn\.textContent = /, 'não troca o ícone SVG por texto');
   assert.match(src, /id="lf-translate-btn"[^>]*aria-label="Traduzir frase"/);
   assert.doesNotMatch(src, /lf-listening-controls|ListeningClock/, 'contador automático de listening foi removido (#387)');

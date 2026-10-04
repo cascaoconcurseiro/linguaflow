@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 import { shouldProxyTranslationThroughExtension } from '../utils/translator.js';
 
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
-const stories = read('dashboard/js/ui/storiesView.js');
+// O CSS da tela vive em storiesViewStyles.js; as exigências valem para os dois arquivos juntos.
+const stories = `${read('dashboard/js/ui/storiesView.js')}\n${read('dashboard/js/ui/storiesViewStyles.js')}`;
 const translatorSrc = read('utils/translator.js');
 
 // 1. Contrato do Proxy de Tradução: Web App nunca tenta proxy via extensão

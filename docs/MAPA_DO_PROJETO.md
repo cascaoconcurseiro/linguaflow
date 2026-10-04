@@ -452,9 +452,11 @@ Para atualizar: `npm run map`.
 | `dashboard/js/ui/firstSteps.js` | P | Primeiros passos da tela Hoje (#427): para quem ainda não salvou nenhuma palavra, o caminho é o mesmo da promessa do produto — entender o que você assiste e salvar a p… |
 | `dashboard/js/ui/fluencyCheckView.js` | G | Tela da Checagem de Fluência: passos, envio das respostas, estados de carregamento/erro e adaptador de dados. |
 | `dashboard/js/ui/homeView.js` | GG ⚠ | Tela Início: próximo passo do dia, palavras difíceis, horas de estudo, conquistas e avisos. |
+| `dashboard/js/ui/homeViewStyles.js` | M | Estilos da tela Início, injetados uma vez no <head> pela homeView. |
 | `dashboard/js/ui/leaguesView.js` | M | Tela de Ligas: liga atual, ranking da semana e os 5 que avançam. |
 | `dashboard/js/ui/learnView.js` | P | Tela Aprender: escolhe entre histórias no seu nível, o Leitor de textos e aprender com vídeo (YouTube e Max). |
-| `dashboard/js/ui/libraryView.js` | GG ⚠ | Tela Cofre: palavras e frases salvas por baralho ou por palavra, busca, revisão por tema e preenchimento do contexto que falta. |
+| `dashboard/js/ui/libraryView.js` | G | Tela Cofre: palavras e frases salvas por baralho ou por palavra, busca, revisão por tema e preenchimento do contexto que falta. |
+| `dashboard/js/ui/libraryViewStyles.js` | M | Estilos da tela Cofre, injetados uma vez no <head> pela libraryView. |
 | `dashboard/js/ui/loginView.js` | M | Tela de login e cadastro (entrar ou criar conta). |
 | `dashboard/js/ui/progressView.js` | M | Progresso = estatísticas de todo o sistema (vídeo, leitura, revisões FSRS, cursos, histórias e escuta) a partir de uma única RPC (rpc_system_stats). |
 | `dashboard/js/ui/readerView.js` | G | Modo Leitor estilo LingQ. |
@@ -464,8 +466,10 @@ Para atualizar: `npm run map`.
 | `dashboard/js/ui/statsView.js` | M | Onda 2.1 (Gerente+Eng. SRS): tela de Estatísticas, paridade com o "Stats" do Anki. Consome dados REAIS do Supabase (cards, review_log, sessions) através de statsEngine… |
 | `dashboard/js/ui/storiesQuiz.js` | M | Quiz das histórias: valida as perguntas devolvidas pela IA (3 a 5, com 4 opções), gera o quiz e o desenha na tela. |
 | `dashboard/js/ui/storiesView.js` | GG ⚠ | Tela Histórias: gera e lê histórias por nível, formato de livro, tradução no hover, quiz e relatório. |
+| `dashboard/js/ui/storiesViewStyles.js` | P | Estilos da tela Histórias, injetados uma vez no <head> pela storiesView. |
 | `dashboard/js/ui/storyReport.js` | P | "Reportar problema nesta história" (#435): histórias são geradas por IA e ninguém as revisa antes de chegarem ao aluno; este atalho leva o aluno a apontar o problema n… |
 | `dashboard/js/ui/studyView.js` | GG ⚠ | Tela Estudar (revisão FSRS): fila de cards, 4 formas de revisar, avaliação idempotente, desfazer, áudio e sessão. |
+| `dashboard/js/ui/studyViewStyles.js` | M | Estilos da tela Estudar (revisão FSRS), injetados uma vez no <head> pela studyView. |
 | `dashboard/js/ui/systemNotice.js` | P | Faixa de aviso global definida em Admin > Sistema (#408). Falha em silêncio: aviso nunca bloqueia o estudo. |
 | `dashboard/js/ui/viewState.js` | P | Estados padrão de tela (carregando, vazio, erro, sucesso) e escape de HTML para as views. |
 

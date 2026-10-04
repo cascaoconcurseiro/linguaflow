@@ -98,6 +98,7 @@
         "content/subtitles/active-cue.js",
         "content/subtitles/activation-state.js",
         "content/subtitles/start-tip.js",
+        "content/subtitles/shortcuts-help.js",
         "content/subtitles/youtube-dock-styles.js",
         "content/subtitles/transcript-render.js",
         "content/subtitles/video-vocabulary.js",

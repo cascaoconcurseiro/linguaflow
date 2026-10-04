@@ -18,6 +18,7 @@ import {
 } from './subtitles/dock-layout.js';
 import { setupPlayerHotkeys } from './subtitles/player-hotkeys.js';
 import { YOUTUBE_DOCK_CSS } from './subtitles/youtube-dock-styles.js';
+import { showShortcutsHelp } from './subtitles/shortcuts-help.js';
 import {
   DEFAULT_START_MODE,
   loadStoredActivation,
@@ -1326,6 +1327,11 @@ export class SubtitleEngine {
                     transform: scale(1.18) translateY(-2px);
                     color: #FBBF24 !important;
                 }
+                .lf-word:focus-visible {
+                    outline: 2px solid #FBBF24;
+                    outline-offset: 3px;
+                    color: #FBBF24 !important;
+                }
                 .lf-known    { color: var(--lf-color-known, #86EFAC); }  /* verde claro — já sei */
                 .lf-mature   { color: #34D399; text-decoration: underline dotted; text-underline-offset: 3px; } /* verde — dominada */
                 .lf-review   { color: #38BDF8; text-decoration: underline dashed; text-underline-offset: 3px; } /* azul — revisando */
@@ -1716,6 +1722,119 @@ export class SubtitleEngine {
     }
   }
 
+  // ── Atalhos de estudo do player (#432) ─────────────────────────────────────
+
+  // Ajuste fino da sincronia: positivo = a legenda aparece mais cedo (mesma regra do controle
+  // deslizante das configurações: o tempo de busca da fala é mídia + antecipação).
+  nudgeSync(delta) {
+    const current = Number(this.translationAnticipation) || 0;
+    const next = Math.round(Math.min(2, Math.max(-2, current + delta)) * 10) / 10;
+    if (next === current) {
+      this._showNotification('⏱️ Sincronia no limite (±2 s)');
+      return current;
+    }
+    this.translationAnticipation = next;
+    window.dispatchEvent(new CustomEvent('LF_UPDATE_ANTICIPATION', { detail: next }));
+    import('../utils/db.js')
+      .then(({ db }) => db?.setSetting?.('translationAnticipation', next)?.catch?.(() => {}))
+      .catch(() => {});
+    const label = `${next > 0 ? '+' : ''}${next.toFixed(1).replace('.', ',')} s`;
+    this._showNotification(`⏱️ Sincronia ${label} · legenda ${delta > 0 ? 'mais cedo' : 'mais tarde'}`);
+    return next;
+  }
+
+  // Laço A–B: 1º toque marca o início, 2º marca o fim e repete, 3º desfaz.
+  toggleAbLoop() {
+    if (!this.videoElement) return false;
+    const now = Number(this.videoElement.currentTime);
+    if (!Number.isFinite(now)) return false;
+    const fmt = (seconds) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+
+    if (this._abPoint == null && !this.isLooping) {
+      this._abPoint = now;
+      this._showNotification(`🅰️ Início em ${fmt(now)} · aperte B de novo para marcar o fim`);
+      return 'a';
+    }
+    if (this._abPoint != null) {
+      const start = this._abPoint;
+      if (now - start < 0.5) {
+        this._showNotification('O fim precisa ficar pelo menos 0,5 s depois do início');
+        return 'invalid';
+      }
+      this._abPoint = null;
+      const started = this._startPreciseLoopByCue({ start, end: now });
+      if (started) this._showNotification(`🔁 Laço ${fmt(start)}–${fmt(now)} · B desfaz`);
+      return started ? 'loop' : false;
+    }
+    this._stopLoop();
+    this._showNotification('▶️ Laço desativado');
+    return 'off';
+  }
+
+  // Escuta primeiro: esconde a legenda original até passar o mouse (mesmo modo das configurações).
+  toggleListenFirst() {
+    this.blurSubtitles = !this.blurSubtitles;
+    window.dispatchEvent(new CustomEvent('LF_UPDATE_BLUR', { detail: this.blurSubtitles }));
+    import('../utils/db.js')
+      .then(({ db }) => db?.setSetting?.('blurSubtitles', this.blurSubtitles)?.catch?.(() => {}))
+      .catch(() => {});
+    if (this._lastOrig) this.renderDual(this._lastOrig, this._lastTrans || '');
+    this._showNotification(this.blurSubtitles ? '🎧 Escuta primeiro: legenda escondida' : '👁️ Legenda original visível');
+    return this.blurSubtitles;
+  }
+
+  showShortcuts() {
+    return showShortcutsHelp();
+  }
+
+  // Navegação pelas palavras da legenda só com o teclado (acessibilidade).
+  _subtitleWordEls() {
+    return [...(this.shadowContainer?.querySelectorAll?.('#lf-orig .lf-word') || [])];
+  }
+
+  isWordNavActive() {
+    const active = this.shadowContainer?.activeElement;
+    return Boolean(active?.classList?.contains('lf-word'));
+  }
+
+  focusSubtitleWords() {
+    const words = this._subtitleWordEls();
+    if (!words.length) {
+      this._showNotification('Nenhuma palavra na legenda agora');
+      return false;
+    }
+    if (this.videoElement && !this.videoElement.paused) {
+      this.videoElement.pause();
+      this._wordNavPaused = true;
+    }
+    words[0].focus();
+    this._showNotification('← → escolhem a palavra · Enter abre o card · Esc volta');
+    return true;
+  }
+
+  moveWordFocus(step) {
+    const words = this._subtitleWordEls();
+    if (!words.length) return false;
+    const active = this.shadowContainer?.activeElement;
+    const index = Math.max(0, words.indexOf(active));
+    const next = words[Math.min(words.length - 1, Math.max(0, index + step))];
+    next.focus();
+    return true;
+  }
+
+  activateFocusedWord() {
+    const active = this.shadowContainer?.activeElement;
+    if (!active?.classList?.contains('lf-word')) return false;
+    active.click();
+    return true;
+  }
+
+  leaveWordFocus() {
+    this.shadowContainer?.activeElement?.blur?.();
+    if (this._wordNavPaused && this.videoElement?.paused) this.videoElement.play?.()?.catch?.(() => {});
+    this._wordNavPaused = false;
+  }
+
   toggleLoop() {
     if (!this.videoElement) return false;
 
@@ -1838,6 +1957,7 @@ export class SubtitleEngine {
   }
 
   _stopLoop() {
+    this._abPoint = null;
     this.isLooping = false;
     this.loopStartTime = null;
     this.loopEndTime = null;
@@ -3903,6 +4023,9 @@ export class SubtitleEngine {
       }
     }
     span.className = baseClass + cefrClass + ' ' + this._wordClass(text);
+    // Acessível por teclado (tecla F foca as palavras; Enter abre o card) e por leitor de tela.
+    span.setAttribute('role', 'button');
+    span.tabIndex = -1;
 
     let hoverTimeout = null;
     const clearHoverIntent = () => {
@@ -4016,7 +4139,7 @@ export class SubtitleEngine {
     saveActivation(this.isActivated);
     this._trackUsage(this.isActivated ? 'lf_enabled' : 'lf_disabled');
     this._dismissStartTip?.();
-    this._showNotification(this.isActivated ? '👁️ LinguaFlow ligado' : '🙈 LinguaFlow desligado');
+    this._showNotification(this.isActivated ? '👁️ LinguaFlow ligado · ? mostra os atalhos' : '🙈 LinguaFlow desligado');
   }
 
   // Telemetria de produto (#426): fire-and-forget, uma vez por evento por página; nunca atrapalha o player.

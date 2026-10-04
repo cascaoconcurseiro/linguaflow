@@ -1,5 +1,5 @@
 // content/subtitles/player-hotkeys.js — Gerenciamento isolado dos atalhos de teclado do player
-// Centro de Comando: A, S, D, Q, R, L, O, C, Espaço
+// Centro de Comando: A, S, D, Q, R, L, O, C, Espaço, Z, X, B, V, F, ? (lista em subtitles/shortcuts-help.js)
 
 import { isEditableTarget } from '../../utils/dom-events.js';
 
@@ -38,6 +38,11 @@ export function setupPlayerHotkeys(engine, signal) {
       return;
     }
 
+    // 3b. Painel de atalhos aberto: ele cuida das próprias teclas (Esc, ?, H, Tab)
+    if (document.getElementById?.('lf-shortcuts-help')) {
+      return;
+    }
+
     // 4. Se o diálogo de configurações estiver aberto e focado em seus botões, não dispara
     const settingsHost = document.querySelector?.('lingua-settings');
     if (settingsHost && settingsHost.shadowRoot?.activeElement && (e.code === 'Space' || e.key === ' ')) {
@@ -52,6 +57,36 @@ export function setupPlayerHotkeys(engine, signal) {
 
     // LinguaFlow desligado (#418): só a tecla C age; o resto volta ao player nativo.
     if (engine.isActivated === false && code !== 'KeyC' && key !== 'c') return;
+
+    const swallow = () => {
+      e.preventDefault?.();
+      e.stopPropagation?.();
+      e.stopImmediatePropagation?.();
+    };
+
+    // Navegação pelas palavras da legenda (#432): com uma palavra em foco, as setas, Enter e Esc são dela.
+    if (engine.isWordNavActive?.()) {
+      if (code === 'ArrowRight' || key === 'arrowright') { swallow(); engine.moveWordFocus(1); return; }
+      if (code === 'ArrowLeft' || key === 'arrowleft') { swallow(); engine.moveWordFocus(-1); return; }
+      if (code === 'Enter' || key === 'enter') { swallow(); engine.activateFocusedWord(); return; }
+      if (code === 'Escape' || key === 'escape') { swallow(); engine.leaveWordFocus(); return; }
+    }
+
+    // Sincronia da legenda: Z = mais tarde, X = mais cedo (0,1 s por toque)
+    if (code === 'KeyZ' || key === 'z') { swallow(); engine.nudgeSync(-0.1); return; }
+    if (code === 'KeyX' || key === 'x') { swallow(); engine.nudgeSync(0.1); return; }
+
+    // Laço A–B (B)
+    if (code === 'KeyB' || key === 'b') { swallow(); engine.toggleAbLoop(); return; }
+
+    // Escuta primeiro (V)
+    if (code === 'KeyV' || key === 'v') { swallow(); engine.toggleListenFirst(); return; }
+
+    // Escolher palavra da legenda pelo teclado (F)
+    if (code === 'KeyF' || key === 'f') { swallow(); engine.focusSubtitleWords(); return; }
+
+    // Lista de atalhos (? ou H)
+    if (key === '?' || code === 'KeyH' || key === 'h') { swallow(); engine.showShortcuts(); return; }
 
     // Trecho anterior (A)
     if (code === 'KeyA' || key === 'a') {
@@ -92,7 +127,7 @@ export function setupPlayerHotkeys(engine, signal) {
       engine._showAutoPauseIndicator();
       window.dispatchEvent?.(new CustomEvent('LF_UPDATE_AUTOPAUSE', { detail: engine.autoPause }));
       import('../../utils/db.js').then(({ db }) => {
-        db?.saveSetting?.('autoPause', engine.autoPause)?.catch?.(() => {});
+        db?.setSetting?.('autoPause', engine.autoPause)?.catch?.(() => {});
       }).catch(() => {});
       return;
     }

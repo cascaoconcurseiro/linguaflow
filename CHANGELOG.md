@@ -2,6 +2,12 @@
 
 ## [Não lançado]
 
+### Adicionado
+- **Mais controle no player**: `Z`/`X` ajustam a sincronia da legenda em 0,1 s sem abrir as configurações; `B` marca um laço entre dois pontos (A–B); `V` liga a escuta primeiro (legenda original escondida); `F` escolhe palavras da legenda só com o teclado (setas, Enter abre o card, Esc volta); `?` abre a lista de todos os atalhos. Com o LinguaFlow desligado, nenhum deles age (#432).
+
+### Corrigido
+- **A tecla `Q` (pausa automática) agora salva a escolha**: ela chamava um método que não existe e a preferência se perdia ao recarregar. O painel de configurações também passa a refletir mudanças feitas por atalho, em vez de mostrar o valor antigo (#432).
+
 ## [3.0.64] - 2026-10-03
 
 Inclui também as mudanças acumuladas desde a 3.0.59 que ainda não tinham seção própria.

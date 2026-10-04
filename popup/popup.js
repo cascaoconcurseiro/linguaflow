@@ -126,23 +126,21 @@ async function renderLoggedIn() {
       langBadge.textContent = langFlags[sourceLang.toLowerCase()] || sourceLang.toUpperCase();
     }
 
-    const [studyStats, userStats, dueCount] = await Promise.all([
-      lfDb.getStudyStats?.(sourceLang).catch(() => null),
+    const [reviewLogToday, wordsToday, userStats, dueCount] = await Promise.all([
+      lfDb.getReviewLog?.(1).catch(() => null),
+      lfDb.getWordsSavedToday?.().catch(() => null),
       lfDb.getUserStats?.().catch(() => null),
       typeof lfDb.getCardsDueCount === 'function'
         ? lfDb.getCardsDueCount(0).catch(() => 0)
         : (lfDb.getCardsDue?.(1000, false).then(cards => cards?.length || 0).catch(() => 0)),
     ]);
 
-    // Listening Hoje e Total
-    const listeningTodayEl = document.getElementById('listening-today');
-    const listeningTotalEl = document.getElementById('listening-total');
-    if (listeningTodayEl && studyStats?.listening) {
-      listeningTodayEl.textContent = studyStats.listening.todayFormatted || '0m';
-    }
-    if (listeningTotalEl && studyStats?.listening) {
-      listeningTotalEl.textContent = studyStats.listening.totalFormatted || '0m';
-    }
+    // Resumo do dia: números vivos (revisões e palavras salvas). O antigo "Listening" dependia do contador
+    // automático de escuta, removido em #387, e ficava parado para sempre; "—" quando não foi possível ler.
+    const reviewsTodayEl = document.getElementById('reviews-today');
+    const wordsTodayEl = document.getElementById('words-today');
+    if (reviewsTodayEl) reviewsTodayEl.textContent = Array.isArray(reviewLogToday) ? String(reviewLogToday.length) : '—';
+    if (wordsTodayEl) wordsTodayEl.textContent = Number.isFinite(wordsToday) ? String(wordsToday) : '—';
 
     // Streak
     const streakCountEl = document.getElementById('streak-count');

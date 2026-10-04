@@ -1,6 +1,6 @@
 # Cursos (prática de escuta e digitação)
 
-Área **Cursos** do site: o aluno ouve uma frase do inglês cotidiano e a escreve palavra por palavra. É independente do Cofre — não lê nem grava `words`, `cards` ou `review_log`.
+Área **Cursos** do site: o aluno ouve uma frase do inglês cotidiano e a escreve palavra por palavra. É independente do Cofre — a prática não lê nem grava `words`, `cards` ou `review_log`; só o botão "Enviar ao Cofre", acionado pelo aluno, cria um cartão.
 
 ## Estado
 
@@ -10,6 +10,7 @@
 | Player | Pronto: modos fácil/médio/difícil, pausa, revelar resposta, salvar vocabulário/nota, envio idempotente com reenvio. |
 | Cadernos | Erros pendentes, revisões vencidas e vocabulário salvo, lidos do banco. Praticar um erro/revisão reabre a lição de origem. |
 | Conteúdo novo | Entra por migration de seed (append-only). Não há ferramenta editorial ainda. |
+| Cofre | Opcional e explícito: "＋ Enviar ao Cofre" (resposta da prática e caderno de vocabulário) leva a frase para a fila única de revisão (FSRS no servidor) pelo mesmo caminho das palavras de vídeo (`db.saveWord`). Não sobrescreve palavra existente, respeita o teto do Cofre e não envia parágrafos/histórias (#434). |
 | Tudo gratuito | Não há capítulos restritos nem planos pagos. |
 
 ## Fluxo

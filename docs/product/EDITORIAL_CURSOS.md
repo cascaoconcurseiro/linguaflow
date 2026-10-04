@@ -28,3 +28,13 @@ migration nova. Para retirar uma unidade, use `retireUnits` no curso do lote nov
   auditoria, e uma decisão sobre revisão humana. Está fora do escopo atual.
 - O verificador garante formato, IPA válido, léxico e imutabilidade; **não** garante que a
   tradução está boa.
+
+## Revisão humana por amostragem
+
+O verificador não sabe se uma tradução está boa. Para a revisão que só uma pessoa faz:
+
+1. `npm run content:review -- --per-course 5 --seed revisao-1 --out amostra.csv` gera uma planilha (abre no Excel
+   com acentos corretos). A mesma semente devolve as mesmas linhas; mude a semente para outra rodada.
+2. O revisor preenche `status_revisao` (aprovado / corrigir) e `correcao_sugerida`.
+3. Cada correção vira um lote novo (ver "Corrigir uma frase já publicada"). Exemplo real: `correcoes-1`
+   corrigiu a nota de "ninety", achada já na primeira amostra.

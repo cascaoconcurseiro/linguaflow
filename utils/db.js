@@ -1014,6 +1014,14 @@ class Database {
     return cards;
   }
 
+  // Palavras que o aluno salvou hoje (dia local). Alimenta o resumo do popup da extensão.
+  async getWordsSavedToday() {
+    if (this.isProxyMode) return this._proxy('getWordsSavedToday', []);
+    const { start, end } = localDayBounds();
+    const rows = await this._fetch(`words?select=id&added_at=gte.${encodeURIComponent(start.toISOString())}&added_at=lt.${encodeURIComponent(end.toISOString())}`);
+    return Array.isArray(rows) ? rows.length : 0;
+  }
+
   // Contadores do dia para os limites diários (novas/dia e revisões/dia)
   async getTodayCounts() {
     if (this.isProxyMode) return this._proxy('getTodayCounts', []);

@@ -4,6 +4,7 @@ import { db } from '../../../../utils/db.js';
 import { escapeHTML } from '../../../../utils/html.js';
 import { playNaturalAudio } from '../../core/tts.js';
 import { reviewBatchPlan } from '../../core/reviewBatches.js';
+import { canSendUnitToVault, runSendToVault } from '../../core/courseVault.js';
 import { formatDate, formatDateTime, renderLoading, renderLoadError, renderEmpty, startNotebookPractice } from './courseUi.js';
 
 const PRACTICE_BATCH = 20;
@@ -151,6 +152,7 @@ export async function renderVocabularyNotebook(panel, ctx) {
         </div>
         <div class="course-item-actions">
           <button class="course-player-btn-icon" type="button" data-action="speak" aria-label="Ouvir a frase">🔊</button>
+          ${canSendUnitToVault(r.course_units) ? '<button class="course-player-btn-back" type="button" data-action="vault" title="Entra na sua revisão espaçada junto com as palavras dos vídeos">＋ Cofre</button>' : ''}
           <button class="course-player-btn-icon" type="button" data-action="remove" aria-label="Remover do vocabulário">✕</button>
         </div>
       </li>`).join('')}</ul>`;
@@ -163,6 +165,9 @@ export async function renderVocabularyNotebook(panel, ctx) {
     const row = rows.find((r) => r.unit_id === item.dataset.unit);
     item.querySelector('[data-action="speak"]').addEventListener('click', () => {
       playNaturalAudio(row?.course_units?.text || '', { lang: 'en-US' }).catch(() => app.showToast?.('Não foi possível tocar o áudio agora.', 'error'));
+    });
+    item.querySelector('[data-action="vault"]')?.addEventListener('click', (event) => {
+      runSendToVault(event.currentTarget, row?.course_units, { db, app, courseTitle: row?.course_units?.course_lessons?.course_catalog?.title });
     });
     const removeBtn = item.querySelector('[data-action="remove"]');
     removeBtn.addEventListener('click', async () => {

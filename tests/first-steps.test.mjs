@@ -22,6 +22,8 @@ test('estado salvo inválido não quebra a tela', () => {
 test('HTML: lista ordenada, passo atual anunciado, botões só no passo atual, sem HTML solto', () => {
   const html = renderFirstSteps(buildFirstSteps());
   assert.match(html, /<ol class="first-steps-list">/);
+  assert.doesNotMatch(html, /<h3/, 'títulos dos passos são h2 (h1 → h2, sem pular nível)');
+  assert.match(html, /<h2>Instale a extensão no Chrome/);
   assert.match(html, /aria-current="step"/);
   assert.equal((html.match(/data-first-step=/g) || []).length, 1);
   assert.match(html, /Baixar a extensão/);

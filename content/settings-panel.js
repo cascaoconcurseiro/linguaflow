@@ -314,6 +314,25 @@ export class SettingsPanel {
       window.dispatchEvent(new CustomEvent('LF_UPDATE_DELAY', { detail: v }));
     };
 
+    // Atalhos do player (Z/X, Q, V) mudam estes valores fora do painel: espelha aqui para o painel
+    // nunca mostrar (nem regravar) um valor velho.
+    window.addEventListener('LF_UPDATE_ANTICIPATION', (e) => {
+      const v = Number(e.detail);
+      if (!Number.isFinite(v)) return;
+      this.cfg.translationAnticipation = v;
+      s.getElementById('rng-anticipation').value = v;
+      s.getElementById('val-anticipation').textContent = `${v}s`;
+    });
+    window.addEventListener('LF_UPDATE_AUTOPAUSE', (e) => {
+      this.cfg.autoPause = Boolean(e.detail);
+      s.getElementById('sel-autopause').value = e.detail ? 'on' : 'off';
+    });
+    window.addEventListener('LF_UPDATE_BLUR', (e) => {
+      this.cfg.blurSubtitles = Boolean(e.detail);
+      const select = s.getElementById('sel-blur');
+      if (select) select.value = e.detail ? 'on' : 'off';
+    });
+
     s.getElementById('rng-anticipation').oninput = (e) => {
       const v = Number(e.target.value);
       s.getElementById('val-anticipation').textContent = `${v}s`;

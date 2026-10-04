@@ -129,4 +129,7 @@ run_pg "${PSQL[@]}" -f "$ROOT/tests/db/weak-words.sql"
 echo "── funil de uso sem dados pessoais (#426)"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/usage-events.sql"
 
+echo "── correções de conteúdo publicado (#435)"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-corrections.sql"
+
 echo "✅ Migrations reproduzíveis + gates comportamentais P0.1/P0.2/#118 passaram."

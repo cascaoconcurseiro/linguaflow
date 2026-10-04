@@ -52,7 +52,7 @@ export function showStartTip(anchor, { placement = 'above', onClose } = {}) {
       #lf-start-tip.is-in{opacity:1;transform:none;}
       #lf-start-tip strong{color:#7dd3fc;}
       #lf-start-tip button{margin-top:8px;appearance:none;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;
-        font:600 12px system-ui;background:#0284c7;color:#fff;}
+        font:600 12px system-ui;background:#0369a1;color:#fff;}
       #lf-start-tip button:focus-visible{outline:2px solid #7dd3fc;outline-offset:2px;}
       @media (prefers-reduced-motion:reduce){#lf-start-tip{transition:none;transform:none;}}
     </style>

@@ -1,6 +1,6 @@
 {
   "name": "linguaflow",
-  "version": "3.0.64",
+  "version": "3.0.65",
   "private": true,
   "type": "module",
   "description": "LinguaFlow - Chrome Extension + Web App",
@@ -17,7 +17,7 @@
     "test:coverage": "c8 --all --include=dashboard/js/core/**/*.js --include=utils/**/*.js --reporter=text --reporter=lcov node tests/architectural-resilience.test.mjs",
     "test:observability": "node tests/observability.test.mjs",
     "test:mutation": "stryker run",
-    "test:engine": "node tests/engine.test.mjs",
+    "test:engine": "node tests/engine.test.mjs && node --test tests/retention-intervals.test.mjs",
     "test:local-day": "node tests/local-day.test.mjs",
     "test:video": "node tests/video-context.test.mjs",
     "test:yt-player": "node tests/yt-player.test.mjs",
@@ -28,7 +28,7 @@
     "test:subtitle-lifecycle": "node --test tests/extension-context-lifecycle.test.mjs && node tests/subtitle-lifecycle.test.mjs && node tests/subtitle-bridge-security.test.mjs && node --test tests/youtube-caption-integrity.test.mjs && node --test tests/caption-popup-startup.test.mjs tests/modular-subtitles-contract.test.mjs tests/player-hotkeys-and-autopause.test.mjs && node --test tests/speech-cadence-and-connected-speech.test.mjs tests/caption-casing.test.mjs tests/subtitle-active-cue.test.mjs tests/video-vocabulary-lemma.test.mjs tests/subtitle-seek-gap.test.mjs tests/word-popup-layout.test.mjs tests/security-hardening-lexicon.test.mjs tests/hover-tip.test.mjs tests/ignored-words.test.mjs tests/word-senses.test.mjs tests/word-in-video.test.mjs tests/word-popup-senses-and-video.test.mjs tests/subtitle-transcript-panel.test.mjs tests/subtitle-words-tab.test.mjs tests/expression-detection-precision.test.mjs tests/expression-detection-rules.test.mjs tests/line-explainer.test.mjs tests/caption-conflict.test.mjs",
     "test:subtitle-display": "node tests/subtitle-display-mode.test.mjs",
     "test:word-popup-hover": "node tests/word-popup-hover-race.test.mjs && node tests/word-popup-accessibility.test.mjs",
-    "test:max-ui": "node tests/max-player-ui.test.mjs && node tests/player-controls-sync.test.mjs && node --test tests/player-start-mode.test.mjs tests/usage-events-contract.test.mjs",
+    "test:max-ui": "node tests/max-player-ui.test.mjs && node tests/player-controls-sync.test.mjs && node --test tests/player-start-mode.test.mjs tests/usage-events-contract.test.mjs tests/player-shortcuts.test.mjs tests/popup-and-identity.test.mjs",
     "test:study-hours": "node tests/multimodal-study-hours.test.mjs",
     "test:words-explorer": "node tests/words-explorer-contract.test.mjs && node tests/popup-phrasal-slang-detector.test.mjs && node --test tests/modular-popup-linguistics-contract.test.mjs",
     "test:focus-shell": "node tests/focus-shell.test.mjs",
@@ -46,7 +46,7 @@
     "test:understand-panel": "node tests/understand-panel-p0-b.test.mjs",
     "test:language-state": "node tests/product-language-state-p0-c.test.mjs",
     "test:vault-settings": "node tests/cofre-settings-p1-a.test.mjs",
-    "test:reading-experience": "node tests/reading-experience-p1-b.test.mjs && node tests/stories-book-format-and-hover-translation.test.mjs && node tests/cross-platform-environment-contract.test.mjs && node --test tests/stories-quiz-contract.test.mjs && node --test tests/lexical-profile-i-plus-one.test.mjs && node --test tests/readability-cefr-calibration.test.mjs",
+    "test:reading-experience": "node --test tests/story-report.test.mjs && node tests/reading-experience-p1-b.test.mjs && node tests/stories-book-format-and-hover-translation.test.mjs && node tests/cross-platform-environment-contract.test.mjs && node --test tests/stories-quiz-contract.test.mjs && node --test tests/lexical-profile-i-plus-one.test.mjs && node --test tests/readability-cefr-calibration.test.mjs",
     "test:onboarding": "node tests/onboarding-p1-c.test.mjs && node tests/home-direct-entry.test.mjs",
     "test:practice-progress": "node tests/practice-progress-p1-d.test.mjs && npm run test:game-removal",
     "test:game-removal": "node tests/game-removal-contract.test.mjs",
@@ -93,7 +93,8 @@
     "dev": "node tests/fixtures/preview-server.mjs",
     "test:stabilization": "node --test tests/stabilization.test.mjs",
     "content:check": "node scripts/content-check.mjs",
-    "test:courses": "node tests/content-check.test.mjs && node tests/sound-engine.test.mjs && node tests/remove-course-401.test.mjs && node --test tests/courses-hash-route.test.mjs tests/review-batches-398.test.mjs tests/input-engine.test.mjs tests/course-practice-session.test.mjs tests/course-continue-target.test.mjs tests/courses-system-contract.test.mjs tests/progress-stats-contract.test.mjs tests/undeclared-variables.test.mjs"
+    "content:review": "node scripts/content-review-sample.mjs",
+    "test:courses": "node tests/content-check.test.mjs && node --test tests/content-review-sample.test.mjs tests/course-vault.test.mjs && node tests/sound-engine.test.mjs && node tests/remove-course-401.test.mjs && node --test tests/courses-hash-route.test.mjs tests/review-batches-398.test.mjs tests/input-engine.test.mjs tests/course-practice-session.test.mjs tests/course-continue-target.test.mjs tests/courses-system-contract.test.mjs tests/progress-stats-contract.test.mjs tests/undeclared-variables.test.mjs"
   },
   "dependencies": {
     "acorn": "^8.17.0"

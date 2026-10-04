@@ -539,7 +539,7 @@ Para atualizar: `npm run map`.
 | `utils/caption-grouping.js` | P | Agrupa eventos de legenda em frases do tamanho da tela e casa traduções por tempo, sem alterar palavras nem horários. |
 | `utils/cefr-wordlist.json` | P | Nível CEFR (A1…C2) de cada palavra em inglês; base do perfil lexical e da dificuldade dos textos. |
 | `utils/context-chunks.js` | P | Estrutura compartilhada para manter o trecho original e a unidade aprendida no mesmo card sem misturar isso com exemplos genéricos de IA. |
-| `utils/db.js` | GG ⚠ | Banco único do LinguaFlow (Cloud-Only) Integração 100% direta com Supabase via REST API (sem IndexedDB local) |
+| `utils/db.js` | M | Banco único do LinguaFlow (Cloud-Only) Integração 100% direta com Supabase via REST API (sem IndexedDB local) |
 | `utils/dom-events.js` | P | Utilitários de eventos DOM e proteção contra conflito de teclado |
 | `utils/exclusive-playback.js` | P | Coordena recursos de áudio assíncronos. Uma geração antiga nunca pode recuperar o controle depois que uma reprodução mais nova começou. |
 | `utils/expression-detector.js` | M | Detecção única de expressões na fala (legenda, roteiro, aba Palavras e popup), com posições no texto. Tipos: - phrasal: phrasal verb idiomático, inclusive separado ("t… |
@@ -570,10 +570,19 @@ Para atualizar: `npm run map`.
 
 | Arquivo | Porte | Para que serve |
 |---|---|---|
+| `utils/db/account.js` | P | Conta e engajamento: estatísticas do usuário, ranking, push, e-mail, cache de tradução e conquistas. |
+| `utils/db/admin.js` | M | Painel de administração: papéis, PIN, usuários, backups, auditoria, avisos do sistema e denúncias. |
+| `utils/db/cards.js` | M | Cards: fila de estudo, devidos de hoje, enterrar, suspender, restaurar e resetar. |
 | `utils/db/courses-repo.js` | M | Repositório do domínio de Cursos (escuta + digitação) Conteúdo vem das tabelas course_*; progresso, erros, revisões e sessões só mudam por RPC. Leituras lançam erro pa… |
 | `utils/db/gamification-repo.js` | P | Repositório especializado em Gamificação, Ligas, Telemetria e Web Push Submódulo modular extraído de utils/db.js (Cloud-Only / Supabase) |
+| `utils/db/learning.js` | M | Tarefas de aprendizagem e checagem de fluência: perfis adaptativos, envio, avaliação e rascunho. |
 | `utils/db/reader-stories-repo.js` | M | Repositório especializado em Histórias e Web Reader Submódulo modular extraído de utils/db.js (Cloud-Only / Supabase) |
+| `utils/db/shared.js` | P | Constantes e funções puras compartilhadas pelo banco (db.js) e pelos seus módulos por assunto. |
+| `utils/db/srs-constants.js` | P | Parâmetros do agendamento: chaves de SRS por categoria e os pesos default do FSRS-4.5. |
+| `utils/db/srs.js` | M | Agendamento: configurações de SRS, perfis por categoria, FSRS-4.5, previsão e registro/desfazer de revisão. |
 | `utils/db/stats-repo.js` | P | Estatísticas de todo o sistema (página Progresso). |
+| `utils/db/study.js` | M | Estatísticas e tempo de estudo: histórico, streak, sessões, estudo manual, fila de listening e resumo do painel. |
+| `utils/db/words.js` | G | Palavras, frases, histórias, textos do leitor, palavras conhecidas/ignoradas, tags e léxico canônico. |
 
 ### Backend — Edge Functions (`supabase/functions/`)
 

@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
+import { readDbSourceSync } from './helpers/db-source.mjs';
 
 const MIGRATION_PATH = 'supabase/migrations/20260926120000_canonical_lexicon_cache.sql';
 
@@ -28,7 +29,7 @@ test('FinOps: Migration do Cache Léxico Canônico', () => {
 });
 
 test('FinOps: Métodos no DB Client e Proxy no Service Worker', () => {
-  const dbCode = readFileSync('utils/db.js', 'utf8');
+  const dbCode = readDbSourceSync();
   assert.match(dbCode, /async\s+getCanonicalLexicon\s*\(/, 'db.js deve exportar getCanonicalLexicon');
   assert.match(dbCode, /async\s+saveCanonicalLexicon\s*\(/, 'db.js deve exportar saveCanonicalLexicon');
 

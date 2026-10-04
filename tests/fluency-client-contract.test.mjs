@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { readDbSourceSync } from './helpers/db-source.mjs';
 
-const db = readFileSync(new URL('../utils/db.js', import.meta.url), 'utf8');
+const db = readDbSourceSync();
 
 for (const method of [
   'issueFluencyTask',

@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { readDbSourceSync } from './helpers/db-source.mjs';
 
 const ROOT = process.cwd();
 
@@ -25,8 +26,7 @@ test('Migration 20260913100000_admin_authority_rpcs.sql contains role-based chec
 });
 
 test('utils/db.js exposes all required admin methods without hardcoding PII', () => {
-  const dbPath = path.join(ROOT, 'utils', 'db.js');
-  const content = fs.readFileSync(dbPath, 'utf8');
+  const content = readDbSourceSync();
 
   assert.match(content, /isAdmin\(\)/, 'Must expose isAdmin()');
   assert.match(content, /adminVerifyPin\(/, 'Must expose adminVerifyPin()');
@@ -127,8 +127,7 @@ test('Security Architecture: Server-enforced admin session tokens and zero crede
   assert.doesNotMatch(initialContent, /INSERT INTO public\.admin_config/i, 'Must not seed credentials in initial migration');
 
   // Verify utils/db.js passes session token
-  const dbPath = path.join(ROOT, 'utils', 'db.js');
-  const dbContent = fs.readFileSync(dbPath, 'utf8');
+  const dbContent = readDbSourceSync();
   assert.match(dbContent, /_getAdminSessionToken\(\)/, 'db.js must retrieve admin session token');
   assert.match(dbContent, /p_session_token:\s*this\._getAdminSessionToken\(\)/, 'db.js must pass p_session_token to admin RPCs');
 });

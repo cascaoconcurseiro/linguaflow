@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { readEngineSource } from './helpers/engine-source.mjs';
+import { readDbSource } from './helpers/db-source.mjs';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
@@ -17,7 +18,7 @@ test('migration: lista fechada, sem conteúdo, RLS sem acesso direto e RPCs com 
 });
 
 test('cliente: db expõe os métodos, o service worker libera e a extensão falha em silêncio', async () => {
-  const db = await read('utils/db.js');
+  const db = await readDbSource();
   assert.match(db, /async logUsageEvent\(event, platform = 'none'\)/);
   assert.match(db, /rpc\/log_usage_event/);
   assert.match(db, /admin_usage_funnel/);

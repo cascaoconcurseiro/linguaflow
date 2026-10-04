@@ -2,10 +2,11 @@
 
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { readDbSource } from './helpers/db-source.mjs';
 
 const [sql, db] = await Promise.all([
   readFile(new URL('../supabase/migrations/20260908100000_harden_server_authoritative_fsrs.sql', import.meta.url), 'utf8'),
-  readFile(new URL('../utils/db.js', import.meta.url), 'utf8'),
+  readDbSource(),
 ]);
 
 assert.match(sql, /RENAME TO record_card_review_before_fsrs_hardening/i);

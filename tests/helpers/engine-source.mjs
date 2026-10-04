@@ -1,6 +1,6 @@
 // Código-fonte do motor de legendas para testes que verificam o texto do código.
 //
-// O motor foi dividido em módulos (dados, CSS e templates). Os testes de contrato continuam
+// O motor foi dividido em módulos (dados, CSS, templates e métodos por assunto em engine/). Os testes de contrato continuam
 // valendo para o motor como um todo, então leem o arquivo principal e as partes extraídas dele.
 // Ao extrair mais um trecho do motor para um módulo próprio, acrescente-o em ENGINE_FILES.
 import { readFileSync } from 'node:fs';
@@ -12,6 +12,15 @@ export const ENGINE_FILES = [
   'content/subtitles/expression-marks.js',
   'content/subtitles/subtitle-shadow-template.js',
   'content/subtitles/subtitle-panel-styles.js',
+  'content/subtitles/engine/capture.js',
+  'content/subtitles/engine/caption-display.js',
+  'content/subtitles/engine/playback.js',
+  'content/subtitles/engine/youtube-dock.js',
+  'content/subtitles/engine/sidebar-panel.js',
+  'content/subtitles/engine/transcript-tab.js',
+  'content/subtitles/engine/words-tab.js',
+  'content/subtitles/engine/export.js',
+  'content/subtitles/engine/install-methods.js',
 ];
 
 const url = (file) => new URL(`../../${file}`, import.meta.url);

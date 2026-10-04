@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { hasLanguageReactor, CAPTION_CONFLICT_NOTICE } from '../content/subtitles/caption-conflict.js';
+import { readEngineSourceSync } from './helpers/engine-source.mjs';
 
 const docWith = (match) => ({ querySelector: (sel) => (match && sel.includes('lln-') ? {} : null) });
 
@@ -17,9 +18,9 @@ test('aviso nomeia a outra extensão e é em português', () => {
 });
 
 test('motor avisa uma única vez e só com a legenda ativa', () => {
-  const engine = readFileSync(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+  const engine = readEngineSourceSync();
   const manifest = readFileSync(new URL('../manifest.json', import.meta.url), 'utf8');
-  assert.match(engine, /from '\.\/subtitles\/caption-conflict\.js'/);
+  assert.match(engine, /from '(?:\.\/subtitles|\.\.)\/caption-conflict\.js'/);
   assert.match(engine, /_captionConflictNoticed/);
   assert.match(manifest, /content\/subtitles\/caption-conflict\.js/);
 });

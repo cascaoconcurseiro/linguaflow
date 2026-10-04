@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
@@ -22,7 +23,7 @@ test('cliente: db expõe os métodos, o service worker libera e a extensão falh
   assert.match(db, /admin_usage_funnel/);
   const sw = await read('background/service-worker.js');
   assert.match(sw, /'logUsageEvent', 'adminGetUsageFunnel'/);
-  const engine = await read('content/subtitle-engine.js');
+  const engine = await readEngineSource();
   assert.match(engine, /_trackUsage\('player_opened'\)/);
   assert.match(engine, /_trackUsage\(this\.isActivated \? 'lf_enabled' : 'lf_disabled'\)/);
   assert.match(engine, /db\.logUsageEvent\(event, this\.platform\)\)\s*\.catch\(\(\) => \{\}\)/);

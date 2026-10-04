@@ -10,11 +10,12 @@ import {
   transcriptState,
 } from '../content/subtitles/transcript-render.js';
 import { SubtitleEngine } from '../content/subtitle-engine.js';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
-const source = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+const source = await readEngineSource();
 const panelSource = source.slice(
   source.indexOf('  _createSubtitlePanel() {'),
-  source.indexOf('  _parseVTT(vttStr) {'),
+  source.indexOf('  toggleSubtitlePanel('),
 );
 const listSource = source.slice(
   source.indexOf("  _rebuildSubtitleList(container, filter = '') {"),

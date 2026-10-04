@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readEngineSourceSync } from './helpers/engine-source.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
@@ -17,7 +18,7 @@ test('Auditoria Fix #1: classifyWordStatic e refineSavedWord no service-worker.j
 });
 
 test('Auditoria Fix #2: _onUrlChange chama _stopLoop e remove duplicidade de _videoWaitInterval', () => {
-  const seCode = readFileSync(path.join(root, 'content/subtitle-engine.js'), 'utf-8');
+  const seCode = readEngineSourceSync();
   const onUrlChangeMatch = seCode.match(/async\s+_onUrlChange\([^{]*\{([\s\S]*?)(?=\n\s*async|\n\s*renderDual|\n\s*toggleSubtitles)/);
   assert.ok(onUrlChangeMatch, '_onUrlChange deve existir no subtitle-engine');
   const onUrlChangeBody = onUrlChangeMatch[1];
@@ -32,7 +33,7 @@ test('Auditoria Fix #3: _build em word-popup.js limpa _keydownHandler anterior',
 });
 
 test('Auditoria Fix #4: Painel de legendas usa AbortController nos listeners de window', () => {
-  const seCode = readFileSync(path.join(root, 'content/subtitle-engine.js'), 'utf-8');
+  const seCode = readEngineSourceSync();
   assert.match(seCode, /panelAbort\.abort\(\)/, 'closePanel deve abortar os ouvintes de window');
   assert.match(seCode, /window\.addEventListener\('pointerup'[\s\S]*?signal:\s*panelAbort\.signal/, 'pointerup deve receber o signal do panelAbort');
   assert.match(seCode, /window\.addEventListener\('pointermove'[\s\S]*?signal:\s*panelAbort\.signal/, 'pointermove deve receber o signal do panelAbort');

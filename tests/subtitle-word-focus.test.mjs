@@ -2,8 +2,9 @@
 // foco da palavra escolhida pelo atalho F.
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
-const source = (await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8')).replace(/\r\n/g, '\n');
+const source = (await readEngineSource()).replace(/\r\n/g, '\n');
 const start = source.indexOf('  renderDual(orig, trans) {');
 const end = source.indexOf('\n  _makeClickable(', start);
 assert.ok(start >= 0 && end > start, 'renderDual deve existir');

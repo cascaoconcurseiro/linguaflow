@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
 test('Segurança e Resiliência: Eliminação completa do proxy de terceiros allorigins.win', async (t) => {
   const [ttsSrc, translatorSrc, dashboardHtml, vercelJson, manifestJson] = await Promise.all([
@@ -33,7 +34,7 @@ test('Segurança e Resiliência: Eliminação completa do proxy de terceiros all
 });
 
 test('Performance de Mídia no YouTube: throttling no MutationObserver de legendas', async (t) => {
-  const engineSrc = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+  const engineSrc = await readEngineSource();
 
   await t.test('subtitle-engine usa debounce/throttle ou requestAnimationFrame para _syncYouTubeNativeCaptions', () => {
     assert.match(engineSrc, /requestAnimationFrame[\s\S]*?_syncYouTubeNativeCaptions/);
@@ -43,7 +44,7 @@ test('Performance de Mídia no YouTube: throttling no MutationObserver de legend
 test('Otimização de Expressões Léxicas: constante pré-calculada MAX_EXPRESSION_WORDS', async (t) => {
   const [exprDbMod, engineSrc] = await Promise.all([
     import('../utils/expressions-db.js'),
-    readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8'),
+    readEngineSource(),
   ]);
 
   await t.test('utils/expressions-db.js exporta MAX_EXPRESSION_WORDS como número positivo', () => {

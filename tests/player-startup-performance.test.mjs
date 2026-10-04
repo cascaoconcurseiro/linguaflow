@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { readEngineSourceSync } from './helpers/engine-source.mjs';
 
-const source = readFileSync(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+const source = readEngineSourceSync();
 const createUi = source.slice(source.indexOf('  async _createSubtitleUI() {'), source.indexOf('  _updateSubtitleColors()', source.indexOf('  async _createSubtitleUI() {')));
 const waitForVideo = source.slice(source.indexOf('  _waitForVideo() {'), source.indexOf('  // ── Captura', source.indexOf('  _waitForVideo() {')));
 

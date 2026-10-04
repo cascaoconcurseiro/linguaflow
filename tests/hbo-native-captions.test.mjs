@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { isOffLabel, languageLabels, pickSubtitleOption } from '../content/subtitles/hbo-native-captions.js';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
 test('reconhece rótulos de legenda desligada em pt e en', () => {
   for (const label of ['Off', 'Desativado', 'Desligada', 'Nenhuma', 'None', 'Sem legendas']) {
@@ -43,7 +44,7 @@ test('legenda já ligada: não clica em nada', () => {
 });
 
 test('contrato: engine tenta ligar a legenda nativa sempre que o LF liga, sem F5', async () => {
-  const code = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+  const code = await readEngineSource();
   const method = code.match(/_autoEnableHBOSubtitles\(\) \{[\s\S]*?\n  \}\n/)[0];
   assert.match(method, /!this\.isActivated/, 'só age com o LF ligado');
   assert.match(method, /retry\(/, 'tenta de novo até as falas chegarem');

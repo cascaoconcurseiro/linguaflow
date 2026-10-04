@@ -8,6 +8,7 @@ import {
   loadDockCollapsed,
   saveDockCollapsed,
 } from '../content/subtitles/dock-collapse.js';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
 function fakeDock() {
   const classes = new Set();
@@ -68,11 +69,10 @@ test('persistência: salva, lê e nunca quebra sem storage', async () => {
 });
 
 test('contrato: os dois docks usam o botão e o manifest expõe o módulo', async () => {
-  const [max, engine, manifest] = await Promise.all(
-    ['../content/max-player-ui.js', '../content/subtitle-engine.js', '../manifest.json'].map((f) =>
-      readFile(new URL(f, import.meta.url), 'utf8'),
-    ),
+  const [max, manifest] = await Promise.all(
+    ['../content/max-player-ui.js', '../manifest.json'].map((f) => readFile(new URL(f, import.meta.url), 'utf8')),
   );
+  const engine = await readEngineSource();
   assert.match(max, /DOCK_COLLAPSE_BUTTON_HTML/);
   assert.match(max, /action === 'collapse'/);
   assert.match(engine, /DOCK_COLLAPSE_BUTTON_HTML/);

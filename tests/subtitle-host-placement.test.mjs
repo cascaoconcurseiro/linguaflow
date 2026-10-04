@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { SubtitleEngine } from '../content/subtitle-engine.js';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
 function fakeHost(parent) {
   const style = {};
@@ -81,7 +82,7 @@ test('sem player ainda, ou na Max, a legenda continua no body', () => {
 });
 
 test('contrato: reposicionamento e espera do vídeo tentam mover a legenda também no YouTube', async () => {
-  const code = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+  const code = await readEngineSource();
   assert.match(code, /async _repositionSubtitle\(\) \{[\s\S]*?this\._moveHostIntoPlayer\(host\)/);
   assert.match(code, /this\.platform !== 'max'\) \{\s*setTimeout\(\(\) => \{\s*if \(!this\._disposed\) this\._moveHostIntoPlayer\(\);\s*\}, 1500\)/);
   assert.doesNotMatch(code, /if \(this\.platform !== 'youtube'\) \{\s*const host = document\.getElementById\('linguaflow-subtitle-host'\);/, 'o reposicionamento não pode excluir o YouTube');

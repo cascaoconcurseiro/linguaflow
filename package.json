@@ -31,7 +31,7 @@
     "map": "node scripts/generate-project-map.mjs",
     "map:check": "node scripts/generate-project-map.mjs --check",
     "test:project-map": "node --test tests/project-map.test.mjs",
-    "test:page-lifecycle": "node --test tests/page-lifecycle-bfcache.test.mjs tests/settings-live-save.test.mjs",
+    "test:page-lifecycle": "node --test tests/page-lifecycle-bfcache.test.mjs tests/settings-live-save.test.mjs tests/engine-mixins.test.mjs",
     "test:background": "node --test tests/background-reminders.test.mjs tests/tts-url-allowlist.test.mjs",
     "test:max-ui": "node --test tests/subtitle-host-placement.test.mjs tests/hbo-native-captions.test.mjs tests/dock-collapse.test.mjs && node tests/max-player-ui.test.mjs && node tests/player-controls-sync.test.mjs && node --test tests/player-start-mode.test.mjs tests/usage-events-contract.test.mjs tests/player-shortcuts.test.mjs tests/popup-and-identity.test.mjs && node tests/player-dock-responsive.test.mjs && node tests/player-startup-performance.test.mjs && node tests/shadow-dom-hotkeys-and-shell.test.mjs",
     "test:study-hours": "node tests/multimodal-study-hours.test.mjs",

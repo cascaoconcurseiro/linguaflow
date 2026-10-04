@@ -10,6 +10,7 @@ import { soundEngine } from '../core/soundFx.js';
 import { handleSlotKeydown, parsePastedText } from '../core/inputEngine.js';
 import { createPracticeSession } from '../core/coursePracticeSession.js';
 import { loadPrefs, savePrefs, stepPref, PREF_LIMITS } from '../core/coursePrefs.js';
+import { canSendUnitToVault, runSendToVault } from '../core/courseVault.js';
 import { playNaturalAudio, preloadNaturalAudio, stopAudio } from '../core/tts.js';
 
 export const PENDING_COMMIT_KEY = 'lf_course_pending_commit';
@@ -330,6 +331,7 @@ export async function renderCoursePractice(container, app, params = {}) {
         'step-readings-down': () => changePref('readings', -1),
         'step-readings-up': () => changePref('readings', +1),
         'save-vocab': () => saveVocabulary(target),
+        'send-vault': () => runSendToVault(target, session.unit, { db, app, courseTitle: session.unit?.course_lessons?.course_catalog?.title }),
         'save-note': () => saveNote(target),
       };
       handlers[action]?.();
@@ -652,6 +654,7 @@ export async function renderCoursePractice(container, app, params = {}) {
       </div>
       <div class="course-breakdown-actions">
         <button type="button" class="course-player-btn-back" data-action="save-vocab">★ Salvar no vocabulário</button>
+        ${canSendUnitToVault(unit) ? '<button type="button" class="course-player-btn-back" data-action="send-vault" title="Entra na sua revisão espaçada junto com as palavras dos vídeos">＋ Enviar ao Cofre</button>' : ''}
         <label class="course-note-field">
           <span>Nota pessoal</span>
           <textarea id="course-note-input" maxlength="2000" rows="2"></textarea>

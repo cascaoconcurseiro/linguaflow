@@ -3,6 +3,7 @@
 ## [Não lançado]
 
 ### Adicionado
+- **Frases dos cursos podem ir para o Cofre**: o botão "＋ Enviar ao Cofre" (na resposta da prática e no caderno de vocabulário) coloca a frase na mesma fila de revisão das palavras de vídeo. Nunca sobrescreve uma palavra que você já tem, respeita o limite do Cofre e não envia parágrafos nem histórias (#434).
 - **Memória de longo prazo no Progresso**: mostra quanto você lembrou nas revisões feitas depois de 7 dias ou mais, e de 30 dias ou mais, sem ver o cartão. Só aparece o percentual com pelo menos 10 revisões; antes disso o painel explica o que falta. É a medida mais direta de que a palavra ficou na memória (#433).
 - **Mais controle no player**: `Z`/`X` ajustam a sincronia da legenda em 0,1 s sem abrir as configurações; `B` marca um laço entre dois pontos (A–B); `V` liga a escuta primeiro (legenda original escondida); `F` escolhe palavras da legenda só com o teclado (setas, Enter abre o card, Esc volta); `?` abre a lista de todos os atalhos. Com o LinguaFlow desligado, nenhum deles age (#432).
 

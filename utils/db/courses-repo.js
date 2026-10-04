@@ -108,7 +108,7 @@ export class CoursesRepository {
   listVocabulary() {
     return this._read(
       'course_user_vocabulary?order=created_at.desc&limit=500'
-      + '&select=unit_id,created_at,course_units(text,translation_pt,ipa,explanation_note,lesson_id,'
+      + '&select=unit_id,created_at,course_units(kind,text,translation_pt,ipa,explanation_note,example_en,lesson_id,'
       + 'course_lessons(title,course_id,course_catalog(title)))',
     );
   }

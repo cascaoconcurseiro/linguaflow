@@ -315,7 +315,7 @@
         const btn = e.target.closest('.ytp-subtitles-button');
         if (btn) {
             const isActive = btn.getAttribute('aria-pressed') === 'true';
-            postBridgeMessage({ type: 'LF_YT_SUB_TOGGLE', active: !isActive });
+            postBridgeMessage({ type: 'LF_YT_SUB_TOGGLE', active: !isActive, trusted: e.isTrusted });
         }
     }, true);
 

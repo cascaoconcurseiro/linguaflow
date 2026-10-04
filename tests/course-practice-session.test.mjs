@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createPracticeSession, comboMultiplier } from '../dashboard/js/core/coursePracticeSession.js';
+import { createPracticeSession, comboMultiplier, shouldPersistOnPageHide } from '../dashboard/js/core/coursePracticeSession.js';
 
 const UNITS = [
   { id: 'u1', text: "Hey, what's up?" },
@@ -148,4 +148,29 @@ test('#442: frases (não palavras) continuam com uma etapa só', () => {
   s.submit(['no', 'worries']);
   assert.equal(s.currentDone, true);
   assert.equal(s.stage, 'word');
+});
+
+test('#468: recarregar ou fechar a aba no meio da lição grava o parcial; nos outros casos, não', () => {
+  const s = createPracticeSession(UNITS);
+  assert.equal(shouldPersistOnPageHide({ session: s }, { persisted: false }), false, 'nada respondido ainda');
+
+  s.submit(['hey', "what's", 'up']);
+  assert.equal(shouldPersistOnPageHide({ session: s }, { persisted: false }), true, 'frase resolvida e lição em andamento');
+  assert.equal(shouldPersistOnPageHide({ session: s }, undefined), true, 'sem evento, trata como saída de verdade');
+  assert.equal(shouldPersistOnPageHide({ session: s }, { persisted: true }), false, 'cache de voltar/avançar: a página continua viva');
+  assert.equal(shouldPersistOnPageHide({ session: s, committedOnExit: true }, { persisted: false }), false, 'já enviado ao sair da tela');
+  assert.equal(shouldPersistOnPageHide({ session: null }, { persisted: false }), false, 'sessão ainda não criada');
+  assert.equal(shouldPersistOnPageHide(undefined, { persisted: false }), false);
+
+  s.next(); s.submit(['my', 'bad']); s.next(); s.submit(['no', 'worries']);
+  assert.equal(s.finished, true);
+  assert.equal(shouldPersistOnPageHide({ session: s }, { persisted: false }), false, 'lição concluída: finish() já gravou o resultado completo');
+});
+
+test('#468: contrato — a tela grava o parcial no pagehide e remove o listener ao sair', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const view = await readFile(new URL('../dashboard/js/ui/coursePracticeView.js', import.meta.url), 'utf8');
+  assert.match(view, /window\.addEventListener\('pagehide', onPageHide\)/);
+  assert.match(view, /window\.removeEventListener\('pagehide', onPageHide\)/);
+  assert.match(view, /shouldPersistOnPageHide\(\{ session, committedOnExit \}, e\)\) writePendingCommit\(buildPayload\(false\)\)/);
 });

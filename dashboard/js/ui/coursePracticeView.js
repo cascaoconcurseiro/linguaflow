@@ -8,7 +8,7 @@ import { db } from '../../../utils/db.js';
 import { escapeHTML } from '../../../utils/html.js';
 import { soundEngine } from '../core/soundFx.js';
 import { handleSlotKeydown, parsePastedText } from '../core/inputEngine.js';
-import { createPracticeSession } from '../core/coursePracticeSession.js';
+import { createPracticeSession, shouldPersistOnPageHide } from '../core/coursePracticeSession.js';
 import { loadPrefs, savePrefs, stepPref, PREF_LIMITS } from '../core/coursePrefs.js';
 import { canSendUnitToVault, runSendToVault } from '../core/courseVault.js';
 import { playNaturalAudio, preloadNaturalAudio, stopAudio } from '../core/tts.js';
@@ -186,13 +186,18 @@ export async function renderCoursePractice(container, app, params = {}) {
       e.returnValue = '';
     }
   };
+  const onPageHide = (e) => {
+    if (shouldPersistOnPageHide({ session, committedOnExit }, e)) writePendingCommit(buildPayload(false));
+  };
   container.addEventListener('keydown', onKeydown);
   container.addEventListener('pointerdown', onActivity);
   window.addEventListener('beforeunload', onBeforeUnload);
+  window.addEventListener('pagehide', onPageHide);
   cleanups.push(() => {
     container.removeEventListener('keydown', onKeydown);
     container.removeEventListener('pointerdown', onActivity);
     window.removeEventListener('beforeunload', onBeforeUnload);
+    window.removeEventListener('pagehide', onPageHide);
   });
 
   // ── Render ─────────────────────────────────────────────────────────────────

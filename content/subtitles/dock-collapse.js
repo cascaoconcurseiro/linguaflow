@@ -9,21 +9,23 @@ export const DOCK_COLLAPSED_KEY = 'lf_dock_collapsed';
 export const DOCK_COLLAPSE_BUTTON_HTML =
   '<button type="button" data-action="collapse" class="lf-dock-collapse" aria-expanded="true" ' +
   'title="Recolher controles" aria-label="Recolher controles">' +
-  '<span class="lf-dock-chevron" aria-hidden="true">⌄</span></button>';
+  '<svg class="lf-dock-chevron" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">' +
+  '<path d="M3 3v10M12 4 8 8l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
 
-// Seta do chevron: só transform (rápido e respeita prefers-reduced-motion).
+// Ícone "barra + seta" (diferente de ‹ › da legenda): só transform (rápido e respeita prefers-reduced-motion).
+// O desenho base aponta para a esquerda, rumo à barra.
 // orientation 'vertical' (dock lateral): expandido aponta para cima, recolhido para baixo.
 // orientation 'horizontal' (dock do YouTube): expandido aponta para a esquerda, recolhido para a direita.
 export function dockCollapseCss(rootSelector, orientation) {
-  const expanded = orientation === 'horizontal' ? 'rotate(90deg)' : 'rotate(180deg)';
-  const collapsed = orientation === 'horizontal' ? 'rotate(-90deg)' : 'rotate(0deg)';
+  const expanded = orientation === 'horizontal' ? 'rotate(0deg)' : 'rotate(90deg)';
+  const collapsed = orientation === 'horizontal' ? 'rotate(180deg)' : 'rotate(-90deg)';
   return `
-    ${rootSelector} .lf-dock-collapse{appearance:none;border:0;background:transparent;color:#94a3b8;cursor:pointer;
-      display:grid;place-items:center;border-radius:50%;padding:0;flex-shrink:0;
-      ${orientation === 'horizontal' ? 'width:24px;height:24px;' : 'width:44px;height:24px;border-radius:12px;'}
+    ${rootSelector} .lf-dock-collapse{appearance:none;border:0;background:rgba(148,163,184,.14);color:#cbd5e1;cursor:pointer;
+      display:grid;place-items:center;padding:0;flex-shrink:0;
+      ${orientation === 'horizontal' ? 'width:22px;height:22px;border-radius:7px;margin-left:-2px;' : 'width:44px;height:22px;border-radius:8px;'}
       transition:background .15s ease,color .15s ease;}
     ${rootSelector} .lf-dock-collapse:hover,${rootSelector} .lf-dock-collapse:focus-visible{background:rgba(56,189,248,.2);color:#7dd3fc;outline:2px solid #7dd3fc;outline-offset:1px;}
-    ${rootSelector} .lf-dock-chevron{display:block;font:700 16px/1 system-ui;transform:${expanded};transition:transform .16s ease;}
+    ${rootSelector} .lf-dock-chevron{display:block;transform:${expanded};transition:transform .16s ease;}
     ${rootSelector}.lf-collapsed .lf-dock-chevron{transform:${collapsed};}
     ${rootSelector}.lf-collapsed>:not(.lf-dock-toggle):not(.lf-dock-collapse){display:none !important;}
     ${rootSelector}.lf-off .lf-dock-collapse{display:none !important;}

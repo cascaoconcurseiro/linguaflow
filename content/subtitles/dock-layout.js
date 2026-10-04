@@ -18,3 +18,15 @@ export function applyDockResponsiveClass(dockElement, playerWidth) {
   dockElement.classList.toggle('lf-size-tiny', cls === 'lf-size-tiny');
   return cls;
 }
+
+// Legenda acompanha o player: abaixo de 900px encolhe proporcionalmente (piso 0,55) e nunca
+// amplia — o tamanho escolhido nas configurações segue sendo a base em player grande.
+export const SUBTITLE_SCALE_REFERENCE_WIDTH = 900;
+export const SUBTITLE_SCALE_MIN = 0.55;
+
+export function subtitleScaleForWidth(playerWidth) {
+  const width = Number(playerWidth);
+  if (!Number.isFinite(width) || width <= 0) return 1;
+  const scale = Math.min(1, width / SUBTITLE_SCALE_REFERENCE_WIDTH);
+  return Math.round(Math.max(SUBTITLE_SCALE_MIN, scale) * 100) / 100;
+}

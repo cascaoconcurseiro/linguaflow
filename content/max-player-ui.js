@@ -298,13 +298,10 @@ export class MaxPlayerUI {
       #lf-max-controls button[data-action="toggle"][aria-pressed="true"] .lf-switch-track{background:#0284c7;}
       #lf-max-controls .lf-switch-thumb{position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:50%;background:#cbd5e1;transition:transform .2s ease,background .2s ease;}
       #lf-max-controls button[data-action="toggle"][aria-pressed="true"] .lf-switch-thumb{transform:translateX(14px);background:#38bdf8;box-shadow:0 0 6px #38bdf8;}
-      #lf-max-controls button[data-action="loop"][aria-pressed="true"]{background:rgba(56,189,248,.28);
-        color:#7dd3fc;box-shadow:0 0 10px rgba(56,189,248,.35), inset 0 0 0 1px rgba(125,211,252,.45);}
-      #lf-max-controls button[data-action="shadow"][aria-pressed="true"]{background:rgba(56,189,248,.28);
-        color:#7dd3fc;box-shadow:0 0 10px rgba(56,189,248,.35), inset 0 0 0 1px rgba(125,211,252,.45);}
+      #lf-max-controls button[data-action="loop"][aria-pressed="true"],#lf-max-controls button[data-action="shadow"][aria-pressed="true"],#lf-max-controls button[data-action="panel"].is-active{background:rgba(250,204,21,.2);
+        color:#facc15;box-shadow:0 0 10px rgba(250,204,21,.35), inset 0 0 0 1px rgba(250,204,21,.5);}
       #lf-max-controls button[data-action="speed"]{font-size:11px;letter-spacing:-.02em;}
       #lf-max-controls button[data-action="speed"].is-altered{color:#facc15;background:rgba(250,204,21,.15);box-shadow:inset 0 0 0 1px rgba(250,204,21,.35);}
-      #lf-max-controls button[data-action="panel"].is-active{background:rgba(168,85,247,.25);color:#c084fc;box-shadow:0 0 10px rgba(168,85,247,.35), inset 0 0 0 1px rgba(168,85,247,.5);}
       #lf-max-controls button[data-action="previous"]:active,#lf-max-controls button[data-action="next"]:active{background:rgba(56,189,248,.3);color:#38bdf8;transform:scale(0.92);}
       #lf-max-controls.lf-off>:not(.lf-dock-toggle){display:none !important;}
       #lf-max-controls .lf-max-separator{width:20px;height:1px;background:rgba(255,255,255,.14);margin:2px 0;}

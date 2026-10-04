@@ -38,7 +38,7 @@ export function subtitleShadowHtml({ shadowCss, expressionCss }) {
                 .lf-orig {
                     font-family: 'Inter', Arial, sans-serif;
                     font-weight: 800;
-                    font-size: var(--lf-font-size, 31px);
+                    font-size: calc(var(--lf-font-size, 31px) * var(--lf-sub-scale, 1));
                     color: #FFF;
                     text-shadow: 0 2px 12px rgba(0,0,0,0.95), 0 0 6px rgba(0,0,0,0.8);
                     line-height: 1.25;
@@ -47,7 +47,7 @@ export function subtitleShadowHtml({ shadowCss, expressionCss }) {
                 .lf-trans {
                     font-family: 'Inter', Arial, sans-serif;
                     font-weight: 600;
-                    font-size: var(--lf-font-size-trans, 18px);
+                    font-size: calc(var(--lf-font-size-trans, 18px) * var(--lf-sub-scale, 1));
                     color: #38BDF8;
                     background: rgba(10,15,30, var(--lf-bg-opacity, 0.78));
                     backdrop-filter: blur(10px);

@@ -4,10 +4,12 @@ import test from 'node:test';
 import {
   DOCK_COLLAPSED_KEY,
   applyDockCollapsed,
+  DOCK_COLLAPSE_BUTTON_HTML,
   dockCollapseCss,
   loadDockCollapsed,
   saveDockCollapsed,
 } from '../content/subtitles/dock-collapse.js';
+import { subtitleScaleForWidth } from '../content/subtitles/dock-layout.js';
 import { readEngineSource } from './helpers/engine-source.mjs';
 
 function fakeDock() {
@@ -78,4 +80,40 @@ test('contrato: os dois docks usam o botão e o manifest expõe o módulo', asyn
   assert.match(engine, /DOCK_COLLAPSE_BUTTON_HTML/);
   assert.match(engine, /action === 'collapse'/);
   assert.match(manifest, /content\/subtitles\/dock-collapse\.js/);
+});
+
+test('botão de recolher tem ícone próprio (barra + seta), não o ‹ › da legenda', () => {
+  assert.match(DOCK_COLLAPSE_BUTTON_HTML, /<svg[^>]*lf-dock-chevron/);
+  assert.doesNotMatch(DOCK_COLLAPSE_BUTTON_HTML, /[‹›⌄]/);
+});
+
+test('loop, shadowing e painel ativos ficam amarelos nos dois docks', async () => {
+  const [yt, max] = await Promise.all(
+    ['../content/subtitles/youtube-dock-styles.js', '../content/max-player-ui.js'].map((f) => readFile(new URL(f, import.meta.url), 'utf8')),
+  );
+  for (const css of [yt, max]) {
+    assert.match(css, /data-action="shadow"\]\[aria-pressed="true"\]/);
+    assert.match(css, /data-action="panel"\]\.is-active/);
+    assert.match(css, /250,\s*204,\s*21/);
+    assert.doesNotMatch(css, /168,\s*85,\s*247/);
+  }
+});
+
+test('legenda encolhe com o player, sem ampliar nem passar do piso', () => {
+  assert.equal(subtitleScaleForWidth(1920), 1);
+  assert.equal(subtitleScaleForWidth(900), 1);
+  assert.equal(subtitleScaleForWidth(450), 0.55);
+  assert.equal(subtitleScaleForWidth(675), 0.75);
+  assert.equal(subtitleScaleForWidth(100), 0.55);
+  assert.equal(subtitleScaleForWidth(0), 1);
+  assert.equal(subtitleScaleForWidth(undefined), 1);
+});
+
+test('legenda aplica --lf-sub-scale como multiplicador sem tocar --lf-font-size', async () => {
+  const [display, template] = await Promise.all(
+    ['../content/subtitles/engine/caption-display.js', '../content/subtitles/subtitle-shadow-template.js'].map((f) => readFile(new URL(f, import.meta.url), 'utf8')),
+  );
+  assert.match(display, /setProperty\('--lf-sub-scale'/);
+  assert.doesNotMatch(display, /setProperty\('--lf-font-size'/);
+  assert.match(template, /var\(--lf-font-size, 31px\) \* var\(--lf-sub-scale, 1\)/);
 });

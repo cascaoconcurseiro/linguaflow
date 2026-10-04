@@ -3,6 +3,8 @@
 ## [Não lançado]
 
 ### Adicionado
+- **Legenda acompanha o tamanho do player**: ao reduzir a janela ou usar o mini player, a legenda encolhe junto (até 55%) para não cobrir o vídeo; em player grande ela continua no tamanho que você escolheu nas configurações (#486).
+- **Controles ligados ficam amarelos**: loop, shadowing e painel de legendas ligados agora aparecem em amarelo, como a velocidade alterada, no YouTube e nos demais players. O botão de recolher ganhou ícone próprio (barra + seta), diferente do ‹ › de legenda anterior/próxima (#486).
 - **Recolher os controles do player**: um botãozinho de seta, logo abaixo (ou ao lado, no YouTube) do LF, esconde ‹ ↻ › ◐ 1× ▤ ⚙ e deixa só o liga/desliga, para os controles não cobrirem o vídeo. Vale em Max, Netflix, Disney+, Prime Video e YouTube, e a escolha fica guardada. Recolher não desliga as legendas (#462).
 - **Modo shadowing no player (YouTube)**: tecla `M` ou o botão ◐ do dock troca a legenda por três linhas, com a fala anterior apagada, a atual em destaque e a próxima em meio-tom, mais uma barra fina com o progresso da fala. A tradução fica escondida (o botão de traduzir continua valendo). Desligado por padrão; a escolha fica guardada neste dispositivo (#456).
 - **Velocidade pelo teclado**: `[` fala mais devagar e `]` mais rápido, em passos de 0,05× (de 0,5× a 1,5×), com aviso na tela (#454).

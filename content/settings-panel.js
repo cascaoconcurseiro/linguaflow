@@ -72,6 +72,9 @@ export class SettingsPanel {
     this.host = null;
     this.shadow = null;
     this._abort = new AbortController();
+    this._saveTimers = new Map();
+    this._pendingSaves = new Map();
+    this._writeQueue = Promise.resolve();
 
     this.cfg = {
       targetLang: 'pt',
@@ -270,7 +273,7 @@ export class SettingsPanel {
     s.getElementById('rng-font').oninput = (e) => {
       const v = Number(e.target.value);
       s.getElementById('val-font').textContent = `${v}px`;
-      this._save('fontSize', v);
+      this._saveLive('fontSize', v);
       // Aplica em tempo real
       const host = document.getElementById('linguaflow-subtitle-host');
       if (host) host.style.setProperty('--lf-font-size', `${v}px`);
@@ -280,7 +283,7 @@ export class SettingsPanel {
     s.getElementById('rng-font-trans').oninput = (e) => {
       const v = Number(e.target.value);
       s.getElementById('val-font-trans').textContent = `${v}px`;
-      this._save('fontSizeTrans', v);
+      this._saveLive('fontSizeTrans', v);
       // Aplica em tempo real
       const host = document.getElementById('linguaflow-subtitle-host');
       if (host) host.style.setProperty('--lf-font-size-trans', `${v}px`);
@@ -289,7 +292,7 @@ export class SettingsPanel {
     s.getElementById('rng-bg').oninput = (e) => {
       const v = e.target.value;
       s.getElementById('val-bg').textContent = `${v}%`;
-      this._save('bgOpacity', v / 100);
+      this._saveLive('bgOpacity', v / 100);
       const host = document.getElementById('linguaflow-subtitle-host');
       if (host) host.style.setProperty('--lf-bg-opacity', v / 100);
     };
@@ -297,21 +300,21 @@ export class SettingsPanel {
     s.getElementById('rng-position').oninput = (e) => {
       const v = Number(e.target.value);
       s.getElementById('val-position').textContent = `${v}px`;
-      this._save('subtitleBottom', v);
+      this._saveLive('subtitleBottom', v);
       window.dispatchEvent(new CustomEvent('LF_UPDATE_POSITION', { detail: v }));
     };
 
     s.getElementById('rng-horizontal').oninput = (e) => {
       const v = Number(e.target.value);
       s.getElementById('val-horizontal').textContent = `${v}%`;
-      this._save('subtitleHorizontal', v);
+      this._saveLive('subtitleHorizontal', v);
       window.dispatchEvent(new CustomEvent('LF_UPDATE_HORIZONTAL', { detail: v }));
     };
 
     s.getElementById('rng-delay').oninput = (e) => {
       const v = Number(e.target.value);
       s.getElementById('val-delay').textContent = `${v}s`;
-      this._save('translationDelay', v);
+      this._saveLive('translationDelay', v);
       window.dispatchEvent(new CustomEvent('LF_UPDATE_DELAY', { detail: v }));
     };
 
@@ -338,7 +341,7 @@ export class SettingsPanel {
     s.getElementById('rng-anticipation').oninput = (e) => {
       const v = Number(e.target.value);
       s.getElementById('val-anticipation').textContent = `${v}s`;
-      this._save('translationAnticipation', v);
+      this._saveLive('translationAnticipation', v);
       window.dispatchEvent(new CustomEvent('LF_UPDATE_ANTICIPATION', { detail: v }));
     };
 
@@ -346,9 +349,14 @@ export class SettingsPanel {
     s.getElementById('rng-flash').oninput = (e) => {
       const v = Number(e.target.value);
       s.getElementById('val-flash').textContent = `${v}s`;
-      this._save('flashDuration', v);
+      this._saveLive('flashDuration', v);
       window.dispatchEvent(new CustomEvent('LF_UPDATE_FLASH_DURATION', { detail: v }));
     };
+
+    // Soltou o slider: grava na hora o que estiver pendente.
+    s.querySelectorAll('input[type="range"]').forEach((range) => {
+      range.addEventListener('change', () => this.flushPendingSaves(), { signal });
+    });
 
     s.getElementById('col-known').onchange = (e) => this._save('wordColorKnown', e.target.value);
     s.getElementById('col-saved').onchange = (e) => this._save('wordColorSaved', e.target.value);
@@ -949,6 +957,7 @@ export class SettingsPanel {
 
   // Remove os listeners globais e o painel (#466).
   destroy() {
+    this.flushPendingSaves();
     this._abort.abort();
     this.host?.remove();
   }
@@ -967,12 +976,43 @@ export class SettingsPanel {
   }
   close() {
     if (!this.shadow) return;
+    this.flushPendingSaves();
     this.isOpen = false;
     this.shadow.getElementById('overlay').style.display = 'none';
     if (this._previousFocus && typeof this._previousFocus.focus === 'function' && this._previousFocus.isConnected) {
       this._previousFocus.focus({ preventScroll: true });
     }
     this._previousFocus = null;
+  }
+
+  // Slider: efeito ao vivo na hora; gravação agrupada (400 ms sem novo movimento)
+  // e enviada em ordem, para não gerar dezenas de POSTs nem salvar um valor
+  // intermediário quando as respostas chegam fora de ordem (#471).
+  _saveLive(key, value) {
+    this.cfg[key] = value;
+    this._applyToEngine();
+    this._pendingSaves.set(key, value);
+    clearTimeout(this._saveTimers.get(key));
+    this._saveTimers.set(key, setTimeout(() => this._flushSave(key), 400));
+  }
+
+  _flushSave(key) {
+    clearTimeout(this._saveTimers.get(key));
+    this._saveTimers.delete(key);
+    if (!this._pendingSaves.has(key)) return this._writeQueue;
+    const value = this._pendingSaves.get(key);
+    this._pendingSaves.delete(key);
+    this._writeQueue = this._writeQueue.then(() => this._writeSetting(key, value));
+    return this._writeQueue;
+  }
+
+  flushPendingSaves() {
+    for (const key of [...this._pendingSaves.keys()]) this._flushSave(key);
+    return this._writeQueue;
+  }
+
+  _writeSetting(key, value) {
+    return writeSetting(key, value);
   }
 
   async _save(key, value) {

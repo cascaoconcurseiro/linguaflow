@@ -88,6 +88,9 @@ export class SubtitleEngine {
     this.translationAnticipation = 0; // Baseline Zero
     this.uiTheme = 'light';
     this.autoPause = false;
+    this.smartAutoPause = false; // #488: pausar só nas falas com palavra nova
+    this.smartHideKnownTranslation = false; // #488: sem tradução nas falas que o aluno já entende
+    this.smartLookupHint = false; // #488: avisa quando a mesma palavra é consultada várias vezes
     this.currentSubtitleTimestamp = 0;
     this.translationDelay = 0;
 
@@ -604,6 +607,11 @@ export class SubtitleEngine {
         this.autoPause = autoPause;
         console.debug(`[LinguaFlow] Pausa automática carregada: ${autoPause}`);
       }
+
+      // #488: opções da legenda inteligente (desligadas por padrão)
+      this.smartAutoPause = (await db.getSetting('smartAutoPause')) === true;
+      this.smartHideKnownTranslation = (await db.getSetting('smartHideKnownTranslation')) === true;
+      this.smartLookupHint = (await db.getSetting('smartLookupHint')) === true;
 
       // Carrega velocidade de tradução
       const speed = await db.getSetting('translationSpeed');

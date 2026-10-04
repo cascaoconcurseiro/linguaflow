@@ -413,9 +413,11 @@ Para atualizar: `npm run map`.
 | `content/subtitles/hbo-native-captions.js` | P | Liga a legenda nativa da Max/HBO por código. |
 | `content/subtitles/hover-tip.js` | P | Dica leve ao passar o mouse numa palavra (#369): tradução e traduções por classe gramatical, sem IA e sem abrir o card. O clique continua abrindo o card completo. |
 | `content/subtitles/line-explainer.js` | P | "Explicar esta fala" (Issue #347): prompt com a fala e as vizinhas, leitura segura da resposta da IA e cache local por vídeo + início da fala + idioma. |
+| `content/subtitles/lookup-memory.js` | P | Memória de consultas repetidas (#488) |
 | `content/subtitles/player-hotkeys.js` | M | Gerenciamento isolado dos atalhos de teclado do player Centro de Comando: A, S, D, Q, R, P, O, C, Espaço, Z, X, B, V, F, M, [ ], ? (lista em subtitles/shortcuts-help.js) |
 | `content/subtitles/shadow-mode.js` | P | Modo shadowing (#456) Mostra a fala anterior (apagada), a atual (destaque) e a próxima (meio-tom) no lugar da legenda, com uma barra fina de progresso da fala. Só lógi… |
 | `content/subtitles/shortcuts-help.js` | P | Painel de atalhos do player (Issue #432) Fonte única da lista de atalhos mostrada ao aluno; o teste de contrato garante que cada tecla listada aqui existe em player-ho… |
+| `content/subtitles/smart-captions.js` | P | Legenda que se adapta ao que o aluno já sabe (#488) |
 | `content/subtitles/start-tip.js` | P | Dica de primeira vez ancorada no botão LF (Issue #421) |
 | `content/subtitles/subtitle-panel-styles.js` | M | CSS do painel lateral de legendas (palavras clicáveis, temas claro e escuro, marcas de expressão), injetado no documento fora do Shadow DOM. |
 | `content/subtitles/subtitle-shadow-template.js` | M | HTML e CSS da legenda dentro do Shadow DOM (original, tradução, marcas de expressão e aviso), montados a partir do CSS de shadowing e do CSS das marcas. |
@@ -630,9 +632,9 @@ Para atualizar: `npm run map`.
 
 | Grupo | Quantidade | Observação |
 |---|---|---|
-| `supabase/migrations/` | 128 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261004190000_usage_events_weak_words.sql`. Nunca edite uma migration já aplicada. |
+| `supabase/migrations/` | 129 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261004200000_usage_events_smart_captions.sql`. Nunca edite uma migration já aplicada. |
 | `supabase/content/batches/` | 48 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
-| `tests/*.test.mjs` | 183 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
+| `tests/*.test.mjs` | 185 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
 | `tests/e2e/` | 4 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
 | `tests/db/` | 15 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |
 | `tests/production/` | 1 | Verificação de isolamento entre contas no Supabase de produção (workflow agendado). |

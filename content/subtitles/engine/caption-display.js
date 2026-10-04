@@ -7,6 +7,7 @@ import { segmentSubtitle } from '../transcript-render.js';
 import { MAX_EXPRESSION_WORDS } from '../../../utils/expressions-db.js';
 import { createHoverTip } from '../hover-tip.js';
 import { subtitleScaleForWidth } from '../dock-layout.js';
+import { cueNewWordStats, hasNewWords, isFullyUnderstood } from '../smart-captions.js';
 
 export class CaptionDisplayMethods {
   // ── UI de Legendas (Shadow DOM) ──────────────────────────────────────────
@@ -530,8 +531,20 @@ export class CaptionDisplayMethods {
 
     const hasTrans = decodedTrans && decodedTrans.trim().length > 0;
 
+    // Opção "esconder tradução do que já sei": nos modos com tradução fixa, a fala
+    // em que todas as palavras são conhecidas fica só com o original (o botão
+    // de traduzir continua disponível). Desligada, nada muda.
+    const smartHidden = Boolean(this.smartHideKnownTranslation) &&
+      (shownMode === 'bilingual' || shownMode === 'blur') &&
+      isFullyUnderstood(this._cueNewWordStats(orig));
+    this._smartTranslationHidden = smartHidden;
+
     // Lógica de visibilidade baseada no modo
-    if (shownMode === 'translated') {
+    if (smartHidden) {
+      origDiv.style.display = 'block';
+      const hasActiveFlash = transDiv.classList.contains('lf-trans-flash');
+      transDiv.style.display = hasActiveFlash && hasTrans ? 'block' : 'none';
+    } else if (shownMode === 'translated') {
       origDiv.style.display = 'none';
       if (transDiv && hasTrans) transDiv.style.display = 'block';
     } else if (shownMode === 'bilingual' || shownMode === 'blur') {
@@ -573,12 +586,25 @@ export class CaptionDisplayMethods {
     const translateBtn = this.shadowContainer.getElementById('lf-translate-btn');
     if (translateBtn) {
       const hasActiveFlash = transDiv.classList.contains('lf-trans-flash');
-      const showBtn = orig && mode === 'native' && this.isActivated && !hasActiveFlash;
+      const showBtn = orig && (mode === 'native' || smartHidden) && this.isActivated && !hasActiveFlash;
       translateBtn.style.display = showBtn ? 'block' : 'none';
     }
 
     if (mode === 'blur') wrap.classList.add('mode-blur');
     else wrap.classList.remove('mode-blur');
+  }
+
+  // Palavras novas da fala para o aluno, pelos mesmos conjuntos que pintam a legenda.
+  _cueNewWordStats(text) {
+    return cueNewWordStats(text, {
+      knownWords: this.knownWords,
+      savedWords: this.savedWords,
+      ignoredWords: this.ignoredWords,
+    });
+  }
+
+  _cueHasNewWords(cue) {
+    return hasNewWords(this._cueNewWordStats(cue?.text));
   }
 
   _makeClickable(text, disableHoverPause = false) {
@@ -808,7 +834,7 @@ export class CaptionDisplayMethods {
     this._flashTimeout = setTimeout(
       () => {
         transDiv.classList.remove('lf-trans-flash');
-        if (this.displayMode === 'native') {
+        if (this.displayMode === 'native' || this._smartTranslationHidden) {
           transDiv.style.display = 'none';
           if (btn) btn.style.display = 'block';
         }

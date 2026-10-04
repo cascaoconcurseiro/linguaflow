@@ -8,6 +8,7 @@ import { REDUCTIONS } from '../utils/speech-cadence.js';
 import { slangMatchesContext, slangsDB } from '../utils/slangs-db.js';
 import { detectExprType } from '../content/popup/popup-linguistics.js';
 import { SubtitleEngine, EXPRESSION_MARK_SETTINGS } from '../content/subtitle-engine.js';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
 const found = (text, type) =>
   detectExpressions(text).filter((d) => !type || d.type === type).map((d) => `${d.text}→${d.canonical}`);
@@ -68,7 +69,7 @@ test('popup mostra o tipo falado com o sentido da frase', () => {
 });
 
 test('marcas por tipo: estilo distinto além da cor, desligáveis e salvas', async () => {
-  const src = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+  const src = await readEngineSource();
   assert.match(src, /underline wavy/);
   assert.match(src, /2px dashed/);
   assert.match(src, /3px double/);

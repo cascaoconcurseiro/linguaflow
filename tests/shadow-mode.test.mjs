@@ -7,6 +7,7 @@ import {
 } from '../content/subtitles/shadow-mode.js';
 import { SHORTCUT_GROUPS } from '../content/subtitles/shortcuts-help.js';
 import { setupPlayerHotkeys } from '../content/subtitles/player-hotkeys.js';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
 const cues = [
   { start: 0, end: 2, text: 'one' },
@@ -92,7 +93,7 @@ test('contrato: M na lista de atalhos, módulo no manifesto, botão no dock e mo
   assert.ok(keys.includes('M'), 'lista de atalhos precisa mostrar M');
   const manifest = await readFile(new URL('../manifest.json', import.meta.url), 'utf8');
   assert.match(manifest, /content\/subtitles\/shadow-mode\.js/);
-  const src = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+  const src = await readEngineSource();
   assert.match(src, /data-action="shadow"/);
   assert.match(src, /toggleShadowMode\(\)/);
   assert.match(src, /from '\.\/subtitles\/shadow-mode\.js'/);

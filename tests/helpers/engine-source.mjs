@@ -1,0 +1,26 @@
+// Código-fonte do motor de legendas para testes que verificam o texto do código.
+//
+// O motor foi dividido em módulos (dados, CSS e templates). Os testes de contrato continuam
+// valendo para o motor como um todo, então leem o arquivo principal e as partes extraídas dele.
+// Ao extrair mais um trecho do motor para um módulo próprio, acrescente-o em ENGINE_FILES.
+import { readFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+
+export const ENGINE_FILES = [
+  'content/subtitle-engine.js',
+  'content/subtitles/word-frequency.js',
+  'content/subtitles/expression-marks.js',
+  'content/subtitles/subtitle-shadow-template.js',
+  'content/subtitles/subtitle-panel-styles.js',
+];
+
+const url = (file) => new URL(`../../${file}`, import.meta.url);
+
+export async function readEngineSource() {
+  const parts = await Promise.all(ENGINE_FILES.map((file) => readFile(url(file), 'utf8')));
+  return parts.join('\n');
+}
+
+export function readEngineSourceSync() {
+  return ENGINE_FILES.map((file) => readFileSync(url(file), 'utf8')).join('\n');
+}

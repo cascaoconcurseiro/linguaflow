@@ -393,6 +393,7 @@ Para atualizar: `npm run map`.
 | `content/subtitles/caption-conflict.js` | P | Detecta outra extensão de legendas (Language Reactor) no mesmo vídeo (#400): duas camadas de legenda se sobrepõem e o usuário não sabe qual desativar. |
 | `content/subtitles/dock-collapse.js` | P | Recolher/expandir o dock de controles (#462) |
 | `content/subtitles/dock-layout.js` | P | Lógica de layout responsivo para a dock horizontal do player Extraído de content/subtitle-engine.js |
+| `content/subtitles/expression-marks.js` | P | Marcas de expressão na legenda (phrasal, gíria, fala reduzida, contração, "soa como", marcador): tipos, CSS de cada traço, chaves de configuração e rótulos. |
 | `content/subtitles/hbo-native-captions.js` | P | Liga a legenda nativa da Max/HBO por código. |
 | `content/subtitles/hover-tip.js` | P | Dica leve ao passar o mouse numa palavra (#369): tradução e traduções por classe gramatical, sem IA e sem abrir o card. O clique continua abrindo o card completo. |
 | `content/subtitles/line-explainer.js` | P | "Explicar esta fala" (Issue #347): prompt com a fala e as vizinhas, leitura segura da resposta da IA e cache local por vídeo + início da fala + idioma. |
@@ -400,9 +401,12 @@ Para atualizar: `npm run map`.
 | `content/subtitles/shadow-mode.js` | P | Modo shadowing (#456) Mostra a fala anterior (apagada), a atual (destaque) e a próxima (meio-tom) no lugar da legenda, com uma barra fina de progresso da fala. Só lógi… |
 | `content/subtitles/shortcuts-help.js` | P | Painel de atalhos do player (Issue #432) Fonte única da lista de atalhos mostrada ao aluno; o teste de contrato garante que cada tecla listada aqui existe em player-ho… |
 | `content/subtitles/start-tip.js` | P | Dica de primeira vez ancorada no botão LF (Issue #421) |
+| `content/subtitles/subtitle-panel-styles.js` | M | CSS do painel lateral de legendas (palavras clicáveis, temas claro e escuro, marcas de expressão), injetado no documento fora do Shadow DOM. |
+| `content/subtitles/subtitle-shadow-template.js` | M | HTML e CSS da legenda dentro do Shadow DOM (original, tradução, marcas de expressão e aviso), montados a partir do CSS de shadowing e do CSS das marcas. |
 | `content/subtitles/transcript-render.js` | P | Funções puras de texto da legenda: segmentação em palavras/expressões (tela e roteiro), destaque de busca e estado de carregamento do roteiro. |
 | `content/subtitles/video-vocabulary.js` | M | Vocabulário de um vídeo agrupado por lema, palavras-chave para o aluno e resumo de compreensão sem exagero. |
 | `content/subtitles/vtt-parser.js` | P | Parser de legendas WebVTT Extraído de content/subtitle-engine.js (HBO Max / Max / VTT streams) |
+| `content/subtitles/word-frequency.js` | P | Palavras muito comuns do inglês: lista de stop words e posição de frequência (top 5 mil) usadas na legenda e no vocabulário do vídeo. |
 | `content/subtitles/youtube-dock-styles.js` | G | CSS dos controles LinguaFlow na barra do YouTube (Issue #429) Extraído sem alteração de content/subtitle-engine.js; o texto é injetado em <style id="lf-yt-styles">. |
 
 ### Extensão Chrome — análise linguística do popup de palavra (`content/popup/`)

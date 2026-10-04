@@ -45,7 +45,9 @@ jobs:
       run: npx commitlint --from "${{ github.event.pull_request.base.sha }}" --to "${{ github.sha }}" --verbose
     - name: Validate push commit message
       if: github.event_name != 'pull_request'
-      run: npx commitlint --from HEAD~1 --to HEAD --verbose
+      # Só a mensagem do commit enviado: --from HEAD~1 num merge incluía todo o
+      # histórico trazido da main e reprovava commits alheios já publicados.
+      run: npx commitlint --last --verbose
     - name: Install Playwright Chromium
       run: npx playwright install --with-deps chromium
     - name: Run Playwright smoke tests

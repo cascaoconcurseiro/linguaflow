@@ -1,10 +1,12 @@
+import { isWeakCard } from '../../../utils/weak-card.js';
+
 const SLOW_RESPONSE_MS = 18000;
 
 export function deriveAdaptivePlan(card, profile = null) {
-  const weak = (card?.lapses || 0) >= 3 || !!card?.is_leech;
+  const weak = isWeakCard(card);
   const stage = Math.max(0, Math.min(3, Number(profile?.recovery_stage || (weak ? 1 : 0))));
   const issue = profile?.dominant_issue || (weak ? 'recall' : 'none');
-  const isInstable = (card?.lapses || 0) >= 2 || !!card?.is_leech || card?.status === 'learning' || stage > 0;
+  const isInstable = weak || card?.status === 'learning' || stage > 0;
   return {
     stage,
     issue,

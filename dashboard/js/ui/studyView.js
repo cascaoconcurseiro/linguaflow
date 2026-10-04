@@ -1083,7 +1083,7 @@ async function loadNextCard(app) {
   if (context && context !== word) preloadNaturalAudio(context, { lang: preloadLang });
   const liveStatus = document.getElementById('study-status');
   if (liveStatus) {
-    liveStatus.textContent = 'Novo card. Revele a resposta quando estiver pronto.';
+    liveStatus.textContent = 'Próximo card. Revele a resposta quando estiver pronto.';
   }
   // Reverso: o áudio EN entrega a resposta. Builder: entrega a ORDEM das palavras.
   // Ditado: o próprio renderFront toca (é o exercício).

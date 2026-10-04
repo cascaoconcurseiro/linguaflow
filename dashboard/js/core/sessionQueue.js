@@ -2,7 +2,7 @@
 // pedagógico). Decisão do Eng. SRS + Linguista:
 //
 // 1. LEARNING primeiro — são sensíveis a tempo (steps em minutos).
-// 2. Palavras FRACAS (3+ lapsos ou leech) NÃO se amontoam: entram espaçadas
+// 2. Palavras FRACAS (2+ lapsos ou leech — utils/weak-card.js) NÃO se amontoam: entram espaçadas
 //    entre as revisões normais (espaçamento dentro da própria sessão reduz
 //    a interferência entre itens difíceis — efeito de interleaving da SLA).
 // 3. Cards NOVOS se espalham entre as revisões (não em bloco no fim): cada
@@ -11,9 +11,9 @@
 //
 // Função PURA (sem DOM, sem rede) — testada em tests/engine.test.mjs.
 
-export function isWeakCard(card) {
-  return (card?.lapses || 0) >= 3 || !!card?.is_leech;
-}
+import { isWeakCard } from '../../../utils/weak-card.js';
+
+export { isWeakCard };
 
 // Um passo de aprendizagem que acabou de vencer é sensível ao tempo. Ele não
 // deve voltar ao fim da sessão atrás de conteúdo novo ou de revisões comuns.

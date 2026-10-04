@@ -24,7 +24,9 @@ copyFileSync(join(root, 'utils/db/courses-repo.js'), join(tmp, 'db/courses-repo.
 copyFileSync(join(root, 'utils/db/stats-repo.js'), join(tmp, 'db/stats-repo.js'));
 copyFileSync(join(root, 'utils/local-day.js'), join(tmp, 'local-day.js'));
 copyFileSync(join(root, 'dashboard/js/core/placement.js'), join(tmp, 'placement.mjs'));
-copyFileSync(join(root, 'dashboard/js/core/sessionQueue.js'), join(tmp, 'sessionQueue.mjs'));
+copyFileSync(join(root, 'utils/weak-card.js'), join(tmp, 'weak-card.js'));
+writeFileSync(join(tmp, 'sessionQueue.mjs'), readFileSync(join(root, 'dashboard/js/core/sessionQueue.js'), 'utf8')
+  .replace("'../../../utils/weak-card.js'", "'./weak-card.js'"));
 copyFileSync(join(root, 'dashboard/js/core/achievements.js'), join(tmp, 'achievements.mjs'));
 {
   const statsSrc = readFileSync(join(root, 'dashboard/js/core/statsEngine.js'), 'utf8')
@@ -362,9 +364,9 @@ test('buildSessionQueue: priorityCategory traz a categoria fraca à frente', () 
   assert.deepEqual(queue.slice(0, 2).map(c => c.wordData.category), ['phrasal_verb', 'phrasal_verb']);
 });
 
-test('isWeakCard: 3+ lapsos ou leech', () => {
-  assert.equal(Q.isWeakCard({ lapses: 3 }), true);
-  assert.equal(Q.isWeakCard({ lapses: 2 }), false);
+test('isWeakCard: 2+ lapsos ou leech', () => {
+  assert.equal(Q.isWeakCard({ lapses: 2 }), true);
+  assert.equal(Q.isWeakCard({ lapses: 1 }), false);
   assert.equal(Q.isWeakCard({ is_leech: true }), true);
 });
 

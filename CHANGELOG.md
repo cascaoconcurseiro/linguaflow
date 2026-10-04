@@ -3,6 +3,7 @@
 ## [Não lançado]
 
 ### Corrigido
+- **Atalho F perdia a palavra escolhida**: quando a tradução da fala chegava depois, a legenda era redesenhada e o foco sumia; agora a palavra escolhida continua selecionada.
 - **CC do YouTube ficava ligado com o LinguaFlow desligado**: o YouTube memoriza o CC que o LinguaFlow liga e o reaplicava nos vídeos seguintes. Agora, desligado, o LinguaFlow desliga o CC nativo; se você mesmo ligar o CC com um clique, ele é respeitado.
 - **Atalho da lista de atalhos**: o aviso ao ligar e a lista mostram "Shift + ?" em vez de só "?".
 

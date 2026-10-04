@@ -3860,9 +3860,20 @@ export class SubtitleEngine {
 
     // (O _lastOrig e a visibilidade do transDiv serão atualizados na lógica do modo de exibição mais abaixo)
 
+    // Atalho F (#448): a tradução chega depois e redesenha a mesma fala; sem
+    // isso a palavra escolhida pelo teclado era destruída e o foco sumia.
+    const active = this.shadowContainer.activeElement;
+    const focusedWordIndex = active && origDiv.contains(active)
+      ? [...origDiv.querySelectorAll('.lf-word')].indexOf(active)
+      : -1;
+
     origDiv.innerHTML = '';
     // Força recriação do nó clicável para garantir que ele pertença ao Shadow Root atual
     origDiv.appendChild(this._makeClickable(orig));
+    if (focusedWordIndex >= 0) {
+      const words = origDiv.querySelectorAll('.lf-word');
+      (words[focusedWordIndex] || words[words.length - 1])?.focus();
+    }
 
     // Modo Hardcore: blur na linha original até o usuário passar o mouse
     const origRow = this.shadowContainer.querySelector('.lf-orig-row');

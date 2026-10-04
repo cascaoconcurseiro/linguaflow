@@ -33,7 +33,7 @@
     "test:project-map": "node --test tests/project-map.test.mjs",
     "test:page-lifecycle": "node --test tests/page-lifecycle-bfcache.test.mjs tests/settings-live-save.test.mjs",
     "test:background": "node --test tests/background-reminders.test.mjs tests/tts-url-allowlist.test.mjs",
-    "test:max-ui": "node --test tests/subtitle-host-placement.test.mjs tests/hbo-native-captions.test.mjs tests/dock-collapse.test.mjs && node tests/max-player-ui.test.mjs && node tests/player-controls-sync.test.mjs && node --test tests/player-start-mode.test.mjs tests/usage-events-contract.test.mjs tests/player-shortcuts.test.mjs tests/popup-and-identity.test.mjs",
+    "test:max-ui": "node --test tests/subtitle-host-placement.test.mjs tests/hbo-native-captions.test.mjs tests/dock-collapse.test.mjs && node tests/max-player-ui.test.mjs && node tests/player-controls-sync.test.mjs && node --test tests/player-start-mode.test.mjs tests/usage-events-contract.test.mjs tests/player-shortcuts.test.mjs tests/popup-and-identity.test.mjs && node tests/player-dock-responsive.test.mjs && node tests/player-startup-performance.test.mjs && node tests/shadow-dom-hotkeys-and-shell.test.mjs",
     "test:study-hours": "node tests/multimodal-study-hours.test.mjs",
     "test:words-explorer": "node tests/words-explorer-contract.test.mjs && node tests/popup-phrasal-slang-detector.test.mjs && node --test tests/modular-popup-linguistics-contract.test.mjs",
     "test:focus-shell": "node tests/focus-shell.test.mjs",
@@ -46,13 +46,13 @@
     "test:evidence-indexes": "node tests/evidence-index-hardening.test.mjs",
     "test:pedagogy": "node tests/pedagogy-economy-contract.test.mjs",
     "test:review-economy": "node tests/review-economy-p0-2.test.mjs && node tests/review-daily-limits-authority.test.mjs && node tests/review-server-fsrs-authority.test.mjs && node tests/review-server-fsrs-hardening.test.mjs && node tests/review-fsrs-stability-and-undo-quota.test.mjs",
-    "test:product-ux": "node tests/product-ux-stage4.test.mjs && node tests/ux-accessibility-hardening.test.mjs",
+    "test:product-ux": "node tests/product-ux-stage4.test.mjs && node tests/ux-accessibility-hardening.test.mjs && node tests/human-interface-pass.test.mjs",
     "test:nav-home": "node tests/navigation-home-p0-a.test.mjs && node tests/home-organization.test.mjs && node tests/ux-labels-395.test.mjs && node tests/notes-empty-402.test.mjs && node --test tests/video-word-stats-399.test.mjs",
     "test:understand-panel": "node tests/understand-panel-p0-b.test.mjs",
     "test:language-state": "node tests/product-language-state-p0-c.test.mjs",
     "test:vault-settings": "node tests/cofre-settings-p1-a.test.mjs",
     "test:reading-experience": "node --test tests/story-report.test.mjs && node tests/reading-experience-p1-b.test.mjs && node tests/stories-book-format-and-hover-translation.test.mjs && node tests/cross-platform-environment-contract.test.mjs && node --test tests/stories-quiz-contract.test.mjs && node --test tests/lexical-profile-i-plus-one.test.mjs && node --test tests/readability-cefr-calibration.test.mjs",
-    "test:onboarding": "node tests/onboarding-p1-c.test.mjs && node tests/home-direct-entry.test.mjs",
+    "test:onboarding": "node tests/onboarding-p1-c.test.mjs && node tests/home-direct-entry.test.mjs && node tests/first-steps.test.mjs",
     "test:practice-progress": "node tests/practice-progress-p1-d.test.mjs && npm run test:game-removal",
     "test:game-removal": "node tests/game-removal-contract.test.mjs",
     "test:auth-ux": "node tests/auth-ux-resilience-p0-p1.test.mjs && node tests/signup-session.test.mjs && node tests/auth-401-refresh.test.mjs",
@@ -67,7 +67,7 @@
     "test:contextual-translation": "node tests/contextual-translation-contract.test.mjs && node tests/study-empty-translation-fallback.test.mjs",
     "test:adaptive": "node tests/adaptive-learning.test.mjs && node tests/adaptive-learning-contract.test.mjs && node --test tests/anti-burnout-pacing.test.mjs && node --test tests/active-recall-verification.test.mjs",
     "test:fluency": "node tests/fluency-core.test.mjs && node tests/fluency-task-catalog.test.mjs && node tests/fluency-foundation-contract.test.mjs && node tests/fluency-task-catalog-seed.test.mjs && node tests/fluency-assessment-authority-contract.test.mjs && node tests/fluency-assessment-edge-contract.test.mjs && node tests/fluency-client-contract.test.mjs && node tests/fluency-check-ux.test.mjs",
-    "test:mobile-pronunciation": "node tests/mobile-pronunciation-ux.test.mjs",
+    "test:mobile-pronunciation": "node tests/mobile-pronunciation-ux.test.mjs && node tests/ipa-pronunciation-display.test.mjs && node tests/ipa-validator.test.mjs",
     "test:frontend-lifecycle": "node tests/frontend-lifecycle-regression.test.mjs",
     "test:production-security": "node tests/production-security-contract.test.mjs && node tests/backend-idempotency-notification-contract.test.mjs",
     "test:rls-live": "node tests/production/rls-two-user-isolation.test.mjs",
@@ -99,7 +99,7 @@
     "test:stabilization": "node --test tests/stabilization.test.mjs",
     "content:check": "node scripts/content-check.mjs",
     "content:review": "node scripts/content-review-sample.mjs",
-    "test:courses": "node tests/content-check.test.mjs && node --test tests/content-review-sample.test.mjs tests/course-vault.test.mjs && node tests/sound-engine.test.mjs && node tests/remove-course-401.test.mjs && node --test tests/course-images.test.mjs tests/courses-hash-route.test.mjs tests/review-batches-398.test.mjs tests/input-engine.test.mjs tests/course-practice-session.test.mjs tests/course-continue-target.test.mjs tests/courses-system-contract.test.mjs tests/progress-stats-contract.test.mjs tests/undeclared-variables.test.mjs"
+    "test:courses": "node tests/content-check.test.mjs && node --test tests/content-review-sample.test.mjs tests/course-vault.test.mjs && node tests/sound-engine.test.mjs && node tests/remove-course-401.test.mjs && node --test tests/course-images.test.mjs tests/courses-hash-route.test.mjs tests/review-batches-398.test.mjs tests/input-engine.test.mjs tests/course-practice-session.test.mjs tests/course-prefs.test.mjs tests/course-continue-target.test.mjs tests/courses-system-contract.test.mjs tests/progress-stats-contract.test.mjs tests/undeclared-variables.test.mjs"
   },
   "dependencies": {
     "acorn": "^8.17.0"

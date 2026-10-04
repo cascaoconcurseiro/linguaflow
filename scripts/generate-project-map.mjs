@@ -50,12 +50,30 @@ export function sizeClass(lines) {
 
 const COMMENTABLE = /\.(js|mjs|cjs|ts|css|html|sql|sh|ps1|yml)$/;
 
+const BLOCK_START = ['/*', '<!--', '<#'];
+const BLOCK_END = ['*/', '-->', '#>'];
+const startsBlock = (line) => BLOCK_START.some((marker) => line.startsWith(marker));
+const endsBlock = (line) => BLOCK_END.some((marker) => line.endsWith(marker));
+
+function dropLeading(text, char) {
+  let index = 0;
+  while (text[index] === char) index += 1;
+  return text.slice(index);
+}
+
 function stripCommentMarkers(line) {
-  return line
-    .replace(/^\s*(<!--|\/\*\*?|\/\/+|--+|#+|<#)\s*/, '')
-    .replace(/\s*(-->|\*\/|#>)\s*$/, '')
-    .replace(/^\*\s?/, '')
-    .trim();
+  let text = line.trim();
+  if (text.startsWith('<!--')) text = text.slice(4);
+  else if (text.startsWith('/**')) text = text.slice(3);
+  else if (text.startsWith('/*') || text.startsWith('<#')) text = text.slice(2);
+  else if (text.startsWith('//')) text = dropLeading(text, '/');
+  else if (text.startsWith('--')) text = dropLeading(text, '-');
+  else if (text.startsWith('#')) text = dropLeading(text, '#');
+  else if (text.startsWith('*')) text = text.slice(1);
+  text = text.trim();
+  const end = BLOCK_END.find((marker) => text.endsWith(marker));
+  if (end) text = text.slice(0, -end.length);
+  return text.trim();
 }
 
 // Remove "caminho.ext —" do começo: o caminho sozinho não explica nada.
@@ -72,11 +90,11 @@ function headerCommentLines(text) {
   for (const raw of text.split('\n').slice(0, 40)) {
     const line = raw.trim();
     if (!out.length && !inBlock && (!line || line.startsWith('#!') || /^<!doctype/i.test(line))) continue;
-    const opensBlock = /^(\/\*|<!--|<#)/.test(line);
+    const opensBlock = startsBlock(line);
     const startsComment = opensBlock || /^(\/\/|--|#|\*)/.test(line);
     if (!inBlock && !startsComment) break;
-    if (opensBlock) inBlock = !/(\*\/|-->|#>)\s*$/.test(line);
-    else if (inBlock && /(\*\/|-->|#>)\s*$/.test(line)) inBlock = false;
+    if (opensBlock) inBlock = !endsBlock(line);
+    else if (inBlock && endsBlock(line)) inBlock = false;
     out.push(stripCommentMarkers(line));
   }
   return out;
@@ -109,7 +127,7 @@ export function describeFile(file, text) {
   }
   description = description.replace(/\s+/g, ' ').replace(/[:,;—-]\s*$/, '').trim();
   if (!description) return NO_DESCRIPTION;
-  const escaped = description.replace(/\|/g, '\\|');
+  const escaped = description.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
   return escaped.length > 170 ? `${escaped.slice(0, 167)}…` : escaped;
 }
 

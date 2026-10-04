@@ -540,7 +540,7 @@ Para atualizar: `npm run map`.
 | `utils/translation-quality.js` | P | Detecta tradução ruim (vazamento da frase original) para não mostrar nem salvar. |
 | `utils/translator.js` | M | Tradutor: cache em memória/local/banco, provedores externos, proxy via extensão e controle de qualidade. |
 | `utils/tts.js` | M | Voz do LinguaFlow na extensão: áudio do dicionário, voz neural, Google Tradutor e voz do navegador, nessa ordem. |
-| `utils/video-utils.js` | P | LinguaFlow Video Utilities Shared logic for timestamp generation and time formatting |
+| `utils/video-utils.js` | P | LinguaFlow Video Utilities Shared logic for timestamp generation and time formatting / |
 | `utils/weak-card.js` | P | Fonte única de "palavra fraca" (#338), usada pelo site e pela extensão: Home, sessão de reforço, fila de estudo, modo de recuperação e reencontro nas histórias. O leec… |
 | `utils/word-senses.js` | P | Traduções de uma palavra agrupadas por classe gramatical (verbo, substantivo…), a partir do dicionário que o Google devolve junto com a tradução (dt=bd). Mesma fonte d… |
 

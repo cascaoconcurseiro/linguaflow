@@ -75,7 +75,7 @@ assert.equal(tallPopup.maxHeight, 252, 'popup alto usa scroll no espaço acima d
 assert.ok(tallPopup.top + tallPopup.maxHeight <= 264);
 
 const uiSource = await readFile(new URL('../content/max-player-ui.js', import.meta.url), 'utf8');
-for (const action of ['toggle', 'previous', 'loop', 'next', 'speed', 'panel', 'settings']) {
+for (const action of ['toggle', 'previous', 'loop', 'next', 'shadow', 'speed', 'panel', 'settings']) {
   assert.match(uiSource, new RegExp(`data-action=["']${action}["']`));
 }
 assert.doesNotMatch(uiSource, /data-action=["']repeat["']/);

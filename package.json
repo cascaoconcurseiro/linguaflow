@@ -46,7 +46,7 @@
     "test:understand-panel": "node tests/understand-panel-p0-b.test.mjs",
     "test:language-state": "node tests/product-language-state-p0-c.test.mjs",
     "test:vault-settings": "node tests/cofre-settings-p1-a.test.mjs",
-    "test:reading-experience": "node tests/reading-experience-p1-b.test.mjs && node tests/stories-book-format-and-hover-translation.test.mjs && node tests/cross-platform-environment-contract.test.mjs && node --test tests/stories-quiz-contract.test.mjs && node --test tests/lexical-profile-i-plus-one.test.mjs && node --test tests/readability-cefr-calibration.test.mjs",
+    "test:reading-experience": "node --test tests/story-report.test.mjs && node tests/reading-experience-p1-b.test.mjs && node tests/stories-book-format-and-hover-translation.test.mjs && node tests/cross-platform-environment-contract.test.mjs && node --test tests/stories-quiz-contract.test.mjs && node --test tests/lexical-profile-i-plus-one.test.mjs && node --test tests/readability-cefr-calibration.test.mjs",
     "test:onboarding": "node tests/onboarding-p1-c.test.mjs && node tests/home-direct-entry.test.mjs",
     "test:practice-progress": "node tests/practice-progress-p1-d.test.mjs && npm run test:game-removal",
     "test:game-removal": "node tests/game-removal-contract.test.mjs",

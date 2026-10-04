@@ -3,6 +3,7 @@
 ## [Não lançado]
 
 ### Adicionado
+- **"Reportar problema" na leitura da história**: motivos prontos (inglês ou tradução errados, nível que não combina, conteúdo impróprio, outro) enviam o relato pelo canal que já existe, com nível e título da história e sem o texto dela. Fecha o ciclo de qualidade das histórias geradas por IA, que ninguém revisa antes de chegarem ao aluno (#435).
 - **Amostra para revisão humana do conteúdo**: `npm run content:review` gera uma planilha reproduzível (por semente) com frase, tradução, IPA e nota de cada curso, com colunas para o revisor aprovar ou corrigir (#435).
 - **Frases dos cursos podem ir para o Cofre**: o botão "＋ Enviar ao Cofre" (na resposta da prática e no caderno de vocabulário) coloca a frase na mesma fila de revisão das palavras de vídeo. Nunca sobrescreve uma palavra que você já tem, respeita o limite do Cofre e não envia parágrafos nem histórias (#434).
 - **Memória de longo prazo no Progresso**: mostra quanto você lembrou nas revisões feitas depois de 7 dias ou mais, e de 30 dias ou mais, sem ver o cartão. Só aparece o percentual com pelo menos 10 revisões; antes disso o painel explica o que falta. É a medida mais direta de que a palavra ficou na memória (#433).

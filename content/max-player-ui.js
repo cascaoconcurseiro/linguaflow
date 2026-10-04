@@ -1,3 +1,11 @@
+import {
+  DOCK_COLLAPSE_BUTTON_HTML,
+  applyDockCollapsed,
+  dockCollapseCss,
+  loadDockCollapsed,
+  saveDockCollapsed,
+} from './subtitles/dock-collapse.js';
+
 const MAX_HOSTS = ['max.com', 'hbomax.com', 'hbo.com'];
 const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5];
 
@@ -124,6 +132,7 @@ export class MaxPlayerUI {
     this.visible = typeof engine?.isActivated === 'boolean' ? engine.isActivated : true;
     this.playbackRate = this._readPlaybackRate();
     this.video = null;
+    this.collapsed = false;
     this.rateChangeHandler = null;
     this.abortController = new AbortController();
   }
@@ -257,6 +266,7 @@ export class MaxPlayerUI {
         <span class="lf-toggle-text">LF</span>
         <span class="lf-switch-track" aria-hidden="true"><span class="lf-switch-thumb"></span></span>
       </button>
+      ${DOCK_COLLAPSE_BUTTON_HTML}
       <span class="lf-max-separator" aria-hidden="true"></span>
       <button type="button" data-action="previous" title="Legenda anterior (A)" aria-label="Legenda anterior">‹</button>
       <button type="button" data-action="loop" aria-pressed="false" title="Ativar loop da frase" aria-label="Ativar loop da frase">↻</button>
@@ -306,6 +316,7 @@ export class MaxPlayerUI {
         #lf-max-controls button[data-action="toggle"][aria-pressed="true"] .lf-switch-thumb{transform:translateX(10px);}
       }
       @media (prefers-reduced-motion:reduce){#lf-max-controls,#lf-max-controls button{transition:none}}
+      ${dockCollapseCss('#lf-max-controls', 'vertical')}
     `;
     if (!document.getElementById(style.id)) document.head.appendChild(style);
 
@@ -321,6 +332,11 @@ export class MaxPlayerUI {
         }
         this.engine.userToggleSubtitles(!this.engine.isActivated);
         this.syncActiveState(this.engine.isActivated);
+      } else if (action === 'collapse') {
+        this.collapsed = !this.collapsed;
+        applyDockCollapsed(this.dock, this.collapsed);
+        this.lastLayout = '';
+        saveDockCollapsed(this.collapsed);
       } else if (action === 'previous') this.engine.prevSubtitle();
       else if (action === 'loop') {
         const active = this.engine.toggleLoop() === true;
@@ -343,6 +359,12 @@ export class MaxPlayerUI {
     this._bindDockDrag(dock);
 
     this.dock = dock;
+    applyDockCollapsed(dock, this.collapsed);
+    loadDockCollapsed().then((collapsed) => {
+      if (this.collapsed === collapsed) return;
+      this.collapsed = collapsed;
+      applyDockCollapsed(this.dock, collapsed);
+    });
     this._updateSpeedButton();
     this._syncLoopButton();
     this._mountInOverlayRoot();

@@ -3,12 +3,14 @@
 ## [Não lançado]
 
 ### Adicionado
+- **Recolher os controles do player**: um botãozinho de seta, logo abaixo (ou ao lado, no YouTube) do LF, esconde ‹ ↻ › ◐ 1× ▤ ⚙ e deixa só o liga/desliga, para os controles não cobrirem o vídeo. Vale em Max, Netflix, Disney+, Prime Video e YouTube, e a escolha fica guardada. Recolher não desliga as legendas (#462).
 - **Modo shadowing no player (YouTube)**: tecla `M` ou o botão ◐ do dock troca a legenda por três linhas, com a fala anterior apagada, a atual em destaque e a próxima em meio-tom, mais uma barra fina com o progresso da fala. A tradução fica escondida (o botão de traduzir continua valendo). Desligado por padrão; a escolha fica guardada neste dispositivo (#456).
 - **Velocidade pelo teclado**: `[` fala mais devagar e `]` mais rápido, em passos de 0,05× (de 0,5× a 1,5×), com aviso na tela (#454).
 - **Palavra e depois a frase, nos cursos de vocabulário**: depois de acertar a palavra, você digita a frase de exemplo com ela (com áudio e tradução como pista), em vez de só vê-la por um instante. Erros na frase não rebaixam a palavra na revisão.
 - **Imagem nas palavras do curso de vocabulário**: 366 palavras (família, cores, números, corpo, roupas, casa, cidade, comida, bebidas, transporte, clima, animais, emoções, escola, esportes, trabalho, tecnologia, dinheiro, saúde, música, viagem e verbos de ação) aparecem com uma ilustração aberta (Noto Emoji, Apache 2.0) e o crédito. Palavras abstratas ficam sem imagem de propósito.
 
 ### Corrigido
+- **Max/HBO: LinguaFlow liga a legenda nativa sozinho**: a Max só envia as falas quando a legenda do próprio player está ligada, e o LinguaFlow só tentava ligá-la uma vez, no carregamento da página (com ele ainda desligado). Agora, ao ligar o LinguaFlow (também com o vídeo rodando, sem F5), ele liga a legenda nativa no idioma do vídeo e tenta de novo até as falas chegarem. Se você desligar o LinguaFlow no meio, ele para.
 - **Shadowing também nos outros players**: o botão ◐ agora existe no dock lateral de Netflix, Max, Disney+ e Prime (antes só o YouTube tinha). Em Disney+ e Prime a próxima fala só aparece quando a trilha completa está disponível; a anterior e a atual funcionam sempre (#458).
 - **Roteiro agora abre com P, não com L**: o L é do YouTube (avançar 10 s) e o LinguaFlow o engolia. Shift + P continua sendo o da playlist (#454).
 - **Legenda mudava de tamanho sozinha**: o tamanho vinha da largura do player e sobrescrevia o do painel a cada resize; agora vale só o das configurações. Frases mistas (ex.: "SMELLS LIKE IT'S coming...") também são normalizadas para não ficarem com parte maior (#452).

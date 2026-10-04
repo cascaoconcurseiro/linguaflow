@@ -12,6 +12,7 @@ import {
 } from '../content/subtitles/activation-state.js';
 import { setupPlayerHotkeys } from '../content/subtitles/player-hotkeys.js';
 import { readEngineSource } from './helpers/engine-source.mjs';
+import { readSettingsPanelSource } from './helpers/settings-panel-source.mjs';
 
 test('padrão: desligado; só liga se o usuário ligou nesta sessão do navegador', () => {
   for (const platform of ['youtube', 'max']) {
@@ -101,7 +102,7 @@ test('contrato: docks escondem controles quando desligado e só o clique persist
   assert.match(maxSrc, /#lf-max-controls\.lf-off>:not\(\.lf-dock-toggle\)/);
   assert.match(engineSrc, /userToggleSubtitles\(forceState = null\)[\s\S]*saveActivation/);
   assert.doesNotMatch(engineSrc, /lf_sub_visible/);
-  const settings = await readFile(new URL('../content/settings-panel.js', import.meta.url), 'utf8');
+  const settings = await readSettingsPanelSource();
   assert.match(settings, /id="sel-start-mode"/);
   const sw = await readFile(new URL('../background/service-worker.js', import.meta.url), 'utf8');
   assert.match(sw, /storage\.session\?\.setAccessLevel/);

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { readEngineSourceSync } from './helpers/engine-source.mjs';
+import { readDbSourceSync } from './helpers/db-source.mjs';
 
 console.log('🧪 Iniciando testes de Controle Multimodal de Horas de Estudo...');
 
@@ -31,7 +32,7 @@ assert.match(migration, /revoke\s+all\s+on\s+function\s+public\.log_manual_study
 assert.match(migration, /grant\s+execute\s+on\s+function\s+public\.log_manual_study[\s\S]*to\s+authenticated/i, 'log_manual_study deve conceder execute a authenticated');
 
 // 2. Contrato de utils/db.js
-const dbContent = readFileSync('utils/db.js', 'utf8');
+const dbContent = readDbSourceSync();
 
 // Método getStudyStats e formatStudyTime
 assert.match(dbContent, /getStudyStats\s*\(/, 'utils/db.js deve implementar getStudyStats');

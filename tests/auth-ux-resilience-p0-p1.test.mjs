@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { readDbSourceSync } from './helpers/db-source.mjs';
 
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const app = read('dashboard/js/core/app.js');
@@ -10,7 +11,7 @@ const home = read('dashboard/js/ui/homeView.js');
 const settings = read('dashboard/js/ui/settingsView.js');
 const placement = read('dashboard/js/ui/cefrPlacementTest.js');
 const css = read('dashboard/css/globals.css');
-const db = read('utils/db.js');
+const db = readDbSourceSync();
 const stats = read('dashboard/js/ui/statsView.js');
 const dashboard = read('dashboard/dashboard.html');
 

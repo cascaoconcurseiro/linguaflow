@@ -9,6 +9,7 @@ import { slangMatchesContext, slangsDB } from '../utils/slangs-db.js';
 import { detectExprType } from '../content/popup/popup-linguistics.js';
 import { SubtitleEngine, EXPRESSION_MARK_SETTINGS } from '../content/subtitle-engine.js';
 import { readEngineSource } from './helpers/engine-source.mjs';
+import { readSettingsPanelSource } from './helpers/settings-panel-source.mjs';
 
 const found = (text, type) =>
   detectExpressions(text).filter((d) => !type || d.type === type).map((d) => `${d.text}→${d.canonical}`);
@@ -90,6 +91,6 @@ test('marcas por tipo: estilo distinto além da cor, desligáveis e salvas', asy
   }
   assert.deepEqual([...classes].sort(), ['lf-hide-contraction', 'lf-hide-marker', 'lf-hide-reduction', 'lf-hide-slang']);
 
-  const settings = await readFile(new URL('../content/settings-panel.js', import.meta.url), 'utf8');
+  const settings = await readSettingsPanelSource();
   for (const key of Object.values(EXPRESSION_MARK_SETTINGS)) assert.match(settings, new RegExp(`'${key}'`));
 });

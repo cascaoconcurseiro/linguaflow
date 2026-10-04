@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { readDbSourceSync } from './helpers/db-source.mjs';
 
 const root = join(import.meta.dirname, '..');
 const read = (relative) => readFileSync(join(root, relative), 'utf8');
@@ -9,7 +10,7 @@ const migrationName = readdirSync(join(root, 'supabase', 'migrations'))
 
 assert.ok(migrationName, 'migration expand-only de learning_task_attempts existe');
 const sql = read(`supabase/migrations/${migrationName}`);
-const db = read('utils/db.js');
+const db = readDbSourceSync();
 const app = read('dashboard/js/core/app.js');
 const progress = read('dashboard/js/ui/progressView.js');
 const view = read('dashboard/js/ui/fluencyCheckView.js');

@@ -4,10 +4,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { readDbSourceSync } from './helpers/db-source.mjs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const migration = read('supabase/migrations/20260929231638_ignored_words.sql');
-const dbSource = read('utils/db.js');
+const dbSource = readDbSourceSync();
 const sw = read('background/service-worker.js');
 
 test('migration: tabela própria, RLS por usuário e sem UPDATE', () => {

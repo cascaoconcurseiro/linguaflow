@@ -2,16 +2,18 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { readEngineSource } from './helpers/engine-source.mjs';
 import { readPopupSource } from './helpers/popup-source.mjs';
+import { readDbSource } from './helpers/db-source.mjs';
+import { readSettingsPanelSource } from './helpers/settings-panel-source.mjs';
 
 const [study, db, vercel, library, stories, wordPopup, youtubeHook, settingsPanel, pwaWorker, subtitleEngine] = await Promise.all([
   readFile(new URL('../dashboard/js/ui/studyView.js', import.meta.url), 'utf8'),
-  readFile(new URL('../utils/db.js', import.meta.url), 'utf8'),
+  readDbSource(),
   readFile(new URL('../vercel.json', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/js/ui/libraryView.js', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/js/ui/storiesView.js', import.meta.url), 'utf8'),
   readPopupSource(),
   readFile(new URL('../content/youtube-hook.js', import.meta.url), 'utf8'),
-  readFile(new URL('../content/settings-panel.js', import.meta.url), 'utf8'),
+  readSettingsPanelSource(),
   readFile(new URL('../dashboard/sw.js', import.meta.url), 'utf8'),
   readEngineSource(),
 ]);

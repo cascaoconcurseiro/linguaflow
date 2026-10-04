@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { buildLevelNote, resolveStoryLevel, storyLengthSpec } from '../utils/story-variety.js';
+import { readDbSource } from './helpers/db-source.mjs';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 const [study, editorial, home, stories, ai, worker, dbMain, dbStories, migration] = await Promise.all([
@@ -10,7 +11,7 @@ const [study, editorial, home, stories, ai, worker, dbMain, dbStories, migration
   read('dashboard/js/ui/storiesView.js'),
   read('dashboard/js/core/ai.js'),
   read('background/service-worker.js'),
-  read('utils/db.js'),
+  readDbSource(),
   read('utils/db/reader-stories-repo.js'),
   read('supabase/migrations/20260923175407_story_generation_contract.sql'),
 ]);

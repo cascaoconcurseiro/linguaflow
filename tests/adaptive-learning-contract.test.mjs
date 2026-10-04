@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { readDbSourceSync } from './helpers/db-source.mjs';
 
 const study = fs.readFileSync(new URL('../dashboard/js/ui/studyView.js', import.meta.url), 'utf8');
-const db = fs.readFileSync(new URL('../utils/db.js', import.meta.url), 'utf8');
+const db = readDbSourceSync();
 const migrations = fs.readdirSync(new URL('../supabase/migrations/', import.meta.url)).filter(x => x.includes('adaptive_learning_profiles'));
 assert.equal(migrations.length, 1);
 const sql = fs.readFileSync(new URL(`../supabase/migrations/${migrations[0]}`, import.meta.url), 'utf8');

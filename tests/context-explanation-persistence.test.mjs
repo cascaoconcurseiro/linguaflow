@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { readPopupSourceSync } from './helpers/popup-source.mjs';
+import { readDbSourceSync } from './helpers/db-source.mjs';
 
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const popup = readPopupSourceSync();
-const db = read('utils/db.js');
+const db = readDbSourceSync();
 const study = read('dashboard/js/ui/studyView.js');
 const worker = read('background/service-worker.js');
 const webReader = read('content/web-reader.js');

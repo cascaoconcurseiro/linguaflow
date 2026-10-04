@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { readEngineSourceSync } from './helpers/engine-source.mjs';
+import { readDbSourceSync } from './helpers/db-source.mjs';
 
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const app = read('dashboard/js/core/app.js');
@@ -9,7 +10,7 @@ const stats = read('dashboard/js/ui/statsView.js');
 const progress = read('dashboard/js/ui/progressView.js');
 const css = read('dashboard/css/globals.css');
 const ai = read('dashboard/js/core/ai.js');
-const dbSource = read('utils/db.js');
+const dbSource = readDbSourceSync();
 
 assert.doesNotMatch(app + home, /gameView\.js|btn-play-match|navigate\(['"]game['"]\)/,
   'o produto não oferece jogos como caminho de prática');

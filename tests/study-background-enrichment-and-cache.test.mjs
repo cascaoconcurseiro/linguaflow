@@ -4,9 +4,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
+import { readDbSourceSync } from './helpers/db-source.mjs';
 
 test('FinOps & Resiliência: updateWord permite ai_chunks sem perdas', () => {
-  const dbCode = readFileSync('utils/db.js', 'utf8');
+  const dbCode = readDbSourceSync();
   assert.match(
     dbCode,
     /const\s+allowed\s*=\s*\[[^\]]*'ai_chunks'[^\]]*\]/,
@@ -15,7 +16,7 @@ test('FinOps & Resiliência: updateWord permite ai_chunks sem perdas', () => {
 });
 
 test('FinOps & Resiliência: db.js possui Cache Multi-tier (L1 RAM + L2 Storage + L3 Supabase)', () => {
-  const dbCode = readFileSync('utils/db.js', 'utf8');
+  const dbCode = readDbSourceSync();
   assert.match(
     dbCode,
     /storageKey\s*=\s*`lf_lex:\$\{cacheKey\}`/,
@@ -108,7 +109,7 @@ test('Banco de Dados: Migration 20260927120000_canonical_lexicon_update_merge ex
 });
 
 test('Cache léxico: L2 local é descartável e o cache compartilhado resiste a envenenamento', () => {
-  const dbSrc = readFileSync('utils/db.js', 'utf8');
+  const dbSrc = readDbSourceSync();
   // Sem isso o L2 cresce até estourar a cota e toda gravação local falha.
   const evictions = dbSrc.match(/startsWith\('lf_lex:'\)/g) || [];
   assert.ok(evictions.length >= 2, 'lf_lex: entra na evicção do chrome.storage e do localStorage');

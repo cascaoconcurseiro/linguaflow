@@ -4,6 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { readDbSourceSync } from './helpers/db-source.mjs';
 
 const ROOT = process.cwd();
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
@@ -90,7 +91,7 @@ test('escopos cobrem todas as tabelas de usuário sem tocar catálogos', () => {
 });
 
 test('cliente: db.js expõe a API e o service worker a whitelista', () => {
-  const db = read('utils', 'db.js');
+  const db = readDbSourceSync();
   const sw = read('background', 'service-worker.js');
   const methods = ['adminGetRole', 'adminGetOverview', 'adminUsersPage', 'adminGetUserDetail', 'adminExportUserData',
     'adminResetUserData', 'adminResetAllUsersData', 'adminListBackups', 'adminRestoreBackup', 'adminDeleteBackup',
@@ -180,7 +181,7 @@ test('central de segurança e relatos (#412): RPCs, limites e UI', () => {
   assert.match(sql, /FUNCTION public\.admin_update_report[\s\S]*?admin_assert_role\(p_session_token, true\)[\s\S]*?admin_write_audit\('update_report'/);
   assert.doesNotMatch(sql, /inet_client_addr|x-forwarded-for/i, 'não grava IP bruto em tabela nova');
 
-  const db = read('utils', 'db.js');
+  const db = readDbSourceSync();
   const sw = read('background', 'service-worker.js');
   for (const method of ['submitUserReport', 'listMyReports', 'adminSecurityOverview', 'adminListReports', 'adminUpdateReport']) {
     assert.ok(db.includes(`async ${method}(`), `${method} em db.js`);

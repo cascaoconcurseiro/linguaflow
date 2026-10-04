@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { readDbSourceSync } from './helpers/db-source.mjs';
 
 const migration = readFileSync('supabase/migrations/20260718194534_sync_reader_and_atomic_sessions.sql', 'utf8');
 const heartbeatMigration = readFileSync('supabase/migrations/20260722222500_deduplicate_study_time_heartbeats.sql', 'utf8');
-const db = readFileSync('utils/db.js', 'utf8');
+const db = readDbSourceSync();
 const reader = readFileSync('dashboard/js/ui/readerView.js', 'utf8');
 
 assert.match(migration, /create table public\.reader_texts[\s\S]*enable row level security/i);

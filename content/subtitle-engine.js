@@ -1069,9 +1069,31 @@ export class SubtitleEngine {
     }, { signal: this._lifecycleController.signal });
   }
 
+  // A legenda nasce no body quando o player ainda não existe (posição fixa na
+  // janela, ~100px da borda do navegador). Quando o player aparece ela precisa
+  // entrar nele; senão fica fora do lugar até o usuário recarregar a página.
+  // Só troca propriedades de posição: visibility/opacity do liga/desliga ficam.
+  _moveHostIntoPlayer(host = document.getElementById('linguaflow-subtitle-host')) {
+    if (this.platform === 'max' || !host || host.parentElement !== document.body) return false;
+    const player = this._findPlayerContainer();
+    if (!player) return false;
+    const bottom = this._currentBottom ?? 100;
+    const horizontal = this._currentHorizontal ?? 50;
+    const set = (name, value) => host.style.setProperty(name, value, 'important');
+    set('position', 'absolute');
+    set('bottom', `${bottom}px`);
+    set('left', `${horizontal}%`);
+    set('transform', `translateX(-${horizontal}%)`);
+    set('width', '94%');
+    player.appendChild(host);
+    console.debug('[LinguaFlow] Legenda reposicionada dentro do player');
+    return true;
+  }
+
   async _repositionSubtitle() {
     const host = document.getElementById('linguaflow-subtitle-host');
     if (!host) return;
+    this._moveHostIntoPlayer(host);
 
     if (this.platform === 'max') {
       const targetRoot = document.fullscreenElement || document.body;
@@ -3268,34 +3290,12 @@ export class SubtitleEngine {
         });
       }
 
-      // Para HBO/Max: se a legenda foi posicionada em fallback, reposiciona
-      // dentro do player agora que o vídeo (e o player) estão prontos
-      if (this.platform !== 'youtube') {
-        const host = document.getElementById('linguaflow-subtitle-host');
-        if (host && host.parentElement === document.body) {
-          // Ainda está no body (fallback) — tenta mover para o player
-          setTimeout(() => {
-            const player = this._findPlayerContainer();
-            if (player) {
-              const bottom = this._currentBottom ?? 188;
-              const horiz = this._currentHorizontal ?? 50;
-              host.style.cssText = `
-                                position: absolute !important;
-                                bottom: ${bottom}px !important;
-                                left: ${horiz}% !important;
-                                transform: translateX(-${horiz}%) !important;
-                                z-index: 2147483640 !important;
-                                width: 80% !important;
-                                max-width: 900px !important;
-                                text-align: center !important;
-                                pointer-events: none;
-                                padding: 0 !important;
-                            `;
-              player.appendChild(host);
-              console.debug('[LinguaFlow] Legenda reposicionada dentro do player');
-            }
-          }, 1500);
-        }
+      // Se a legenda nasceu no body (player ainda não existia), leva para dentro
+      // do player agora que o vídeo está pronto. Vale também para o YouTube.
+      if (this.platform !== 'max') {
+        setTimeout(() => {
+          if (!this._disposed) this._moveHostIntoPlayer();
+        }, 1500);
       }
     }, 250);
   }

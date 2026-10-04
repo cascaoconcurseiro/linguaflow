@@ -1,3 +1,4 @@
+// dashboard/js/ui/storiesView.js — Tela Histórias: gera e lê histórias por nível, formato de livro, tradução no hover, quiz e relatório.
 import { db } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio } from '../core/tts.js';
 import { generateStoryWeb, aiChat, enrichCard } from '../core/ai.js';

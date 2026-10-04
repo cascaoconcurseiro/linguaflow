@@ -1,3 +1,4 @@
+// utils/html.js — Escape de HTML para qualquer texto de fora (legendas, IA, web) antes de entrar no DOM.
 export function escapeHTML(value) {
     if (!value) return '';
     return String(value)

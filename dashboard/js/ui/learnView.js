@@ -1,3 +1,4 @@
+// dashboard/js/ui/learnView.js — Tela Aprender: escolhe entre histórias no seu nível, o Leitor de textos e aprender com vídeo (YouTube e Max).
 const LEARN_DESTINATIONS = [
   {
     route: 'stories',

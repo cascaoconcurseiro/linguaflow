@@ -1,3 +1,4 @@
+// dashboard/js/core/fluencyTaskCatalog.js — Catálogo versionado de tarefas de fluência por nível e habilidade, com validação e sobreposição de texto estudado.
 export const CATALOG_VERSION = '2026.07.1';
 export const RUBRIC_VERSION = 'fluency-rubric-v1';
 

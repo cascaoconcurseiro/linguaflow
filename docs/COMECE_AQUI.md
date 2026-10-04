@@ -6,6 +6,7 @@ Instruções para inicialização rápida no ecossistema LinguaFlow (Extensão C
 
 ## 1. Documentação de Referência
 
+0. **[Mapa do Projeto](MAPA_DO_PROJETO.md)** — Visão completa do sistema: peças, pastas, fluxos, segurança e onde mexer.
 1. **[Arquitetura Técnica](ARQUITETURA.md)** — Princípios de fonte da verdade, diagrama do sistema e ADRs.
 2. **[Contrato Pedagógico e Economia](CONTRATO_PEDAGOGICO_ECONOMIA_P0_2_2026-07-14.md)** — Regras de pontuação, integridade FSRS e caps diários.
 3. **[README Principal](../README.md)** — Visão geral do produto, requisitos e comandos de execução.

@@ -1,3 +1,4 @@
+// dashboard/js/core/adaptiveLearning.js — Regras de aprendizagem adaptativa: plano por card, honestidade da autoavaliação, perfil do aluno e detecção de cansaço.
 import { isWeakCard } from '../../../utils/weak-card.js';
 
 const SLOW_RESPONSE_MS = 18000;

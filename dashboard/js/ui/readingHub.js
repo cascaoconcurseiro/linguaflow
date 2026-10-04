@@ -1,3 +1,4 @@
+// dashboard/js/ui/readingHub.js — Cabeçalho comum de Leitura (Histórias guiadas × Meus textos), compartilhado pelas duas telas.
 export function renderReadingHeader(active) {
   return `<header class="reading-hub-header">
     <p class="product-kicker">LEITURA CONTEXTUAL</p>

@@ -1,3 +1,4 @@
+// content/subtitle-engine.js — Motor de legendas: captura, sincronização, tradução, palavras clicáveis, painel lateral, dock do YouTube e atalhos do player.
 import { captionLines, groupCaptionEvents, attachTranslationsByTime } from '../utils/caption-grouping.js';
 import { normalizeSubtitleCasing } from '../utils/caption-casing.js';
 import { MAX_EXPRESSION_WORDS } from '../utils/expressions-db.js';

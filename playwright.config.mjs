@@ -1,3 +1,4 @@
+// playwright.config.mjs — Configuração dos testes de navegador (Playwright): pasta tests/e2e, relatórios e servidor local.
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({

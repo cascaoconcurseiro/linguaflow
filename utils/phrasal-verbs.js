@@ -1,4 +1,4 @@
-// utils/phrasal-verbs.js
+// utils/phrasal-verbs.js — Base de phrasal verbs (significado e exemplo) usada para marcar e explicar expressões.
 export const phrasalVerbsDB = {
     get: [
         { phrase: 'get up', meaning: 'Levantar-se', example: "I get up at 7am." },

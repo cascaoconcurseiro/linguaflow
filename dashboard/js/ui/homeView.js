@@ -1,3 +1,4 @@
+// dashboard/js/ui/homeView.js — Tela Início: próximo passo do dia, palavras difíceis, horas de estudo, conquistas e avisos.
 import { lemma } from '../../../utils/lemma.js';
 import { addLocalDays, daysBetweenLocalKeys, localDateKey } from '../../../utils/local-day.js';
 import { runPlacementTest } from './settingsView.js';

@@ -1,3 +1,4 @@
+// utils/caption-grouping.js — Agrupa eventos de legenda em frases do tamanho da tela e casa traduções por tempo, sem alterar palavras nem horários.
 import { adjustFragmentCasing, normalizeSubtitleCasing } from './caption-casing.js';
 
 // Display-sized phrases from the captions already supplied to the player.

@@ -1,4 +1,4 @@
-// background/ai-generator.js
+// background/ai-generator.js — Geração com IA no service worker: frases, histórias, variações e preenchimento de frases que faltam nos cards.
 import {
   buildStoryPrompt,
   levelSpecFor,

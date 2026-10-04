@@ -1,4 +1,4 @@
-// utils/offline-dict.js
+// utils/offline-dict.js — Cache do dicionário em IndexedDB para consultas repetidas e uso offline.
 
 export const offlineDict = {
     dbName: 'LinguaFlow_OfflineDict',

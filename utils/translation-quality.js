@@ -1,3 +1,4 @@
+// utils/translation-quality.js — Detecta tradução ruim (vazamento da frase original) para não mostrar nem salvar.
 function words(text) {
   return String(text || '')
     .toLocaleLowerCase('pt-BR')

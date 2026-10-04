@@ -1,4 +1,4 @@
-// utils/slangs-db.js
+// utils/slangs-db.js — Base de gírias e formas coloquiais, com regras que dependem do contexto da frase.
 import { REDUCTIONS } from './speech-cadence.js';
 // Gírias, contrações informais e expressões coloquiais em inglês.
 //

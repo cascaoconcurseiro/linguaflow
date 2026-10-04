@@ -1,3 +1,4 @@
+// supabase/functions/fluency-assessment/index.ts — Edge Function da Checagem de Fluência: avalia a resposta com IA segundo a rubrica e grava o resultado por RPC do servidor.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const ENDPOINT = "fluency-assessment";

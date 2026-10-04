@@ -1,3 +1,4 @@
+// content/max-player-ui.js — Dock lateral de controles (Max, Netflix, Disney+, Prime): botão LF, frase anterior/próxima, loop, shadowing, velocidade, painel e configurações.
 import {
   DOCK_COLLAPSE_BUTTON_HTML,
   applyDockCollapsed,

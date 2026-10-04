@@ -1,4 +1,4 @@
-// background/service-worker.js
+// background/service-worker.js — Service worker MV3: central de mensagens (tradução, dicionário, IA, fila de salvar palavras), alarmes, selo de cards e notificação de revisão.
 import { db } from '../utils/db.js';
 import { translator } from '../utils/translator.js';
 import { fetchWordSenses } from '../utils/word-senses.js';

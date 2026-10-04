@@ -1,4 +1,4 @@
-// content/settings-panel.js
+// content/settings-panel.js — Painel de configurações da extensão no player (Shadow DOM): aparência da legenda, sincronia, idiomas e gravação das preferências.
 const DB_NAME = 'LinguaFlowFreeDB';
 
 async function readAllSettings() {

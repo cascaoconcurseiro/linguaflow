@@ -1,3 +1,4 @@
+// utils/site-boundary.js — Fronteira de sites: identifica o site oficial do LinguaFlow para a extensão não agir nele.
 export const OFFICIAL_SITE_URL = 'https://linguaflow-web-tau.vercel.app/';
 
 const EXACT_HOSTS = new Set([

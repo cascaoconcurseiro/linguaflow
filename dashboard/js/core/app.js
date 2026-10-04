@@ -1,3 +1,4 @@
+// dashboard/js/core/app.js — Núcleo do dashboard: roteador com renderização protegida contra tela antiga, sessão, tema, atualização da PWA e avisos.
 import { renderHome } from '../ui/homeView.js';
 import { renderFluencyCheck } from '../ui/fluencyCheckView.js';
 import { bindViewStateAction, renderViewState } from '../ui/viewState.js';

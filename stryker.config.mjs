@@ -1,3 +1,4 @@
+// stryker.config.mjs — Configuração do teste de mutação (Stryker) sobre utils/schema.js.
 export default {
   testRunner: 'command',
   commandRunner: { command: 'node tests/architectural-resilience.test.mjs' },

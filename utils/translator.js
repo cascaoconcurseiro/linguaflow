@@ -1,4 +1,4 @@
-// utils/translator.js
+// utils/translator.js — Tradutor: cache em memória/local/banco, provedores externos, proxy via extensão e controle de qualidade.
 import { db } from './db.js';
 import { offlineDict } from './offline-dict.js';
 

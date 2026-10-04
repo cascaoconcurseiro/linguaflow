@@ -1,5 +1,5 @@
 // content/subtitles/player-hotkeys.js — Gerenciamento isolado dos atalhos de teclado do player
-// Centro de Comando: A, S, D, Q, R, P, O, C, Espaço, Z, X, B, V, F, [ ], ? (lista em subtitles/shortcuts-help.js)
+// Centro de Comando: A, S, D, Q, R, P, O, C, Espaço, Z, X, B, V, F, M, [ ], ? (lista em subtitles/shortcuts-help.js)
 
 import { isEditableTarget } from '../../utils/dom-events.js';
 
@@ -81,6 +81,9 @@ export function setupPlayerHotkeys(engine, signal) {
 
     // Escuta primeiro (V)
     if (code === 'KeyV' || key === 'v') { swallow(); engine.toggleListenFirst(); return; }
+
+    // Modo shadowing (M, #456)
+    if (code === 'KeyM' || key === 'm') { swallow(); engine.toggleShadowMode(); return; }
 
     // Escolher palavra da legenda pelo teclado (F)
     if (code === 'KeyF' || key === 'f') { swallow(); engine.focusSubtitleWords(); return; }

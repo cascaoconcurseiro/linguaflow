@@ -19,6 +19,7 @@ import {
 import { setupPlayerHotkeys } from './subtitles/player-hotkeys.js';
 import { YOUTUBE_DOCK_CSS } from './subtitles/youtube-dock-styles.js';
 import { showShortcutsHelp } from './subtitles/shortcuts-help.js';
+import { shadowContext, shadowProgress, readShadowPref, writeShadowPref, SHADOW_CSS } from './subtitles/shadow-mode.js';
 import {
   DEFAULT_START_MODE,
   loadStoredActivation,
@@ -135,6 +136,8 @@ export class SubtitleEngine {
     this._sidebarTranslationKey = '';
     this.platform = this._detectPlatform();
     this.cues = []; // Cues do YouTube (via XHR)
+    this.shadowMode = readShadowPref(globalThis.localStorage); // Modo shadowing (#456)
+    this._shadowRaf = null;
     this.xhrCues = []; // Cues do HBO/Netflix (via XHR intercept)
     this.usingXhr = false; // Flag para saber se está usando XHR
     this.currentCueIndex = -1;
@@ -793,6 +796,7 @@ export class SubtitleEngine {
     this.isLooping = false;
     // Encerra completamente o loop anterior (cancela timers, RAF, RVFC e timeupdate)
     this._stopLoop();
+    this._stopShadowProgress();
 
     // Limpa intervalos de espera de vídeo anteriores
     if (this._videoWaitInterval) {
@@ -1264,6 +1268,7 @@ export class SubtitleEngine {
                     gap: 4px;
                     pointer-events: auto;
                 }
+                ${SHADOW_CSS}
                 .lf-orig-row {
                     position: relative;
                     display: inline-flex;
@@ -1415,12 +1420,15 @@ export class SubtitleEngine {
                 }
             </style>
             <div class="lf-wrap" id="lf-wrap" data-subtitle-mode="native">
+                <div class="lf-shadow-prev" id="lf-shadow-prev" aria-hidden="true"></div>
                 <div class="lf-orig-row">
                     <div class="lf-orig" id="lf-orig"></div>
                     <button class="lf-translate-btn" id="lf-translate-btn" type="button" style="display:none;" title="Traduzir frase" aria-label="Traduzir frase">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"></path><path d="m4 14 6-6 2-3"></path><path d="M2 5h12"></path><path d="M7 2h1"></path><path d="m22 22-5-10-5 10"></path><path d="M14 18h6"></path></svg>
                     </button>
                 </div>
+                <div class="lf-shadow-progress" aria-hidden="true"><div class="lf-shadow-bar" id="lf-shadow-bar"></div></div>
+                <div class="lf-shadow-next" id="lf-shadow-next" aria-hidden="true"></div>
                 <div class="lf-trans" id="lf-trans" style="display:none;">
                     <span id="lf-trans-txt"></span>
                 </div>
@@ -1584,6 +1592,7 @@ export class SubtitleEngine {
         <button type="button" data-action="previous" class="lf-dock-btn" title="Legenda anterior (A)" aria-label="Legenda anterior">‹</button>
         <button type="button" data-action="loop" class="lf-dock-btn" aria-pressed="false" title="Ativar loop da frase" aria-label="Ativar loop da frase">↻</button>
         <button type="button" data-action="next" class="lf-dock-btn" title="Próxima legenda (D)" aria-label="Próxima legenda">›</button>
+        <button type="button" data-action="shadow" class="lf-dock-btn" aria-pressed="${Boolean(this.shadowMode)}" title="Modo shadowing (M)" aria-label="Modo shadowing">◐</button>
         <button type="button" data-action="speed" class="lf-dock-btn" title="Velocidade da fala e vídeo: 1×. Clique para ajustar ou falar mais lento" aria-label="Velocidade da fala e vídeo: 1×. Clique para ajustar">1×</button>
         <span class="lf-dock-sep" aria-hidden="true"></span>
         <button type="button" data-action="panel" id="lf-yt-panel-btn" class="lf-dock-btn" title="Painel de legendas (P)" aria-label="Painel de legendas">▤</button>
@@ -1603,6 +1612,8 @@ export class SubtitleEngine {
           this.toggleLoop();
         } else if (action === 'next') {
           this.gotoNextCue();
+        } else if (action === 'shadow') {
+          this.toggleShadowMode();
         } else if (action === 'speed') {
           this._toggleSpeedMenu(btn);
         } else if (action === 'panel') {
@@ -1771,6 +1782,78 @@ export class SubtitleEngine {
     if (this._lastOrig) this.renderDual(this._lastOrig, this._lastTrans || '');
     this._showNotification(this.blurSubtitles ? '🎧 Escuta primeiro: legenda escondida' : '👁️ Legenda original visível');
     return this.blurSubtitles;
+  }
+
+  /** Modo shadowing (#456): liga/desliga a visão anterior · atual · próxima no lugar da legenda. */
+  toggleShadowMode() {
+    this.shadowMode = !this.shadowMode;
+    writeShadowPref(globalThis.localStorage, this.shadowMode);
+    for (const btn of document.querySelectorAll?.('button[data-action="shadow"]') || []) {
+      btn.setAttribute('aria-pressed', String(this.shadowMode));
+    }
+    if (this._lastOrig) this.renderDual(this._lastOrig, this._lastTrans || '');
+    else this._renderShadowContext('');
+    this._showNotification(this.shadowMode ? '🎙️ Shadowing: frase atual, anterior e próxima' : 'Shadowing desligado');
+    return this.shadowMode;
+  }
+
+  _shadowCueIndex() {
+    const list = this.xhrCues?.length ? this.xhrCues : this.cues;
+    if (!list?.length) return { list: [], index: -1 };
+    let index = this._currentCue ? list.indexOf(this._currentCue) : -1;
+    if (index < 0) index = this._binarySearchCue(list, Number(this.videoElement?.currentTime) || 0);
+    return { list, index };
+  }
+
+  _renderShadowContext(orig) {
+    const wrap = this.shadowContainer?.getElementById?.('lf-wrap');
+    if (!wrap) return;
+    if (!this.shadowMode || !orig) {
+      wrap.removeAttribute('data-shadow');
+      this._stopShadowProgress();
+      return;
+    }
+    const { list, index } = this._shadowCueIndex();
+    const ctx = shadowContext(list, index);
+    const prevEl = this.shadowContainer.getElementById('lf-shadow-prev');
+    const nextEl = this.shadowContainer.getElementById('lf-shadow-next');
+    if (prevEl) prevEl.textContent = ctx.prev;
+    if (nextEl) nextEl.textContent = ctx.next;
+    if (wrap.getAttribute('data-shadow') !== 'on' || this._shadowRolledFor !== orig) {
+      // Reinicia a entrada curta só quando a fala muda (não a cada redesenho da tradução).
+      wrap.classList.remove('lf-shadow-roll');
+      void wrap.offsetWidth;
+      wrap.classList.add('lf-shadow-roll');
+      this._shadowRolledFor = orig;
+    }
+    wrap.setAttribute('data-shadow', 'on');
+    this._startShadowProgress();
+  }
+
+  _startShadowProgress() {
+    if (this._shadowRaf != null || typeof requestAnimationFrame !== 'function') return;
+    let last = -1;
+    const tick = () => {
+      this._shadowRaf = null;
+      const wrap = this.shadowContainer?.getElementById?.('lf-wrap');
+      if (!this.shadowMode || !wrap || wrap.getAttribute('data-shadow') !== 'on') return;
+      const video = this.videoElement;
+      if (video && !video.paused) {
+        const { list, index } = this._shadowCueIndex();
+        const p = shadowProgress(this._currentCue || list[index], video.currentTime);
+        if (Math.abs(p - last) >= 0.004) {
+          last = p;
+          wrap.style.setProperty('--lf-shadow-p', p.toFixed(3));
+        }
+      }
+      this._shadowRaf = requestAnimationFrame(tick);
+    };
+    this._shadowRaf = requestAnimationFrame(tick);
+  }
+
+  _stopShadowProgress() {
+    if (this._shadowRaf != null && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this._shadowRaf);
+    this._shadowRaf = null;
   }
 
   showShortcuts() {
@@ -3905,16 +3988,18 @@ export class SubtitleEngine {
     }
 
     // Aplica o modo de exibição e visibilidade real baseada em conteúdo
+    // Shadowing (#456): tradução escondida; o botão de traduzir continua mostrando sob demanda.
     const mode = this.displayMode || 'native';
-    if (wrap) wrap.setAttribute('data-subtitle-mode', mode);
+    const shownMode = this.shadowMode ? 'native' : mode;
+    if (wrap) wrap.setAttribute('data-subtitle-mode', shownMode);
 
     const hasTrans = decodedTrans && decodedTrans.trim().length > 0;
 
     // Lógica de visibilidade baseada no modo
-    if (mode === 'translated') {
+    if (shownMode === 'translated') {
       origDiv.style.display = 'none';
       if (transDiv && hasTrans) transDiv.style.display = 'block';
-    } else if (mode === 'bilingual' || mode === 'blur') {
+    } else if (shownMode === 'bilingual' || shownMode === 'blur') {
       origDiv.style.display = 'block';
       if (transDiv && hasTrans) transDiv.style.display = 'block';
     } else {
@@ -3939,6 +4024,7 @@ export class SubtitleEngine {
 
     this._lastOrig = orig;
     this._lastTrans = decodedTrans;
+    this._renderShadowContext(orig);
 
     // Esconde o container principal se não houver nada para mostrar
     if (wrap) {

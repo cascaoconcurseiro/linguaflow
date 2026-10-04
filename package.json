@@ -17,7 +17,7 @@
     "test:coverage": "c8 --all --include=dashboard/js/core/**/*.js --include=utils/**/*.js --reporter=text --reporter=lcov node tests/architectural-resilience.test.mjs",
     "test:observability": "node tests/observability.test.mjs",
     "test:mutation": "stryker run",
-    "test:engine": "node tests/engine.test.mjs",
+    "test:engine": "node tests/engine.test.mjs && node --test tests/retention-intervals.test.mjs",
     "test:local-day": "node tests/local-day.test.mjs",
     "test:video": "node tests/video-context.test.mjs",
     "test:yt-player": "node tests/yt-player.test.mjs",

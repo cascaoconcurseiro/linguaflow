@@ -30,6 +30,49 @@ export function retentionByDay(reviewLog, days = 30) {
   return out;
 }
 
+// Retenção de longo prazo (#433): entre as revisões feitas DEPOIS de um intervalo longo sem ver o
+// cartão, quantas foram lembradas (nota >= 2). Responde "o aluno lembra depois de uma semana /
+// um mês?" — a promessa do produto — e não "quanto acertou hoje".
+// O intervalo é o tempo desde a revisão anterior DO MESMO cartão; a primeira revisão de cada cartão
+// não entra (não há intervalo). Abaixo de `minSample` revisões, a taxa fica null: percentual com
+// poucas revisões enganaria o aluno.
+// reviewLog: [{ card_id, ts | date, quality }]
+export function retentionByInterval(reviewLog, { thresholds = [7, 30], minSample = 10 } = {}) {
+  const DAY_MS = 86400000;
+  const timeOf = (r) => {
+    const value = r?.ts || r?.date;
+    const ms = value ? new Date(value).getTime() : NaN;
+    return Number.isFinite(ms) ? ms : null;
+  };
+  const byCard = new Map();
+  for (const entry of reviewLog || []) {
+    const t = timeOf(entry);
+    const quality = Number(entry?.quality);
+    if (!entry?.card_id || t === null || !Number.isFinite(quality)) continue;
+    if (!byCard.has(entry.card_id)) byCard.set(entry.card_id, []);
+    byCard.get(entry.card_id).push({ t, quality });
+  }
+  const result = {};
+  for (const days of thresholds) result[`ge${days}`] = { days, total: 0, hits: 0, rate: null, enough: false };
+  for (const entries of byCard.values()) {
+    entries.sort((a, b) => a.t - b.t);
+    for (let i = 1; i < entries.length; i++) {
+      const gapDays = (entries[i].t - entries[i - 1].t) / DAY_MS;
+      for (const days of thresholds) {
+        if (gapDays < days) continue;
+        const bucket = result[`ge${days}`];
+        bucket.total++;
+        if (entries[i].quality >= 2) bucket.hits++;
+      }
+    }
+  }
+  for (const bucket of Object.values(result)) {
+    bucket.enough = bucket.total >= minSample;
+    bucket.rate = bucket.enough ? Math.round((bucket.hits / bucket.total) * 100) : null;
+  }
+  return result;
+}
+
 // Minutos estudados por dia dos últimos `days` dias.
 // sessions: [{ date, seconds }]
 export function studyTimeByDay(sessions, days = 30) {

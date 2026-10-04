@@ -6,6 +6,7 @@
 import { db as lfDb } from '../../../utils/db.js';
 import {
   retentionByDay,
+  retentionByInterval,
   studyTimeByDay,
   maturityDistribution,
   forecastByDay,
@@ -52,6 +53,14 @@ function injectStylesOnce() {
     .stats-bars .stats-bar { width: 100%; max-width: 14px; border-radius: 3px 3px 0 0; }
     .stats-bars .stats-bar-label { font-size: 8px; color: var(--color-text-light); }
     .stats-empty { color: var(--color-text-light); font-size: 13px; text-align: center; padding: 20px 0; }
+    .stats-longterm { list-style: none; margin: 0; padding: 0; }
+    .stats-longterm li { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-top: 1px solid var(--color-border); font-size: 14px; }
+    .stats-longterm li:first-child { border-top: 0; }
+    .stats-longterm li span { color: var(--color-text-light); text-align: right; }
+    .stats-longterm li b { color: var(--color-text); font-size: 18px; }
+    .stats-longterm-note { margin: 8px 0 0; color: var(--color-text-light); font-size: 12px; line-height: 1.5; }
+    .stats-retry { margin-left: 8px; padding: 4px 10px; border: 1px solid var(--color-border); border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
+    .stats-retry:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
     .stats-maturity-bar { display: flex; height: 26px; border-radius: 6px; overflow: hidden; border: 1px solid var(--color-border); }
     .stats-maturity-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 12px; color: var(--color-text-light); }
     .stats-maturity-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
@@ -93,6 +102,35 @@ function renderRetentionBars(days) {
       <div class="stats-bar-label">${weekdayLabel(d.date)}</div>
     </div>`;
   }).join('')}</div>`;
+}
+
+// Memória de longo prazo (#433): precisa de histórico maior que os 60 dias da tela, então carrega à parte.
+function renderLongTerm(result) {
+  const line = (bucket, label) => {
+    if (!bucket.total) return `<li><strong>${label}</strong><span>Ainda sem revisões com esse intervalo.</span></li>`;
+    if (!bucket.enough) return `<li><strong>${label}</strong><span>${bucket.total} ${bucket.total === 1 ? 'revisão' : 'revisões'} até agora — precisa de pelo menos 10 para mostrar um percentual confiável.</span></li>`;
+    return `<li><strong>${label}</strong><span><b>${bucket.rate}%</b> lembrados (${bucket.hits} de ${bucket.total} revisões)</span></li>`;
+  };
+  return `<ul class="stats-longterm">${line(result.ge7, 'Depois de 7 dias ou mais')}${line(result.ge30, 'Depois de 30 dias ou mais')}</ul>
+    <p class="stats-longterm-note">Conta só as revisões feitas depois desse tempo sem ver o cartão. É a medida mais honesta de que a palavra ficou na memória.</p>`;
+}
+
+async function loadLongTerm(container, app) {
+  const slot = container.querySelector('#stats-longterm');
+  if (!slot) return;
+  slot.setAttribute('aria-busy', 'true');
+  slot.innerHTML = '<div class="stats-empty" role="status">Calculando…</div>';
+  try {
+    const log = await lfDb.getReviewLog(180);
+    if (app?.renderSignal?.aborted || !slot.isConnected) return;
+    slot.removeAttribute('aria-busy');
+    slot.innerHTML = renderLongTerm(retentionByInterval(log));
+  } catch {
+    if (app?.renderSignal?.aborted || !slot.isConnected) return;
+    slot.removeAttribute('aria-busy');
+    slot.innerHTML = '<div class="stats-empty" role="status">Não foi possível calcular agora. <button type="button" class="stats-retry" id="btn-longterm-retry">Tentar de novo</button></div>';
+    slot.querySelector('#btn-longterm-retry')?.addEventListener('click', () => loadLongTerm(container, app));
+  }
 }
 
 function renderMinutesBars(days) {
@@ -192,6 +230,11 @@ export async function renderStats(container, app) {
       </div>
 
       <div class="stats-panel">
+        <h3>Memória de longo prazo</h3>
+        <div id="stats-longterm"></div>
+      </div>
+
+      <div class="stats-panel">
         <h3>Previsão de revisões (próximos 14 dias)</h3>
         ${renderForecastBars(forecast)}
       </div>
@@ -211,4 +254,5 @@ export async function renderStats(container, app) {
       </details>
     </div>
   `;
+  loadLongTerm(container, app);
 }

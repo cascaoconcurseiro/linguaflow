@@ -97,3 +97,16 @@ test('Netflix: dock lateral aparece desligado e liga com um clique', async ({ ex
   await expect(toggle).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#lf-max-controls [data-action="panel"]')).toBeVisible();
 });
+
+test('Netflix: o dock lateral tem o botão de shadowing e ele alterna o estado (#458)', async ({ extension }) => {
+  const page = await extension.context.newPage();
+  await page.goto('https://www.netflix.com/watch/123');
+  await page.locator('#lf-max-controls [data-action="toggle"]').click();
+  const shadow = page.locator('#lf-max-controls [data-action="shadow"]');
+  await expect(shadow).toBeVisible({ timeout: 20_000 });
+  await expect(shadow).toHaveAttribute('aria-pressed', 'false');
+  await shadow.click();
+  await expect(shadow).toHaveAttribute('aria-pressed', 'true');
+  await shadow.click();
+  await expect(shadow).toHaveAttribute('aria-pressed', 'false');
+});

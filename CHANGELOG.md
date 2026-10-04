@@ -9,6 +9,7 @@
 - **Imagem nas palavras do curso de vocabulário**: 366 palavras (família, cores, números, corpo, roupas, casa, cidade, comida, bebidas, transporte, clima, animais, emoções, escola, esportes, trabalho, tecnologia, dinheiro, saúde, música, viagem e verbos de ação) aparecem com uma ilustração aberta (Noto Emoji, Apache 2.0) e o crédito. Palavras abstratas ficam sem imagem de propósito.
 
 ### Corrigido
+- **Shadowing também nos outros players**: o botão ◐ agora existe no dock lateral de Netflix, Max, Disney+ e Prime (antes só o YouTube tinha). Em Disney+ e Prime a próxima fala só aparece quando a trilha completa está disponível; a anterior e a atual funcionam sempre (#458).
 - **Roteiro agora abre com P, não com L**: o L é do YouTube (avançar 10 s) e o LinguaFlow o engolia. Shift + P continua sendo o da playlist (#454).
 - **Legenda mudava de tamanho sozinha**: o tamanho vinha da largura do player e sobrescrevia o do painel a cada resize; agora vale só o das configurações. Frases mistas (ex.: "SMELLS LIKE IT'S coming...") também são normalizadas para não ficarem com parte maior (#452).
 - **Uso do reforço de palavras fracas agora é medido**: cliques em Reforçar, Ver no Cofre, Pausar e a sessão de reforço concluída entram no funil de uso (um registro por dia, sem dados pessoais). Antes esses eventos não chegavam ao banco.

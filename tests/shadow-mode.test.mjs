@@ -99,3 +99,10 @@ test('contrato: M na lista de atalhos, módulo no manifesto, botão no dock e mo
   assert.match(src, /id="lf-shadow-prev"[^>]*aria-hidden="true"/);
   assert.match(src, /id="lf-shadow-next"[^>]*aria-hidden="true"/);
 });
+
+test('#458: o dock lateral (Netflix, Max, Disney+, Prime) também tem o botão de shadowing, ligado ao motor', async () => {
+  const ui = await readFile(new URL('../content/max-player-ui.js', import.meta.url), 'utf8');
+  assert.match(ui, /data-action="shadow"[^>]*aria-pressed="\$\{Boolean\(this\.engine\?\.shadowMode\)\}"/);
+  assert.match(ui, /action === 'shadow'[\s\S]{0,200}this\.engine\.toggleShadowMode\(\)/);
+  assert.match(ui, /button\[data-action="shadow"\]\[aria-pressed="true"\]/, 'estado ligado precisa de estilo próprio');
+});

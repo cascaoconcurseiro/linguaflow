@@ -261,6 +261,7 @@ export class MaxPlayerUI {
       <button type="button" data-action="previous" title="Legenda anterior (A)" aria-label="Legenda anterior">‹</button>
       <button type="button" data-action="loop" aria-pressed="false" title="Ativar loop da frase" aria-label="Ativar loop da frase">↻</button>
       <button type="button" data-action="next" title="Próxima legenda (D)" aria-label="Próxima legenda">›</button>
+      <button type="button" data-action="shadow" aria-pressed="${Boolean(this.engine?.shadowMode)}" title="Modo shadowing (M)" aria-label="Modo shadowing">◐</button>
       <button type="button" data-action="speed" title="Velocidade do vídeo: 1×" aria-label="Velocidade do vídeo: 1×. Clique para alterar">1×</button>
       <span class="lf-max-separator" aria-hidden="true"></span>
       <button type="button" data-action="panel" title="Painel de legendas" aria-label="Painel de legendas">▤</button>
@@ -287,6 +288,8 @@ export class MaxPlayerUI {
       #lf-max-controls .lf-switch-thumb{position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:50%;background:#cbd5e1;transition:transform .2s ease,background .2s ease;}
       #lf-max-controls button[data-action="toggle"][aria-pressed="true"] .lf-switch-thumb{transform:translateX(14px);background:#38bdf8;box-shadow:0 0 6px #38bdf8;}
       #lf-max-controls button[data-action="loop"][aria-pressed="true"]{background:rgba(56,189,248,.28);
+        color:#7dd3fc;box-shadow:0 0 10px rgba(56,189,248,.35), inset 0 0 0 1px rgba(125,211,252,.45);}
+      #lf-max-controls button[data-action="shadow"][aria-pressed="true"]{background:rgba(56,189,248,.28);
         color:#7dd3fc;box-shadow:0 0 10px rgba(56,189,248,.35), inset 0 0 0 1px rgba(125,211,252,.45);}
       #lf-max-controls button[data-action="speed"]{font-size:11px;letter-spacing:-.02em;}
       #lf-max-controls button[data-action="speed"].is-altered{color:#facc15;background:rgba(250,204,21,.15);box-shadow:inset 0 0 0 1px rgba(250,204,21,.35);}
@@ -326,6 +329,7 @@ export class MaxPlayerUI {
         button.setAttribute('aria-label', button.title);
       }
       else if (action === 'next') this.engine.nextSubtitle();
+      else if (action === 'shadow') this.engine.toggleShadowMode();
       else if (action === 'speed') this._setPlaybackRate(nextPlaybackRate(this.playbackRate));
       else if (action === 'panel') {
         this.engine.toggleSubtitlePanel();

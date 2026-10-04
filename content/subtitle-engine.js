@@ -280,12 +280,17 @@ export class SubtitleEngine {
   }
 
   _detectPlatform() {
-    const h = window.location.hostname;
-    if (h.includes('youtube.com')) return 'youtube';
-    if (h.includes('netflix.com')) return 'netflix';
-    if (h.includes('hbomax.com') || h.includes('max.com') || h.includes('hbo.com')) return 'max';
-    if (h.includes('disneyplus.com')) return 'disney';
-    if (h.includes('primevideo.com') || h.includes('amazon.com')) return 'prime';
+    // Compara rótulos inteiros do host: "notyoutube.com" não vale como YouTube.
+    const labels = window.location.hostname.split('.');
+    const on = (domain) => {
+      const want = domain.split('.');
+      return labels.some((_, start) => want.every((label, i) => labels[start + i] === label));
+    };
+    if (on('youtube.com')) return 'youtube';
+    if (on('netflix.com')) return 'netflix';
+    if (on('hbomax.com') || on('max.com') || on('hbo.com')) return 'max';
+    if (on('disneyplus.com')) return 'disney';
+    if (on('primevideo.com') || on('amazon.com')) return 'prime';
     return 'generic';
   }
 

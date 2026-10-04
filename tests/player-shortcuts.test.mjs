@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { SubtitleEngine } from '../content/subtitle-engine.js';
 import { setupPlayerHotkeys } from '../content/subtitles/player-hotkeys.js';
 import { SHORTCUT_GROUPS } from '../content/subtitles/shortcuts-help.js';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
 function engineWith(overrides = {}) {
   const engine = Object.create(SubtitleEngine.prototype);
@@ -190,13 +191,13 @@ test('contrato: toda tecla da lista de atalhos existe no código e o painel est�
   for (const event of ['LF_UPDATE_ANTICIPATION', 'LF_UPDATE_AUTOPAUSE', 'LF_UPDATE_BLUR']) {
     assert.match(settings, new RegExp(`addEventListener\\('${event}'`), `painel precisa espelhar ${event}`);
   }
-  assert.doesNotMatch(hotkeys + await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8'), /saveSetting/, 'db.saveSetting não existe; use setSetting');
+  assert.doesNotMatch(hotkeys + await readEngineSource(), /saveSetting/, 'db.saveSetting não existe; use setSetting');
 });
 
 test('#439: aviso ao ligar e lista de atalhos mostram Shift + ?', async () => {
   const keys = SHORTCUT_GROUPS.flatMap((g) => g.items.map(([k]) => k));
   assert.ok(keys.includes('Shift + ?'), 'lista deve mostrar Shift + ?');
   assert.ok(!keys.includes('?'), 'lista não pode mostrar ? sem o Shift');
-  const engineSrc = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+  const engineSrc = await readEngineSource();
   assert.match(engineSrc, /LinguaFlow ligado · Shift \+ \? mostra os atalhos/);
 });

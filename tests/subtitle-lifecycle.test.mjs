@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { SubtitleEngine } from '../content/subtitle-engine.js';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
 function bareEngine(url) {
   const engine = Object.create(SubtitleEngine.prototype);
@@ -64,7 +65,7 @@ assert.equal(fetchCalled, false);
 assert.deepEqual(fetchEngine.cues, []);
 
 // Contratos de lifecycle/guards que protegem callbacks de tradução e dispose.
-const source = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+const source = await readEngineSource();
 assert.match(source, /this\._navigationController\?\.abort\('navigation-superseded'\)/);
 assert.match(source, /fetch\(new URL\(url\)\.toString\(\), \{ signal: navigation\.signal \}\)/);
 assert.match(source, /!this\._isNavigationCurrent\(navigation\) \|\| !this\.cues\.includes\(cue\)/);

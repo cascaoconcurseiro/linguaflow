@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { slangsDB } from '../utils/slangs-db.js';
 import { expressionsDB, matchExpressionCandidate } from '../utils/expressions-db.js';
 import { SubtitleEngine } from '../content/subtitle-engine.js';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
 // Verify inflected phrasal verb matcher
 const gaveUpMatch = matchExpressionCandidate(['gave', 'up']);
@@ -26,7 +27,7 @@ assert.ok(slangsDB.has('goat'), 'slangsDB contains "goat"');
 assert.ok(slangsDB.has('slay'), 'slangsDB contains "slay"');
 
 // 2. Verify SubtitleEngine source code contracts
-const engineSource = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+const engineSource = await readEngineSource();
 
 // Slangs and Expressions imports
 // Gírias e expressões chegam pela detecção única (#345), que usa slangs-db e expressions-db.

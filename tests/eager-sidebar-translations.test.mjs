@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { translator } from '../utils/translator.js';
 import { SubtitleEngine } from '../content/subtitle-engine.js';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
 const originalTranslate = translator.translate.bind(translator);
 
@@ -48,7 +49,7 @@ try {
   assert.ok(cues.every((cue) => cue._transLang === 'pt'));
 
   const [engineSource, hookSource] = await Promise.all([
-    readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8'),
+    readEngineSource(),
     readFile(new URL('../content/youtube-hook.js', import.meta.url), 'utf8'),
   ]);
   assert.match(engineSource, /if \(showTrans\) this\._translateAllSidebarCues\(cues\)/);

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 const bytes = (path) => readFile(new URL(`../${path}`, import.meta.url));
@@ -39,7 +40,7 @@ test('marca: SVG usa o azul e o papel do site; PWA e extensão usam as mesmas co
 });
 
 test('o foguinho de "streak mantido" na tela do vídeo não existe mais', async () => {
-  const engine = await read('content/subtitle-engine.js');
+  const engine = await readEngineSource();
   assert.doesNotMatch(engine, /lf-streak-hud|streak mantido|_checkStreakNotification/);
 });
 

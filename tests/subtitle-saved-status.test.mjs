@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
-const source = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+const source = await readEngineSource();
 const loader = source.slice(
   source.indexOf('async _loadSavedWords()'),
   source.indexOf('async _loadSavedWords()') + 1400,

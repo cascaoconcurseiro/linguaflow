@@ -378,7 +378,7 @@ Para atualizar: `npm run map`.
 | `content/max-player-ui.js` | M | Dock lateral de controles (Max, Netflix, Disney+, Prime): botão LF, frase anterior/próxima, loop, shadowing, velocidade, painel e configurações. |
 | `content/review-overlay.js` | M | LinguaFlow Review Overlay — Revisão rápida durante vídeos Mostra 1 flashcard por vez como overlay sem interromper o vídeo. |
 | `content/settings-panel.js` | GG ⚠ | Painel de configurações da extensão no player (Shadow DOM): aparência da legenda, sincronia, idiomas e gravação das preferências. |
-| `content/subtitle-engine.js` | GG ⚠ | Motor de legendas: captura, sincronização, tradução, palavras clicáveis, painel lateral, dock do YouTube e atalhos do player. |
+| `content/subtitle-engine.js` | G | Motor de legendas: captura, sincronização, tradução, palavras clicáveis, painel lateral, dock do YouTube e atalhos do player. |
 | `content/web-reader.js` | G | LinguaFlow Web Reader — Modo Leitura para qualquer site Ativado por duplo-clique em palavra ou seleção de texto. |
 | `content/word-popup.js` | GG ⚠ | LinguaFlow Pro — Word Popup v5 (unified storage, bilingual examples, full grammar) |
 | `content/youtube-hook.js` | M | Script injetado no MAIN WORLD para contornar o CSP estrito do YouTube e capturar a legenda direto da fonte de rede sem atraso. |
@@ -393,6 +393,15 @@ Para atualizar: `npm run map`.
 | `content/subtitles/caption-conflict.js` | P | Detecta outra extensão de legendas (Language Reactor) no mesmo vídeo (#400): duas camadas de legenda se sobrepõem e o usuário não sabe qual desativar. |
 | `content/subtitles/dock-collapse.js` | P | Recolher/expandir o dock de controles (#462) |
 | `content/subtitles/dock-layout.js` | P | Lógica de layout responsivo para a dock horizontal do player Extraído de content/subtitle-engine.js |
+| `content/subtitles/engine/caption-display.js` | G | A legenda na tela: host/Shadow DOM, posicionamento, renderização dual, palavras clicáveis e marcas de expressão. |
+| `content/subtitles/engine/capture.js` | G | Obtenção das legendas: YouTube (XHR/VTT), DOM da plataforma, loop de sincronização, correção de encoding e legendas nativas. |
+| `content/subtitles/engine/export.js` | M | Exportação da transcrição: PDF, CSV e Anki. |
+| `content/subtitles/engine/install-methods.js` | P | Instala no SubtitleEngine os métodos que moram nos módulos por assunto (engine/*.js). |
+| `content/subtitles/engine/playback.js` | G | Controles de reprodução: navegar entre falas, loops A-B e por fala, shadowing, foco por palavra e velocidade. |
+| `content/subtitles/engine/sidebar-panel.js` | M | Painel lateral: criação, abertura, tema, destaque da fala atual e rolagem. |
+| `content/subtitles/engine/transcript-tab.js` | M | Aba de transcrição do painel: lista de falas, explicação de linha por IA e tradução da barra lateral. |
+| `content/subtitles/engine/words-tab.js` | M | Aba de palavras do painel: vocabulário do vídeo, marcar como conhecida e explorador de frases. |
+| `content/subtitles/engine/youtube-dock.js` | M | Dock de botões do LinguaFlow na barra de controles do YouTube e sincronização do estado dos botões de loop. |
 | `content/subtitles/expression-marks.js` | P | Marcas de expressão na legenda (phrasal, gíria, fala reduzida, contração, "soa como", marcador): tipos, CSS de cada traço, chaves de configuração e rótulos. |
 | `content/subtitles/hbo-native-captions.js` | P | Liga a legenda nativa da Max/HBO por código. |
 | `content/subtitles/hover-tip.js` | P | Dica leve ao passar o mouse numa palavra (#369): tradução e traduções por classe gramatical, sem IA e sem abrir o card. O clique continua abrindo o card completo. |
@@ -606,7 +615,7 @@ Para atualizar: `npm run map`.
 |---|---|---|
 | `supabase/migrations/` | 128 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261004190000_usage_events_weak_words.sql`. Nunca edite uma migration já aplicada. |
 | `supabase/content/batches/` | 48 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
-| `tests/*.test.mjs` | 181 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
+| `tests/*.test.mjs` | 183 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
 | `tests/e2e/` | 4 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
 | `tests/db/` | 15 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |
 | `tests/production/` | 1 | Verificação de isolamento entre contas no Supabase de produção (workflow agendado). |

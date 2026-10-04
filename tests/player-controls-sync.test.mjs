@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { SubtitleEngine } from '../content/subtitle-engine.js';
 import { MaxPlayerUI } from '../content/max-player-ui.js';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
 test('Player Controls: MaxPlayerUI inicializa com o estado real do SubtitleEngine (isActivated)', () => {
   const fakeEngineActive = { isActivated: true };
@@ -117,7 +118,7 @@ test('Player Controls: auto-engatilhamento das legendas nativas ao iniciar repro
 });
 
 test('Player Controls: _onUrlChange preserva isActivated e reseta _hboAutoEnableTried', async () => {
-  const code = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+  const code = await readEngineSource();
   assert.doesNotMatch(
     code,
     /this\.toggleSubtitles\(false\);[\s\S]*?\/\/ Inicia sempre DESLIGADO/,

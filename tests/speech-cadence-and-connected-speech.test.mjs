@@ -6,6 +6,7 @@ import {
   detectConnectedSpeech,
   annotateCaptionSegment,
 } from '../utils/speech-cadence.js';
+import { readEngineSourceSync } from './helpers/engine-source.mjs';
 
 test('Speech Cadence: calculateWpm calcula palavras por minuto e cadência corretamente', () => {
   // 10 palavras em 3 segundos: (10 / 3) * 60 = 200 WPM
@@ -94,6 +95,6 @@ test('Speech Cadence: annotateCaptionSegment enriquece segmento com métricas co
 });
 
 test('Speech Cadence: subtitle-engine.js ou dock integra speech-cadence', () => {
-  const code = readFileSync('content/subtitle-engine.js', 'utf8');
+  const code = readEngineSourceSync();
   assert.match(code, /speech-cadence|calculateWpm|detectConnectedSpeech/, 'subtitle-engine deve integrar speech-cadence');
 });

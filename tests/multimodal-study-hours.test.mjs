@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
+import { readEngineSourceSync } from './helpers/engine-source.mjs';
 
 console.log('🧪 Iniciando testes de Controle Multimodal de Horas de Estudo...');
 
@@ -52,7 +53,7 @@ assert.match(popupJs, /getReviewLog/, 'popup.js deve ler as revisões de hoje');
 assert.match(popupJs, /getWordsSavedToday/, 'popup.js deve ler as palavras salvas hoje');
 
 // 4. Contrato do Subtitle Engine
-const engineContent = readFileSync('content/subtitle-engine.js', 'utf8');
+const engineContent = readEngineSourceSync();
 // #387 removeu o contador automático de listening (a detecção do idioma do áudio falhava na maioria dos
 // vídeos). O contrato atual é a AUSÊNCIA dele no motor; o registro manual e os totais seguem no popup/site.
 assert.doesNotMatch(engineContent, /enqueueListeningInterval|ListeningClock/, 'subtitle-engine não conta escuta automaticamente (#387)');

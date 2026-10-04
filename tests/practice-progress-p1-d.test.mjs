@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { readEngineSourceSync } from './helpers/engine-source.mjs';
 
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const app = read('dashboard/js/core/app.js');
@@ -21,7 +22,7 @@ const activityIndex = stats.indexOf("'Minutos de estudo hoje'");
 assert.ok(retentionIndex >= 0 && retentionIndex < activityIndex, 'retenção aparece antes de métricas de atividade');
 assert.match(stats, /Tempo e volume mostram atividade — não comprovam domínio do idioma/);
 assert.match(stats, /histórico de atividade \(\$\{summary\.totalMinutes\} min em 60 dias\)/);
-const subtitleEngine = read('content/subtitle-engine.js');
+const subtitleEngine = readEngineSourceSync();
 assert.doesNotMatch(subtitleEngine, /enqueueListeningInterval|ListeningClock/,
   'vídeo passivo não soma tempo de estudo automaticamente (#387); listening vem de registro manual');
 assert.match(stats, /Expressões na revisão/);

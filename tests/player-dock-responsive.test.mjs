@@ -4,6 +4,7 @@ import {
   computeDockResponsiveClass,
   applyDockResponsiveClass,
 } from '../content/subtitle-engine.js';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
 // 1. Testes de cálculo de classe responsiva por largura
 assert.equal(computeDockResponsiveClass(1920), 'lf-size-normal', '1920px deve ser normal');
@@ -66,7 +67,7 @@ assert.equal(mockDock.classList.contains('lf-size-mini'), false);
 assert.equal(mockDock.classList.contains('lf-size-tiny'), true);
 
 // 3. Validação do código fonte e regras CSS em subtitle-engine.js
-const subEngineSource = (await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8'))
+const subEngineSource = (await readEngineSource())
   + (await readFile(new URL('../content/subtitles/youtube-dock-styles.js', import.meta.url), 'utf8'));
 
 assert.match(subEngineSource, /#lf-yt-horizontal-dock\.lf-size-compact/);

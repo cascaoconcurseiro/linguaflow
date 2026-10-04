@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { hoverTipLines, hoverTipPosition } from '../content/subtitles/hover-tip.js';
+import { readEngineSourceSync } from './helpers/engine-source.mjs';
 
 test('conteúdo: palavra com tradução e até 2 classes, sem a tradução da frase', () => {
   const lines = hoverTipLines({
@@ -52,7 +53,7 @@ test('engine: dica usa só tradução e classes do card, sem a fala', async () =
 });
 
 test('fiação: hover com card fechado abre a dica, não o card; clique e saída escondem a dica', () => {
-  const src = readFileSync(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+  const src = readEngineSourceSync();
   const enter = src.slice(src.indexOf("span.addEventListener('pointerenter'"), src.indexOf("span.addEventListener('pointerleave'"));
   assert.match(enter, /if \(cardOpen\) \{\s*this\.wordPopup\.showForWord[\s\S]*\} else \{\s*this\._showHoverTip\(span, text\);/);
   const leave = src.slice(src.indexOf("span.addEventListener('pointerleave'"), src.indexOf('const onClickOrTouch'));

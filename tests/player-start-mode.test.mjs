@@ -11,6 +11,7 @@ import {
   REMEMBER_KEY,
 } from '../content/subtitles/activation-state.js';
 import { setupPlayerHotkeys } from '../content/subtitles/player-hotkeys.js';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
 test('padrão: desligado; só liga se o usuário ligou nesta sessão do navegador', () => {
   for (const platform of ['youtube', 'max']) {
@@ -92,7 +93,7 @@ test('desligado: atalhos A/S/D/Q/L/O/Espaço voltam ao player; C continua ligand
 });
 
 test('contrato: docks escondem controles quando desligado e só o clique persiste', async () => {
-  const engineSrc = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+  const engineSrc = await readEngineSource();
   const maxSrc = await readFile(new URL('../content/max-player-ui.js', import.meta.url), 'utf8');
   const dockCss = await readFile(new URL('../content/subtitles/youtube-dock-styles.js', import.meta.url), 'utf8');
   assert.match(dockCss, /#lf-yt-horizontal-dock\.lf-off > :not\(\.lf-dock-toggle\)/);

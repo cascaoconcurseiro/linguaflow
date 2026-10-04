@@ -8,6 +8,7 @@ import {
   isMaxHost,
 } from '../content/max-player-ui.js';
 import { SubtitleEngine } from '../content/subtitle-engine.js';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
 assert.equal(isMaxHost('play.max.com'), true);
 assert.equal(isMaxHost('www.hbomax.com'), true);
@@ -192,7 +193,7 @@ const hboInjectSource = await readFile(new URL('../content/hbo-inject.js', impor
 assert.match(hboInjectSource, /contentType\.includes\('text\/vtt'\)/, 'hbo-inject deve verificar Content-Type text/vtt');
 
 // Contract: subtitle-engine reparenta host para document.fullscreenElement no HBO Max
-const engineSource = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+const engineSource = await readEngineSource();
 const settingsSource = await readFile(new URL('../content/settings-panel.js', import.meta.url), 'utf8');
 assert.match(engineSource, /targetRoot = document\.fullscreenElement \|\| document\.body/, 'subtitle-engine deve anexar host no targetRoot em fullscreen');
 assert.match(engineSource, /existing\.translatedText = nc\.translatedText/, 'subtitle-engine não deve sobrescrever traduções existentes ao mesclar cues');

@@ -12,6 +12,7 @@ import {
   parseLineExplanation,
   parsePartialLineExplanation,
 } from '../content/subtitles/line-explainer.js';
+import { readEngineSource } from './helpers/engine-source.mjs';
 
 test('prompt leva a fala, as vizinhas e o que já foi detectado, como dado', () => {
   const [system, user] = buildLineExplainMessages({
@@ -68,7 +69,7 @@ test('erro de sessão é reconhecido para pedir login em vez de falha genérica'
 });
 
 test('roteiro: botão "Explicar" com estados de carregando, erro, login e sucesso', async () => {
-  const src = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+  const src = await readEngineSource();
   assert.match(src, /class="lf-explain-cue"[^>]*aria-expanded="false"/);
   const fn = src.slice(src.indexOf('  async _explainLine('), src.indexOf('  _renderLineExplanation('));
   assert.match(fn, /action: 'ai_chat'/);
@@ -91,7 +92,7 @@ test('JSON parcial do stream mostra tradução e sentido antes de fechar', () =>
 });
 
 test('explicação da fala usa a porta de streaming e cancela ao fechar', async () => {
-  const engine = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+  const engine = await readEngineSource();
   const start = engine.indexOf('  async _explainLine(');
   const fn = engine.slice(start, engine.indexOf('\n  _renderLineExplanation(', start));
   assert.match(fn, /streamAiRequest\(\s*\{ action: 'ai_chat'/);

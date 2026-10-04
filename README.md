@@ -4,7 +4,7 @@
 
 **Plataforma open-source para aquisição e consolidação do inglês através de imersão contextual, repetição espaçada avançada (FSRS v4.5), leitura guiada e inteligência artificial pedagógica.**
 
-[![Release](https://img.shields.io/badge/release-v3.0.58-blue.svg?style=flat-square)](https://github.com/cascaoconcurseiro/linguaflow/releases)
+[![Release](https://img.shields.io/github/v/release/cascaoconcurseiro/linguaflow?style=flat-square&color=blue&label=release)](https://github.com/cascaoconcurseiro/linguaflow/releases)
 [![CI](https://github.com/cascaoconcurseiro/linguaflow/actions/workflows/release.yml/badge.svg)](https://github.com/cascaoconcurseiro/linguaflow/actions/workflows/release.yml)
 [![FSRS](https://img.shields.io/badge/algorithm-FSRS%20v4.5-orange.svg?style=flat-square)](https://github.com/open-spaced-repetition/fsrs4anki)
 [![Supabase](https://img.shields.io/badge/backend-Supabase%20%7C%20PostgreSQL-3ECF8E.svg?style=flat-square&logo=supabase)](https://supabase.com)
@@ -34,11 +34,12 @@ O **LinguaFlow** une o consumo de conteúdo autêntico na web (filmes, séries, 
 - **Legendas Interativas**: Interceptação e tokenização de legendas em tempo real.
 - **Mineração em 1 Clique**: Clique em qualquer palavra ou phrasal verb para pausar o vídeo, ver tradução contextual, pronúncia fonética e salvar com a frase real do vídeo.
 - **Barra Lateral com Pré-carga**: Carregamento da trilha de legendas e tradução antecipada com controle de concorrência.
-- **Atalhos Rápidos**: Navegue entre falas (`A`/`D`), repita a frase (`S`) ou alterne modos sem encostar no mouse.
+- **Atalhos Rápidos** (tecla `?` mostra todos): navegue entre falas (`A`/`D`), repita a frase (`S`), laço A–B (`B`), ajuste a sincronia da legenda (`Z`/`X`), escuta primeiro (`V`) e escolha palavras só com o teclado (`F`).
+- **Começa desligado**: o LinguaFlow só aparece quando você liga o botão LF (ou a tecla `C`); desligado, o player fica como o original.
 
 ### 🧠 Algoritmo FSRS v4.5 (Free Spaced Repetition Scheduler)
 - **Cálculo Server-Authoritative**: O estado de retenção, estabilidade ($S$) e dificuldade ($D$) é calculado exclusivamente no banco por RPCs atômicas com lock `FOR UPDATE`.
-- **4 Modos de Revisão**: Flashcards clássicos, Digitação ativa, Reconhecimento de Áudio e Speed Review.
+- **4 Formas de Revisar o mesmo cartão**: clássico (frase com a palavra escondida), montar a frase, ditado e inverso (português → inglês). A forma muda com o nível do aluno e em rotação; cartões que empacam ganham recuperação adaptativa.
 - **Reset Seguro**: Possibilidade de reiniciar cards específicos para o estado `new` sem corromper o histórico estatístico.
 
 ### 📚 Leitor Web & Estante Persistida

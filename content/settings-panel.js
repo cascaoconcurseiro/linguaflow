@@ -28,6 +28,7 @@ async function readAllSettings() {
     'popupMode',
     'cefrTargetLevel',
     'cefrColorsEnabled',
+    'startMode',
     'markPhrasal',
     'markSlang',
     'markReduction',
@@ -96,6 +97,7 @@ export class SettingsPanel {
       popupMode: 'floating',
       cefrTargetLevel: 'none',
       cefrColorsEnabled: true,
+      startMode: 'session',
       markPhrasal: true,
       markSlang: true,
       markReduction: true,
@@ -171,6 +173,7 @@ export class SettingsPanel {
     s.getElementById('sel-theme').value = this.cfg.uiTheme || 'dark';
     s.getElementById('sel-mode').value = this.cfg.subtitleMode;
     s.getElementById('sel-autopause').value = this.cfg.autoPause ? 'on' : 'off';
+    s.getElementById('sel-start-mode').value = this.cfg.startMode;
     s.getElementById('rng-font').value = this.cfg.fontSize;
     s.getElementById('rng-font-trans').value = this.cfg.fontSizeTrans;
     s.getElementById('rng-bg').value = Math.round(this.cfg.bgOpacity * 100);
@@ -221,6 +224,8 @@ export class SettingsPanel {
         this.updateTheme(e.target.value);
     };
     s.getElementById('sel-mode').onchange = (e) => this._save('subtitleMode', e.target.value);
+
+    s.getElementById('sel-start-mode').onchange = (e) => this._save('startMode', e.target.value);
 
     s.getElementById('sel-autopause').onchange = (e) => {
       const val = e.target.value === 'on';
@@ -308,6 +313,25 @@ export class SettingsPanel {
       this._save('translationDelay', v);
       window.dispatchEvent(new CustomEvent('LF_UPDATE_DELAY', { detail: v }));
     };
+
+    // Atalhos do player (Z/X, Q, V) mudam estes valores fora do painel: espelha aqui para o painel
+    // nunca mostrar (nem regravar) um valor velho.
+    window.addEventListener('LF_UPDATE_ANTICIPATION', (e) => {
+      const v = Number(e.detail);
+      if (!Number.isFinite(v)) return;
+      this.cfg.translationAnticipation = v;
+      s.getElementById('rng-anticipation').value = v;
+      s.getElementById('val-anticipation').textContent = `${v}s`;
+    });
+    window.addEventListener('LF_UPDATE_AUTOPAUSE', (e) => {
+      this.cfg.autoPause = Boolean(e.detail);
+      s.getElementById('sel-autopause').value = e.detail ? 'on' : 'off';
+    });
+    window.addEventListener('LF_UPDATE_BLUR', (e) => {
+      this.cfg.blurSubtitles = Boolean(e.detail);
+      const select = s.getElementById('sel-blur');
+      if (select) select.value = e.detail ? 'on' : 'off';
+    });
 
     s.getElementById('rng-anticipation').oninput = (e) => {
       const v = Number(e.target.value);
@@ -733,6 +757,16 @@ export class SettingsPanel {
                         </div>
                         <div class="card">
                             <div class="group">
+                                 <label for="sel-start-mode">Ao abrir um vídeo</label>
+                                <select id="sel-start-mode">
+                                    <option value="session">Desligado, e lembrar enquanto o navegador estiver aberto</option>
+                                    <option value="off">Sempre desligado</option>
+                                    <option value="on">Sempre ligado</option>
+                                    <option value="remember">Lembrar minha última escolha</option>
+                                </select>
+                                 <small>Desligado, o LinguaFlow esconde os controles e deixa o player como o original. Vale para YouTube e HBO Max.</small>
+                            </div>
+                            <div class="group">
                                  <label>Pausar após cada fala</label>
                                 <select id="sel-autopause">
                                     <option value="on">Ativada (Pausa após cada fala)</option>
@@ -951,6 +985,7 @@ export class SettingsPanel {
     // No YouTube, antecipação deve ser sempre 0 para sincronização perfeita
     this.engine.translationAnticipation = this.cfg.translationAnticipation;
     this.engine.autoPause = this.cfg.autoPause;
+    this.engine.startMode = this.cfg.startMode;
     this.engine.flashDuration = this.cfg.flashDuration;
 
     this.engine.cefrColorsEnabled = this.cfg.cefrColorsEnabled;

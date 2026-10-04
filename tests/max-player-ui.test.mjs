@@ -81,7 +81,7 @@ for (const action of ['toggle', 'previous', 'loop', 'next', 'speed', 'panel', 's
 assert.doesNotMatch(uiSource, /data-action=["']repeat["']/);
 assert.match(uiSource, /MutationObserver/);
 assert.match(uiSource, /fullscreenchange/);
-assert.match(uiSource, /toggleSubtitles\(this\.visible\)/);
+assert.match(uiSource, /userToggleSubtitles\(/);
 assert.match(uiSource, /toggleSubtitlePanel\(\)/);
 assert.match(uiSource, /toggleLoop\(\)/);
 assert.match(uiSource, /playbackRate/);

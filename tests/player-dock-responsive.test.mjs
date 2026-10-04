@@ -66,7 +66,8 @@ assert.equal(mockDock.classList.contains('lf-size-mini'), false);
 assert.equal(mockDock.classList.contains('lf-size-tiny'), true);
 
 // 3. Validação do código fonte e regras CSS em subtitle-engine.js
-const subEngineSource = await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8');
+const subEngineSource = (await readFile(new URL('../content/subtitle-engine.js', import.meta.url), 'utf8'))
+  + (await readFile(new URL('../content/subtitles/youtube-dock-styles.js', import.meta.url), 'utf8'));
 
 assert.match(subEngineSource, /#lf-yt-horizontal-dock\.lf-size-compact/);
 assert.match(subEngineSource, /#lf-yt-horizontal-dock\.lf-size-mini/);

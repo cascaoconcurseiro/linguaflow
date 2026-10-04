@@ -11,6 +11,7 @@ import { escapeHTML } from '../../../utils/html.js';
 import { bindViewStateAction, renderViewState } from './viewState.js';
 import { bindReadingHeader, renderReadingHeader } from './readingHub.js';
 import { generateStoryQuiz, renderStoryQuiz } from './storiesQuiz.js';
+import { mountStoryReport } from './storyReport.js';
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location !== 'undefined' && location.protocol === 'chrome-extension:');
 let storiesDocumentController = null;
@@ -326,12 +327,17 @@ export function renderStories(container, app) {
               <button id="btn-quiz-story" class="btn btn-secondary lf-btn-bounce" style="padding: 8px 16px; font-size: 14px; display:flex; align-items:center; gap:6px;">
                 Testar compreensão
               </button>
+              <button id="btn-story-report" type="button" class="btn" style="padding: 8px 16px; font-size: 14px; display:flex; align-items:center; gap:6px;" title="Avise se o inglês, a tradução ou o nível estiverem errados">
+                Reportar problema
+              </button>
               <button id="btn-story-done" class="btn lf-btn-bounce" style="padding: 8px 16px; font-size: 14px; display:flex; align-items:center; gap:6px; background:#ffc800; color:#3c3c3c; border:none; font-weight:800;">
                 Marcar como lida
               </button>
             </div>
           </div>
         </div>
+
+        <div id="story-report-box" style="margin-bottom:24px; padding:16px 20px; background:var(--color-bg-alt); border:1px solid var(--color-border); border-radius:var(--radius-md); font-size:14px;"></div>
 
         <!-- Quiz de compreensão (estilo LingQ): perguntas geradas da própria história -->
         <div id="story-quiz-box" style="display:none; margin-bottom:24px; padding:20px; background:var(--color-bg-alt); border:2px dashed var(--color-secondary); border-radius:var(--radius-md);"></div>
@@ -715,6 +721,16 @@ export function renderStories(container, app) {
   // Perguntas geradas da própria história oferecem feedback local (Prática de compreensão — sem alterar XP, ofensiva ou liga).
   // Como o gabarito é gerado por IA no cliente, o resultado não alimenta o placar.
   const btnQuizStory = document.getElementById('btn-quiz-story');
+  mountStoryReport({
+    button: document.getElementById('btn-story-report'),
+    panel: document.getElementById('story-report-box'),
+    db,
+    app,
+    read: () => ({
+      level: document.getElementById('story-level-badge')?.textContent || '',
+      title: document.getElementById('story-title-display')?.textContent || '',
+    }),
+  });
   const quizBox = document.getElementById('story-quiz-box');
 
   btnQuizStory.addEventListener('click', async () => {

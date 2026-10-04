@@ -3,6 +3,8 @@
 import { db } from '../../../../utils/db.js';
 import { escapeHTML } from '../../../../utils/html.js';
 import { playNaturalAudio } from '../../core/tts.js';
+import { reviewBatchPlan } from '../../core/reviewBatches.js';
+import { canSendUnitToVault, runSendToVault } from '../../core/courseVault.js';
 import { formatDate, formatDateTime, renderLoading, renderLoadError, renderEmpty, startNotebookPractice } from './courseUi.js';
 
 const PRACTICE_BATCH = 20;
@@ -39,13 +41,18 @@ export async function renderReviewNotebook(panel, { app }) {
     byDay.set(day, (byDay.get(day) || 0) + 1);
   }
 
+  const plan = reviewBatchPlan(due.length);
   panel.innerHTML = `
     <section class="course-panel">
       <h2 class="course-section-title">Para hoje</h2>
       ${due.length
         ? `<p><strong>${due.length}</strong> ${due.length === 1 ? 'frase vencida' : 'frases vencidas'}.</p>
-           <button class="course-btn-primary-lg" type="button" data-practice>Revisar ${Math.min(due.length, PRACTICE_BATCH)} agora</button>
-           ${due.length > PRACTICE_BATCH ? `<p class="course-hub-subtitle">Revisões em blocos de ${PRACTICE_BATCH}.</p>` : ''}`
+           <div class="course-filter-row">
+             <button class="course-btn-primary-lg" type="button" data-practice>Revisar ${plan.full} agora</button>
+             ${plan.quick ? `<button class="course-player-btn-back" type="button" data-practice-quick>Sessão rápida · ${plan.quick} frases (~5 min)</button>` : ''}
+           </div>
+           ${due.length > PRACTICE_BATCH ? `<p class="course-hub-subtitle">Revisões em blocos de ${PRACTICE_BATCH}.</p>` : ''}
+           ${plan.backlog ? '<p class="course-hub-subtitle" role="status">Fila grande não é problema: 10 frases por dia já fazem ela encolher. Sem pressa de zerar.</p>' : ''}`
         : '<p class="course-hub-subtitle">Nada vence hoje. Bom trabalho.</p>'}
     </section>
     <section class="course-panel">
@@ -62,9 +69,13 @@ export async function renderReviewNotebook(panel, { app }) {
             <span class="course-card-stats">${escapeHTML(origin(r.course_units))} · revisão ${formatDate(r.due_date)} · intervalo ${r.interval_days} ${r.interval_days === 1 ? 'dia' : 'dias'}</span>
           </div>
         </li>`).join('')}</ul>
+      ${rows.length > 100 ? `<p class="course-hub-subtitle" role="status">Mostrando as 100 primeiras de ${rows.length} frases em revisão.</p>` : ''}
     </section>`;
   panel.querySelector('[data-practice]')?.addEventListener('click', () => {
     startNotebookPractice(app, 'review', due.slice(0, PRACTICE_BATCH).map((r) => r.unit_id), 'Revisão');
+  });
+  panel.querySelector('[data-practice-quick]')?.addEventListener('click', () => {
+    startNotebookPractice(app, 'review', due.slice(0, plan.quick).map((r) => r.unit_id), 'Revisão rápida');
   });
 }
 
@@ -141,6 +152,7 @@ export async function renderVocabularyNotebook(panel, ctx) {
         </div>
         <div class="course-item-actions">
           <button class="course-player-btn-icon" type="button" data-action="speak" aria-label="Ouvir a frase">🔊</button>
+          ${canSendUnitToVault(r.course_units) ? '<button class="course-player-btn-back" type="button" data-action="vault" title="Entra na sua revisão espaçada junto com as palavras dos vídeos">＋ Cofre</button>' : ''}
           <button class="course-player-btn-icon" type="button" data-action="remove" aria-label="Remover do vocabulário">✕</button>
         </div>
       </li>`).join('')}</ul>`;
@@ -153,6 +165,9 @@ export async function renderVocabularyNotebook(panel, ctx) {
     const row = rows.find((r) => r.unit_id === item.dataset.unit);
     item.querySelector('[data-action="speak"]').addEventListener('click', () => {
       playNaturalAudio(row?.course_units?.text || '', { lang: 'en-US' }).catch(() => app.showToast?.('Não foi possível tocar o áudio agora.', 'error'));
+    });
+    item.querySelector('[data-action="vault"]')?.addEventListener('click', (event) => {
+      runSendToVault(event.currentTarget, row?.course_units, { db, app, courseTitle: row?.course_units?.course_lessons?.course_catalog?.title });
     });
     const removeBtn = item.querySelector('[data-action="remove"]');
     removeBtn.addEventListener('click', async () => {
@@ -175,7 +190,8 @@ export async function renderNotesNotebook(panel, ctx) {
   const rows = await load(panel, 'Carregando notas…', () => db.courses.listNotes(), () => renderNotesNotebook(panel, ctx));
   if (!rows) return;
   if (!rows.length) {
-    renderEmpty(panel, 'Nenhuma nota ainda', 'Durante a prática, abra "Mostrar resposta" e escreva uma nota pessoal: ela fica ligada à frase de origem.');
+    renderEmpty(panel, 'Nenhuma nota ainda', 'Durante a prática, abra "Mostrar resposta" e escreva uma nota pessoal: ela fica ligada à frase de origem. Exemplo de nota: “usar would para pedidos educados”.',
+      { label: 'Ir para Meus cursos', onClick: () => ctx.navigate('my-courses') });
     return;
   }
   panel.innerHTML = `

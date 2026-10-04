@@ -16,6 +16,15 @@
 
     if (scriptToInject) {
       const bridgeStateKey = '__linguaFlowSubtitleBridge';
+      let intervalId = null;
+      let stopped = false;
+      const stopBridge = () => {
+        stopped = true;
+        if (intervalId !== null) clearInterval(intervalId);
+        document.removeEventListener('yt-navigate-finish', installBridge);
+        document.removeEventListener('yt-navigate-start', installBridge);
+        window.removeEventListener('popstate', installBridge);
+      };
       const createNonce = () => {
         const bytes = new Uint8Array(24);
         crypto.getRandomValues(bytes);
@@ -23,25 +32,38 @@
       };
 
       const installBridge = () => {
+        if (stopped) return;
+        if (!globalThis.chrome?.runtime?.id || !globalThis.chrome?.runtime?.getURL) {
+          stopBridge();
+          return;
+        }
         const navigationUrl = window.location.href;
         const current = window[bridgeStateKey];
         if (current?.url === navigationUrl) return;
 
         const previousNonce = current?.nonce || '';
         const nonce = createNonce();
-        window[bridgeStateKey] = Object.freeze({ nonce, url: navigationUrl });
-
         const script = document.createElement('script');
-        script.src = chrome.runtime.getURL(scriptToInject);
+        try {
+          script.src = chrome.runtime.getURL(scriptToInject);
+        } catch (error) {
+          if (!globalThis.chrome?.runtime?.id || /Extension context invalidated/i.test(error?.message || '')) {
+            stopBridge();
+            return;
+          }
+          throw error;
+        }
         script.dataset.lfNonce = nonce;
         script.dataset.lfPreviousNonce = previousNonce;
         script.dataset.lfNavigationUrl = navigationUrl;
         script.onload = () => script.remove();
+        window[bridgeStateKey] = Object.freeze({ nonce, url: navigationUrl });
         (document.head || document.documentElement).appendChild(script);
       };
 
       installBridge();
-      setInterval(installBridge, 500);
+      if (stopped) return;
+      intervalId = setInterval(installBridge, 500);
       if (isYouTube) {
         document.addEventListener('yt-navigate-finish', installBridge);
         document.addEventListener('yt-navigate-start', installBridge);

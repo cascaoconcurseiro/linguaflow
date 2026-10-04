@@ -17,6 +17,16 @@ import {
   applyDockResponsiveClass,
 } from './subtitles/dock-layout.js';
 import { setupPlayerHotkeys } from './subtitles/player-hotkeys.js';
+import { YOUTUBE_DOCK_CSS } from './subtitles/youtube-dock-styles.js';
+import { showShortcutsHelp } from './subtitles/shortcuts-help.js';
+import {
+  DEFAULT_START_MODE,
+  loadStoredActivation,
+  normalizeStartMode,
+  platformHasSwitch,
+  resolveInitialActivation,
+  saveActivation,
+} from './subtitles/activation-state.js';
 import { parseVTT } from './subtitles/vtt-parser.js';
 import { closeDomCue, crossedCueEnd, findActiveCueIndex, recordDomCue } from './subtitles/active-cue.js';
 import { CAPTION_WAIT_MS, highlightMatches, highlightTerms, segmentSubtitle, transcriptState } from './subtitles/transcript-render.js';
@@ -30,6 +40,7 @@ import {
 } from './subtitles/line-explainer.js';
 import { streamAiRequest } from '../utils/ai-stream.js';
 import { createHoverTip } from './subtitles/hover-tip.js';
+import { CAPTION_CONFLICT_NOTICE, hasLanguageReactor } from './subtitles/caption-conflict.js';
 import { comprehensionSummary, extractVideoVocabulary, learnerKeywords, wordStatus } from './subtitles/video-vocabulary.js';
 import {
   calculateWpm,
@@ -135,7 +146,11 @@ export class SubtitleEngine {
     this._lastFoundIdx = -1; // Índice otimizado para busca de legendas
     this._lastAutoPausedEndTime = -1;
     this._wasPausedByHover = false;
-    this.isActivated = true; // Ativado por padrão — usuário pode desligar nas configs
+    // Desligado por padrão onde há botão LF visível (#418); o estado real é resolvido
+    // em _resolveInitialActivation() depois de ler a configuração "startMode".
+    this.isActivated = !platformHasSwitch(this.platform);
+    this.startMode = DEFAULT_START_MODE;
+    this._activationResolved = false;
 
     // Settings (defaults) — serão sobrescritos pelo SettingsPanel
     this.displayMode = 'native'; // Padrão: Apenas Original
@@ -160,9 +175,6 @@ export class SubtitleEngine {
     this.maxWordsPerVideo = 15;
     this.maxWordsPerDay = 30;
 
-    this._sessionStartTime = Date.now();
-    this._streakShown = false;
-    this._setManagedTimeout(() => this._checkStreakNotification(), 10 * 60 * 1000);
 
     // Vocabulário em memória — carregado do banco e atualizado em tempo real
     this.savedWords = new Map(); // word -> status ('new'|'learning'|'review'|'mature')
@@ -231,12 +243,13 @@ export class SubtitleEngine {
     // Inicia log de imersão
 
     // Sincronização global de vocabulário
-    this._runtimeMessageListener = (request) => {
+    this._runtimeMessageListener = (request, _sender, sendResponse) => {
       if (request.type === 'REFRESH_VOCAB') {
         console.debug('[LinguaFlow] Sincronizando vocabulário...');
         this._loadSavedWords();
       } else if (request.action === 'LF_TOGGLE_SETTINGS') {
         window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
+        sendResponse?.({ ok: true });
       } else if (request.action === 'openWordPopup' && request.payload?.word) {
         this.wordPopup?.showForWord?.(request.payload.word, request.payload.word, null, null);
       }
@@ -828,6 +841,10 @@ export class SubtitleEngine {
       nativeWindow.style.display = '';
       this._hiddenYouTubeCaptions = null;
     }
+    if (this.isActivated && this.cues?.length && !this._captionConflictNoticed && hasLanguageReactor(document)) {
+      this._captionConflictNoticed = true;
+      this._setCaptionNotice(CAPTION_CONFLICT_NOTICE);
+    }
   }
 
   // ── Esconde legenda nativa do HBO Max — método Pro V5 ───────────────────
@@ -953,6 +970,10 @@ export class SubtitleEngine {
         this.uiTheme = theme;
         this._applyThemeToPanel();
       }
+
+      const startMode = await db.getSetting('startMode');
+      this.startMode = normalizeStartMode(startMode);
+      await this._resolveInitialActivation();
 
       const targetLevel = await db.getSetting('cefrTargetLevel');
       if (targetLevel !== undefined && targetLevel !== null) {
@@ -1303,6 +1324,11 @@ export class SubtitleEngine {
                     transform: scale(1.18) translateY(-2px);
                     color: #FBBF24 !important;
                 }
+                .lf-word:focus-visible {
+                    outline: 2px solid #FBBF24;
+                    outline-offset: 3px;
+                    color: #FBBF24 !important;
+                }
                 .lf-known    { color: var(--lf-color-known, #86EFAC); }  /* verde claro — já sei */
                 .lf-mature   { color: #34D399; text-decoration: underline dotted; text-underline-offset: 3px; } /* verde — dominada */
                 .lf-review   { color: #38BDF8; text-decoration: underline dashed; text-underline-offset: 3px; } /* azul — revisando */
@@ -1544,514 +1570,7 @@ export class SubtitleEngine {
       if (!document.getElementById('lf-yt-styles')) {
         const style = document.createElement('style');
         style.id = 'lf-yt-styles';
-        style.textContent = `
-          #lf-yt-horizontal-dock {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            height: 38px;
-            padding: 0 8px;
-            border-radius: 999px;
-            background: rgba(8, 12, 22, 0.82);
-            border: 1px solid rgba(255, 255, 255, 0.16);
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(12px) saturate(150%);
-            margin-right: 6px;
-            vertical-align: middle;
-            box-sizing: border-box;
-            transition: all 0.2s ease;
-            flex-shrink: 0;
-          }
-          .lf-dock-btn {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            border: none;
-            background: transparent;
-            color: #f8fafc;
-            font: 700 16px/1 system-ui, -apple-system, sans-serif;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-            transition: background 0.18s ease, color 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
-            outline: none;
-            flex-shrink: 0;
-          }
-          .lf-dock-btn:hover,
-          .lf-dock-btn:focus-visible {
-            background: rgba(56, 189, 248, 0.22);
-            color: #7dd3fc;
-            transform: scale(1.08);
-          }
-          .lf-dock-btn[data-action="previous"],
-          .lf-dock-btn[data-action="next"] {
-            font-size: 19px;
-            line-height: 1;
-          }
-          .lf-dock-toggle {
-            height: 32px;
-            padding: 0 6px;
-            border-radius: 999px;
-            border: none;
-            background: transparent;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            cursor: pointer;
-            color: #94a3b8;
-            font-size: 12px;
-            font-weight: 700;
-            letter-spacing: 0.02em;
-            transition: color 0.2s ease;
-            outline: none;
-            flex-shrink: 0;
-          }
-          .lf-dock-toggle[aria-pressed="true"],
-          .lf-dock-toggle.active {
-            color: #7dd3fc;
-          }
-          .lf-dock-toggle .lf-switch-track {
-            width: 28px;
-            height: 14px;
-            background: #334155;
-            border-radius: 999px;
-            position: relative;
-            transition: background 0.25s ease;
-            display: inline-block;
-            flex-shrink: 0;
-          }
-          .lf-dock-toggle[aria-pressed="true"] .lf-switch-track,
-          .lf-dock-toggle .lf-switch-track.active,
-          .lf-switch-track.active {
-            background: #0284c7;
-          }
-          .lf-dock-toggle .lf-switch-thumb {
-            position: absolute;
-            top: 2px;
-            left: 2px;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #cbd5e1;
-            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), background 0.25s ease;
-          }
-          .lf-dock-toggle[aria-pressed="true"] .lf-switch-thumb,
-          .lf-dock-toggle .lf-switch-track.active .lf-switch-thumb,
-          .lf-switch-track.active .lf-switch-thumb {
-            transform: translateX(14px);
-            background: #38bdf8;
-            box-shadow: 0 0 8px #38bdf8;
-          }
-          .lf-dock-btn[data-action="loop"].is-active,
-          .lf-dock-btn[data-action="loop"][aria-pressed="true"] {
-            background: rgba(56, 189, 248, 0.28);
-            color: #7dd3fc;
-            box-shadow: 0 0 10px rgba(56, 189, 248, 0.45), inset 0 0 0 1px rgba(125, 211, 252, 0.45);
-          }
-          .lf-dock-btn[data-action="speed"] {
-            font-size: 12px;
-            letter-spacing: -0.02em;
-            width: 32px;
-          }
-          .lf-dock-btn[data-action="speed"].is-altered {
-            color: #facc15;
-            background: rgba(250, 204, 21, 0.18);
-            box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.45);
-          }
-          .lf-dock-btn[data-action="panel"].is-active {
-            background: rgba(168, 85, 247, 0.25);
-            color: #c084fc;
-            box-shadow: 0 0 10px rgba(168, 85, 247, 0.45), inset 0 0 0 1px rgba(168, 85, 247, 0.5);
-          }
-          .lf-dock-btn[data-action="previous"]:active,
-          .lf-dock-btn[data-action="next"]:active {
-            background: rgba(56, 189, 248, 0.3);
-            color: #38bdf8;
-            transform: scale(0.92);
-          }
-          .lf-dock-sep {
-            width: 1px;
-            height: 18px;
-            background: rgba(255, 255, 255, 0.18);
-            margin: 0 2px;
-            flex-shrink: 0;
-          }
-
-          /* Modo Compacto: Player intermediário (< 820px ou .ytp-small-mode) */
-          .ytp-small-mode #lf-yt-horizontal-dock,
-          #lf-yt-horizontal-dock.lf-size-compact {
-            height: 32px;
-            padding: 0 5px;
-            gap: 2px;
-            margin-right: 4px;
-          }
-          .ytp-small-mode #lf-yt-horizontal-dock .lf-dock-btn,
-          #lf-yt-horizontal-dock.lf-size-compact .lf-dock-btn {
-            width: 28px;
-            height: 28px;
-            font-size: 14px;
-          }
-          .ytp-small-mode #lf-yt-horizontal-dock .lf-dock-btn[data-action="previous"],
-          .ytp-small-mode #lf-yt-horizontal-dock .lf-dock-btn[data-action="next"],
-          #lf-yt-horizontal-dock.lf-size-compact .lf-dock-btn[data-action="previous"],
-          #lf-yt-horizontal-dock.lf-size-compact .lf-dock-btn[data-action="next"] {
-            font-size: 16px;
-          }
-          .ytp-small-mode #lf-yt-horizontal-dock .lf-dock-toggle,
-          #lf-yt-horizontal-dock.lf-size-compact .lf-dock-toggle {
-            height: 28px;
-            padding: 0 4px;
-            gap: 4px;
-            font-size: 11px;
-          }
-          .ytp-small-mode #lf-yt-horizontal-dock .lf-switch-track,
-          #lf-yt-horizontal-dock.lf-size-compact .lf-switch-track {
-            width: 24px;
-            height: 12px;
-          }
-          .ytp-small-mode #lf-yt-horizontal-dock .lf-switch-thumb,
-          #lf-yt-horizontal-dock.lf-size-compact .lf-switch-thumb {
-            width: 8px;
-            height: 8px;
-          }
-          .ytp-small-mode #lf-yt-horizontal-dock .lf-dock-toggle[aria-pressed="true"] .lf-switch-thumb,
-          .ytp-small-mode #lf-yt-horizontal-dock .lf-switch-track.active .lf-switch-thumb,
-          #lf-yt-horizontal-dock.lf-size-compact .lf-dock-toggle[aria-pressed="true"] .lf-switch-thumb,
-          #lf-yt-horizontal-dock.lf-size-compact .lf-switch-track.active .lf-switch-thumb {
-            transform: translateX(12px);
-          }
-          .ytp-small-mode #lf-yt-horizontal-dock .lf-dock-sep,
-          #lf-yt-horizontal-dock.lf-size-compact .lf-dock-sep {
-            height: 14px;
-            margin: 0 1px;
-          }
-
-          /* Modo Mini: Player reduzido (< 620px) */
-          #lf-yt-horizontal-dock.lf-size-mini {
-            height: 28px;
-            padding: 0 4px;
-            gap: 2px;
-            margin-right: 3px;
-          }
-          #lf-yt-horizontal-dock.lf-size-mini .lf-dock-btn {
-            width: 24px;
-            height: 24px;
-            font-size: 12px;
-          }
-          #lf-yt-horizontal-dock.lf-size-mini .lf-dock-btn[data-action="settings"] {
-            font-size: 13px;
-          }
-          #lf-yt-horizontal-dock.lf-size-mini .lf-dock-toggle {
-            height: 24px;
-            padding: 0 3px;
-            gap: 0;
-          }
-          #lf-yt-horizontal-dock.lf-size-mini .lf-toggle-text {
-            display: none;
-          }
-          #lf-yt-horizontal-dock.lf-size-mini .lf-switch-track {
-            width: 22px;
-            height: 11px;
-          }
-          #lf-yt-horizontal-dock.lf-size-mini .lf-switch-thumb {
-            width: 7px;
-            height: 7px;
-          }
-          #lf-yt-horizontal-dock.lf-size-mini .lf-dock-toggle[aria-pressed="true"] .lf-switch-thumb,
-          #lf-yt-horizontal-dock.lf-size-mini .lf-switch-track.active .lf-switch-thumb {
-            transform: translateX(11px);
-          }
-          #lf-yt-horizontal-dock.lf-size-mini .lf-dock-sep,
-          #lf-yt-horizontal-dock.lf-size-mini .lf-dock-btn[data-action="previous"],
-          #lf-yt-horizontal-dock.lf-size-mini .lf-dock-btn[data-action="next"] {
-            display: none !important;
-          }
-
-          /* Modo Tiny: Player muito pequeno / split-screen estreito (< 480px) */
-          #lf-yt-horizontal-dock.lf-size-tiny {
-            height: 26px;
-            padding: 0 2px;
-            gap: 1px;
-            margin-right: 2px;
-          }
-          #lf-yt-horizontal-dock.lf-size-tiny .lf-dock-btn {
-            width: 22px;
-            height: 22px;
-            font-size: 11px;
-          }
-          #lf-yt-horizontal-dock.lf-size-tiny .lf-dock-btn[data-action="settings"] {
-            font-size: 12px;
-          }
-          #lf-yt-horizontal-dock.lf-size-tiny .lf-dock-toggle {
-            height: 22px;
-            padding: 0 2px;
-            gap: 0;
-          }
-          #lf-yt-horizontal-dock.lf-size-tiny .lf-toggle-text {
-            display: none;
-          }
-          #lf-yt-horizontal-dock.lf-size-tiny .lf-switch-track {
-            width: 18px;
-            height: 10px;
-          }
-          #lf-yt-horizontal-dock.lf-size-tiny .lf-switch-thumb {
-            width: 6px;
-            height: 6px;
-          }
-          #lf-yt-horizontal-dock.lf-size-tiny .lf-dock-toggle[aria-pressed="true"] .lf-switch-thumb,
-          #lf-yt-horizontal-dock.lf-size-tiny .lf-switch-track.active .lf-switch-thumb {
-            transform: translateX(8px);
-          }
-          #lf-yt-horizontal-dock.lf-size-tiny .lf-dock-sep,
-          #lf-yt-horizontal-dock.lf-size-tiny .lf-dock-btn[data-action="previous"],
-          #lf-yt-horizontal-dock.lf-size-tiny .lf-dock-btn[data-action="next"],
-          #lf-yt-horizontal-dock.lf-size-tiny .lf-dock-btn[data-action="loop"],
-          #lf-yt-horizontal-dock.lf-size-tiny .lf-dock-btn[data-action="speed"] {
-            display: none !important;
-          }
-
-          /* Fallback responsivo via Viewport Media Queries */
-          @media (max-width: 820px) {
-            #lf-yt-horizontal-dock:not(.lf-size-mini):not(.lf-size-tiny) {
-              height: 32px;
-              padding: 0 5px;
-              gap: 2px;
-              margin-right: 4px;
-            }
-            #lf-yt-horizontal-dock:not(.lf-size-mini):not(.lf-size-tiny) .lf-dock-btn {
-              width: 28px;
-              height: 28px;
-              font-size: 14px;
-            }
-            #lf-yt-horizontal-dock:not(.lf-size-mini):not(.lf-size-tiny) .lf-dock-toggle {
-              height: 28px;
-              padding: 0 4px;
-              gap: 4px;
-              font-size: 11px;
-            }
-            #lf-yt-horizontal-dock:not(.lf-size-mini):not(.lf-size-tiny) .lf-switch-track {
-              width: 24px;
-              height: 12px;
-            }
-            #lf-yt-horizontal-dock:not(.lf-size-mini):not(.lf-size-tiny) .lf-switch-thumb {
-              width: 8px;
-              height: 8px;
-            }
-            #lf-yt-horizontal-dock:not(.lf-size-mini):not(.lf-size-tiny) .lf-dock-toggle[aria-pressed="true"] .lf-switch-thumb,
-            #lf-yt-horizontal-dock:not(.lf-size-mini):not(.lf-size-tiny) .lf-switch-track.active .lf-switch-thumb {
-              transform: translateX(12px);
-            }
-            #lf-yt-horizontal-dock:not(.lf-size-mini):not(.lf-size-tiny) .lf-dock-sep {
-              height: 14px;
-              margin: 0 1px;
-            }
-          }
-
-          @media (max-width: 620px) {
-            #lf-yt-horizontal-dock:not(.lf-size-tiny) {
-              height: 28px;
-              padding: 0 4px;
-              gap: 2px;
-              margin-right: 3px;
-            }
-            #lf-yt-horizontal-dock:not(.lf-size-tiny) .lf-dock-btn {
-              width: 24px;
-              height: 24px;
-              font-size: 12px;
-            }
-            #lf-yt-horizontal-dock:not(.lf-size-tiny) .lf-dock-btn[data-action="settings"] {
-              font-size: 13px;
-            }
-            #lf-yt-horizontal-dock:not(.lf-size-tiny) .lf-dock-toggle {
-              height: 24px;
-              padding: 0 3px;
-              gap: 0;
-            }
-            #lf-yt-horizontal-dock:not(.lf-size-tiny) .lf-toggle-text {
-              display: none;
-            }
-            #lf-yt-horizontal-dock:not(.lf-size-tiny) .lf-switch-track {
-              width: 22px;
-              height: 11px;
-            }
-            #lf-yt-horizontal-dock:not(.lf-size-tiny) .lf-switch-thumb {
-              width: 7px;
-              height: 7px;
-            }
-            #lf-yt-horizontal-dock:not(.lf-size-tiny) .lf-dock-toggle[aria-pressed="true"] .lf-switch-thumb,
-            #lf-yt-horizontal-dock:not(.lf-size-tiny) .lf-switch-track.active .lf-switch-thumb {
-              transform: translateX(11px);
-            }
-            #lf-yt-horizontal-dock:not(.lf-size-tiny) .lf-dock-sep,
-            #lf-yt-horizontal-dock:not(.lf-size-tiny) .lf-dock-btn[data-action="previous"],
-            #lf-yt-horizontal-dock:not(.lf-size-tiny) .lf-dock-btn[data-action="next"] {
-              display: none !important;
-            }
-          }
-
-          @media (max-width: 480px) {
-            #lf-yt-horizontal-dock {
-              height: 26px !important;
-              padding: 0 2px !important;
-              gap: 1px !important;
-              margin-right: 2px !important;
-            }
-            #lf-yt-horizontal-dock .lf-dock-btn {
-              width: 22px !important;
-              height: 22px !important;
-              font-size: 11px !important;
-            }
-            #lf-yt-horizontal-dock .lf-dock-btn[data-action="settings"] {
-              font-size: 12px !important;
-            }
-            #lf-yt-horizontal-dock .lf-dock-toggle {
-              height: 22px !important;
-              padding: 0 2px !important;
-              gap: 0 !important;
-            }
-            #lf-yt-horizontal-dock .lf-toggle-text {
-              display: none !important;
-            }
-            #lf-yt-horizontal-dock .lf-switch-track {
-              width: 18px !important;
-              height: 10px !important;
-            }
-            #lf-yt-horizontal-dock .lf-switch-thumb {
-              width: 6px !important;
-              height: 6px !important;
-            }
-            #lf-yt-horizontal-dock .lf-dock-toggle[aria-pressed="true"] .lf-switch-thumb,
-            #lf-yt-horizontal-dock .lf-switch-track.active .lf-switch-thumb {
-              transform: translateX(8px) !important;
-            }
-            #lf-yt-horizontal-dock .lf-dock-sep,
-            #lf-yt-horizontal-dock .lf-dock-btn[data-action="previous"],
-            #lf-yt-horizontal-dock .lf-dock-btn[data-action="next"],
-            #lf-yt-horizontal-dock .lf-dock-btn[data-action="loop"],
-            #lf-yt-horizontal-dock .lf-dock-btn[data-action="speed"] {
-              display: none !important;
-            }
-          }
-          #lf-speed-popover {
-            position: fixed;
-            z-index: 2147483646;
-            width: 250px;
-            background: rgba(15, 23, 42, 0.96);
-            border: 1px solid rgba(255, 255, 255, 0.16);
-            border-radius: 14px;
-            padding: 12px;
-            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
-            backdrop-filter: blur(14px) saturate(150%);
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            color: #f8fafc;
-            box-sizing: border-box;
-            pointer-events: auto;
-            animation: lfFadeInUp 0.18s ease-out;
-          }
-          #lf-speed-popover .lf-speed-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 10px;
-          }
-          #lf-speed-popover .lf-speed-title {
-            font-size: 13px;
-            font-weight: 700;
-            color: #f8fafc;
-          }
-          #lf-speed-popover .lf-speed-val {
-            font-size: 13px;
-            font-weight: 800;
-            color: #38bdf8;
-            background: rgba(56, 189, 248, 0.15);
-            padding: 2px 7px;
-            border-radius: 6px;
-          }
-          #lf-speed-popover .lf-speed-presets {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 6px;
-            margin-bottom: 12px;
-          }
-          #lf-speed-popover .lf-speed-chip {
-            appearance: none;
-            background: rgba(255, 255, 255, 0.07);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 8px;
-            padding: 6px 4px;
-            color: #e2e8f0;
-            font: 700 12px/1.2 system-ui, sans-serif;
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 2px;
-            transition: all 0.15s ease;
-          }
-          #lf-speed-popover .lf-speed-chip:hover {
-            background: rgba(56, 189, 248, 0.18);
-            border-color: rgba(56, 189, 248, 0.4);
-            color: #7dd3fc;
-          }
-          #lf-speed-popover .lf-speed-chip.is-selected {
-            background: rgba(56, 189, 248, 0.28);
-            border-color: #38bdf8;
-            color: #38bdf8;
-            box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
-          }
-          #lf-speed-popover .lf-speed-chip-desc {
-            font-size: 9px;
-            font-weight: 500;
-            opacity: 0.8;
-          }
-          #lf-speed-popover .lf-speed-slider-wrap {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 8px;
-            background: rgba(0, 0, 0, 0.25);
-            padding: 6px 8px;
-            border-radius: 8px;
-          }
-          #lf-speed-popover .lf-speed-step-btn {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            background: rgba(255, 255, 255, 0.08);
-            color: #f8fafc;
-            font: 700 14px/1 system-ui;
-            cursor: pointer;
-            display: grid;
-            place-items: center;
-            padding: 0;
-            transition: all 0.15s;
-          }
-          #lf-speed-popover .lf-speed-step-btn:hover {
-            background: rgba(56, 189, 248, 0.25);
-            color: #38bdf8;
-            border-color: #38bdf8;
-          }
-          #lf-speed-popover #lf-speed-range {
-            flex: 1;
-            height: 6px;
-            border-radius: 999px;
-            accent-color: #38bdf8;
-            cursor: pointer;
-          }
-          #lf-speed-popover .lf-speed-hint {
-            font-size: 10px;
-            color: #94a3b8;
-            text-align: center;
-            line-height: 1.3;
-          }
-          @keyframes lfFadeInUp {
-            from { opacity: 0; transform: translateY(6px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-        `;
+        style.textContent = YOUTUBE_DOCK_CSS;
         document.head.appendChild(style);
       }
 
@@ -2060,7 +1579,7 @@ export class SubtitleEngine {
 
       const dock = document.createElement('div');
       dock.id = 'lf-yt-horizontal-dock';
-      dock.className = 'lf-yt-dock';
+      dock.className = isSubVisible ? 'lf-yt-dock' : 'lf-yt-dock lf-off';
       dock.setAttribute('role', 'toolbar');
       dock.setAttribute('aria-label', 'Controles LinguaFlow');
       dock.innerHTML = `
@@ -2084,9 +1603,7 @@ export class SubtitleEngine {
         if (!btn) return;
         const action = btn.dataset.action;
         if (action === 'toggle') {
-          const nowVisible = !this.isActivated;
-          localStorage.setItem('lf_sub_visible', String(nowVisible));
-          this.toggleSubtitles(nowVisible);
+          this.userToggleSubtitles(!this.isActivated);
         } else if (action === 'previous') {
           this.gotoPreviousCue();
         } else if (action === 'loop') {
@@ -2200,6 +1717,119 @@ export class SubtitleEngine {
       this.videoElement.currentTime = this.cues[targetIdx].start;
       console.debug('[LinguaFlow] Pulou para próxima frase');
     }
+  }
+
+  // ── Atalhos de estudo do player (#432) ─────────────────────────────────────
+
+  // Ajuste fino da sincronia: positivo = a legenda aparece mais cedo (mesma regra do controle
+  // deslizante das configurações: o tempo de busca da fala é mídia + antecipação).
+  nudgeSync(delta) {
+    const current = Number(this.translationAnticipation) || 0;
+    const next = Math.round(Math.min(2, Math.max(-2, current + delta)) * 10) / 10;
+    if (next === current) {
+      this._showNotification('⏱️ Sincronia no limite (±2 s)');
+      return current;
+    }
+    this.translationAnticipation = next;
+    window.dispatchEvent(new CustomEvent('LF_UPDATE_ANTICIPATION', { detail: next }));
+    import('../utils/db.js')
+      .then(({ db }) => db?.setSetting?.('translationAnticipation', next)?.catch?.(() => {}))
+      .catch(() => {});
+    const label = `${next > 0 ? '+' : ''}${next.toFixed(1).replace('.', ',')} s`;
+    this._showNotification(`⏱️ Sincronia ${label} · legenda ${delta > 0 ? 'mais cedo' : 'mais tarde'}`);
+    return next;
+  }
+
+  // Laço A–B: 1º toque marca o início, 2º marca o fim e repete, 3º desfaz.
+  toggleAbLoop() {
+    if (!this.videoElement) return false;
+    const now = Number(this.videoElement.currentTime);
+    if (!Number.isFinite(now)) return false;
+    const fmt = (seconds) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+
+    if (this._abPoint == null && !this.isLooping) {
+      this._abPoint = now;
+      this._showNotification(`🅰️ Início em ${fmt(now)} · aperte B de novo para marcar o fim`);
+      return 'a';
+    }
+    if (this._abPoint != null) {
+      const start = this._abPoint;
+      if (now - start < 0.5) {
+        this._showNotification('O fim precisa ficar pelo menos 0,5 s depois do início');
+        return 'invalid';
+      }
+      this._abPoint = null;
+      const started = this._startPreciseLoopByCue({ start, end: now });
+      if (started) this._showNotification(`🔁 Laço ${fmt(start)}–${fmt(now)} · B desfaz`);
+      return started ? 'loop' : false;
+    }
+    this._stopLoop();
+    this._showNotification('▶️ Laço desativado');
+    return 'off';
+  }
+
+  // Escuta primeiro: esconde a legenda original até passar o mouse (mesmo modo das configurações).
+  toggleListenFirst() {
+    this.blurSubtitles = !this.blurSubtitles;
+    window.dispatchEvent(new CustomEvent('LF_UPDATE_BLUR', { detail: this.blurSubtitles }));
+    import('../utils/db.js')
+      .then(({ db }) => db?.setSetting?.('blurSubtitles', this.blurSubtitles)?.catch?.(() => {}))
+      .catch(() => {});
+    if (this._lastOrig) this.renderDual(this._lastOrig, this._lastTrans || '');
+    this._showNotification(this.blurSubtitles ? '🎧 Escuta primeiro: legenda escondida' : '👁️ Legenda original visível');
+    return this.blurSubtitles;
+  }
+
+  showShortcuts() {
+    return showShortcutsHelp();
+  }
+
+  // Navegação pelas palavras da legenda só com o teclado (acessibilidade).
+  _subtitleWordEls() {
+    return [...(this.shadowContainer?.querySelectorAll?.('#lf-orig .lf-word') || [])];
+  }
+
+  isWordNavActive() {
+    const active = this.shadowContainer?.activeElement;
+    return Boolean(active?.classList?.contains('lf-word'));
+  }
+
+  focusSubtitleWords() {
+    const words = this._subtitleWordEls();
+    if (!words.length) {
+      this._showNotification('Nenhuma palavra na legenda agora');
+      return false;
+    }
+    if (this.videoElement && !this.videoElement.paused) {
+      this.videoElement.pause();
+      this._wordNavPaused = true;
+    }
+    words[0].focus();
+    this._showNotification('← → escolhem a palavra · Enter abre o card · Esc volta');
+    return true;
+  }
+
+  moveWordFocus(step) {
+    const words = this._subtitleWordEls();
+    if (!words.length) return false;
+    const active = this.shadowContainer?.activeElement;
+    const index = Math.max(0, words.indexOf(active));
+    const next = words[Math.min(words.length - 1, Math.max(0, index + step))];
+    next.focus();
+    return true;
+  }
+
+  activateFocusedWord() {
+    const active = this.shadowContainer?.activeElement;
+    if (!active?.classList?.contains('lf-word')) return false;
+    active.click();
+    return true;
+  }
+
+  leaveWordFocus() {
+    this.shadowContainer?.activeElement?.blur?.();
+    if (this._wordNavPaused && this.videoElement?.paused) this.videoElement.play?.()?.catch?.(() => {});
+    this._wordNavPaused = false;
   }
 
   toggleLoop() {
@@ -2324,6 +1954,7 @@ export class SubtitleEngine {
   }
 
   _stopLoop() {
+    this._abPoint = null;
     this.isLooping = false;
     this.loopStartTime = null;
     this.loopEndTime = null;
@@ -2691,6 +2322,8 @@ export class SubtitleEngine {
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             animation: slideDown 0.3s ease-out;
         `;
+    notif.setAttribute('role', 'status');
+    notif.setAttribute('aria-live', 'polite');
     notif.textContent = message;
 
     const style = document.createElement('style');
@@ -3335,6 +2968,7 @@ export class SubtitleEngine {
   async _fetchYoutubeSubtitles(navigation = this._navigationSnapshot()) {
     if (!this._isNavigationCurrent(navigation)) return;
     if (this.cues.length > 0) return;
+    if (!globalThis.chrome?.runtime?.id || !globalThis.chrome?.storage?.local?.get) return;
 
     try {
       const { lastYoutubeSubtitleUrls } = await chrome.storage.local.get('lastYoutubeSubtitleUrls');
@@ -3436,6 +3070,7 @@ export class SubtitleEngine {
       }
     } catch (e) {
       if (e?.name === 'AbortError' || !this._isNavigationCurrent(navigation)) return;
+      if (!globalThis.chrome?.runtime?.id || /Extension context invalidated/i.test(e?.message || '')) return;
       console.error('[LinguaFlow] Erro ao recuperar legendas:', e);
     }
   }
@@ -3788,6 +3423,7 @@ export class SubtitleEngine {
       return;
     }
 
+    if (this.isActivated === false) return;
     const cue = recordDomCue(this.cues, text, timeSec);
     this._currentCue = cue;
     if (cue.translatedText) {
@@ -4124,6 +3760,11 @@ export class SubtitleEngine {
   // ── Motor de Renderização de Elite (onSubtitle) ──────────────────────────
   onSubtitle(cue) {
     if (!cue) return;
+    // Desligado: nada de índice, painel nem tradução (#420). Ao ligar, a fala atual reaparece.
+    if (this.isActivated === false) {
+      this._currentCue = null;
+      return;
+    }
     if (cue === this._currentCue) return;
     this._lastProcessedText = cue.text;
     this._currentCue = cue;
@@ -4379,6 +4020,9 @@ export class SubtitleEngine {
       }
     }
     span.className = baseClass + cefrClass + ' ' + this._wordClass(text);
+    // Acessível por teclado (tecla F foca as palavras; Enter abre o card) e por leitor de tela.
+    span.setAttribute('role', 'button');
+    span.tabIndex = -1;
 
     let hoverTimeout = null;
     const clearHoverIntent = () => {
@@ -4464,6 +4108,74 @@ export class SubtitleEngine {
     return 'lf-new';
   }
 
+  // Aplica o modo de início uma única vez por página. Navegações SPA mantêm o
+  // estado atual (this.isActivated), e uma escolha do usuário nunca é sobrescrita.
+  async _resolveInitialActivation() {
+    if (this._activationResolved) return;
+    this._activationResolved = true;
+    if (!platformHasSwitch(this.platform)) return;
+    const stored = await loadStoredActivation();
+    if (this._activationTouched) return;
+    const active = resolveInitialActivation({
+      platform: this.platform,
+      startMode: this.startMode,
+      ...stored,
+    });
+    if (active !== this.isActivated) {
+      this.toggleSubtitles(active);
+      if (active) this._ensureNativeSubtitlesActive();
+    }
+    this._maybeShowStartTip();
+    this._trackUsage('player_opened');
+  }
+
+  // Alternância feita pelo usuário (botão LF ou tecla C): é a única que persiste.
+  userToggleSubtitles(forceState = null) {
+    this._activationTouched = true;
+    this.toggleSubtitles(forceState);
+    saveActivation(this.isActivated);
+    this._trackUsage(this.isActivated ? 'lf_enabled' : 'lf_disabled');
+    this._dismissStartTip?.();
+    this._showNotification(this.isActivated ? '👁️ LinguaFlow ligado · ? mostra os atalhos' : '🙈 LinguaFlow desligado');
+  }
+
+  // Telemetria de produto (#426): fire-and-forget, uma vez por evento por página; nunca atrapalha o player.
+  _trackUsage(event) {
+    if (!platformHasSwitch(this.platform)) return;
+    this._usageSent = this._usageSent || new Set();
+    const key = `${event}:${this.platform}`;
+    if (this._usageSent.has(key)) return;
+    this._usageSent.add(key);
+    import('../utils/db.js')
+      .then(({ db }) => db.logUsageEvent(event, this.platform))
+      .catch(() => {});
+  }
+
+  // Dica única de primeira vez, ancorada no botão LF enquanto ele está desligado (#421).
+  async _maybeShowStartTip() {
+    if (this._startTipScheduled || this.isActivated || !platformHasSwitch(this.platform)) return;
+    this._startTipScheduled = true;
+    const { wasStartTipSeen, markStartTipSeen, showStartTip } = await import('./subtitles/start-tip.js');
+    if (await wasStartTipSeen()) return;
+    let attempts = 0;
+    const iv = this._setManagedInterval(() => {
+      attempts++;
+      if (this.isActivated || attempts > 20) return clearInterval(iv);
+      const maxToggle = document.querySelector('#lf-max-controls [data-action="toggle"]');
+      const anchor = document.getElementById('lf-yt-toggle-wrapper') || maxToggle;
+      if (!anchor || anchor.getBoundingClientRect().width === 0) return;
+      clearInterval(iv);
+      const tip = showStartTip(anchor, {
+        placement: anchor === maxToggle ? 'left' : 'above',
+        onClose: () => markStartTipSeen(),
+      });
+      this._dismissStartTip = () => {
+        tip?.close();
+        this._dismissStartTip = null;
+      };
+    }, 1500);
+  }
+
   toggleSubtitles(forceState = null) {
     const host = document.getElementById('linguaflow-subtitle-host');
     if (!host) return;
@@ -4475,9 +4187,7 @@ export class SubtitleEngine {
       // Se chamado sem argumentos (ex: tecla C), alterna o estado atual
       isVisible = !this.isActivated;
     }
-    try {
-      localStorage.setItem('lf_sub_visible', String(isVisible));
-    } catch {}
+    const changed = isVisible !== this.isActivated;
 
     host.style.visibility = isVisible ? 'visible' : 'hidden';
     host.style.opacity = isVisible ? '1' : '0';
@@ -4507,12 +4217,22 @@ export class SubtitleEngine {
       window.__lfMaxPlayerUI.syncActiveState(isVisible);
     }
 
-    // Sincronização Automática com o botão de Legendas Ocultas (CC) do YouTube
+    // Desligado: some tudo do dock, exceto o botão LF (#418)
+    for (const id of ['lf-yt-horizontal-dock', 'lf-max-controls']) {
+      document.getElementById(id)?.classList?.toggle('lf-off', !isVisible);
+    }
+    if (!isVisible) {
+      if (document.getElementById('lf-subtitle-panel-wrapper')) this.toggleSubtitlePanel();
+      document.getElementById('lf-speed-popover')?.remove?.();
+    }
+
+    // Sincroniza com o CC nativo do YouTube. Ao iniciar desligado não mexemos
+    // no CC do usuário; só ao ligar, ou ao desligar por clique (changed).
     if (this.platform === 'youtube') {
       const ytSubBtn = document.querySelector('.ytp-subtitles-button');
       if (ytSubBtn) {
         const isYtSubActive = ytSubBtn.getAttribute('aria-pressed') === 'true';
-        if (isVisible !== isYtSubActive) {
+        if (isVisible !== isYtSubActive && (isVisible || changed)) {
           ytSubBtn.click();
         }
       }
@@ -4964,32 +4684,6 @@ export class SubtitleEngine {
         }
       });
     return this._sidebarTranslationPromise;
-  }
-
-  async _checkStreakNotification() {
-    if (this._streakShown) return;
-    this._streakShown = true;
-    try {
-      const { db } = await import('../utils/db.js');
-      const stats = await db.getStats();
-      const streak = stats?.streak || 0;
-      if (streak < 1) return;
-      const id = 'lf-streak-hud';
-      let hud = document.getElementById(id);
-      if (!hud) {
-        hud = document.createElement('div');
-        hud.id = id;
-        hud.style.cssText =
-          'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2147483647;background:rgba(15,23,42,0.95);color:#e2e8f0;font-family:Inter,sans-serif;font-size:14px;font-weight:700;padding:12px 22px;border-radius:14px;border:1px solid rgba(251,191,36,0.4);backdrop-filter:blur(8px);pointer-events:none;transition:opacity 0.5s;box-shadow:0 4px 24px rgba(0,0,0,0.5);text-align:center;';
-        document.body.appendChild(hud);
-      }
-      hud.style.opacity = '1';
-      hud.innerHTML = `🔥 <span style="color:#fbbf24">${streak} ${streak === 1 ? 'dia' : 'dias'}</span> de streak mantido!`;
-      setTimeout(() => {
-        hud.style.opacity = '0';
-        setTimeout(() => hud.remove(), 500);
-      }, 5000);
-    } catch (e) {}
   }
 
   _filterSubtitleList(text) {

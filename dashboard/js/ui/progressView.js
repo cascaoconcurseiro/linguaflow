@@ -41,8 +41,12 @@ function formatDate(value) {
 const n = (v) => Number(v || 0).toLocaleString('pt-BR');
 const pct = (v) => (v == null ? '—' : `${Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`);
 
-export function compare(cur, prev, { unit = '', lowerIsBetter = false, format = (v) => v } = {}) {
+// Variação só é útil com base mínima: "▲312" sobre um período de 2 itens engana.
+export const MIN_COMPARE_BASE = 10;
+
+export function compare(cur, prev, { unit = '', lowerIsBetter = false, format = (v) => v, baseCount = null } = {}) {
   if (prev == null || cur == null) return '';
+  if (baseCount != null && Number(baseCount) < MIN_COMPARE_BASE) return '';
   const diff = Number(cur) - Number(prev);
   if (Math.abs(diff) < 0.05) return '<span class="course-delta">igual ao período anterior</span>';
   const good = lowerIsBetter ? diff < 0 : diff > 0;
@@ -151,12 +155,12 @@ export async function renderProgress(container, app) {
         <div class="course-metric"><span>Tempo de estudo · ${periodLabel}</span><strong>${formatDuration(t.total_seconds)}</strong>
           ${compare(t.total_seconds || 0, t.previous_seconds, { format: formatDuration })}
           ${t.daily_average_seconds != null ? `<small>média de ${formatDuration(t.daily_average_seconds)} por dia</small>` : ''}</div>
-        <div class="course-metric"><span>Sequência</span><strong>${st.current || 0} ${st.current === 1 ? 'dia' : 'dias'}</strong>
-          <small>recorde: ${st.best || 0} · ${st.studied_today ? 'hoje já contou' : 'estude hoje para manter'}</small></div>
+        <div class="course-metric"><span>Dias seguidos de estudo</span><strong>${st.current || 0} ${st.current === 1 ? 'dia' : 'dias'}</strong>
+          <small>recorde: ${st.best || 0} · ${st.studied_today ? 'hoje já contou (qualquer atividade)' : 'estude hoje para manter'}</small></div>
         <div class="course-metric"><span>Dias com estudo</span><strong>${t.active_days || 0}</strong><small>${n(st.total_days)} no total</small></div>
-        <div class="course-metric"><span>Revisões</span><strong>${n(r.count)}</strong>${compare(r.count, r.previous_count)}</div>
+        <div class="course-metric"><span>Revisões</span><strong>${n(r.count)}</strong>${compare(r.count, r.previous_count, { baseCount: r.previous_count })}</div>
         <div class="course-metric"><span>Acerto nas revisões</span><strong>${pct(r.success_rate)}</strong>
-          ${compare(r.success_rate, r.previous_success_rate, { unit: ' p.p.', format: (x) => x.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) })}</div>
+          ${compare(r.success_rate, r.previous_success_rate, { baseCount: r.previous_count, unit: ' p.p.', format: (x) => x.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) })}</div>
         <div class="course-metric"><span>Retenção (cartões em revisão)</span><strong>${pct(r.retention_mature)}</strong><small>lembrou sem errar</small></div>
         <div class="course-metric"><span>Palavras e frases salvas</span><strong>${n(v.total)}</strong><small>+${n(v.added_in_period)} no período</small></div>
         <div class="course-metric"><span>Revisões vencidas agora</span><strong>${n(r.due_now)}</strong>
@@ -170,7 +174,7 @@ export async function renderProgress(container, app) {
         </section>
         <section class="course-panel" aria-labelledby="mem-title"><h2 id="mem-title" class="course-section-title">Memória (cartões)</h2>
           ${bars(statuses, { label: 'Cartões por estado' })}
-          <p class="course-card-stats">${n(v.leeches)} ${v.leeches === 1 ? 'cartão difícil' : 'cartões difíceis'} (erra com frequência) · ${n(v.suspended)} ${v.suspended === 1 ? 'suspenso' : 'suspensos'}</p>
+          <p class="course-card-stats">${n(v.leeches)} ${v.leeches === 1 ? 'cartão difícil' : 'cartões difíceis'} (sinalizados após muitos esquecimentos; o limite está nas configurações) · ${n(v.suspended)} ${v.suspended === 1 ? 'suspenso' : 'suspensos'}</p>
         </section>
       </div>
 

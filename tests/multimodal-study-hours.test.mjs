@@ -40,16 +40,22 @@ assert.match(dbContent, /logSession\s*\([\s\S]*language/, 'logSession em utils/d
 
 // 3. Contrato do Popup
 const popupHtml = readFileSync('popup/popup.html', 'utf8');
-assert.match(popupHtml, /id="listening-today"/, 'popup.html deve conter #listening-today');
-assert.match(popupHtml, /id="listening-total"/, 'popup.html deve conter #listening-total');
+// O "Listening hoje/total" do popup dependia do contador automático (removido em #387) e ficava parado;
+// o resumo do dia agora mostra números vivos (revisões e palavras salvas hoje).
+assert.match(popupHtml, /id="reviews-today"/, 'popup.html deve conter #reviews-today');
+assert.match(popupHtml, /id="words-today"/, 'popup.html deve conter #words-today');
+assert.doesNotMatch(popupHtml, /id="listening-(today|total)"/, 'popup não mostra mais o listening parado');
 assert.match(popupHtml, /id="study-lang-badge"/, 'popup.html deve conter #study-lang-badge');
 
 const popupJs = readFileSync('popup/popup.js', 'utf8');
-assert.match(popupJs, /getStudyStats/, 'popup.js deve chamar getStudyStats');
+assert.match(popupJs, /getReviewLog/, 'popup.js deve ler as revisões de hoje');
+assert.match(popupJs, /getWordsSavedToday/, 'popup.js deve ler as palavras salvas hoje');
 
 // 4. Contrato do Subtitle Engine
 const engineContent = readFileSync('content/subtitle-engine.js', 'utf8');
-assert.match(engineContent, /db\.enqueueListeningInterval/, 'subtitle-engine envia intervalos com identidade estável');
+// #387 removeu o contador automático de listening (a detecção do idioma do áudio falhava na maioria dos
+// vídeos). O contrato atual é a AUSÊNCIA dele no motor; o registro manual e os totais seguem no popup/site.
+assert.doesNotMatch(engineContent, /enqueueListeningInterval|ListeningClock/, 'subtitle-engine não conta escuta automaticamente (#387)');
 assert.doesNotMatch(engineContent, /db\.logSession\(10/, 'timer não presume dez segundos nem idioma configurado');
 
 // 5. Contrato do Dashboard (Palavras que não estão fixando e Cronômetro de Card)

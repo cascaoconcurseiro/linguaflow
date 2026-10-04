@@ -126,23 +126,21 @@ async function renderLoggedIn() {
       langBadge.textContent = langFlags[sourceLang.toLowerCase()] || sourceLang.toUpperCase();
     }
 
-    const [studyStats, userStats, dueCount] = await Promise.all([
-      lfDb.getStudyStats?.(sourceLang).catch(() => null),
+    const [reviewLogToday, wordsToday, userStats, dueCount] = await Promise.all([
+      lfDb.getReviewLog?.(1).catch(() => null),
+      lfDb.getWordsSavedToday?.().catch(() => null),
       lfDb.getUserStats?.().catch(() => null),
       typeof lfDb.getCardsDueCount === 'function'
         ? lfDb.getCardsDueCount(0).catch(() => 0)
         : (lfDb.getCardsDue?.(1000, false).then(cards => cards?.length || 0).catch(() => 0)),
     ]);
 
-    // Listening Hoje e Total
-    const listeningTodayEl = document.getElementById('listening-today');
-    const listeningTotalEl = document.getElementById('listening-total');
-    if (listeningTodayEl && studyStats?.listening) {
-      listeningTodayEl.textContent = studyStats.listening.todayFormatted || '0m';
-    }
-    if (listeningTotalEl && studyStats?.listening) {
-      listeningTotalEl.textContent = studyStats.listening.totalFormatted || '0m';
-    }
+    // Resumo do dia: números vivos (revisões e palavras salvas). O antigo "Listening" dependia do contador
+    // automático de escuta, removido em #387, e ficava parado para sempre; "—" quando não foi possível ler.
+    const reviewsTodayEl = document.getElementById('reviews-today');
+    const wordsTodayEl = document.getElementById('words-today');
+    if (reviewsTodayEl) reviewsTodayEl.textContent = Array.isArray(reviewLogToday) ? String(reviewLogToday.length) : '—';
+    if (wordsTodayEl) wordsTodayEl.textContent = Number.isFinite(wordsToday) ? String(wordsToday) : '—';
 
     // Streak
     const streakCountEl = document.getElementById('streak-count');
@@ -239,6 +237,27 @@ document.getElementById('btn-signup-link').addEventListener('click', openDashboa
 
 // ── Logado ───────────────────────────────────────────────────────────────────
 document.getElementById('btn-dash').addEventListener('click', openDashboard);
+
+// Abre as configurações do player na aba ativa (#422). Com o LF desligado o ⚙ some do player.
+async function openPlayerSettings() {
+  const button = document.getElementById('btn-player-settings');
+  const status = document.getElementById('player-settings-status');
+  button.disabled = true;
+  status.classList.add('hidden');
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) throw new Error('no_tab');
+    const reply = await chrome.tabs.sendMessage(tab.id, { action: 'LF_TOGGLE_SETTINGS' });
+    if (!reply?.ok) throw new Error('no_player');
+    window.close();
+  } catch {
+    status.textContent = 'Abra um vídeo no YouTube, HBO Max, Netflix, Disney+ ou Prime Video e tente de novo.';
+    status.classList.remove('hidden');
+  } finally {
+    button.disabled = false;
+  }
+}
+document.getElementById('btn-player-settings').addEventListener('click', openPlayerSettings);
 
 document.getElementById('btn-logout').addEventListener('click', async () => {
   try { await lfDb.logout(); } catch { /* limpa mesmo assim */ }

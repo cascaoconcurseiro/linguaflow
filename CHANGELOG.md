@@ -2,6 +2,61 @@
 
 ## [Não lançado]
 
+## [3.0.65] - 2026-10-04
+
+### Corrigido
+- **O "🔥 N dias de streak mantido!" não aparece mais na tela do vídeo**: ele surgia depois de 10 minutos em qualquer vídeo (mesmo sem o LinguaFlow ligado e mesmo em vídeo que nem era em inglês), parecendo uma pontuação por assistir. A sequência de dias continua vindo só das suas revisões.
+- **Popup sem o "Listening" parado**: "Listening hoje/total" dependia do contador automático de escuta, removido em #387, e ficava congelado (por isso os "5 min" nunca mudavam). Agora o popup mostra "Revisões hoje" e "Palavras salvas hoje", que são números vivos, e a dica do rodapé deixa de dizer que `O` captura frase (ele abre as configurações).
+- **Novo ícone, na identidade atual**: sai o papagaio verde (identidade antiga) e entra um balão de fala azul com um "L" em serifa, na extensão, no site (PWA), na tela de login e no ícone do navegador. O PWA também troca o verde `#58cc02` pelo azul e pelo papel do site.
+
+### Adicionado
+- **"Reportar problema" na leitura da história**: motivos prontos (inglês ou tradução errados, nível que não combina, conteúdo impróprio, outro) enviam o relato pelo canal que já existe, com nível e título da história e sem o texto dela. Fecha o ciclo de qualidade das histórias geradas por IA, que ninguém revisa antes de chegarem ao aluno (#435).
+- **Amostra para revisão humana do conteúdo**: `npm run content:review` gera uma planilha reproduzível (por semente) com frase, tradução, IPA e nota de cada curso, com colunas para o revisor aprovar ou corrigir (#435).
+- **Frases dos cursos podem ir para o Cofre**: o botão "＋ Enviar ao Cofre" (na resposta da prática e no caderno de vocabulário) coloca a frase na mesma fila de revisão das palavras de vídeo. Nunca sobrescreve uma palavra que você já tem, respeita o limite do Cofre e não envia parágrafos nem histórias (#434).
+- **Memória de longo prazo no Progresso**: mostra quanto você lembrou nas revisões feitas depois de 7 dias ou mais, e de 30 dias ou mais, sem ver o cartão. Só aparece o percentual com pelo menos 10 revisões; antes disso o painel explica o que falta. É a medida mais direta de que a palavra ficou na memória (#433).
+- **Mais controle no player**: `Z`/`X` ajustam a sincronia da legenda em 0,1 s sem abrir as configurações; `B` marca um laço entre dois pontos (A–B); `V` liga a escuta primeiro (legenda original escondida); `F` escolhe palavras da legenda só com o teclado (setas, Enter abre o card, Esc volta); `?` abre a lista de todos os atalhos. Com o LinguaFlow desligado, nenhum deles age (#432).
+
+### Corrigido
+- **Acessibilidade das telas novas**: verificação automática (axe) apontou contraste insuficiente nos passos futuros do "Primeiros passos" e nos botões azuis dos diálogos do player, e títulos pulando um nível; tudo corrigido, 0 violações (#427, #432).
+- **Nota errada em "ninety" corrigida**: dizia que a palavra "mantém o 'e' de 'nine'"; é o contrário (perde o 'e'). Achado pela amostra de revisão humana; corrigido por um lote novo, já que migrations publicadas não se editam (#435).
+- **Documentação alinhada ao que o app faz**: README e arquitetura citavam modos de revisão "Speed Review" e "Reconhecimento de Áudio" que não existem; agora descrevem as 4 formas reais de revisar. O teste obsoleto de horas de estudo passa a verificar a ausência do contador automático removido em #387 (#435).
+- **A tecla `Q` (pausa automática) agora salva a escolha**: ela chamava um método que não existe e a preferência se perdia ao recarregar. O painel de configurações também passa a refletir mudanças feitas por atalho, em vez de mostrar o valor antigo (#432).
+
+## [3.0.64] - 2026-10-03
+
+Inclui também as mudanças acumuladas desde a 3.0.59 que ainda não tinham seção própria.
+
+### Adicionado
+- **Verificador editorial dos cursos**: `npm run content:check` valida os 48 lotes de conteúdo, lista as palavras que faltam no léxico num formato pronto para completar e reprova lote alterado depois de publicado. Guia em `docs/product/EDITORIAL_CURSOS.md` (#428).
+- **"Primeiros passos" na tela Hoje**: quem ainda não salvou nenhuma palavra vê o caminho em três passos (instalar a extensão, ligar o LF num vídeo, salvar a primeira palavra) em vez de um plano vazio; a leitura de histórias continua como alternativa. Também entra o documento de público e promessa (#427).
+- **Funil de uso no painel do administrador**: quantos usuários abrem um player, ligam o LinguaFlow, salvam uma palavra e revisam. Registra só evento e plataforma, nunca conteúdo de vídeo (#426).
+- **Teste real da extensão no navegador**: a CI passa a carregar a extensão num Chromium e verificar o início desligado, a persistência na sessão e o painel lateral (#418, #423).
+- **Botão LinguaFlow também na Netflix, Disney+ e Prime Video**, com os mesmos controles do HBO Max e a mesma regra de começar desligado. O painel lateral pode ser arrastado na vertical (a posição fica salva) para não cobrir a cena (#423, #424).
+- **Aviso ao ligar/desligar e dica de primeira vez**: ligar ou desligar mostra um aviso curto, e na primeira vez o botão LF ganha uma dica explicando o que ele faz e o atalho `C` (#421).
+- **"Configurações do player" no popup da extensão**, para abrir os ajustes mesmo com o LinguaFlow desligado (#422).
+
+### Alterado
+- **Desligado não traduz nada**: com o LinguaFlow desligado, as falas deixam de ser traduzidas e processadas, economizando rede e custo de tradução (#420).
+- **LinguaFlow começa desligado no YouTube e no HBO Max**: o botão LF abre desligado, com só ele visível (anterior, loop, próxima, velocidade, roteiro e configurações ficam escondidos) e os atalhos A/S/D/Q/L/O/Espaço voltam a ser do player; `C` liga. Se você ligar, continua ligado nos próximos vídeos até fechar o navegador. Em Configurações → Reprodução, "Ao abrir um vídeo" permite escolher: desligado e lembrar na sessão (padrão), sempre desligado, sempre ligado ou lembrar para sempre. Netflix, Disney+ e Prime seguem ligados, pois ainda não têm botão visível (#418).
+
+### Corrigido
+- **Atalhos do player funcionam de novo**: A, S, D, Q, L, O, C e Espaço eram ignorados até a revisão rápida ser aberta uma vez, porque ela escondida era tratada como aberta (#425).
+- **Sessões inativas encerradas e selo de alertas**: sessões que não renovam há 30+ dias passam a ser encerradas automaticamente todo dia (e podem ser encerradas na hora em Administração → Segurança). O item Administração do menu mostra quantas pendências existem (relatos novos, painel bloqueado, muitos erros) (#416).
+- **Segurança do repositório**: varredura automática de código (CodeQL), política de segurança com relato privado de vulnerabilidades e alertas de dependências ligados; a `main` agora exige o check de CI e não aceita force-push nem exclusão (#414).
+- **Área administrativa fácil de achar (só para o administrador)**: o menu do perfil ganha o item "Administração" (aparece apenas para a conta administradora e abre direto o campo do PIN); o botão em Configurações deixou de ser discreto. Na aba Sistema, os erros passam a mostrar a versão do app e são marcados como "versão antiga" quando já foram substituídos (#410).
+- **Nomes que não se contradizem**: o Início agora diz "Ofensiva de revisões" e "Cartões para hoje"; o Progresso diz "Dias seguidos de estudo" (qualquer atividade, inclusive vídeo); Cursos diz "frases dos cursos vencem hoje". Horários de "Estudados recentemente" aparecem no seu fuso, sem "UTC". O Progresso deixa de mostrar "▲312 vs. período anterior" quando o período anterior tem menos de 10 revisões (#395).
+- **Notas e cartões difíceis mais claros**: a tela de Notas vazia mostra um exemplo e leva a Meus cursos; no Progresso, "cartões difíceis" explica que o limite vem das configurações (#402).
+- **Tirar curso de Meus cursos ficou óbvio**: na aba Meus cursos o botão agora diz "Remover da lista" (antes "✓ Em Meus cursos", que parecia só um selo). O progresso continua salvo e o aviso explica como voltar pela Loja (#401).
+- **Aviso de legendas duplicadas**: se o Language Reactor estiver ativo no mesmo vídeo do YouTube, o LinguaFlow avisa uma vez que as duas legendas podem se sobrepor. A legenda nativa do YouTube já fica escondida enquanto a do LinguaFlow está ativa (#400).
+- **Cursos lembra a seção no endereço**: Início, Meus cursos, Loja, Revisão, Erros, Análise etc. agora ficam no endereço (`#courses/review`, `#courses/course/<id>`). Recarregar a página e os botões voltar/avançar do navegador mantêm onde você estava (#393).
+- **"Continue seu curso" não recomeça mais cursos concluídos**: ao terminar todos os capítulos, o Início mostrava o capítulo 1 a 100% com "Continuar". Agora ele leva ao curso em andamento mais recente ou, se não houver, à próxima aula da trilha ou à loja; na página do curso concluído o botão vira "Revisar do início" (#391). A lista "Frases em revisão" também avisa quando mostra só as 100 primeiras.
+
+### Adicionado
+- **Central de segurança e relatos de usuários**: Configurações ganha "Ajuda e relatos" (bug, sugestão, abuso ou falha de segurança; limite de 5 por dia, com acompanhamento do status e da resposta). No painel do administrador, a aba **Relatos** faz a triagem (novo, em análise, resolvido, descartado, com nota visível ao usuário) e a aba **Segurança** mostra checagens ao vivo (RLS, funções abertas a visitantes, PIN, equipe, contas sem confirmação, picos de erro, IPs com várias contas, consumo anômalo de IA), logins recentes e a lista das proteções que só se ligam nos painéis da Vercel e do Supabase (#412).
+- **Painel do administrador completo**: abas Visão geral (cadastros, ativos, erros, IA, pendências), Usuários (busca e filtros no servidor, paginação, detalhe com dados armazenados), Backups, Auditoria, Sistema (aviso global, erros agrupados, uso de IA, equipe) e Zona de perigo. Resetar dados agora é por escopo (cards, cursos, fluência, XP/ofensiva, textos, telemetria, configurações), mostra o impacto antes e cria um backup restaurável por 7 dias. Também há suspender/reativar conta, encerrar sessões, exportar dados em JSON, papel de suporte somente leitura e toda ação administrativa registrada numa trilha imutável. O reset global exige PIN validado há menos de 5 minutos e não tem backup (#408).
+- **Sessão rápida na Revisão dos Cursos**: com mais de 10 frases vencidas, um botão "Sessão rápida · 10 frases (~5 min)" aparece ao lado do bloco de 20. Com 60 ou mais vencidas, a tela avisa que a fila grande não é problema e que 10 por dia já a fazem encolher (#398).
+- **Palavras de vídeo no Início**: em "Métricas detalhadas", o selo "De vídeos" mostra quantas palavras você salvou assistindo e quantas já estão fixadas (#399).
+
 ### Alterado
 - **Palavras fracas a partir de 2 esquecimentos, com regra única**: antes o limite (3) estava copiado em quatro lugares. Agora `utils/weak-card.js` define a regra para a Home, a sessão de reforço, a ordem da fila, o modo de recuperação e as histórias do site e da extensão. O leech do servidor (padrão 8) não muda. O aviso de leitor de tela diz "Próximo card" em vez de "Novo card", que se confundia com o status "novo".
 - **Contador automático de listening removido**: o controle "Áudio: Idioma não confirmado · corrigir" saiu do roteiro do vídeo, junto com a contagem automática de tempo de escuta que dependia dele (a detecção do idioma do áudio falhava na maioria dos vídeos). O registro manual de listening no site continua, e Listening hoje/total no popup e no site seguem mostrando o histórico e o que você registrar à mão (#387).
@@ -28,6 +83,7 @@
 - **"Explicar" em cada fala do roteiro**: a IA explica a fala usando a anterior e a seguinte, com tradução natural, o que a pessoa quis dizer e o sentido das expressões naquele contexto ("take off" = decolar, tirar a roupa ou fazer sucesso). Usa a mesma conta/chave de IA do tutor, mostra "Explicando…" enquanto carrega, pede login quando não há sessão e oferece "Tentar de novo" se falhar. Fica guardado no navegador por vídeo e fala, então reabrir é instantâneo.
 
 ### Corrigido
+- **Extensão após atualização**: a bridge encerra timer e listeners quando perde o contexto; a leitura de legendas evita acessar storage indisponível e o proxy limpa timers quando sendMessage falha. Recarregue abas abertas após atualizar a extensão. Timeouts reais do worker continuam visíveis (#389).
 - **Aviso falso na lista de erros da extensão**: todo vídeo registrava "caption_track_empty" como aviso, embora a legenda carregasse normalmente pelo próprio player. Agora esse caso esperado só aparece no log de depuração, e a lista de erros mostra apenas falhas reais.
 - **Segurança do cache de palavras compartilhado**: o dicionário comum que acelera as explicações passou a recusar gravações gigantes e guarda no máximo 20 contextos por palavra, para ninguém conseguir inchar ou poluir o cache de todos. Nenhuma conta pode mais esvaziar tabelas inteiras (TRUNCATE).
 - **Aba Palavras não perde mais "thing"**: o agrupamento por forma base juntava "thing" com "the" (e ela sumia da lista) e "hoping" com "hop". Agora só junta flexões de verdade (films → film, hoping → hope, running → run).

@@ -46,8 +46,8 @@ assert.match(css, /\.home-primary-plan \{ border: 0; border-left: 4px solid/);
 assert.match(home, /Issue #109: referência visual atualizada/);
 
 assert.match(study, /id="study-resources" class="study-resources hidden"/);
-assert.match(study, /class="chunk-action-btn chunk-audio-btn"[^>]*>Ouvir<\/button>/);
-assert.match(study, /class="chunk-action-btn chunk-save-btn"[^>]*>Salvar<\/button>/);
+assert.match(study, /id="play-audio-btn" aria-label="Ouvir a frase">Ouvir<\/button>/);
+assert.match(study, /id="pump-word-audio-btn"[^>]*>Ouvir palavra<\/button>/);
 assert.match(study, /class="study-card-meta"/);
 assert.match(study, /id="study-card-position"/);
 assert.doesNotMatch(study, /tutor|grammar-chat|data-tutor-prompt/i);

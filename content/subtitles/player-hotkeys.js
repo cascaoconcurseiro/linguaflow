@@ -1,7 +1,19 @@
 // content/subtitles/player-hotkeys.js — Gerenciamento isolado dos atalhos de teclado do player
-// Centro de Comando: A, S, D, Q, R, L, O, C, Espaço
+// Centro de Comando: A, S, D, Q, R, L, O, C, Espaço, Z, X, B, V, F, ? (lista em subtitles/shortcuts-help.js)
 
 import { isEditableTarget } from '../../utils/dom-events.js';
+
+// O overlay nasce escondido pela folha de estilo (style.display === ''), então só o
+// estilo computado diz se ele está de fato aberto (#425).
+function isElementShown(element) {
+  if (!element) return false;
+  try {
+    if (typeof getComputedStyle === 'function') return getComputedStyle(element).display !== 'none';
+  } catch {
+    // Sem DOM real (testes): cai no estilo inline.
+  }
+  return element.style?.display !== 'none' && element.style?.display !== '';
+}
 
 /**
  * Registra os listeners de teclado globais do player com suporte a ciclo de vida via AbortSignal.
@@ -22,8 +34,12 @@ export function setupPlayerHotkeys(engine, signal) {
     }
 
     // 3. Se o overlay de revisão rápida estiver visível, deixa o overlay controlar as teclas
-    const reviewOverlay = document.getElementById?.('lf-review-overlay');
-    if (reviewOverlay && reviewOverlay.style.display !== 'none') {
+    if (isElementShown(document.getElementById?.('lf-review-overlay'))) {
+      return;
+    }
+
+    // 3b. Painel de atalhos aberto: ele cuida das próprias teclas (Esc, ?, H, Tab)
+    if (document.getElementById?.('lf-shortcuts-help')) {
       return;
     }
 
@@ -38,6 +54,39 @@ export function setupPlayerHotkeys(engine, signal) {
 
     const code = e.code || '';
     const key = (e.key || '').toLowerCase();
+
+    // LinguaFlow desligado (#418): só a tecla C age; o resto volta ao player nativo.
+    if (engine.isActivated === false && code !== 'KeyC' && key !== 'c') return;
+
+    const swallow = () => {
+      e.preventDefault?.();
+      e.stopPropagation?.();
+      e.stopImmediatePropagation?.();
+    };
+
+    // Navegação pelas palavras da legenda (#432): com uma palavra em foco, as setas, Enter e Esc são dela.
+    if (engine.isWordNavActive?.()) {
+      if (code === 'ArrowRight' || key === 'arrowright') { swallow(); engine.moveWordFocus(1); return; }
+      if (code === 'ArrowLeft' || key === 'arrowleft') { swallow(); engine.moveWordFocus(-1); return; }
+      if (code === 'Enter' || key === 'enter') { swallow(); engine.activateFocusedWord(); return; }
+      if (code === 'Escape' || key === 'escape') { swallow(); engine.leaveWordFocus(); return; }
+    }
+
+    // Sincronia da legenda: Z = mais tarde, X = mais cedo (0,1 s por toque)
+    if (code === 'KeyZ' || key === 'z') { swallow(); engine.nudgeSync(-0.1); return; }
+    if (code === 'KeyX' || key === 'x') { swallow(); engine.nudgeSync(0.1); return; }
+
+    // Laço A–B (B)
+    if (code === 'KeyB' || key === 'b') { swallow(); engine.toggleAbLoop(); return; }
+
+    // Escuta primeiro (V)
+    if (code === 'KeyV' || key === 'v') { swallow(); engine.toggleListenFirst(); return; }
+
+    // Escolher palavra da legenda pelo teclado (F)
+    if (code === 'KeyF' || key === 'f') { swallow(); engine.focusSubtitleWords(); return; }
+
+    // Lista de atalhos (? ou H)
+    if (key === '?' || code === 'KeyH' || key === 'h') { swallow(); engine.showShortcuts(); return; }
 
     // Trecho anterior (A)
     if (code === 'KeyA' || key === 'a') {
@@ -78,7 +127,7 @@ export function setupPlayerHotkeys(engine, signal) {
       engine._showAutoPauseIndicator();
       window.dispatchEvent?.(new CustomEvent('LF_UPDATE_AUTOPAUSE', { detail: engine.autoPause }));
       import('../../utils/db.js').then(({ db }) => {
-        db?.saveSetting?.('autoPause', engine.autoPause)?.catch?.(() => {});
+        db?.setSetting?.('autoPause', engine.autoPause)?.catch?.(() => {});
       }).catch(() => {});
       return;
     }
@@ -106,11 +155,7 @@ export function setupPlayerHotkeys(engine, signal) {
       e.preventDefault?.();
       e.stopPropagation?.();
       e.stopImmediatePropagation?.();
-      const ytSwitch = document.getElementById?.('lf-yt-toggle-wrapper');
-      if (ytSwitch) ytSwitch.click();
-      else engine.toggleSubtitles();
-      const isVisible = (typeof localStorage !== 'undefined' ? localStorage.getItem('lf_sub_visible') : null) === 'true';
-      engine._showNotification(isVisible ? '👁️ Legendas Ativadas' : '🙈 Legendas Ocultas');
+      engine.userToggleSubtitles();
       return;
     }
 

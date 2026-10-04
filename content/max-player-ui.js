@@ -3,8 +3,24 @@ const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5];
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
+const DOCK_HOSTS = [...MAX_HOSTS, 'netflix.com', 'disneyplus.com', 'primevideo.com', 'amazon.com'];
+const DOCK_OFFSET_KEY = 'lf_dock_offset_y';
+
 export function isMaxHost(hostname = '') {
   return MAX_HOSTS.some((host) => hostname === host || hostname.endsWith(`.${host}`));
+}
+
+// O dock lateral existe em todas as plataformas com botão LF visível (#423).
+export function isDockHost(hostname = '') {
+  return DOCK_HOSTS.some((host) => hostname === host || hostname.endsWith(`.${host}`));
+}
+
+// Deslocamento vertical do dock (#424): nunca deixa o dock sair da tela.
+export function clampDockOffset(offset, viewportHeight, dockHeight = 200, margin = 8) {
+  const value = Number(offset);
+  if (!Number.isFinite(value)) return 0;
+  const limit = Math.max(0, viewportHeight / 2 - dockHeight / 2 - margin);
+  return Math.round(Math.min(Math.max(value, -limit), limit));
 }
 
 export function nextPlaybackRate(currentRate) {
@@ -113,7 +129,8 @@ export class MaxPlayerUI {
   }
 
   init() {
-    if (!isMaxHost(window.location.hostname)) return;
+    if (!isDockHost(window.location.hostname)) return;
+    this.offsetY = this._readDockOffset();
     this._ensureDock();
     const signal = this.abortController.signal;
     window.addEventListener('resize', () => this.schedule(), { signal });
@@ -164,6 +181,7 @@ export class MaxPlayerUI {
 
   syncActiveState(active) {
     this.visible = Boolean(active);
+    this.dock?.classList.toggle('lf-off', !this.visible);
     const button = this.dock?.querySelector('button[data-action="toggle"]');
     if (button) {
       button.setAttribute('aria-pressed', String(this.visible));
@@ -233,6 +251,7 @@ export class MaxPlayerUI {
     dock.id = 'lf-max-controls';
     dock.setAttribute('role', 'toolbar');
     dock.setAttribute('aria-label', 'Controles LinguaFlow');
+    dock.classList.toggle('lf-off', !this.visible);
     dock.innerHTML = `
       <button type="button" data-action="toggle" class="lf-dock-toggle" aria-pressed="${this.visible}" title="Ativar ou ocultar legendas LinguaFlow (C)">
         <span class="lf-toggle-text">LF</span>
@@ -273,6 +292,7 @@ export class MaxPlayerUI {
       #lf-max-controls button[data-action="speed"].is-altered{color:#facc15;background:rgba(250,204,21,.15);box-shadow:inset 0 0 0 1px rgba(250,204,21,.35);}
       #lf-max-controls button[data-action="panel"].is-active{background:rgba(168,85,247,.25);color:#c084fc;box-shadow:0 0 10px rgba(168,85,247,.35), inset 0 0 0 1px rgba(168,85,247,.5);}
       #lf-max-controls button[data-action="previous"]:active,#lf-max-controls button[data-action="next"]:active{background:rgba(56,189,248,.3);color:#38bdf8;transform:scale(0.92);}
+      #lf-max-controls.lf-off>:not(.lf-dock-toggle){display:none !important;}
       #lf-max-controls .lf-max-separator{width:20px;height:1px;background:rgba(255,255,255,.14);margin:2px 0;}
       @media (max-width:640px),(max-height:540px){
         #lf-max-controls{right:8px;gap:2px;padding:5px 2px;width:38px;}
@@ -292,9 +312,12 @@ export class MaxPlayerUI {
       if (!button) return;
       const action = button.dataset.action;
       if (action === 'toggle') {
-        this.visible = !this.visible;
-        button.setAttribute('aria-pressed', String(this.visible));
-        this.engine.toggleSubtitles(this.visible);
+        if (this._justDragged) {
+          this._justDragged = false;
+          return;
+        }
+        this.engine.userToggleSubtitles(!this.engine.isActivated);
+        this.syncActiveState(this.engine.isActivated);
       } else if (action === 'previous') this.engine.prevSubtitle();
       else if (action === 'loop') {
         const active = this.engine.toggleLoop() === true;
@@ -313,11 +336,54 @@ export class MaxPlayerUI {
       else if (action === 'settings') window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
     });
     dock.addEventListener('mousedown', (event) => event.stopPropagation());
+    this._bindDockDrag(dock);
 
     this.dock = dock;
     this._updateSpeedButton();
     this._syncLoopButton();
     this._mountInOverlayRoot();
+  }
+
+  _readDockOffset() {
+    try {
+      return Number(globalThis.localStorage?.getItem(DOCK_OFFSET_KEY)) || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  // Arrastar o botão LF move o dock na vertical; um clique simples continua alternando o LF.
+  _bindDockDrag(dock) {
+    const handle = dock.querySelector('button[data-action="toggle"]');
+    if (!handle) return;
+    let start = null;
+    handle.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      start = { y: event.clientY, offset: this.offsetY || 0, moved: false };
+    });
+    handle.addEventListener('pointermove', (event) => {
+      if (!start) return;
+      const dy = event.clientY - start.y;
+      if (!start.moved && Math.abs(dy) < 6) return;
+      if (!start.moved) handle.setPointerCapture?.(event.pointerId);
+      start.moved = true;
+      this.offsetY = clampDockOffset(start.offset + dy, window.innerHeight, dock.offsetHeight || 200);
+      dock.style.setProperty('top', `calc(50% + ${this.offsetY}px)`, 'important');
+    });
+    const finish = () => {
+      if (start?.moved) {
+        this._justDragged = true;
+        this.lastLayout = '';
+        try {
+          globalThis.localStorage?.setItem(DOCK_OFFSET_KEY, String(this.offsetY));
+        } catch {
+          // Posição não persiste se a página bloquear storage.
+        }
+      }
+      start = null;
+    };
+    handle.addEventListener('pointerup', finish);
+    handle.addEventListener('pointercancel', finish);
   }
 
   _layout() {
@@ -350,7 +416,8 @@ export class MaxPlayerUI {
       progressRect: progress?.rect,
       videoRect: video.getBoundingClientRect(),
     });
-    const signature = `${layout.dockBottom}:${layout.subtitleBottom}:${placement.right}:${placement.hidden}:${this._overlayRoot() === document.body}`;
+    const offsetY = clampDockOffset(this.offsetY, window.innerHeight, this.dock.offsetHeight || 200);
+    const signature = `${layout.dockBottom}:${layout.subtitleBottom}:${placement.right}:${placement.hidden}:${this._overlayRoot() === document.body}:${offsetY}`;
     const expectedDisplay = placement.hidden ? 'none' : 'flex';
     if (signature === this.lastLayout && this.dock.style.display === expectedDisplay) return;
     this.lastLayout = signature;
@@ -360,7 +427,7 @@ export class MaxPlayerUI {
     this.dock.style.setProperty('position', isOverlayContainer ? 'absolute' : 'fixed', 'important');
     this.dock.style.removeProperty('bottom');
     this.dock.style.setProperty('right', `${placement.right}px`, 'important');
-    this.dock.style.setProperty('top', '50%', 'important');
+    this.dock.style.setProperty('top', `calc(50% + ${offsetY}px)`, 'important');
     this.dock.style.setProperty('left', placement.left, 'important');
     this.dock.style.setProperty('transform', 'translateY(-50%)', 'important');
 

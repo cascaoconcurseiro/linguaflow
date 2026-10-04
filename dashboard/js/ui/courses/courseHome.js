@@ -1,7 +1,7 @@
 // Início dos Cursos: continuar, semana, revisão do dia, tempo e recentes.
 
 import { escapeHTML } from '../../../../utils/html.js';
-import { formatDuration, formatDateTime, formatDate, levelPill, lessonProgress, continueLessonOf, startLesson, renderEmpty, plural, unitCount } from './courseUi.js';
+import { formatDuration, formatDateTime, formatDate, levelPill, lessonProgress, pickContinueTarget, startLesson, renderEmpty, plural, unitCount } from './courseUi.js';
 
 const WEEKDAYS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
 
@@ -40,11 +40,10 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate 
   const lessonIndex = new Map();
   for (const course of catalog) for (const lesson of course.lessons) lessonIndex.set(lesson.id, { course, lesson });
 
-  // Continuar = próximo capítulo não concluído do curso mais recente.
-  const last = summary.continue && lessonIndex.get(summary.continue.lesson_id);
-  const cont = last && lessonProgress(last.lesson, last.course).done
-    ? (() => { const next = continueLessonOf(last.course); return { course: last.course, lesson: next }; })()
-    : last;
+  // Continuar = próximo capítulo pendente do curso mais recente que não foi concluído.
+  const cont = pickContinueTarget({ lessonIndex, summary });
+  const hasProgress = Boolean(summary.continue || (summary.recent || []).length);
+  const next = path?.next && lessonIndex.get(path.next.lesson_id);
   const firstCourse = catalog.find((c) => c.my?.in_my_courses) || catalog[0];
   const today = new Date().toISOString().slice(0, 10);
   const week = summary.week || [];
@@ -68,7 +67,12 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate 
         <p class="course-card-stats">${Math.round((percent / 100) * cont.lesson.unit_count)} / ${unitCount(cont.course, cont.lesson.unit_count)}</p>
         <button class="course-btn-primary-lg" type="button" data-continue>Continuar</button>
       </div>`;
-  })() : `
+  })() : hasProgress ? `
+      <div class="course-continue-body">
+        <h3 class="course-hero-title">Nenhum curso em andamento</h3>
+        <p class="course-hub-subtitle">Você concluiu os cursos que começou. ${next ? 'Siga a trilha para o próximo capítulo.' : 'Escolha outro na loja.'}</p>
+        <button class="course-btn-primary-lg" type="button" ${next ? 'data-path-next' : 'data-go="store"'}>${next ? 'Ir para a próxima aula' : 'Abrir a loja'}</button>
+      </div>` : `
       <div class="course-continue-body">
         <h3 class="course-hero-title">Comece seu primeiro curso</h3>
         <p class="course-hub-subtitle">${escapeHTML(firstCourse.title)}: ${escapeHTML(firstCourse.short_description)}</p>
@@ -101,7 +105,7 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate 
       <section class="course-panel" aria-labelledby="review-title">
         <h2 id="review-title" class="course-section-title">Sua revisão do dia</h2>
         ${summary.reviews_due_count > 0
-          ? `<p><strong>${summary.reviews_due_count}</strong> ${summary.reviews_due_count === 1 ? 'frase vence' : 'frases vencem'} hoje.</p>
+          ? `<p><strong>${summary.reviews_due_count}</strong> ${summary.reviews_due_count === 1 ? 'frase dos cursos vence' : 'frases dos cursos vencem'} hoje.</p>
              <button class="course-btn-continue" type="button" data-go="review">Revisar agora</button>`
           : `<p class="course-hub-subtitle">Nada vence hoje.${summary.next_review_at ? ` Próxima revisão em ${formatDate(summary.next_review_at)}` : ''}</p>`}
         ${summary.mistakes_count > 0 ? `<p class="course-hub-subtitle">${summary.mistakes_count} ${summary.mistakes_count === 1 ? 'erro pendente' : 'erros pendentes'} no caderno. <button class="course-link" type="button" data-go="mistakes">Treinar</button></p>` : ''}

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LinguaFlow - Fluência com YouTube",
-  "version": "3.0.59",
+  "version": "3.0.65",
   "description": "Aprenda inglês com vídeos, leitura, histórias e revisão espaçada sincronizada entre dispositivos.",
   "icons": {
     "16": "icon16.png",
@@ -96,9 +96,14 @@
         "content/subtitles/player-hotkeys.js",
         "content/subtitles/vtt-parser.js",
         "content/subtitles/active-cue.js",
+        "content/subtitles/activation-state.js",
+        "content/subtitles/start-tip.js",
+        "content/subtitles/shortcuts-help.js",
+        "content/subtitles/youtube-dock-styles.js",
         "content/subtitles/transcript-render.js",
         "content/subtitles/video-vocabulary.js",
         "content/subtitles/hover-tip.js",
+        "content/subtitles/caption-conflict.js",
         "content/subtitles/line-explainer.js",
         "content/max-player-ui.js",
         "content/review-overlay.js",

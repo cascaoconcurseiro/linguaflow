@@ -309,6 +309,12 @@ export async function renderSettings(container, app) {
         <p id="export-msg" style="color: var(--color-primary); margin-top: 12px; font-weight:bold; display:none;">Exportação concluída!</p>
       </div>
 
+      <!-- Help and reports -->
+      <div style="background: var(--color-surface); border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px;">
+        <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 16px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">Ajuda e relatos</h2>
+        <div id="report-card-body"></div>
+      </div>
+
       <!-- Account Section -->
       <div style="background: var(--color-surface); border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px;">
         <h2 style="font-size: 20px; color: var(--color-danger); margin-bottom: 16px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">Conta</h2>
@@ -320,8 +326,9 @@ export async function renderSettings(container, app) {
           Sair da conta
         </button>
         ${isAdmin ? `
-          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px dashed var(--color-border); text-align: center;">
-            <button id="btn-admin-gate" type="button" class="btn btn-outline" style="font-size: 13px; font-weight: 700; padding: 8px 18px; opacity: 0.75; border-color: var(--color-border); color: var(--color-text-light); cursor: pointer; border-radius: 8px; transition: all 0.2s;" title="Painel Administrativo">
+          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--color-border);">
+            <p style="font-size: 13px; color: var(--color-text-light); margin: 0 0 8px;">Área restrita à sua conta de administrador.</p>
+            <button id="btn-admin-gate" type="button" class="btn btn-outline" style="width: 100%; font-size: 14px; font-weight: 700; padding: 12px 18px; cursor: pointer;" title="Painel Administrativo">
               Administração do sistema
             </button>
           </div>
@@ -357,7 +364,7 @@ export async function renderSettings(container, app) {
       group('Seu aprendizado', 'Nível e carga diária', ['Seu nível aproximado', 'Limites Diários'], { open: true }),
     group('Memória', 'Retenção e passos de aprendizagem', ['Motor de Memória (FSRS v4)']),
     group('Som e lembretes', 'Áudio, notificações e resumo', ['Opções de Áudio (TTS Google Neural)', 'Lembretes diários', 'Resumo por e-mail']),
-    group('Dados e conta', 'Exportação, backup e sessão', ['Dados e Portabilidade', 'Conta']),
+    group('Dados e conta', 'Exportação, backup, relatos e sessão', ['Dados e Portabilidade', 'Ajuda e relatos', 'Conta']),
     group('Avançado', 'SRS detalhado, perfis e integrações', ['SRS Avançado (Nível Anki)', 'Perfis de SRS por Categoria'], { advanced: true }),
   ];
   settingsPage.querySelectorAll(':scope > div').forEach(node => {
@@ -365,6 +372,7 @@ export async function renderSettings(container, app) {
   });
   groups.forEach(section => settingsPage.insertBefore(section, saveBar));
   saveBar?.classList.add('settings-save-bar');
+  import('./reportProblem.js').then((m) => m.mountReportCard(document.getElementById('report-card-body'), app)).catch(() => {});
 
   document.getElementById('retention-slider').addEventListener('input', function(e) {
     document.getElementById('retention-val').innerText = e.target.value + '%';
@@ -992,6 +1000,8 @@ export async function renderSettings(container, app) {
     document.getElementById('btn-admin-gate')?.addEventListener('click', () => {
       openAdminPinModal(app);
     });
+    // Vindo do menu do perfil sem sessão de PIN: abre direto o campo do PIN.
+    if (app.routeParams?.adminPin) openAdminPinModal(app);
   }
 }
 

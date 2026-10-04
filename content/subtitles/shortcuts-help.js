@@ -19,6 +19,7 @@ export const SHORTCUT_GROUPS = [
       ['P', 'Abrir ou fechar o roteiro'],
       ['Q', 'Pausar depois de cada fala'],
       ['V', 'Escuta primeiro: esconde a legenda original'],
+      ['M', 'Modo shadowing: frase atual em destaque, com a anterior e a próxima em volta'],
       ['R', 'Revisão rápida'],
     ],
   },

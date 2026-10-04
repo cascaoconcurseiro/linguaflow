@@ -82,3 +82,19 @@ test('B marca A e B e o vídeo repete só o trecho; um terceiro B desfaz', async
   await page.keyboard.press('b');
   await status(page, 'Laço desativado');
 });
+
+test('M liga o shadowing: atual em destaque, próxima em volta, botão do dock e estado coerentes (#456)', async ({ extension }) => {
+  const page = await openWithSubtitles(extension.context);
+  const dockBtn = page.locator('button[data-action="shadow"]');
+  await expect(dockBtn).toHaveAttribute('aria-pressed', 'false');
+  await page.keyboard.press('m');
+  await status(page, 'Shadowing');
+  await expect(dockBtn).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.lf-wrap[data-shadow="on"]')).toHaveCount(1);
+  await expect(page.locator('#lf-shadow-next')).not.toBeEmpty();
+  await expect(page.locator('#lf-shadow-prev')).toBeEmpty(); // primeira fala não tem anterior
+  await expect(page.locator('#lf-shadow-next')).toHaveAttribute('aria-hidden', 'true');
+  await page.keyboard.press('m');
+  await expect(page.locator('.lf-wrap[data-shadow="on"]')).toHaveCount(0);
+  await expect(dockBtn).toHaveAttribute('aria-pressed', 'false');
+});

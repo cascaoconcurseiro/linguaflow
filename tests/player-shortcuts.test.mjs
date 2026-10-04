@@ -178,7 +178,7 @@ test('com palavra em foco, setas/Enter/Esc são da palavra; com o painel de atal
 
 test('contrato: toda tecla da lista de atalhos existe no código e o painel está no manifesto', async () => {
   const hotkeys = await readFile(new URL('../content/subtitles/player-hotkeys.js', import.meta.url), 'utf8');
-  const codes = { A: 'KeyA', S: 'KeyS', D: 'KeyD', B: 'KeyB', F: 'KeyF', P: 'KeyP', Q: 'KeyQ', V: 'KeyV', R: 'KeyR', Z: 'KeyZ', X: 'KeyX', O: 'KeyO', C: 'KeyC', 'Espaço': 'Space', 'Shift + ?': "'?'", '[': "'['", ']': "']'" };
+  const codes = { A: 'KeyA', S: 'KeyS', D: 'KeyD', B: 'KeyB', F: 'KeyF', P: 'KeyP', Q: 'KeyQ', V: 'KeyV', M: 'KeyM', R: 'KeyR', Z: 'KeyZ', X: 'KeyX', O: 'KeyO', C: 'KeyC', 'Espaço': 'Space', 'Shift + ?': "'?'", '[': "'['", ']': "']'" };
   const keys = SHORTCUT_GROUPS.flatMap((g) => g.items.map(([k]) => k));
   for (const key of keys) {
     assert.ok(codes[key], `tecla ${key} sem mapeamento no teste`);

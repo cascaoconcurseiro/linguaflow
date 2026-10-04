@@ -3,7 +3,7 @@
 ## [Não lançado]
 
 ### Adicionado
-- **Imagem nas palavras do curso de vocabulário**: 141 palavras concretas (família, cores, corpo, roupas, comida, frutas, bebidas, transporte, clima e animais) aparecem com uma ilustração aberta (Noto Emoji, Apache 2.0) e o crédito. Palavras abstratas ficam sem imagem de propósito.
+- **Imagem nas palavras do curso de vocabulário**: 366 palavras (família, cores, números, corpo, roupas, casa, cidade, comida, bebidas, transporte, clima, animais, emoções, escola, esportes, trabalho, tecnologia, dinheiro, saúde, música, viagem e verbos de ação) aparecem com uma ilustração aberta (Noto Emoji, Apache 2.0) e o crédito. Palavras abstratas ficam sem imagem de propósito.
 
 ### Corrigido
 - **CC do YouTube ficava ligado com o LinguaFlow desligado**: o YouTube memoriza o CC que o LinguaFlow liga e o reaplicava nos vídeos seguintes. Agora, desligado, o LinguaFlow desliga o CC nativo; se você mesmo ligar o CC com um clique, ele é respeitado.

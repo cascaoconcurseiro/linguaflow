@@ -21,6 +21,7 @@ import {
 import { isValidIpa, cleanIpa } from '../utils/ipa-validator.js';
 import { isPermanentSaveError, retryableEntries, summarizeWordSaveQueue } from './word-save-queue.js';
 import { createDueNotifier, ensureAlarms } from './reminders.js';
+import { isAllowedTtsUrl } from './tts-url.js';
 import { AI_STREAM_PORT, createQuickContextCache, parseQuickContext, readSseText } from '../utils/ai-stream.js';
 
 // v2 (#366): descarta respostas antigas que especulavam além da frase.
@@ -538,6 +539,11 @@ Sentido: [Uma única frase super curta explicando o sentido neste contexto]
   }
 
   if (request.type === 'FETCH_TTS') {
+    // Só o áudio do Google Tradutor; qualquer outra URL seria um fetch arbitrário (#470).
+    if (!isAllowedTtsUrl(request.url)) {
+      sendResponse({ success: false, error: 'url_not_allowed' });
+      return false;
+    }
     fetch(request.url)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);

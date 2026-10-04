@@ -24,6 +24,9 @@ test('pagehide para o cache de voltar/avançar não destrói o engine; saída de
 test('SettingsPanel.destroy remove os listeners globais e o painel', () => {
   const panel = Object.create(SettingsPanel.prototype);
   panel._abort = new AbortController();
+  panel._saveTimers = new Map();
+  panel._pendingSaves = new Map();
+  panel._writeQueue = Promise.resolve();
   let removed = 0;
   panel.host = { remove: () => { removed += 1; } };
 

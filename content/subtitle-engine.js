@@ -175,9 +175,6 @@ export class SubtitleEngine {
     this.maxWordsPerVideo = 15;
     this.maxWordsPerDay = 30;
 
-    this._sessionStartTime = Date.now();
-    this._streakShown = false;
-    this._setManagedTimeout(() => this._checkStreakNotification(), 10 * 60 * 1000);
 
     // Vocabulário em memória — carregado do banco e atualizado em tempo real
     this.savedWords = new Map(); // word -> status ('new'|'learning'|'review'|'mature')
@@ -4687,32 +4684,6 @@ export class SubtitleEngine {
         }
       });
     return this._sidebarTranslationPromise;
-  }
-
-  async _checkStreakNotification() {
-    if (this._streakShown) return;
-    this._streakShown = true;
-    try {
-      const { db } = await import('../utils/db.js');
-      const stats = await db.getStats();
-      const streak = stats?.streak || 0;
-      if (streak < 1) return;
-      const id = 'lf-streak-hud';
-      let hud = document.getElementById(id);
-      if (!hud) {
-        hud = document.createElement('div');
-        hud.id = id;
-        hud.style.cssText =
-          'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2147483647;background:rgba(15,23,42,0.95);color:#e2e8f0;font-family:Inter,sans-serif;font-size:14px;font-weight:700;padding:12px 22px;border-radius:14px;border:1px solid rgba(251,191,36,0.4);backdrop-filter:blur(8px);pointer-events:none;transition:opacity 0.5s;box-shadow:0 4px 24px rgba(0,0,0,0.5);text-align:center;';
-        document.body.appendChild(hud);
-      }
-      hud.style.opacity = '1';
-      hud.innerHTML = `🔥 <span style="color:#fbbf24">${streak} ${streak === 1 ? 'dia' : 'dias'}</span> de streak mantido!`;
-      setTimeout(() => {
-        hud.style.opacity = '0';
-        setTimeout(() => hud.remove(), 500);
-      }, 5000);
-    } catch (e) {}
   }
 
   _filterSubtitleList(text) {

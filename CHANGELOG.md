@@ -2,6 +2,13 @@
 
 ## [Não lançado]
 
+## [3.0.65] - 2026-10-04
+
+### Corrigido
+- **O "🔥 N dias de streak mantido!" não aparece mais na tela do vídeo**: ele surgia depois de 10 minutos em qualquer vídeo (mesmo sem o LinguaFlow ligado e mesmo em vídeo que nem era em inglês), parecendo uma pontuação por assistir. A sequência de dias continua vindo só das suas revisões.
+- **Popup sem o "Listening" parado**: "Listening hoje/total" dependia do contador automático de escuta, removido em #387, e ficava congelado (por isso os "5 min" nunca mudavam). Agora o popup mostra "Revisões hoje" e "Palavras salvas hoje", que são números vivos, e a dica do rodapé deixa de dizer que `O` captura frase (ele abre as configurações).
+- **Novo ícone, na identidade atual**: sai o papagaio verde (identidade antiga) e entra um balão de fala azul com um "L" em serifa, na extensão, no site (PWA), na tela de login e no ícone do navegador. O PWA também troca o verde `#58cc02` pelo azul e pelo papel do site.
+
 ### Adicionado
 - **"Reportar problema" na leitura da história**: motivos prontos (inglês ou tradução errados, nível que não combina, conteúdo impróprio, outro) enviam o relato pelo canal que já existe, com nível e título da história e sem o texto dela. Fecha o ciclo de qualidade das histórias geradas por IA, que ninguém revisa antes de chegarem ao aluno (#435).
 - **Amostra para revisão humana do conteúdo**: `npm run content:review` gera uma planilha reproduzível (por semente) com frase, tradução, IPA e nota de cada curso, com colunas para o revisor aprovar ou corrigir (#435).

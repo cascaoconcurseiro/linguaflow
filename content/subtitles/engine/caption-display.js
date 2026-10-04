@@ -6,6 +6,7 @@ import { annotateCaptionSegment } from '../../../utils/speech-cadence.js';
 import { segmentSubtitle } from '../transcript-render.js';
 import { MAX_EXPRESSION_WORDS } from '../../../utils/expressions-db.js';
 import { createHoverTip } from '../hover-tip.js';
+import { subtitleScaleForWidth } from '../dock-layout.js';
 import { cueNewWordStats, hasNewWords, isFullyUnderstood } from '../smart-captions.js';
 
 export class CaptionDisplayMethods {
@@ -345,7 +346,11 @@ export class CaptionDisplayMethods {
 
     // O tamanho da fonte é do painel de configurações (--lf-font-size). Escrever
     // aqui um valor proporcional à largura do player sobrescrevia o valor do
-    // usuário a cada resize e a legenda mudava de tamanho sozinha.
+    // usuário a cada resize e a legenda mudava de tamanho sozinha. Por isso a
+    // adaptação é um multiplicador à parte (--lf-sub-scale): só encolhe, em
+    // player menor que a referência, e nunca altera o valor escolhido.
+    const playerWidth = this.videoElement?.getBoundingClientRect?.()?.width || window.innerWidth;
+    host.style.setProperty('--lf-sub-scale', String(subtitleScaleForWidth(playerWidth)));
 
     if (this._currentHorizontal !== undefined) {
       host.style.left = `${this._currentHorizontal}%`;

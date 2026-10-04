@@ -101,11 +101,14 @@ export const YOUTUBE_DOCK_CSS = `
             background: #38bdf8;
             box-shadow: 0 0 8px #38bdf8;
           }
+          /* Ligado = amarelo (mesmo tom da velocidade alterada) */
           .lf-dock-btn[data-action="loop"].is-active,
-          .lf-dock-btn[data-action="loop"][aria-pressed="true"] {
-            background: rgba(56, 189, 248, 0.28);
-            color: #7dd3fc;
-            box-shadow: 0 0 10px rgba(56, 189, 248, 0.45), inset 0 0 0 1px rgba(125, 211, 252, 0.45);
+          .lf-dock-btn[data-action="loop"][aria-pressed="true"],
+          .lf-dock-btn[data-action="shadow"][aria-pressed="true"],
+          .lf-dock-btn[data-action="panel"].is-active {
+            background: rgba(250, 204, 21, 0.2);
+            color: #facc15;
+            box-shadow: 0 0 10px rgba(250, 204, 21, 0.35), inset 0 0 0 1px rgba(250, 204, 21, 0.5);
           }
           .lf-dock-btn[data-action="speed"] {
             font-size: 12px;
@@ -116,11 +119,6 @@ export const YOUTUBE_DOCK_CSS = `
             color: #facc15;
             background: rgba(250, 204, 21, 0.18);
             box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.45);
-          }
-          .lf-dock-btn[data-action="panel"].is-active {
-            background: rgba(168, 85, 247, 0.25);
-            color: #c084fc;
-            box-shadow: 0 0 10px rgba(168, 85, 247, 0.45), inset 0 0 0 1px rgba(168, 85, 247, 0.5);
           }
           .lf-dock-btn[data-action="previous"]:active,
           .lf-dock-btn[data-action="next"]:active {

@@ -380,7 +380,12 @@ Para atualizar: `npm run map`.
 | `content/settings-panel.js` | GG ⚠ | Painel de configurações da extensão no player (Shadow DOM): aparência da legenda, sincronia, idiomas e gravação das preferências. |
 | `content/subtitle-engine.js` | G | Motor de legendas: captura, sincronização, tradução, palavras clicáveis, painel lateral, dock do YouTube e atalhos do player. |
 | `content/web-reader.js` | G | LinguaFlow Web Reader — Modo Leitura para qualquer site Ativado por duplo-clique em palavra ou seleção de texto. |
-| `content/word-popup.js` | GG ⚠ | LinguaFlow Pro — Word Popup v5 (unified storage, bilingual examples, full grammar) |
+| `content/word-popup.js` | G | LinguaFlow Pro — Word Popup v5 (unified storage, bilingual examples, full grammar) |
+| `content/word-popup/ai-context.js` | G | IA no popup: explicar o contexto, gerar frase e trechos, exemplos do vídeo e aviso de login. |
+| `content/word-popup/first-recall.js` | P | Primeira lembrança: pergunta de recordação mostrada na primeira vez que a palavra aparece. |
+| `content/word-popup/lookup.js` | M | Dados do popup: expressão, CEFR, falsos cognatos, tradução, dicionário, sentidos e trechos de uso. |
+| `content/word-popup/positioning.js` | M | Posicionamento do popup sobre o player e acompanhamento da posição. |
+| `content/word-popup/save.js` | M | Salvar a palavra (card + contexto), enriquecimento tardio, aviso de salvo e ignorar palavra. |
 | `content/youtube-hook.js` | M | Script injetado no MAIN WORLD para contornar o CSP estrito do YouTube e capturar a legenda direto da fonte de rede sem atraso. |
 
 ### Extensão Chrome — legendas (`content/subtitles/`)
@@ -396,7 +401,6 @@ Para atualizar: `npm run map`.
 | `content/subtitles/engine/caption-display.js` | G | A legenda na tela: host/Shadow DOM, posicionamento, renderização dual, palavras clicáveis e marcas de expressão. |
 | `content/subtitles/engine/capture.js` | G | Obtenção das legendas: YouTube (XHR/VTT), DOM da plataforma, loop de sincronização, correção de encoding e legendas nativas. |
 | `content/subtitles/engine/export.js` | M | Exportação da transcrição: PDF, CSV e Anki. |
-| `content/subtitles/engine/install-methods.js` | P | Instala no SubtitleEngine os métodos que moram nos módulos por assunto (engine/*.js). |
 | `content/subtitles/engine/playback.js` | G | Controles de reprodução: navegar entre falas, loops A-B e por fala, shadowing, foco por palavra e velocidade. |
 | `content/subtitles/engine/sidebar-panel.js` | M | Painel lateral: criação, abertura, tema, destaque da fala atual e rolagem. |
 | `content/subtitles/engine/transcript-tab.js` | M | Aba de transcrição do painel: lista de falas, explicação de linha por IA e tradução da barra lateral. |
@@ -542,6 +546,7 @@ Para atualizar: `npm run map`.
 | `utils/expressions-db.js` | M | Banco de dados massivo de phrasal verbs e expressões (baseado em análise competitiva) |
 | `utils/frequency-en.json` | P | Posição de frequência de cada palavra em inglês (1 = mais comum). |
 | `utils/html.js` | P | Escape de HTML para qualquer texto de fora (legendas, IA, web) antes de entrar no DOM. |
+| `utils/install-methods.js` | P | Instala em uma classe os métodos que moram em módulos por assunto (motor de legendas, popup de palavra etc.). |
 | `utils/ipa-validator.js` | P | Validação estrita de IPA (International Phonetic Alphabet) Elimina terminantemente pronúncia abrasileirada, respellings em português e aproximações ortográficas. |
 | `utils/lemma.js` | P | lematizador leve de regras para inglês. |
 | `utils/lexical-profile.js` | M | Motor de auditoria lexical e densidade de novidade (i+1). |

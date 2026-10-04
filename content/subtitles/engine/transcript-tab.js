@@ -6,7 +6,6 @@ import { detectExpressions } from '../../../utils/expression-detector.js';
 import { streamAiRequest } from '../../../utils/ai-stream.js';
 
 export class TranscriptTabMethods {
-
   _rebuildSubtitleList(container, filter = '') {
     const cues = this.xhrCues && this.xhrCues.length > 0 ? this.xhrCues : this.cues;
     if (!container) container = document.getElementById('lf-subtitle-list');

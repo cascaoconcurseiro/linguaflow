@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { readEngineSource } from './helpers/engine-source.mjs';
+import { readPopupSource } from './helpers/popup-source.mjs';
 
 const [study, db, vercel, library, stories, wordPopup, youtubeHook, settingsPanel, pwaWorker, subtitleEngine] = await Promise.all([
   readFile(new URL('../dashboard/js/ui/studyView.js', import.meta.url), 'utf8'),
@@ -8,7 +9,7 @@ const [study, db, vercel, library, stories, wordPopup, youtubeHook, settingsPane
   readFile(new URL('../vercel.json', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/js/ui/libraryView.js', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/js/ui/storiesView.js', import.meta.url), 'utf8'),
-  readFile(new URL('../content/word-popup.js', import.meta.url), 'utf8'),
+  readPopupSource(),
   readFile(new URL('../content/youtube-hook.js', import.meta.url), 'utf8'),
   readFile(new URL('../content/settings-panel.js', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/sw.js', import.meta.url), 'utf8'),

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readEngineSourceSync } from './helpers/engine-source.mjs';
+import { readPopupSourceSync } from './helpers/popup-source.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
@@ -28,7 +29,7 @@ test('Auditoria Fix #2: _onUrlChange chama _stopLoop e remove duplicidade de _vi
 });
 
 test('Auditoria Fix #3: _build em word-popup.js limpa _keydownHandler anterior', () => {
-  const wpCode = readFileSync(path.join(root, 'content/word-popup.js'), 'utf-8');
+  const wpCode = readPopupSourceSync();
   assert.match(wpCode, /if\s*\(this\._keydownHandler\)\s*\{\s*document\.removeEventListener\('keydown',\s*this\._keydownHandler,\s*true\);/);
 });
 

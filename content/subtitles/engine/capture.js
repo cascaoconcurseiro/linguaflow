@@ -7,7 +7,6 @@ import { CAPTION_CONFLICT_NOTICE, hasLanguageReactor } from '../caption-conflict
 import { MAX_CC_BUTTON_SELECTOR, pickSubtitleOption, readMenuItems } from '../hbo-native-captions.js';
 
 export class CaptureMethods {
-
   // Fase 5 (§4d.10): _renderVideoWordPrep removida — 80 linhas cujo container
   // #lf-video-words nunca existiu em lugar nenhum do DOM.
 

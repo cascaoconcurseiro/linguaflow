@@ -10,6 +10,7 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { parse } from 'acorn';
+import { readPopupSourceSync } from './helpers/popup-source.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const allowDirty = process.argv.includes('--allow-dirty');
@@ -106,7 +107,7 @@ try {
 console.log('\nCaminhos críticos de performance');
 const dbSource = read('utils/db.js');
 const workerSource = read('background/service-worker.js');
-const popupSource = read('content/word-popup.js');
+const popupSource = readPopupSourceSync();
 const extensionPopupSource = read('popup/popup.js');
 assert(!/[`'\"]words\?select=\*/.test(dbSource) && !/words\(\*\)/.test(dbSource), 'leituras de palavras não baixam snapshot base64 via select=*');
 assert(workerSource.includes('QUEUE_WORD_SAVE') && workerSource.includes('word-save-sync'), 'save local-first possui fila persistente e retry');

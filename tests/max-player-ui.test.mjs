@@ -9,6 +9,7 @@ import {
 } from '../content/max-player-ui.js';
 import { SubtitleEngine } from '../content/subtitle-engine.js';
 import { readEngineSource } from './helpers/engine-source.mjs';
+import { readPopupSource } from './helpers/popup-source.mjs';
 
 assert.equal(isMaxHost('play.max.com'), true);
 assert.equal(isMaxHost('www.hbomax.com'), true);
@@ -113,7 +114,7 @@ assert.equal(loopEngine.videoElement.currentTime, 10);
 assert.equal(playCalls, 1);
 assert.equal(loopEngine.toggleLoop(), false);
 
-const popupSource = await readFile(new URL('../content/word-popup.js', import.meta.url), 'utf8');
+const popupSource = await readPopupSource();
 assert.match(popupSource, /this\._anchorRect = rect \|\| null/);
 assert.match(popupSource, /document\.fullscreenElement \|\| document\.body/);
 assert.match(popupSource, /computeMaxPopupLayout/);

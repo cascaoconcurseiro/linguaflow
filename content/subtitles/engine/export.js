@@ -2,7 +2,6 @@
 import { escapeHTML } from '../../../utils/html.js';
 
 export class ExportMethods {
-
   _exportPDF(customCues = null, customTitle = null) {
     this._showPdfExportModal(customCues, customTitle);
   }

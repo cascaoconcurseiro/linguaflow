@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { WordPopup } from '../content/word-popup.js';
+import { readPopupSourceSync } from './helpers/popup-source.mjs';
 
-const popupSource = readFileSync(new URL('../content/word-popup.js', import.meta.url), 'utf8');
+const popupSource = readPopupSourceSync();
 assert.doesNotMatch(popupSource, /pronunciation_pt|_convertIPAtoPT|fprpt/, 'popup não mantém versão abrasileirada');
 assert.match(popupSource, /q\('#fipa'\)\.textContent = d\.phonetic/, 'popup renderiza a IPA como texto');
 

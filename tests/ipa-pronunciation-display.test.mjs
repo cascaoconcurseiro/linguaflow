@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { readPopupSourceSync } from './helpers/popup-source.mjs';
 
-const popup = readFileSync(new URL('../content/word-popup.js', import.meta.url), 'utf8');
+const popup = readPopupSourceSync();
 const study = readFileSync(new URL('../dashboard/js/ui/studyView.js', import.meta.url), 'utf8');
 const editorial = readFileSync(new URL('../dashboard/css/editorial.css', import.meta.url), 'utf8');
 

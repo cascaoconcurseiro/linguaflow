@@ -7,7 +7,6 @@ import { escapeHTML } from '../../../utils/html.js';
 import { highlightTerms } from '../transcript-render.js';
 
 export class WordsTabMethods {
-
   _rebuildWordsList(container) {
     if (!container && typeof document !== 'undefined') container = document.getElementById('lf-words-scroll');
     if (!container) return;

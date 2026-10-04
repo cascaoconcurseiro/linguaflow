@@ -4,7 +4,6 @@ import { expressionKindCss } from '../expression-marks.js';
 import { findActiveCueIndex } from '../active-cue.js';
 
 export class SidebarPanelMethods {
-
   _createSubtitlePanel() {
     const existing = document.getElementById('lf-subtitle-panel-wrapper');
     if (existing) return;

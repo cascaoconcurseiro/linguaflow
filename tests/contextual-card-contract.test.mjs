@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { readPopupSource } from './helpers/popup-source.mjs';
 
 const read = (file) => readFile(new URL('../' + file, import.meta.url), 'utf8');
 const [popup, worker, webAi, study] = await Promise.all([
-  read('content/word-popup.js'),
+  readPopupSource(),
   read('background/service-worker.js'),
   read('dashboard/js/core/ai.js'),
   read('dashboard/js/ui/studyView.js'),

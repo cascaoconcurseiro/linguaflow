@@ -94,7 +94,7 @@
     "test:stabilization": "node --test tests/stabilization.test.mjs",
     "content:check": "node scripts/content-check.mjs",
     "content:review": "node scripts/content-review-sample.mjs",
-    "test:courses": "node tests/content-check.test.mjs && node --test tests/content-review-sample.test.mjs tests/course-vault.test.mjs && node tests/sound-engine.test.mjs && node tests/remove-course-401.test.mjs && node --test tests/courses-hash-route.test.mjs tests/review-batches-398.test.mjs tests/input-engine.test.mjs tests/course-practice-session.test.mjs tests/course-continue-target.test.mjs tests/courses-system-contract.test.mjs tests/progress-stats-contract.test.mjs tests/undeclared-variables.test.mjs"
+    "test:courses": "node tests/content-check.test.mjs && node --test tests/content-review-sample.test.mjs tests/course-vault.test.mjs && node tests/sound-engine.test.mjs && node tests/remove-course-401.test.mjs && node --test tests/course-images.test.mjs tests/courses-hash-route.test.mjs tests/review-batches-398.test.mjs tests/input-engine.test.mjs tests/course-practice-session.test.mjs tests/course-continue-target.test.mjs tests/courses-system-contract.test.mjs tests/progress-stats-contract.test.mjs tests/undeclared-variables.test.mjs"
   },
   "dependencies": {
     "acorn": "^8.17.0"

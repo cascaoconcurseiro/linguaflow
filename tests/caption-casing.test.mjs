@@ -91,3 +91,34 @@ test('trata entradas vazias, nulas ou não-string graciosamente', () => {
   assert.equal(adjustFragmentCasing("", "Hello"), "Hello");
   assert.equal(adjustFragmentCasing("Hello", ""), "");
 });
+
+test('oração mista: trecho em CAIXA ALTA seguido de minúsculas vira Sentence Case (vídeo Gunter)', () => {
+  assert.equal(
+    normalizeSubtitleCasing("SMELLS LIKE IT'S coming from Gunter, are you blowing it up in here?"),
+    "Smells like it's coming from Gunter, are you blowing it up in here?"
+  );
+  assert.equal(
+    normalizeSubtitleCasing('THESE LUMPS, I KNOW YOU WANT TO slump up on these lumps.'),
+    'These lumps, I know you want to slump up on these lumps.'
+  );
+  assert.equal(
+    normalizeSubtitleCasing('ESSA MÚSICA É BOA NO MEU tímpano.'),
+    'Essa música é boa no meu tímpano.'
+  );
+});
+
+test('oração mista: primeira palavra isolada em caixa alta vira Title Case', () => {
+  assert.equal(normalizeSubtitleCasing('What? GUNTER, something stinks.'), 'What? Gunter, something stinks.');
+});
+
+test('oração mista: siglas conhecidas e pronome I dentro do trecho gritado são preservados', () => {
+  assert.equal(
+    normalizeSubtitleCasing('I WATCH TV WITH THE FBI every day.'),
+    'I watch TV with the FBI every day.'
+  );
+});
+
+test('oração mista: palavra isolada em caixa alta no meio da frase não é alterada (pode ser sigla)', () => {
+  const s = 'He works for NATO and loves it.';
+  assert.equal(normalizeSubtitleCasing(s), s);
+});

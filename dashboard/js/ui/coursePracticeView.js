@@ -262,6 +262,10 @@ export async function renderCoursePractice(container, app, params = {}) {
 
         <main class="course-player-body">
           <p class="course-hub-subtitle" style="margin:0;">${escapeHTML(courseTitle)} · ${DIFFICULTY_LABEL[difficulty]}</p>
+          <figure class="course-image" id="course-image-wrap" hidden>
+            <img id="course-image" width="96" height="96" alt="" decoding="async" />
+            <figcaption class="course-image-credit" id="course-image-credit"></figcaption>
+          </figure>
           <h2 class="course-player-prompt" id="course-prompt" lang="en"></h2>
           <div class="course-audio-cue" id="course-audio-cue" aria-hidden="true" hidden><span></span><span></span><span></span><span></span><span></span></div>
           <p class="course-player-cue" id="course-cue" hidden></p>
@@ -338,6 +342,10 @@ export async function renderCoursePractice(container, app, params = {}) {
       };
       handlers[action]?.();
     });
+    // Imagem que não carrega (CDN fora do ar) some, sem ícone quebrado (#443).
+    container.querySelector('#course-image').addEventListener('error', () => {
+      container.querySelector('#course-image-wrap').hidden = true;
+    });
     container.querySelector('#course-settings').addEventListener('change', (e) => {
       const name = e.target.dataset.pref;
       if (name === 'theme') applyTheme(e.target.value);
@@ -366,6 +374,20 @@ export async function renderCoursePractice(container, app, params = {}) {
     container.querySelector('#course-instruction').textContent = inExample
       ? EXAMPLE_INSTRUCTION[difficulty] || EXAMPLE_INSTRUCTION.medium
       : (KIND_INSTRUCTION[unit.kind] || INSTRUCTION)[difficulty] || INSTRUCTION[difficulty];
+
+    // Ilustração da palavra (#443): só quando o conteúdo trouxe uma.
+    const imageWrap = container.querySelector('#course-image-wrap');
+    const image = container.querySelector('#course-image');
+    if (unit.image_url) {
+      image.src = unit.image_url;
+      image.alt = `Ilustração: ${unit.translation_pt}`;
+      container.querySelector('#course-image-credit').textContent = unit.image_credit ? `Ilustração: ${unit.image_credit}` : '';
+      imageWrap.hidden = false;
+    } else {
+      imageWrap.hidden = true;
+      image.removeAttribute('src');
+      image.alt = '';
+    }
 
     const prompt = container.querySelector('#course-prompt');
     if (reviewing || difficulty === 'easy') prompt.textContent = session.currentText;
@@ -433,6 +455,7 @@ export async function renderCoursePractice(container, app, params = {}) {
       if (!inExample && unit.example_en && unit.kind === 'word') preloadNaturalAudio(unit.example_en, { lang: 'en-US' });
       const next = units[session.index + 1];
       if (next) preloadNaturalAudio(next.text, { lang: 'en-US' });
+      if (next?.image_url) new Image().src = next.image_url;
     }
     updateActionStates();
   }

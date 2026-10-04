@@ -183,7 +183,14 @@ export class ReviewOverlay {
   toggle() {
     if (this.visible) this.hide();
     else {
-      this._loadCards().then(() => this.show());
+      // R apertado duas vezes antes do carregamento terminar abria o overlay em dobro (#466).
+      if (this._opening) return;
+      this._opening = true;
+      this._loadCards()
+        .then(() => this.show())
+        .finally(() => {
+          this._opening = false;
+        });
     }
   }
 

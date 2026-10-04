@@ -254,6 +254,7 @@ export class WordPopup {
     this._maxPositionAbort?.abort();
     cancelAnimationFrame(this._positionFrame || 0);
     if (this._keydownHandler) document.removeEventListener('keydown', this._keydownHandler, true);
+    if (this._mousedownHandler) document.removeEventListener('mousedown', this._mousedownHandler);
     this.popup?.remove();
   }
 
@@ -443,7 +444,7 @@ export class WordPopup {
     this.popup.addEventListener('mousedown', (e) => e.stopPropagation());
 
     if (!this._mousedownAttached) {
-      document.addEventListener('mousedown', (e) => {
+      this._mousedownHandler = (e) => {
         if (
           this.popup &&
           this.popup.style.display !== 'none' &&
@@ -452,7 +453,8 @@ export class WordPopup {
         ) {
           this.hide(true);
         }
-      });
+      };
+      document.addEventListener('mousedown', this._mousedownHandler);
 
       this._mousedownAttached = true;
     }

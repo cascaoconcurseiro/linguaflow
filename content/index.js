@@ -25,12 +25,15 @@ if (!isSupported) {
   const bootstrap = async () => {
     const engine = new SubtitleEngine();
     engine.init();
+    const lifecycle = new AbortController();
+    let maxPlayerUI = null;
+    let reviewOverlay = null;
 
     // Max/HBO, Netflix, Disney+ e Prime recebem o dock lateral. No YouTube, os controles
     // vivem fixos na barra inferior horizontal.
     if (['max', 'netflix', 'disney', 'prime'].includes(engine.platform)) {
       const { MaxPlayerUI } = await import(chrome.runtime.getURL('content/max-player-ui.js'));
-      const maxPlayerUI = new MaxPlayerUI(engine);
+      maxPlayerUI = new MaxPlayerUI(engine);
       maxPlayerUI.init();
       window.__lfMaxPlayerUI = maxPlayerUI;
     }
@@ -42,12 +45,12 @@ if (!isSupported) {
     // Review Overlay — revisão rápida durante vídeos (tecla R)
     try {
       const { ReviewOverlay } = await import(chrome.runtime.getURL('content/review-overlay.js'));
-      const reviewOverlay = new ReviewOverlay();
+      reviewOverlay = new ReviewOverlay();
       await reviewOverlay.init();
 
       window.addEventListener('LF_TOGGLE_REVIEW', () => {
         reviewOverlay.toggle();
-      });
+      }, { signal: lifecycle.signal });
 
       // Tecla R = toggle review (fallback com proteção isEditableTarget)
       document.addEventListener('keydown', (e) => {
@@ -58,10 +61,20 @@ if (!isSupported) {
           e.stopPropagation?.();
           reviewOverlay.toggle();
         }
-      });
+      }, { signal: lifecycle.signal });
     } catch (e) {
       console.debug('[LinguaFlow] Review overlay não carregado:', e.message);
     }
+
+    // Saída de verdade da página: remove listeners e painéis. Com event.persisted a
+    // página pode voltar do cache de voltar/avançar e precisa continuar viva (#466).
+    window.addEventListener('pagehide', (event) => {
+      if (event.persisted) return;
+      lifecycle.abort();
+      settingsPanel.destroy();
+      reviewOverlay?.destroy?.();
+      maxPlayerUI?.destroy?.();
+    });
 
     // Roteamento inteligente de domínios
     if (engine.platform === 'generic') {

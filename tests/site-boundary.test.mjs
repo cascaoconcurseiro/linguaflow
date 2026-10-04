@@ -26,6 +26,6 @@ assert.ok(readerRegistration.exclude_matches.includes('*://linguaflow.vercel.app
 
 const readerSource = await readFile(new URL('../content/web-reader.js', import.meta.url), 'utf8');
 assert.match(readerSource, /isLinguaFlowPage\(window\.location, document\)/);
-assert.match(readerSource, /window\.addEventListener\('pagehide', dispose/);
+assert.match(readerSource, /window\.addEventListener\('pagehide', \(event\) => \{\s*if \(!event\.persisted\) dispose\(\);/);
 
 console.log('14 testes de isolamento de domínio passaram — tudo verde ✅');

@@ -508,11 +508,17 @@ export class SubtitleEngine {
     return document.body;
   }
 
+  _onPageHide(event) {
+    if (event?.persisted) return;
+    this.destroy();
+  }
+
   async init() {
     console.debug(`[LinguaFlow] 🚀 Inicializando Engine... Plataforma: ${this.platform}`);
     const initialNavigation = this._beginNavigation(window.location.href);
-    window.addEventListener('pagehide', () => this.destroy(), {
-      once: true,
+    // Sem `once`: com event.persisted a página vai para o cache de voltar/avançar
+    // e pode ser restaurada; destruir aqui deixava o LinguaFlow morto até o F5 (#466).
+    window.addEventListener('pagehide', (event) => this._onPageHide(event), {
       signal: this._lifecycleController.signal,
     });
 

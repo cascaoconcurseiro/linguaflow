@@ -32,6 +32,8 @@ const KIND_INSTRUCTION = {
   word: { easy: 'Copie a palavra enquanto ouve.', medium: 'Ouça e escreva a palavra.', hard: 'Ouça e escreva a palavra.' },
   verb_forms: { easy: 'Copie as três formas do verbo.', medium: 'Escreva base, passado e particípio.', hard: 'Escreva base, passado e particípio.' },
 };
+// Segunda etapa da palavra (#442): a mesma palavra dentro de uma frase.
+const EXAMPLE_INSTRUCTION = { easy: 'Agora copie a frase com a palavra.', medium: 'Agora escreva a frase com a palavra.', hard: 'Agora ouça e escreva a frase com a palavra.' };
 const COMBO_RULE = 'Acertar sem envio errado e sem dica soma combo. Dica, ver resposta ou pular quebram o combo; repetir o áudio não.';
 export const ROLE_LABEL = {
   subject: 'Sujeito',
@@ -357,13 +359,16 @@ export async function renderCoursePractice(container, app, params = {}) {
     container.querySelector('.course-player-progress-bar-wrap').setAttribute('aria-valuenow', String(session.resolvedCount));
 
     const isWord = WORD_KINDS.has(unit.kind);
+    const inExample = session.stage === 'example';
     const cue = container.querySelector('#course-cue');
-    cue.hidden = !(isWord && difficulty !== 'easy' && !reviewing);
-    cue.textContent = cue.hidden ? '' : `Significado: ${unit.translation_pt}`;
-    container.querySelector('#course-instruction').textContent = (KIND_INSTRUCTION[unit.kind] || INSTRUCTION)[difficulty] || INSTRUCTION[difficulty];
+    cue.hidden = !((isWord || inExample) && difficulty !== 'easy' && !reviewing);
+    cue.textContent = cue.hidden ? '' : (inExample ? `Frase: ${session.currentTranslation}` : `Significado: ${unit.translation_pt}`);
+    container.querySelector('#course-instruction').textContent = inExample
+      ? EXAMPLE_INSTRUCTION[difficulty] || EXAMPLE_INSTRUCTION.medium
+      : (KIND_INSTRUCTION[unit.kind] || INSTRUCTION)[difficulty] || INSTRUCTION[difficulty];
 
     const prompt = container.querySelector('#course-prompt');
-    if (reviewing || difficulty === 'easy') prompt.textContent = unit.text;
+    if (reviewing || difficulty === 'easy') prompt.textContent = session.currentText;
     else if (difficulty === 'medium') prompt.textContent = initialsHint(session.tokens);
     else prompt.textContent = '';
     prompt.hidden = !prompt.textContent;
@@ -425,6 +430,7 @@ export async function renderCoursePractice(container, app, params = {}) {
       focusedSlot = 0;
       inputs[0]?.focus();
       if (prefs.audio) playAudio({ readings: prefs.readings });
+      if (!inExample && unit.example_en && unit.kind === 'word') preloadNaturalAudio(unit.example_en, { lang: 'en-US' });
       const next = units[session.index + 1];
       if (next) preloadNaturalAudio(next.text, { lang: 'en-US' });
     }
@@ -497,7 +503,7 @@ export async function renderCoursePractice(container, app, params = {}) {
     try {
       for (let i = 0; i < readings; i++) {
         if (token !== audioToken || disposed || paused) break;
-        const played = await playNaturalAudio(unit.text, { lang: 'en-US', rate: prefs.speed });
+        const played = await playNaturalAudio(session.currentText, { lang: 'en-US', rate: prefs.speed });
         if (played === false) break;
         if (i < readings - 1) await new Promise((r) => setTimeout(r, READING_GAP_MS));
       }
@@ -557,13 +563,12 @@ export async function renderCoursePractice(container, app, params = {}) {
       i.style.setProperty('--settle-delay', `${k * 35}ms`);
       retrigger(i, 'is-settled');
     });
-    const done = session.unit;
-    const example = done?.example_en ? ` · Exemplo: ${done.example_en} (${done.example_pt || ''})` : '';
-    setFeedback(`${result.clean ? `Certo! +${result.gained}` : `Certo. +${result.gained}`}${example}`);
+    setFeedback(`${result.clean ? `Certo! +${result.gained}` : `Certo. +${result.gained}`}${result.nextStage === 'example' ? ' · Agora a frase.' : ''}`);
     updateHud();
     updateActionStates();
     stopReading();
-    setTimeout(advance, session.unit?.example_en ? 1600 : 500);
+    // Palavra certa com frase de exemplo: mesma unidade, segunda etapa (#442).
+    setTimeout(result.nextStage === 'example' ? () => { if (!disposed) showUnit(); } : advance, result.nextStage === 'example' ? 700 : 500);
   }
 
   function advance() {

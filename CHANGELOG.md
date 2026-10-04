@@ -2,6 +2,9 @@
 
 ## [Não lançado]
 
+### Adicionado
+- **Palavra e depois a frase, nos cursos de vocabulário**: depois de acertar a palavra, você digita a frase de exemplo com ela (com áudio e tradução como pista), em vez de só vê-la por um instante. Erros na frase não rebaixam a palavra na revisão.
+
 ## [3.0.65] - 2026-10-04
 
 ### Corrigido

@@ -28,6 +28,13 @@ import {
   resolveInitialActivation,
   saveActivation,
 } from './subtitles/activation-state.js';
+import {
+  DOCK_COLLAPSE_BUTTON_HTML,
+  applyDockCollapsed,
+  dockCollapseCss,
+  loadDockCollapsed,
+  saveDockCollapsed,
+} from './subtitles/dock-collapse.js';
 import { parseVTT } from './subtitles/vtt-parser.js';
 import { MAX_CC_BUTTON_SELECTOR, pickSubtitleOption, readMenuItems } from './subtitles/hbo-native-captions.js';
 import { closeDomCue, crossedCueEnd, findActiveCueIndex, recordDomCue } from './subtitles/active-cue.js';
@@ -1581,7 +1588,7 @@ export class SubtitleEngine {
       if (!document.getElementById('lf-yt-styles')) {
         const style = document.createElement('style');
         style.id = 'lf-yt-styles';
-        style.textContent = YOUTUBE_DOCK_CSS;
+        style.textContent = YOUTUBE_DOCK_CSS + dockCollapseCss('#lf-yt-horizontal-dock', 'horizontal');
         document.head.appendChild(style);
       }
 
@@ -1598,6 +1605,7 @@ export class SubtitleEngine {
           <span class="lf-toggle-text">LF</span>
           <span class="lf-switch-track${isSubVisible ? ' active' : ''}" id="lf-yt-switch" aria-hidden="true"><span class="lf-switch-thumb"></span></span>
         </button>
+        ${DOCK_COLLAPSE_BUTTON_HTML}
         <span class="lf-dock-sep" aria-hidden="true"></span>
         <button type="button" data-action="previous" class="lf-dock-btn" title="Legenda anterior (A)" aria-label="Legenda anterior">‹</button>
         <button type="button" data-action="loop" class="lf-dock-btn" aria-pressed="false" title="Ativar loop da frase" aria-label="Ativar loop da frase">↻</button>
@@ -1616,6 +1624,10 @@ export class SubtitleEngine {
         const action = btn.dataset.action;
         if (action === 'toggle') {
           this.userToggleSubtitles(!this.isActivated);
+        } else if (action === 'collapse') {
+          this._dockCollapsed = !this._dockCollapsed;
+          applyDockCollapsed(dock, this._dockCollapsed);
+          saveDockCollapsed(this._dockCollapsed);
         } else if (action === 'previous') {
           this.gotoPreviousCue();
         } else if (action === 'loop') {
@@ -1635,6 +1647,12 @@ export class SubtitleEngine {
       dock.addEventListener('mousedown', (e) => e.stopPropagation());
 
       rightCtrl.insertBefore(dock, rightCtrl.firstChild);
+      applyDockCollapsed(dock, this._dockCollapsed);
+      loadDockCollapsed().then((collapsed) => {
+        if (this._dockCollapsed === collapsed) return;
+        this._dockCollapsed = collapsed;
+        applyDockCollapsed(dock, collapsed);
+      });
 
       const playerContainer = rightCtrl.closest('.html5-video-player') ||
         document.getElementById('movie_player') ||

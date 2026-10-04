@@ -79,7 +79,7 @@ test('desligado: atalhos A/S/D/Q/L/O/Espaço voltam ao player; C continua ligand
   globalThis.window = { dispatchEvent: (e) => calls.push(e.type) };
   try {
     setupPlayerHotkeys(engine);
-    for (const code of ['KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyL', 'KeyO', 'Space']) {
+    for (const code of ['KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyP', 'KeyO', 'Space']) {
       listeners[0]({ code, preventDefault() { calls.push('prevented'); } });
     }
     assert.deepEqual(calls, [], 'nada deve ser interceptado com o LF desligado');

@@ -154,8 +154,8 @@ test('Player Hotkeys: cobertura integral de atalhos e prevenção de double-paus
       assert.equal(fakeEngine.autoPause, true);
       assert.equal(autoPauseEvt, true);
 
-      // L
-      listeners[0]({ code: 'KeyL', preventDefault() {} });
+      // P
+      listeners[0]({ code: 'KeyP', preventDefault() {} });
       assert.equal(panel, true);
 
       // O

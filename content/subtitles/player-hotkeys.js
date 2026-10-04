@@ -1,5 +1,5 @@
 // content/subtitles/player-hotkeys.js — Gerenciamento isolado dos atalhos de teclado do player
-// Centro de Comando: A, S, D, Q, R, L, O, C, Espaço, Z, X, B, V, F, ? (lista em subtitles/shortcuts-help.js)
+// Centro de Comando: A, S, D, Q, R, P, O, C, Espaço, Z, X, B, V, F, [ ], ? (lista em subtitles/shortcuts-help.js)
 
 import { isEditableTarget } from '../../utils/dom-events.js';
 
@@ -132,12 +132,17 @@ export function setupPlayerHotkeys(engine, signal) {
       return;
     }
 
-    // Abrir/fechar roteiro/painel de legendas (L)
-    if (code === 'KeyL' || key === 'l') {
-      e.preventDefault?.();
-      e.stopPropagation?.();
-      e.stopImmediatePropagation?.();
+    // Abrir/fechar roteiro/painel de legendas (P). O L é do YouTube (avançar 10 s) e Shift + P, da playlist (#454).
+    if ((code === 'KeyP' || key === 'p') && !e.shiftKey) {
+      swallow();
       engine.toggleSubtitlePanel();
+      return;
+    }
+
+    // Velocidade: [ mais lenta, ] mais rápida (#454). Pela tecla digitada, não pela posição, para valer no ABNT2 e no US.
+    if (key === '[' || key === ']') {
+      swallow();
+      engine.nudgePlaybackRate?.(key === '[' ? -0.05 : 0.05);
       return;
     }
 
@@ -189,6 +194,6 @@ export function setupPlayerHotkeys(engine, signal) {
 
   const options = signal ? { capture: true, signal } : { capture: true };
   document.addEventListener('keydown', handler, options);
-  console.debug('[LinguaFlow] ⌨️ Centro de Comando unificado (A, S, D, Q, R, L, O, C, Espaço).');
+  console.debug('[LinguaFlow] ⌨️ Centro de Comando unificado (A, S, D, Q, R, P, O, C, Espaço).');
   return () => document.removeEventListener('keydown', handler, true);
 }

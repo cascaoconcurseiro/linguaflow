@@ -78,7 +78,7 @@ test('desligado, atalhos do player não são interceptados; C liga', async ({ ex
   const intercepted = await page.evaluate(() => new Promise((resolve) => {
     const seen = [];
     window.addEventListener('keydown', (e) => seen.push(e.defaultPrevented), { once: false });
-    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyL', key: 'l', bubbles: true, cancelable: true }));
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyP', key: 'p', bubbles: true, cancelable: true }));
     setTimeout(() => resolve(seen), 50);
   }));
   expect(intercepted.every((prevented) => prevented === false)).toBe(true);

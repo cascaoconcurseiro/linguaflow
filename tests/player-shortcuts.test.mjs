@@ -138,6 +138,25 @@ test('atalhos novos chegam ao motor e só valem com o LF ligado', () => {
   assert.deepEqual(calls, [], 'desligado, nenhum atalho novo age');
 });
 
+test('#454: [ e ] mudam a velocidade em 0,05, só com o LF ligado e sem modificadores; L volta ao YouTube', () => {
+  const calls = [];
+  const engine = {
+    isActivated: true,
+    videoElement: { paused: false, currentTime: 1 },
+    nudgePlaybackRate: (d) => calls.push(['rate', d]),
+    toggleSubtitlePanel: () => calls.push(['panel']),
+    isWordNavActive: () => false, _showNotification() {},
+  };
+  runHotkeys(engine, [{ key: '[', code: 'BracketRight' }, { key: ']', code: 'Backslash' }, { code: 'KeyP', key: 'p' }, { code: 'KeyL', key: 'l' }]);
+  assert.deepEqual(calls, [['rate', -0.05], ['rate', 0.05], ['panel']], 'L não pode mais ser interceptado');
+  calls.length = 0;
+  runHotkeys(engine, [{ key: 'P', code: 'KeyP', shiftKey: true }, { key: '[', ctrlKey: true }]);
+  assert.deepEqual(calls, [], 'Shift + P é do YouTube; Ctrl + [ é do sistema');
+  engine.isActivated = false;
+  runHotkeys(engine, [{ key: '[' }, { key: ']' }, { code: 'KeyP', key: 'p' }]);
+  assert.deepEqual(calls, [], 'desligado, nada age');
+});
+
 test('com palavra em foco, setas/Enter/Esc são da palavra; com o painel de atalhos aberto, o painel manda', () => {
   const calls = [];
   const engine = {
@@ -159,7 +178,7 @@ test('com palavra em foco, setas/Enter/Esc são da palavra; com o painel de atal
 
 test('contrato: toda tecla da lista de atalhos existe no código e o painel está no manifesto', async () => {
   const hotkeys = await readFile(new URL('../content/subtitles/player-hotkeys.js', import.meta.url), 'utf8');
-  const codes = { A: 'KeyA', S: 'KeyS', D: 'KeyD', B: 'KeyB', F: 'KeyF', L: 'KeyL', Q: 'KeyQ', V: 'KeyV', R: 'KeyR', Z: 'KeyZ', X: 'KeyX', O: 'KeyO', C: 'KeyC', 'Espaço': 'Space', 'Shift + ?': "'?'" };
+  const codes = { A: 'KeyA', S: 'KeyS', D: 'KeyD', B: 'KeyB', F: 'KeyF', P: 'KeyP', Q: 'KeyQ', V: 'KeyV', R: 'KeyR', Z: 'KeyZ', X: 'KeyX', O: 'KeyO', C: 'KeyC', 'Espaço': 'Space', 'Shift + ?': "'?'", '[': "'['", ']': "']'" };
   const keys = SHORTCUT_GROUPS.flatMap((g) => g.items.map(([k]) => k));
   for (const key of keys) {
     assert.ok(codes[key], `tecla ${key} sem mapeamento no teste`);

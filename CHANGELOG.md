@@ -3,10 +3,12 @@
 ## [Não lançado]
 
 ### Adicionado
+- **Velocidade pelo teclado**: `[` fala mais devagar e `]` mais rápido, em passos de 0,05× (de 0,5× a 1,5×), com aviso na tela (#454).
 - **Palavra e depois a frase, nos cursos de vocabulário**: depois de acertar a palavra, você digita a frase de exemplo com ela (com áudio e tradução como pista), em vez de só vê-la por um instante. Erros na frase não rebaixam a palavra na revisão.
 - **Imagem nas palavras do curso de vocabulário**: 366 palavras (família, cores, números, corpo, roupas, casa, cidade, comida, bebidas, transporte, clima, animais, emoções, escola, esportes, trabalho, tecnologia, dinheiro, saúde, música, viagem e verbos de ação) aparecem com uma ilustração aberta (Noto Emoji, Apache 2.0) e o crédito. Palavras abstratas ficam sem imagem de propósito.
 
 ### Corrigido
+- **Roteiro agora abre com P, não com L**: o L é do YouTube (avançar 10 s) e o LinguaFlow o engolia. Shift + P continua sendo o da playlist (#454).
 - **Legenda mudava de tamanho sozinha**: o tamanho vinha da largura do player e sobrescrevia o do painel a cada resize; agora vale só o das configurações. Frases mistas (ex.: "SMELLS LIKE IT'S coming...") também são normalizadas para não ficarem com parte maior (#452).
 - **Uso do reforço de palavras fracas agora é medido**: cliques em Reforçar, Ver no Cofre, Pausar e a sessão de reforço concluída entram no funil de uso (um registro por dia, sem dados pessoais). Antes esses eventos não chegavam ao banco.
 - **Atalho F perdia a palavra escolhida**: quando a tradução da fala chegava depois, a legenda era redesenhada e o foco sumia; agora a palavra escolhida continua selecionada.

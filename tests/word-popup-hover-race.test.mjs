@@ -8,6 +8,10 @@ function createFakeSpan() {
     isConnected: true,
     className: '',
     textContent: '',
+    attrs: {},
+    setAttribute(name, value) {
+      this.attrs[name] = value;
+    },
     addEventListener(type, listener) {
       listeners.set(type, listener);
     },
@@ -52,6 +56,9 @@ engine.wordPopup = {
 };
 
 const span = engine._createWordSpan('word', false);
+// Palavra da legenda é acessível por teclado e leitor de tela (#432)
+assert.equal(span.attrs.role, 'button');
+assert.equal(span.tabIndex, -1);
 span.dispatch('pointerenter');
 span.dispatch('click');
 await new Promise((resolve) => setTimeout(resolve, 180));

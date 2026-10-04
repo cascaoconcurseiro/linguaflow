@@ -11,6 +11,7 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { parse } from 'acorn';
 import { readPopupSourceSync } from './helpers/popup-source.mjs';
+import { readDbSourceSync } from './helpers/db-source.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const allowDirty = process.argv.includes('--allow-dirty');
@@ -105,7 +106,7 @@ try {
 }
 
 console.log('\nCaminhos críticos de performance');
-const dbSource = read('utils/db.js');
+const dbSource = readDbSourceSync();
 const workerSource = read('background/service-worker.js');
 const popupSource = readPopupSourceSync();
 const extensionPopupSource = read('popup/popup.js');

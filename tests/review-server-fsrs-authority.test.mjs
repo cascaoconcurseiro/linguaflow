@@ -2,11 +2,12 @@
 
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { readDbSource } from './helpers/db-source.mjs';
 
 const migration = await readFile(new URL(
   '../supabase/migrations/20260907100000_server_authoritative_fsrs.sql', import.meta.url,
 ), 'utf8');
-const db = await readFile(new URL('../utils/db.js', import.meta.url), 'utf8');
+const db = await readDbSource();
 
 assert.match(migration, /p_state continua na assinatura[\s\S]+mas é ignorado/i);
 assert.doesNotMatch(migration, /p_state\s*->/i, 'nenhum campo do estado do cliente pode orientar a transição');

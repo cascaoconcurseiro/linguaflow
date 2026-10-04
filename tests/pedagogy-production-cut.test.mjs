@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { readDbSourceSync } from './helpers/db-source.mjs';
 
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const study = read('dashboard/js/ui/studyView.js');
@@ -8,7 +9,7 @@ const learn = read('dashboard/js/ui/learnView.js');
 const stories = read('dashboard/js/ui/storiesView.js');
 const storiesQuiz = read('dashboard/js/ui/storiesQuiz.js');
 const leagues = read('dashboard/js/ui/leaguesView.js');
-const db = read('utils/db.js');
+const db = readDbSourceSync();
 
 const weakStart = study.indexOf('if (weakOnly)');
 const weakEnd = study.indexOf('} else {', weakStart);

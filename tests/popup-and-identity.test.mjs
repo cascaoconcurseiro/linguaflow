@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { readEngineSource } from './helpers/engine-source.mjs';
+import { readDbSource } from './helpers/db-source.mjs';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 const bytes = (path) => readFile(new URL(`../${path}`, import.meta.url));
@@ -53,7 +54,7 @@ test('popup: resumo do dia com números vivos, sem o listening parado', async ()
   assert.match(html, /ligue o botão <strong>LF<\/strong>/);
   const js = await read('popup/popup.js');
   assert.match(js, /'—'/, 'quando a leitura falha o popup mostra traço, não zero inventado');
-  const db = await read('utils/db.js');
+  const db = await readDbSource();
   assert.match(db, /async getWordsSavedToday\(\)/);
   assert.match(await read('background/service-worker.js'), /'getWordsSavedToday'/);
 });

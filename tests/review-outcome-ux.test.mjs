@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { readDbSource } from './helpers/db-source.mjs';
 
 const [db, overlay, study, app, worker] = await Promise.all([
-  readFile(new URL('../utils/db.js', import.meta.url), 'utf8'),
+  readDbSource(),
   readFile(new URL('../content/review-overlay.js', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/js/ui/studyView.js', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/js/core/app.js', import.meta.url), 'utf8'),

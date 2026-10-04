@@ -2,9 +2,10 @@
 
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { readDbSource } from './helpers/db-source.mjs';
 
 const [db, study, library, settings, worker] = await Promise.all([
-  readFile(new URL('../utils/db.js', import.meta.url), 'utf8'),
+  readDbSource(),
   readFile(new URL('../dashboard/js/ui/studyView.js', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/js/ui/libraryView.js', import.meta.url), 'utf8'),
   readFile(new URL('../dashboard/js/ui/settingsView.js', import.meta.url), 'utf8'),

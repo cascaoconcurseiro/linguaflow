@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { readEngineSource } from './helpers/engine-source.mjs';
+import { readSettingsPanelSource } from './helpers/settings-panel-source.mjs';
 
 const source = await readEngineSource();
 const renderStart = source.indexOf('  renderDual(orig, trans) {');
@@ -32,10 +33,7 @@ assert.match(
   'o modo nativo deve ocultar a tradução em toda renderização normal',
 );
 
-const settingsSource = await readFile(
-  new URL('../content/settings-panel.js', import.meta.url),
-  'utf8',
-);
+const settingsSource = await readSettingsPanelSource();
 
 assert.match(settingsSource, /'sourceLang'/,
   'idioma original deve ser lido das configurações persistidas');

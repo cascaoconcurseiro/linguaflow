@@ -7,9 +7,10 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
+import { DB_FILES, readDbSourceSync } from './helpers/db-source.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const dbSource = readFileSync(join(root, 'utils/db.js'), 'utf8');
+const dbSource = readDbSourceSync();
 assert.match(dbSource, /const previousDifficulty = difficulty;[\s\S]*_fsrsNextStability\(previousDifficulty, stability, r, quality\)/,
   'FSRS deve calcular estabilidade com a dificuldade anterior');
 assert.match(dbSource, /Number\.isFinite\(parsedNewPerDay\)[\s\S]*Number\.isFinite\(parsedMaxRevPerDay\)/,
@@ -18,6 +19,9 @@ const tmp = mkdtempSync(join(tmpdir(), 'lf-test-'));
 writeFileSync(join(tmp, 'package.json'), JSON.stringify({ type: 'module' }));
 copyFileSync(join(root, 'utils/db.js'), join(tmp, 'db.mjs'));
 mkdirSync(join(tmp, 'db'), { recursive: true });
+// Módulos por assunto do banco (utils/db/*.js) e o instalador de métodos.
+for (const file of DB_FILES.slice(1)) copyFileSync(join(root, file), join(tmp, file.replace('utils/', '')));
+copyFileSync(join(root, 'utils/install-methods.js'), join(tmp, 'install-methods.js'));
 copyFileSync(join(root, 'utils/db/reader-stories-repo.js'), join(tmp, 'db/reader-stories-repo.js'));
 copyFileSync(join(root, 'utils/db/gamification-repo.js'), join(tmp, 'db/gamification-repo.js'));
 copyFileSync(join(root, 'utils/db/courses-repo.js'), join(tmp, 'db/courses-repo.js'));

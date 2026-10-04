@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const ROOT = process.cwd();
-const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8');
+const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
 const migration = read('supabase', 'migrations', '20261003120000_admin_console.sql');
 
 const WRITE_RPCS = [

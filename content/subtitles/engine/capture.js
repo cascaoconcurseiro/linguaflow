@@ -560,7 +560,9 @@ export class CaptureMethods {
             !v.paused &&
             shownCue &&
             this._lastAutoPausedEndTime !== shownCue.end &&
-            crossedCueEnd(shownCue, previousTime, t)
+            crossedCueEnd(shownCue, previousTime, t) &&
+            // Opção "pausar só onde há palavra nova": falas 100% conhecidas seguem sem pausa.
+            (!this.smartAutoPause || this._cueHasNewWords(shownCue))
           ) {
             v.pause();
             this._showAutoPauseIndicator();

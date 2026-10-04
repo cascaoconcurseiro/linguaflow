@@ -24,6 +24,9 @@ export class SettingsPanel {
       wordColorKnown: '#86EFAC',
       wordColorSaved: '#93C5FD',
       autoPause: false,
+      smartAutoPause: false,
+      smartHideKnownTranslation: false,
+      smartLookupHint: false,
       showOriginal: true,
       showTranslation: true,
       subtitleBottom: 84,
@@ -201,6 +204,12 @@ export class SettingsPanel {
     this._applyToEngine();
   }
 
+  // Opções da legenda inteligente (#488): salva e, ao ligar, conta no funil de uso para saber se alguém usa.
+  async _saveSmart(key, value, usageEvent) {
+    await this._save(key, value);
+    if (value) this.engine?._trackUsage?.(usageEvent);
+  }
+
   _applyToEngine() {
     if (!this.engine) return;
 
@@ -213,6 +222,9 @@ export class SettingsPanel {
     // No YouTube, antecipação deve ser sempre 0 para sincronização perfeita
     this.engine.translationAnticipation = this.cfg.translationAnticipation;
     this.engine.autoPause = this.cfg.autoPause;
+    this.engine.smartAutoPause = this.cfg.smartAutoPause === true;
+    this.engine.smartHideKnownTranslation = this.cfg.smartHideKnownTranslation === true;
+    this.engine.smartLookupHint = this.cfg.smartLookupHint === true;
     this.engine.startMode = this.cfg.startMode;
     this.engine.flashDuration = this.cfg.flashDuration;
 

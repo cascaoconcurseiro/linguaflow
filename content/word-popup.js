@@ -9,6 +9,7 @@ import { AiContextMethods } from './word-popup/ai-context.js';
 import { PositioningMethods } from './word-popup/positioning.js';
 import { FirstRecallMethods } from './word-popup/first-recall.js';
 import { installMethods } from '../utils/install-methods.js';
+import { lookupHintText, recordLookup } from './subtitles/lookup-memory.js';
 
 export class WordPopup {
   constructor(engine, platform) {
@@ -172,6 +173,7 @@ export class WordPopup {
       <span id="fpos" class="lfp-badge" style="display:none;background:rgba(125,209,252,.1);color:#7dd3fc;border:1px solid rgba(125,209,252,.2)"></span>
       <span id="ffreq" style="display:none;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:20px;"></span>
     </div>
+    <div id="flookup-hint" role="status" style="display:none;margin-top:8px;font-size:11px;line-height:1.5;color:#facc15;background:rgba(250,204,21,.1);border:1px solid rgba(250,204,21,.3);border-radius:8px;padding:5px 9px;"></div>
   </div>
   <div style="display:flex;gap:6px;flex-shrink:0;margin-top:2px;">
     <button id="ftts" type="button" title="Ouvir pronúncia" aria-label="Ouvir pronúncia da palavra" style="min-width:44px;min-height:44px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#7dd3fc;cursor:pointer;padding:6px 9px;font-size:16px;line-height:1;transition:all .15s;">🔊</button>
@@ -425,6 +427,21 @@ export class WordPopup {
       );
   }
 
+  // Opção "avisar consulta repetida" (#488): só para palavra que o aluno ainda não salvou nem marcou.
+  async _showLookupHint(word, requestId) {
+    const hint = this.popup?.querySelector('#flookup-hint');
+    if (!hint) return;
+    hint.style.display = 'none';
+    hint.textContent = '';
+    if (!this.engine?.smartLookupHint) return;
+    const key = String(word || '').toLowerCase();
+    if (this.engine.savedWords?.has?.(key) || this.engine.knownWords?.has?.(key)) return;
+    const text = lookupHintText(await recordLookup(key));
+    if (!text || requestId !== this._contextRequestId) return;
+    hint.textContent = text;
+    hint.style.display = 'block';
+  }
+
   async showForWord(word, context, rect, cue) {
     const wasHiding = this._isHiding;
     if (this._hideTimeout) {
@@ -504,6 +521,7 @@ export class WordPopup {
     q('#fcefr-prog').style.display = 'none';
     q('#fexprtype').style.display = 'none';
     q('#fff-card').style.display = 'none';
+    this._showLookupHint(this.word, contextRequestId);
 
     // — CEFR badge —
     const cefr = this._lookupCEFR(this.word);

@@ -1,10 +1,6 @@
-* text=auto
-*.js text eol=lf
-*.json text eol=lf
-*.html text eol=lf
-*.css text eol=lf
-*.md text eol=lf
-*.yml text eol=lf
-*.sh text eol=lf
-*.py text eol=lf
+# Tudo que é texto vai para o working tree com LF, inclusive no Windows com core.autocrlf=true.
+# Os testes comparam SQL/JS byte a byte (migrations publicadas são imutáveis, #428); CRLF local os quebrava (#445).
+* text=auto eol=lf
+*.ps1 text eol=crlf
 *.png binary
+*.webm binary

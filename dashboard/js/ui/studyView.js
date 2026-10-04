@@ -721,7 +721,10 @@ function renderSessionComplete(app) {
   hidePlayer(); // a sessão acabou — nenhum vídeo deve continuar tocando ao fundo
   const sessionTime = Math.round((Date.now() - sessionStart) / 60000);
   const laterCount = pendingLearning.length;
-  if (sessionWeakOnly) observe('study.weak_session.completed', { cards: countBucket(sessionCards) });
+  if (sessionWeakOnly) {
+    observe('study.weak_session.completed', { cards: countBucket(sessionCards) });
+    lfDb.logUsageEvent('weak_session_done').catch(() => {});
+  }
   // Fase 4.5 da auditoria (§4g.8): #app-view nunca existiu; cair no <body>
   // destruía o app. Sem container real (rota já trocada), NÃO renderizar —
   // uma tela de fim de sessão fora da view de estudo é sempre errada.

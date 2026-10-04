@@ -71,6 +71,7 @@ export class SettingsPanel {
     this.isOpen = false;
     this.host = null;
     this.shadow = null;
+    this._abort = new AbortController();
 
     this.cfg = {
       targetLang: 'pt',
@@ -314,6 +315,7 @@ export class SettingsPanel {
       window.dispatchEvent(new CustomEvent('LF_UPDATE_DELAY', { detail: v }));
     };
 
+    const { signal } = this._abort;
     // Atalhos do player (Z/X, Q, V) mudam estes valores fora do painel: espelha aqui para o painel
     // nunca mostrar (nem regravar) um valor velho.
     window.addEventListener('LF_UPDATE_ANTICIPATION', (e) => {
@@ -322,16 +324,16 @@ export class SettingsPanel {
       this.cfg.translationAnticipation = v;
       s.getElementById('rng-anticipation').value = v;
       s.getElementById('val-anticipation').textContent = `${v}s`;
-    });
+    }, { signal });
     window.addEventListener('LF_UPDATE_AUTOPAUSE', (e) => {
       this.cfg.autoPause = Boolean(e.detail);
       s.getElementById('sel-autopause').value = e.detail ? 'on' : 'off';
-    });
+    }, { signal });
     window.addEventListener('LF_UPDATE_BLUR', (e) => {
       this.cfg.blurSubtitles = Boolean(e.detail);
       const select = s.getElementById('sel-blur');
       if (select) select.value = e.detail ? 'on' : 'off';
-    });
+    }, { signal });
 
     s.getElementById('rng-anticipation').oninput = (e) => {
       const v = Number(e.target.value);
@@ -925,8 +927,8 @@ export class SettingsPanel {
         return;
       }
       if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
-    });
-    window.addEventListener('LF_TOGGLE_SETTINGS', () => this.toggle());
+    }, { signal: this._abort.signal });
+    window.addEventListener('LF_TOGGLE_SETTINGS', () => this.toggle(), { signal: this._abort.signal });
 
     // Atualiza preview em tempo real quando sliders de fonte mudam
     const s = this.shadow;
@@ -942,7 +944,13 @@ export class SettingsPanel {
     // Escuta evento de flash duration do engine
     window.addEventListener('LF_UPDATE_FLASH_DURATION', (e) => {
       if (this.engine) this.engine.flashDuration = e.detail;
-    });
+    }, { signal: this._abort.signal });
+  }
+
+  // Remove os listeners globais e o painel (#466).
+  destroy() {
+    this._abort.abort();
+    this.host?.remove();
   }
 
   toggle() {

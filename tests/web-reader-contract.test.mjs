@@ -15,8 +15,8 @@ assert.match(source, /const handleDoubleClick = \(e\) => \{[\s\S]*clearTimeout\(
   'dblclick cancela o mouseup agendado do mesmo gesto');
 assert.match(source, /type: 'QUEUE_WORD_SAVE'/,
   'salvamento confirma pela fila local-first');
-assert.match(source, /window\.addEventListener\('pagehide', dispose, \{ once: true \}\)/,
-  'lifecycle da página descarta listeners e popup');
+assert.match(source, /window\.addEventListener\('pagehide', \(event\) => \{\s*if \(!event\.persisted\) dispose\(\);/,
+  'lifecycle da página descarta listeners e popup quando a página sai de verdade (não no cache de voltar/avançar)');
 assert.match(source, /request\?\.action === 'openWordPopup'/,
   'o leitor aceita comando de tradução disparado pelo menu de contexto (botão direito)');
 assert.match(source, /if \(!e\.altKey\) return;/,

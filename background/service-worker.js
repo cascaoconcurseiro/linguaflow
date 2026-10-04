@@ -20,6 +20,7 @@ import {
 } from './ai-generator.js';
 import { isValidIpa, cleanIpa } from '../utils/ipa-validator.js';
 import { isPermanentSaveError, retryableEntries, summarizeWordSaveQueue } from './word-save-queue.js';
+import { createDueNotifier, ensureAlarms } from './reminders.js';
 import { AI_STREAM_PORT, createQuickContextCache, parseQuickContext, readSseText } from '../utils/ai-stream.js';
 
 // v2 (#366): descarta respostas antigas que especulavam além da frase.
@@ -135,9 +136,12 @@ chrome.runtime.onConnect.addListener((port) => {
 });
 
 // ── Alarmes ──────────────────────────────────────────────────────────────────
-chrome.alarms.create('srs-reminder', { periodInMinutes: 60 });
-chrome.alarms.create('word-save-sync', { periodInMinutes: 1 });
-chrome.alarms.create('listening-sync', { periodInMinutes: 1 });
+// Só cria o que não existe: recriar a cada despertar reiniciava o alarme de 60 min (#465).
+ensureAlarms(chrome.alarms, [
+  { name: 'srs-reminder', periodInMinutes: 60 },
+  { name: 'word-save-sync', periodInMinutes: 1 },
+  { name: 'listening-sync', periodInMinutes: 1 },
+]);
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'listening-sync') db.drainListeningQueue().catch(() => {});
@@ -1626,24 +1630,12 @@ function updateBadge() {
 }
 
 // Lembrete de revisão (Duolingo-style): no máximo 1 notificação a cada 20h,
-// e só quando há cards devidos de verdade.
-async function maybeNotifyDue(due) {
-  if (!due || due < 1 || !chrome.notifications) return;
-  try {
-    const { lf_last_notify } = await chrome.storage.local.get('lf_last_notify');
-    if (lf_last_notify && Date.now() - lf_last_notify < 20 * 60 * 60 * 1000) return;
-    await chrome.storage.local.set({ lf_last_notify: Date.now() });
-    chrome.notifications.create('lf-due-reminder', {
-      type: 'basic',
-      iconUrl: chrome.runtime.getURL('icon128.png'),
-      title: 'LinguaFlow 🔥',
-      message: `Você tem ${due} ${due === 1 ? 'card esperando' : 'cards esperando'}. 5 minutinhos salvam sua ofensiva!`,
-      priority: 1,
-    });
-  } catch (e) {
-    console.debug('[LinguaFlow] Notificação indisponível:', e?.message);
-  }
-}
+// e só quando há cards devidos de verdade. A trava contra chamadas simultâneas
+// vive em reminders.js (#465).
+const maybeNotifyDue = createDueNotifier(chrome, {
+  iconUrl: chrome.runtime.getURL('icon128.png'),
+  onError: (e) => console.debug('[LinguaFlow] Notificação indisponível:', e?.message),
+});
 
 chrome.notifications?.onClicked?.addListener((id) => {
   if (id === 'lf-due-reminder') {

@@ -508,7 +508,10 @@
   document.addEventListener('keydown', handleKeyDown);
   document.addEventListener('contextmenu', handleContextMenu);
   chrome.runtime.onMessage.addListener(handleRuntimeMessage);
-  window.addEventListener('pagehide', dispose, { once: true });
+  // Com event.persisted a página pode voltar do cache de voltar/avançar: não desmonta (#466).
+  window.addEventListener('pagehide', (event) => {
+    if (!event.persisted) dispose();
+  });
 
   console.debug('[LinguaFlow Reader] ✅ Pronto — selecione e clique com botão direito ou Alt+seleção para traduzir.');
 })();

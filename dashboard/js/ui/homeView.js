@@ -812,6 +812,7 @@ export async function renderHome(container, app) {
     });
     document.getElementById('btn-reinforce-weak')?.addEventListener('click', () => {
         observe('home.weak_words.reinforce_click', { due: countBucket(struggling.dueCount), total: countBucket(struggling.total) });
+        db?.logUsageEvent?.('weak_reinforce')?.catch?.(() => {});
         app?.navigate?.('study', { weakOnly: true });
     });
     const strugglingSection = document.getElementById('home-struggling-words');
@@ -819,6 +820,7 @@ export async function renderHome(container, app) {
         const openBtn = event.target.closest('[data-weak-open]');
         if (openBtn) {
             observe('home.weak_words.open_vault', {});
+            db?.logUsageEvent?.('weak_open_vault')?.catch?.(() => {});
             app?.navigate?.('library', { search: openBtn.dataset.weakOpen });
             return;
         }
@@ -831,6 +833,7 @@ export async function renderHome(container, app) {
         try {
             await db.setCardSuspended(pauseBtn.dataset.weakPause, true);
             observe('home.weak_words.pause', { outcome: 'ok' });
+            db?.logUsageEvent?.('weak_pause')?.catch?.(() => {});
             app.showToast(`"${word}" pausada. Reative quando quiser no Cofre.`, 'success');
             renderHome(container, app);
         } catch (e) {

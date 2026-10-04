@@ -35,7 +35,7 @@ function publishedSql(name) {
   const suffix = name === 'v1' ? '_course_content.sql' : `_course_content_${name.replace(/-/g, '_')}.sql`;
   const alt = `_course_content_${name}.sql`;
   const file = readdirSync(MIGRATIONS_DIR).find((f) => f.endsWith(suffix) || f.endsWith(alt));
-  return file ? { file, sql: readFileSync(new URL(file, MIGRATIONS_DIR), 'utf8') } : null;
+  return file ? { file, sql: readFileSync(new URL(file, MIGRATIONS_DIR), 'utf8').replace(/\r\n/g, '\n') } : null;
 }
 
 export async function checkAll({ compare = true } = {}) {

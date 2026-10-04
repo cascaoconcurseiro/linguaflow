@@ -29,6 +29,7 @@ import {
   saveActivation,
 } from './subtitles/activation-state.js';
 import { parseVTT } from './subtitles/vtt-parser.js';
+import { MAX_CC_BUTTON_SELECTOR, pickSubtitleOption, readMenuItems } from './subtitles/hbo-native-captions.js';
 import { closeDomCue, crossedCueEnd, findActiveCueIndex, recordDomCue } from './subtitles/active-cue.js';
 import { CAPTION_WAIT_MS, highlightMatches, highlightTerms, segmentSubtitle, transcriptState } from './subtitles/transcript-render.js';
 import {
@@ -814,8 +815,9 @@ export class SubtitleEngine {
     // Atualiza a UI das legendas preservando o estado de ativação do usuário
     await this._injectSubtitleUI(true);
     if (!this._isNavigationCurrent(navigation)) return;
-    this.toggleSubtitles(this.isActivated);
+    clearTimeout(this._hboAutoEnableTimer);
     this._hboAutoEnableTried = false;
+    this.toggleSubtitles(this.isActivated);
     this._waitForVideo();
 
     // Re-inicializa captura específica da plataforma
@@ -865,54 +867,62 @@ export class SubtitleEngine {
     console.debug('[LinguaFlow] HBO Max: legenda nativa escondida via CSS (Pro V5)');
   }
 
-  // ── Habilita legenda nativa automaticamente caso esteja desativada ────────
+  // ── Liga a legenda nativa da Max quando ela está desligada ────────────────
+  // A Max só baixa o VTT com a legenda do player ligada. Roda sempre que o LF
+  // é ligado (início, F5 não necessário, vídeo em andamento) e tenta de novo
+  // até as falas chegarem. Se o usuário desligar o LF no meio, para.
   _autoEnableHBOSubtitles() {
-    if (this._hboAutoEnableTried) return;
+    if (!this.isActivated || this._disposed) return;
+    if (this.xhrCues && this.xhrCues.length > 0) return;
+    if (this._hboAutoEnableTried) return; // já há uma rodada em andamento neste vídeo
     this._hboAutoEnableTried = true;
 
+    const MAX_ATTEMPTS = 12;
     let attempts = 0;
+    const finish = () => {
+      clearTimeout(this._hboAutoEnableTimer);
+      this._hboAutoEnableTimer = null;
+    };
+    const retry = (delay) => {
+      this._hboAutoEnableTimer = setTimeout(tryEnable, delay);
+    };
     const tryEnable = () => {
-      attempts++;
-      // Se já recebemos legenda via XHR, não precisa fazer nada
-      if (this.xhrCues && this.xhrCues.length > 0) return;
+      if (this._disposed || !this.isActivated) {
+        finish();
+        this._hboAutoEnableTried = false;
+        return;
+      }
+      if (this.xhrCues && this.xhrCues.length > 0) return finish();
+      if (++attempts > MAX_ATTEMPTS) {
+        console.debug('[LinguaFlow] HBO Max: não foi possível ligar a legenda nativa');
+        finish();
+        this._hboAutoEnableTried = false; // permite nova tentativa ao religar o LF
+        return;
+      }
 
-      // Procura o botão de legendas nativo da Max
-      const ccBtn = document.querySelector(
-        '[data-testid="player-ui-controls-subtitle-btn"], [aria-label*="Subtitle"], [aria-label*="Caption"], button[class*="subtitle"]',
-      );
+      const ccBtn = document.querySelector(MAX_CC_BUTTON_SELECTOR);
+      if (!ccBtn) return retry(1000); // player ainda montando
 
-      if (ccBtn) {
-        // Tenta descobrir se está desligado (frequentemente aria-pressed="false" ou menu mostra "Off")
-        const isOff = ccBtn.getAttribute('aria-pressed') === 'false';
-        if (isOff || !this.usingXhr) {
-          console.debug('[LinguaFlow] Tentando auto-ativar legenda nativa na HBO Max...');
-          try {
-            ccBtn.click();
-            setTimeout(() => {
-              // Clica no primeiro item do menu que pareça ser uma legenda (ex: Inglês)
-              // A Max tem radio buttons no menu de legendas
-              const menus = document.querySelectorAll('[role="menuitemradio"], [role="radio"]');
-              for (let m of menus) {
-                // Evita clicar em "Off" ou "Desativado"
-                if (
-                  m.textContent &&
-                  !m.textContent.toLowerCase().includes('off') &&
-                  !m.textContent.toLowerCase().includes('desligado')
-                ) {
-                  m.click();
-                  break;
-                }
-              }
-              // Fecha o menu clicando de volta no CC ou clicando fora
-              ccBtn.click();
-            }, 300);
-          } catch (e) {}
-        }
-      } else if (attempts < 10) {
-        setTimeout(tryEnable, 2000);
+      try {
+        ccBtn.click();
+        setTimeout(() => {
+          const items = readMenuItems(document);
+          const pick = pickSubtitleOption(items, this.sourceLang);
+          if (pick.index >= 0) {
+            console.debug('[LinguaFlow] HBO Max: ligando legenda nativa');
+            items[pick.index].node.click();
+          }
+          // Fecha o menu sem alterar a escolha
+          setTimeout(() => {
+            if (document.querySelector('[role="menuitemradio"], [role="radio"]')) ccBtn.click();
+          }, 150);
+          retry(2500); // espera o VTT chegar; se não vier, tenta de novo
+        }, 300);
+      } catch {
+        retry(1500);
       }
     };
-    setTimeout(tryEnable, 5000); // Dá 5s para o player montar
+    retry(300);
   }
 
   // ── Carrega configurações do banco ───────────────────────────────────────
@@ -5748,6 +5758,7 @@ export class SubtitleEngine {
   destroy() {
     if (this._disposed) return;
     this._disposed = true;
+    clearTimeout(this._hboAutoEnableTimer);
     if (this._hiddenYouTubeCaptions) {
       this._hiddenYouTubeCaptions.style.display = '';
       this._hiddenYouTubeCaptions = null;

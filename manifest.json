@@ -105,6 +105,7 @@
         "content/subtitles/video-vocabulary.js",
         "content/subtitles/hover-tip.js",
         "content/subtitles/caption-conflict.js",
+        "content/subtitles/hbo-native-captions.js",
         "content/subtitles/line-explainer.js",
         "content/max-player-ui.js",
         "content/review-overlay.js",

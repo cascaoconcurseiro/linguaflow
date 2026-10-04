@@ -9,6 +9,7 @@
 - **Imagem nas palavras do curso de vocabulário**: 366 palavras (família, cores, números, corpo, roupas, casa, cidade, comida, bebidas, transporte, clima, animais, emoções, escola, esportes, trabalho, tecnologia, dinheiro, saúde, música, viagem e verbos de ação) aparecem com uma ilustração aberta (Noto Emoji, Apache 2.0) e o crédito. Palavras abstratas ficam sem imagem de propósito.
 
 ### Corrigido
+- **Max/HBO: LinguaFlow liga a legenda nativa sozinho**: a Max só envia as falas quando a legenda do próprio player está ligada, e o LinguaFlow só tentava ligá-la uma vez, no carregamento da página (com ele ainda desligado). Agora, ao ligar o LinguaFlow (também com o vídeo rodando, sem F5), ele liga a legenda nativa no idioma do vídeo e tenta de novo até as falas chegarem. Se você desligar o LinguaFlow no meio, ele para.
 - **Roteiro agora abre com P, não com L**: o L é do YouTube (avançar 10 s) e o LinguaFlow o engolia. Shift + P continua sendo o da playlist (#454).
 - **Legenda mudava de tamanho sozinha**: o tamanho vinha da largura do player e sobrescrevia o do painel a cada resize; agora vale só o das configurações. Frases mistas (ex.: "SMELLS LIKE IT'S coming...") também são normalizadas para não ficarem com parte maior (#452).
 - **Uso do reforço de palavras fracas agora é medido**: cliques em Reforçar, Ver no Cofre, Pausar e a sessão de reforço concluída entram no funil de uso (um registro por dia, sem dados pessoais). Antes esses eventos não chegavam ao banco.

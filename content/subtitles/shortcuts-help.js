@@ -30,7 +30,7 @@ export const SHORTCUT_GROUPS = [
       ['O', 'Configurações'],
       ['C', 'Ligar ou desligar o LinguaFlow'],
       ['Espaço', 'Reproduzir ou pausar'],
-      ['?', 'Mostrar esta lista'],
+      ['Shift + ?', 'Mostrar esta lista'],
     ],
   },
 ];

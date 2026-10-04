@@ -11,7 +11,7 @@ async function openPlayer(context, url = WATCH) {
   return page;
 }
 
-test('começa desligado: só o botão LF aparece e a legenda nativa não é tocada', async ({ extension }) => {
+test('começa desligado: só o botão LF aparece e o CC memorizado pelo YouTube é desligado (#438)', async ({ extension }) => {
   const page = await openPlayer(extension.context);
   const dock = page.locator('#lf-yt-horizontal-dock');
   const toggle = page.locator('#lf-yt-toggle-wrapper');
@@ -20,6 +20,28 @@ test('começa desligado: só o botão LF aparece e a legenda nativa não é toca
   for (const action of ['previous', 'loop', 'next', 'speed', 'panel', 'settings']) {
     await expect(dock.locator(`[data-action="${action}"]`)).toBeHidden();
   }
+  await expect(page.locator('.ytp-subtitles-button')).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('desligado, o CC ligado pelo próprio usuário é respeitado (#438)', async ({ extension }) => {
+  const page = await openPlayer(extension.context);
+  const cc = page.locator('.ytp-subtitles-button');
+  await expect(cc).toHaveAttribute('aria-pressed', 'false');
+  await cc.click();
+  await expect(cc).toHaveAttribute('aria-pressed', 'true');
+  await page.evaluate(() => {
+    const video = document.querySelector('video');
+    video.pause();
+    return video.play().catch(() => {});
+  });
+  await page.waitForTimeout(1200);
+  await expect(cc).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('ligar avisa o atalho com Shift + ? (#439)', async ({ extension }) => {
+  const page = await openPlayer(extension.context);
+  await page.locator('#lf-yt-toggle-wrapper').click();
+  await expect(page.getByRole('status').filter({ hasText: 'Shift + ? mostra os atalhos' })).toBeVisible();
   await expect(page.locator('.ytp-subtitles-button')).toHaveAttribute('aria-pressed', 'true');
 });
 

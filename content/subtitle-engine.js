@@ -650,6 +650,7 @@ export class SubtitleEngine {
         if (!e.data.active) {
           this.renderDual('', ''); // Limpa nossa legenda se o usuário desligou a nativa
         }
+        this._onNativeCaptionToggle(e.data);
       }
     }, { signal: this._lifecycleController.signal });
 
@@ -3133,15 +3134,15 @@ export class SubtitleEngine {
 
       // Injeta botões e controles
       this._injectYouTubeControls();
-      this._ensureNativeSubtitlesActive();
-      setTimeout(() => this._ensureNativeSubtitlesActive(), 800);
+      this._syncNativeCCButton();
+      setTimeout(() => this._syncNativeCCButton(), 800);
       // YouTube reuses the same <video> across SPA navigations; stacked play
       // listeners clicked CC several times per play and could switch it off.
       if (this._boundVideoElement !== vid) {
         this._boundVideoElement = vid;
         vid.addEventListener('play', () => {
           this._injectYouTubeControls();
-          this._ensureNativeSubtitlesActive();
+          this._syncNativeCCButton();
           this._wasPausedByHover = false;
         });
         vid.addEventListener('seeking', () => {
@@ -4136,7 +4137,7 @@ export class SubtitleEngine {
     saveActivation(this.isActivated);
     this._trackUsage(this.isActivated ? 'lf_enabled' : 'lf_disabled');
     this._dismissStartTip?.();
-    this._showNotification(this.isActivated ? '👁️ LinguaFlow ligado · ? mostra os atalhos' : '🙈 LinguaFlow desligado');
+    this._showNotification(this.isActivated ? '👁️ LinguaFlow ligado · Shift + ? mostra os atalhos' : '🙈 LinguaFlow desligado');
   }
 
   // Telemetria de produto (#426): fire-and-forget, uma vez por evento por página; nunca atrapalha o player.
@@ -4226,13 +4227,14 @@ export class SubtitleEngine {
       document.getElementById('lf-speed-popover')?.remove?.();
     }
 
-    // Sincroniza com o CC nativo do YouTube. Ao iniciar desligado não mexemos
-    // no CC do usuário; só ao ligar, ou ao desligar por clique (changed).
+    // Sincroniza com o CC nativo do YouTube. O YouTube memoriza o CC que o
+    // LinguaFlow ligou, então desligado também desliga o CC (#438) — exceto se
+    // o usuário ligou o CC na mão nesta página e nada mudou agora.
     if (this.platform === 'youtube') {
       const ytSubBtn = document.querySelector('.ytp-subtitles-button');
       if (ytSubBtn) {
         const isYtSubActive = ytSubBtn.getAttribute('aria-pressed') === 'true';
-        if (isVisible !== isYtSubActive && (isVisible || changed)) {
+        if (isVisible !== isYtSubActive && (isVisible || changed || !this._userWantsNativeCC)) {
           ytSubBtn.click();
         }
       }
@@ -4244,6 +4246,26 @@ export class SubtitleEngine {
       if (s) s.disabled = !isVisible;
       if (isVisible) this._autoEnableHBOSubtitles();
     }
+  }
+
+  // Ponto único chamado quando o player fica pronto e a cada play (#438).
+  _syncNativeCCButton() {
+    if (this.isActivated) this._ensureNativeSubtitlesActive();
+    else this._ensureNativeSubtitlesOff();
+  }
+
+  // Desligado: o CC que o YouTube memorizou (ligado pelo LinguaFlow) não deve
+  // ficar ligado. Respeita o usuário que ligou o CC com um clique real.
+  _ensureNativeSubtitlesOff() {
+    if (this.isActivated || this.platform !== 'youtube' || this._userWantsNativeCC) return;
+    const ytSubBtn = document.querySelector('.ytp-subtitles-button');
+    if (ytSubBtn?.getAttribute('aria-pressed') === 'true') ytSubBtn.click();
+  }
+
+  // Cliques feitos por código (.click()) chegam com isTrusted=false e não
+  // contam como escolha do usuário.
+  _onNativeCaptionToggle({ active, trusted } = {}) {
+    if (trusted === true) this._userWantsNativeCC = !!active;
   }
 
   _ensureNativeSubtitlesActive() {

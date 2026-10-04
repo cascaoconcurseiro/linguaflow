@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { SettingsPanel } from '../content/settings-panel.js';
+import { readSettingsPanelSource } from './helpers/settings-panel-source.mjs';
 
 function panelWith() {
   const panel = Object.create(SettingsPanel.prototype);
@@ -60,7 +61,7 @@ test('gravações de chaves diferentes saem na ordem em que foram pedidas', asyn
 });
 
 test('contrato: todos os sliders usam gravação agrupada e close/destroy descarregam', async () => {
-  const code = await readFile(new URL('../content/settings-panel.js', import.meta.url), 'utf8');
+  const code = await readSettingsPanelSource();
   for (const key of ['fontSize', 'fontSizeTrans', 'bgOpacity', 'subtitleBottom', 'subtitleHorizontal', 'translationDelay', 'translationAnticipation', 'flashDuration']) {
     assert.match(code, new RegExp(`_saveLive\\('${key}'`), key);
     assert.doesNotMatch(code, new RegExp(`this\\._save\\('${key}'`), `${key} não pode gravar a cada movimento`);

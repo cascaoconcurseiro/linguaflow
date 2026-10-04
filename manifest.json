@@ -90,6 +90,9 @@
       "resources": [
         "content/index.js",
         "content/settings-panel.js",
+        "content/settings-panel/storage.js",
+        "content/settings-panel/expression-mark-options.js",
+        "content/settings-panel/markup.js",
         "content/subtitle-engine.js",
         "content/subtitles/engine/capture.js",
         "content/subtitles/engine/caption-display.js",

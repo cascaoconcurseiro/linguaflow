@@ -377,7 +377,10 @@ Para atualizar: `npm run map`.
 | `content/injector.js` | P | Injeta scripts no MAIN world contornando o bug do Chrome (Manifest V3) que gera spam de "Blocked script execution in 'about:blank'" quando usamos "world": "MAIN" no ma… |
 | `content/max-player-ui.js` | M | Dock lateral de controles (Max, Netflix, Disney+, Prime): botão LF, frase anterior/próxima, loop, shadowing, velocidade, painel e configurações. |
 | `content/review-overlay.js` | M | LinguaFlow Review Overlay — Revisão rápida durante vídeos Mostra 1 flashcard por vez como overlay sem interromper o vídeo. |
-| `content/settings-panel.js` | GG ⚠ | Painel de configurações da extensão no player (Shadow DOM): aparência da legenda, sincronia, idiomas e gravação das preferências. |
+| `content/settings-panel.js` | M | Painel de configurações da extensão no player (Shadow DOM): aparência da legenda, sincronia, idiomas e gravação das preferências. |
+| `content/settings-panel/expression-mark-options.js` | P | As cinco marcas de expressão da legenda que o painel de configurações liga e desliga. |
+| `content/settings-panel/markup.js` | G | Estrutura do painel: Shadow DOM com o CSS e o HTML de todas as seções de configuração. |
+| `content/settings-panel/storage.js` | P | Lê e grava as configurações do painel no banco (importado sob demanda para não pesar no carregamento). |
 | `content/subtitle-engine.js` | G | Motor de legendas: captura, sincronização, tradução, palavras clicáveis, painel lateral, dock do YouTube e atalhos do player. |
 | `content/web-reader.js` | G | LinguaFlow Web Reader — Modo Leitura para qualquer site Ativado por duplo-clique em palavra ou seleção de texto. |
 | `content/word-popup.js` | G | LinguaFlow Pro — Word Popup v5 (unified storage, bilingual examples, full grammar) |

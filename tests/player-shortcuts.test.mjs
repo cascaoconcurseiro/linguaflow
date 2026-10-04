@@ -5,6 +5,7 @@ import { SubtitleEngine } from '../content/subtitle-engine.js';
 import { setupPlayerHotkeys } from '../content/subtitles/player-hotkeys.js';
 import { SHORTCUT_GROUPS } from '../content/subtitles/shortcuts-help.js';
 import { readEngineSource } from './helpers/engine-source.mjs';
+import { readSettingsPanelSource } from './helpers/settings-panel-source.mjs';
 
 function engineWith(overrides = {}) {
   const engine = Object.create(SubtitleEngine.prototype);
@@ -187,7 +188,7 @@ test('contrato: toda tecla da lista de atalhos existe no c√≥digo e o painel est√
   }
   const manifest = await readFile(new URL('../manifest.json', import.meta.url), 'utf8');
   assert.match(manifest, /content\/subtitles\/shortcuts-help\.js/);
-  const settings = await readFile(new URL('../content/settings-panel.js', import.meta.url), 'utf8');
+  const settings = await readSettingsPanelSource();
   for (const event of ['LF_UPDATE_ANTICIPATION', 'LF_UPDATE_AUTOPAUSE', 'LF_UPDATE_BLUR']) {
     assert.match(settings, new RegExp(`addEventListener\\('${event}'`), `painel precisa espelhar ${event}`);
   }

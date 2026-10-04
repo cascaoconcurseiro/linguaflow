@@ -3,6 +3,7 @@
 ## [Não lançado]
 
 ### Adicionado
+- **Legenda inteligente (opcional)**: três opções novas em Configurações, todas desativadas por padrão, então nada muda até você ligar. "Esconder tradução do que você já sabe" deixa só o original nas falas em que você conhece todas as palavras; "Pausar só onde há palavra nova" faz a pausa automática pular essas falas; "Avisar palavra consultada várias vezes" mostra no card, na 3ª consulta sem salvar, uma sugestão de salvar para revisar (a contagem fica só neste dispositivo). Ligar cada opção entra no funil de uso (#488).
 - **Recolher os controles do player**: um botãozinho de seta, logo abaixo (ou ao lado, no YouTube) do LF, esconde ‹ ↻ › ◐ 1× ▤ ⚙ e deixa só o liga/desliga, para os controles não cobrirem o vídeo. Vale em Max, Netflix, Disney+, Prime Video e YouTube, e a escolha fica guardada. Recolher não desliga as legendas (#462).
 - **Modo shadowing no player (YouTube)**: tecla `M` ou o botão ◐ do dock troca a legenda por três linhas, com a fala anterior apagada, a atual em destaque e a próxima em meio-tom, mais uma barra fina com o progresso da fala. A tradução fica escondida (o botão de traduzir continua valendo). Desligado por padrão; a escolha fica guardada neste dispositivo (#456).
 - **Velocidade pelo teclado**: `[` fala mais devagar e `]` mais rápido, em passos de 0,05× (de 0,5× a 1,5×), com aviso na tela (#454).

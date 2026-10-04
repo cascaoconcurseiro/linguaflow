@@ -29,6 +29,9 @@ export class MarkupMethods {
     s.getElementById('sel-theme').value = this.cfg.uiTheme || 'dark';
     s.getElementById('sel-mode').value = this.cfg.subtitleMode;
     s.getElementById('sel-autopause').value = this.cfg.autoPause ? 'on' : 'off';
+    s.getElementById('sel-smart-autopause').value = this.cfg.smartAutoPause ? 'on' : 'off';
+    s.getElementById('sel-smart-hide-known').value = this.cfg.smartHideKnownTranslation ? 'on' : 'off';
+    s.getElementById('sel-smart-lookup').value = this.cfg.smartLookupHint ? 'on' : 'off';
     s.getElementById('sel-start-mode').value = this.cfg.startMode;
     s.getElementById('rng-font').value = this.cfg.fontSize;
     s.getElementById('rng-font-trans').value = this.cfg.fontSizeTrans;
@@ -88,6 +91,9 @@ export class MarkupMethods {
       this._save('autoPause', val);
       window.dispatchEvent(new CustomEvent('LF_UPDATE_AUTOPAUSE', { detail: val }));
     };
+    s.getElementById('sel-smart-autopause').onchange = (e) => this._saveSmart('smartAutoPause', e.target.value === 'on', 'smart_pause_on');
+    s.getElementById('sel-smart-hide-known').onchange = (e) => this._saveSmart('smartHideKnownTranslation', e.target.value === 'on', 'smart_hide_on');
+    s.getElementById('sel-smart-lookup').onchange = (e) => this._saveSmart('smartLookupHint', e.target.value === 'on', 'smart_lookup_on');
     const selBlurEl = s.getElementById('sel-blur');
     if (selBlurEl) {
       selBlurEl.onchange = (e) => {
@@ -634,6 +640,30 @@ export class MarkupMethods {
                                     <option value="on">Ativada (Pausa após cada fala)</option>
                                     <option value="off">Desativada</option>
                                 </select>
+                            </div>
+                            <div class="group">
+                                 <label>Pausar só onde há palavra nova</label>
+                                <select id="sel-smart-autopause" aria-describedby="hint-smart-autopause">
+                                    <option value="off">Desativada (como hoje)</option>
+                                    <option value="on">Ativada</option>
+                                </select>
+                                <small id="hint-smart-autopause">Vale com "Pausar após cada fala" ligado: falas em que você já conhece todas as palavras passam direto.</small>
+                            </div>
+                            <div class="group">
+                                 <label>Esconder tradução do que você já sabe</label>
+                                <select id="sel-smart-hide-known" aria-describedby="hint-smart-hide-known">
+                                    <option value="off">Desativada (como hoje)</option>
+                                    <option value="on">Ativada</option>
+                                </select>
+                                <small id="hint-smart-hide-known">Nos modos com tradução: falas em que você conhece todas as palavras ficam só no original. O botão de traduzir continua lá.</small>
+                            </div>
+                            <div class="group">
+                                 <label>Avisar palavra consultada várias vezes</label>
+                                <select id="sel-smart-lookup" aria-describedby="hint-smart-lookup">
+                                    <option value="off">Desativado (como hoje)</option>
+                                    <option value="on">Ativado</option>
+                                </select>
+                                <small id="hint-smart-lookup">Se você abrir a mesma palavra 3 vezes sem salvar, o card sugere salvá-la para revisar. A contagem fica só neste dispositivo.</small>
                             </div>
                             <div class="group">
                                  <label>Ajuste de sincronia</label>

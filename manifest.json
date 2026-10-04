@@ -121,6 +121,8 @@
         "content/subtitles/dock-collapse.js",
         "content/subtitles/line-explainer.js",
         "content/subtitles/word-frequency.js",
+        "content/subtitles/smart-captions.js",
+        "content/subtitles/lookup-memory.js",
         "content/subtitles/expression-marks.js",
         "content/subtitles/subtitle-shadow-template.js",
         "content/subtitles/subtitle-panel-styles.js",

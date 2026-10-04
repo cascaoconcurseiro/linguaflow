@@ -12,6 +12,16 @@ import { tokenizeSentence, evaluateSentenceAttempt } from './inputEngine.js';
 
 export const MAX_COMBO_MULTIPLIER = 4;
 
+// Recarregar ou fechar a aba no meio da lição não passa pela saída da tela
+// (onLeaveView), então o que já foi respondido se perdia. No pagehide grava-se
+// o parcial no envio pendente; ele é reenviado ao abrir os cursos (a RPC é
+// idempotente por client_session_id). Com event.persisted a página pode voltar
+// do cache de voltar/avançar e continua viva: não grava (#468).
+export function shouldPersistOnPageHide({ session, committedOnExit = false } = {}, event) {
+  if (event?.persisted || committedOnExit) return false;
+  return Boolean(session && !session.finished && session.resolvedCount > 0);
+}
+
 export function comboMultiplier(streak) {
   return Math.min(MAX_COMBO_MULTIPLIER, 1 + Math.max(0, streak) * 0.25);
 }

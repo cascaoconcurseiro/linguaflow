@@ -1059,17 +1059,9 @@ export class SubtitleEngine {
       }
     }
 
-    const player = this._findPlayerContainer() || document.body;
-    const playerWidth = player.getBoundingClientRect().width;
-
-    // Cálculo proporcional de fonte (Base: 1280px -> 31px / 18px)
-    // Usamos uma escala linear com um "piso" para não ficar minúsculo
-    const scaleFactor = Math.max(0.4, Math.min(1.2, playerWidth / 1280));
-    const fontSizeOrig = Math.round(31 * scaleFactor);
-    const fontSizeTrans = Math.round(18 * scaleFactor);
-
-    host.style.setProperty('--lf-font-size', `${fontSizeOrig}px`);
-    host.style.setProperty('--lf-font-size-trans', `${fontSizeTrans}px`);
+    // O tamanho da fonte é do painel de configurações (--lf-font-size). Escrever
+    // aqui um valor proporcional à largura do player sobrescrevia o valor do
+    // usuário a cada resize e a legenda mudava de tamanho sozinha.
 
     if (this._currentHorizontal !== undefined) {
       host.style.left = `${this._currentHorizontal}%`;

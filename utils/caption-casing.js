@@ -85,6 +85,55 @@ function formatWordInSentence(word, isFirst) {
   return lower;
 }
 
+function isShoutedWord(w) {
+  return w.length > 1 && w === w.toUpperCase() && w.toLowerCase() !== w.toUpperCase() && !KNOWN_ACRONYMS.has(w);
+}
+
+// Não conta como gritada, mas não interrompe a sequência (I, A, É, TV, FBI).
+function isLoneUpperLetter(w) {
+  const upper = w === w.toUpperCase() && w.toLowerCase() !== w.toUpperCase();
+  return upper && (w.length === 1 || KNOWN_ACRONYMS.has(w));
+}
+
+/**
+ * Oração mista: o trecho gritado ("SMELLS LIKE IT'S coming from Gunter") fica
+ * maior que o resto na tela. Só mexe em sequências de 2+ palavras em CAIXA ALTA
+ * ou numa palavra longa (5+ letras) que abre a oração ("GUNTER, something...");
+ * uma palavra isolada no meio da frase pode ser sigla e é mantida.
+ */
+function normalizeShoutedRuns(sentence) {
+  const tokens = [...sentence.matchAll(/[a-zA-ZÀ-ɏ']+/g)];
+  if (tokens.length < 2) return sentence;
+
+  const convert = new Array(tokens.length).fill(false);
+  let i = 0;
+  while (i < tokens.length) {
+    if (!isShoutedWord(tokens[i][0])) { i += 1; continue; }
+    let end = i;
+    let shouted = 1;
+    let j = i + 1;
+    while (j < tokens.length && (isShoutedWord(tokens[j][0]) || isLoneUpperLetter(tokens[j][0]))) {
+      if (isShoutedWord(tokens[j][0])) { shouted += 1; end = j; }
+      j += 1;
+    }
+    const opensSentence = i === 0 && tokens[0][0].length >= 5;
+    if (shouted >= 2 || opensSentence) {
+      for (let k = i; k <= end; k += 1) convert[k] = true;
+    }
+    i = end + 1;
+  }
+  if (!convert.some(Boolean)) return sentence;
+
+  let out = '';
+  let cursor = 0;
+  tokens.forEach((t, idx) => {
+    out += sentence.slice(cursor, t.index);
+    out += convert[idx] ? formatWordInSentence(t[0], idx === 0) : t[0];
+    cursor = t.index + t[0].length;
+  });
+  return out + sentence.slice(cursor);
+}
+
 /**
  * Normaliza o casing de uma sentença individual que foi identificada como ALL CAPS.
  * @param {string} sentence
@@ -92,7 +141,7 @@ function formatWordInSentence(word, isFirst) {
  */
 function normalizeSentence(sentence) {
   if (!isAllCapsSentence(sentence)) {
-    return sentence;
+    return normalizeShoutedRuns(sentence);
   }
 
   let isFirstWord = true;

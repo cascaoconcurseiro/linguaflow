@@ -7,6 +7,7 @@
 - **Imagem nas palavras do curso de vocabulário**: 366 palavras (família, cores, números, corpo, roupas, casa, cidade, comida, bebidas, transporte, clima, animais, emoções, escola, esportes, trabalho, tecnologia, dinheiro, saúde, música, viagem e verbos de ação) aparecem com uma ilustração aberta (Noto Emoji, Apache 2.0) e o crédito. Palavras abstratas ficam sem imagem de propósito.
 
 ### Corrigido
+- **Legenda mudava de tamanho sozinha**: o tamanho vinha da largura do player e sobrescrevia o do painel a cada resize; agora vale só o das configurações. Frases mistas (ex.: "SMELLS LIKE IT'S coming...") também são normalizadas para não ficarem com parte maior (#452).
 - **Uso do reforço de palavras fracas agora é medido**: cliques em Reforçar, Ver no Cofre, Pausar e a sessão de reforço concluída entram no funil de uso (um registro por dia, sem dados pessoais). Antes esses eventos não chegavam ao banco.
 - **Atalho F perdia a palavra escolhida**: quando a tradução da fala chegava depois, a legenda era redesenhada e o foco sumia; agora a palavra escolhida continua selecionada.
 - **CC do YouTube ficava ligado com o LinguaFlow desligado**: o YouTube memoriza o CC que o LinguaFlow liga e o reaplicava nos vídeos seguintes. Agora, desligado, o LinguaFlow desliga o CC nativo; se você mesmo ligar o CC com um clique, ele é respeitado.

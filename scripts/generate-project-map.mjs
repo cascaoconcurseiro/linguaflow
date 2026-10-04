@@ -63,6 +63,9 @@ function dropLeading(text, char) {
 
 function stripCommentMarkers(line) {
   let text = line.trim();
+  // O marcador de fim sai primeiro: numa linha só com "*/" o "*" não pode ser tratado como início.
+  const end = BLOCK_END.find((marker) => text.endsWith(marker));
+  if (end) text = text.slice(0, -end.length).trim();
   if (text.startsWith('<!--')) text = text.slice(4);
   else if (text.startsWith('/**')) text = text.slice(3);
   else if (text.startsWith('/*') || text.startsWith('<#')) text = text.slice(2);
@@ -70,9 +73,6 @@ function stripCommentMarkers(line) {
   else if (text.startsWith('--')) text = dropLeading(text, '-');
   else if (text.startsWith('#')) text = dropLeading(text, '#');
   else if (text.startsWith('*')) text = text.slice(1);
-  text = text.trim();
-  const end = BLOCK_END.find((marker) => text.endsWith(marker));
-  if (end) text = text.slice(0, -end.length);
   return text.trim();
 }
 

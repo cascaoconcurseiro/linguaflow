@@ -165,11 +165,11 @@ test('player-hotkeys: setupPlayerHotkeys intercepta atalhos do teclado e respeit
     assert.equal(fakeEngine.autoPause, true, 'KeyQ deve alternar autoPause');
     assert.equal(autoPauseDispatched, true, 'KeyQ deve despachar LF_UPDATE_AUTOPAUSE');
 
-    // Dispara KeyL (painel de legendas)
+    // Dispara KeyP (painel de legendas)
     let panelCalled = false;
     fakeEngine.toggleSubtitlePanel = () => { panelCalled = true; };
-    listeners[0]({ code: 'KeyL', preventDefault() {} });
-    assert.equal(panelCalled, true, 'KeyL deve alternar o painel de legendas');
+    listeners[0]({ code: 'KeyP', preventDefault() {} });
+    assert.equal(panelCalled, true, 'KeyP deve alternar o painel de legendas');
 
     // Dispara KeyO (configurações)
     let settingsDispatched = false;

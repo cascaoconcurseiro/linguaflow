@@ -1586,7 +1586,7 @@ export class SubtitleEngine {
         <button type="button" data-action="next" class="lf-dock-btn" title="Próxima legenda (D)" aria-label="Próxima legenda">›</button>
         <button type="button" data-action="speed" class="lf-dock-btn" title="Velocidade da fala e vídeo: 1×. Clique para ajustar ou falar mais lento" aria-label="Velocidade da fala e vídeo: 1×. Clique para ajustar">1×</button>
         <span class="lf-dock-sep" aria-hidden="true"></span>
-        <button type="button" data-action="panel" id="lf-yt-panel-btn" class="lf-dock-btn" title="Painel de legendas (L)" aria-label="Painel de legendas">▤</button>
+        <button type="button" data-action="panel" id="lf-yt-panel-btn" class="lf-dock-btn" title="Painel de legendas (P)" aria-label="Painel de legendas">▤</button>
         <button type="button" data-action="settings" id="lf-yt-btn" class="lf-dock-btn" title="Configurações LinguaFlow (O)" aria-label="Configurações LinguaFlow">⚙</button>
       `;
 
@@ -2159,6 +2159,19 @@ export class SubtitleEngine {
     }
     this._updateSpeedButtons(normalized);
     return normalized;
+  }
+
+  /** Atalhos [ e ] (#454): passo fino dentro da mesma faixa do ajuste do popover (0,5×–1,5×). */
+  nudgePlaybackRate(delta) {
+    const current = Number(this.videoElement?.playbackRate) || 1;
+    const next = Math.round(Math.min(1.5, Math.max(0.5, current + delta)) * 100) / 100;
+    if (Math.abs(next - current) < 0.001) {
+      this._showNotification?.(`⚡ Velocidade no limite (${current}×)`);
+      return current;
+    }
+    this._setPlaybackRate(next);
+    this._showNotification?.(`⚡ Velocidade ${next}×`);
+    return next;
   }
 
   _updateSpeedButtons(rate) {

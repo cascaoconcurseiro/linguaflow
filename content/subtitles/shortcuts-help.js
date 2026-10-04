@@ -16,7 +16,7 @@ export const SHORTCUT_GROUPS = [
     title: 'Estudar',
     items: [
       ['F', 'Escolher palavra da legenda pelo teclado (← → navegam, Enter abre o card, Esc volta)'],
-      ['L', 'Abrir ou fechar o roteiro'],
+      ['P', 'Abrir ou fechar o roteiro'],
       ['Q', 'Pausar depois de cada fala'],
       ['V', 'Escuta primeiro: esconde a legenda original'],
       ['R', 'Revisão rápida'],
@@ -25,6 +25,8 @@ export const SHORTCUT_GROUPS = [
   {
     title: 'Ajustar',
     items: [
+      ['[', 'Falar mais devagar (−0,05×)'],
+      [']', 'Falar mais rápido (+0,05×)'],
       ['Z', 'Legenda 0,1 s mais tarde'],
       ['X', 'Legenda 0,1 s mais cedo'],
       ['O', 'Configurações'],

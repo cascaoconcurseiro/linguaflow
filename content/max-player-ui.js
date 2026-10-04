@@ -263,7 +263,7 @@ export class MaxPlayerUI {
       <button type="button" data-action="next" title="Próxima legenda (D)" aria-label="Próxima legenda">›</button>
       <button type="button" data-action="speed" title="Velocidade do vídeo: 1×" aria-label="Velocidade do vídeo: 1×. Clique para alterar">1×</button>
       <span class="lf-max-separator" aria-hidden="true"></span>
-      <button type="button" data-action="panel" title="Painel de legendas (L)" aria-label="Painel de legendas">▤</button>
+      <button type="button" data-action="panel" title="Painel de legendas" aria-label="Painel de legendas">▤</button>
       <button type="button" data-action="settings" title="Configurações LinguaFlow (O)" aria-label="Configurações LinguaFlow">⚙</button>
     `;
 

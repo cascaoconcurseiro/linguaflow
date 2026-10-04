@@ -3,6 +3,10 @@
 // envio errado e sem dica soma combo; dica, resposta revelada, envio errado ou
 // pular quebram o combo; repetir o áudio não. O servidor recalcula precisão,
 // erros e revisões a partir de buildResults(); score/combo têm teto no servidor.
+//
+// Palavra com frase de exemplo (#442): depois de acertar a palavra a unidade
+// entra na etapa 'example' (digitar a frase). A frase é prática: erros, dicas
+// e pular nela quebram o combo, mas não mudam o que buildResults() envia.
 
 import { tokenizeSentence, evaluateSentenceAttempt } from './inputEngine.js';
 
@@ -18,6 +22,9 @@ export function createPracticeSession(units) {
   const perUnit = units.map((unit) => ({
     unitId: unit.id,
     tokens: tokenizeSentence(unit.text),
+    exampleTokens: unit.kind === 'word' && unit.example_en ? tokenizeSentence(unit.example_en) : null,
+    stage: 'word',
+    exampleAttempts: 0,
     attempts: 0,
     hintCount: 0,
     hintedSlots: new Set(),
@@ -34,12 +41,16 @@ export function createPracticeSession(units) {
   let score = 0;
 
   const state = () => perUnit[index];
+  const inExample = () => state()?.stage === 'example';
 
   return {
     get index() { return index; },
     get total() { return units.length; },
     get unit() { return units[index] || null; },
-    get tokens() { return state()?.tokens || []; },
+    get tokens() { return (inExample() ? state().exampleTokens : state()?.tokens) || []; },
+    get stage() { return state()?.stage || 'word'; },
+    get currentText() { return inExample() ? units[index].example_en : units[index]?.text; },
+    get currentTranslation() { return inExample() ? units[index].example_pt || '' : units[index]?.translation_pt; },
     get streak() { return streak; },
     get highestCombo() { return highestCombo; },
     get score() { return score; },
@@ -54,6 +65,10 @@ export function createPracticeSession(units) {
     hintWord(slot) {
       const s = state();
       if (!s || s.done) return null;
+      if (inExample()) {
+        streak = 0;
+        return s.exampleTokens[slot]?.targetWord || null;
+      }
       const token = s.tokens[slot];
       if (!token) return null;
       if (!s.hintedSlots.has(slot)) {
@@ -66,7 +81,9 @@ export function createPracticeSession(units) {
 
     reveal() {
       const s = state();
-      if (!s || s.done || s.revealed) return false;
+      if (!s || s.done) return false;
+      if (inExample()) { streak = 0; return true; }
+      if (s.revealed) return false;
       s.revealed = true;
       streak = 0;
       return true;
@@ -75,6 +92,16 @@ export function createPracticeSession(units) {
     submit(words) {
       const s = state();
       if (!s || s.done) throw new Error('Nenhuma frase ativa');
+      if (inExample()) {
+        s.exampleAttempts += 1;
+        const evaluation = evaluateSentenceAttempt(s.exampleTokens, words);
+        if (!evaluation.isCorrect) { streak = 0; return { ...evaluation, gained: 0 }; }
+        s.done = true;
+        frontier = Math.max(frontier, index + 1);
+        const gained = s.exampleAttempts === 1 ? 50 : 10;
+        score += gained;
+        return { ...evaluation, gained, clean: s.exampleAttempts === 1 };
+      }
       s.attempts += 1;
       const evaluation = evaluateSentenceAttempt(s.tokens, words);
 
@@ -86,8 +113,6 @@ export function createPracticeSession(units) {
         return { ...evaluation, gained: 0 };
       }
 
-      s.done = true;
-      frontier = Math.max(frontier, index + 1);
       const clean = s.attempts === 1 && s.hintCount === 0 && !s.revealed;
       let gained = 25;
       if (clean) {
@@ -96,6 +121,12 @@ export function createPracticeSession(units) {
         gained = Math.round(100 * comboMultiplier(streak));
       }
       score += gained;
+      if (s.exampleTokens) {
+        s.stage = 'example';
+        return { ...evaluation, gained, clean, nextStage: 'example' };
+      }
+      s.done = true;
+      frontier = Math.max(frontier, index + 1);
       return { ...evaluation, gained, clean };
     },
 
@@ -103,6 +134,13 @@ export function createPracticeSession(units) {
     skip(words = []) {
       const s = state();
       if (!s || s.done) return false;
+      if (inExample()) {
+        // A palavra já foi acertada: pular só a frase não a manda para revisão.
+        s.done = true;
+        frontier = Math.max(frontier, index + 1);
+        streak = 0;
+        return true;
+      }
       s.skipped = true;
       s.revealed = true;
       s.attempts = Math.max(s.attempts, 1) + 1;

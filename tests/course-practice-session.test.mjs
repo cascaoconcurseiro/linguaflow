@@ -101,3 +101,51 @@ test('resposta em branco vira erro legível; lição vazia é recusada; combo te
   assert.equal(comboMultiplier(4), 2);
   assert.equal(comboMultiplier(100), 4);
 });
+
+// #442 — palavra com frase de contexto: depois da palavra, o aluno digita a frase.
+const WORD = [
+  { id: 'w1', kind: 'word', text: 'red', example_en: 'She has a red car.', example_pt: 'Ela tem um carro vermelho.' },
+  { id: 'w2', kind: 'word', text: 'blue' },
+];
+
+test('#442: acertar a palavra abre a etapa da frase sem concluir a unidade', () => {
+  const s = createPracticeSession(WORD);
+  assert.equal(s.stage, 'word');
+  const r = s.submit(['red']);
+  assert.equal(r.isCorrect, true);
+  assert.equal(r.nextStage, 'example');
+  assert.equal(s.stage, 'example');
+  assert.equal(s.currentDone, false);
+  assert.equal(s.currentText, 'She has a red car.');
+  assert.equal(s.currentTranslation, 'Ela tem um carro vermelho.');
+  assert.deepEqual(s.tokens.map((t) => t.targetWord.toLowerCase()), ['she', 'has', 'a', 'red', 'car']);
+  const scoreAfterWord = s.score;
+  const done = s.submit(['she', 'has', 'a', 'red', 'car']);
+  assert.equal(done.isCorrect, true);
+  assert.equal(s.currentDone, true);
+  assert.ok(s.score > scoreAfterWord, 'frase certa soma pontos');
+  s.next();
+  assert.equal(s.stage, 'word', 'unidade sem exemplo fica só na palavra');
+  assert.equal(s.currentText, 'blue');
+});
+
+test('#442: erro, dica e pular na frase não mudam o resultado da palavra enviado ao servidor', () => {
+  const s = createPracticeSession(WORD);
+  s.submit(['red']);
+  const before = s.buildResults()[0];
+  assert.equal(s.submit(['she', 'had', 'a', 'red', 'car']).isCorrect, false);
+  assert.equal(s.streak, 0, 'envio errado na frase quebra o combo');
+  s.hintWord(1);
+  assert.deepEqual(s.buildResults()[0], before, 'frase não altera tentativas/dicas da palavra');
+  assert.equal(s.skip(['she']), true);
+  assert.equal(s.currentDone, true);
+  assert.deepEqual(s.buildResults()[0], { unit_id: 'w1', attempts: 1, hint_count: 0, revealed: false, wrong_text: null });
+  assert.equal(s.summary().accuracy, 100);
+});
+
+test('#442: frases (não palavras) continuam com uma etapa só', () => {
+  const s = createPracticeSession([{ id: 'p', kind: 'sentence', text: 'No worries.', example_en: 'x y.' }]);
+  s.submit(['no', 'worries']);
+  assert.equal(s.currentDone, true);
+  assert.equal(s.stage, 'word');
+});

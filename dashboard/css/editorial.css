@@ -315,16 +315,16 @@ html body .study-resources-content .learning-resource-section h3 { display:none;
 html body .home-first-steps { padding:32px 0 36px; border-bottom:1px solid var(--color-border); }
 html body .home-first-steps h1 { font-size:clamp(28px,3.6vw,44px); line-height:1.2; max-width:24ch; margin:6px 0 10px; }
 html body .first-steps-list { list-style:none; margin:24px 0 18px; padding:0; max-width:640px; }
-html body .first-step { display:grid; grid-template-columns:44px 1fr; gap:14px; padding:16px 0; border-top:1px solid var(--color-border); opacity:.62; transition:opacity .2s ease; }
-html body .first-step.is-current, html body .first-step.is-done { opacity:1; }
+html body .first-step { display:grid; grid-template-columns:44px 1fr; gap:14px; padding:16px 0; border-top:1px solid var(--color-border); }
+/* Passos futuros ficam em cor secundária (contraste AA); não usamos opacity, que derrubava o contraste. */
+html body .first-step:not(.is-current):not(.is-done) h2 { color:var(--color-text-light); }
 html body .first-step-index { font:600 26px/1 var(--font-display, Georgia, serif); color:var(--color-text-light); }
 html body .first-step.is-current .first-step-index { color:var(--color-primary, currentColor); }
-html body .first-step h3 { margin:0 0 4px; font-size:17px; }
+html body .first-step h2 { margin:0 0 4px; font-size:17px; line-height:1.3; }
 html body .first-step p { margin:0; color:var(--color-text-light); font-size:14px; line-height:1.5; }
 html body .first-step-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
 html body .first-step-btn { display:inline-flex; align-items:center; min-height:40px; padding:0 16px; border:1px solid var(--color-border); border-radius:6px; background:transparent; color:inherit; font:600 14px/1 inherit; cursor:pointer; text-decoration:none; }
 html body .first-step-btn-primary { background:var(--color-text, #111); color:var(--color-bg, #fff); border-color:transparent; }
 html body .first-step-btn:focus-visible, html body .first-step-link:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
 html body .first-step-link { background:none; border:0; padding:8px 0; color:var(--color-text-light); font:500 14px/1 inherit; cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
-@media (prefers-reduced-motion: reduce) { html body .first-step { transition:none; } }
 html body .first-step .visually-hidden { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }

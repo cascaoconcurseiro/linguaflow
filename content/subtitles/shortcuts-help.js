@@ -69,7 +69,7 @@ export function showShortcutsHelp({ onClose } = {}) {
       #${HELP_ID} kbd{display:inline-block;min-width:26px;text-align:center;padding:2px 8px;border-radius:6px;background:#1e293b;
         border:1px solid #334155;font:600 13px ui-monospace,monospace;color:#f8fafc;}
       #${HELP_ID} button{margin-top:14px;appearance:none;border:0;border-radius:8px;padding:9px 18px;cursor:pointer;
-        font:600 14px system-ui;background:#0284c7;color:#fff;}
+        font:600 14px system-ui;background:#0369a1;color:#fff;}
       #${HELP_ID} button:focus-visible{outline:2px solid #7dd3fc;outline-offset:2px;}
       @media (prefers-reduced-motion:reduce){#${HELP_ID}{transition:none;}}
     </style>

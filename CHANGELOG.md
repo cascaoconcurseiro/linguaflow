@@ -9,6 +9,7 @@
 - **Mais controle no player**: `Z`/`X` ajustam a sincronia da legenda em 0,1 s sem abrir as configurações; `B` marca um laço entre dois pontos (A–B); `V` liga a escuta primeiro (legenda original escondida); `F` escolhe palavras da legenda só com o teclado (setas, Enter abre o card, Esc volta); `?` abre a lista de todos os atalhos. Com o LinguaFlow desligado, nenhum deles age (#432).
 
 ### Corrigido
+- **Acessibilidade das telas novas**: verificação automática (axe) apontou contraste insuficiente nos passos futuros do "Primeiros passos" e nos botões azuis dos diálogos do player, e títulos pulando um nível; tudo corrigido, 0 violações (#427, #432).
 - **Nota errada em "ninety" corrigida**: dizia que a palavra "mantém o 'e' de 'nine'"; é o contrário (perde o 'e'). Achado pela amostra de revisão humana; corrigido por um lote novo, já que migrations publicadas não se editam (#435).
 - **Documentação alinhada ao que o app faz**: README e arquitetura citavam modos de revisão "Speed Review" e "Reconhecimento de Áudio" que não existem; agora descrevem as 4 formas reais de revisar. O teste obsoleto de horas de estudo passa a verificar a ausência do contador automático removido em #387 (#435).
 - **A tecla `Q` (pausa automática) agora salva a escolha**: ela chamava um método que não existe e a preferência se perdia ao recarregar. O painel de configurações também passa a refletir mudanças feitas por atalho, em vez de mostrar o valor antigo (#432).

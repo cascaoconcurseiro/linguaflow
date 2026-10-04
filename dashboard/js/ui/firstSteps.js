@@ -55,7 +55,7 @@ export function renderFirstSteps(steps) {
     return `<li class="first-step${step.done ? ' is-done' : ''}${step.current ? ' is-current' : ''}"${step.current ? ' aria-current="step"' : ''}>
       <span class="first-step-index" aria-hidden="true">${step.done ? '✓' : index + 1}</span>
       <div class="first-step-body">
-        <h3>${esc(step.title)}<span class="visually-hidden">${step.done ? ' — concluído' : ''}</span></h3>
+        <h2>${esc(step.title)}<span class="visually-hidden">${step.done ? ' — concluído' : ''}</span></h2>
         <p>${esc(step.hint)}</p>
         ${actions.length ? `<div class="first-step-actions">${actions.join('')}</div>` : ''}
       </div>

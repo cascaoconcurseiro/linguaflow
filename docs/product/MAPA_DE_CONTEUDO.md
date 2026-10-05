@@ -90,3 +90,5 @@ Padrões por tipo:
 - [x] **Expressões Idiomáticas e Fluência** (B2) 1–6: trabalho, sentimentos, dinheiro e tempo, marcadores, suavizar opiniões, contar histórias (fluencia-1)
 - [x] **Histórias em Trechos** (B1) 1–10: dez contos originais em oito trechos cada (historias-1)
 - [x] **Parágrafos** (B2) 1–10: apresentação, rotina, cidade, viagem, opinião, e-mail formal, resenha, processo, comparação, planos; quatro parágrafos cada (paragrafos-1)
+- [ ] **Inglês Falado: Reduções** (A2, piloto, fora da trilha guiada) 1: c'mon, gotcha, shoulda, coulda, outta, whaddya, tryna, ain't, lotta, "you gonna…?" (reducoes-1, #503). Os capítulos seguintes só depois de o dono escutar o áudio; `'cause` e `'em` (apóstrofo inicial) dependem de conferir o motor de digitação.
+- [ ] **Lacunas do B2 (planejado, ainda não feito)**: completar Expressões Idiomáticas de 6 para 10 capítulos, subir Parágrafos de 4 para 8 frases por capítulo e criar "Fala Conectada" (B2: should've, linking, fala rápida). Não existe C1.

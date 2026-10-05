@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 const home = readFileSync(new URL('../dashboard/js/ui/homeView.js', import.meta.url), 'utf8');
 
 assert.match(home, /estimativa inicial/);
-assert.match(home, /Prefiro estimar com um teste curto/);
+assert.doesNotMatch(home, /Prefiro estimar com um teste curto|btn-onboarding-placement|runPlacementTest/, "o onboarding não oferece mais o teste de nível (#498)");
 assert.match(home, /Com que carga você quer começar/);
 assert.match(home, /GOAL_TO_NEW_PER_DAY = \{ 10: 5, 20: 10, 40: 20 \}/);
 assert.match(home, /Leve[\s\S]*Regular[\s\S]*Intensa/);

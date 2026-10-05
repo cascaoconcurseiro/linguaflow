@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeQuiz, generateStoryQuiz } from '../dashboard/js/ui/storiesQuiz.js';
-import { runPlacementTest } from '../dashboard/js/ui/cefrPlacementTest.js';
 
 test('storiesQuiz: normalizeQuiz sanitiza e valida estrutura de 3 a 5 perguntas', () => {
   const invalidEmpty = normalizeQuiz(null);
@@ -56,6 +55,3 @@ test('storiesQuiz: generateStoryQuiz gera quiz embaralhado com mock de IA', asyn
   }
 });
 
-test('cefrPlacementTest: runPlacementTest é uma função assíncrona exportada', () => {
-  assert.equal(typeof runPlacementTest, 'function');
-});

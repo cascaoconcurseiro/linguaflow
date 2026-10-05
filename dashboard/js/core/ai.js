@@ -347,30 +347,6 @@ export async function generateStoryWeb(genre, onChunk, userWords = [], options =
   return { story, level: cefr, requestedWords: reencounter, targetMinutes, learningGoal, promptVersion: STORY_PROMPT_VERSION };
 }
 
-// Onda 3.2 — Fase 4 do nivelamento: corrige a mini-produção escrita como um
-// examinador Cambridge corrigiria (rubric de gramática/vocabulário/coesão),
-// devolvendo um ajuste pequeno (-1/0/+1 banda) — nunca decide o nível sozinha,
-// só confirma ou nuança o resultado objetivo do vocabulário/cloze/listening.
-export async function gradeWriting(text, prompt, estimatedLevel) {
-  const system = `Você é um examinador certificado de proficiência em inglês (padrão Cambridge/CEFR), avaliando um aluno brasileiro cujo nível estimado por outras provas é ${estimatedLevel}.
-Avalie o texto pelos critérios: gramática, vocabulário, coesão/coerência e adequação à tarefa pedida.
-Responda APENAS com JSON válido:
-{
-  "adjust": -1 | 0 | 1,
-  "feedback": "até 2 frases em português, diretas, sem elogio vazio — aponte o principal erro ou acerto"
-}
-"adjust" = -1 se o texto está CLARAMENTE abaixo do nível estimado (muitos erros básicos pro nível); 0 se compatível; +1 APENAS se claramente acima (raro). Nunca ajuste mais de 1 banda.`;
-  const user = `Tarefa pedida: ${prompt}\n\nTexto do aluno:\n${text}`;
-  const content = await aiChat(
-    [{ role: 'system', content: system }, { role: 'user', content: user }],
-    { temperature: 0.3, max_tokens: 300 }
-  );
-  const parsed = safeParseJson(content) || {};
-  const adjust = [-1, 0, 1].includes(parsed.adjust) ? parsed.adjust : 0;
-  const feedback = typeof parsed.feedback === 'string' ? parsed.feedback.slice(0, 400) : '';
-  return { adjust, feedback };
-}
-
 // Onda 3.3 (Linguista) — mnemônico estilo Memrise: uma associação memorável
 // e curta pra fixar a palavra (som parecido em português, imagem mental,
 // trocadilho). Gerado uma vez e salvo no card (words.mnemonic) — não é

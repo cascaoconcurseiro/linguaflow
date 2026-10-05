@@ -3,8 +3,6 @@ import { db as lfDb } from '../../../utils/db.js';
 import { preloadKokoro } from '../core/tts.js';
 import { bindViewStateAction, escapeHtml, renderViewState } from './viewState.js';
 
-import { runPlacementTest } from './cefrPlacementTest.js';
-export { runPlacementTest };
 
 const isExtensionCtx = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
 
@@ -84,8 +82,7 @@ export async function renderSettings(container, app) {
           <button class="cefr-btn lf-btn-bounce" data-level="C1" aria-pressed="${cefr === 'C1' ? 'true' : 'false'}">C1<br><span>Avançado</span></button>
           <button class="cefr-btn lf-btn-bounce" data-level="C2" aria-pressed="${cefr === 'C2' ? 'true' : 'false'}">C2<br><span>Proficiente</span></button>
         </div>
-        <button id="btn-placement" class="btn btn-secondary" style="margin-top:16px; width:100%;">Estimar meu nível (~4 min)</button>
-        <p style="font-size:12px; color:var(--color-text-light); margin-top:8px;">Uma estimativa inicial com vocabulário, gramática em contexto e escuta — não substitui uma avaliação CEFR completa.</p>
+        <p style="font-size:12px; color:var(--color-text-light); margin-top:12px;">Escolha o que mais se aproxima de você hoje. Não é uma avaliação formal e não precisa ser exato.</p>
       </div>
 
       <!-- Daily Limits (agora REAIS: controlam a fila de estudo) -->
@@ -990,19 +987,6 @@ export async function renderSettings(container, app) {
       }
     });
   })();
-
-  document.getElementById('btn-placement')?.addEventListener('click', () => {
-    runPlacementTest(app, (level) => {
-      // Reflete o nível novo nos botões da tela sem recarregar
-      document.querySelectorAll('.cefr-btn').forEach(b => {
-        const active = b.dataset.level === level;
-        b.setAttribute('aria-pressed', String(active));
-        b.style.background = active ? 'var(--color-primary)' : 'var(--color-surface)';
-        b.style.color = active ? 'white' : 'var(--color-text)';
-        b.style.borderColor = active ? 'var(--color-primary)' : 'var(--color-border)';
-      });
-    });
-  });
 
   const logoutBtn = document.getElementById('btn-logout');
   if (logoutBtn) {

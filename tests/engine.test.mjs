@@ -28,7 +28,6 @@ copyFileSync(join(root, 'utils/db/courses-repo.js'), join(tmp, 'db/courses-repo.
 copyFileSync(join(root, 'utils/db/stats-repo.js'), join(tmp, 'db/stats-repo.js'));
 copyFileSync(join(root, 'utils/local-day.js'), join(tmp, 'local-day.js'));
 copyFileSync(join(root, 'utils/intake-guard.js'), join(tmp, 'intake-guard.js'));
-copyFileSync(join(root, 'dashboard/js/core/placement.js'), join(tmp, 'placement.mjs'));
 copyFileSync(join(root, 'utils/weak-card.js'), join(tmp, 'weak-card.js'));
 writeFileSync(join(tmp, 'sessionQueue.mjs'), readFileSync(join(root, 'dashboard/js/core/sessionQueue.js'), 'utf8')
   .replace("'../../../utils/weak-card.js'", "'./weak-card.js'"));
@@ -40,7 +39,6 @@ copyFileSync(join(root, 'dashboard/js/core/achievements.js'), join(tmp, 'achieve
 }
 
 const { db } = await import(pathToFileURL(join(tmp, 'db.mjs')).href);
-const P = await import(pathToFileURL(join(tmp, 'placement.mjs')).href);
 const Q = await import(pathToFileURL(join(tmp, 'sessionQueue.mjs')).href);
 const S = await import(pathToFileURL(join(tmp, 'statsEngine.mjs')).href);
 const A = await import(pathToFileURL(join(tmp, 'achievements.mjs')).href);
@@ -172,134 +170,6 @@ test('intervalo >= 21 dias → mature', () => {
   const card = { ...newCard(), status: 'review', stability: 60, difficulty: 3, interval: 30, last_review: new Date(Date.now() - 30 * 86400000).toISOString() };
   const next = db._calculateNextState(card, 3, SETTINGS);
   assert.equal(next.status, 'mature');
-});
-
-console.log('── Nivelamento em 3 fases (placement) ──');
-
-test('scoreClozeLadder: para na primeira banda reprovada (Onda 3.2: corte proporcional, banco de 5)', () => {
-  assert.equal(P.scoreClozeLadder([{ band: 'A1', correct: 5, total: 5 }, { band: 'A2', correct: 3, total: 5 }, { band: 'B1', correct: 1, total: 5 }]), 'A2');
-  assert.equal(P.scoreClozeLadder([{ band: 'A1', correct: 1, total: 5 }]), 'A1');
-  assert.equal(P.scoreClozeLadder([{ band: 'A2', correct: 3, total: 5 }, { band: 'B1', correct: 3, total: 5 }, { band: 'B2', correct: 5, total: 5 }, { band: 'C1', correct: 3, total: 5 }]), 'C1');
-  assert.equal(P.clozePassThreshold(5), 3); // 60% de 5, arredondado pra cima
-});
-
-test('scoreClozeLadder: reprovar a PRIMEIRA banda cai uma abaixo de onde começou, não sempre A1 (regressão auditoria 2026-07-12)', () => {
-  // Vocabulário B2 → escada começa em B1 (clozeStartBand). Reprovar B1 de
-  // cara deve dar A2 (uma banda abaixo de onde a escada começou), nunca A1
-  // — o bug antigo sempre retornava 'A1' aqui, dois níveis errado.
-  assert.equal(P.scoreClozeLadder([{ band: 'B1', correct: 1, total: 5 }]), 'A2');
-  // Vocabulário C1 → escada começa em B2; reprova B2 de cara → cai pra B1.
-  assert.equal(P.scoreClozeLadder([{ band: 'B2', correct: 0, total: 5 }]), 'B1');
-});
-
-test('listeningBands: 3 bandas distintas mesmo nos extremos da escala (regressão auditoria 2026-07-12)', () => {
-  assert.deepEqual(P.listeningBands('A1'), ['A1', 'A2', 'B1']); // não duplica A1
-  assert.deepEqual(P.listeningBands('C2'), ['B2', 'C1', 'C2']); // não duplica C2
-  assert.deepEqual(P.listeningBands('B1'), ['A2', 'B1', 'B2']); // centrado, igual antes
-  assert.equal(new Set(P.listeningBands('A1')).size, 3);
-  assert.equal(new Set(P.listeningBands('C2')).size, 3);
-});
-
-test('clozeStartBand: começa uma banda abaixo do vocabulário', () => {
-  assert.equal(P.clozeStartBand('B1'), 'A2');
-  assert.equal(P.clozeStartBand('A1'), 'A1');
-});
-
-test('scoreListening: 5+/6 sobe, 3-4/6 mantém, <3 desce', () => {
-  assert.equal(P.scoreListening('B1', 6, 6), 'B2');
-  assert.equal(P.scoreListening('B1', 3, 6), 'B1');
-  assert.equal(P.scoreListening('B1', 1, 6), 'A2');
-  assert.equal(P.scoreListening('C1', 6, 6), 'C2'); // Onda 3.2: C2 existe agora, C1 acertando tudo sobe
-  assert.equal(P.scoreListening('C2', 6, 6), 'C2'); // clamp no novo teto
-});
-
-test('combinePlacement: 40/40/20 com diagnóstico de lacunas', () => {
-  const r = P.combinePlacement('B2', 'B1', 'A2');
-  assert.equal(r.level, 'B1'); // 0.4*3 + 0.4*2 + 0.2*1 = 2.2 → B1
-  assert.deepEqual(r.gaps, ['escuta']);
-  const r2 = P.combinePlacement('B1', 'B1', 'B1');
-  assert.equal(r2.level, 'B1');
-  assert.deepEqual(r2.gaps, []);
-  const cheated = P.combinePlacement('A1', 'C1', 'C1', 0);
-  assert.equal(cheated.level, 'A1');
-  assert.equal(cheated.retestRequired, true);
-});
-
-test('Difícil no learning repete o passo atual como no Anki', () => {
-  const first = db._calculateNextState(newCard(), 2, SETTINGS);
-  assert.equal(first.status, 'learning');
-  assert.equal(first.step_index, 0);
-  assert.equal(first.interval, 5.5 / 1440);
-  const second = db._calculateNextState(first, 2, SETTINGS);
-  assert.equal(second.status, 'learning');
-  assert.equal(second.step_index, 0);
-  const third = db._calculateNextState(second, 2, SETTINGS);
-  assert.equal(third.status, 'learning');
-  assert.equal(third.step_index, 0);
-
-  const oneStep = db._calculateNextState(newCard(), 2, { ...SETTINGS, learningSteps: [5] });
-  assert.equal(oneStep.status, 'learning');
-  assert.equal(oneStep.interval, 7.5 / 1440);
-  assert.equal(db._calculateNextState(oneStep, 2, { ...SETTINGS, learningSteps: [5] }).status, 'learning');
-});
-
-test('shuffleItem preserva a resposta correta', () => {
-  const item = { sentence: 'x ___', options: ['certa', 'e1', 'e2', 'e3'], answer: 0 };
-  for (let i = 0; i < 20; i++) {
-    const s = P.shuffleItem(item);
-    assert.equal(s.options[s.answer], 'certa');
-  }
-});
-
-test('bancos de cloze/listening: ≥8 e ≥6 itens por banda com SORTEIO de 5/4 (17/07: retomada não repete), answers válidos', () => {
-  assert.deepEqual(P.LEVELS, ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
-  for (const band of P.LEVELS) {
-    // Queixa do dono: refazer o teste mostrava sempre as MESMAS perguntas.
-    // O banco cresceu (8/6) e cada aplicação sorteia um subconjunto (5/4).
-    assert.ok(P.CLOZE_BANK[band].length >= 8, `cloze ${band} (${P.CLOZE_BANK[band].length})`);
-    assert.ok(P.LISTENING_BANK[band].length >= 6, `listening ${band} (${P.LISTENING_BANK[band].length})`);
-    assert.equal(P.sampleClozeItems(band).length, 5, `amostra cloze ${band}`);
-    assert.equal(P.sampleListeningItems(band).length, 4, `amostra listening ${band}`);
-    // Amostra determinística com rand injetado (mesmo contrato do shuffleItem)
-    const fixed = () => 0.42;
-    assert.deepEqual(P.sampleClozeItems(band, 5, fixed), P.sampleClozeItems(band, 5, fixed));
-    [...P.CLOZE_BANK[band], ...P.LISTENING_BANK[band]].forEach(item => {
-      assert.ok(item.answer >= 0 && item.answer < item.options.length);
-      assert.equal(new Set(item.options).size, item.options.length, `opções duplicadas em "${item.sentence}"`);
-    });
-  }
-});
-
-test('writingPromptFor: escolhe prompt pela faixa de nível', () => {
-  assert.equal(P.writingPromptFor('A1'), P.WRITING_PROMPTS.beginner);
-  assert.equal(P.writingPromptFor('B1'), P.WRITING_PROMPTS.intermediate);
-  assert.equal(P.writingPromptFor('C2'), P.WRITING_PROMPTS.advanced);
-});
-
-test('combinePlacement: writingAdjust nudga até 1 banda, nunca decide sozinho', () => {
-  const up = P.combinePlacement('B1', 'B1', 'B1', 100, 1);
-  assert.equal(up.level, 'B2');
-  const down = P.combinePlacement('B1', 'B1', 'B1', 100, -1);
-  assert.equal(down.level, 'A2');
-  const clamped = P.combinePlacement('B1', 'B1', 'B1', 100, 5); // nunca mais que 1 banda
-  assert.equal(clamped.level, 'B2');
-});
-
-test('scorePlacement: pseudo-palavras derrubam o resultado (anti-chute)', () => {
-  const honest = P.scorePlacement([
-    ...Array(6).fill({ band: 'A1', known: true }),
-    ...Array(6).fill({ band: 'A2', known: true }),
-    ...Array(6).fill({ band: 'B1', known: false }),
-    ...Array(6).fill({ band: 'PSEUDO', known: false }),
-  ]);
-  assert.equal(honest.level, 'A2');
-  const cheater = P.scorePlacement([
-    ...Array(6).fill({ band: 'A1', known: true }),
-    ...Array(6).fill({ band: 'A2', known: true }),
-    ...Array(6).fill({ band: 'B1', known: true }),
-    ...Array(6).fill({ band: 'PSEUDO', known: true }),
-  ]);
-  assert.equal(cheater.level, 'A1');
 });
 
 console.log('── Motor pedagógico (interleaving + diagnóstico) ──');

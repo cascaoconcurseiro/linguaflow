@@ -5,7 +5,6 @@ import { escapeHtml } from '../dashboard/js/ui/viewState.js';
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const library = read('dashboard/js/ui/libraryView.js');
 const settings = read('dashboard/js/ui/settingsView.js');
-const placement = read('dashboard/js/ui/cefrPlacementTest.js');
 
 assert.equal(escapeHtml('<img src=x onerror=alert(1)> & "x"'), '&lt;img src=x onerror=alert(1)&gt; &amp; &quot;x&quot;');
 assert.match(library, /escapeHtml\(w\.word\)/);
@@ -36,7 +35,7 @@ assert.match(settings, /Number\.isFinite\(parsedNewPerDay\) \? parsedNewPerDay :
 assert.doesNotMatch(settings, /Number\(srsNewPerDay \?\? 5\) \|\| 5/,
   'a tela não pode converter zero cards novos em cinco');
 assert.match(settings, /Seu nível aproximado/);
-assert.match(settings, /não substitui uma avaliação CEFR completa/);
+assert.match(settings, /Não é uma avaliação formal e não precisa ser exato/);
 assert.match(settings, /Salvar configurações/);
 for (const id of [
   'srs-new-per-day', 'srs-max-rev', 'srs-vault-cap', 'retention-slider',
@@ -48,12 +47,6 @@ for (const id of [
 }
 assert.match(settings, /id="tts-lang-selector" role="group" aria-labelledby="tts-lang-label"/);
 assert.match(settings, /id="tts-speed-selector" role="group" aria-labelledby="tts-speed-label"/);
-assert.match(placement, /<label for="pl-writing"/,
-  'produção escrita do nivelamento deve ter label associado');
-assert.match(placement, /id="pl-writing"[^>]*aria-describedby="pl-writing-prompt pl-writing-count"/,
-  'textarea deve anunciar o enunciado e a contagem mínima');
-assert.match(placement, /id="pl-writing-count"[^>]*role="status"[^>]*aria-live="polite"/,
-  'contagem dinâmica da produção deve ser anunciada sem interromper');
 assert.match(settings, /class="cefr-btn[^>]*aria-pressed="\$\{cefr === '[A-C][12]' \? 'true' : 'false'\}"/,
   'cada opção CEFR deve expor seu estado selecionado');
 assert.match(settings, /class="tts-opt-btn"[^>]*aria-pressed="\$\{ttsLang === 'en-US' \? 'true' : 'false'\}"/,
@@ -71,13 +64,8 @@ assert.match(settings, /Number\.isFinite\(value\) && value > 0/,
   'learning steps devem rejeitar valores não finitos e não positivos');
 assert.match(settings, /Number\.isFinite\(Number\(token\)\) && Number\(token\) > 0/,
   'overrides por categoria devem validar todos os passos');
-assert.match(placement, /setAttribute\('role', 'dialog'\)[\s\S]+setAttribute\('aria-modal', 'true'\)[\s\S]+setAttribute\('aria-labelledby', 'pl-dialog-title'\)/,
-  'placement deve ser um diálogo nomeado e modal');
-assert.match(placement, /event\.key === 'Escape'[\s\S]+closeAll\(\)/,
-  'placement deve fechar com Escape');
-assert.match(placement, /const closeAll[\s\S]+returnFocusTo\?\.focus\(\)/,
-  'placement deve restaurar foco ao fechar');
-assert.match(placement, /escapeHtml\(writingResult\.feedback\)/,
-  'feedback da IA no placement deve ser escapado');
+// O teste de nível foi removido (#498): o aluno só informa o nível estimado.
+assert.doesNotMatch(settings, /btn-placement|Estimar meu nível|runPlacementTest/, 'Configurações não oferece mais o teste de nível');
+assert.match(settings, /id="cefr-selector" role="group" aria-label="Nível CEFR"/, 'o seletor manual de nível continua acessível');
 
 console.log('✓ P1-A: Cofre escaneável e Configurações seguras');

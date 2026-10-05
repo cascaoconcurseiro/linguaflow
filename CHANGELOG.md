@@ -2,6 +2,9 @@
 
 ## [Não lançado]
 
+### Removido
+- **Teste de nível (#498)**: saem o botão "Estimar meu nível (~4 min)" das Configurações, o "Prefiro estimar com um teste curto" do onboarding, a prova de 3 fases e a correção de redação por IA que só ela usava. O aluno escolhe o nível estimado (A1 a C2) nas Configurações, como antes, e isso continua definindo o ponto de partida do curso. Quem já fez o teste mantém o nível gravado. Check de comunicação e destaque colorido de palavras na legenda não mudam.
+
 ### Adicionado
 - **Plano de hoje no Início (#495)**: curso e cards viram uma fila só. O Início lista, em ordem, as revisões de cards, as revisões vencidas do curso e a próxima lição, com o tempo estimado ("cerca de N min", heurística, não medição) e um botão principal. Sem nada vencido, mostra "Acabou por hoje". A sessão de cards continua limitada a 35 revisões por dia. Reversão sem deploy: Configurações → desmarcar "Plano de hoje no Início" (o bloco antigo volta).
 - **Freio de entrada de palavras (#495)**: com mais de 40 revisões vencidas (ajustável em Configurações → "Freio de entrada"), a palavra salva entra em espera em vez de virar mais dívida. Ela volta sozinha, até 5 por dia, quando a fila cai para a metade do limite; nada se perde. Colocar 0 desliga o freio e devolve tudo o que estava esperando. Migration nova (`20261005100000`) só amplia a lista de eventos de uso.

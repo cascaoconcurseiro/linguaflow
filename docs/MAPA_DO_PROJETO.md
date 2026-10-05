@@ -449,8 +449,6 @@ Para atualizar: `npm run map`.
 | `dashboard/js/core/fluencyTaskCatalog.js` | M | Catálogo versionado de tarefas de fluência por nível e habilidade, com validação e sobreposição de texto estudado. |
 | `dashboard/js/core/inputEngine.js` | M | LinguaFlow — Motor de Entrada e Tokenizador de Palavras Arquivo: dashboard/js/core/inputEngine.js Responsabilidade: Divisão em slots de palavras, cálculo de largura 'ch' |
 | `dashboard/js/core/intakeRelease.js` | P | Devolve à fila as palavras que o freio de entrada segurou, quando a dívida baixa (#495). |
-| `dashboard/js/core/levelEstimator.js` | P | Lexical review summary only. Never a measured CEFR proficiency level. |
-| `dashboard/js/core/placement.js` | M | Teste de nivelamento CEFR. |
 | `dashboard/js/core/readability.js` | P | mede o nível CEFR REAL de um texto gerado (A4 do backlog). |
 | `dashboard/js/core/reviewBatches.js` | P | Tamanhos de sessão da Revisão dos Cursos (#398). ~30 s por frase: 10 frases cabem em ~5 minutos. Fila grande desanima, então oferecemos uma sessão curta |
 | `dashboard/js/core/routeHash.js` | P | Hash das rotas: "#rota" e, em Cursos, "#courses/<seção>" ou "#courses/course/<id>". |
@@ -469,7 +467,6 @@ Para atualizar: `npm run map`.
 |---|---|---|
 | `dashboard/js/ui/activityHeatmap.js` | P | mapa de calor anual (segunda a domingo), navegável por teclado. Usado em Progresso e na Análise dos Cursos. |
 | `dashboard/js/ui/adminView.js` | M | Casca do console administrativo (#408): porta de acesso (papel + PIN), abas acessíveis e carga preguiçosa de cada aba. A autoridade é do servidor; aqui só se esconde o… |
-| `dashboard/js/ui/cefrPlacementTest.js` | M | Teste de nível (CEFR): roda a prova de nivelamento e entrega o nível estimado ao chamador. |
 | `dashboard/js/ui/coursePracticeView.js` | G | Player de prática (modo foco): ouvir a frase e digitá-la palavra por palavra. |
 | `dashboard/js/ui/coursePrepareModal.js` | P | Diálogo antes da prática: modo (fácil / médio / difícil) e configurações. |
 | `dashboard/js/ui/coursesView.js` | P | Área de Cursos: navegação própria (Início, Meus cursos, Loja, cadernos, Análise, Ranking) e a página de cada curso. Dados vindos do banco; sem conteúdo de demonstração. |
@@ -640,7 +637,7 @@ Para atualizar: `npm run map`.
 | `supabase/migrations/` | 130 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261005100000_usage_events_today_plan.sql`. Nunca edite uma migration já aplicada. |
 | `supabase/content/batches/` | 48 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
 | `tests/*.test.mjs` | 187 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
-| `tests/e2e/` | 5 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
+| `tests/e2e/` | 6 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
 | `tests/db/` | 15 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |
 | `tests/production/` | 1 | Verificação de isolamento entre contas no Supabase de produção (workflow agendado). |
 | `docs/*.md` | 6 | Documentação viva; histórico em `docs/history/`, produto em `docs/product/`. |

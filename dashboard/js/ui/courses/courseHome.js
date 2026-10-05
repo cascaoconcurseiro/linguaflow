@@ -14,12 +14,12 @@ function pathHtml(path, lessonIndex) {
     <section class="course-panel course-path" aria-labelledby="path-title">
       <div class="course-section-head">
         <h2 id="path-title" class="course-section-title">Sua trilha${path.current_level ? ` · nível ${escapeHTML(path.current_level)}` : ''}</h2>
-        ${path.placement_level ? `<span class="course-card-stats">Ponto de partida pelo nivelamento: ${escapeHTML(path.placement_level)}</span>` : ''}
+        ${path.placement_level ? `<span class="course-card-stats">Ponto de partida pelo seu nível: ${escapeHTML(path.placement_level)}</span>` : ''}
       </div>
       <ol class="course-path-levels" aria-label="Progresso por nível">
         ${path.levels.map((l) => {
           const state = l.skipped ? 'is-skipped' : l.is_completed ? 'is-done' : l.level === path.current_level ? 'is-current' : '';
-          const label = l.skipped ? 'pulado pelo nivelamento' : l.total === 0 ? 'em breve' : `${l.completed} de ${l.total} capítulos · ${l.percent}%`;
+          const label = l.skipped ? 'pulado pelo seu nível' : l.total === 0 ? 'em breve' : `${l.completed} de ${l.total} capítulos · ${l.percent}%`;
           return `<li class="course-path-level ${state}">
             <strong>${escapeHTML(l.level)}</strong><span>${LEVEL_NAME[l.level] || ''}</span>
             <div class="course-hero-progress-track" role="progressbar" aria-label="Nível ${escapeHTML(l.level)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${l.skipped ? 100 : l.percent}">

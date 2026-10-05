@@ -1,7 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {db} from '../utils/db.js';
-import {estimateLevelFromHistory} from '../dashboard/js/core/levelEstimator.js';
 const makeDb = () => Object.assign(Object.create(Object.getPrototypeOf(db)),{isProxyMode:false,_invalidateReadCache(){}});
 test('private drafts are scoped to account and removed at logout',async()=>{
  const storage=new Map();globalThis.localStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
@@ -16,11 +15,6 @@ test('Max is listening and writing is included in lifetime totals',async()=>{
  const d=makeDb();d.isChromeContext=true;assert.equal(d._sessionSource('max'),'video');
  let period;d.getSessions=async(days)=>{period=days;return [{source:'video',seconds:60,language:'en'},{source:'manual_writing',seconds:180,language:'en'}];};
  const result=await d.getStudyStats('en');assert.equal(result.summary.totalSecondsAllTime,240);assert.equal(result.writing.totalSeconds,180);assert.equal(period,null);
-});
-test('five repeated words never certify a CEFR level',()=>{
- const bands=['A1','A2','B1','B2','C1'];const words=bands.map((level,i)=>({id:`w${i}`,word:`w${i}`,level}));const cards=words.map((w,i)=>({id:`c${i}`,word_id:w.id}));
- const logs=cards.flatMap(c=>Array.from({length:10},()=>({card_id:c.id,quality:3})));
- assert.equal(estimateLevelFromHistory(logs,cards,words,{}).level,null);
 });
 
 test('issued tasks reach the real submission contract and retain IDs on retry',async()=>{

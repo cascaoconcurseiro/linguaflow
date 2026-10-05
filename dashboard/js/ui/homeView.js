@@ -1,7 +1,6 @@
 // dashboard/js/ui/homeView.js — Tela Início: próximo passo do dia, palavras difíceis, horas de estudo, conquistas e avisos.
 import { lemma } from '../../../utils/lemma.js';
 import { addLocalDays, daysBetweenLocalKeys, localDateKey } from '../../../utils/local-day.js';
-import { runPlacementTest } from './settingsView.js';
 import { computeAchievements, newlyUnlocked } from '../core/achievements.js';
 import { bindViewStateAction, escapeHtml, renderViewState } from './viewState.js';
 import { isFluencyCheckDue } from '../core/fluencyCheck.js';
@@ -189,7 +188,6 @@ function renderOnboarding(container, app, initial = {}) {
     let step = 1;
     let level = initial.level || null;
     let dailyGoal = initial.dailyGoal || null;
-    let placementCefr = null; // CEFR medido pelo teste de 3 fases (já persistido)
 
     const levels = [
         ['beginner', 'Começando', 'Ainda formo frases curtas.'],
@@ -205,8 +203,7 @@ function renderOnboarding(container, app, initial = {}) {
             <p>É apenas uma estimativa inicial para ajustar textos e explicações. Você pode mudar depois.</p>
             <div class="onboarding-options" role="radiogroup" aria-label="Nível atual de inglês">
                 ${levels.map(([value, title, description]) => `<button type="button" class="onboarding-option ${level === value ? 'selected' : ''}" role="radio" aria-checked="${level === value}" data-level="${value}"><strong>${title}</strong><span>${description}</span></button>`).join('')}
-            </div>
-            <button type="button" class="onboarding-back" id="btn-onboarding-placement" style="margin-top:12px;">Prefiro estimar com um teste curto (~4 min)</button>` : step === 2 ? `
+            </div>` : step === 2 ? `
             <p class="onboarding-kicker">PASSO 2 DE 3</p>
             <h2 id="onboarding-title">Com que carga você quer começar?</h2>
             <p>Comece leve. Expressões novas geram revisões futuras, e você pode ajustar isso depois.</p>
@@ -239,15 +236,6 @@ function renderOnboarding(container, app, initial = {}) {
         }));
         container.querySelector('#btn-onboarding-back')?.addEventListener('click', () => { step -= 1; draw(); });
         container.querySelector('#btn-onboarding-next')?.addEventListener('click', () => { step += 1; draw(); });
-        // Teste de 3 fases: mede de verdade e já grava o CEFR real
-        container.querySelector('#btn-onboarding-placement')?.addEventListener('click', () => {
-            runPlacementTest(app, (cefr) => {
-                level = cefr === 'A1' || cefr === 'A2' ? 'beginner' : cefr === 'B1' ? 'intermediate' : 'advanced';
-                placementCefr = cefr; // o teste já gravou lf_cefr_level; não sobrescrever
-                step = 2;
-                draw();
-            });
-        });
         container.querySelector('#btn-onboarding-finish')?.addEventListener('click', async (event) => {
             const button = event.currentTarget;
             const status = container.querySelector('#onboarding-status');
@@ -258,7 +246,7 @@ function renderOnboarding(container, app, initial = {}) {
                 // Salva preferências reais primeiro. O onboarding só é marcado
                 // como concluído depois que todas forem confirmadas.
                 const writes = [];
-                if (!placementCefr && LEVEL_TO_CEFR[level]) {
+                if (LEVEL_TO_CEFR[level]) {
                     writes.push(app.db.setSetting('lf_cefr_level', LEVEL_TO_CEFR[level]));
                     writes.push(app.db.setSetting('cefrTargetLevel', LEVEL_TO_CEFR[level]));
                 }

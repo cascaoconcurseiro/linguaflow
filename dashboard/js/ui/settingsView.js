@@ -20,7 +20,8 @@ export async function renderSettings(container, app) {
     'graduating_interval', 'max_interval', 'interval_modifier', 'leech_threshold',
     'leech_action', 'lf_srs_retention', 'learning_steps', 'relearning_steps', 'new_per_day',
     'max_reviews_per_day', 'lf_vault_cap', 'lf_reverse_cards', 'lf_varied_exercises',
-    'lf_audio_auto_front', 'lf_audio_auto_back', 'srs_new_order', 'srs_review_order'];
+    'lf_audio_auto_front', 'lf_audio_auto_back', 'srs_new_order', 'srs_review_order',
+    'lf_intake_pause_due', 'lf_today_plan'];
   container.setAttribute('aria-busy', 'true');
   container.innerHTML = renderViewState({ kind: 'loading', title: 'Carregando suas configurações…', message: 'Lendo suas preferências sem alterar nenhum valor.' });
   let settings;
@@ -40,7 +41,7 @@ export async function renderSettings(container, app) {
   container.setAttribute('aria-busy', 'false');
   const [savedCefr, savedTtsLang, savedTtsSpeed, srsGradInt, srsMaxInt, srsIntMod,
     srsLeech, srsLeechAction, srsRetentionRaw, srsSteps, srsRelearningSteps, srsNewPerDay, srsMaxRev,
-    srsVaultCap, srsReverseRaw, srsVariedRaw, audioFrontRaw, audioBackRaw, srsNewOrderRaw, srsReviewOrderRaw] = settingKeys.map(key => settings[key] ?? null);
+    srsVaultCap, srsReverseRaw, srsVariedRaw, audioFrontRaw, audioBackRaw, srsNewOrderRaw, srsReviewOrderRaw, intakePauseRaw, todayPlanRaw] = settingKeys.map(key => settings[key] ?? null);
 
   const cefr = savedCefr || '';
   const ttsLang = savedTtsLang || 'en-US';
@@ -57,6 +58,8 @@ export async function renderSettings(container, app) {
   const newPerDay = String(Math.min(20, Math.max(0, Number.isFinite(parsedNewPerDay) ? parsedNewPerDay : 5)));
   const maxRevPerDay = srsMaxRev || '200';
   const vaultCap = srsVaultCap === null || srsVaultCap === '' ? 300 : srsVaultCap;
+  const intakePause = intakePauseRaw === null || intakePauseRaw === '' ? 40 : intakePauseRaw;
+  const todayPlanOn = String(todayPlanRaw ?? '').toLowerCase() !== 'off';
   const srsReverse = srsReverseRaw === true || srsReverseRaw === 'true';
   const srsVaried = srsVariedRaw === null || srsVariedRaw === true || srsVariedRaw === 'true';
   const audioFront = audioFrontRaw === null || audioFrontRaw === true || audioFrontRaw === 'true';
@@ -103,6 +106,16 @@ export async function renderSettings(container, app) {
           </div>
         </div>
         <p style="font-size:12px; color:var(--color-text-light);">Cada expressão nova gera revisões futuras. Comece com 5; por segurança, o sistema introduz no máximo 20 por dia.</p>
+        <div style="margin-top:20px;">
+          <label for="srs-intake-pause" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Freio de entrada (revisões vencidas)</label>
+          <input type="number" id="srs-intake-pause" value="${intakePause}" min="0" max="500" aria-describedby="srs-intake-pause-help" style="width:100%; max-width:240px; padding:12px; border:2px solid var(--color-border); border-radius:6px; background:var(--color-bg-alt); color:var(--color-text);">
+          <p id="srs-intake-pause-help" style="font-size:12px; color:var(--color-text-light); margin-top:6px;">Com mais revisões vencidas que este número, palavras novas salvas esperam em vez de virar mais dívida; elas voltam sozinhas, até 5 por dia, quando a fila baixar. 0 desliga o freio e devolve tudo o que estava esperando.</p>
+        </div>
+        <label style="display:flex; align-items:center; gap:10px; margin-top:16px; font-weight:bold; color:var(--color-text); cursor:pointer;">
+          <input type="checkbox" id="today-plan-on" ${todayPlanOn ? 'checked' : ''} style="width:18px; height:18px;">
+          Plano de hoje no Início (curso e cards numa fila só)
+        </label>
+        <p style="font-size:12px; color:var(--color-text-light); margin-top:6px; margin-left:28px;">Desligado, o Início volta ao bloco de antes, com o curso ao lado.</p>
       </div>
 
       <!-- Advanced FSRS Section -->
@@ -555,7 +568,7 @@ export async function renderSettings(container, app) {
     const btnSave = document.getElementById('btn-save');
     const originalText = btnSave.innerHTML;
     const validatedInputs = [...container.querySelectorAll(
-      '#srs-new-per-day, #srs-max-rev, #srs-vault-cap, #srs-grad-interval, #srs-max-interval, #srs-int-mod, #srs-leech-thresh, #retention-slider',
+      '#srs-new-per-day, #srs-max-rev, #srs-vault-cap, #srs-intake-pause, #srs-grad-interval, #srs-max-interval, #srs-int-mod, #srs-leech-thresh, #retention-slider',
     )];
     const invalidInput = validatedInputs.find(input => !input.checkValidity());
     if (invalidInput) {
@@ -602,6 +615,10 @@ export async function renderSettings(container, app) {
     if (val('srs-new-per-day') !== undefined) writes.push(lfDb.setSetting('new_per_day', val('srs-new-per-day')));
     if (val('srs-max-rev')) writes.push(lfDb.setSetting('max_reviews_per_day', val('srs-max-rev')));
     if (val('srs-vault-cap') !== null && val('srs-vault-cap') !== '') writes.push(lfDb.setSetting('lf_vault_cap', val('srs-vault-cap')));
+
+    if (val('srs-intake-pause') !== null && val('srs-intake-pause') !== '') writes.push(lfDb.setSetting('lf_intake_pause_due', val('srs-intake-pause')));
+    const todayPlanChk = document.getElementById('today-plan-on');
+    if (todayPlanChk) writes.push(lfDb.setSetting('lf_today_plan', todayPlanChk.checked ? 'on' : 'off'));
 
     if (val('srs-new-order')) writes.push(lfDb.setSetting('srs_new_order', val('srs-new-order')));
     if (val('srs-review-order')) writes.push(lfDb.setSetting('srs_review_order', val('srs-review-order')));

@@ -21,11 +21,13 @@ export function buildCourseStripModel({ catalog = [], summary = {} } = {}) {
       percent: lessonProgress(cont.lesson, cont.course).percent,
       reviewsDue: Number(summary.reviews_due_count || 0),
       mistakes: Number(summary.mistakes_count || 0),
+      todaySeconds: Number(summary.today_seconds || 0),
     };
   }
-  if (summary.continue || (summary.recent || []).length) return { kind: 'done' };
+  const common = { reviewsDue: Number(summary.reviews_due_count || 0), todaySeconds: Number(summary.today_seconds || 0) };
+  if (summary.continue || (summary.recent || []).length) return { kind: 'done', ...common };
   const first = catalog.find((c) => c.my?.in_my_courses) || catalog[0];
-  return { kind: 'start', courseId: first.id, courseTitle: first.title, level: first.level || '' };
+  return { kind: 'start', courseId: first.id, courseTitle: first.title, level: first.level || '', ...common };
 }
 
 function counts(model) {

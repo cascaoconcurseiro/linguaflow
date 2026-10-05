@@ -73,6 +73,12 @@ const GOAL_TO_NEW_PER_DAY = { 10: 5, 20: 10, 40: 20 };
 
 import { FIRST_STEPS_KEY, buildFirstSteps, parseFirstSteps, renderFirstSteps } from './firstSteps.js';
 import { HOME_VIEW_CSS } from './homeViewStyles.js';
+import { TODAY_PLAN_CSS, renderTodayPlan } from './todayPlanView.js';
+import { buildTodayPlan } from '../core/todayPlan.js';
+import { releaseHeldWords } from '../core/intakeRelease.js';
+
+// Chave de reversão do Plano de hoje (#495): 'off' devolve o Início ao bloco antigo, sem deploy.
+export const TODAY_PLAN_KEY = 'lf_today_plan';
 
 const ONBOARDING_KEY = 'onboarding_v1';
 const ONBOARDING_LEVELS = new Set(['beginner', 'intermediate', 'advanced']);
@@ -297,8 +303,12 @@ export async function renderHome(container, app) {
       ? db.getSetting('lf_vault_cap').catch(() => null)
       : Promise.resolve(null);
 
-    const [statsResult, onboardingResult, fluencyStateResult] = await Promise.allSettled([
+    // O freio de entrada segura palavras novas; elas voltam aqui quando a fila baixa.
+    // Roda com o plano ligado ou não: desligar só o plano nunca pode deixar palavras presas.
+    const releasePromise = releaseHeldWords(db);
+    const [statsResult, onboardingResult, fluencyStateResult, todayPlanSettingResult] = await Promise.allSettled([
         db.getStats(), db.getSetting(ONBOARDING_KEY), loadFluencyHomeState(db),
+        typeof db?.getSetting === 'function' ? db.getSetting(TODAY_PLAN_KEY) : Promise.resolve(null),
     ]);
     if (myGen !== _homeRenderGen || app?.renderSignal?.aborted) return;
     container.removeAttribute('aria-busy');
@@ -503,7 +513,9 @@ export async function renderHome(container, app) {
 
     const allQuestsDone = coreQuests.every(q => q.done);
 
-    const courseStrip = renderCourseStrip(await coursePromise);
+    const courseModel = await coursePromise;
+    const courseStrip = renderCourseStrip(courseModel);
+    const releaseResult = await releasePromise;
     if (myGen !== _homeRenderGen || app?.renderSignal?.aborted) return;
     const todayAction = chooseTodayAction({
         totalWords: safeStats.totalWords,
@@ -521,6 +533,25 @@ export async function renderHome(container, app) {
     if (todayAction.kind === 'first-context') {
         const stored = await db?.getSetting?.(FIRST_STEPS_KEY).catch(() => null);
         firstSteps = buildFirstSteps(parseFirstSteps(stored));
+    }
+
+    // Plano de hoje (#495): fila única curso + cards. 'off' volta ao bloco anterior.
+    const todayPlanOn = String(todayPlanSettingResult?.value ?? '').toLowerCase() !== 'off';
+    let planHtml = '';
+    if (todayPlanOn && todayAction.kind !== 'first-context') {
+        const plan = buildTodayPlan({
+            dueCards: safeStats.dueCards,
+            dueLearning: dueLearningNow,
+            courseReviewsDue: courseModel?.reviewsDue,
+            courseState: courseModel?.kind,
+            courseTodaySeconds: courseModel?.todaySeconds,
+            lesson: courseModel?.kind === 'continue'
+                ? { courseId: courseModel.courseId, lessonId: courseModel.lessonId, title: courseModel.lessonTitle, chapter: courseModel.chapter }
+                : courseModel?.kind === 'start' ? { courseId: courseModel.courseId, title: courseModel.courseTitle } : null,
+            heldCount: releaseResult?.held,
+        });
+        if (plan.state === 'done' && reviewsToday > 0) db?.logUsageEvent?.('today_plan_done')?.catch?.(() => {});
+        planHtml = renderTodayPlan(plan, { reviewsToday });
     }
 
     const activeBanner = pickHomeBanner({
@@ -554,7 +585,7 @@ export async function renderHome(container, app) {
                     <button type="button" id="btn-home-details-retry">Tentar novamente</button>
                 </div>`}
 
-                ${firstSteps ? renderFirstSteps(firstSteps) : `<section id="home-primary-plan" class="home-primary-plan" data-plan-kind="${todayAction.kind}" aria-labelledby="home-primary-title">
+                ${firstSteps ? renderFirstSteps(firstSteps) : planHtml || `<section id="home-primary-plan" class="home-primary-plan" data-plan-kind="${todayAction.kind}" aria-labelledby="home-primary-title">
                     <div class="home-primary-copy">
                         <p class="product-kicker">PRÓXIMO PASSO</p>
                         <h1 id="home-primary-title">${todayAction.title}</h1>
@@ -814,6 +845,14 @@ export async function renderHome(container, app) {
         document.getElementById('btn-comeback')?.addEventListener('click', () => {
         if (app && app.navigate) app.navigate('study');
     });
+    document.getElementById('home-primary-plan')?.addEventListener('click', (e) => {
+        const btn = e.target?.closest?.('[data-plan-step]');
+        if (!btn) return;
+        let params = null;
+        try { params = btn.dataset.planParams ? JSON.parse(btn.dataset.planParams) : null; } catch { /* parâmetros inválidos: abre a rota sem eles */ }
+        db?.logUsageEvent?.('today_plan_step')?.catch?.(() => {});
+        app?.navigate?.(btn.dataset.planRoute, params || undefined);
+    });
     document.getElementById('btn-study-now')?.addEventListener('click', () => {
         if (app && app.navigate) app.navigate(todayAction.route);
     });
@@ -936,7 +975,7 @@ function injectStyles() {
     if (document.getElementById('gamified-home-styles')) return;
     const style = document.createElement('style');
     style.id = 'gamified-home-styles';
-    style.textContent = HOME_VIEW_CSS;
+    style.textContent = HOME_VIEW_CSS + TODAY_PLAN_CSS;
     document.head.appendChild(style);
 }
 

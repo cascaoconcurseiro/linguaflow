@@ -1,5 +1,6 @@
 // utils/db/words.js — Palavras, frases, histórias, textos do leitor, palavras conhecidas/ignoradas, tags e léxico canônico.
 import { WORD_SELECT } from './shared.js';
+import { INTAKE_WAIT_TAG, countOverdueReviews, resolveIntakePauseDue, shouldHoldNewWord } from '../intake-guard.js';
 
 export class WordsMethods {
   // ── PALAVRAS E CARDS ──────────────────────────────────────────────────────
@@ -107,7 +108,33 @@ export class WordsMethods {
       } catch { /* o teto nunca pode bloquear o save */ }
     }
 
-    return { ok: true, id: savedWord.id, isNew: isNewCard, waitingForSlot };
+    // Freio de entrada (#495): com muitas revisões vencidas, a palavra nova espera
+    // (card suspenso + tag lf:espera-fila) e volta sozinha quando a fila baixar —
+    // ver dashboard/js/core/intakeRelease.js. lf_intake_pause_due=0 desliga.
+    let waitingReason = waitingForSlot ? 'cap' : null;
+    if (isNewCard && !waitingForSlot) {
+      try {
+        const threshold = resolveIntakePauseDue(await this.getSetting('lf_intake_pause_due'));
+        if (threshold > 0) {
+          const overdue = countOverdueReviews(await this.getAllCards());
+          if (shouldHoldNewWord({ overdue, threshold })) {
+            const created = await this.getCardByWordId(savedWord.id);
+            if (created && !created.suspended) {
+              await this.setCardSuspended(created.id, true);
+              const tags = Array.isArray(savedWord.tags) ? savedWord.tags : [];
+              if (!tags.includes(INTAKE_WAIT_TAG)) {
+                await this.addTagsToWord(savedWord.id, [...tags, INTAKE_WAIT_TAG]).catch(() => {});
+              }
+              waitingForSlot = true;
+              waitingReason = 'backlog';
+              this.logUsageEvent('intake_held').catch(() => {});
+            }
+          }
+        }
+      } catch { /* o freio nunca pode bloquear o save */ }
+    }
+
+    return { ok: true, id: savedWord.id, isNew: isNewCard, waitingForSlot, waitingReason };
   }
 
   async getWord(word, lang = 'en') {

@@ -2,6 +2,9 @@
 
 ## [Não lançado]
 
+### Alterado
+- **Revisão dos cursos: erro não zera mais o progresso e há uma meta diária (#501)**: errar, usar dica ou revelar a resposta continua trazendo a frase de volta no dia seguinte, mas ela só volta metade do caminho na escada (antes voltava ao começo). O Início, o plano de hoje, o selo da aba e a aba Revisão passam a mostrar a meta de hoje (20 frases, no seu fuso) e o resto como "na fila". A meta nunca bloqueia: depois dela dá para "Revisar mais 10 (opcional)". A aba Revisão avisa quando há frases esperando há mais de 7 dias. Pede a migration `20261005200000_course_review_debt.sql`; sem ela a interface se comporta como antes.
+
 ### Removido
 - **Teste de nível (#498)**: saem o botão "Estimar meu nível (~4 min)" das Configurações, o "Prefiro estimar com um teste curto" do onboarding, a prova de 3 fases e a correção de redação por IA que só ela usava. O aluno escolhe o nível estimado (A1 a C2) nas Configurações, como antes, e isso continua definindo o ponto de partida do curso. Quem já fez o teste mantém o nível gravado. Check de comunicação e destaque colorido de palavras na legenda não mudam.
 

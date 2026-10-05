@@ -12,6 +12,9 @@ function stepCopy(step) {
     return { title: 'Revisar cards', detail: parts.join(' · ') };
   }
   if (step.id === 'course-reviews') {
+    if (step.overflow > 0) {
+      return { title: 'Revisar frases do curso', detail: `${plural(step.count, 'revisão', 'revisões')} · mais ${step.overflow} ficam para outro dia` };
+    }
     return { title: 'Revisar frases do curso', detail: plural(step.count, 'revisão vencida', 'revisões vencidas') };
   }
   const detail = step.lessonTitle

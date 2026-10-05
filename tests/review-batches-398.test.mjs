@@ -13,7 +13,7 @@ test('plano de sessão', () => {
 
 test('tela de revisão oferece sessão rápida e alivia atraso', () => {
   const src = readFileSync(new URL('../dashboard/js/ui/courses/courseNotebooks.js', import.meta.url), 'utf8');
-  assert.match(src, /reviewBatchPlan\(due\.length\)/);
+  assert.match(src, /reviewBatchPlan\(session\.todayIds\.length\)/); // #501: o bloco sai da meta de hoje, não do total
   assert.match(src, /data-practice-quick/);
   assert.match(src, /Sessão rápida/);
   assert.match(src, /plan\.backlog/);

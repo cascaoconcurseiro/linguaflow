@@ -443,6 +443,7 @@ Para atualizar: `npm run map`.
 | `dashboard/js/core/app.js` | G | Núcleo do dashboard: roteador com renderização protegida contra tela antiga, sessão, tema, atualização da PWA e avisos. |
 | `dashboard/js/core/coursePracticeSession.js` | M | Estado de uma sessão de prática, sem DOM. Regras de combo: só acerto sem envio errado e sem dica soma combo; dica, resposta revelada, envio errado ou pular quebram o c… |
 | `dashboard/js/core/coursePrefs.js` | P | Preferências do player de cursos, guardadas neste navegador. |
+| `dashboard/js/core/courseReviewPacing.js` | P | meta diária das revisões do curso (#501). |
 | `dashboard/js/core/courseVault.js` | P | Cursos → Cofre (#434): leva uma frase/palavra estudada num curso para a fila única de revisão espaçada (FSRS, calculada no servidor). É sempre uma ação explícita do al… |
 | `dashboard/js/core/epub.js` | P | Leitor de EPUB no navegador (Onda 3.1). Um .epub é um .zip com XHTML dentro; usamos fflate (CDN, ~8KB, só descompacta) e o DOMParser nativo do browser pra ler a estrut… |
 | `dashboard/js/core/fluencyCheck.js` | M | Modelo de domínio da Checagem de Fluência: níveis A1–B2, habilidades, decisão de tentativa e força da evidência. |
@@ -634,10 +635,10 @@ Para atualizar: `npm run map`.
 
 | Grupo | Quantidade | Observação |
 |---|---|---|
-| `supabase/migrations/` | 130 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261005100000_usage_events_today_plan.sql`. Nunca edite uma migration já aplicada. |
+| `supabase/migrations/` | 131 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261005200000_course_review_debt.sql`. Nunca edite uma migration já aplicada. |
 | `supabase/content/batches/` | 48 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
-| `tests/*.test.mjs` | 187 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
-| `tests/e2e/` | 6 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
+| `tests/*.test.mjs` | 188 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
+| `tests/e2e/` | 7 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
 | `tests/db/` | 15 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |
 | `tests/production/` | 1 | Verificação de isolamento entre contas no Supabase de produção (workflow agendado). |
 | `docs/*.md` | 6 | Documentação viva; histórico em `docs/history/`, produto em `docs/product/`. |

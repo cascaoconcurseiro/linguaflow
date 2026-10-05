@@ -4,6 +4,7 @@ import { db } from '../../../../utils/db.js';
 import { escapeHTML } from '../../../../utils/html.js';
 import { playNaturalAudio } from '../../core/tts.js';
 import { reviewBatchPlan } from '../../core/reviewBatches.js';
+import { courseReviewPacing, planReviewSession } from '../../core/courseReviewPacing.js';
 import { canSendUnitToVault, runSendToVault } from '../../core/courseVault.js';
 import { formatDate, formatDateTime, renderLoading, renderLoadError, renderEmpty, startNotebookPractice } from './courseUi.js';
 
@@ -25,11 +26,41 @@ async function load(panel, label, fetcher, retry) {
   }
 }
 
+// Texto da seção "Para hoje" (meta diária de #501). Sem a meta do servidor mantém o texto anterior.
+function reviewTodayHtml({ session, pacing, dueCount, plan }) {
+  const overdue = pacing.overdue7d > 0
+    ? `<p class="course-hub-subtitle" role="status">${pacing.overdue7d} ${pacing.overdue7d === 1 ? 'frase espera' : 'frases esperam'} há mais de 7 dias. A revisão começa pelas mais antigas.</p>`
+    : '';
+  if (session.state === 'empty') return '<p class="course-hub-subtitle">Nada vence hoje. Bom trabalho.</p>';
+  if (session.state === 'goal-done') {
+    return `<p role="status"><strong>Meta de hoje feita.</strong> ${pacing.total} ${pacing.total === 1 ? 'frase fica' : 'frases ficam'} na fila para os próximos dias, sem pressa.</p>
+      <div class="course-filter-row">
+        <button class="course-player-btn-back" type="button" data-practice-extra>Revisar mais ${session.extraIds.length} (opcional)</button>
+      </div>${overdue}`;
+  }
+  const n = session.todayIds.length;
+  const lead = pacing.capped
+    ? `<p><strong>${n}</strong> ${n === 1 ? 'frase para hoje' : 'frases para hoje'}${pacing.backlog > 0 ? `. Mais ${pacing.backlog} ficam na fila para os próximos dias` : ''}.</p>`
+    : `<p><strong>${dueCount}</strong> ${dueCount === 1 ? 'frase vencida' : 'frases vencidas'}.</p>`;
+  return `${lead}
+    <div class="course-filter-row">
+      <button class="course-btn-primary-lg" type="button" data-practice>Revisar ${plan.full} agora</button>
+      ${plan.quick ? `<button class="course-player-btn-back" type="button" data-practice-quick>Sessão rápida · ${plan.quick} frases (~5 min)</button>` : ''}
+    </div>
+    ${n > PRACTICE_BATCH ? `<p class="course-hub-subtitle">Revisões em blocos de ${PRACTICE_BATCH}.</p>` : ''}
+    ${!pacing.capped && plan.backlog ? '<p class="course-hub-subtitle" role="status">Fila grande não é problema: 10 frases por dia já fazem ela encolher. Sem pressa de zerar.</p>' : ''}${overdue}`;
+}
+
 export async function renderReviewNotebook(panel, { app }) {
-  const rows = await load(panel, 'Carregando revisões…', () => db.courses.listReviews(), () => renderReviewNotebook(panel, { app }));
-  if (!rows) return;
+  const loaded = await load(panel, 'Carregando revisões…', async () => {
+    // O resumo traz a meta diária; se falhar, a aba continua com a lista completa (comportamento anterior).
+    const [rows, summary] = await Promise.all([db.courses.listReviews(), db.courses.getHubSummary().catch(() => null)]);
+    return { rows, summary };
+  }, () => renderReviewNotebook(panel, { app }));
+  if (!loaded) return;
+  const { rows, summary } = loaded;
   if (!rows.length) {
-    renderEmpty(panel, 'Nenhuma frase em revisão ainda', 'Cada frase praticada entra na revisão espaçada: volta em 1, 3, 7 e 15 dias conforme você acerta de primeira. Erro ou dica traz a frase de volta no dia seguinte.');
+    renderEmpty(panel, 'Nenhuma frase em revisão ainda', 'Cada frase praticada entra na revisão espaçada: volta em 1, 3, 7 e 15 dias conforme você acerta de primeira. Erro ou dica traz a frase de volta no dia seguinte, sem zerar todo o progresso.');
     return;
   }
   const now = Date.now();
@@ -41,19 +72,13 @@ export async function renderReviewNotebook(panel, { app }) {
     byDay.set(day, (byDay.get(day) || 0) + 1);
   }
 
-  const plan = reviewBatchPlan(due.length);
+  const pacing = courseReviewPacing(summary);
+  const session = planReviewSession(due.map((r) => r.unit_id), pacing);
+  const plan = reviewBatchPlan(session.todayIds.length);
   panel.innerHTML = `
     <section class="course-panel">
       <h2 class="course-section-title">Para hoje</h2>
-      ${due.length
-        ? `<p><strong>${due.length}</strong> ${due.length === 1 ? 'frase vencida' : 'frases vencidas'}.</p>
-           <div class="course-filter-row">
-             <button class="course-btn-primary-lg" type="button" data-practice>Revisar ${plan.full} agora</button>
-             ${plan.quick ? `<button class="course-player-btn-back" type="button" data-practice-quick>Sessão rápida · ${plan.quick} frases (~5 min)</button>` : ''}
-           </div>
-           ${due.length > PRACTICE_BATCH ? `<p class="course-hub-subtitle">Revisões em blocos de ${PRACTICE_BATCH}.</p>` : ''}
-           ${plan.backlog ? '<p class="course-hub-subtitle" role="status">Fila grande não é problema: 10 frases por dia já fazem ela encolher. Sem pressa de zerar.</p>' : ''}`
-        : '<p class="course-hub-subtitle">Nada vence hoje. Bom trabalho.</p>'}
+      ${reviewTodayHtml({ session, pacing, dueCount: due.length, plan })}
     </section>
     <section class="course-panel">
       <h2 class="course-section-title">Próximas revisões</h2>
@@ -72,10 +97,13 @@ export async function renderReviewNotebook(panel, { app }) {
       ${rows.length > 100 ? `<p class="course-hub-subtitle" role="status">Mostrando as 100 primeiras de ${rows.length} frases em revisão.</p>` : ''}
     </section>`;
   panel.querySelector('[data-practice]')?.addEventListener('click', () => {
-    startNotebookPractice(app, 'review', due.slice(0, PRACTICE_BATCH).map((r) => r.unit_id), 'Revisão');
+    startNotebookPractice(app, 'review', session.todayIds.slice(0, PRACTICE_BATCH), 'Revisão');
   });
   panel.querySelector('[data-practice-quick]')?.addEventListener('click', () => {
-    startNotebookPractice(app, 'review', due.slice(0, plan.quick).map((r) => r.unit_id), 'Revisão rápida');
+    startNotebookPractice(app, 'review', session.todayIds.slice(0, plan.quick), 'Revisão rápida');
+  });
+  panel.querySelector('[data-practice-extra]')?.addEventListener('click', () => {
+    startNotebookPractice(app, 'review', session.extraIds, 'Revisão extra');
   });
 }
 

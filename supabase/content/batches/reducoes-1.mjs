@@ -15,6 +15,12 @@ export const LEXICON = {
   tryna: ['verb', '/ˈtraɪnə/', 'tentando (trying to)'],
   "ain't": ['verb', '/eɪnt/', 'não é, não está (isn’t, aren’t)'],
   lotta: ['noun', '/ˈlɑːtə/', 'um monte de (a lot of)'],
+  // O léxico geral tem uma entrada por palavra, sem olhar o contexto. Aqui valem só para este lote
+  // (os lotes já publicados não mudam): "call" é verbo, "right" é "certo", "wait" é verbo e "got" é "tenho".
+  call: ['verb', '/kɔːl/', 'ligar, chamar'],
+  right: ['adjective', '/raɪt/', 'certo, correto'],
+  wait: ['verb', '/weɪt/', 'esperar'],
+  got: ['verb', '/ɡɑːt/', 'tenho (I got = I have)'],
 };
 
 const s = (text, pt, note, groups) => ({ kind: 'sentence', text, pt, note, groups });

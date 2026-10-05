@@ -3,6 +3,7 @@
 ## [Não lançado]
 
 ### Adicionado
+- **Faixa de Curso no Início**: o Início agora mostra seu curso em andamento (capítulo, progresso, revisões vencidas e erros abertos) com o botão Continuar, ao lado da fila de vídeos. Sem curso, convida a começar o primeiro; com tudo concluído, leva a Meus cursos. O atalho de histórias virou uma linha compacta (#492).
 - **Legenda acompanha o tamanho do player**: ao reduzir a janela ou usar o mini player, a legenda encolhe junto (até 55%) para não cobrir o vídeo; em player grande ela continua no tamanho que você escolheu nas configurações (#486).
 - **Controles ligados ficam amarelos**: loop, shadowing e painel de legendas ligados agora aparecem em amarelo, como a velocidade alterada, no YouTube e nos demais players. O botão de recolher ganhou ícone próprio (barra + seta), diferente do ‹ › de legenda anterior/próxima (#486).
 - **Legenda inteligente (opcional)**: três opções novas em Configurações, todas desativadas por padrão, então nada muda até você ligar. "Esconder tradução do que você já sabe" deixa só o original nas falas em que você conhece todas as palavras; "Pausar só onde há palavra nova" faz a pausa automática pular essas falas; "Avisar palavra consultada várias vezes" mostra no card, na 3ª consulta sem salvar, uma sugestão de salvar para revisar (a contagem fica só neste dispositivo). Ligar cada opção entra no funil de uso (#488).

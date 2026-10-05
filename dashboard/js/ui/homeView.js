@@ -8,6 +8,7 @@ import { isFluencyCheckDue } from '../core/fluencyCheck.js';
 import { isWeakCard } from '../core/sessionQueue.js';
 import { videoWordStats } from '../core/videoWordStats.js';
 import { countBucket, observe } from '../../../utils/observability.js';
+import { loadCourseStripModel, renderCourseStrip } from './courses/courseHomeStrip.js';
 
 function organizeHomeSections(container) {
     const main = container.querySelector('.dashboard-main');
@@ -291,6 +292,7 @@ export async function renderHome(container, app) {
     const storiesPromise = typeof db?.getStories === 'function'
       ? db.getStories(50).catch(() => [])
       : Promise.resolve([]);
+    const coursePromise = loadCourseStripModel(db);
     const vaultCapPromise = typeof db?.getSetting === 'function'
       ? db.getSetting('lf_vault_cap').catch(() => null)
       : Promise.resolve(null);
@@ -501,6 +503,8 @@ export async function renderHome(container, app) {
 
     const allQuestsDone = coreQuests.every(q => q.done);
 
+    const courseStrip = renderCourseStrip(await coursePromise);
+    if (myGen !== _homeRenderGen || app?.renderSignal?.aborted) return;
     const todayAction = chooseTodayAction({
         totalWords: safeStats.totalWords,
         dueCards: safeStats.dueCards,
@@ -559,7 +563,8 @@ export async function renderHome(container, app) {
                         <button class="btn-action btn-study" id="btn-study-now" type="button">${todayAction.label}<span aria-hidden="true">→</span></button>
                     </div>
                     <div class="home-primary-visual">
-                        <button type="button" id="btn-primary-stories" class="home-story-shortcut">
+                        ${courseStrip}
+                        <button type="button" id="btn-primary-stories" class="home-story-shortcut${courseStrip ? ' is-compact' : ''}">
                             <span class="home-story-shortcut-kicker">LEITURA GUIADA</span>
                             <strong>Criar uma história</strong>
                             <span>Escolha nível, duração e objetivo</span>
@@ -862,6 +867,17 @@ export async function renderHome(container, app) {
         renderHome(container, app);
     });
     document.getElementById('btn-primary-stories')?.addEventListener('click', () => app?.navigate?.('stories'));
+    document.getElementById('btn-home-course-continue')?.addEventListener('click', (e) => {
+        const { courseId, lessonId, courseTab } = e.currentTarget.dataset;
+        app?.navigate?.('courses', courseTab ? { tab: courseTab } : { tab: 'course', courseId, openLessonId: lessonId || null });
+    });
+    document.getElementById('home-primary-plan')?.addEventListener('click', (e) => {
+        const link = e.target?.closest?.('.home-course-count');
+        if (!link) return;
+        e.preventDefault();
+        app?.navigate?.('courses', { tab: link.dataset.courseTab });
+    });
+    document.getElementById('btn-home-course-retry')?.addEventListener('click', () => renderHome(container, app));
 
     document.getElementById('btn-open-log-study')?.addEventListener('click', () => {
         showLogStudyModal(db, app, sourceLang, () => {

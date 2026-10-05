@@ -368,6 +368,20 @@ export const HOME_VIEW_CSS = `
         .home-story-shortcut-kicker { color:var(--color-secondary); font-size:10px; font-weight:900; letter-spacing:.13em; }
         .home-story-shortcut strong { font:400 24px/1.15 var(--font-reading); }
         .home-story-shortcut > span:last-child { color:var(--color-text-light); font-size:12px; line-height:1.4; }
+        .home-primary-visual { align-content:center; gap:10px; }
+        .home-story-shortcut.is-compact { min-height:0; padding:10px 14px; justify-content:center; flex-direction:row; align-items:baseline; gap:10px; }
+        .home-story-shortcut.is-compact strong { font-size:15px; }
+        .home-story-shortcut.is-compact > span:last-child { display:none; }
+        .home-course-strip { width:100%; padding:18px 20px; display:flex; flex-direction:column; align-items:flex-start; gap:6px; border:1px solid var(--color-border); border-radius:11px; background:var(--color-surface); color:var(--color-text); }
+        .home-course-strip > strong { font:400 20px/1.2 var(--font-reading); }
+        .home-course-strip > span { color:var(--color-text-light); font-size:12px; line-height:1.4; }
+        .home-course-strip .btn-action { min-width:0; min-height:40px; padding:9px 16px; margin-top:4px; }
+        .home-course-track { width:100%; height:6px; border-radius:3px; background:var(--color-border); overflow:hidden; }
+        .home-course-bar { height:100%; background:var(--color-primary); transform-origin:left; transition:width .3s ease; }
+        .home-course-counts { margin:0; font-size:12px; color:var(--color-text-light); }
+        .home-course-count, .home-course-link { color:var(--color-primary); text-decoration:underline; background:none; border:0; padding:0; font:inherit; cursor:pointer; }
+        .home-course-count:focus-visible, .home-course-link:focus-visible { outline:2px solid var(--color-primary); outline-offset:2px; }
+        @media (prefers-reduced-motion: reduce) { .home-course-bar { transition:none; } }
         .home-note-card { position:relative; width:168px; min-height:110px; padding:20px; border:1px solid #2e6ba5; border-radius:12px; background:#13375d; color:#d7edff; transform:rotate(-7deg); box-shadow:14px 10px 0 rgba(22,75,123,.35); font:italic 18px/1.15 Georgia, serif; }
         .home-note-card::before, .home-note-card::after { content:''; position:absolute; inset:7px -20px -7px 20px; border:1px solid rgba(37,169,255,.35); border-radius:12px; z-index:-1; }
         .home-note-card::after { inset:14px -32px -14px 32px; opacity:.55; }

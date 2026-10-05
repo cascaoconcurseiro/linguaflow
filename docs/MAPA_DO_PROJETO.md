@@ -501,6 +501,7 @@ Para atualizar: `npm run map`.
 |---|---|---|
 | `dashboard/js/ui/courses/courseAnalysis.js` | P | Análise de aprendizado dos Cursos. |
 | `dashboard/js/ui/courses/courseHome.js` | M | Início dos Cursos: continuar, semana, revisão do dia, tempo e recentes. |
+| `dashboard/js/ui/courses/courseHomeStrip.js` | P | faixa "Curso" do Início (Issue #492). |
 | `dashboard/js/ui/courses/courseLeaderboard.js` | P | Ranking dos Cursos por tempo ativo de estudo (UTC). |
 | `dashboard/js/ui/courses/courseNotebooks.js` | M | Cadernos: revisão espaçada, erros, vocabulário e notas. Tudo gratuito. |
 | `dashboard/js/ui/courses/courseStore.js` | M | Loja, Meus cursos e página do curso (capítulos). |
@@ -634,7 +635,7 @@ Para atualizar: `npm run map`.
 |---|---|---|
 | `supabase/migrations/` | 129 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261004200000_usage_events_smart_captions.sql`. Nunca edite uma migration já aplicada. |
 | `supabase/content/batches/` | 48 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
-| `tests/*.test.mjs` | 185 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
+| `tests/*.test.mjs` | 186 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
 | `tests/e2e/` | 4 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
 | `tests/db/` | 15 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |
 | `tests/production/` | 1 | Verificação de isolamento entre contas no Supabase de produção (workflow agendado). |

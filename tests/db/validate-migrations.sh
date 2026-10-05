@@ -138,4 +138,7 @@ run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-review-debt.sql"
 echo "── curso piloto de reduções da fala (#503)"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-reductions-pilot.sql"
 
+echo "── idioms B2: capítulos 7 a 10 (#505)"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-idioms-b2-extension.sql"
+
 echo "✅ Migrations reproduzíveis + gates comportamentais P0.1/P0.2/#118 passaram."

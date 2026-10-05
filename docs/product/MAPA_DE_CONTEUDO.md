@@ -87,8 +87,8 @@ Padrões por tipo:
 - [x] **Inglês no Trabalho** 1–9: reuniões, e-mails, remoto (v1) · apresentações, feedback, prazos, clientes, delegar, small talk (trabalho-1)
 - [x] **Inglês no Trabalho** 10–16: entrevista, e-mails formais, relatórios, networking, conflitos, liderança, revisão (trabalho-2) — curso completo, 16 capítulos
 - [x] **Entrevista de Emprego** (B1) 1–8: abertura, fale sobre você, experiência, pontos fortes e fracos, situações (STAR), motivação, salário, perguntas finais e follow-up (entrevista-1)
-- [x] **Expressões Idiomáticas e Fluência** (B2) 1–6: trabalho, sentimentos, dinheiro e tempo, marcadores, suavizar opiniões, contar histórias (fluencia-1)
+- [x] **Expressões Idiomáticas e Fluência** (B2) 1–6: trabalho, sentimentos, dinheiro e tempo, marcadores, suavizar opiniões, contar histórias (fluencia-1) · 7–10: relacionamentos, problemas e soluções, opinião e discordância, esforço e ritmo (fluencia-2, #505) — curso completo, 10 capítulos
 - [x] **Histórias em Trechos** (B1) 1–10: dez contos originais em oito trechos cada (historias-1)
 - [x] **Parágrafos** (B2) 1–10: apresentação, rotina, cidade, viagem, opinião, e-mail formal, resenha, processo, comparação, planos; quatro parágrafos cada (paragrafos-1)
 - [ ] **Inglês Falado: Reduções** (A2, piloto, fora da trilha guiada) 1: c'mon, gotcha, shoulda, coulda, outta, whaddya, tryna, ain't, lotta, "you gonna…?" (reducoes-1, #503). Os capítulos seguintes só depois de o dono escutar o áudio; `'cause` e `'em` (apóstrofo inicial) dependem de conferir o motor de digitação.
-- [ ] **Lacunas do B2 (planejado, ainda não feito)**: completar Expressões Idiomáticas de 6 para 10 capítulos, subir Parágrafos de 4 para 8 frases por capítulo e criar "Fala Conectada" (B2: should've, linking, fala rápida). Não existe C1.
+- [ ] **Lacunas do B2 (plano na Issue #505)**: idioms já completo (10 capítulos); faltam subir Parágrafos de 4 para 8 frases por capítulo, Colocações, Gramática B2 em uso, Vocabulário por temas, Inglês no Trabalho (reuniões e negociação), "Fala Conectada" (depende do áudio do piloto #503), Argumentar e debater, Phrasal Verbs Avançados e Séries e conversa real. Não existe C1.

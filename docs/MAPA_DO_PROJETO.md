@@ -468,7 +468,7 @@ Para atualizar: `npm run map`.
 |---|---|---|
 | `dashboard/js/ui/activityHeatmap.js` | P | mapa de calor anual (segunda a domingo), navegável por teclado. Usado em Progresso e na Análise dos Cursos. |
 | `dashboard/js/ui/adminView.js` | M | Casca do console administrativo (#408): porta de acesso (papel + PIN), abas acessíveis e carga preguiçosa de cada aba. A autoridade é do servidor; aqui só se esconde o… |
-| `dashboard/js/ui/coursePracticeView.js` | GG ⚠ | Player de prática (modo foco): ouvir a frase e digitá-la palavra por palavra. |
+| `dashboard/js/ui/coursePracticeView.js` | G | Player de prática (modo foco): ouvir a frase e digitá-la palavra por palavra. |
 | `dashboard/js/ui/coursePrepareModal.js` | P | Diálogo antes da prática: modo (fácil / médio / difícil) e configurações. |
 | `dashboard/js/ui/coursesView.js` | P | Área de Cursos: navegação própria (Início, Meus cursos, Loja, cadernos, Análise, Ranking) e a página de cada curso. Dados vindos do banco; sem conteúdo de demonstração. |
 | `dashboard/js/ui/firstSteps.js` | P | Primeiros passos da tela Hoje (#427): para quem ainda não salvou nenhuma palavra, o caminho é o mesmo da promessa do produto — entender o que você assiste e salvar a p… |
@@ -637,7 +637,7 @@ Para atualizar: `npm run map`.
 |---|---|---|
 | `supabase/migrations/` | 133 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261005220000_course_content_fluencia_2.sql`. Nunca edite uma migration já aplicada. |
 | `supabase/content/batches/` | 50 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
-| `tests/*.test.mjs` | 189 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
+| `tests/*.test.mjs` | 188 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
 | `tests/e2e/` | 7 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
 | `tests/db/` | 15 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |
 | `tests/production/` | 1 | Verificação de isolamento entre contas no Supabase de produção (workflow agendado). |

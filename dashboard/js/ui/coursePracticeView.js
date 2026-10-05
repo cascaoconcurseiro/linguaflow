@@ -156,7 +156,6 @@ export async function renderCoursePractice(container, app, params = {}) {
   let audioPlaying = false;
   let heartbeatWarned = false;
   let advancing = false;
-  let holdingForStructure = false; // acertou: a estrutura da frase espera Enter/Espaço (#507)
   let focusedSlot = 0;
 
   renderShell();
@@ -336,7 +335,6 @@ export async function renderCoursePractice(container, app, params = {}) {
         skip: skipPhrase,
         previous: goPrevious,
         'back-to-current': goCurrent,
-        'continue-structure': continueFromStructure,
         'pop-speed': () => togglePopover('speed'),
         'pop-readings': () => togglePopover('readings'),
         'step-speed-down': () => changePref('speed', -1),
@@ -367,7 +365,6 @@ export async function renderCoursePractice(container, app, params = {}) {
     closeBreakdown();
     setFeedback(reviewing ? 'Frase já respondida (só consulta).' : '');
     advancing = false;
-    holdingForStructure = false;
 
     const shown = Math.min(session.index + 1, session.total);
     container.querySelector('#course-question').textContent = `${shown} / ${session.total}`;
@@ -563,7 +560,6 @@ export async function renderCoursePractice(container, app, params = {}) {
   }
 
   function submitPhrase() {
-    if (holdingForStructure) { continueFromStructure(); return; }
     if (paused || advancing || session.finished || session.isReviewingPrevious || session.currentDone) return;
     const inputs = currentInputs();
     const result = session.submit(inputs.map((i) => i.value));
@@ -599,20 +595,8 @@ export async function renderCoursePractice(container, app, params = {}) {
     updateHud();
     updateActionStates();
     stopReading();
-    // Frase com estrutura: mostra sujeito/verbo/objeto e espera o aluno seguir (#507).
-    if (result.nextStage !== 'example' && Array.isArray(session.unit.syntax_groups) && session.unit.syntax_groups.length) {
-      holdingForStructure = true;
-      toggleBreakdown(true, { holdNext: true });
-      return;
-    }
     // Palavra certa com frase de exemplo: mesma unidade, segunda etapa (#442).
     setTimeout(result.nextStage === 'example' ? () => { if (!disposed) showUnit(); } : advance, result.nextStage === 'example' ? 700 : 500);
-  }
-
-  function continueFromStructure() {
-    if (!holdingForStructure || disposed || paused) return;
-    holdingForStructure = false;
-    advance();
   }
 
   function advance() {
@@ -664,9 +648,8 @@ export async function renderCoursePractice(container, app, params = {}) {
     panel.innerHTML = '';
   }
 
-  async function toggleBreakdown(forceOpen = false, { holdNext = false } = {}) {
+  async function toggleBreakdown(forceOpen = false) {
     if (paused) return;
-    if (holdingForStructure && !holdNext) return; // aguardando Enter: Ctrl+; não fecha a estrutura
     const panel = container.querySelector('#course-breakdown');
     if (!panel.hidden && !forceOpen) {
       closeBreakdown();
@@ -683,7 +666,7 @@ export async function renderCoursePractice(container, app, params = {}) {
       .map((s) => s.replace(/^[^a-z]+|[^a-z']+$/g, '')).includes(w.surface.toLowerCase()));
     const rendered = new Set();
     panel.innerHTML = `
-      ${holdNext ? '' : `<p class="course-breakdown-translation" lang="en">${escapeHTML(unit.text)}</p>`}
+      <p class="course-breakdown-translation" lang="en">${escapeHTML(unit.text)}</p>
       <p style="margin:0;">${escapeHTML(unit.translation_pt)}</p>
       ${unit.ipa ? `<span class="course-breakdown-ipa">${escapeHTML(unit.ipa)}</span>` : ''}
       ${unit.explanation_note ? `<p class="course-breakdown-note">${escapeHTML(unit.explanation_note)}</p>` : ''}
@@ -703,17 +686,15 @@ export async function renderCoursePractice(container, app, params = {}) {
         }).join('')}
       </div>
       <div class="course-breakdown-actions">
-        ${holdNext ? '<button type="button" class="course-action course-action--primary" data-action="continue-structure"><kbd class="course-key-badge">Enter</kbd> Próximo exercício</button>' : ''}
         <button type="button" class="course-player-btn-back" data-action="save-vocab">★ Salvar no vocabulário</button>
         ${canSendUnitToVault(unit) ? '<button type="button" class="course-player-btn-back" data-action="send-vault" title="Entra na sua revisão espaçada junto com as palavras dos vídeos">＋ Enviar ao Cofre</button>' : ''}
-        ${holdNext ? '' : `<label class="course-note-field">
+        <label class="course-note-field">
           <span>Nota pessoal</span>
           <textarea id="course-note-input" maxlength="2000" rows="2"></textarea>
         </label>
-        <button type="button" class="course-player-btn-back" data-action="save-note">Salvar nota</button>`}
+        <button type="button" class="course-player-btn-back" data-action="save-note">Salvar nota</button>
       </div>`;
     panel.hidden = false;
-    if (holdNext) panel.querySelector('[data-action="continue-structure"]')?.focus();
     db.courses.getNote(unit.id).then((note) => {
       const field = container.querySelector('#course-note-input');
       if (field && !field.value && note) field.value = note;

@@ -945,7 +945,7 @@ async function syncPendingWordSaves() {
             delete latest[id];
             await writeLocal({ [PENDING_WORD_SAVES_KEY]: latest });
           }
-          notifyDashboards(item.payload.word);
+          notifyDashboards(item.payload.word, { held: result.waitingReason === 'backlog' });
           updateBadge();
           refineSavedWord(result.id, item.payload.word, item.payload.category, item.payload.translation).catch(() => {});
           setTimeout(backfillMissingSentences, 2000);
@@ -1611,8 +1611,9 @@ async function generateStoryWithAI(genre, options = {}) {
   return generateStoryWithAIModule(genre, options, { db, getApiConfig, fetchWithRetry });
 }
 
-function notifyDashboards(word) {
-  const msg = { type: 'REFRESH_VOCAB', word: word || null };
+function notifyDashboards(word, { held = false } = {}) {
+  // held (#495): o freio de entrada segurou a palavra; a aba do vídeo avisa o aluno.
+  const msg = { type: 'REFRESH_VOCAB', word: word || null, held };
   // Envia para o Dashboard/Popup (contexto de extensão)
   chrome.runtime.sendMessage(msg).catch(() => {});
 

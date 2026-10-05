@@ -84,13 +84,14 @@ export const TODAY_PLAN_CSS = `
         .today-step-body strong { display:block; color:var(--color-text); font-size:16px; }
         .today-step-body span { display:block; color:var(--color-text-light); font-size:13px; line-height:1.45; margin-top:2px; }
         .today-step-time { color:var(--color-text-light); font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap; }
-        .today-step-secondary { background:transparent; color:var(--color-primary); border:1px solid var(--color-border); }
+        html body .today-step .today-step-secondary { background:transparent; color:var(--color-primary); border:1px solid var(--color-border); padding-inline:16px; }
+        html body .today-step .today-step-secondary:hover { background:var(--editorial-highlight); }
         .today-step button:focus-visible { outline:3px solid var(--color-focus); outline-offset:2px; }
         .today-note { margin:12px 0 0; color:var(--color-text-light); font-size:13px; line-height:1.5; }
         .today-optional { margin-top:18px; }
         @media (max-width: 640px) {
             .today-step { grid-template-columns:28px 1fr auto; }
             .today-step-time { display:none; }
-            .today-step button { grid-column:2 / -1; justify-self:start; }
+            .today-step button { grid-column:2 / -1; justify-self:stretch; }
         }
 `;

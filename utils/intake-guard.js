@@ -40,6 +40,24 @@ export function canReleaseHeldWords({ overdue = 0, threshold = DEFAULT_INTAKE_PA
   return overdue <= Math.floor(threshold * INTAKE_RESUME_RATIO);
 }
 
+// Utilidade da palavra pelas tags que o popup do vídeo já grava ("🔥 Top 312", "📊 Top 2400", "✨ Rara (>5k)").
+// Menor = mais frequente = volta primeiro. Ordem: com posição conhecida (Top N) → sem marca → rara.
+// Sem marca não é tratada como rara: falta de informação não é evidência de que a palavra seja inútil.
+export const RARE_WORD_RANK = 6000;
+export const UNKNOWN_WORD_RANK = 5000.5;
+export function wordFrequencyRank(tags) {
+  let best = Infinity;
+  let rare = false;
+  for (const tag of Array.isArray(tags) ? tags : []) {
+    const text = String(tag);
+    const top = /Top\s+(\d+)/i.exec(text);
+    if (top) best = Math.min(best, Number(top[1]));
+    else if (/Rara/i.test(text)) rare = true;
+  }
+  if (Number.isFinite(best)) return best;
+  return rare ? RARE_WORD_RANK : UNKNOWN_WORD_RANK;
+}
+
 // `state` guarda "AAAA-MM-DD:n" (n = liberadas naquele dia). Devolve quantas ainda podem sair hoje.
 export function releaseQuota({ threshold, state, todayKey, perDay = INTAKE_RELEASE_PER_DAY } = {}) {
   if (threshold <= 0) return Number.POSITIVE_INFINITY;

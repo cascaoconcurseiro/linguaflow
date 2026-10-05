@@ -12,6 +12,7 @@ import {
   releaseQuota,
   resolveIntakePauseDue,
   shouldHoldNewWord,
+  wordFrequencyRank,
 } from '../utils/intake-guard.js';
 import { releaseHeldWords } from '../dashboard/js/core/intakeRelease.js';
 import {
@@ -206,4 +207,39 @@ test('contrato: a view do plano escapa conteúdo do curso e expõe lista numerad
   assert.match(view, /role="status"/);
   assert.match(view, /:focus-visible/);
   assert.doesNotMatch(view, /animation|transition|@keyframes/, 'sem movimento ornamental');
+});
+
+test('contrato: o aviso de espera chega ao popup do vídeo (service worker → motor → popup), sem perder o salvamento', () => {
+  const sw = read('background/service-worker.js');
+  assert.match(sw, /notifyDashboards\(item\.payload\.word, \{ held: result\.waitingReason === 'backlog' \}\)/);
+  assert.match(sw, /type: 'REFRESH_VOCAB', word: word \|\| null, held/);
+  const engine = read('content/subtitle-engine.js');
+  assert.match(engine, /request\.held && request\.word\) this\.wordPopup\?\.showHeldNotice\?\.\(request\.word\)/);
+  const popup = read('content/word-popup/save.js');
+  assert.match(popup, /showHeldNotice\(word\)/);
+  assert.match(popup, /ficou em espera/);
+  assert.match(popup, /aria-live', 'polite'/);
+  assert.match(popup, /prefers-reduced-motion: reduce\) \{ #lf-save-toast/);
+});
+
+test('frequência: Top N vem antes de sem marca, que vem antes de rara', () => {
+  assert.equal(wordFrequencyRank(['x', '🔥 Top 312']), 312);
+  assert.equal(wordFrequencyRank(['📊 Top 2400', '🔥 Top 900']), 900);
+  assert.ok(wordFrequencyRank(['📊 Top 4999']) < wordFrequencyRank([]));
+  assert.ok(wordFrequencyRank([]) < wordFrequencyRank(['✨ Rara (>5k)']));
+  assert.equal(wordFrequencyRank(null), wordFrequencyRank([]));
+});
+
+test('liberação: sai primeiro a palavra mais frequente, não a mais antiga', async () => {
+  const db = fakeDb({ overdueCount: 0, held: 0 });
+  const tagsById = { rara: ['✨ Rara (>5k)', INTAKE_WAIT_TAG], comum: ['🔥 Top 120', INTAKE_WAIT_TAG], media: ['📊 Top 3000', INTAKE_WAIT_TAG], semmarca: [INTAKE_WAIT_TAG] };
+  const words = Object.entries(tagsById).map(([id, tags]) => ({ id, tags }));
+  // A rara foi salva primeiro (due_date mais antigo) e ainda assim deve sair por último.
+  const dates = { rara: '2026-10-01T00:00:00Z', semmarca: '2026-10-02T00:00:00Z', media: '2026-10-03T00:00:00Z', comum: '2026-10-04T00:00:00Z' };
+  const cards = Object.keys(tagsById).map((id) => ({ id: `c-${id}`, word_id: id, status: 'new', suspended: true, due_date: dates[id] }));
+  Object.assign(db, { getAllWords: async () => words, getAllCards: async () => cards });
+  db.settings.lf_intake_release_state = `2026-10-05:${INTAKE_RELEASE_PER_DAY - 3}`; // sobram 3 vagas hoje
+  const r = await releaseHeldWords(db, { todayKey: '2026-10-05', nowMs: NOW });
+  assert.equal(r.released, 3);
+  assert.deepEqual(db.calls.unsuspended, ['c-comum', 'c-media', 'c-semmarca']);
 });

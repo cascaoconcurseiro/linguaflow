@@ -8,11 +8,12 @@ import {
   nextReleaseState,
   releaseQuota,
   resolveIntakePauseDue,
+  wordFrequencyRank,
 } from '../../../utils/intake-guard.js';
 
 export const INTAKE_STATE_KEY = 'lf_intake_release_state';
 
-// Lê o estado e, se for a hora, libera as mais antigas primeiro (a ordem em que o aluno as salvou).
+// Lê o estado e, se for a hora, libera as mais úteis primeiro (mais frequentes); empate: a ordem em que o aluno as salvou.
 // Nunca lança: o Início não pode quebrar por causa disto.
 export async function releaseHeldWords(db, { todayKey = localDateKey(), nowMs = Date.now() } = {}) {
   const result = { held: 0, released: 0, overdue: 0, blocked: null };
@@ -29,7 +30,8 @@ export async function releaseHeldWords(db, { todayKey = localDateKey(), nowMs = 
     }
     const heldCards = (cards || [])
       .filter((c) => c?.suspended && heldWords.has(c.word_id))
-      .sort((a, b) => Date.parse(a.due_date || 0) - Date.parse(b.due_date || 0));
+      .sort((a, b) => (wordFrequencyRank(heldWords.get(a.word_id)?.tags) - wordFrequencyRank(heldWords.get(b.word_id)?.tags))
+        || (Date.parse(a.due_date || 0) - Date.parse(b.due_date || 0)));
     result.held = heldCards.length;
     if (!heldCards.length) return result;
 

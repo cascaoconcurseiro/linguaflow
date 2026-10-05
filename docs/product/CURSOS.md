@@ -6,7 +6,7 @@
 
 | Item | Situação |
 | --- | --- |
-| Catálogo | 1 curso publicado ("Inglês das Ruas & Gírias Reais", A1), 1 lição, 10 frases. O catálogo mostra só cursos com frases no banco. |
+| Catálogo | 21 cursos publicados (2026-10-05, com o piloto de reduções #503): A1 5, A2 7, B1 7, B2 2, C1 0. O B2 é o nível mais fino (16 capítulos, 100 frases). O catálogo mostra só cursos com frases no banco. Cursos com `is_core = false` (o piloto) ficam fora da trilha guiada. |
 | Player | Pronto: modos fácil/médio/difícil, pausa, revelar resposta, salvar vocabulário/nota, envio idempotente com reenvio. |
 | Cadernos | Erros pendentes, revisões vencidas e vocabulário salvo, lidos do banco. Praticar um erro/revisão reabre a lição de origem. |
 | Conteúdo novo | Entra por migration de seed (append-only). Não há ferramenta editorial ainda. |

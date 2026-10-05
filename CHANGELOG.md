@@ -3,6 +3,8 @@
 ## [Não lançado]
 
 ### Adicionado
+- **Plano de hoje no Início (#495)**: curso e cards viram uma fila só. O Início lista, em ordem, as revisões de cards, as revisões vencidas do curso e a próxima lição, com o tempo estimado ("cerca de N min", heurística, não medição) e um botão principal. Sem nada vencido, mostra "Acabou por hoje". A sessão de cards continua limitada a 35 revisões por dia. Reversão sem deploy: Configurações → desmarcar "Plano de hoje no Início" (o bloco antigo volta).
+- **Freio de entrada de palavras (#495)**: com mais de 40 revisões vencidas (ajustável em Configurações → "Freio de entrada"), a palavra salva entra em espera em vez de virar mais dívida. Ela volta sozinha, até 5 por dia, quando a fila cai para a metade do limite; nada se perde. Colocar 0 desliga o freio e devolve tudo o que estava esperando. Migration nova (`20261005100000`) só amplia a lista de eventos de uso.
 - **Faixa de Curso no Início**: o Início agora mostra seu curso em andamento (capítulo, progresso, revisões vencidas e erros abertos) com o botão Continuar, ao lado da fila de vídeos. Sem curso, convida a começar o primeiro; com tudo concluído, leva a Meus cursos. O atalho de histórias virou uma linha compacta (#492).
 - **Legenda acompanha o tamanho do player**: ao reduzir a janela ou usar o mini player, a legenda encolhe junto (até 55%) para não cobrir o vídeo; em player grande ela continua no tamanho que você escolheu nas configurações (#486).
 - **Controles ligados ficam amarelos**: loop, shadowing e painel de legendas ligados agora aparecem em amarelo, como a velocidade alterada, no YouTube e nos demais players. O botão de recolher ganhou ícone próprio (barra + seta), diferente do ‹ › de legenda anterior/próxima (#486).

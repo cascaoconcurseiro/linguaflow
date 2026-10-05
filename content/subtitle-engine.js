@@ -178,6 +178,7 @@ export class SubtitleEngine {
       if (request.type === 'REFRESH_VOCAB') {
         console.debug('[LinguaFlow] Sincronizando vocabulário...');
         this._loadSavedWords();
+        if (request.held && request.word) this.wordPopup?.showHeldNotice?.(request.word);
       } else if (request.action === 'LF_TOGGLE_SETTINGS') {
         window.dispatchEvent(new CustomEvent('LF_TOGGLE_SETTINGS'));
         sendResponse?.({ ok: true });

@@ -448,6 +448,7 @@ Para atualizar: `npm run map`.
 | `dashboard/js/core/fluencyCheck.js` | M | Modelo de domínio da Checagem de Fluência: níveis A1–B2, habilidades, decisão de tentativa e força da evidência. |
 | `dashboard/js/core/fluencyTaskCatalog.js` | M | Catálogo versionado de tarefas de fluência por nível e habilidade, com validação e sobreposição de texto estudado. |
 | `dashboard/js/core/inputEngine.js` | M | LinguaFlow — Motor de Entrada e Tokenizador de Palavras Arquivo: dashboard/js/core/inputEngine.js Responsabilidade: Divisão em slots de palavras, cálculo de largura 'ch' |
+| `dashboard/js/core/intakeRelease.js` | P | Devolve à fila as palavras que o freio de entrada segurou, quando a dívida baixa (#495). |
 | `dashboard/js/core/levelEstimator.js` | P | Lexical review summary only. Never a measured CEFR proficiency level. |
 | `dashboard/js/core/placement.js` | M | Teste de nivelamento CEFR. |
 | `dashboard/js/core/readability.js` | P | mede o nível CEFR REAL de um texto gerado (A4 do backlog). |
@@ -456,6 +457,7 @@ Para atualizar: `npm run map`.
 | `dashboard/js/core/sessionQueue.js` | P | Interleaving inteligente da sessão (Marco 2 do motor pedagógico). Decisão do Eng. SRS + Linguista |
 | `dashboard/js/core/soundFx.js` | P | Sons do player de cursos gerados na hora com Web Audio (sem arquivos): um clique curto de tecla e tons curtos de feedback. Implementação própria. |
 | `dashboard/js/core/statsEngine.js` | P | Agregações PURAS para a tela de Estatísticas (Onda 2.1). |
+| `dashboard/js/core/todayPlan.js` | P | Plano único de hoje (#495): junta revisões de cards, revisões do curso e a próxima lição em passos curtos, com um só botão. |
 | `dashboard/js/core/tts.js` | M | Áudio natural (Google TTS) com cache em IndexedDB + download do MP3. |
 | `dashboard/js/core/videoContext.js` | P | Contexto de vídeo salvo pela extensão. Só YouTube recebe embed: demais plataformas podem bloquear iframes (DRM) e devem abrir no ponto salvo. |
 | `dashboard/js/core/videoWordStats.js` | P | Palavras salvas a partir de vídeos (#399). O Cofre já agenda revisão para elas; aqui só medimos quantas vieram de vídeo e quantas já fixaram, para o aluno ver que o há… |
@@ -493,6 +495,7 @@ Para atualizar: `npm run map`.
 | `dashboard/js/ui/studyView.js` | GG ⚠ | Tela Estudar (revisão FSRS): fila de cards, 4 formas de revisar, avaliação idempotente, desfazer, áudio e sessão. |
 | `dashboard/js/ui/studyViewStyles.js` | M | Estilos da tela Estudar (revisão FSRS), injetados uma vez no <head> pela studyView. |
 | `dashboard/js/ui/systemNotice.js` | P | Faixa de aviso global definida em Admin > Sistema (#408). Falha em silêncio: aviso nunca bloqueia o estudo. |
+| `dashboard/js/ui/todayPlanView.js` | P | Bloco "Plano de hoje" do Início (#495): passos numerados, tempo estimado e um botão principal. |
 | `dashboard/js/ui/viewState.js` | P | Estados padrão de tela (carregando, vazio, erro, sucesso) e escape de HTML para as views. |
 
 ### Dashboard PWA — telas de Cursos (`dashboard/js/ui/courses/`)
@@ -553,6 +556,7 @@ Para atualizar: `npm run map`.
 | `utils/frequency-en.json` | P | Posição de frequência de cada palavra em inglês (1 = mais comum). |
 | `utils/html.js` | P | Escape de HTML para qualquer texto de fora (legendas, IA, web) antes de entrar no DOM. |
 | `utils/install-methods.js` | P | Instala em uma classe os métodos que moram em módulos por assunto (motor de legendas, popup de palavra etc.). |
+| `utils/intake-guard.js` | P | Freio de entrada (#495): com muitas revisões vencidas, a palavra nova espera em vez de virar mais dívida. |
 | `utils/ipa-validator.js` | P | Validação estrita de IPA (International Phonetic Alphabet) Elimina terminantemente pronúncia abrasileirada, respellings em português e aproximações ortográficas. |
 | `utils/lemma.js` | P | lematizador leve de regras para inglês. |
 | `utils/lexical-profile.js` | M | Motor de auditoria lexical e densidade de novidade (i+1). |
@@ -633,10 +637,10 @@ Para atualizar: `npm run map`.
 
 | Grupo | Quantidade | Observação |
 |---|---|---|
-| `supabase/migrations/` | 129 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261004200000_usage_events_smart_captions.sql`. Nunca edite uma migration já aplicada. |
+| `supabase/migrations/` | 130 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261005100000_usage_events_today_plan.sql`. Nunca edite uma migration já aplicada. |
 | `supabase/content/batches/` | 48 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
-| `tests/*.test.mjs` | 186 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
-| `tests/e2e/` | 4 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
+| `tests/*.test.mjs` | 187 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
+| `tests/e2e/` | 5 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
 | `tests/db/` | 15 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |
 | `tests/production/` | 1 | Verificação de isolamento entre contas no Supabase de produção (workflow agendado). |
 | `docs/*.md` | 6 | Documentação viva; histórico em `docs/history/`, produto em `docs/product/`. |

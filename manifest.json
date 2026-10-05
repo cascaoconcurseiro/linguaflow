@@ -153,6 +153,7 @@
         "utils/db/account.js",
         "utils/db/learning.js",
         "utils/local-day.js",
+        "utils/intake-guard.js",
         "utils/expressions-db.js",
         "utils/slangs-db.js",
         "utils/expression-detector.js",

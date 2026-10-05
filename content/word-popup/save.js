@@ -222,7 +222,8 @@ export class SaveMethods {
     return queuedSave.syncPromise;
   }
 
-  _showSaveToast() {
+  // Aviso curto na página do vídeo. `text`/`tone` permitem avisar que a palavra ficou em espera (#495).
+  _showSaveToast(text = null, tone = 'ok') {
     let toast = document.getElementById('lf-save-toast');
     if (!toast) {
       toast = document.createElement('div');
@@ -242,6 +243,8 @@ export class SaveMethods {
         box-shadow: 0 4px 16px rgba(0,0,0,0.4);
         animation: slideInRight 0.3s ease-out;
       `;
+      toast.setAttribute('role', 'status');
+      toast.setAttribute('aria-live', 'polite');
       document.body.appendChild(toast);
 
       const style = document.createElement('style');
@@ -250,6 +253,7 @@ export class SaveMethods {
           from { opacity: 0; transform: translateX(100px); }
           to { opacity: 1; transform: translateX(0); }
         }
+        @media (prefers-reduced-motion: reduce) { #lf-save-toast { animation: none !important; } }
         @keyframes slideOutRight {
           from { opacity: 1; transform: translateX(0); }
           to { opacity: 0; transform: translateX(100px); }
@@ -258,14 +262,21 @@ export class SaveMethods {
       document.head.appendChild(style);
     }
 
-    toast.textContent = `✅ "${this.word}" salvo no dashboard!`;
+    toast.textContent = text || `✅ "${this.word}" salvo no dashboard!`;
+    toast.style.background = tone === 'wait' ? 'rgba(146, 90, 12, 0.96)' : 'rgba(16, 185, 129, 0.95)';
     toast.style.display = 'block';
     toast.style.animation = 'slideInRight 0.3s ease-out';
 
-    setTimeout(() => {
+    clearTimeout(this._saveToastTimer);
+    this._saveToastTimer = setTimeout(() => {
       toast.style.animation = 'slideOutRight 0.3s ease-out';
       setTimeout(() => (toast.style.display = 'none'), 300);
-    }, 3000);
+    }, tone === 'wait' ? 7000 : 3000);
+  }
+
+  // O freio de entrada segurou a palavra: ela não se perdeu, só espera a fila de revisões baixar.
+  showHeldNotice(word) {
+    this._showSaveToast(`⏳ "${String(word).slice(0, 40)}" ficou em espera: você tem muitas revisões vencidas. Ela entra na fila quando isso baixar.`, 'wait');
   }
 
   // Os métodos _ai, _aiSentence e _aiGrammar foram movidos para o final do arquivo para melhor organização.

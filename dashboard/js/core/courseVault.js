@@ -36,7 +36,7 @@ export function unitToWordPayload(unit, { courseTitle = '' } = {}) {
 }
 
 /**
- * @returns {Promise<{status:'saved'|'exists'|'waiting'|'unsupported'}>} — falhas de rede/servidor sobem como exceção.
+ * @returns {Promise<{status:'saved'|'exists'|'waiting'|'waiting-queue'|'unsupported'}>} — falhas de rede/servidor sobem como exceção.
  */
 export async function sendUnitToVault(unit, { db, courseTitle } = {}) {
   if (!canSendUnitToVault(unit)) return { status: 'unsupported' };
@@ -46,13 +46,15 @@ export async function sendUnitToVault(unit, { db, courseTitle } = {}) {
   if (existing) return { status: 'exists' };
   const result = await db.saveWord(payload);
   if (!result?.ok) throw new Error('save_word_failed');
-  return { status: result.waitingForSlot ? 'waiting' : 'saved' };
+  if (!result.waitingForSlot) return { status: 'saved' };
+  return { status: result.waitingReason === 'backlog' ? 'waiting-queue' : 'waiting' };
 }
 
 const BUTTON_STATES = {
   saved: ['✓ No Cofre', 'Frase enviada ao Cofre. Ela entra na sua fila de revisão.'],
   exists: ['✓ Já está no Cofre', 'Essa frase já estava no seu Cofre; nada foi alterado.'],
   waiting: ['⏳ Em espera', 'Seu Cofre está cheio: a frase ficou em espera até você abrir uma vaga.'],
+  'waiting-queue': ['⏳ Em espera', 'Você tem muitas revisões vencidas: a frase espera e entra na fila quando ela baixar.'],
 };
 
 /** Liga o botão: carregando → sucesso/aviso, ou erro recuperável (o botão volta a funcionar). */
@@ -67,7 +69,7 @@ export async function runSendToVault(button, unit, { db, app, courseTitle } = {}
     const [label, message] = BUTTON_STATES[status] || [original, ''];
     button.textContent = label;
     button.removeAttribute('aria-busy');
-    if (message) app?.showToast?.(message, status === 'waiting' ? 'info' : 'success');
+    if (message) app?.showToast?.(message, status.startsWith('waiting') ? 'info' : 'success');
     if (status === 'unsupported') button.disabled = true;
   } catch (error) {
     console.warn('[CourseVault] send_failed', error?.kind || error?.message);

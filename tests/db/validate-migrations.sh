@@ -132,4 +132,7 @@ run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/usage-events.sql"
 echo "── correções de conteúdo publicado (#435)"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-corrections.sql"
 
+echo "── dívida de revisão do curso: erro mais brando, meta diária e atraso (#501)"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-review-debt.sql"
+
 echo "✅ Migrations reproduzíveis + gates comportamentais P0.1/P0.2/#118 passaram."

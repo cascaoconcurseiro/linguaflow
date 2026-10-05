@@ -4,6 +4,7 @@
 // conteúdo de demonstração.
 
 import { db } from '../../../utils/db.js';
+import { courseReviewPacing } from '../core/courseReviewPacing.js';
 import { flushPendingCourseCommit } from './coursePracticeView.js';
 import { renderCourseHome } from './courses/courseHome.js';
 import { renderCourseStore, renderMyCourses, renderCourseDetail } from './courses/courseStore.js';
@@ -93,7 +94,7 @@ export async function renderCourses(container, app, params = {}) {
   function renderShell(extra = {}) {
     const navId = section === 'course' ? 'store' : section;
     const item = (s) => {
-      const count = s.badge ? Number(summary[s.badge] || 0) : 0;
+      const count = s.id === 'review' ? courseReviewPacing(summary).today : s.badge ? Number(summary[s.badge] || 0) : 0;
       return `<li><button type="button" class="course-side-link ${navId === s.id ? 'active' : ''}" data-section="${s.id}"
         ${navId === s.id ? 'aria-current="page"' : ''}>${s.label}${count > 0 ? ` <span class="course-tab-badge" aria-label="${count} pendentes">${count}</span>` : ''}</button></li>`;
     };

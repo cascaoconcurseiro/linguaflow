@@ -2,10 +2,12 @@
 // Reaproveita a seleção do card "Continue seu curso"; nada de regra nova de progresso.
 
 import { escapeHTML } from '../../../../utils/html.js';
+import { courseReviewPacing, courseReviewsLabel } from '../../core/courseReviewPacing.js';
 import { lessonProgress, pickContinueTarget } from './courseUi.js';
 
 export function buildCourseStripModel({ catalog = [], summary = {} } = {}) {
   if (!catalog.length) return { kind: 'none' };
+  const pacing = courseReviewPacing(summary);
   const lessonIndex = new Map();
   for (const course of catalog) for (const lesson of course.lessons || []) lessonIndex.set(lesson.id, { course, lesson });
   const cont = pickContinueTarget({ lessonIndex, summary });
@@ -19,12 +21,19 @@ export function buildCourseStripModel({ catalog = [], summary = {} } = {}) {
       chapter: cont.lesson.chapter_number,
       lessonTitle: cont.lesson.title,
       percent: lessonProgress(cont.lesson, cont.course).percent,
-      reviewsDue: Number(summary.reviews_due_count || 0),
+      reviewsDue: pacing.today,
+      reviewsBacklog: pacing.backlog,
+      reviewsCapped: pacing.capped,
       mistakes: Number(summary.mistakes_count || 0),
       todaySeconds: Number(summary.today_seconds || 0),
     };
   }
-  const common = { reviewsDue: Number(summary.reviews_due_count || 0), todaySeconds: Number(summary.today_seconds || 0) };
+  const common = {
+    reviewsDue: pacing.today,
+    reviewsBacklog: pacing.backlog,
+    reviewsCapped: pacing.capped,
+    todaySeconds: Number(summary.today_seconds || 0),
+  };
   if (summary.continue || (summary.recent || []).length) return { kind: 'done', ...common };
   const first = catalog.find((c) => c.my?.in_my_courses) || catalog[0];
   return { kind: 'start', courseId: first.id, courseTitle: first.title, level: first.level || '', ...common };
@@ -32,7 +41,14 @@ export function buildCourseStripModel({ catalog = [], summary = {} } = {}) {
 
 function counts(model) {
   const parts = [];
-  if (model.reviewsDue > 0) parts.push(`<a href="#courses/review" class="home-course-count" data-course-tab="review">${model.reviewsDue} ${model.reviewsDue === 1 ? 'revisão vencida' : 'revisões vencidas'}</a>`);
+  // Sem `reviewsCapped` (modelo do formato anterior) o texto continua "N revisões vencidas".
+  const reviews = courseReviewsLabel({
+    total: (model.reviewsDue || 0) + (model.reviewsBacklog || 0),
+    today: model.reviewsDue || 0,
+    backlog: model.reviewsBacklog || 0,
+    capped: Boolean(model.reviewsCapped),
+  });
+  if (reviews) parts.push(`<a href="#courses/review" class="home-course-count" data-course-tab="review">${escapeHTML(reviews)}</a>`);
   if (model.mistakes > 0) parts.push(`<a href="#courses/mistakes" class="home-course-count" data-course-tab="mistakes">${model.mistakes} ${model.mistakes === 1 ? 'erro aberto' : 'erros abertos'}</a>`);
   return parts.length ? `<p class="home-course-counts">${parts.join('<span aria-hidden="true"> · </span>')}</p>` : '';
 }

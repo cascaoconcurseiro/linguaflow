@@ -17,6 +17,9 @@ const scenarios = {
   flagoff: { cards: dueReviews(10), words: [], courseReviews: 2, today: 0, planSetting: 'off' },
   held: { cards: dueReviews(70), words: heldWords, extraCards: heldCards, courseReviews: 0, today: 0 },
   courseerror: { cards: dueReviews(5), words: [], courseError: true, today: 0 },
+  // #501: meta diária do curso vinda do servidor (204 vencidas, 20 para hoje).
+  coursecap: { cards: [], words: [{ id: 'w0', word: 'hello', tags: [] }], courseReviews: 204, courseCap: { today: 20, done: 0 }, today: 0 },
+  coursecapoff: { cards: [], words: [{ id: 'w0', word: 'hello', tags: [] }], courseReviews: 204, courseCap: { today: 20, done: 0 }, today: 0, planSetting: 'off' },
 };
 const s = scenarios[scenario] || scenarios.backlog;
 
@@ -25,6 +28,12 @@ const catalog = [{
   lessons: [{ id: 'l1', chapter_number: 3, title: 'Cumprimentos <b>reais</b>', unit_count: 10, my_best_answered: 3 }],
 }];
 const summary = { continue: { course_id: 'c1', lesson_id: 'l1' }, reviews_due_count: s.courseReviews || 0, mistakes_count: 0, today_seconds: s.today || 0 };
+if (s.courseCap) {
+  Object.assign(summary, {
+    reviews_due_total: s.courseReviews, reviews_daily_cap: 20, reviews_done_today: s.courseCap.done,
+    reviews_due_today: s.courseCap.today, reviews_overdue_7d: 0,
+  });
+}
 
 const events = [];
 const navigations = [];

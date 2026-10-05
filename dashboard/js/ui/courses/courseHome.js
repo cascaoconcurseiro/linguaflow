@@ -1,11 +1,29 @@
 // Início dos Cursos: continuar, semana, revisão do dia, tempo e recentes.
 
 import { escapeHTML } from '../../../../utils/html.js';
+import { courseReviewPacing, courseReviewsLabel } from '../../core/courseReviewPacing.js';
 import { formatDuration, formatDateTime, formatDate, levelPill, lessonProgress, pickContinueTarget, startLesson, renderEmpty, plural, unitCount } from './courseUi.js';
 
 const WEEKDAYS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
 
 const LEVEL_NAME = { A1: 'Iniciante', A2: 'Básico', B1: 'Intermediário', B2: 'Intermediário avançado' };
+
+// Meta diária (#501): sem os campos novos do servidor o texto é o de antes ("N frases vencem hoje").
+function reviewPanelHtml(summary) {
+  const pacing = courseReviewPacing(summary);
+  if (pacing.today > 0) {
+    const text = pacing.capped
+      ? `<strong>${escapeHTML(courseReviewsLabel(pacing))}</strong>.`
+      : `<strong>${pacing.today}</strong> ${pacing.today === 1 ? 'frase dos cursos vence' : 'frases dos cursos vencem'} hoje.`;
+    return `<p>${text}</p>
+             <button class="course-btn-continue" type="button" data-go="review">Revisar agora</button>`;
+  }
+  if (pacing.backlog > 0) {
+    return `<p class="course-hub-subtitle" role="status">${escapeHTML(courseReviewsLabel(pacing))}.</p>
+             <button class="course-link" type="button" data-go="review">Ver a fila</button>`;
+  }
+  return `<p class="course-hub-subtitle">Nada vence hoje.${summary.next_review_at ? ` Próxima revisão em ${formatDate(summary.next_review_at)}` : ''}</p>`;
+}
 
 function pathHtml(path, lessonIndex) {
   if (!path?.levels) return '';
@@ -104,10 +122,7 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate 
 
       <section class="course-panel" aria-labelledby="review-title">
         <h2 id="review-title" class="course-section-title">Sua revisão do dia</h2>
-        ${summary.reviews_due_count > 0
-          ? `<p><strong>${summary.reviews_due_count}</strong> ${summary.reviews_due_count === 1 ? 'frase dos cursos vence' : 'frases dos cursos vencem'} hoje.</p>
-             <button class="course-btn-continue" type="button" data-go="review">Revisar agora</button>`
-          : `<p class="course-hub-subtitle">Nada vence hoje.${summary.next_review_at ? ` Próxima revisão em ${formatDate(summary.next_review_at)}` : ''}</p>`}
+        ${reviewPanelHtml(summary)}
         ${summary.mistakes_count > 0 ? `<p class="course-hub-subtitle">${summary.mistakes_count} ${summary.mistakes_count === 1 ? 'erro pendente' : 'erros pendentes'} no caderno. <button class="course-link" type="button" data-go="mistakes">Treinar</button></p>` : ''}
       </section>
     </div>

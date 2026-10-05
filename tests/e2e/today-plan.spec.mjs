@@ -115,3 +115,18 @@ test('curso fora do ar: avisa e o plano continua com os cards', async ({ page })
   await expect(plan.getByRole('status')).toContainText('O curso não carregou agora');
   await expect(plan.getByRole('button', { name: 'Tentar novamente' })).toBeVisible();
 });
+
+test('meta diária do curso (#501): plano e faixa mostram a meta de hoje e a fila separada', async ({ page }) => {
+  await open(page, 'coursecap');
+  const plan = page.locator('#home-primary-plan');
+  const step = plan.getByRole('listitem').filter({ hasText: 'Revisar frases do curso' });
+  await expect(step).toContainText('20 revisões');
+  await expect(step).toContainText('mais 184 ficam para outro dia');
+});
+
+test('meta diária do curso (#501): a faixa do Início (plano desligado) mostra a meta e a fila, nunca o total cru', async ({ page }) => {
+  await open(page, 'coursecapoff');
+  const counts = page.locator('.home-course-counts');
+  await expect(counts).toContainText('20 revisões para hoje · +184 na fila');
+  await expect(counts).not.toContainText('204');
+});

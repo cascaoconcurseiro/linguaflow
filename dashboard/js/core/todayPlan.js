@@ -20,7 +20,8 @@ export function estimateMinutes(seconds) {
  * @param {object} input
  * @param {number} input.dueCards revisões vencidas (inclui as que estão em aprendizado)
  * @param {number} input.dueLearning vencidas em aprendizado (voltam em minutos; nunca são adiadas)
- * @param {number} input.courseReviewsDue revisões vencidas do curso
+ * @param {number} input.courseReviewsDue revisões do curso para hoje (a meta diária; sem meta, todas as vencidas)
+ * @param {number} [input.courseReviewsBacklog] vencidas do curso que ficam na fila além da meta de hoje
  * @param {'continue'|'start'|'done'|'none'|'error'} input.courseState estado da faixa de curso
  * @param {object} [input.lesson] { courseId, lessonId, title, chapter } da próxima lição
  * @param {number} [input.courseTodaySeconds] segundos praticados hoje no curso
@@ -54,7 +55,7 @@ export function buildTodayPlan(input = {}) {
       route: 'courses',
       params: { tab: 'review' },
       count: courseReviews,
-      overflow: 0,
+      overflow: count(input.courseReviewsBacklog), // fila do curso que fica para outro dia (meta diária, #501)
       learning: 0,
       seconds: courseReviews * SECONDS_PER_COURSE_REVIEW,
     });

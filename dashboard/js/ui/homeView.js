@@ -531,6 +531,7 @@ export async function renderHome(container, app) {
             dueCards: safeStats.dueCards,
             dueLearning: dueLearningNow,
             courseReviewsDue: courseModel?.reviewsDue,
+            courseReviewsBacklog: courseModel?.reviewsBacklog,
             courseState: courseModel?.kind,
             courseTodaySeconds: courseModel?.todaySeconds,
             lesson: courseModel?.kind === 'continue'

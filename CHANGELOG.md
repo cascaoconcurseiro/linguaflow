@@ -3,6 +3,7 @@
 ## [Não lançado]
 
 ### Adicionado
+- **Curso "Gramática B2 em Uso" (B2, #517)**: 8 capítulos e 80 frases sobre wish/if only, condicionais mistos, causativo (have/get), orações relativas, gerúndio × infinitivo, ênfase, inversão e futuro perfeito/contínuo. É a primeira trilha de Gramática do B2 e não repete o B1 (Tempos Verbais). Quarta fatia do plano #505; tradução e IPA ainda sem revisão humana.
 - **Expressões Idiomáticas do B2 ganha 4 capítulos (#505)**: de 6 para 10 capítulos e de 60 para 100 frases. Novos: idioms de relacionamentos (hit it off, tie the knot, see eye to eye), de problemas e soluções (hit a snag, back to square one, sleep on it), de opinião e discordância (I couldn't agree more, I beg to differ, on the fence) e de esforço e ritmo (swamped, running on empty, go the extra mile). Cada frase traz o registro e o sentido literal × o real. Os capítulos 1 a 6 não mudam.
 - **Curso piloto "Inglês Falado: Reduções" (A2, #503)**: um capítulo com 10 frases de reduções que as séries usam e o capítulo "Reduções da fala" do curso A1 ainda não cobria: c'mon, gotcha, shoulda, coulda, outta, whaddya, tryna, ain't, lotta e "you gonna…?". Cada frase tem a forma completa, o registro e a armadilha. Fica fora da trilha guiada (não muda seu "continuar"). É um piloto: a continuação depende de você escutar o áudio e dizer se a voz soa certa.
 

@@ -7,6 +7,7 @@
 - **Curso piloto "Inglês Falado: Reduções" (A2, #503)**: um capítulo com 10 frases de reduções que as séries usam e o capítulo "Reduções da fala" do curso A1 ainda não cobria: c'mon, gotcha, shoulda, coulda, outta, whaddya, tryna, ain't, lotta e "you gonna…?". Cada frase tem a forma completa, o registro e a armadilha. Fica fora da trilha guiada (não muda seu "continuar"). É um piloto: a continuação depende de você escutar o áudio e dizer se a voz soa certa.
 
 ### Alterado
+- **Cursos: iniciante começa por Fundamentos, não pelas gírias (#514)**: o botão "Comece seu primeiro curso" usava o primeiro curso por `order_index` do banco (as gírias) e agora segue a trilha (Primeiras Frases no A1). A ordem do A1 Fundamentos passou a ser Primeiras Frases, Números/Horas/Datas, Verbos Essenciais e 1000 Palavras, para o capítulo mais longo ficar por último.
 - **Revisão dos cursos: erro não zera mais o progresso e há uma meta diária (#501)**: errar, usar dica ou revelar a resposta continua trazendo a frase de volta no dia seguinte, mas ela só volta metade do caminho na escada (antes voltava ao começo). O Início, o plano de hoje, o selo da aba e a aba Revisão passam a mostrar a meta de hoje (20 frases, no seu fuso) e o resto como "na fila". A meta nunca bloqueia: depois dela dá para "Revisar mais 10 (opcional)". A aba Revisão avisa quando há frases esperando há mais de 7 dias. Pede a migration `20261005200000_course_review_debt.sql`; sem ela a interface se comporta como antes.
 
 ### Removido

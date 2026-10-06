@@ -2,7 +2,7 @@
 
 import { escapeHTML } from '../../../../utils/html.js';
 import { courseReviewPacing, courseReviewsLabel } from '../../core/courseReviewPacing.js';
-import { formatDuration, formatDateTime, formatDate, levelPill, lessonProgress, pickContinueTarget, startLesson, renderEmpty, plural, unitCount } from './courseUi.js';
+import { formatDuration, formatDateTime, formatDate, levelPill, lessonProgress, pickContinueTarget, pickFirstCourse, startLesson, renderEmpty, plural, unitCount } from './courseUi.js';
 
 const WEEKDAYS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
 
@@ -62,7 +62,7 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate 
   const cont = pickContinueTarget({ lessonIndex, summary });
   const hasProgress = Boolean(summary.continue || (summary.recent || []).length);
   const next = path?.next && lessonIndex.get(path.next.lesson_id);
-  const firstCourse = catalog.find((c) => c.my?.in_my_courses) || catalog[0];
+  const firstCourse = pickFirstCourse(catalog);
   const today = new Date().toISOString().slice(0, 10);
   const week = summary.week || [];
   const recent = (summary.recent || []).map((r) => ({ ...r, ...lessonIndex.get(r.lesson_id) })).filter((r) => r.lesson);

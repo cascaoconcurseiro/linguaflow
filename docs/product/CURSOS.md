@@ -6,7 +6,7 @@
 
 | Item | Situação |
 | --- | --- |
-| Catálogo | 30 cursos publicados (2026-10-06, com #517, #519, #521 e #523): A1 5, A2 7, B1 7, B2 10, C1 1. B2 tem 82 capítulos e 860 itens; o C1 é um curso de 8 capítulos (Registro e Precisão). Plano #505 fechado; o C1 tem um só curso. "Fala Conectada" (B2) e o piloto de reduções (A2) ficam fora da trilha (`is_core = false`) até o dono ouvir o áudio. O catálogo mostra só cursos com frases no banco. Cursos com `is_core = false` (o piloto) ficam fora da trilha guiada. |
+| Catálogo | Conteúdo previsto após publicação de #523: 30 cursos (A1 5, A2 7, B1 7, B2 10, C1 1). B2 com 82 capítulos e 860 itens; C1 com 8 capítulos (Registro e Precisão). #517, #519 e #521 já entregues; aplicação de #523 precisa de conferência no banco. O conteúdo do plano #505 está escrito; revisão humana e avaliação do áudio continuam pendentes. "Fala Conectada" (B2) e o piloto de reduções (A2) ficam fora da trilha (`is_core = false`) até o dono ouvir o áudio. O catálogo mostra só cursos com frases no banco. |
 | Player | Pronto: modos fácil/médio/difícil, pausa, revelar resposta, salvar vocabulário/nota, envio idempotente com reenvio. |
 | Cadernos | Erros pendentes, revisões vencidas e vocabulário salvo, lidos do banco. Praticar um erro/revisão reabre a lição de origem. |
 | Conteúdo novo | Entra por migration de seed (append-only). Não há ferramenta editorial ainda. |

@@ -506,7 +506,7 @@ Para atualizar: `npm run map`.
 | `dashboard/js/ui/courses/courseLeaderboard.js` | P | Ranking dos Cursos por tempo ativo de estudo (UTC). |
 | `dashboard/js/ui/courses/courseNotebooks.js` | M | Cadernos: revisão espaçada, erros, vocabulário e notas. Tudo gratuito. |
 | `dashboard/js/ui/courses/courseStore.js` | M | Loja, Meus cursos e página do curso (capítulos). |
-| `dashboard/js/ui/courses/courseUi.js` | P | peças compartilhadas pelas seções de Cursos. |
+| `dashboard/js/ui/courses/courseUi.js` | M | peças compartilhadas pelas seções de Cursos. |
 
 ### Dashboard PWA — console administrativo (`dashboard/js/ui/admin/`)
 
@@ -636,9 +636,9 @@ Para atualizar: `npm run map`.
 
 | Grupo | Quantidade | Observação |
 |---|---|---|
-| `supabase/migrations/` | 133 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261005220000_course_content_fluencia_2.sql`. Nunca edite uma migration já aplicada. |
+| `supabase/migrations/` | 134 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261006120000_course_a1_fundamentos_order.sql`. Nunca edite uma migration já aplicada. |
 | `supabase/content/batches/` | 50 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
-| `tests/*.test.mjs` | 188 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
+| `tests/*.test.mjs` | 189 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
 | `tests/e2e/` | 7 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
 | `tests/db/` | 15 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |
 | `tests/production/` | 1 | Verificação de isolamento entre contas no Supabase de produção (workflow agendado). |

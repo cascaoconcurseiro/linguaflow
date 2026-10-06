@@ -628,6 +628,7 @@ Para atualizar: `npm run map`.
 | `scripts/generate-project-map.mjs` | M | Gera o inventário de docs/MAPA_DO_PROJETO.md a partir dos arquivos rastreados pelo git. |
 | `scripts/package-extension.mjs` | P | LinguaFlow - Script de Empacotamento de Produção da Extensão Chrome Gera dist/linguaflow-extension-v<version>.zip pronto para a Chrome Web Store. |
 | `scripts/replay-migrations-local.ps1` | P | Reproduz as migrations em uma pilha Supabase LOCAL e descartável. |
+| `scripts/structure-chunker.mjs` | M | Propõe os grupos sintáticos (Sujeito, Verbo, Predicado, Objeto, Adjunto, Expressão) de frases de curso a partir da classe gramatical de cada palavra (LEXICON). |
 | `scripts/verificar.ps1` | P | Verificação local oficial do LinguaFlow para Windows. |
 | `scripts/wiring-audit.js` | M | Auditoria de FIAÇÃO do LinguaFlow — prova mecânica de desconexão. |
 

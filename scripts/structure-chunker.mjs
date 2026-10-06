@@ -66,11 +66,9 @@ function chunkSentence(sentence, lexicon) {
   let k = i;
   const end = mainEnd;
   // Verbo auxiliar de pergunta antes do sujeito (Can you…? Is there…? Do you…?).
-  let v1 = null;
   if (question && isVerb(toks[k]) && k + 1 < end) {
     let e = k + 1;
     if (toks[e]?.w === 'there') e++;
-    v1 = [k, e];
     push(k, e, 'predicate_verb');
     k = e;
   }

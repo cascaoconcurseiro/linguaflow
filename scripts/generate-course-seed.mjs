@@ -85,18 +85,18 @@ ON CONFLICT (id) DO UPDATE SET slug = EXCLUDED.slug, title = EXCLUDED.title, sho
 
 function lessonSql(course, lesson, format, builders, errors, requireNotes) {
   const rows = lesson.units.map((raw, i) => {
-    const unitId = `${lesson.id.replace('lesson-', 'unit-')}-${String(i + 1).padStart(2, '0')}`;
+    const unitId = `${lesson.id.replace('lesson-', 'unit-')}-${String(i + 1 + (lesson.unitOffset || 0)).padStart(2, '0')}`;
     const u = normalizeUnit(raw);
     if (!KINDS.has(u.kind)) errors.push(`${unitId}: tipo inválido ${u.kind}`);
     if (!u.text || !u.pt) errors.push(`${unitId}: texto e tradução são obrigatórios`);
     const { annotations, sentenceIpa } = builders.buildUnit(u.text, unitId);
     const syntax = builders.buildGroups(u.text, u.groups, unitId);
     if (format === 1) {
-      return `  (${q(unitId)}, ${q(lesson.id)}, ${i + 1}, 'sentence', ${q(u.text)}, ${q(u.pt)}, ${q(sentenceIpa)}, ${q(u.note)}, ${j(syntax)}, ${j(annotations)})`;
+      return `  (${q(unitId)}, ${q(lesson.id)}, ${i + 1 + (lesson.unitOffset || 0)}, 'sentence', ${q(u.text)}, ${q(u.pt)}, ${q(sentenceIpa)}, ${q(u.note)}, ${j(syntax)}, ${j(annotations)})`;
     }
     if (requireNotes && u.kind !== 'word' && !u.note) errors.push(`${unitId}: nota gramatical obrigatória`);
     if (u.example && (!u.example[0] || !u.example[1])) errors.push(`${unitId}: exemplo precisa de inglês e português`);
-    return `  (${q(unitId)}, ${q(lesson.id)}, ${i + 1}, ${q(u.kind)}, ${q(u.text)}, ${q(u.pt)}, ${q(sentenceIpa)}, ${q(u.note)}, ${j(syntax)}, ${j(annotations)}, ${q(u.example?.[0])}, ${q(u.example?.[1])})`;
+    return `  (${q(unitId)}, ${q(lesson.id)}, ${i + 1 + (lesson.unitOffset || 0)}, ${q(u.kind)}, ${q(u.text)}, ${q(u.pt)}, ${q(sentenceIpa)}, ${q(u.note)}, ${j(syntax)}, ${j(annotations)}, ${q(u.example?.[0])}, ${q(u.example?.[1])})`;
   });
   const cols = format === 1
     ? 'id, lesson_id, order_index, kind, text, translation_pt, ipa, explanation_note, syntax_groups, annotations'

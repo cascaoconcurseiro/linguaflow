@@ -6,7 +6,7 @@
 
 | Item | Situação |
 | --- | --- |
-| Catálogo | 28 cursos publicados (2026-10-06, com #517 e #519): A1 5, A2 7, B1 7, B2 8, C1 1. B2 tem 68 capítulos e 620 frases; o C1 é um curso de 8 capítulos (Registro e Precisão). Itens ainda abertos do plano #505: fala conectada (depende do áudio do piloto #503) e vocabulário temático; o C1 tem um só curso. O catálogo mostra só cursos com frases no banco. Cursos com `is_core = false` (o piloto) ficam fora da trilha guiada. |
+| Catálogo | 29 cursos publicados (2026-10-06, com #517, #519 e #521): A1 5, A2 7, B1 7, B2 9, C1 1. B2 tem 74 capítulos e 780 itens; o C1 é um curso de 8 capítulos (Registro e Precisão). Item ainda aberto do plano #505: fala conectada (depende do áudio do piloto #503); o C1 tem um só curso. O catálogo mostra só cursos com frases no banco. Cursos com `is_core = false` (o piloto) ficam fora da trilha guiada. |
 | Player | Pronto: modos fácil/médio/difícil, pausa, revelar resposta, salvar vocabulário/nota, envio idempotente com reenvio. |
 | Cadernos | Erros pendentes, revisões vencidas e vocabulário salvo, lidos do banco. Praticar um erro/revisão reabre a lição de origem. |
 | Conteúdo novo | Entra por migration de seed (append-only). Não há ferramenta editorial ainda. |

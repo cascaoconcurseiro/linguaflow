@@ -6,7 +6,7 @@
 
 | Item | Situação |
 | --- | --- |
-| Catálogo | Conteúdo previsto após publicação de #523: 30 cursos (A1 5, A2 7, B1 7, B2 10, C1 1). B2 com 82 capítulos e 860 itens; C1 com 8 capítulos (Registro e Precisão). #517, #519 e #521 já entregues; aplicação de #523 precisa de conferência no banco. O conteúdo do plano #505 está escrito; revisão humana e avaliação do áudio continuam pendentes. "Fala Conectada" (B2) e o piloto de reduções (A2) ficam fora da trilha (`is_core = false`) até o dono ouvir o áudio. O catálogo mostra só cursos com frases no banco. |
+| Catálogo | 30 cursos publicados e conferidos no banco em 2026-10-06 (A1 5, A2 7, B1 7, B2 10, C1 1). B2 com 82 capítulos e 860 itens; C1 com 8 capítulos (Registro e Precisão). #523 publicado em #524: 8 capítulos e 80 frases de Fala Conectada, conferidos por hash, incluindo a revisão editorial do lote `fala-conectada-2`. Loja e página dos oito capítulos verificadas no Brave com conta real, sem erros no console. O conteúdo do plano #505 está entregue; revisão humana e avaliação do áudio continuam pendentes. "Fala Conectada" (B2) e o piloto de reduções (A2) ficam fora da trilha (`is_core = false`) até o dono ouvir o áudio. A trilha B2 contém 74 capítulos; os 8 de Fala Conectada aparecem apenas no catálogo. |
 | Player | Pronto: modos fácil/médio/difícil, pausa, revelar resposta, salvar vocabulário/nota, envio idempotente com reenvio. |
 | Cadernos | Erros pendentes, revisões vencidas e vocabulário salvo, lidos do banco. Praticar um erro/revisão reabre a lição de origem. |
 | Conteúdo novo | Entra por migration de seed (append-only). Não há ferramenta editorial ainda. |

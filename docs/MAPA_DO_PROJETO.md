@@ -636,8 +636,8 @@ Para atualizar: `npm run map`.
 
 | Grupo | Quantidade | Observação |
 |---|---|---|
-| `supabase/migrations/` | 144 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261006210000_course_content_vocabulario_b2_1.sql`. Nunca edite uma migration já aplicada. |
-| `supabase/content/batches/` | 59 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
+| `supabase/migrations/` | 145 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261006220000_course_content_fala_conectada_1.sql`. Nunca edite uma migration já aplicada. |
+| `supabase/content/batches/` | 60 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
 | `tests/*.test.mjs` | 189 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
 | `tests/e2e/` | 7 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
 | `tests/db/` | 15 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |

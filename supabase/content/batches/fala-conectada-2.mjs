@@ -5,6 +5,23 @@ export const LEXICON = {
   ...ORIGINAL_LEXICON,
   dontcha: ['verb', '/ˈdoʊntʃə/', 'você não (don\'t you)'],
   locked: ['verb', '/lɑːkt/', 'trancou, tranquei'],
+  down: ['particle', '/daʊn/', 'partícula: broke down = quebrou; sit down = sentar'],
+  left: ['verb', '/lɛft/', 'saiu, saído'],
+  report: ['noun', '/rɪˈpɔːrt/', 'relatório'],
+  wait: ['verb', '/weɪt/', 'esperar'],
+  check: ['verb', '/tʃɛk/', 'verificar; check out = dar uma olhada'],
+  cold: ['adjective', '/koʊld/', 'frio'],
+  turn: ['verb', '/tɜːrn/', 'girar; turn off = desligar'],
+  look: ['verb', '/lʊk/', 'olhar'],
+  warm: ['adjective', '/wɔːrm/', 'quente'],
+  help: ['verb', '/hɛlp/', 'ajudar'],
+  second: ['noun', '/ˈsɛkənd/', 'segundo (unidade de tempo)'],
+  so: ['adverb', '/soʊ/', 'tão; então (conjunção); told you so = eu te avisei'],
+  time: ['noun', '/taɪm/', 'tempo'],
+  much: ['adverb', '/mʌtʃ/', 'muito'],
+  leave: ['verb', '/liːv/', 'sair'],
+  before: ['conjunction', '/bɪˈfɔːr/', 'antes de'],
+  "i'd": ['auxiliary verb', '/aɪd/', 'eu tinha (I had, em I\'d known)'],
 };
 
 const corrections = {

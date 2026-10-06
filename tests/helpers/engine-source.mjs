@@ -20,6 +20,7 @@ export const ENGINE_FILES = [
   'content/subtitles/engine/transcript-tab.js',
   'content/subtitles/engine/words-tab.js',
   'content/subtitles/engine/export.js',
+  'content/subtitles/engine/max-sync.js',
 ];
 
 const url = (file) => new URL(`../../${file}`, import.meta.url);

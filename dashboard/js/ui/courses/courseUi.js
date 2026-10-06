@@ -19,6 +19,14 @@ export function byPathOrder(a, b) {
   return (LEVEL_RANK[a.level] || 9) - (LEVEL_RANK[b.level] || 9) || ta - tb || (a.track_order || 0) - (b.track_order || 0);
 }
 
+// Primeiro curso a oferecer: o de Meus cursos; sem matrícula, o primeiro da trilha guiada (nunca o order_index do banco).
+export function pickFirstCourse(catalog) {
+  const mine = catalog.find((c) => c.my?.in_my_courses);
+  if (mine) return mine;
+  const sorted = [...catalog].sort(byPathOrder);
+  return sorted.find((c) => c.is_core !== false) || sorted[0];
+}
+
 export const CATEGORY_LABEL = {
   'street-slang': 'Ruas & gírias',
   survival: 'Sobrevivência',

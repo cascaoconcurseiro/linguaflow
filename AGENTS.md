@@ -2,6 +2,15 @@
 
 Estas regras valem para qualquer agente, modelo ou colaborador que altere este repositório.
 
+## Continuidade entre sessões e IAs
+
+- Ao iniciar, leia `HANDOFF.md` e `MASTER_BLUEPRINT.md` locais, quando existirem, e este arquivo. Confira o estado atual do Git e das Issues/PRs antes de retomar; o handoff é uma fotografia datada, não prova do estado atual.
+- Antes de entregar trabalho ou encerrar uma sessão, atualize `HANDOFF.md` com: pedido e escopo, o que foi feito e por quê, arquivos/funções/migrations afetados, Issues/PRs e commits, estado local e publicado, evidências de validação, limitações, bloqueios e próximo passo concreto. Explique o que já foi publicado para a próxima IA não reaplicar migrations ou repetir entregas.
+- Marque no `CHECKLIST.md` local apenas itens efetivamente concluídos. Altere `MASTER_BLUEPRINT.md` somente quando houver uma decisão real de arquitetura.
+- Esses três documentos são locais e ignorados pelo Git. Para uma próxima IA em outro clone, mantenha o contexto compartilhável na Issue/PR, nos documentos de produto e em `docs/MAPA_DO_PROJETO.md`; não dependa exclusivamente do handoff local nem crie novos diários na raiz.
+- Atualize a narrativa do mapa quando mudarem estrutura, autoridades, fluxos ou o estado documentado relevante. Regenere o inventário com `npm run map` quando os arquivos mapeados mudarem; valide com `npm run map:check` e `npm run test:project-map`. Não edite manualmente o bloco gerado.
+- Separe sempre implementação, CI, publicação no banco, QA real de navegador e aceite humano. Registre pendências sem chamá-las de concluídas; nunca inclua credenciais, códigos de autenticação ou dados pessoais no handoff.
+
 ## Issues, branches, PRs e deploys
 
 - Toda tarefa de **Correção**, **Melhoria** ou **Nova função** começa por uma Issue no GitHub.

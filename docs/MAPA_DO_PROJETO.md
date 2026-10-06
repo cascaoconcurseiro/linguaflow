@@ -238,6 +238,25 @@ chave **publicável** (`utils/db.js`), que por desenho é pública; a proteção
 
 ## 9. Regras de trabalho (resumo do [AGENTS.md](../AGENTS.md))
 
+**Continuidade para a próxima IA.** Leia os documentos locais `HANDOFF.md` e `MASTER_BLUEPRINT.md`, quando disponíveis,
+e confira Git, Issues e PRs antes de agir. Esses documentos são ignorados pelo Git; em outro clone, use este mapa,
+os documentos de produto e as Issues/PRs como ponto de partida. Ao entregar trabalho, registre o que mudou,
+as evidências, as limitações e o próximo arquivo/função/query a trabalhar, conforme o contrato do `AGENTS.md`.
+
+**Última entrega de cursos conferida (2026-10-06).** A continuação do Claude Code no plano
+[#505](https://github.com/cascaoconcurseiro/linguaflow/issues/505) publicou Fala Conectada B2
+([#524](https://github.com/cascaoconcurseiro/linguaflow/pull/524), documentação em
+[#525](https://github.com/cascaoconcurseiro/linguaflow/pull/525)): 8 capítulos e 80 frases, `is_published = true`
+e `is_core = false`. As fontes são `supabase/content/batches/fala-conectada-1.mjs` e a revisão
+`fala-conectada-2.mjs`; ambas as migrations foram aplicadas e conferidas no banco. O catálogo tem 30 cursos;
+a trilha B2 permanece com 74 capítulos. Loja e página do curso foram verificadas no Brave com conta real,
+mas prática, áudio e aceite humano de tradução/IPA continuam pendentes. O próximo passo é a revisão humana
+do conteúdo e a escuta de Fala Conectada e do piloto de reduções
+[#503](https://github.com/cascaoconcurseiro/linguaflow/issues/503), antes de promover cursos à trilha.
+Consulte [CURSOS.md](product/CURSOS.md) para o estado do produto e
+[EDITORIAL_CURSOS.md](product/EDITORIAL_CURSOS.md) para o fluxo de conteúdo. Não reaplique essas migrations
+para retomar a revisão; primeiro confira o histórico do banco.
+
 - **Toda mudança começa por uma Issue** (Correção, Melhoria ou Nova função), com escopo, critérios de aceite, riscos e plano de teste.
 - Branch a partir da `main`; **deploy só por Pull Request**, com `Closes #N`/`Refs #N`, CI verde e revisão. Nunca push direto.
 - **Commits convencionais** (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`…) com **assunto começando em minúscula**; o CI

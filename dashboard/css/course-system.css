@@ -681,3 +681,15 @@
 @media (max-width: 640px) { .course-path-levels { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .course-store-groups { display: flex; flex-direction: column; gap: 24px; }
 .course-track-group { display: flex; flex-direction: column; gap: 12px; }
+
+/* #533: módulos editoriais com navegação nativa de teclado. */
+.course-curriculum-module { border-top: 1px solid var(--border-color, #ddd); }
+.course-curriculum-module summary { cursor: pointer; padding: 16px 4px; }
+.course-curriculum-module summary .course-card-stats { margin-left: 12px; }
+.course-curriculum-module summary:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.course-curriculum-lessons { padding: 0 0 12px 24px; }
+.course-curriculum-lessons li { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 12px 4px; }
+.course-curriculum-lessons li > div { min-width: 0; }
+.course-curriculum-lessons .course-card-stats { display: block; margin-top: 4px; }
+.course-curriculum-lessons button { flex-shrink: 0; }
+@media (max-width: 600px) { .course-curriculum-lessons li { align-items: flex-start; flex-direction: column; } }

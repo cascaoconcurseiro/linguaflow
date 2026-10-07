@@ -1,5 +1,12 @@
 # Changelog
 
+## Organização pedagógica e fundamentos (#533)
+- 42 aulas novas (336 frases): 12 A1, 10 A2, 8 B1, 6 B2 e 6 C1.
+- Aulas organizadas em módulos e em base, prática extra e opcionais por objetivo; extras não bloqueiam o avanço.
+- Filtros por nível e tipo no catálogo e navegação por módulos no Início dos Cursos.
+- Preserva o player, dificuldade, ditado, repetição, revisão, IDs e progresso. Requer as duas migrations #533 antes da interface.
+- Currículo C2 e aceite humano de tradução/IPA/áudio continuam pendentes.
+
 ## Não publicado — revisão do curso (#531)
 - O modo Fácil continua avançando na revisão, com intervalo máximo de 30 dias.
 - Repetir antes do vencimento ou no mesmo dia não aumenta o estágio nem adia a próxima revisão.

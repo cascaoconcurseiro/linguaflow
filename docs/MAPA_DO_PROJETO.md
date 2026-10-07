@@ -218,7 +218,9 @@ chave **publicável** (`utils/db.js`), que por desenho é pública; a proteção
    Nível e sequência pedagógica são definidos por aula em `course_lessons`: `rpc_course_path` recomenda a primeira
    pendente do nível atual que cumpre pré-requisitos; `rpc_course_catalog` informa faixas de cursos mistos e níveis
    individuais. A fonte histórica é `supabase/content/curriculum.mjs`, preservada após publicação;
-   o estado efetivo é `supabase/content/curriculum-current.mjs`. Critérios e auditoria integral em
+   o aceite de áudio é `supabase/content/curriculum-current.mjs`; a organização efetiva #533 é
+   `supabase/content/curriculum-pedagogy.mjs`. Base é obrigatória; extras/opcionais não bloqueiam avanço.
+   Módulos e 42 aulas novas em [CURRICULO_PEDAGOGICO.md](product/CURRICULO_PEDAGOGICO.md). Critérios e auditoria histórica em
    [CURRICULO_CEFR.md](product/CURRICULO_CEFR.md). Aulas novas sem auditoria ficam fora da trilha; IDs e progresso são preservados.
 4. **Ler uma URL.** `readerView` → `url-import` (valida DNS e IPs a cada redirecionamento) → texto limpo → tabela `reader_texts`.
 5. **Checagem de fluência.** `fluencyCheckView` → `utils/db.js` → `fluency-assessment` (IA avalia pela rubrica) →
@@ -546,6 +548,7 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 | Arquivo | Porte | Para que serve |
 |---|---|---|
 | `dashboard/js/ui/courses/courseAnalysis.js` | P | Análise de aprendizado dos Cursos. |
+| `dashboard/js/ui/courses/courseCurriculum.js` | P | #533: navegação por módulos de conteúdo; abre o mesmo preparo/player de sempre. |
 | `dashboard/js/ui/courses/courseHome.js` | M | Início dos Cursos: continuar, semana, revisão do dia, tempo e recentes. |
 | `dashboard/js/ui/courses/courseHomeStrip.js` | P | faixa "Curso" do Início (Issue #492). |
 | `dashboard/js/ui/courses/courseLeaderboard.js` | P | Ranking dos Cursos por tempo ativo de estudo (UTC). |
@@ -656,6 +659,7 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 |---|---|---|
 | `supabase/content/courses.mjs` | M | Conteúdo original dos cursos (fonte da migration de seed gerada por scripts/generate-course-seed.mjs). Cada frase: texto, tradução pt-BR natural, nota de uso e grupos … |
 | `supabase/content/curriculum-current.mjs` | P | Currículo efetivo após aceite do áudio pelo dono em 2026-10-07 (#503/#505); preserva o snapshot publicado #528. |
+| `supabase/content/curriculum-pedagogy.mjs` | M | #533: organização pedagógica versionada. Aulas históricas/níveis são preservados. |
 | `supabase/content/curriculum.mjs` | GG ⚠ | Decisões editoriais por aula (#528), após auditoria do conteúdo efetivo em 2026-10-06. |
 | `supabase/content/images.mjs` | M | Imagens das palavras dos cursos de vocabulário (#443). Fonte única: este mapa gera a migration de imagens (scripts/generate-course-images.mjs). |
 | `supabase/content/lexicon.mjs` | M | Léxico dos cursos: palavra → [classe, IPA (inglês americano, forma de citação), glosa pt-BR no sentido usado nas frases]. |
@@ -666,6 +670,7 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 |---|---|---|
 | `supabase/rollback/course_audio_acceptance_503.sql` | P | Reverte somente a inclusão aprovada do áudio #503/#505; mantém aulas, níveis e progresso. |
 | `supabase/rollback/course_curriculum_528.sql` | P | Reversão operacional #528: executar numa transação; preserva colunas, conteúdo e histórico. |
+| `supabase/rollback/course_pedagogy_533.sql` | M | #533: executar numa transação. Preserva unidades e todo histórico; novas aulas ficam despublicadas. |
 | `supabase/rollback/course_review_method_531.sql` | M | Reversão #531: preserva sessões, resultados e vencimentos existentes. |
 
 ### Automação (`scripts/` e `.github/workflows/`)
@@ -681,6 +686,7 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 | `scripts/course-content-snapshot.mjs` | P | Conteúdo efetivo para auditoria curricular: replay editorial cronológico, com offsets e retiradas. |
 | `scripts/generate-course-curriculum.mjs` | P | Gera metadados curriculares append-only e a auditoria integral por aula (#528), sem alterar conteúdo/progresso. |
 | `scripts/generate-course-images.mjs` | P | Gera a migration de imagens das palavras a partir de supabase/content/images.mjs (#443). |
+| `scripts/generate-course-pedagogy.mjs` | P | #533: gera conteúdo e metadados novos; nunca reescreve migrations históricas. |
 | `scripts/generate-course-seed.mjs` | M | Gera migrations de conteúdo dos cursos a partir de supabase/content/. |
 | `scripts/generate-project-map.mjs` | M | Gera o inventário de docs/MAPA_DO_PROJETO.md a partir dos arquivos rastreados pelo git. |
 | `scripts/package-extension.mjs` | P | LinguaFlow - Script de Empacotamento de Produção da Extensão Chrome Gera dist/linguaflow-extension-v<version>.zip pronto para a Chrome Web Store. |
@@ -693,10 +699,10 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 
 | Grupo | Quantidade | Observação |
 |---|---|---|
-| `supabase/migrations/` | 149 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261007113458_course_review_method.sql`. Nunca edite uma migration já aplicada. |
-| `supabase/content/batches/` | 61 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
-| `tests/*.test.mjs` | 191 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
-| `tests/e2e/` | 9 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
+| `supabase/migrations/` | 151 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261007120333_course_pedagogy_533.sql`. Nunca edite uma migration já aplicada. |
+| `supabase/content/batches/` | 62 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
+| `tests/*.test.mjs` | 192 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
+| `tests/e2e/` | 10 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
 | `tests/db/` | 16 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |
 | `tests/production/` | 1 | Verificação de isolamento entre contas no Supabase de produção (workflow agendado). |
 | `docs/*.md` | 6 | Documentação viva; histórico em `docs/history/`, produto em `docs/product/`. |

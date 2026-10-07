@@ -2,7 +2,9 @@
 
 import { db } from '../../../../utils/db.js';
 import { escapeHTML } from '../../../../utils/html.js';
-import { CATEGORY_LABEL, TRACKS, TRACK_LABEL, byPathOrder, courseLevelLabel, courseHasLevel, levelPill, lessonProgress, continueLessonOf, startLesson, renderEmpty, plural, unitCount } from './courseUi.js';
+import { CATEGORY_LABEL, TRACKS, TRACK_LABEL, byPathOrder, courseLevelLabel, levelPill, lessonProgress, continueLessonOf, startLesson, renderEmpty, plural, unitCount } from './courseUi.js';
+
+import { lessonRoleLabel, matchesCurriculumFilter } from './courseCurriculum.js';
 
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1'];
 const SORTS = { recommended: 'Recomendados', popular: 'Mais alunos', newest: 'Mais novos' };
@@ -55,7 +57,7 @@ export function renderCourseStore(panel, ctx) {
   function filtered() {
     const q = f.query.trim().toLowerCase();
     const list = catalog.filter((c) => (f.category === 'all' || c.track === f.category)
-      && courseHasLevel(c, f.level)
+      && matchesCurriculumFilter(c, f.level, f.role)
       && (!q || `${c.title} ${c.short_description} ${c.lessons.map((l) => l.title).join(' ')}`.toLowerCase().includes(q)));
     if (f.sort === 'recommended') list.sort(byPathOrder);
     if (f.sort === 'popular') list.sort((a, b) => b.learners_count - a.learners_count);
@@ -74,6 +76,8 @@ export function renderCourseStore(panel, ctx) {
           <input type="search" id="course-search" placeholder="Buscar cursos ou temas" value="${escapeHTML(f.query)}" /></label>
         <label><span class="visually-hidden">Nível</span>
           <select id="course-level"><option value="">Todos os níveis</option>${LEVELS.map((l) => `<option ${f.level === l ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+        <label><span class="visually-hidden">Tipo de conteúdo</span>
+          <select id="course-role" aria-label="Tipo de conteúdo"><option value="">Todos os conteúdos</option>${[['base','Base do nível'],['extra','Prática extra'],['optional','Opcional por objetivo']].map(([k,v])=>`<option value="${k}" ${f.role===k?'selected':''}>${v}</option>`).join('')}</select></label>
         <label><span class="visually-hidden">Ordenar</span>
           <select id="course-sort">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}" ${f.sort === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
       </div>
@@ -98,6 +102,7 @@ export function renderCourseStore(panel, ctx) {
   panel.querySelectorAll('[data-category]').forEach((b) => b.addEventListener('click', () => { f.category = b.dataset.category; renderCourseStore(panel, ctx); }));
   panel.querySelector('#course-search').addEventListener('input', (e) => { f.query = e.target.value; paint(); });
   panel.querySelector('#course-level').addEventListener('change', (e) => { f.level = e.target.value; paint(); });
+  panel.querySelector('#course-role').addEventListener('change', (e) => { f.role = e.target.value; paint(); });
   panel.querySelector('#course-sort').addEventListener('change', (e) => { f.sort = e.target.value; paint(); });
   paint();
 }
@@ -165,7 +170,7 @@ export function renderCourseDetail(panel, ctx, courseId, openLessonId = null) {
       </div>
     </header>
     <h3 class="course-section-title">Capítulos por ordem de estudo</h3>
-    <p class="course-hub-subtitle">Siga a trilha do Início para estudar na sequência do seu nível. Cada capítulo indica o nível e o que estudar antes.${course.is_core === false ? ' Este curso é complementar e não entra nas recomendações da trilha.' : ''}</p>
+    <p class="course-hub-subtitle">Siga a trilha do Início para estudar na sequência do seu nível. Cada capítulo indica o nível, o módulo, o que estudar antes e se é base, prática extra ou opcional.${course.is_core === false ? ' Os capítulos deste curso são extras ou opcionais e não bloqueiam a trilha principal.' : ''}</p>
     <ol class="course-chapter-list">
       ${course.lessons.map((lesson) => {
         const { done, percent: lp } = lessonProgress(lesson, course);
@@ -173,7 +178,8 @@ export function renderCourseDetail(panel, ctx, courseId, openLessonId = null) {
           <span class="course-chapter-num" aria-hidden="true">${String(lesson.chapter_number).padStart(2, '0')}</span>
           <div class="course-chapter-info">
             <strong>${escapeHTML(lesson.title)}${lesson.id === cont?.id && !done ? ' <span class="course-tab-badge">Próximo</span>' : ''}</strong>
-            <span class="course-card-stats">${levelPill(lesson.level || course.level)} · ${unitCount(course, lesson.unit_count)}${lesson.description ? ` · ${escapeHTML(lesson.description)}` : ''}</span>
+            <span class="course-card-stats">${levelPill(lesson.level || course.level)} · ${escapeHTML(lessonRoleLabel(lesson))} · ${unitCount(course, lesson.unit_count)}${lesson.description ? ` · ${escapeHTML(lesson.description)}` : ''}</span>
+            ${lesson.module_title ? `<span class="course-card-stats">Módulo: ${escapeHTML(lesson.module_title)}</span>` : ''}
             ${lesson.prerequisite_titles?.length ? `<span class="course-card-stats">Antes: ${escapeHTML(lesson.prerequisite_titles.join(' · '))}</span>` : ''}
           </div>
           <div class="course-chapter-progress" role="progressbar" aria-label="Progresso do capítulo ${lesson.chapter_number}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${lp}">

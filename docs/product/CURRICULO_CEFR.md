@@ -1,5 +1,7 @@
 # Níveis e sequência de estudo dos cursos
 
+**Registro histórico #528.** A organização efetiva após #533 está em [CURRICULO_PEDAGOGICO.md](CURRICULO_PEDAGOGICO.md), incluindo fundamentos novos e categorias base/extra/opcional.
+
 Auditoria editorial de 2026-10-06, Issue [#528](https://github.com/cascaoconcurseiro/linguaflow/issues/528).
 Cobertura: **30 cursos, 372 aulas e 4.088 itens efetivos**, após aplicar cronologicamente lotes,
 correções, offsets e retiradas. A primeira aula histórica de gírias foi incluída a partir da migration

@@ -48,14 +48,19 @@ echo "── aplicando migrations em ordem"
 for f in "$ROOT"/supabase/migrations/*.sql; do
   echo "   • $(basename "$f")"
   run_pg "${PSQL[@]}" -f "$f"
+  if [ "$(basename "$f")" = "20261007090000_course_audio_acceptance.sql" ]; then
+    # Conferir o snapshot antes de contratos antigos que deixam fixtures no banco descartável.
+    echo "── currículo por aula e sequência por pré-requisitos (#528)"
+    run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-curriculum-528.sql"
+
+    echo "── reversão curricular em transação descartável (#528)"
+    run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-curriculum-rollback-528.sql"
+  fi
 done
 
-# Conferir o snapshot antes de contratos antigos que deixam fixtures no banco descartável.
-echo "── currículo por aula e sequência por pré-requisitos (#528)"
-run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-curriculum-528.sql"
-
-echo "── reversão curricular em transação descartável (#528)"
-run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-curriculum-rollback-528.sql"
+echo "── organização pedagógica e reversão preservando histórico (#533)"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-pedagogy-533.sql"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-pedagogy-rollback-533.sql"
 
 echo "── smoke test do Learning Engine"
 run_pg "${PSQL[@]}" <<'SQL'

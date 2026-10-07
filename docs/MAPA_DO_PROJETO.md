@@ -375,6 +375,8 @@ A versão aparece em **quatro lugares que precisam andar juntos**: `package.json
 **Porte:** `P` até 150 linhas · `M` até 500 · `G` até 1000 · `GG ⚠` acima de 1000 (candidato a divisão).
 Para atualizar: `npm run map`.
 
+Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e avanço diário único; reforços locais preservam a evidência original e resultados únicos. Ver `docs/product/CURSOS.md`.
+
 <!-- mapa:inicio (gerado por scripts/generate-project-map.mjs; não edite à mão) -->
 
 ### Raiz e configuração

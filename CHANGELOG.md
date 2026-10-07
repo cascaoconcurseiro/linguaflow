@@ -1,5 +1,11 @@
 # Changelog
 
+## Não publicado — revisão do curso (#531)
+- O modo Fácil continua avançando na revisão, com intervalo máximo de 30 dias.
+- Repetir antes do vencimento ou no mesmo dia não aumenta o estágio nem adia a próxima revisão.
+- Frases com erro voltam uma vez na mesma sessão de revisão, sem duplicar pontos, meta ou resultados.
+
+
 ## [Não lançado]
 
 ### Adicionado

@@ -143,7 +143,7 @@ export async function renderCoursePractice(container, app, params = {}) {
     return;
   }
 
-  session = createPracticeSession(units);
+  session = createPracticeSession(units, { reinforceErrors: kind === 'review' });
   const startedAt = new Date().toISOString();
   const clientSessionId = crypto.randomUUID();
   let prefs = loadPrefs();
@@ -363,13 +363,14 @@ export async function renderCoursePractice(container, app, params = {}) {
     const reviewing = session.isReviewingPrevious;
     retrigger(container.querySelector('.course-player-body'), 'is-entering');
     closeBreakdown();
-    setFeedback(reviewing ? 'Frase já respondida (só consulta).' : '');
+    setFeedback(reviewing ? 'Frase já respondida (só consulta).' : session.isReinforcement ? 'Reforço: tente novamente. O erro original continua na revisão de amanhã.' : '');
     advancing = false;
 
     const shown = Math.min(session.index + 1, session.total);
     container.querySelector('#course-question').textContent = `${shown} / ${session.total}`;
-    container.querySelector('#course-progress').style.transform = `scaleX(${(session.resolvedCount / Math.max(1, session.total)).toFixed(4)})`;
-    container.querySelector('.course-player-progress-bar-wrap').setAttribute('aria-valuenow', String(session.resolvedCount));
+    container.querySelector('#course-progress').style.transform = `scaleX(${(session.completedSteps / Math.max(1, session.total)).toFixed(4)})`;
+    container.querySelector('.course-player-progress-bar-wrap').setAttribute('aria-valuenow', String(session.completedSteps));
+    container.querySelector('.course-player-progress-bar-wrap').setAttribute('aria-valuemax', String(session.total));
 
     const isWord = WORD_KINDS.has(unit.kind);
     const inExample = session.stage === 'example';
@@ -458,7 +459,7 @@ export async function renderCoursePractice(container, app, params = {}) {
       inputs[0]?.focus();
       if (prefs.audio) playAudio({ readings: prefs.readings });
       if (!inExample && unit.example_en && unit.kind === 'word') preloadNaturalAudio(unit.example_en, { lang: 'en-US' });
-      const next = units[session.index + 1];
+      const next = session.nextUnit;
       if (next) preloadNaturalAudio(next.text, { lang: 'en-US' });
       if (next?.image_url) new Image().src = next.image_url;
     }
@@ -591,7 +592,7 @@ export async function renderCoursePractice(container, app, params = {}) {
       i.style.setProperty('--settle-delay', `${k * 35}ms`);
       retrigger(i, 'is-settled');
     });
-    setFeedback(`${result.clean ? `Certo! +${result.gained}` : `Certo. +${result.gained}`}${result.nextStage === 'example' ? ' · Agora a frase.' : ''}`);
+    setFeedback(session.isReinforcement ? 'Reforço concluído. Esta prática não soma pontos extras.' : `${result.clean ? `Certo! +${result.gained}` : `Certo. +${result.gained}`}${result.nextStage === 'example' ? ' · Agora a frase.' : ''}`);
     updateHud();
     updateActionStates();
     stopReading();

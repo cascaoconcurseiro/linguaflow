@@ -63,7 +63,7 @@ BEGIN
   SELECT count(*) INTO v_count FROM public.course_user_reviews WHERE interval_days = 1 AND repetition_number = 0;
   IF v_count <> 2 THEN RAISE EXCEPTION 'erro e dica deveriam resetar a revisão: %', v_count; END IF;
 
-  -- Segunda sessão limpa resolve o erro e avança a revisão
+  -- Segunda sessão limpa resolve o erro; no mesmo dia não avança a agenda
   SELECT jsonb_agg(jsonb_build_object('unit_id', id, 'attempts', 1, 'used_hint', false) ORDER BY order_index)
   INTO v_results FROM public.course_units WHERE lesson_id = 'lesson-street-a1-01';
   PERFORM public.rpc_commit_course_session(
@@ -72,7 +72,7 @@ BEGIN
   SELECT count(*) INTO v_count FROM public.course_user_mistakes WHERE NOT is_resolved;
   IF v_count <> 0 THEN RAISE EXCEPTION 'acerto limpo deveria resolver o erro'; END IF;
   SELECT repetition_number INTO v_count FROM public.course_user_reviews WHERE unit_id = 'unit-street-a1-01-03';
-  IF v_count <> 2 THEN RAISE EXCEPTION 'revisão deveria avançar para a repetição 2, veio %', v_count; END IF;
+  IF v_count <> 1 THEN RAISE EXCEPTION 'revisão no mesmo dia deve manter repetição 1, veio %', v_count; END IF;
 
   -- Validações de entrada
   BEGIN

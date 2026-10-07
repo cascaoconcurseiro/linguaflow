@@ -61,3 +61,23 @@ test('artefatos curriculares correspondem à fonte e a migration não reescreve 
   assert.equal(readFileSync(new URL('../docs/product/CURRICULO_AULAS.csv',import.meta.url),'utf8').replaceAll('\r\n','\n'),report.replaceAll('\r\n','\n'));
   for(const text of [migration,rollback]) assert.doesNotMatch(text, /(?:UPDATE|DELETE FROM|INSERT INTO)\s+public\.(?:course_units|course_practice_sessions|user_course_enrollment|course_user_reviews|course_user_mistakes)\b/i);
 });
+
+test('aceite do áudio promove somente nove aulas e preserva classificação, ordem e requisitos publicados', async () => {
+  const { CURRICULUM } = await import('../supabase/content/curriculum.mjs');
+  const { CURRENT_CURRICULUM, AUDIO_APPROVED_COURSE_IDS } = await import('../supabase/content/curriculum-current.mjs');
+  const changed = CURRENT_CURRICULUM.filter((l,i) => l.core !== CURRICULUM[i].core);
+  assert.equal(changed.length, 9);
+  assert.ok(changed.every(l => AUDIO_APPROVED_COURSE_IDS.includes(l.courseId) && l.core));
+  assert.deepEqual(CURRENT_CURRICULUM.map(({core,...l})=>l), CURRICULUM.map(({core,...l})=>l));
+  assert.equal(CURRENT_CURRICULUM.filter(l=>l.core).length,372);
+  const migration = readFileSync(new URL('../supabase/migrations/20261007090000_course_audio_acceptance.sql',import.meta.url),'utf8');
+  const rollback = readFileSync(new URL('../supabase/rollback/course_audio_acceptance_503.sql',import.meta.url),'utf8');
+  for(const l of changed) {
+    assert.ok(migration.includes("'"+l.id+"'"));
+    assert.ok(rollback.includes("'"+l.id+"'"));
+  }
+  for(const text of [migration,rollback]) {
+    assert.doesNotMatch(text, /(?:UPDATE|DELETE FROM|INSERT INTO)\s+public\.(?:course_units|course_practice_sessions|user_course_enrollment|course_user_reviews|course_user_mistakes)\b/i);
+    assert.doesNotMatch(text, /SET\s+(?:level|curriculum_order|prerequisite_lesson_ids)\s*=/i);
+  }
+});

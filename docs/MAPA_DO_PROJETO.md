@@ -217,7 +217,8 @@ chave **publicável** (`utils/db.js`), que por desenho é pública; a proteção
    próxima abertura dos Cursos.
    Nível e sequência pedagógica são definidos por aula em `course_lessons`: `rpc_course_path` recomenda a primeira
    pendente do nível atual que cumpre pré-requisitos; `rpc_course_catalog` informa faixas de cursos mistos e níveis
-   individuais. A fonte editorial é `supabase/content/curriculum.mjs`; critérios e auditoria integral em
+   individuais. A fonte histórica é `supabase/content/curriculum.mjs`, preservada após publicação;
+   o estado efetivo é `supabase/content/curriculum-current.mjs`. Critérios e auditoria integral em
    [CURRICULO_CEFR.md](product/CURRICULO_CEFR.md). Aulas novas sem auditoria ficam fora da trilha; IDs e progresso são preservados.
 4. **Ler uma URL.** `readerView` → `url-import` (valida DNS e IPs a cada redirecionamento) → texto limpo → tabela `reader_texts`.
 5. **Checagem de fluência.** `fluencyCheckView` → `utils/db.js` → `fluency-assessment` (IA avalia pela rubrica) →
@@ -254,9 +255,15 @@ as evidências, as limitações e o próximo arquivo/função/query a trabalhar,
 e `is_core = false`. As fontes são `supabase/content/batches/fala-conectada-1.mjs` e a revisão
 `fala-conectada-2.mjs`; ambas as migrations foram aplicadas e conferidas no banco. O catálogo tem 30 cursos;
 a trilha B2 permanece com 74 capítulos. Loja e página do curso foram verificadas no Brave com conta real,
-mas prática, áudio e aceite humano de tradução/IPA continuam pendentes. O próximo passo é a revisão humana
-do conteúdo e a escuta de Fala Conectada e do piloto de reduções
-[#503](https://github.com/cascaoconcurseiro/linguaflow/issues/503), antes de promover cursos à trilha.
+mas a prática completa e o aceite humano de tradução/IPA continuavam pendentes nessa entrega.
+O dono aprovou o áudio de Fala Conectada e do piloto de reduções
+[#503](https://github.com/cascaoconcurseiro/linguaflow/issues/503) em 2026-10-07.
+A inclusão das nove aulas na trilha usa a migration separada `20261007090000_course_audio_acceptance.sql`;
+não reclassifica os níveis nem equivale a revisão humana de tradução/IPA.
+A fonte efetiva prevê 372 aulas centrais após essa migration (A1 28, A2 88, B1 142, B2 102, C1 12).
+Implementação e evidência da publicação separada no PR
+[#530](https://github.com/cascaoconcurseiro/linguaflow/pull/530); rollback de flags em
+`supabase/rollback/course_audio_acceptance_503.sql`, antes do rollback curricular se ambos forem necessários.
 Consulte [CURSOS.md](product/CURSOS.md) para o estado do produto e
 [EDITORIAL_CURSOS.md](product/EDITORIAL_CURSOS.md) para o fluxo de conteúdo. Não reaplique essas migrations
 para retomar a revisão; primeiro confira o histórico do banco.
@@ -269,6 +276,10 @@ Conferência: 30 cursos, 372 aulas, 4.088 itens e 363 aulas centrais; A1 28, A2 
 Conteúdo preservado por hash `d0002890d367706d6d43090022638f99`; pré-requisitos e cursos opcionais conferidos.
 Interface: PR [#529](https://github.com/cascaoconcurseiro/linguaflow/pull/529). Evidências de integração e QA ficam na Issue/PR e no handoff;
 o inventário e a auditoria editorial não comprovam sozinhos publicação em produção.
+O PR #529 foi integrado à main (`1bccfc6`) e publicado na Vercel. QA Brave autenticado em 2026-10-07:
+filtro A1 encontra quatro cursos, Primeiras Frases contém dez capítulos A1 e dois A2,
+e a trilha recomenda a segunda aula A1 após a primeira concluída. Uma aba aberta antes do deploy
+mostrava o nível único antigo do curso; recarregar carregou a interface com faixas e filtros por aula.
 
 - **Toda mudança começa por uma Issue** (Correção, Melhoria ou Nova função), com escopo, critérios de aceite, riscos e plano de teste.
 - Branch a partir da `main`; **deploy só por Pull Request**, com `Closes #N`/`Refs #N`, CI verde e revisão. Nunca push direto.
@@ -642,6 +653,7 @@ Para atualizar: `npm run map`.
 | Arquivo | Porte | Para que serve |
 |---|---|---|
 | `supabase/content/courses.mjs` | M | Conteúdo original dos cursos (fonte da migration de seed gerada por scripts/generate-course-seed.mjs). Cada frase: texto, tradução pt-BR natural, nota de uso e grupos … |
+| `supabase/content/curriculum-current.mjs` | P | Currículo efetivo após aceite do áudio pelo dono em 2026-10-07 (#503/#505); preserva o snapshot publicado #528. |
 | `supabase/content/curriculum.mjs` | GG ⚠ | Decisões editoriais por aula (#528), após auditoria do conteúdo efetivo em 2026-10-06. |
 | `supabase/content/images.mjs` | M | Imagens das palavras dos cursos de vocabulário (#443). Fonte única: este mapa gera a migration de imagens (scripts/generate-course-images.mjs). |
 | `supabase/content/lexicon.mjs` | M | Léxico dos cursos: palavra → [classe, IPA (inglês americano, forma de citação), glosa pt-BR no sentido usado nas frases]. |
@@ -650,6 +662,7 @@ Para atualizar: `npm run map`.
 
 | Arquivo | Porte | Para que serve |
 |---|---|---|
+| `supabase/rollback/course_audio_acceptance_503.sql` | P | Reverte somente a inclusão aprovada do áudio #503/#505; mantém aulas, níveis e progresso. |
 | `supabase/rollback/course_curriculum_528.sql` | P | Reversão operacional #528: executar numa transação; preserva colunas, conteúdo e histórico. |
 
 ### Automação (`scripts/` e `.github/workflows/`)
@@ -677,7 +690,7 @@ Para atualizar: `npm run map`.
 
 | Grupo | Quantidade | Observação |
 |---|---|---|
-| `supabase/migrations/` | 147 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261006230000_course_curriculum.sql`. Nunca edite uma migration já aplicada. |
+| `supabase/migrations/` | 148 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261007090000_course_audio_acceptance.sql`. Nunca edite uma migration já aplicada. |
 | `supabase/content/batches/` | 61 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
 | `tests/*.test.mjs` | 190 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
 | `tests/e2e/` | 8 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |

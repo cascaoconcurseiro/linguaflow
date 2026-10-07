@@ -1,4 +1,4 @@
--- Curso piloto "Inglês Falado: Reduções" (Issue #503): conteúdo publicado, fora da trilha guiada e sem unidade vazia.
+-- Curso piloto "Inglês Falado: Reduções" (Issue #503): áudio aprovado, na trilha e sem unidade vazia.
 \set ON_ERROR_STOP on
 DO $$
 DECLARE c public.course_catalog; units int; empty int;
@@ -6,7 +6,7 @@ BEGIN
   SELECT * INTO c FROM public.course_catalog WHERE id = 'course-spoken-reductions-a2';
   IF c.id IS NULL THEN RAISE EXCEPTION 'curso piloto de reduções não foi publicado'; END IF;
   IF NOT c.is_published THEN RAISE EXCEPTION 'curso piloto deve estar publicado'; END IF;
-  IF c.is_core THEN RAISE EXCEPTION 'piloto não pode entrar na trilha guiada (is_core deve ser false)'; END IF;
+  IF NOT c.is_core THEN RAISE EXCEPTION 'áudio aprovado em 2026-10-07: piloto deve estar na trilha'; END IF;
   IF c.level <> 'B2' OR c.track <> 'fluencia' OR c.category <> 'street-slang' THEN
     RAISE EXCEPTION 'nível, trilha ou categoria inesperados: %, %, %', c.level, c.track, c.category;
   END IF;

@@ -63,8 +63,8 @@ e critério. Esses exemplos documentam a decisão; não representam o tamanho da
 | Inglês no Trabalho e Entrevista | B1 | B1–B2; informação factual antes de negociação e diplomacia |
 | Gramática Intermediária e Avançada | B2 | B2–C1; clivagem, inversão e futuro perfeito contínuo no C1 |
 | Entrelinhas | B2 | B2–C1; sarcasmo e elogio com crítica implícita no C1 |
-| Piloto de reduções | A2 | B2, complementar; continua aguardando aceite do áudio |
-| Fala Conectada | B2 | A2–B2 por aula, complementar; continua aguardando aceite do áudio |
+| Piloto de reduções | A2 | B2; áudio aprovado pelo dono em 2026-10-07, incluído na trilha |
+| Fala Conectada | B2 | A2–B2 por aula; áudio aprovado pelo dono em 2026-10-07, incluído na trilha |
 
 O catálogo usa uma faixa para cursos mistos; filtros conferem os níveis **realmente presentes** nas aulas.
 O campo histórico `course_catalog.level` conserva o nível mais alto da oferta para clientes antigos.
@@ -93,14 +93,17 @@ equivale a dominar o nível CEFR**; o catálogo não é um currículo completo d
 | Nível | Aulas auditadas | Aulas centrais na trilha |
 |---|---:|---:|
 | A1 | 28 | 28 |
-| A2 | 88 | 87 |
-| B1 | 142 | 139 |
-| B2 | 102 | 97 |
+| A2 | 88 | 88 |
+| B1 | 142 | 142 |
+| B2 | 102 | 102 |
 | C1 | 12 | 12 |
 
 ## Implementação, publicação e continuidade
 
-Fonte editorial: `supabase/content/curriculum.mjs`. Snapshot efetivo:
+Fonte editorial histórica #528: `supabase/content/curriculum.mjs`; estado efetivo após aceite do áudio
+em `supabase/content/curriculum-current.mjs`. O aceite muda somente nove flags de inclusão na trilha,
+sem alterar classificação, ordem ou requisitos. Não equivale a revisão humana de tradução/IPA.
+Snapshot de conteúdo:
 `scripts/course-content-snapshot.mjs`. Gerador: `scripts/generate-course-curriculum.mjs`;
 `--check` verifica drift dos artefatos. O corte desta auditoria é a migration `20261006221000`;
 lotes futuros não podem reescrever o SQL histórico desta entrega. Para revisar conteúdo publicado,
@@ -117,7 +120,13 @@ metadados e recomendações, então integrar a interface à main. Clientes antig
 os campos existentes. Aplicar a interface antes da migration quebra a consulta direta da aula,
 que passa a pedir o campo `level`. Não misturar publicação de código com evidência de banco atualizado.
 
-Rollback operacional: `supabase/rollback/course_curriculum_528.sql`, numa transação. Restaura
+A inclusão aprovada é publicada separadamente por `20261007090000_course_audio_acceptance.sql`,
+sem reescrever a migration #528. Reversão somente dessa inclusão:
+`supabase/rollback/course_audio_acceptance_503.sql`, numa transação. Retorna os dois cursos e as nove
+aulas à condição complementar; mantém conteúdo, classificação e progresso.
+
+Rollback curricular: execute primeiro a reversão do aceite, depois
+`supabase/rollback/course_curriculum_528.sql`, numa transação. Restaura
 níveis/títulos/descrições anteriores e as RPCs anteriores, mantém as colunas adicionadas e todo
 histórico. Se necessário, reverter também o PR da interface. Não apagar cursos ou progresso para
 reverter uma classificação.

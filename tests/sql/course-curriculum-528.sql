@@ -1,5 +1,8 @@
 -- Auditoria #528: comportamento da trilha, níveis individuais e isolamento. Só em Postgres descartável.
 BEGIN;
+-- O shim mínimo omite USAGE em auth; no Supabase real authenticated já possui USAGE e EXECUTE em auth.uid().
+-- Permissão somente nesta transação de teste; não altera a migration nem os grants de produção.
+GRANT USAGE ON SCHEMA auth TO authenticated;
 INSERT INTO auth.users(id,email) VALUES
  ('00000000-0000-4000-8000-000000000528','curriculum@test.local'),
  ('00000000-0000-4000-8000-000000000529','other-curriculum@test.local');

@@ -2,7 +2,7 @@
 
 import { db } from '../../../../utils/db.js';
 import { escapeHTML } from '../../../../utils/html.js';
-import { CATEGORY_LABEL, TRACKS, TRACK_LABEL, byPathOrder, levelPill, lessonProgress, continueLessonOf, startLesson, renderEmpty, plural, unitCount } from './courseUi.js';
+import { CATEGORY_LABEL, TRACKS, TRACK_LABEL, byPathOrder, courseLevelLabel, courseHasLevel, levelPill, lessonProgress, continueLessonOf, startLesson, renderEmpty, plural, unitCount } from './courseUi.js';
 
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1'];
 const SORTS = { recommended: 'Recomendados', popular: 'Mais alunos', newest: 'Mais novos' };
@@ -14,7 +14,7 @@ function courseCard(course, { showToggle = true, inMineLabel = '✓ Em Meus curs
   return `
     <article class="course-card" aria-labelledby="t-${escapeHTML(course.id)}">
       <div class="course-card-top">
-        <div class="course-card-badges">${levelPill(course.level)}
+        <div class="course-card-badges">${levelPill(courseLevelLabel(course))}
           <span class="course-card-stats">${escapeHTML(TRACK_LABEL[course.track] || CATEGORY_LABEL[course.category] || '')}</span></div>
         <h3 id="t-${escapeHTML(course.id)}" class="course-card-title">${escapeHTML(course.title)}</h3>
         <p class="course-card-desc">${escapeHTML(course.short_description)}</p>
@@ -55,7 +55,7 @@ export function renderCourseStore(panel, ctx) {
   function filtered() {
     const q = f.query.trim().toLowerCase();
     const list = catalog.filter((c) => (f.category === 'all' || c.track === f.category)
-      && (!f.level || c.level === f.level)
+      && courseHasLevel(c, f.level)
       && (!q || `${c.title} ${c.short_description} ${c.lessons.map((l) => l.title).join(' ')}`.toLowerCase().includes(q)));
     if (f.sort === 'recommended') list.sort(byPathOrder);
     if (f.sort === 'popular') list.sort((a, b) => b.learners_count - a.learners_count);
@@ -152,7 +152,7 @@ export function renderCourseDetail(panel, ctx, courseId, openLessonId = null) {
     <button class="course-link" type="button" data-back>← Loja de cursos</button>
     <header class="course-detail-head">
       <div>
-        <div class="course-card-badges">${levelPill(course.level)} <span class="course-card-stats">${escapeHTML(TRACK_LABEL[course.track] || CATEGORY_LABEL[course.category] || '')}</span></div>
+        <div class="course-card-badges">${levelPill(courseLevelLabel(course))} <span class="course-card-stats">${escapeHTML(TRACK_LABEL[course.track] || CATEGORY_LABEL[course.category] || '')}</span></div>
         <h2 class="course-hub-title">${escapeHTML(course.title)}</h2>
         <p class="course-hub-subtitle">${escapeHTML(course.long_description || course.short_description)}</p>
         <p class="course-card-stats">${plural(course.lessons.length, 'capítulo', 'capítulos')} · ${unitCount(course, units)} · ${plural(course.learners_count, 'aluno', 'alunos')} · tradução em português</p>
@@ -164,7 +164,8 @@ export function renderCourseDetail(panel, ctx, courseId, openLessonId = null) {
         <button class="course-player-btn-back" type="button" data-toggle-mine="${escapeHTML(course.id)}" aria-pressed="${inMine}">${inMine ? '✓ Em Meus cursos' : '+ Meus cursos'}</button>
       </div>
     </header>
-    <h3 class="course-section-title">Capítulos</h3>
+    <h3 class="course-section-title">Capítulos por ordem de estudo</h3>
+    <p class="course-hub-subtitle">Siga a trilha do Início para estudar na sequência do seu nível. Cada capítulo indica o nível e o que estudar antes.${course.is_core === false ? ' Este curso é complementar e não entra nas recomendações da trilha.' : ''}</p>
     <ol class="course-chapter-list">
       ${course.lessons.map((lesson) => {
         const { done, percent: lp } = lessonProgress(lesson, course);
@@ -172,7 +173,8 @@ export function renderCourseDetail(panel, ctx, courseId, openLessonId = null) {
           <span class="course-chapter-num" aria-hidden="true">${String(lesson.chapter_number).padStart(2, '0')}</span>
           <div class="course-chapter-info">
             <strong>${escapeHTML(lesson.title)}${lesson.id === cont?.id && !done ? ' <span class="course-tab-badge">Próximo</span>' : ''}</strong>
-            <span class="course-card-stats">${unitCount(course, lesson.unit_count)}${lesson.description ? ` · ${escapeHTML(lesson.description)}` : ''}</span>
+            <span class="course-card-stats">${levelPill(lesson.level || course.level)} · ${unitCount(course, lesson.unit_count)}${lesson.description ? ` · ${escapeHTML(lesson.description)}` : ''}</span>
+            ${lesson.prerequisite_titles?.length ? `<span class="course-card-stats">Antes: ${escapeHTML(lesson.prerequisite_titles.join(' · '))}</span>` : ''}
           </div>
           <div class="course-chapter-progress" role="progressbar" aria-label="Progresso do capítulo ${lesson.chapter_number}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${lp}">
             <span>${done ? '✓ ' : ''}${lp}%</span><div class="course-hero-progress-track"><div class="course-hero-progress-bar" style="width:${lp}%"></div></div>

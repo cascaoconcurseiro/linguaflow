@@ -6,7 +6,7 @@ import { formatDuration, formatDateTime, formatDate, levelPill, lessonProgress, 
 
 const WEEKDAYS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
 
-const LEVEL_NAME = { A1: 'Iniciante', A2: 'Básico', B1: 'Intermediário', B2: 'Intermediário avançado' };
+const LEVEL_NAME = { A1: 'Iniciante', A2: 'Básico', B1: 'Intermediário', B2: 'Intermediário avançado', C1: 'Avançado' };
 
 // Meta diária (#501): sem os campos novos do servidor o texto é o de antes ("N frases vencem hoje").
 function reviewPanelHtml(summary) {
@@ -34,6 +34,7 @@ function pathHtml(path, lessonIndex) {
         <h2 id="path-title" class="course-section-title">Sua trilha${path.current_level ? ` · nível ${escapeHTML(path.current_level)}` : ''}</h2>
         ${path.placement_level ? `<span class="course-card-stats">Ponto de partida pelo seu nível: ${escapeHTML(path.placement_level)}</span>` : ''}
       </div>
+      <p class="course-hub-subtitle">Aulas por pré-requisitos, do básico ao avançado. Concluir o material disponível não certifica o domínio de um nível.</p>
       <ol class="course-path-levels" aria-label="Progresso por nível">
         ${path.levels.map((l) => {
           const state = l.skipped ? 'is-skipped' : l.is_completed ? 'is-done' : l.level === path.current_level ? 'is-current' : '';
@@ -50,7 +51,7 @@ function pathHtml(path, lessonIndex) {
           <span class="course-card-stats">Próxima aula recomendada</span>
           <strong>${escapeHTML(next.course.title)} · ${next.lesson.chapter_number}. ${escapeHTML(next.lesson.title)}</strong>
           <button class="course-btn-primary-lg" type="button" data-path-next>Fazer agora</button>
-        </div>` : '<p class="course-hub-subtitle">Você concluiu todas as aulas disponíveis da trilha. Novas aulas aparecem aqui.</p>'}
+        </div>` : path.blocked ? '<p class="course-hub-subtitle" role="status">Há aulas aguardando pré-requisitos. Confira os capítulos anteriores para continuar.</p>' : '<p class="course-hub-subtitle">Você concluiu todas as aulas disponíveis da trilha. Novas aulas aparecem aqui.</p>'}
     </section>`;
 }
 
@@ -76,7 +77,7 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate 
     const { percent } = lessonProgress(cont.lesson, cont.course);
     return `
       <div class="course-continue-body">
-        ${levelPill(cont.course.level)} <span class="course-card-stats">${plural(cont.course.lessons.length, 'capítulo', 'capítulos')}</span>
+        ${levelPill(cont.lesson.level || cont.course.level)} <span class="course-card-stats">${plural(cont.course.lessons.length, 'capítulo', 'capítulos')}</span>
         <h3 class="course-hero-title">${escapeHTML(cont.course.title)}</h3>
         <p class="course-hub-subtitle">${cont.lesson.chapter_number}. ${escapeHTML(cont.lesson.title)}</p>
         <div class="course-hero-progress-track" role="progressbar" aria-label="Progresso do capítulo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}">
@@ -93,8 +94,8 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate 
       </div>` : `
       <div class="course-continue-body">
         <h3 class="course-hero-title">Comece seu primeiro curso</h3>
-        <p class="course-hub-subtitle">${escapeHTML(firstCourse.title)}: ${escapeHTML(firstCourse.short_description)}</p>
-        <button class="course-btn-primary-lg" type="button" data-start-first>Começar</button>
+        <p class="course-hub-subtitle">${next ? `${escapeHTML(next.course.title)} · ${escapeHTML(next.lesson.title)}` : `${escapeHTML(firstCourse.title)}: ${escapeHTML(firstCourse.short_description)}`}</p>
+        <button class="course-btn-primary-lg" type="button" ${next ? 'data-path-next' : 'data-start-first'}>Começar</button>
       </div>`;
 
   panel.innerHTML = `
@@ -154,10 +155,10 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate 
     </section>`;
 
   panel.querySelector('[data-continue]')?.addEventListener('click', () => startLesson(app, cont.course, cont.lesson));
-  panel.querySelector('[data-path-next]')?.addEventListener('click', () => {
+  panel.querySelectorAll('[data-path-next]').forEach((button) => button.addEventListener('click', () => {
     const found = lessonIndex.get(path.next.lesson_id);
     if (found) startLesson(app, found.course, found.lesson);
-  });
+  }));
   panel.querySelector('[data-start-first]')?.addEventListener('click', () => navigate('course', { courseId: firstCourse.id }));
   panel.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => navigate(b.dataset.go)));
   panel.querySelectorAll('[data-open-lesson]').forEach((b) => b.addEventListener('click', () => {

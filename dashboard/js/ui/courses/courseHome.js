@@ -1,8 +1,8 @@
-// Início dos Cursos: continuar, semana, revisão do dia, tempo e recentes.
+// Início dos Cursos: continuar, trilha por nível e o resumo de hoje (semana + revisão). Aulas ficam na página do nível; tempo/histórico em Análise e Meus cursos.
 
 import { escapeHTML } from '../../../../utils/html.js';
 import { courseReviewPacing, courseReviewsLabel } from '../../core/courseReviewPacing.js';
-import { formatDuration, formatDateTime, formatDate, levelPill, lessonProgress, pickContinueTarget, pickFirstCourse, startLesson, renderEmpty, plural, unitCount } from './courseUi.js';
+import { formatDuration, formatDate, levelPill, lessonProgress, pickContinueTarget, pickFirstCourse, startLesson, renderEmpty, plural, unitCount } from './courseUi.js';
 
 import { levelStatus } from './courseLevelProgress.js';
 
@@ -64,7 +64,6 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate,
   const firstCourse = pickFirstCourse(catalog);
   const today = new Date().toISOString().slice(0, 10);
   const week = summary.week || [];
-  const recent = (summary.recent || []).map((r) => ({ ...r, ...lessonIndex.get(r.lesson_id) })).filter((r) => r.lesson);
 
   if (!catalog.length) {
     renderEmpty(panel, 'Nenhum curso publicado ainda', 'Os cursos aparecem aqui assim que tiverem frases prontas.');
@@ -96,62 +95,39 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate,
         <button class="course-btn-primary-lg" type="button" ${next ? 'data-path-next' : 'data-start-first'}>Começar</button>
       </div>`;
 
+  const practicedToday = week.some((d) => d.date === today && d.seconds > 0);
   panel.innerHTML = `
-    ${pathHtml(path)}
-    <div class="course-home-grid">
-      <section class="course-panel course-continue" aria-labelledby="continue-title">
-        <h2 id="continue-title" class="course-section-title">Continue seu curso</h2>
-        ${continueHtml}
-      </section>
-
-      <section class="course-panel" aria-labelledby="week-title">
-        <h2 id="week-title" class="course-section-title">Esta semana</h2>
-        <p class="course-week-count"><strong>${summary.week_days || 0}</strong> / 7 dias com prática</p>
-        <ol class="course-week" aria-label="Dias da semana (UTC)">
-          ${week.map((d, i) => {
-            const studied = d.seconds > 0;
-            const isToday = d.date === today;
-            return `<li class="course-week-day ${studied ? 'is-done' : ''} ${isToday ? 'is-today' : ''}"
-              aria-label="${formatDate(d.date)}: ${studied ? `${formatDuration(d.seconds)} de prática` : 'sem prática'}${isToday ? ' (hoje)' : ''}">
-              <span aria-hidden="true">${WEEKDAYS[i]}</span><span class="course-week-dot" aria-hidden="true">${studied ? '✓' : ''}</span></li>`;
-          }).join('')}
-        </ol>
-        <p class="course-hub-subtitle">${week.some((d) => d.date === today && d.seconds > 0) ? 'Você já praticou hoje.' : 'Pratique hoje para marcar o dia.'}</p>
-      </section>
-
-      <section class="course-panel" aria-labelledby="review-title">
-        <h2 id="review-title" class="course-section-title">Sua revisão do dia</h2>
-        ${reviewPanelHtml(summary)}
-        ${summary.mistakes_count > 0 ? `<p class="course-hub-subtitle">${summary.mistakes_count} ${summary.mistakes_count === 1 ? 'erro pendente' : 'erros pendentes'} no caderno. <button class="course-link" type="button" data-go="mistakes">Treinar</button></p>` : ''}
-      </section>
-    </div>
-
-
-    <section class="course-metrics" aria-label="Tempo de estudo">
-      <div class="course-metric"><span>Hoje</span><strong>${formatDuration(summary.today_seconds)}</strong></div>
-      <div class="course-metric"><span>Dias nesta semana</span><strong>${summary.week_days || 0}</strong></div>
-      <div class="course-metric"><span>Tempo total</span><strong>${formatDuration(summary.total_seconds)}</strong></div>
-      <div class="course-metric"><span>Dias de estudo</span><strong>${summary.study_days || 0}</strong></div>
-      <button class="course-link" type="button" data-go="analysis">Ver análise →</button>
+    <section class="course-panel course-continue" aria-labelledby="continue-title">
+      <h2 id="continue-title" class="course-section-title">Continue seu curso</h2>
+      ${continueHtml}
     </section>
-
-    <section aria-labelledby="recent-title">
-      <div class="course-section-head">
-        <h2 id="recent-title" class="course-section-title">Estudados recentemente</h2>
-        <button class="course-link" type="button" data-go="my-courses">Meus cursos →</button>
+    ${pathHtml(path)}
+    <section class="course-panel course-today" aria-labelledby="today-title">
+      <h2 id="today-title" class="course-section-title">Hoje</h2>
+      <div class="course-today-grid">
+        <div>
+          <p class="course-week-count"><strong>${summary.week_days || 0}</strong> / 7 dias com prática nesta semana</p>
+          <ol class="course-week" aria-label="Dias da semana (UTC)">
+            ${week.map((d, i) => {
+              const studied = d.seconds > 0;
+              const isToday = d.date === today;
+              return `<li class="course-week-day ${studied ? 'is-done' : ''} ${isToday ? 'is-today' : ''}"
+                aria-label="${formatDate(d.date)}: ${studied ? `${formatDuration(d.seconds)} de prática` : 'sem prática'}${isToday ? ' (hoje)' : ''}">
+                <span aria-hidden="true">${WEEKDAYS[i]}</span><span class="course-week-dot" aria-hidden="true">${studied ? '✓' : ''}</span></li>`;
+            }).join('')}
+          </ol>
+          <p class="course-hub-subtitle">${practicedToday ? `Você já praticou hoje: ${formatDuration(summary.today_seconds)}.` : 'Pratique hoje para marcar o dia.'}</p>
+        </div>
+        <div>
+          ${reviewPanelHtml(summary)}
+          ${summary.mistakes_count > 0 ? `<p class="course-hub-subtitle">${summary.mistakes_count} ${summary.mistakes_count === 1 ? 'erro pendente' : 'erros pendentes'} no caderno. <button class="course-link" type="button" data-go="mistakes">Treinar</button></p>` : ''}
+        </div>
       </div>
-      ${recent.length ? `<ul class="course-card-row">${recent.map((r) => {
-        const { percent } = lessonProgress(r.lesson, r.course);
-        return `<li class="course-card">
-          <div class="course-card-top">
-            <span class="course-card-stats">${escapeHTML(r.course.title)}</span>
-            <h3 class="course-card-title">${r.lesson.chapter_number}. ${escapeHTML(r.lesson.title)}</h3>
-            <p class="course-card-stats">${formatDateTime(r.last_at)} · ${percent}%</p>
-          </div>
-          <button class="course-btn-continue" type="button" data-open-lesson="${escapeHTML(r.lesson.id)}">Abrir capítulo</button>
-        </li>`;
-      }).join('')}</ul>` : '<p class="course-hub-subtitle">As lições que você praticar aparecem aqui.</p>'}
-    </section>`;
+    </section>
+    <nav class="course-home-links" aria-label="Mais sobre seus cursos">
+      <button class="course-link" type="button" data-go="my-courses">Meus cursos e evolução →</button>
+      <button class="course-link" type="button" data-go="analysis">Tempo e análise →</button>
+    </nav>`;
 
   panel.querySelectorAll('[data-path-level]').forEach(button => button.addEventListener('click', () => navigate('level', { level: button.dataset.pathLevel })));
   if (!path?.levels) {
@@ -172,8 +148,4 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate,
   }));
   panel.querySelector('[data-start-first]')?.addEventListener('click', () => navigate('course', { courseId: firstCourse.id }));
   panel.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => navigate(b.dataset.go)));
-  panel.querySelectorAll('[data-open-lesson]').forEach((b) => b.addEventListener('click', () => {
-    const found = lessonIndex.get(b.dataset.openLesson);
-    if (found) startLesson(app, found.course, found.lesson);
-  }));
 }

@@ -1,5 +1,10 @@
 # Changelog
 
+## Início do curso e página do nível organizados (#542)
+- Início dos Cursos reduzido a: Continue seu curso, Sua trilha por nível e Hoje (semana + revisão). Métricas e recentes saem do Início; tempo e histórico seguem em Análise e Meus cursos.
+- Página do nível: módulo atual aberto e marcado, módulos concluídos recolhidos, chips de tipo (Gramática, Vocabulário, Situações, Leitura e fala, Frases essenciais) e etapa; pré-requisitos só na próxima aula; um único botão primário. Tipo derivado do ID da aula (`lessonKind`), validado contra as 449 aulas.
+- Sem migration, nenhuma aula ou frase removida.
+
 ## Ofensiva, fim de aula e home do curso (#540)
 - O aviso de ofensiva da Home deixa de aparecer quando houve prática de curso hoje, além de revisão do Cofre (`isStreakAtRisk` em homeView.js; leitura `hasPracticeSince` sob RLS própria, sem migration).
 - Fim de aula: botão primário "Próxima aula" recebe o foco quando a recomendação chega; "Terminar por hoje" é o secundário.

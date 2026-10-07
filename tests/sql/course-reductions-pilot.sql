@@ -7,7 +7,7 @@ BEGIN
   IF c.id IS NULL THEN RAISE EXCEPTION 'curso piloto de reduções não foi publicado'; END IF;
   IF NOT c.is_published THEN RAISE EXCEPTION 'curso piloto deve estar publicado'; END IF;
   IF c.is_core THEN RAISE EXCEPTION 'piloto não pode entrar na trilha guiada (is_core deve ser false)'; END IF;
-  IF c.level <> 'A2' OR c.track <> 'fluencia' OR c.category <> 'street-slang' THEN
+  IF c.level <> 'B2' OR c.track <> 'fluencia' OR c.category <> 'street-slang' THEN
     RAISE EXCEPTION 'nível, trilha ou categoria inesperados: %, %, %', c.level, c.track, c.category;
   END IF;
   SELECT count(*) INTO units FROM public.course_units u JOIN public.course_lessons l ON l.id = u.lesson_id WHERE l.course_id = c.id;

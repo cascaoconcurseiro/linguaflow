@@ -216,6 +216,10 @@ const SECTIONS = [
     pick: (f) => f.startsWith('supabase/content/') && !f.startsWith('supabase/content/batches/'),
   },
   {
+    title: 'Reversões operacionais (`supabase/rollback/`)',
+    pick: (f) => f.startsWith('supabase/rollback/'),
+  },
+  {
     title: 'Automação (`scripts/` e `.github/workflows/`)',
     pick: (f) => f.startsWith('scripts/') || f.startsWith('.github/workflows/'),
   },

@@ -215,6 +215,10 @@ chave **publicável** (`utils/db.js`), que por desenho é pública; a proteção
 3. **Praticar um curso.** `coursePracticeSession.js` guarda o estado (sem DOM); ao concluir, sair da tela, **recarregar ou fechar
    a aba** o parcial vai para `sessionStorage` e é enviado por `commitPractice` (idempotente por `client_session_id`) na
    próxima abertura dos Cursos.
+   Nível e sequência pedagógica são definidos por aula em `course_lessons`: `rpc_course_path` recomenda a primeira
+   pendente do nível atual que cumpre pré-requisitos; `rpc_course_catalog` informa faixas de cursos mistos e níveis
+   individuais. A fonte editorial é `supabase/content/curriculum.mjs`; critérios e auditoria integral em
+   [CURRICULO_CEFR.md](product/CURRICULO_CEFR.md). Aulas novas sem auditoria ficam fora da trilha; IDs e progresso são preservados.
 4. **Ler uma URL.** `readerView` → `url-import` (valida DNS e IPs a cada redirecionamento) → texto limpo → tabela `reader_texts`.
 5. **Checagem de fluência.** `fluencyCheckView` → `utils/db.js` → `fluency-assessment` (IA avalia pela rubrica) →
    RPC autoritativa grava o perfil. O cliente não calcula nível.
@@ -243,7 +247,7 @@ e confira Git, Issues e PRs antes de agir. Esses documentos são ignorados pelo 
 os documentos de produto e as Issues/PRs como ponto de partida. Ao entregar trabalho, registre o que mudou,
 as evidências, as limitações e o próximo arquivo/função/query a trabalhar, conforme o contrato do `AGENTS.md`.
 
-**Última entrega de cursos conferida (2026-10-06).** A continuação do Claude Code no plano
+**Publicação de conteúdo conferida (2026-10-06, anterior à auditoria de níveis #528).** A continuação do Claude Code no plano
 [#505](https://github.com/cascaoconcurseiro/linguaflow/issues/505) publicou Fala Conectada B2
 ([#524](https://github.com/cascaoconcurseiro/linguaflow/pull/524), documentação em
 [#525](https://github.com/cascaoconcurseiro/linguaflow/pull/525)): 8 capítulos e 80 frases, `is_published = true`
@@ -256,6 +260,15 @@ do conteúdo e a escuta de Fala Conectada e do piloto de reduções
 Consulte [CURSOS.md](product/CURSOS.md) para o estado do produto e
 [EDITORIAL_CURSOS.md](product/EDITORIAL_CURSOS.md) para o fluxo de conteúdo. Não reaplique essas migrations
 para retomar a revisão; primeiro confira o histórico do banco.
+
+**Auditoria curricular #528 (2026-10-06).** Revisa 30 cursos, 372 aulas e 4.088 itens; 186 aulas mudam de nível.
+Gírias saem do A1, cursos mistos recebem níveis por aula e a sequência passa a seguir pré-requisitos.
+Consulte [CURRICULO_CEFR.md](product/CURRICULO_CEFR.md) e [CURRICULO_AULAS.csv](product/CURRICULO_AULAS.csv).
+Migration `20261006230000` publicada no Supabase em 2026-10-07, antes da interface, e registrada com SQL integral.
+Conferência: 30 cursos, 372 aulas, 4.088 itens e 363 aulas centrais; A1 28, A2 88, B1 142, B2 102, C1 12.
+Conteúdo preservado por hash `d0002890d367706d6d43090022638f99`; pré-requisitos e cursos opcionais conferidos.
+Interface: PR [#529](https://github.com/cascaoconcurseiro/linguaflow/pull/529). Evidências de integração e QA ficam na Issue/PR e no handoff;
+o inventário e a auditoria editorial não comprovam sozinhos publicação em produção.
 
 - **Toda mudança começa por uma Issue** (Correção, Melhoria ou Nova função), com escopo, critérios de aceite, riscos e plano de teste.
 - Branch a partir da `main`; **deploy só por Pull Request**, com `Closes #N`/`Refs #N`, CI verde e revisão. Nunca push direto.
@@ -629,8 +642,15 @@ Para atualizar: `npm run map`.
 | Arquivo | Porte | Para que serve |
 |---|---|---|
 | `supabase/content/courses.mjs` | M | Conteúdo original dos cursos (fonte da migration de seed gerada por scripts/generate-course-seed.mjs). Cada frase: texto, tradução pt-BR natural, nota de uso e grupos … |
+| `supabase/content/curriculum.mjs` | GG ⚠ | Decisões editoriais por aula (#528), após auditoria do conteúdo efetivo em 2026-10-06. |
 | `supabase/content/images.mjs` | M | Imagens das palavras dos cursos de vocabulário (#443). Fonte única: este mapa gera a migration de imagens (scripts/generate-course-images.mjs). |
 | `supabase/content/lexicon.mjs` | M | Léxico dos cursos: palavra → [classe, IPA (inglês americano, forma de citação), glosa pt-BR no sentido usado nas frases]. |
+
+### Reversões operacionais (`supabase/rollback/`)
+
+| Arquivo | Porte | Para que serve |
+|---|---|---|
+| `supabase/rollback/course_curriculum_528.sql` | P | Reversão operacional #528: executar numa transação; preserva colunas, conteúdo e histórico. |
 
 ### Automação (`scripts/` e `.github/workflows/`)
 
@@ -642,6 +662,8 @@ Para atualizar: `npm run map`.
 | `.github/workflows/supabase-keep-alive.yml` | P | Supabase Keep Alive |
 | `scripts/content-check.mjs` | P | Verificador editorial dos cursos (Issue #428): valida TODOS os lotes de conteúdo sem escrever nada e confere se o SQL gerado ainda é igual ao que foi publicado em supa… |
 | `scripts/content-review-sample.mjs` | P | Amostra para revisão humana do conteúdo dos cursos (Issue #435). |
+| `scripts/course-content-snapshot.mjs` | P | Conteúdo efetivo para auditoria curricular: replay editorial cronológico, com offsets e retiradas. |
+| `scripts/generate-course-curriculum.mjs` | P | Gera metadados curriculares append-only e a auditoria integral por aula (#528), sem alterar conteúdo/progresso. |
 | `scripts/generate-course-images.mjs` | P | Gera a migration de imagens das palavras a partir de supabase/content/images.mjs (#443). |
 | `scripts/generate-course-seed.mjs` | M | Gera migrations de conteúdo dos cursos a partir de supabase/content/. |
 | `scripts/generate-project-map.mjs` | M | Gera o inventário de docs/MAPA_DO_PROJETO.md a partir dos arquivos rastreados pelo git. |
@@ -655,10 +677,10 @@ Para atualizar: `npm run map`.
 
 | Grupo | Quantidade | Observação |
 |---|---|---|
-| `supabase/migrations/` | 146 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261006221000_course_content_fala_conectada_2.sql`. Nunca edite uma migration já aplicada. |
+| `supabase/migrations/` | 147 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261006230000_course_curriculum.sql`. Nunca edite uma migration já aplicada. |
 | `supabase/content/batches/` | 61 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
-| `tests/*.test.mjs` | 189 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
-| `tests/e2e/` | 7 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
+| `tests/*.test.mjs` | 190 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
+| `tests/e2e/` | 8 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
 | `tests/db/` | 15 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |
 | `tests/production/` | 1 | Verificação de isolamento entre contas no Supabase de produção (workflow agendado). |
 | `docs/*.md` | 6 | Documentação viva; histórico em `docs/history/`, produto em `docs/product/`. |

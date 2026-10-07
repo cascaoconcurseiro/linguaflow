@@ -22,7 +22,16 @@ Não edite a migration nem o lote antigo (o teste `tests/content-check.test.mjs`
 lote novo que reaproveite o `id` da unidade (o `ON CONFLICT … DO UPDATE` a atualiza) e gere uma
 migration nova. Para retirar uma unidade, use `retireUnits` no curso do lote novo.
 
-## Limites conhecidos
+## Classificação e ordem pedagógica
+
+O nível de um lote antigo não define mais o nível de todas as suas aulas. Consulte
+[CURRICULO_CEFR.md](CURRICULO_CEFR.md) e a auditoria por aula [CURRICULO_AULAS.csv](CURRICULO_AULAS.csv).
+Novas aulas não entram automaticamente na trilha: exigem nível, ordem e pré-requisitos revisados
+em uma fonte curricular versionada e migration append-only. Não edite `curriculum.mjs` nem o SQL
+da auditoria #528 depois de publicados; uma revisão gera nova versão. O gerador dessa auditoria
+tem corte histórico para não incorporar lotes futuros à migration antiga.
+
+## Limites da validação
 
 - Não há interface gráfica de edição: exige um backend de escrita para administradores, com
   auditoria, e uma decisão sobre revisão humana. Está fora do escopo atual.

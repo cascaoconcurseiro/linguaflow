@@ -16,7 +16,18 @@ const LEVEL_RANK = { A1: 1, A2: 2, B1: 3, B2: 4, C1: 5 };
 export function byPathOrder(a, b) {
   const ta = TRACKS.findIndex(([t]) => t === a.track);
   const tb = TRACKS.findIndex(([t]) => t === b.track);
-  return (LEVEL_RANK[a.level] || 9) - (LEVEL_RANK[b.level] || 9) || ta - tb || (a.track_order || 0) - (b.track_order || 0);
+  return (LEVEL_RANK[a.level_min || a.level] || 9) - (LEVEL_RANK[b.level_min || b.level] || 9)
+    || (a.curriculum_order ?? Number.MAX_SAFE_INTEGER) - (b.curriculum_order ?? Number.MAX_SAFE_INTEGER)
+    || ta - tb || (a.track_order || 0) - (b.track_order || 0);
+}
+
+export function courseLevelLabel(course) {
+  return course.level_min && course.level_max && course.level_min !== course.level_max
+    ? `${course.level_min}–${course.level_max}` : course.level_min || course.level;
+}
+
+export function courseHasLevel(course, level) {
+  return !level || (course.lessons || []).some(l => (l.level || course.level) === level);
 }
 
 // Primeiro curso a oferecer: o de Meus cursos; sem matrícula, o primeiro da trilha guiada (nunca o order_index do banco).
@@ -114,6 +125,8 @@ export function lessonProgress(lesson, course) {
 
 export function nextLessonOf(course, lessonId) {
   const i = course.lessons.findIndex((l) => l.id === lessonId);
+  // A próxima recomendação curricular depende do progresso entre cursos; o Hub consulta a RPC após salvar.
+  if (i >= 0 && course.lessons[i].curriculum_order != null) return null;
   return i >= 0 ? course.lessons[i + 1] || null : null;
 }
 

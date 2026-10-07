@@ -58,7 +58,7 @@ export function openCoursePrepareModal({ lesson, course, onStart }) {
     <div class="course-pause-card course-prepare-card">
       <div class="course-prepare-head">
         <div>
-          ${course.level ? `<span class="course-level-pill ${escapeHTML(String(course.level).toLowerCase())}">${escapeHTML(course.level)}</span>` : ''}
+          ${(lesson.level || course.level) ? `<span class="course-level-pill ${escapeHTML(String(lesson.level || course.level).toLowerCase())}">${escapeHTML(lesson.level || course.level)}</span>` : ''}
           <h2 id="prepare-modal-title" class="course-hero-title">${escapeHTML(lesson.title)}</h2>
           <p class="course-hub-subtitle">${escapeHTML(meta)}</p>
           ${lesson.description ? `<p class="course-hub-subtitle">${escapeHTML(lesson.description)}</p>` : ''}

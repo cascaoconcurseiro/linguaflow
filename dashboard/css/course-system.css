@@ -698,4 +698,6 @@
 .course-curriculum-lessons li > div { min-width: 0; }
 .course-curriculum-lessons .course-card-stats { display: block; margin-top: 4px; }
 .course-curriculum-lessons button { flex-shrink: 0; }
+.course-level-detail [data-course-curriculum] { margin-top: 24px; }
+.course-level-detail .course-curriculum-lessons button { width: auto; }
 @media (max-width: 600px) { .course-curriculum-lessons li { align-items: flex-start; flex-direction: column; } }

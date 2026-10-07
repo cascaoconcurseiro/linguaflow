@@ -14,7 +14,7 @@ export function levelCompletionText(level) {
   const date = record.completed_at || record.recorded_at;
   if (!date) return '';
   const formatted = new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
-  return `${record.completed_at ? 'Base concluída em' : 'Conclusão reconhecida em'} ${formatted} · ${record.total} aulas na base daquela data`;
+  return `${record.completed_at ? 'Base concluída em' : 'Conclusão reconhecida em'} ${formatted} · ${record.total} ${record.total === 1 ? 'aula' : 'aulas'} na base daquela data`;
 }
 
 export function renderLevelHistory(container, { path, navigate, refresh }) {

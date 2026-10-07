@@ -554,6 +554,7 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 | `dashboard/js/ui/courses/courseHome.js` | M | Início dos Cursos: continuar, semana, revisão do dia, tempo e recentes. |
 | `dashboard/js/ui/courses/courseHomeStrip.js` | P | faixa "Curso" do Início (Issue #492). |
 | `dashboard/js/ui/courses/courseLeaderboard.js` | P | Ranking dos Cursos por tempo ativo de estudo (UTC). |
+| `dashboard/js/ui/courses/courseLevel.js` | P | Página de um nível: progresso da base, conquista preservada e aulas organizadas por módulo. |
 | `dashboard/js/ui/courses/courseLevelProgress.js` | P | Evolução por nível distingue conquistas, material atual e dispensa pelo ponto de partida. |
 | `dashboard/js/ui/courses/courseNotebooks.js` | M | Cadernos: revisão espaçada, erros, vocabulário e notas. Tudo gratuito. |
 | `dashboard/js/ui/courses/courseStore.js` | M | Loja, Meus cursos e página do curso (capítulos). |

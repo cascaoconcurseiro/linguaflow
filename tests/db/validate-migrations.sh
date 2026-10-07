@@ -50,6 +50,13 @@ for f in "$ROOT"/supabase/migrations/*.sql; do
   run_pg "${PSQL[@]}" -f "$f"
 done
 
+# Conferir o snapshot antes de contratos antigos que deixam fixtures no banco descartável.
+echo "── currículo por aula e sequência por pré-requisitos (#528)"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-curriculum-528.sql"
+
+echo "── reversão curricular em transação descartável (#528)"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-curriculum-rollback-528.sql"
+
 echo "── smoke test do Learning Engine"
 run_pg "${PSQL[@]}" <<'SQL'
 -- Usuário de teste: o trigger handle_new_user deve criar o user_stats
@@ -140,11 +147,5 @@ run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-reductions-pilot.sql"
 
 echo "── idioms B2: capítulos 7 a 10 (#505)"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-idioms-b2-extension.sql"
-
-echo "── currículo por aula e sequência por pré-requisitos (#528)"
-run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-curriculum-528.sql"
-
-echo "── reversão curricular em transação descartável (#528)"
-run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-curriculum-rollback-528.sql"
 
 echo "✅ Migrations reproduzíveis + gates comportamentais P0.1/P0.2/#118 passaram."

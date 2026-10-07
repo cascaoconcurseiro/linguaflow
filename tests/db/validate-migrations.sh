@@ -144,4 +144,7 @@ run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-idioms-b2-extension.sql"
 echo "── currículo por aula e sequência por pré-requisitos (#528)"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-curriculum-528.sql"
 
+echo "── reversão curricular em transação descartável (#528)"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-curriculum-rollback-528.sql"
+
 echo "✅ Migrations reproduzíveis + gates comportamentais P0.1/P0.2/#118 passaram."

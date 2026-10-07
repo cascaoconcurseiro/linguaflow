@@ -32,7 +32,7 @@ test('faixa e filtro de curso misto refletem níveis reais das aulas, sem inclui
 test('todas as aulas efetivas têm decisão editorial e gírias/perfect/inversão não entram no A1', async () => {
   const { loadCourseContentSnapshot } = await import('../scripts/course-content-snapshot.mjs');
   const { CURRICULUM } = await import('../supabase/content/curriculum.mjs');
-  const courses = await loadCourseContentSnapshot();
+  const courses = await loadCourseContentSnapshot({ through: '20261006221000' });
   const lessons = courses.flatMap(c => c.lessons);
   assert.equal(courses.length, 30);
   assert.equal(lessons.length, 372);

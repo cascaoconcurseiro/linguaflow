@@ -48,14 +48,25 @@ echo "── aplicando migrations em ordem"
 for f in "$ROOT"/supabase/migrations/*.sql; do
   echo "   • $(basename "$f")"
   run_pg "${PSQL[@]}" -f "$f"
+  if [ "$(basename "$f")" = "20261007090000_course_audio_acceptance.sql" ]; then
+    # Conferir o snapshot antes de contratos antigos que deixam fixtures no banco descartável.
+    echo "── currículo por aula e sequência por pré-requisitos (#528)"
+    run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-curriculum-528.sql"
+
+    echo "── reversão curricular em transação descartável (#528)"
+    run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-curriculum-rollback-528.sql"
+
+    echo "── curso piloto de reduções da fala (#503)"
+    run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-reductions-pilot.sql"
+
+    echo "── idioms B2: capítulos 7 a 10 (#505)"
+    run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-idioms-b2-extension.sql"
+  fi
 done
 
-# Conferir o snapshot antes de contratos antigos que deixam fixtures no banco descartável.
-echo "── currículo por aula e sequência por pré-requisitos (#528)"
-run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-curriculum-528.sql"
-
-echo "── reversão curricular em transação descartável (#528)"
-run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-curriculum-rollback-528.sql"
+echo "── organização pedagógica e reversão preservando histórico (#533)"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-pedagogy-533.sql"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-pedagogy-rollback-533.sql"
 
 echo "── smoke test do Learning Engine"
 run_pg "${PSQL[@]}" <<'SQL'
@@ -146,11 +157,5 @@ bash "$ROOT/tests/db/course-review-method-concurrency.sh" "$PGBIN/psql" "$PORT" 
 
 echo "── dívida de revisão do curso: erro mais brando, meta diária e atraso (#501)"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-review-debt.sql"
-
-echo "── curso piloto de reduções da fala (#503)"
-run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-reductions-pilot.sql"
-
-echo "── idioms B2: capítulos 7 a 10 (#505)"
-run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-idioms-b2-extension.sql"
 
 echo "✅ Migrations reproduzíveis + gates comportamentais P0.1/P0.2/#118 passaram."

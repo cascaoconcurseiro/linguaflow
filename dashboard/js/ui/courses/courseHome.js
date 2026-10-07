@@ -4,6 +4,8 @@ import { escapeHTML } from '../../../../utils/html.js';
 import { courseReviewPacing, courseReviewsLabel } from '../../core/courseReviewPacing.js';
 import { formatDuration, formatDateTime, formatDate, levelPill, lessonProgress, pickContinueTarget, pickFirstCourse, startLesson, renderEmpty, plural, unitCount } from './courseUi.js';
 
+import { renderCurriculum } from './courseCurriculum.js';
+
 const WEEKDAYS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
 
 const LEVEL_NAME = { A1: 'Iniciante', A2: 'Básico', B1: 'Intermediário', B2: 'Intermediário avançado', C1: 'Avançado' };
@@ -34,7 +36,7 @@ function pathHtml(path, lessonIndex) {
         <h2 id="path-title" class="course-section-title">Sua trilha${path.current_level ? ` · nível ${escapeHTML(path.current_level)}` : ''}</h2>
         ${path.placement_level ? `<span class="course-card-stats">Ponto de partida pelo seu nível: ${escapeHTML(path.placement_level)}</span>` : ''}
       </div>
-      <p class="course-hub-subtitle">Aulas por pré-requisitos, do básico ao avançado. Concluir o material disponível não certifica o domínio de um nível.</p>
+      <p class="course-hub-subtitle">Aulas da base por pré-requisitos, do básico ao avançado. Extras e opcionais não bloqueiam o avanço. Concluir o material disponível não certifica o domínio de um nível.</p>
       <ol class="course-path-levels" aria-label="Progresso por nível">
         ${path.levels.map((l) => {
           const state = l.skipped ? 'is-skipped' : l.is_completed ? 'is-done' : l.level === path.current_level ? 'is-current' : '';
@@ -128,6 +130,8 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate 
       </section>
     </div>
 
+    <section class="course-panel" data-course-curriculum aria-label="Organização pedagógica"></section>
+
     <section class="course-metrics" aria-label="Tempo de estudo">
       <div class="course-metric"><span>Hoje</span><strong>${formatDuration(summary.today_seconds)}</strong></div>
       <div class="course-metric"><span>Dias nesta semana</span><strong>${summary.week_days || 0}</strong></div>
@@ -153,6 +157,8 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate 
         </li>`;
       }).join('')}</ul>` : '<p class="course-hub-subtitle">As lições que você praticar aparecem aqui.</p>'}
     </section>`;
+
+  renderCurriculum(panel.querySelector('[data-course-curriculum]'), { catalog, app, level: path?.current_level || path?.placement_level || 'A1' });
 
   panel.querySelector('[data-continue]')?.addEventListener('click', () => startLesson(app, cont.course, cont.lesson));
   panel.querySelectorAll('[data-path-next]').forEach((button) => button.addEventListener('click', () => {

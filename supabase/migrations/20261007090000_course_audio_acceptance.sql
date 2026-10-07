@@ -24,7 +24,7 @@ DO $$ BEGIN
       ('lesson-connected-b2-08','course-connected-speech-b2','B2')
     ) AS accepted(id,course_id,level)
     LEFT JOIN public.course_lessons l ON l.id=accepted.id
-    WHERE l.id IS NULL OR l.course_id<>accepted.course_id OR l.level<>accepted.level OR l.curriculum_order IS NULL
+    WHERE l.id IS NULL OR l.course_id<>accepted.course_id OR l.level IS DISTINCT FROM accepted.level OR l.curriculum_order IS NULL
   ) THEN RAISE EXCEPTION 'Aulas aprovadas sem classificação curricular esperada'; END IF;
 END $$;
 

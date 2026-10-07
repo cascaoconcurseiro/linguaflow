@@ -666,6 +666,7 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 |---|---|---|
 | `supabase/rollback/course_audio_acceptance_503.sql` | P | Reverte somente a inclusão aprovada do áudio #503/#505; mantém aulas, níveis e progresso. |
 | `supabase/rollback/course_curriculum_528.sql` | P | Reversão operacional #528: executar numa transação; preserva colunas, conteúdo e histórico. |
+| `supabase/rollback/course_review_method_531.sql` | M | Reversão #531: preserva sessões, resultados e vencimentos existentes. |
 
 ### Automação (`scripts/` e `.github/workflows/`)
 
@@ -692,11 +693,11 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 
 | Grupo | Quantidade | Observação |
 |---|---|---|
-| `supabase/migrations/` | 148 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261007090000_course_audio_acceptance.sql`. Nunca edite uma migration já aplicada. |
+| `supabase/migrations/` | 149 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261007113458_course_review_method.sql`. Nunca edite uma migration já aplicada. |
 | `supabase/content/batches/` | 61 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
-| `tests/*.test.mjs` | 190 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
-| `tests/e2e/` | 8 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
-| `tests/db/` | 15 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |
+| `tests/*.test.mjs` | 191 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
+| `tests/e2e/` | 9 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
+| `tests/db/` | 16 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |
 | `tests/production/` | 1 | Verificação de isolamento entre contas no Supabase de produção (workflow agendado). |
 | `docs/*.md` | 6 | Documentação viva; histórico em `docs/history/`, produto em `docs/product/`. |
 | imagens e mídia | 37 | Ícones da extensão e do PWA, logo e vídeo de fixture dos testes. |

@@ -9,6 +9,7 @@ import { db } from '../../../utils/db.js';
 import { escapeHTML } from '../../../utils/html.js';
 import { soundEngine } from '../core/soundFx.js';
 import { handleSlotKeydown, parsePastedText } from '../core/inputEngine.js';
+import { buildBreakdown } from '../core/courseBreakdown.js';
 import { createPracticeSession, shouldPersistOnPageHide } from '../core/coursePracticeSession.js';
 import { loadPrefs, savePrefs, stepPref, PREF_LIMITS } from '../core/coursePrefs.js';
 import { canSendUnitToVault, runSendToVault } from '../core/courseVault.js';
@@ -118,6 +119,7 @@ export async function renderCoursePractice(container, app, params = {}) {
   let courseTitle = '';
   let units = [];
   let lessonId = null;
+  let lessonObjective = '';
   try {
     if (kind === 'lesson') {
       const lesson = await db.courses.getLesson(String(params.lessonId || ''));
@@ -126,6 +128,7 @@ export async function renderCoursePractice(container, app, params = {}) {
         title = `${lesson.chapter_number}. ${lesson.title}`;
         courseTitle = lesson.course_catalog?.title || '';
         units = lesson.units;
+        lessonObjective = lesson.learning_objective || '';
       }
     } else {
       units = await db.courses.getUnits(params.unitIds || []);
@@ -663,31 +666,41 @@ export async function renderCoursePractice(container, app, params = {}) {
       setFeedback('Resposta revelada: esta frase não soma combo.');
     }
     const unit = session.unit;
-    const groups = Array.isArray(unit.syntax_groups) ? unit.syntax_groups : [];
-    const words = Array.isArray(unit.annotations) ? unit.annotations : [];
-    const wordsFor = (group) => words.filter((w) => group.surface.toLowerCase().split(/\s+/)
+    const model = buildBreakdown(unit, { stage: session.stage, objective: lessonObjective });
+    const wordsFor = (group) => model.words.filter((w) => group.surface.toLowerCase().split(/s+/)
       .map((s) => s.replace(/^[^a-z]+|[^a-z']+$/g, '')).includes(w.surface.toLowerCase()));
     const rendered = new Set();
-    panel.innerHTML = `
-      <p class="course-breakdown-translation" lang="en">${escapeHTML(unit.text)}</p>
-      <p style="margin:0;">${escapeHTML(unit.translation_pt)}</p>
-      ${unit.ipa ? `<span class="course-breakdown-ipa">${escapeHTML(unit.ipa)}</span>` : ''}
-      ${unit.explanation_note ? `<p class="course-breakdown-note">${escapeHTML(unit.explanation_note)}</p>` : ''}
-      ${unit.example_en ? `<p class="course-breakdown-note"><strong lang="en">${escapeHTML(unit.example_en)}</strong> — ${escapeHTML(unit.example_pt || '')}</p>` : ''}
+    const wordHtml = (w) => `
+      <span class="course-structure-word">
+        ${w.ipa ? `<span class="course-breakdown-ipa">${escapeHTML(w.ipa)}</span>` : ''}
+        <strong lang="en">${escapeHTML(w.surface)}</strong>
+        <small>${escapeHTML(POS_LABEL[w.pos] || w.pos || '')}${w.gloss ? ` · ${escapeHTML(w.gloss)}` : ''}</small>
+      </span>`;
+    const detail = model.mode === 'structure' ? `
       <div class="course-structure" aria-label="Estrutura da frase">
-        ${groups.map((g) => {
+        ${model.groups.map((g) => {
           const ws = wordsFor(g).filter((w) => !rendered.has(w) && rendered.add(w));
           return `<div class="course-structure-group ${ROLE_CLASS[g.role] || 'slang'}">
             <span class="course-structure-role">${escapeHTML(ROLE_LABEL[g.role] || g.role || '')}</span>
-            <div class="course-structure-words">${ws.map((w) => `
-              <span class="course-structure-word">
-                ${w.ipa ? `<span class="course-breakdown-ipa">${escapeHTML(w.ipa)}</span>` : ''}
-                <strong lang="en">${escapeHTML(w.surface)}</strong>
-                <small>${escapeHTML(POS_LABEL[w.pos] || w.pos || '')}${w.gloss ? ` · ${escapeHTML(w.gloss)}` : ''}</small>
-              </span>`).join('') || `<strong lang="en">${escapeHTML(g.surface)}</strong>`}</div>
+            <div class="course-structure-words">${ws.map(wordHtml).join('') || `<strong lang="en">${escapeHTML(g.surface)}</strong>`}</div>
           </div>`;
         }).join('')}
-      </div>
+      </div>` : model.mode === 'words' ? `
+      <div class="course-structure" aria-label="Palavra por palavra">
+        <div class="course-structure-group slang">
+          <span class="course-structure-role">Palavra por palavra</span>
+          <div class="course-structure-words">${model.words.map(wordHtml).join('')}</div>
+        </div>
+      </div>` : '';
+    panel.innerHTML = `
+      <p class="course-breakdown-translation" lang="en">${escapeHTML(model.sentence)}</p>
+      <p style="margin:0;">${escapeHTML(model.translation)}</p>
+      ${model.ipa ? `<span class="course-breakdown-ipa">${escapeHTML(model.ipa)}</span>` : ''}
+      ${model.source ? `<p class="course-breakdown-note">Palavra desta etapa: <strong lang="en">${escapeHTML(model.source.text)}</strong> — ${escapeHTML(model.source.translation)}</p>` : ''}
+      ${model.note ? `<p class="course-breakdown-note">${escapeHTML(model.note)}</p>` : ''}
+      ${model.exampleBlock ? `<p class="course-breakdown-note"><strong lang="en">${escapeHTML(model.exampleBlock.text)}</strong> — ${escapeHTML(model.exampleBlock.translation)}</p>` : ''}
+      ${detail}
+      ${model.objective && model.mode !== 'structure' ? `<p class="course-breakdown-note" data-breakdown-focus>Foco da aula: ${escapeHTML(model.objective)}</p>` : ''}
       <div class="course-breakdown-actions">
         <button type="button" class="course-player-btn-back" data-action="save-vocab">★ Salvar no vocabulário</button>
         ${canSendUnitToVault(unit) ? '<button type="button" class="course-player-btn-back" data-action="send-vault" title="Entra na sua revisão espaçada junto com as palavras dos vídeos">＋ Enviar ao Cofre</button>' : ''}

@@ -1,5 +1,10 @@
 # Changelog
 
+## Auditoria de sequência e painel de explicação da frase praticada (#544)
+- Painel "Mostrar resposta": na etapa do exemplo explica a frase de exemplo e sua tradução (antes mostrava a palavra); sem grupos sintáticos mostra palavra por palavra e, sem anotações, o foco da aula (`learning_objective`). Nunca exibe "Estrutura" vazia. Modelo em `dashboard/js/core/courseBreakdown.js`.
+- `npm run content:audit`: acusa estruturas usadas antes da aula que as ensina (A1–B2 base); exceções documentadas, teste de CI falha em violação nova. Relatório em `docs/product/AUDITORIA_SEQUENCIA.md`.
+- `npm run content:notes`: mede notas ausentes, curtas, repetidas e sem relação com a frase. Relatório em `docs/product/AUDITORIA_NOTAS.md`. Nenhuma frase alterada ou removida; sem migration.
+
 ## Início do curso e página do nível organizados (#542)
 - Início dos Cursos reduzido a: Continue seu curso, Sua trilha por nível e Hoje (semana + revisão). Métricas e recentes saem do Início; tempo e histórico seguem em Análise e Meus cursos.
 - Página do nível: módulo atual aberto e marcado, módulos concluídos recolhidos, chips de tipo (Gramática, Vocabulário, Situações, Leitura e fala, Frases essenciais) e etapa; pré-requisitos só na próxima aula; um único botão primário. Tipo derivado do ID da aula (`lessonKind`), validado contra as 449 aulas.

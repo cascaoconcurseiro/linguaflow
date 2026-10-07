@@ -44,7 +44,7 @@ export class CoursesRepository {
   async getLesson(lessonId) {
     assertId(lessonId, 'lessonId');
     const rows = await this._read(
-      `course_lessons?id=eq.${lessonId}&select=id,title,chapter_number,course_id,level,`
+      `course_lessons?id=eq.${lessonId}&select=id,title,chapter_number,course_id,level,learning_objective,`
       + `course_catalog(id,title,level),course_units(${UNIT_FIELDS})`,
     );
     const lesson = rows?.[0];

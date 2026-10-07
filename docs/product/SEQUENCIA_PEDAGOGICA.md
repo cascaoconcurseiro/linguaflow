@@ -63,7 +63,7 @@ Extras oferecem variações, vocabulário, reduções de fala, verbos e históri
 
 ## Conclusão de aula
 
-Primeiro salva a sessão idempotente; depois consulta rpc_course_path e oferece a aula seguinte com título, nível e módulo, inclusive em outro curso. Continuar abre o preparo existente. Finalizar por hoje volta ao curso. Falha ao salvar mantém o resultado local e permite tentar novamente. Falha apenas na recomendação permite buscar novamente sem gravar a sessão outra vez. Sem próxima aula: mensagem de base concluída ou de pré-requisitos pendentes. Revisões mantêm seu encerramento próprio.
+Primeiro salva a sessão idempotente; depois consulta rpc_course_path e oferece a aula seguinte com título, nível e módulo, inclusive em outro curso. Próxima aula abre o preparo existente e recebe o foco quando aparece. Terminar por hoje volta ao curso. Falha ao salvar mantém o resultado local e permite tentar novamente. Falha apenas na recomendação permite buscar novamente sem gravar a sessão outra vez. Sem próxima aula: mensagem de base concluída ou de pré-requisitos pendentes. Revisões mantêm seu encerramento próprio.
 
 ## Observação operacional
 

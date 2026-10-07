@@ -157,6 +157,17 @@ export class CoursesRepository {
     return this.db._fetch(`course_user_notes?unit_id=eq.${unitId}`, { method: 'DELETE' });
   }
 
+  // Houve prática no curso desde o instante dado? A Home usa para não avisar
+  // "ofensiva em risco" a quem já estudou aulas hoje (#540). Só SELECT sob RLS própria.
+  async hasPracticeSince(sinceIso) {
+    const since = new Date(sinceIso);
+    if (Number.isNaN(since.getTime())) throw new Error('data inválida');
+    const rows = await this._read(
+      `course_practice_sessions?answered_questions=gt.0&started_at=gte.${encodeURIComponent(since.toISOString())}&select=id&limit=1`,
+    );
+    return Array.isArray(rows) && rows.length > 0;
+  }
+
   commitPractice(payload) {
     return this._rpc('rpc_course_commit_practice', {
       p_client_session_id: payload.clientSessionId,

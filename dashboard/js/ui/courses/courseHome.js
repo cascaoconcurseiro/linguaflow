@@ -27,9 +27,9 @@ function reviewPanelHtml(summary) {
   return `<p class="course-hub-subtitle">Nada vence hoje.${summary.next_review_at ? ` Próxima revisão em ${formatDate(summary.next_review_at)}` : ''}</p>`;
 }
 
-function pathHtml(path, lessonIndex) {
+// A próxima aula aparece uma só vez, no cartão "Continue seu curso" (#540).
+function pathHtml(path) {
   if (!path?.levels) return '';
-  const next = path.next && lessonIndex.get(path.next.lesson_id);
   return `
     <section class="course-panel course-path" aria-labelledby="path-title">
       <div class="course-section-head">
@@ -49,11 +49,7 @@ function pathHtml(path, lessonIndex) {
           </li>`;
         }).join('')}
       </ol>
-      ${next ? `<div class="course-path-next">
-          <span class="course-card-stats">Próxima aula recomendada</span>
-          <strong>${escapeHTML(next.course.title)} · ${next.lesson.chapter_number}. ${escapeHTML(next.lesson.title)}</strong>
-          <button class="course-btn-primary-lg" type="button" data-path-next>Fazer agora</button>
-        </div>` : path.blocked ? '<p class="course-hub-subtitle" role="status">Há aulas aguardando pré-requisitos. Confira os capítulos anteriores para continuar.</p>' : '<p class="course-hub-subtitle">Você concluiu todas as aulas disponíveis da trilha. Novas aulas aparecem aqui.</p>'}
+      ${path.next ? '' : path.blocked ?'<p class="course-hub-subtitle" role="status">Há aulas aguardando pré-requisitos. Confira os capítulos anteriores para continuar.</p>' : '<p class="course-hub-subtitle">Você concluiu todas as aulas disponíveis da trilha. Novas aulas aparecem aqui.</p>'}
     </section>`;
 }
 
@@ -101,7 +97,7 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate,
       </div>`;
 
   panel.innerHTML = `
-    ${pathHtml(path, lessonIndex)}
+    ${pathHtml(path)}
     <div class="course-home-grid">
       <section class="course-panel course-continue" aria-labelledby="continue-title">
         <h2 id="continue-title" class="course-section-title">Continue seu curso</h2>

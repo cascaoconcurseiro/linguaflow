@@ -55,6 +55,12 @@ for f in "$ROOT"/supabase/migrations/*.sql; do
 
     echo "── reversão curricular em transação descartável (#528)"
     run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-curriculum-rollback-528.sql"
+
+    echo "── curso piloto de reduções da fala (#503)"
+    run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-reductions-pilot.sql"
+
+    echo "── idioms B2: capítulos 7 a 10 (#505)"
+    run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-idioms-b2-extension.sql"
   fi
 done
 
@@ -151,11 +157,5 @@ bash "$ROOT/tests/db/course-review-method-concurrency.sh" "$PGBIN/psql" "$PORT" 
 
 echo "── dívida de revisão do curso: erro mais brando, meta diária e atraso (#501)"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-review-debt.sql"
-
-echo "── curso piloto de reduções da fala (#503)"
-run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-reductions-pilot.sql"
-
-echo "── idioms B2: capítulos 7 a 10 (#505)"
-run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-idioms-b2-extension.sql"
 
 echo "✅ Migrations reproduzíveis + gates comportamentais P0.1/P0.2/#118 passaram."

@@ -15,6 +15,7 @@ DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM public.course_lessons WHERE module_title IS NULL OR module_order IS NULL OR is_core<>(lesson_role='base')) THEN RAISE EXCEPTION 'organização incompleta'; END IF;
  IF EXISTS(SELECT 1 FROM public.course_lessons l CROSS JOIN LATERAL unnest(l.prerequisite_lesson_ids) p(id)
  JOIN public.course_lessons prior ON prior.id=p.id WHERE NOT prior.is_core OR prior.curriculum_order>=l.curriculum_order) THEN RAISE EXCEPTION 'extra bloqueia base'; END IF;
+ IF (SELECT lesson_role FROM public.course_lessons WHERE id='lesson-spoken-reductions-a2-01')<>'extra' OR (SELECT is_core FROM public.course_catalog WHERE id='course-spoken-reductions-a2') THEN RAISE EXCEPTION 'piloto não está disponível como extra'; END IF;
  IF (SELECT md5(string_agg(concat_ws(chr(31),id,kind,text,translation_pt,coalesce(explanation_note,''),coalesce(example_en,''),coalesce(example_pt,'')),chr(30) ORDER BY id COLLATE "C")) FROM public.course_units WHERE id NOT LIKE 'unit-pedagogy-%')<>'d0002890d367706d6d43090022638f99' THEN RAISE EXCEPTION 'conteúdo antigo alterado'; END IF;
 END $$;
 INSERT INTO public.user_course_enrollment(user_id,course_id,completed_lessons)

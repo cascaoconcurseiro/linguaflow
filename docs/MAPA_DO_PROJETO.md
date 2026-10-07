@@ -489,6 +489,7 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 | `dashboard/js/core/adaptiveLearning.js` | P | Regras de aprendizagem adaptativa: plano por card, honestidade da autoavaliação, perfil do aluno e detecção de cansaço. |
 | `dashboard/js/core/ai.js` | G | cliente de IA do dashboard. |
 | `dashboard/js/core/app.js` | G | Núcleo do dashboard: roteador com renderização protegida contra tela antiga, sessão, tema, atualização da PWA e avisos. |
+| `dashboard/js/core/courseBreakdown.js` | P | #544: o que o painel "estrutura, pronúncia e significado" mostra para a frase EFETIVAMENTE praticada. |
 | `dashboard/js/core/courseCompletion.js` | P | Consulta a recomendação somente depois de confirmar o progresso no servidor. |
 | `dashboard/js/core/coursePracticeSession.js` | M | Estado de uma sessão de prática, sem DOM. Regras de combo: só acerto sem envio errado e sem dica soma combo; dica, resposta revelada, envio errado ou pular quebram o c… |
 | `dashboard/js/core/coursePrefs.js` | P | Preferências do player de cursos, guardadas neste navegador. |
@@ -688,6 +689,8 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 | `.github/workflows/production-rls.yml` | P | Production RLS Monitor |
 | `.github/workflows/release.yml` | M | Build and Release |
 | `.github/workflows/supabase-keep-alive.yml` | P | Supabase Keep Alive |
+| `scripts/audit-course-notes.mjs` | P | #544: auditoria de qualidade das notas de explicação. Mede o que é mensurável sem julgamento humano: notas ausentes, curtas, repetidas em muitas frases e sem nenhuma p… |
+| `scripts/audit-course-sequence.mjs` | P | #544: auditoria de sequência. Para cada frase da base A1–B2, detecta estruturas gramaticais que a trilha só ensina numa aula posterior. É uma heurística por expressões… |
 | `scripts/content-check.mjs` | P | Verificador editorial dos cursos (Issue #428): valida TODOS os lotes de conteúdo sem escrever nada e confere se o SQL gerado ainda é igual ao que foi publicado em supa… |
 | `scripts/content-review-sample.mjs` | P | Amostra para revisão humana do conteúdo dos cursos (Issue #435). |
 | `scripts/course-content-snapshot.mjs` | P | Conteúdo efetivo para auditoria curricular: replay editorial cronológico, com offsets e retiradas. |
@@ -709,8 +712,8 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 |---|---|---|
 | `supabase/migrations/` | 154 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261007154111_course_level_history_537.sql`. Nunca edite uma migration já aplicada. |
 | `supabase/content/batches/` | 63 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
-| `tests/*.test.mjs` | 198 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
-| `tests/e2e/` | 12 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
+| `tests/*.test.mjs` | 201 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
+| `tests/e2e/` | 15 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
 | `tests/db/` | 16 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |
 | `tests/production/` | 1 | Verificação de isolamento entre contas no Supabase de produção (workflow agendado). |
 | `docs/*.md` | 6 | Documentação viva; histórico em `docs/history/`, produto em `docs/product/`. |

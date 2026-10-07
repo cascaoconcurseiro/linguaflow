@@ -11,7 +11,7 @@ import {
 import { buildCourseStripModel, renderCourseStrip } from '../dashboard/js/ui/courses/courseHomeStrip.js';
 import { buildTodayPlan } from '../dashboard/js/core/todayPlan.js';
 
-const read = (p) => readFileSync(p, 'utf8');
+const read = (p) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
 const ids = (n) => Array.from({ length: n }, (_, i) => `u${i + 1}`);
 
 test('ritmo: usa a meta do servidor e o total continua visível', () => {

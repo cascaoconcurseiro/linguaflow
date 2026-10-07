@@ -221,7 +221,7 @@ chave **publicável** (`utils/db.js`), que por desenho é pública; a proteção
    o aceite de áudio é `supabase/content/curriculum-current.mjs`; a organização histórica #533 está em
    `supabase/content/curriculum-pedagogy.mjs`; a sequência vigente #535 é `supabase/content/curriculum-sequence.mjs`. Base é obrigatória; extras/opcionais não bloqueiam avanço.
    Planejamento, etapas, dependências e 35 novas aulas de aplicação/consolidação em [SEQUENCIA_PEDAGOGICA.md](product/SEQUENCIA_PEDAGOGICA.md).
-   `courseCompletion` salva antes de consultar a trilha e mostra continuar ou finalizar, com retries separados de gravação e recomendação. Critérios e auditoria histórica em
+   `courseCompletion` salva antes de consultar a trilha e mostra continuar ou finalizar, com retries separados de gravação e recomendação. Cada nível clicável abre `courseLevel` em página própria (`#courses/level/A1`), com módulos, progresso e retorno após a prática; `courseLevelProgress` apresenta evolução em Meus cursos. `course_level_completions` preserva a base concluída com snapshot autoritativo, inclusive quando novas aulas são acrescentadas. Critérios e auditoria histórica em
    [CURRICULO_CEFR.md](product/CURRICULO_CEFR.md). Aulas novas sem auditoria ficam fora da trilha; IDs e progresso são preservados.
 4. **Ler uma URL.** `readerView` → `url-import` (valida DNS e IPs a cada redirecionamento) → texto limpo → tabela `reader_texts`.
 5. **Checagem de fluência.** `fluencyCheckView` → `utils/db.js` → `fluency-assessment` (IA avalia pela rubrica) →
@@ -554,6 +554,8 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 | `dashboard/js/ui/courses/courseHome.js` | M | Início dos Cursos: continuar, semana, revisão do dia, tempo e recentes. |
 | `dashboard/js/ui/courses/courseHomeStrip.js` | P | faixa "Curso" do Início (Issue #492). |
 | `dashboard/js/ui/courses/courseLeaderboard.js` | P | Ranking dos Cursos por tempo ativo de estudo (UTC). |
+| `dashboard/js/ui/courses/courseLevel.js` | P | Página de um nível: progresso da base, conquista preservada e aulas organizadas por módulo. |
+| `dashboard/js/ui/courses/courseLevelProgress.js` | P | Evolução por nível distingue conquistas, material atual e dispensa pelo ponto de partida. |
 | `dashboard/js/ui/courses/courseNotebooks.js` | M | Cadernos: revisão espaçada, erros, vocabulário e notas. Tudo gratuito. |
 | `dashboard/js/ui/courses/courseStore.js` | M | Loja, Meus cursos e página do curso (capítulos). |
 | `dashboard/js/ui/courses/courseUi.js` | M | peças compartilhadas pelas seções de Cursos. |
@@ -673,6 +675,7 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 |---|---|---|
 | `supabase/rollback/course_audio_acceptance_503.sql` | P | Reverte somente a inclusão aprovada do áudio #503/#505; mantém aulas, níveis e progresso. |
 | `supabase/rollback/course_curriculum_528.sql` | P | Reversão operacional #528: executar numa transação; preserva colunas, conteúdo e histórico. |
+| `supabase/rollback/course_level_history_537.sql` | P | #537: desativa captura e restaura leitura #535; preserva conquistas e progresso. |
 | `supabase/rollback/course_pedagogy_533.sql` | M | #533: executar numa transação. Preserva unidades e todo histórico; novas aulas ficam despublicadas. |
 | `supabase/rollback/course_review_method_531.sql` | M | Reversão #531: preserva sessões, resultados e vencimentos existentes. |
 | `supabase/rollback/course_sequence_535.sql` | G | #535: executar numa transação. Preserva unidades e histórico, despublica adições. |
@@ -704,10 +707,10 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 
 | Grupo | Quantidade | Observação |
 |---|---|---|
-| `supabase/migrations/` | 153 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261007133922_course_sequence_535.sql`. Nunca edite uma migration já aplicada. |
+| `supabase/migrations/` | 154 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261007154111_course_level_history_537.sql`. Nunca edite uma migration já aplicada. |
 | `supabase/content/batches/` | 63 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
-| `tests/*.test.mjs` | 194 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
-| `tests/e2e/` | 11 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
+| `tests/*.test.mjs` | 196 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
+| `tests/e2e/` | 12 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
 | `tests/db/` | 16 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |
 | `tests/production/` | 1 | Verificação de isolamento entre contas no Supabase de produção (workflow agendado). |
 | `docs/*.md` | 6 | Documentação viva; histórico em `docs/history/`, produto em `docs/product/`. |

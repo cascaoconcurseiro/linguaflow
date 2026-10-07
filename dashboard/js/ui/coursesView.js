@@ -7,6 +7,7 @@ import { db } from '../../../utils/db.js';
 import { courseReviewPacing } from '../core/courseReviewPacing.js';
 import { flushPendingCourseCommit } from './coursePracticeView.js';
 import { renderCourseHome } from './courses/courseHome.js';
+import { renderCourseLevel } from './courses/courseLevel.js';
 import { renderCourseStore, renderMyCourses, renderCourseDetail } from './courses/courseStore.js';
 import { renderReviewNotebook, renderMistakesNotebook, renderVocabularyNotebook, renderNotesNotebook } from './courses/courseNotebooks.js';
 import { renderCourseAnalysis } from './courses/courseAnalysis.js';
@@ -29,7 +30,8 @@ export const COURSE_SECTIONS = [
 const sessionState = {};
 
 export async function renderCourses(container, app, params = {}) {
-  let section = COURSE_SECTIONS.some((s) => s.id === params.tab) || params.tab === 'course' ? params.tab : 'home';
+  let level = ['A1','A2','B1','B2','C1'].includes(params.level) ? params.level : null;
+  let section = COURSE_SECTIONS.some((s) => s.id === params.tab) || params.tab === 'course' || (params.tab === 'level' && level) ? params.tab : 'home';
   let courseId = params.courseId || null;
   let disposed = false;
   app.onLeaveView?.(() => { disposed = true; });
@@ -59,7 +61,7 @@ export async function renderCourses(container, app, params = {}) {
     if (summaryResult.status === 'fulfilled' && summaryResult.value) summary = summaryResult.value;
     else console.warn('[Courses] hub_summary_failed', summaryResult.reason?.kind || summaryResult.reason?.message);
     if (pathResult.status === 'fulfilled') path = pathResult.value;
-    else console.warn('[Courses] path_failed', pathResult.reason?.kind || pathResult.reason?.message);
+    else { path = null; console.warn('[Courses] path_failed', pathResult.reason?.kind || pathResult.reason?.message); }
   }
 
   try {
@@ -81,18 +83,25 @@ export async function renderCourses(container, app, params = {}) {
     navigate: (target, extra = {}) => {
       section = target;
       courseId = extra.courseId || null;
-      app.syncCourseHash?.({ tab: target, courseId });
+      level = ['A1','A2','B1','B2','C1'].includes(extra.level) ? extra.level : null;
+      if (target === 'level' && !level) section = 'home';
+      app.syncCourseHash?.({ tab: target, courseId, level });
       renderShell(extra);
       container.querySelector('#course-area-panel')?.focus({ preventScroll: true });
     },
     refresh: async () => {
-      await loadData();
-      if (!disposed) renderShell();
+      try { await loadData(); if (!disposed) renderShell(); }
+      catch (err) {
+        if (disposed) return;
+        console.warn('[Courses] refresh_failed', err?.kind || 'unknown');
+        renderLoadError(container.querySelector('#course-area-panel'), ctx.refresh);
+      }
     },
   };
 
   function renderShell(extra = {}) {
-    const navId = section === 'course' ? 'store' : section;
+    const navId = section === 'course' ? 'store' : section === 'level' ? 'home' : section;
+    document.title = section === 'level' ? `Nível ${level} · LinguaFlow` : 'Cursos · LinguaFlow';
     const item = (s) => {
       const count = s.id === 'review' ? courseReviewPacing(summary).today : s.badge ? Number(summary[s.badge] || 0) : 0;
       return `<li><button type="button" class="course-side-link ${navId === s.id ? 'active' : ''}" data-section="${s.id}"
@@ -107,7 +116,7 @@ export async function renderCourses(container, app, params = {}) {
           <ul>${COURSE_SECTIONS.filter((s) => s.group === 'notebooks').map(item).join('')}</ul>
         </nav>
         <section class="course-area-main" aria-labelledby="course-area-title">
-          <h1 id="course-area-title" class="course-hub-title">${section === 'course' ? 'Curso' : COURSE_SECTIONS.find((s) => s.id === section)?.label}</h1>
+          <h1 id="course-area-title" class="course-hub-title">${section === 'course' ? 'Curso' : section === 'level' ? `Nível ${level}` : COURSE_SECTIONS.find((s) => s.id === section)?.label}</h1>
           <div id="course-area-panel" tabindex="-1"></div>
         </section>
       </div>`;
@@ -116,6 +125,7 @@ export async function renderCourses(container, app, params = {}) {
     const panel = container.querySelector('#course-area-panel');
     const renderers = {
       home: () => renderCourseHome(panel, ctx),
+      level: () => renderCourseLevel(panel, ctx, level, extra.openLessonId || null),
       'my-courses': () => renderMyCourses(panel, ctx),
       store: () => renderCourseStore(panel, ctx),
       course: () => renderCourseDetail(panel, ctx, courseId, extra.openLessonId || null),

@@ -5,6 +5,7 @@ import { escapeHTML } from '../../../../utils/html.js';
 import { CATEGORY_LABEL, TRACKS, TRACK_LABEL, byPathOrder, courseLevelLabel, levelPill, lessonProgress, continueLessonOf, startLesson, renderEmpty, plural, unitCount } from './courseUi.js';
 
 import { lessonRoleLabel, matchesCurriculumFilter } from './courseCurriculum.js';
+import { renderLevelHistory } from './courseLevelProgress.js';
 
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1'];
 const SORTS = { recommended: 'Recomendados', popular: 'Mais alunos', newest: 'Mais novos' };
@@ -114,6 +115,9 @@ export function renderMyCourses(panel, ctx) {
   if (!mine.length) {
     renderEmpty(panel, 'Você ainda não tem cursos', 'Adicione cursos pela loja ou comece qualquer capítulo: ele entra aqui automaticamente.',
       { label: 'Abrir a loja', onClick: () => navigate('store') });
+    const history = document.createElement('section');
+    history.className = 'course-panel'; history.setAttribute('aria-label', 'Sua evolução por nível');
+    panel.prepend(history); renderLevelHistory(history, ctx);
     return;
   }
   const status = (c) => {
@@ -126,6 +130,8 @@ export function renderMyCourses(panel, ctx) {
     && (!f.query || c.title.toLowerCase().includes(f.query.toLowerCase())));
 
   panel.innerHTML = `
+    <section class="course-panel" data-level-history aria-label="Sua evolução por nível"></section>
+    <h2 class="course-section-title">Cursos que você acompanha</h2>
     <div class="course-filter-row">
       <div class="course-subnav course-subnav--pills" role="tablist" aria-label="Filtrar meus cursos">
         ${Object.entries(TABS).map(([k, v]) => `<button type="button" role="tab" class="course-tab-btn ${f.tab === k ? 'active' : ''}" aria-selected="${f.tab === k}" data-mine-tab="${k}">${v} <span class="course-tab-badge">${mine.filter((c) => k === 'all' || status(c) === k).length}</span></button>`).join('')}
@@ -134,6 +140,7 @@ export function renderMyCourses(panel, ctx) {
         <input type="search" id="course-mine-search" placeholder="Buscar em meus cursos" value="${escapeHTML(f.query)}" /></label>
     </div>
     <div class="course-catalog-grid">${list.map((c) => courseCard(c, { inMineLabel: 'Remover da lista' })).join('') || '<p class="course-hub-subtitle">Nenhum curso nesta aba.</p>'}</div>`;
+  renderLevelHistory(panel.querySelector('[data-level-history]'), ctx);
   panel.querySelectorAll('[data-mine-tab]').forEach((b) => b.addEventListener('click', () => { f.tab = b.dataset.mineTab; renderMyCourses(panel, ctx); }));
   panel.querySelector('#course-mine-search').addEventListener('change', (e) => { f.query = e.target.value; renderMyCourses(panel, ctx); });
   bindCards(panel, ctx);

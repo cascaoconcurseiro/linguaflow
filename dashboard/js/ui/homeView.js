@@ -152,6 +152,11 @@ export function selectStrugglingCards(cards, wordById, now = new Date()) {
 
 // Um alerta por vez: empilhar retorno, ofensiva e cofre competia com o
 // "Próximo passo". Retorno e ofensiva levam à revisão; o cofre é manutenção.
+// Ofensiva só está em risco se não houve NENHUMA atividade hoje: revisão do Cofre ou prática de curso (#540).
+export function isStreakAtRisk({ streak = 0, reviewsToday = 0, coursePracticedToday = false } = {}) {
+    return streak > 0 && reviewsToday === 0 && !coursePracticedToday;
+}
+
 export function pickHomeBanner({ returning = false, streakAtRisk = false, vault = false } = {}) {
     if (returning) return 'return';
     if (streakAtRisk) return 'streak';
@@ -324,6 +329,7 @@ export async function renderHome(container, app) {
     // Missões diárias calculadas de dados REAIS (não mais localStorage estático)
     const todayISO = localDateKey();
     let reviewsToday = 0;
+    let coursePracticedToday = false;
     let wordsToday = 0;
     let retention30 = null;   // % de acertos (não-"Errei") nos últimos 30 dias
     let dueTomorrow = 0;      // carga de amanhã
@@ -369,6 +375,10 @@ export async function renderHome(container, app) {
         const activityDate = (row) => row?.ts ? localDateKey(row.ts) : row?.date;
         const logToday = log30.filter(r => activityDate(r) === todayISO);
         reviewsToday = logToday.length;
+        // Prática de curso também é estudo do dia: sem isso o aviso de ofensiva
+        // aparecia para quem acabara de concluir aulas (#540).
+        const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+        try { coursePracticedToday = Boolean(await db?.courses?.hasPracticeSince?.(dayStart.toISOString())); } catch { /* sem o sinal do curso, vale só o Cofre */ }
         wordsToday = (allWords || []).filter(w => w.added_at && localDateKey(w.added_at) === todayISO).length;
         storiesCount = (stories || []).length;
 
@@ -545,7 +555,7 @@ export async function renderHome(container, app) {
 
     const activeBanner = pickHomeBanner({
         returning: isReturning,
-        streakAtRisk: streak > 0 && reviewsToday === 0,
+        streakAtRisk: isStreakAtRisk({ streak, reviewsToday, coursePracticedToday }),
         vault: vaultCap > 0 && (vaultWaiting.length > 0 || vaultActive >= vaultCap),
     });
 

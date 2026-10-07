@@ -964,8 +964,8 @@ export async function renderCoursePractice(container, app, params = {}) {
             <button class="course-player-btn-back" type="button" id="btn-retry-next" hidden>Tentar buscar próxima aula</button>
             <button class="course-player-btn-back" type="button" id="btn-retry-commit" hidden>Tentar salvar de novo</button>
             <button class="course-player-btn-back" type="button" id="btn-practice-again" disabled>Praticar de novo</button>
-            <button class="course-btn-primary-lg" type="button" id="btn-next-lesson" hidden>Continuar para esta aula</button>
-            <button class="course-player-btn-back" type="button" id="btn-finish-lesson">${kind === 'lesson' ? 'Finalizar por hoje' : 'Voltar'}</button>
+            <button class="course-btn-primary-lg" type="button" id="btn-next-lesson" hidden>Próxima aula</button>
+            <button class="course-player-btn-back" type="button" id="btn-finish-lesson">${kind === 'lesson' ? 'Terminar por hoje' : 'Voltar'}</button>
           </div>
         </div>
       </div>`;
@@ -992,7 +992,9 @@ export async function renderCoursePractice(container, app, params = {}) {
       onState: state => {
         retry.hidden = state.status !== 'save-error';
         retryNext.hidden = state.status !== 'next-error';
+        const hadNext = !nextButton.hidden;
         nextButton.hidden = state.status !== 'next';
+        if (!hadNext && state.status === 'next') nextButton.focus();
         again.disabled = ['saving', 'save-error'].includes(state.status);
         recommendation = state.next || null;
         if (state.status === 'save-error' || state.status === 'next-error') console.warn('[CoursePractice] completion_failed', { stage: state.status, correlation_id: payload.clientSessionId, kind: state.error?.kind || 'unknown' });

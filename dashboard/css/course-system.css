@@ -682,8 +682,6 @@
 .course-level-history li { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 0; border-top: 1px solid var(--course-border); }
 .course-level-history .course-card-stats { margin: 6px 0 0; }
 @media (max-width: 600px) { .course-level-history li { align-items: flex-start; flex-direction: column; } }
-.course-path-next { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 6px; }
-.course-path-next strong { flex: 1; min-width: 200px; }
 @media (max-width: 640px) { .course-path-levels { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .course-store-groups { display: flex; flex-direction: column; gap: 24px; }
 .course-track-group { display: flex; flex-direction: column; gap: 12px; }

@@ -1,7 +1,7 @@
 // Issue #336 — organização da navegação e da Home.
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { pickHomeBanner, selectStrugglingCards } from '../dashboard/js/ui/homeView.js';
+import { isStreakAtRisk, pickHomeBanner, selectStrugglingCards } from '../dashboard/js/ui/homeView.js';
 import { countBucket } from '../utils/observability.js';
 
 const [html, home, app, library, study] = await Promise.all([
@@ -98,3 +98,9 @@ for (const event of ['home.weak_words.reinforce_click', 'home.weak_words.open_va
 assert.ok(study.includes("observe('study.weak_session.completed'"), 'conclusão da sessão de reforço é medida');
 
 console.log('home-organization: ok');
+
+// #540: prática de curso conta como atividade do dia para a ofensiva.
+assert.equal(isStreakAtRisk({ streak: 5, reviewsToday: 0, coursePracticedToday: false }), true);
+assert.equal(isStreakAtRisk({ streak: 5, reviewsToday: 0, coursePracticedToday: true }), false);
+assert.equal(isStreakAtRisk({ streak: 5, reviewsToday: 3, coursePracticedToday: false }), false);
+assert.equal(isStreakAtRisk({ streak: 0, reviewsToday: 0, coursePracticedToday: false }), false);

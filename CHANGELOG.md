@@ -1,5 +1,10 @@
 # Changelog
 
+## Ofensiva, fim de aula e home do curso (#540)
+- O aviso de ofensiva da Home deixa de aparecer quando houve prática de curso hoje, além de revisão do Cofre (`isStreakAtRisk` em homeView.js; leitura `hasPracticeSince` sob RLS própria, sem migration).
+- Fim de aula: botão primário "Próxima aula" recebe o foco quando a recomendação chega; "Terminar por hoje" é o secundário.
+- Início dos Cursos mostra a próxima aula uma só vez (cartão "Continue seu curso"); o bloco duplicado em "Sua trilha" foi removido.
+
 ## Trilha e evolução por nível (#537)
 - Selecionar A1–C1 na trilha abre uma página própria do nível, com módulos, aulas, progresso e próxima aula recomendada. Recarregar preserva a página; finalizar a prática retorna ao nível e continuar acompanha a sequência até o próximo nível.
 - Acrescenta evolução por nível em Meus cursos e mantém os cursos individuais, o player e as revisões.

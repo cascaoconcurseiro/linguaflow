@@ -81,3 +81,17 @@ A trilha abre páginas próprias por nível (#537), em `#courses/level/A1` até 
 `course_level_completions` registra uma conquista por usuário/nível, com IDs da base disponível e data da conclusão. A captura ocorre no servidor após atualizar aulas concluídas, dentro da transação da prática. O cliente tem apenas leitura própria por RLS. Progresso anterior que já cobre a base recebe data de reconhecimento e `completed_at` nulo; não há data histórica inventada. A RPC da trilha conserva níveis já concluídos quando surgem aulas novas, mostra quantas foram acrescentadas e recomenda o próximo nível pendente. Novas aulas e revisões anteriores continuam acessíveis. Dispensa por configuração não cria conquista. A conclusão do material continua distinta de domínio CEFR.
 
 Perguntas operacionais: a evolução carregou junto da trilha? A conclusão foi capturada sem duplicação? Novas aulas preservaram o nível seguinte? Falhas de leitura usam os eventos existentes `path_failed/refresh_failed`, com recuperação na interface; PK e teste transacional verificam duplicação. Nenhum conteúdo digitado ou identificador de conta é acrescentado aos logs. Rollback em `supabase/rollback/course_level_history_537.sql` desativa captura e restaura a RPC #535, preservando os registros.
+
+## Reorganização do curso: plano em fatias (#540 e seguintes)
+
+Diagnóstico (2026-10-07, auditoria + revisão): a trilha por nível (#537) e a sequência (#535) já existem, mas a home do curso ainda empilha blocos e o conteúdo tem lacunas de estrutura. Ordem combinada de entrega, um PR por fatia, sempre com Issue antes:
+
+1. **#540 (feito neste PR)**: ofensiva considera prática de curso; fim de aula com um CTA (Próxima aula) e foco nele; home do curso sem próxima aula duplicada.
+2. Home do curso enxuta: uma próxima aula, trilha por nível, semana/revisão em seções próprias; biblioteca e métricas em páginas separadas.
+3. Página do nível no padrão do sistema: módulo atual aberto, concluídos recolhidos, tipo da aula (gramática/vocabulário) como chip. Remover a divisão "Fundamentos" x "Gramática em uso" da navegação: gramática já está na base A1.
+4. Lint de sequência: para cada frase, sinalizar estrutura/palavra ainda não introduzida (ex.: `lesson-1000-words-a1-04` usa "can't" no bloco 2 do A1, mas can só entra no bloco 7). Correção barata: trocar o exemplo, não mover ou subdividir a aula (preserva IDs, histórico e conquistas). Fontes: `supabase/content/curriculum-sequence.mjs`, `scripts/course-content-snapshot.mjs`.
+5. Estrutura das frases e explicações (#510, #507): 2876 de 3234 frases sem `syntax_groups`; `explanation_note` está 100% preenchido, mas preenchimento não é qualidade, então medir notas repetidas/genéricas e revisar amostra humana antes de gerar texto novo. Explicação deve valer para a frase efetivamente praticada (exemplo no estágio "example"), não só para a original.
+
+Decisões: não navegar automaticamente ao fim da aula; não subdividir aulas; não mudar a definição de ofensiva no servidor (a correção é no cliente, somando o sinal do curso).
+
+Perguntas operacionais (#540): quantos alunos veem o aviso de ofensiva depois de praticar? (evento existente de banner, sem novo pipeline); a recomendação de próxima aula aparece após salvar? (`completion_failed` por stage).

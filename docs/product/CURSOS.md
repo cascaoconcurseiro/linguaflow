@@ -6,7 +6,7 @@
 
 | Item | Situação |
 | --- | --- |
-| Catálogo | 30 cursos, 372 aulas e 4.088 unidades. Publicação de conteúdo conferida em 2026-10-06 (#523/#524/#525). Auditoria #528: 186 aulas reclassificadas; níveis por aula e faixas por curso substituem a classificação única. Consulte [CURRICULO_CEFR.md](CURRICULO_CEFR.md) e [auditoria integral](CURRICULO_AULAS.csv). Implementação preparada; publicação da migration e QA desta classificação devem ser confirmados na Issue/PR, sem usar a conferência anterior como evidência. Fala Conectada e o piloto de reduções permanecem opcionais, aguardando aceite humano do áudio (#505/#503). |
+| Catálogo | 30 cursos, 372 aulas e 4.088 unidades. Publicação de conteúdo conferida em 2026-10-06 (#523/#524/#525). Auditoria #528: 186 aulas reclassificadas; níveis por aula e faixas por curso substituem a classificação única. Consulte [CURRICULO_CEFR.md](CURRICULO_CEFR.md) e [auditoria integral](CURRICULO_AULAS.csv). Classificação aplicada no banco em 2026-10-07 pela migration `20261006230000`, com histórico integral e hash de conteúdo preservado. Aulas por nível: A1 28, A2 88, B1 142, B2 102, C1 12; 363 são centrais. Interface no PR [#529](https://github.com/cascaoconcurseiro/linguaflow/pull/529); consultar a Issue/PR para evidências de integração e QA autenticado. Fala Conectada e o piloto de reduções permanecem opcionais, aguardando aceite humano do áudio (#505/#503). |
 | Player | Pronto: modos fácil/médio/difícil, pausa, revelar resposta, salvar vocabulário/nota, envio idempotente com reenvio. |
 | Cadernos | Erros pendentes, revisões vencidas e vocabulário salvo, lidos do banco. Praticar um erro/revisão reabre a lição de origem. |
 | Conteúdo novo | Entra por migration de seed (append-only). Não há ferramenta editorial ainda. |

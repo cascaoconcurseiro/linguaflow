@@ -264,7 +264,10 @@ para retomar a revisão; primeiro confira o histórico do banco.
 **Auditoria curricular #528 (2026-10-06).** Revisa 30 cursos, 372 aulas e 4.088 itens; 186 aulas mudam de nível.
 Gírias saem do A1, cursos mistos recebem níveis por aula e a sequência passa a seguir pré-requisitos.
 Consulte [CURRICULO_CEFR.md](product/CURRICULO_CEFR.md) e [CURRICULO_AULAS.csv](product/CURRICULO_AULAS.csv).
-Banco deve ser publicado antes da interface. Registro final de publicação e QA fica na Issue/PR e no handoff;
+Migration `20261006230000` publicada no Supabase em 2026-10-07, antes da interface, e registrada com SQL integral.
+Conferência: 30 cursos, 372 aulas, 4.088 itens e 363 aulas centrais; A1 28, A2 88, B1 142, B2 102, C1 12.
+Conteúdo preservado por hash `d0002890d367706d6d43090022638f99`; pré-requisitos e cursos opcionais conferidos.
+Interface: PR [#529](https://github.com/cascaoconcurseiro/linguaflow/pull/529). Evidências de integração e QA ficam na Issue/PR e no handoff;
 o inventário e a auditoria editorial não comprovam sozinhos publicação em produção.
 
 - **Toda mudança começa por uma Issue** (Correção, Melhoria ou Nova função), com escopo, critérios de aceite, riscos e plano de teste.

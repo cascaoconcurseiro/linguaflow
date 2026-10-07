@@ -10,12 +10,11 @@ test('nível abre página própria com progresso por aula e restaura após recar
   await expect(page.getByRole('heading', { name: 'Nível A1', exact: true })).toBeVisible();
   await page.reload();
   const levelPage = page.locator('.course-level-detail');
-  await page.getByText('Apresentação', { exact: true }).click();
-  await expect(levelPage.getByText('Concluída', { exact: true })).toBeVisible();
-  await expect(levelPage.getByText('A fazer', { exact: true })).toBeVisible();
+  const openModule = levelPage.locator('details[open]');
+  await expect(openModule.getByText('Concluída', { exact: true })).toBeVisible();
+  await expect(openModule.getByText('A fazer', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Voltar à trilha' }).click();
   await page.getByRole('button', { name: 'Ver aulas do nível A2' }).click();
-  await page.getByText('Rotinas', { exact: true }).click();
   await page.getByRole('button', { name: 'Fazer próxima aula' }).click();
   await expect(page.getByRole('dialog')).toContainText('Rotina A2');
   await page.getByRole('button', { name: 'Começar prática', exact: true }).click();
@@ -49,4 +48,48 @@ test('falha da trilha permite recuperação e cursos vazios preservam evolução
   await page.goto('/tests/fixtures/course-level-path-preview.html?mine&empty');
   await expect(page.getByRole('region', { name: 'Sua evolução por nível' })).toBeVisible();
   await expect(page.getByText('Você ainda não tem cursos', { exact: true })).toBeVisible();
+});
+
+test('página do nível: módulo atual aberto, concluído recolhido, chips e um único botão primário', async ({ page }) => {
+  await page.goto('/tests/fixtures/course-level-path-preview.html#courses/level/A1');
+  await page.waitForSelector('.course-level-detail');
+  const modules = page.locator('.course-curriculum-module');
+  await expect(modules).toHaveCount(2);
+  const done = modules.filter({ hasText: 'Primeiros contatos' });
+  const current = modules.filter({ hasText: 'Apresentação' });
+  await expect(done).not.toHaveAttribute('open', '');
+  await expect(done).toContainText('Módulo concluído');
+  await expect(current).toHaveAttribute('open', '');
+  await expect(current).toContainText('Módulo atual');
+  await expect(current.locator('.course-chip-kind').first()).toHaveText('Aula');
+  await done.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  await expect(done).toHaveAttribute('open', '');
+  await expect(done.locator('.course-chip-kind')).toHaveText('Gramática');
+  await expect(done.locator('.course-chip', { hasText: 'Introdução' })).toBeVisible();
+  await expect(done.getByRole('button', { name: /Revisar aula: Cumprimentos/ })).toBeVisible();
+});
+
+test('página do nível A2: próxima aula tem destaque, pré-requisitos e tipo; demais ficam sem botão primário', async ({ page }) => {
+  await page.goto('/tests/fixtures/course-level-path-preview.html#courses/level/A2');
+  await page.waitForSelector('.course-level-detail');
+  const next = page.locator('.course-lesson-row.is-next');
+  await expect(next).toHaveCount(1);
+  await expect(next).toContainText('Antes: Eu sou, você é');
+  await expect(next.locator('.course-lesson-status')).toHaveText('Próxima recomendada');
+  await expect(page.locator('.course-curriculum-lessons .course-btn-primary-lg')).toHaveCount(1);
+});
+
+test('início do curso: continuar, trilha e hoje; sem métricas nem recentes e próxima aula uma vez', async ({ page }) => {
+  await page.goto('/tests/fixtures/course-level-path-preview.html');
+  await page.waitForSelector('.course-path');
+  await expect(page.getByRole('heading', { name: 'Continue seu curso' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Hoje', exact: true })).toBeVisible();
+  await expect(page.locator('.course-metrics')).toHaveCount(0);
+  await expect(page.getByText('Estudados recentemente')).toHaveCount(0);
+  await expect(page.locator('[data-continue], [data-path-next]')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Meus cursos e evolução →' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Tempo e análise →' })).toBeVisible();
+  await page.getByRole('button', { name: 'Tempo e análise →' }).click();
+  await expect(page.getByRole('heading', { name: 'Análise' })).toBeVisible();
 });

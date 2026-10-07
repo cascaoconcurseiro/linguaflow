@@ -87,10 +87,12 @@ Perguntas operacionais: a evolução carregou junto da trilha? A conclusão foi 
 Diagnóstico (2026-10-07, auditoria + revisão): a trilha por nível (#537) e a sequência (#535) já existem, mas a home do curso ainda empilha blocos e o conteúdo tem lacunas de estrutura. Ordem combinada de entrega, um PR por fatia, sempre com Issue antes:
 
 1. **#540 (feito neste PR)**: ofensiva considera prática de curso; fim de aula com um CTA (Próxima aula) e foco nele; home do curso sem próxima aula duplicada.
-2. Home do curso enxuta: uma próxima aula, trilha por nível, semana/revisão em seções próprias; biblioteca e métricas em páginas separadas.
-3. Página do nível no padrão do sistema: módulo atual aberto, concluídos recolhidos, tipo da aula (gramática/vocabulário) como chip. Remover a divisão "Fundamentos" x "Gramática em uso" da navegação: gramática já está na base A1.
+2. **#542 (feito)** Home do curso enxuta: uma próxima aula, trilha por nível, semana/revisão em seções próprias; biblioteca e métricas em páginas separadas.
+3. **#542 (feito)** Página do nível no padrão do sistema: módulo atual aberto, concluídos recolhidos, tipo da aula (gramática/vocabulário) como chip. Remover a divisão "Fundamentos" x "Gramática em uso" da navegação: gramática já está na base A1.
 4. Lint de sequência: para cada frase, sinalizar estrutura/palavra ainda não introduzida (ex.: `lesson-1000-words-a1-04` usa "can't" no bloco 2 do A1, mas can só entra no bloco 7). Correção barata: trocar o exemplo, não mover ou subdividir a aula (preserva IDs, histórico e conquistas). Fontes: `supabase/content/curriculum-sequence.mjs`, `scripts/course-content-snapshot.mjs`.
 5. Estrutura das frases e explicações (#510, #507): 2876 de 3234 frases sem `syntax_groups`; `explanation_note` está 100% preenchido, mas preenchimento não é qualidade, então medir notas repetidas/genéricas e revisar amostra humana antes de gerar texto novo. Explicação deve valer para a frase efetivamente praticada (exemplo no estágio "example"), não só para a original.
+
+Fatias 2 e 3 (#542): `courseHome.js` mostra só Continue/Trilha/Hoje; `courseCurriculum.js` exporta `lessonKind` (tipo por prefixo do ID: Gramática, Vocabulário, Situações, Leitura e fala, Frases essenciais; teste exige que as 449 aulas tenham tipo, então aula nova com prefixo novo precisa entrar em `KIND_BY_PREFIX`), `pickCurrentModule` (módulo da próxima aula, senão o primeiro pendente) e abre só esse módulo na página do nível. A divisão Fundamentos x Gramática não existe mais na navegação.
 
 Decisões: não navegar automaticamente ao fim da aula; não subdividir aulas; não mudar a definição de ofensiva no servidor (a correção é no cliente, somando o sinal do curso).
 

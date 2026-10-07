@@ -523,7 +523,8 @@
 }
 .course-section-title { font-size: 16px; font-weight: 700; margin: 0; color: var(--course-text); }
 .course-section-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
-.course-home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.course-home-grid, .course-today-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px 32px; }
+.course-home-links { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 8px; }
 .course-continue-body { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .course-link { border: 0; background: none; color: var(--course-accent-hover); font: inherit; font-weight: 600; cursor: pointer; padding: 4px 0; }
 .course-link:hover { text-decoration: underline; }
@@ -687,15 +688,31 @@
 .course-track-group { display: flex; flex-direction: column; gap: 12px; }
 
 /* #533: módulos editoriais com navegação nativa de teclado. */
-.course-curriculum-module { border-top: 1px solid var(--border-color, #ddd); }
-.course-curriculum-module summary { cursor: pointer; padding: 16px 4px; }
-.course-curriculum-module summary .course-card-stats { margin-left: 12px; }
-.course-curriculum-module summary:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-.course-curriculum-lessons { padding: 0 0 12px 24px; }
-.course-curriculum-lessons li { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 12px 4px; }
-.course-curriculum-lessons li > div { min-width: 0; }
-.course-curriculum-lessons .course-card-stats { display: block; margin-top: 4px; }
+.course-curriculum-module { border-top: 1px solid var(--course-border); }
+.course-curriculum-module summary { cursor: pointer; padding: 16px 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.course-curriculum-module summary .course-card-stats { margin-left: auto; }
+.course-curriculum-module summary:focus-visible { outline: 2px solid var(--course-border-focus); outline-offset: 2px; }
+.course-curriculum-module.is-complete:not([open]) summary strong { color: var(--course-text-muted); }
+.course-curriculum-lessons { list-style: none; margin: 0; padding: 0 0 12px; }
+.course-lesson-row { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 12px 12px; border-left: 3px solid transparent; border-radius: 4px; }
+.course-lesson-row + .course-lesson-row { border-top: 1px solid var(--course-border); }
+.course-lesson-row.is-next { border-left-color: var(--course-accent); background: var(--course-accent-subtle); }
+.course-lesson-row.is-done strong { color: var(--course-text-muted); }
+.course-lesson-main { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.course-lesson-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.course-lesson-chips .course-card-stats { display: inline; margin: 0; }
+.course-chip { display: inline-block; padding: 1px 8px; border: 1px solid var(--course-border); border-radius: 999px; font-size: 12px; color: var(--course-text-muted); }
+.course-chip-kind { color: var(--course-text); font-weight: 600; }
+.course-chip.is-current { border-color: var(--course-accent); color: var(--course-accent-hover); font-weight: 600; }
+.course-chip.is-done { color: var(--course-text-muted); }
+.course-lesson-status { font-size: 13px; font-weight: 600; color: var(--course-text-muted); }
+.course-lesson-status.is-next, .course-lesson-status.is-progress { color: var(--course-accent-hover); }
+.course-lesson-status.is-done::before { content: "✓ "; }
 .course-curriculum-lessons button { flex-shrink: 0; }
 .course-level-detail [data-course-curriculum] { margin-top: 24px; }
 .course-level-detail .course-curriculum-lessons button { width: auto; }
-@media (max-width: 600px) { .course-curriculum-lessons li { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 600px) { .course-lesson-row { align-items: flex-start; flex-direction: column; } }
+/* #542: um só botão primário por lista; as demais ações ficam discretas. */
+.course-lesson-row .course-btn-continue { background: transparent; color: var(--course-accent-hover); border: 1px solid var(--course-border); width: auto; min-width: 140px; padding: 8px 16px; }
+.course-lesson-row .course-btn-continue:hover { border-color: var(--course-accent); background: var(--course-accent-subtle); }
+.course-lesson-row .course-btn-primary-lg { width: auto; min-width: 160px; }

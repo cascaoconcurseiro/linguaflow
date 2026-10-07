@@ -1,5 +1,12 @@
 # Changelog
 
+## Sequência e conclusão de aula (#535)
+- Redistribui a base A1–B2 em oito blocos por nível, com objetivos, dependências de estruturas e fechamento de cada bloco.
+- Acrescenta 35 aulas e 280 frases no mesmo método: 32 consolidações e perguntas wh, adjetivos -ed/-ing e question tags.
+- Ao terminar, salva o progresso e recomenda a próxima aula da trilha, inclusive em outro curso; oferece finalizar por hoje e retries separados.
+- 449 aulas, 247 base, 129 extras e 73 opcionais; progresso e revisão #531 preservados. C1 conserva a sequência anterior, C2 e aceite humano continuam pendentes.
+- Requer as duas migrations #535; rollback despublica adições sem apagar histórico.
+
 ## Organização pedagógica e fundamentos (#533)
 - 42 aulas novas (336 frases): 12 A1, 10 A2, 8 B1, 6 B2 e 6 C1.
 - Aulas organizadas em módulos e em base, prática extra e opcionais por objetivo; extras não bloqueiam o avanço.

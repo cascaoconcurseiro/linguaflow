@@ -62,11 +62,17 @@ for f in "$ROOT"/supabase/migrations/*.sql; do
     echo "── idioms B2: capítulos 7 a 10 (#505)"
     run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-idioms-b2-extension.sql"
   fi
-done
-
+  if [ "$(basename "$f")" = "20261007120333_course_pedagogy_533.sql" ]; then
 echo "── organização pedagógica e reversão preservando histórico (#533)"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-pedagogy-533.sql"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-pedagogy-rollback-533.sql"
+
+  fi
+done
+
+echo "── sequência e conclusão (#535)"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-sequence-535.sql"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-sequence-rollback-535.sql"
 
 echo "── smoke test do Learning Engine"
 run_pg "${PSQL[@]}" <<'SQL'

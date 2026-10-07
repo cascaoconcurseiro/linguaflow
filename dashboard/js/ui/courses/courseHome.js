@@ -4,7 +4,6 @@ import { escapeHTML } from '../../../../utils/html.js';
 import { courseReviewPacing, courseReviewsLabel } from '../../core/courseReviewPacing.js';
 import { formatDuration, formatDateTime, formatDate, levelPill, lessonProgress, pickContinueTarget, pickFirstCourse, startLesson, renderEmpty, plural, unitCount } from './courseUi.js';
 
-import { renderCurriculum } from './courseCurriculum.js';
 import { levelStatus } from './courseLevelProgress.js';
 
 const WEEKDAYS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
@@ -43,7 +42,7 @@ function pathHtml(path, lessonIndex) {
           const state = l.is_completed ? 'is-done' : l.skipped ? 'is-skipped' : l.level === path.current_level ? 'is-current' : '';
           const label = l.skipped && !l.is_completed ? 'disponível para explorar' : l.total === 0 ? 'conteúdo ainda indisponível' : `${l.completed} de ${l.total} aulas do material atual · ${l.percent}%`;
           return `<li class="course-path-level ${state}">
-            <button type="button" class="course-path-level-button" data-path-level="${escapeHTML(l.level)}" aria-label="Ver aulas do nível ${escapeHTML(l.level)}" aria-controls="course-curriculum-modules" aria-pressed="false"><strong>${escapeHTML(l.level)}</strong><span>${LEVEL_NAME[l.level] || ''}</span></button>
+            <button type="button" class="course-path-level-button" data-path-level="${escapeHTML(l.level)}" aria-label="Ver aulas do nível ${escapeHTML(l.level)}"><strong>${escapeHTML(l.level)}</strong><span>${LEVEL_NAME[l.level] || ''}</span></button>
             <div class="course-hero-progress-track" role="progressbar" aria-label="Nível ${escapeHTML(l.level)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${l.skipped ? 100 : l.percent}">
               <div class="course-hero-progress-bar" style="width:${l.skipped ? 100 : l.percent}%"></div></div>
             <small>${escapeHTML(levelStatus(l))}${l.level === path.current_level ? ' · nível atual' : ''} · ${label}</small>
@@ -55,11 +54,10 @@ function pathHtml(path, lessonIndex) {
           <strong>${escapeHTML(next.course.title)} · ${next.lesson.chapter_number}. ${escapeHTML(next.lesson.title)}</strong>
           <button class="course-btn-primary-lg" type="button" data-path-next>Fazer agora</button>
         </div>` : path.blocked ? '<p class="course-hub-subtitle" role="status">Há aulas aguardando pré-requisitos. Confira os capítulos anteriores para continuar.</p>' : '<p class="course-hub-subtitle">Você concluiu todas as aulas disponíveis da trilha. Novas aulas aparecem aqui.</p>'}
-      <div data-course-curriculum aria-label="Conteúdos da trilha"></div>
     </section>`;
 }
 
-export function renderCourseHome(panel, { app, catalog, summary, path, navigate, state = {}, refresh }) {
+export function renderCourseHome(panel, { app, catalog, summary, path, navigate, refresh }) {
   const lessonIndex = new Map();
   for (const course of catalog) for (const lesson of course.lessons) lessonIndex.set(lesson.id, { course, lesson });
 
@@ -132,7 +130,6 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate,
       </section>
     </div>
 
-    ${path?.levels ? '' : '<section class="course-panel" data-course-curriculum aria-label="Conteúdos por nível"></section>'}
 
     <section class="course-metrics" aria-label="Tempo de estudo">
       <div class="course-metric"><span>Hoje</span><strong>${formatDuration(summary.today_seconds)}</strong></div>
@@ -160,25 +157,12 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate,
       }).join('')}</ul>` : '<p class="course-hub-subtitle">As lições que você praticar aparecem aqui.</p>'}
     </section>`;
 
-  const currentLevel = path?.current_level || path?.levels?.findLast(l => l.is_completed)?.level || path?.placement_level || 'A1';
-  if (state.pathCurrentLevel !== currentLevel) state.pathLevel = currentLevel;
-  state.pathCurrentLevel = currentLevel;
-  const selectLevel = (level) => {
-    state.pathLevel = level;
-    panel.querySelectorAll('[data-path-level]').forEach(button => {
-      const selected = button.dataset.pathLevel === level;
-      button.setAttribute('aria-pressed', String(selected));
-      button.closest('.course-path-level').classList.toggle('is-selected', selected);
-    });
-  };
-  const curriculum = renderCurriculum(panel.querySelector('[data-course-curriculum]'), { catalog, app, path, level: state.pathLevel || currentLevel, onLevelChange: selectLevel });
-  selectLevel(state.pathLevel || currentLevel);
-  panel.querySelectorAll('[data-path-level]').forEach(button => button.addEventListener('click', () => curriculum.setLevel(button.dataset.pathLevel)));
+  panel.querySelectorAll('[data-path-level]').forEach(button => button.addEventListener('click', () => navigate('level', { level: button.dataset.pathLevel })));
   if (!path?.levels) {
     const warning = document.createElement('p');
     warning.className = 'course-hub-subtitle';
     warning.setAttribute('role', 'status');
-    warning.textContent = 'A trilha não carregou. Você pode explorar as aulas abaixo ou tentar novamente.';
+    warning.textContent = 'A trilha não carregou. Você pode explorar a loja ou tentar novamente.';
     const retry = document.createElement('button');
     retry.type = 'button'; retry.className = 'course-link'; retry.textContent = 'Recarregar trilha';
     retry.addEventListener('click', async () => { retry.disabled = true; try { await refresh?.(); } finally { retry.disabled = false; } });

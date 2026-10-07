@@ -35,5 +35,5 @@ export function renderLevelHistory(container, { path, navigate, refresh }) {
         ${level.new_lessons > 0 ? `<p class="course-card-stats">${level.new_lessons} ${level.new_lessons === 1 ? 'aula acrescentada' : 'aulas acrescentadas'} desde sua conclusão</p>` : ''}
       </div><button type="button" class="course-btn-continue" data-history-level="${escapeHTML(level.level)}" aria-label="Ver aulas do nível ${escapeHTML(level.level)}">Ver aulas</button>
     </li>`).join('')}</ol>`;
-  container.querySelectorAll('[data-history-level]').forEach(button => button.addEventListener('click', () => navigate('home', { level: button.dataset.historyLevel })));
+  container.querySelectorAll('[data-history-level]').forEach(button => button.addEventListener('click', () => navigate('level', { level: button.dataset.historyLevel })));
 }

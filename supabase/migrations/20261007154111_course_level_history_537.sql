@@ -10,6 +10,8 @@ CREATE TABLE public.course_level_completions (
 ALTER TABLE public.course_level_completions ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.course_level_completions FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.course_level_completions TO authenticated;
+-- A trilha invoker consulta o início da prática; a RLS existente limita à própria conta.
+GRANT SELECT ON public.course_practice_sessions TO authenticated;
 CREATE POLICY course_level_completions_select_own ON public.course_level_completions
   FOR SELECT TO authenticated USING ((SELECT auth.uid()) = user_id);
 

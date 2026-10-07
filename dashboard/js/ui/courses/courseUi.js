@@ -148,13 +148,14 @@ export function pickContinueTarget({ lessonIndex, summary }) {
 }
 
 // Abre o modal de preparo e navega para o player da lição.
-export function startLesson(app, course, lesson) {
+export function startLesson(app, course, lesson, returnLevel = null) {
   const next = nextLessonOf(course, lesson.id);
   openCoursePrepareModal({
     course,
     lesson,
     onStart: (difficulty) => app.navigate('course-practice', {
       lessonId: lesson.id, courseId: course.id, difficulty, nextLessonId: next?.id || null,
+      ...(returnLevel ? { returnLevel } : {}),
     }),
   });
 }

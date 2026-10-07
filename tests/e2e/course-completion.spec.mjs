@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
-async function finish(page,mode=''){
+async function finish(page,mode='',returnLevel=''){
  await page.route('**/supabase.co/**',route=>route.abort());
- await page.goto(`/tests/fixtures/course-completion-preview.html?mode=${mode}`);
+ await page.goto(`/tests/fixtures/course-completion-preview.html?mode=${mode}&returnLevel=${returnLevel}`);
  await page.waitForSelector('html[data-ready="true"]');
  const input=page.locator('#sentence-slots input').first();await input.fill('hello');await input.press('Enter');
  await expect(page.locator('#course-commit-status')).toBeVisible();
@@ -13,6 +13,18 @@ test('conclusão consulta trilha depois de salvar e abre preparo em outro curso'
  await expect(page.locator('#course-next-status')).toContainText('Aplicação no próximo curso');
  await page.getByRole('button',{name:'Continuar para esta aula'}).click();
  expect(await page.evaluate(()=>window.__completion.navigations)).toEqual([{route:'courses',params:{tab:'course',courseId:'other535',openLessonId:'next535'}}]);
+});
+
+test('prática do nível A1 continua no preparo do nível A2 após salvar',async({page})=>{
+ await finish(page,'','A1');await page.evaluate(()=>window.__completion.release());
+ await page.getByRole('button',{name:'Continuar para esta aula'}).click();
+ expect(await page.evaluate(()=>window.__completion.navigations)).toEqual([{route:'courses',params:{tab:'level',level:'A2',openLessonId:'next535'}}]);
+});
+
+test('finalizar prática retorna à página do nível de origem',async({page})=>{
+ await finish(page,'done','A1');await page.evaluate(()=>window.__completion.release());
+ await page.getByRole('button',{name:'Finalizar por hoje'}).click();
+ expect(await page.evaluate(()=>window.__completion.navigations)).toEqual([{route:'courses',params:{tab:'level',level:'A1'}}]);
 });
 test('erro apenas na recomendação permite retry sem duplicar commit',async({page})=>{
  await finish(page,'next-error');await page.evaluate(()=>window.__completion.release());

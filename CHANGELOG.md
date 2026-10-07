@@ -1,7 +1,7 @@
 # Changelog
 
 ## Trilha e evolução por nível (#537)
-- Integra os conteúdos à trilha: selecionar A1–C1 abre módulos/aulas do nível, com progresso e próxima aula recomendada.
+- Selecionar A1–C1 na trilha abre uma página própria do nível, com módulos, aulas, progresso e próxima aula recomendada. Recarregar preserva a página; finalizar a prática retorna ao nível e continuar acompanha a sequência até o próximo nível.
 - Acrescenta evolução por nível em Meus cursos e mantém os cursos individuais, o player e as revisões.
 - Registra a base concluída no servidor com snapshot imutável; aulas acrescentadas não apagam a conquista nem devolvem o aluno ao nível anterior.
 - Conclusões anteriores são reconhecidas sem inventar datas históricas. Níveis dispensados não são tratados como concluídos.

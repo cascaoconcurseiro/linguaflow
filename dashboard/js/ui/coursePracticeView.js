@@ -94,8 +94,9 @@ export function initialsHint(tokens) {
 export async function renderCoursePractice(container, app, params = {}) {
   const kind = ['review', 'mistakes'].includes(params.kind) ? params.kind : 'lesson';
   const difficulty = DIFFICULTIES.has(params.difficulty) ? params.difficulty : 'medium';
+  const returnLevel = ['A1','A2','B1','B2','C1'].includes(params.returnLevel) ? params.returnLevel : null;
   const backTarget = kind === 'lesson'
-    ? { route: 'courses', params: { tab: 'course', courseId: params.courseId } }
+    ? { route: 'courses', params: returnLevel ? { tab: 'level', level: returnLevel } : { tab: 'course', courseId: params.courseId } }
     : { route: 'courses', params: { tab: kind === 'review' ? 'review' : 'mistakes' } };
 
   let disposed = false;
@@ -1018,7 +1019,9 @@ export async function renderCoursePractice(container, app, params = {}) {
     retryNext.addEventListener('click', () => flow.retryNext());
     again.addEventListener('click', () => app.navigate('course-practice', { ...params }));
     nextButton.addEventListener('click', () => {
-      if (recommendation) app.navigate('courses', { tab: 'course', courseId: recommendation.course_id, openLessonId: recommendation.lesson_id });
+      if (recommendation) app.navigate('courses', returnLevel
+        ? { tab: 'level', level: recommendation.level, openLessonId: recommendation.lesson_id }
+        : { tab: 'course', courseId: recommendation.course_id, openLessonId: recommendation.lesson_id });
     });
     const back = container.querySelector('#btn-finish-lesson');
     back.addEventListener('click', () => app.navigate(backTarget.route, backTarget.params));

@@ -673,13 +673,11 @@
 .course-path-level { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border: 1px solid var(--course-border); border-radius: 10px; }
 .course-path-level strong { font-size: 18px; }
 .course-path-level span, .course-path-level small { font-size: 12px; color: var(--course-text-muted); }
-.course-path-level.is-selected { border-color: var(--course-accent); box-shadow: 0 0 0 1px var(--course-accent); }
+.course-path-level.is-current { border-color: var(--course-accent); box-shadow: 0 0 0 1px var(--course-accent); }
 .course-path-level.is-done strong { color: #047857; }
 .course-path-level.is-skipped { opacity: .65; }
 .course-path-level-button { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 6px 0; color: inherit; background: transparent; border: 0; cursor: pointer; text-align: left; }
-.course-path-level-button[aria-pressed="true"] { text-decoration: underline; text-underline-offset: 4px; }
 .course-path-level-button:focus-visible { outline: 2px solid var(--course-accent); outline-offset: 4px; }
-.course-path [data-course-curriculum] { margin-top: 24px; }
 .course-level-history { list-style: none; padding: 0; margin: 16px 0 0; }
 .course-level-history li { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 0; border-top: 1px solid var(--course-border); }
 .course-level-history .course-card-stats { margin: 6px 0 0; }

@@ -76,7 +76,7 @@ Reversão: `supabase/rollback/course_review_method_531.sql` restaura a RPC anter
 
 ## Trilha e evolução por nível (#537)
 
-A trilha integra os conteúdos por nível (#537): selecionar A1–C1 mostra módulos e estados das aulas. A seleção acompanha o nível atual quando ele muda e permite voltar explicitamente aos anteriores. Meus cursos reúne evolução por nível e os cursos individuais.
+A trilha abre páginas próprias por nível (#537), em `#courses/level/A1` até C1. Cada página reúne módulos, estados e progresso das aulas, conclusão da base e próxima aula. Recarregar ou usar voltar/avançar no navegador preserva o nível da URL. Ao finalizar uma prática iniciada ali, o aluno retorna ao nível; continuar abre o preparo da próxima aula no nível recomendado, inclusive A2 após A1. O dashboard mostra o resumo da trilha, sem expandir as aulas. Meus cursos reúne evolução por nível e os cursos individuais.
 
 `course_level_completions` registra uma conquista por usuário/nível, com IDs da base disponível e data da conclusão. A captura ocorre no servidor após atualizar aulas concluídas, dentro da transação da prática. O cliente tem apenas leitura própria por RLS. Progresso anterior que já cobre a base recebe data de reconhecimento e `completed_at` nulo; não há data histórica inventada. A RPC da trilha conserva níveis já concluídos quando surgem aulas novas, mostra quantas foram acrescentadas e recomenda o próximo nível pendente. Novas aulas e revisões anteriores continuam acessíveis. Dispensa por configuração não cria conquista. A conclusão do material continua distinta de domínio CEFR.
 

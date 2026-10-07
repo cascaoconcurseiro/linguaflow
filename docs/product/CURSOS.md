@@ -104,3 +104,20 @@ Perguntas operacionais (#540): quantos alunos veem o aviso de ofensiva depois de
 - **Notas:** `AUDITORIA_NOTAS.md` (gerado) mostra o que os números de preenchimento escondem: 720 palavras sem nota própria, 9,8% de notas curtas, notas genéricas repetidas e só 11,1% das frases com estrutura (grupos sintáticos). Escrever essas notas e estruturas é trabalho editorial por lote com revisão humana (#510, #507), não automatizável com segurança; o painel agora mostra o melhor disponível por frase.
 - **Painel de explicação:** `buildBreakdown(unit, { stage, objective })` decide o que mostrar: grupos sintáticos > palavra por palavra > nada, mais o foco da aula. Na etapa do exemplo a frase praticada é `example_en`.
 - **Ainda não feito:** abrir a explicação automaticamente após acerto (avanço automático em 500 ms torna a leitura inviável; exigiria pausa opcional) e escrever estruturas/notas das ~2876 frases sem grupos.
+
+## Mapa de testes do curso (#544)
+
+Ao mexer em qualquer tela de curso, rode `npm run test:courses` e `npx playwright test tests/e2e/course`. Cada arquivo cobre uma área; fixtures simulam o banco (`tests/fixtures/*preview.js`), nunca a rede real.
+
+| Área | Arquivo | O que garante |
+|---|---|---|
+| Player da aula | `tests/e2e/course-player.spec.mjs` + `course-player-preview` | dificuldade fácil/médio/difícil, acerto/erro/plural, colar, espaço, dica, revelar, pular, voltar, pausa, saída com confirmação, configurações, palavra+exemplo, resumo, falha ao gravar/carregar, aula vazia, pagehide, revisão, a11y, tema, 390 px |
+| Painel de explicação | `course-breakdown.spec.mjs` + `courseBreakdown` | frase praticada, palavra por palavra, foco da aula, escape de HTML |
+| Sessão (pontos, combo, etapas) | `tests/course-practice-session.test.mjs` | regras puras do player |
+| Início, trilha, nível | `course-level-path.spec.mjs`, `course-curriculum.spec.mjs`, `course-pedagogy.spec.mjs` | um CTA, módulo atual aberto, chips, filtros, teclado |
+| Fim de aula | `course-completion.spec.mjs` | salvar antes de recomendar, retries, retorno ao nível |
+| Loja, Meus cursos, cadernos, ranking, análise, diálogo de preparo | `course-pages.spec.mjs` + `course-pages-preview` | filtros, adicionar/remover, abas, vazio e falha com recuperação, confirmação de apagar nota, foco preso no diálogo, 390 px |
+| Conteúdo e sequência | `course-sequence-535/audit-544`, `course-notes-audit-544` | 449 aulas, dependências, estruturas antes de ensinadas, notas |
+| Revisão e ritmo | `course-review-method.spec.mjs`, `course-review-pacing.spec.mjs` | reforço, meta diária |
+
+Limite: tudo isso é navegador simulado. RLS, Supabase real, áudio real e QA autenticado seguem como evidência separada.

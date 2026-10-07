@@ -3,6 +3,8 @@
 ## Auditoria de sequência e painel de explicação da frase praticada (#544)
 - Painel "Mostrar resposta": na etapa do exemplo explica a frase de exemplo e sua tradução (antes mostrava a palavra); sem grupos sintáticos mostra palavra por palavra e, sem anotações, o foco da aula (`learning_objective`). Nunca exibe "Estrutura" vazia. Modelo em `dashboard/js/core/courseBreakdown.js`.
 - `npm run content:audit`: acusa estruturas usadas antes da aula que as ensina (A1–B2 base); exceções documentadas, teste de CI falha em violação nova. Relatório em `docs/product/AUDITORIA_SEQUENCIA.md`.
+- Correção: ao mudar uma configuração do player, o foco ia para fora do diálogo e Esc deixava de fechá-lo; o foco agora é restaurado no controle alterado.
+- Testes: 32 E2E do player (dificuldades, acerto/erro, dica, revelar, pular, voltar, pausa, saída, configurações, palavra+exemplo, conclusão, falhas de gravação/carregamento, sessão incompleta, acessibilidade, 390 px) e 28 das demais páginas (navegação, loja, Meus cursos, detalhe, cadernos, ranking, análise, diálogo de preparo).
 - `npm run content:notes`: mede notas ausentes, curtas, repetidas e sem relação com a frase. Relatório em `docs/product/AUDITORIA_NOTAS.md`. Nenhuma frase alterada ou removida; sem migration.
 
 ## Início do curso e página do nível organizados (#542)

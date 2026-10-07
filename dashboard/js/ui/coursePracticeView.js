@@ -819,6 +819,9 @@ export async function renderCoursePractice(container, app, params = {}) {
 
   function renderSettings() {
     const card = container.querySelector('.course-settings-card');
+    // Reescrever o cartão tira o foco do controle alterado; sem restaurar, Esc deixa de fechar o diálogo.
+    const active = card.contains(document.activeElement) ? document.activeElement : null;
+    const focusKey = active?.dataset?.pref ? `[data-pref="${active.dataset.pref}"]` : active?.dataset?.action ? `[data-action="${active.dataset.action}"]` : null;
     card.innerHTML = `
       <h2 id="settings-title" class="course-pause-title">Configurações</h2>
       <label class="course-setting-row">
@@ -836,6 +839,7 @@ export async function renderCoursePractice(container, app, params = {}) {
       <div class="course-setting-row"><span>Velocidade</span>${stepper('speed', 'Velocidade', formatSpeed(prefs.speed), 'Mais devagar', 'Mais rápido')}</div>
       <p class="course-hub-subtitle" style="margin:0;">Salvo neste navegador.</p>
       <button type="button" class="course-btn-resume" data-action="close-settings">Fechar</button>`;
+    if (focusKey) card.querySelector(`${focusKey}:not([disabled])`)?.focus();
   }
 
   function openSettings() {

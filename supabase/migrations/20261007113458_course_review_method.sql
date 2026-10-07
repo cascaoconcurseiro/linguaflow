@@ -255,4 +255,3 @@ $$;
 -- permanecem (CREATE OR REPLACE preserva privilégios); reafirmados aqui por segurança.
 REVOKE ALL ON FUNCTION public.rpc_course_commit_practice(UUID, TEXT, TEXT, TEXT, TIMESTAMPTZ, INT, INT, INT, JSONB, BOOLEAN) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.rpc_course_commit_practice(UUID, TEXT, TEXT, TEXT, TIMESTAMPTZ, INT, INT, INT, JSONB, BOOLEAN) TO authenticated;
-

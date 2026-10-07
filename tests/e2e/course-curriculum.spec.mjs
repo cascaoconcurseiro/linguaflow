@@ -1,8 +1,8 @@
 // Recomendação A2 e ambos os botões de início usam a aula e seu nível (#528), com catálogo simulado.
 import { expect, test } from '@playwright/test';
-for (const name of ['Fazer agora', 'Começar']) {
+for (const name of ['Fazer agora', 'Começar', 'Continuar']) {
   test(`${name}: inicia a aula recomendada A2 num curso misto B2`, async ({ page }) => {
-    await page.goto('/tests/fixtures/course-curriculum-preview.html');
+    await page.goto(`/tests/fixtures/course-curriculum-preview.html${name === 'Continuar' ? '?resume' : ''}`);
     await page.waitForSelector('html[data-ready="true"]');
     await page.getByRole('button', { name, exact: true }).click();
     const modal = page.getByRole('dialog');

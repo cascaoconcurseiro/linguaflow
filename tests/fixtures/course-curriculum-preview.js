@@ -5,7 +5,10 @@ const course = { id: 'mixed', title: 'Tempos verbais', level: 'B2', level_min: '
 const navigations = [];
 window.__preview = { navigations };
 const app = { navigate: (route, params) => navigations.push({ route, params }) };
-renderCourseHome(document.getElementById('panel'), { app, catalog: [course], summary: {}, navigate() {},
+const previous = { ...lesson, id: 'b2-recent', title: 'Dedução no passado', level: 'B2', chapter_number: 2 };
+course.lessons.push(previous);
+const resume = new URLSearchParams(location.search).has('resume');
+renderCourseHome(document.getElementById('panel'), { app, catalog: [course], summary: resume ? { continue: { lesson_id: previous.id } } : {}, navigate() {},
   path: { current_level: 'A2', placement_level: 'A2', next: { lesson_id: lesson.id, level: 'A2' },
     levels: [{ level: 'A2', total: 87, completed: 0, percent: 0 }] } });
 document.documentElement.dataset.ready = 'true';

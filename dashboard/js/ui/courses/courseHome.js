@@ -59,10 +59,10 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate 
   const lessonIndex = new Map();
   for (const course of catalog) for (const lesson of course.lessons) lessonIndex.set(lesson.id, { course, lesson });
 
-  // Continuar = próximo capítulo pendente do curso mais recente que não foi concluído.
-  const cont = pickContinueTarget({ lessonIndex, summary });
   const hasProgress = Boolean(summary.continue || (summary.recent || []).length);
   const next = path?.next && lessonIndex.get(path.next.lesson_id);
+  // Com currículo auditado, retomar também segue a recomendação entre cursos e seus pré-requisitos.
+  const cont = path?.levels ? (hasProgress ? next : null) : pickContinueTarget({ lessonIndex, summary });
   const firstCourse = pickFirstCourse(catalog);
   const today = new Date().toISOString().slice(0, 10);
   const week = summary.week || [];

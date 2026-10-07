@@ -221,7 +221,7 @@ chave **publicável** (`utils/db.js`), que por desenho é pública; a proteção
    o aceite de áudio é `supabase/content/curriculum-current.mjs`; a organização histórica #533 está em
    `supabase/content/curriculum-pedagogy.mjs`; a sequência vigente #535 é `supabase/content/curriculum-sequence.mjs`. Base é obrigatória; extras/opcionais não bloqueiam avanço.
    Planejamento, etapas, dependências e 35 novas aulas de aplicação/consolidação em [SEQUENCIA_PEDAGOGICA.md](product/SEQUENCIA_PEDAGOGICA.md).
-   `courseCompletion` salva antes de consultar a trilha e mostra continuar ou finalizar, com retries separados de gravação e recomendação. Critérios e auditoria histórica em
+   `courseCompletion` salva antes de consultar a trilha e mostra continuar ou finalizar, com retries separados de gravação e recomendação. A trilha integra os conteúdos dos níveis clicáveis; `courseLevelProgress` apresenta evolução em Meus cursos. `course_level_completions` preserva a base concluída com snapshot autoritativo, inclusive quando novas aulas são acrescentadas. Critérios e auditoria histórica em
    [CURRICULO_CEFR.md](product/CURRICULO_CEFR.md). Aulas novas sem auditoria ficam fora da trilha; IDs e progresso são preservados.
 4. **Ler uma URL.** `readerView` → `url-import` (valida DNS e IPs a cada redirecionamento) → texto limpo → tabela `reader_texts`.
 5. **Checagem de fluência.** `fluencyCheckView` → `utils/db.js` → `fluency-assessment` (IA avalia pela rubrica) →

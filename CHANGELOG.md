@@ -1,5 +1,12 @@
 # Changelog
 
+## Trilha e evolução por nível (#537)
+- Integra os conteúdos à trilha: selecionar A1–C1 abre módulos/aulas do nível, com progresso e próxima aula recomendada.
+- Acrescenta evolução por nível em Meus cursos e mantém os cursos individuais, o player e as revisões.
+- Registra a base concluída no servidor com snapshot imutável; aulas acrescentadas não apagam a conquista nem devolvem o aluno ao nível anterior.
+- Conclusões anteriores são reconhecidas sem inventar datas históricas. Níveis dispensados não são tratados como concluídos.
+- Requer `20261007154111_course_level_history_537.sql` antes da interface. Rollback desativa captura e restaura recomendação anterior, preservando snapshots.
+
 ## Sequência e conclusão de aula (#535)
 - Redistribui a base A1–B2 em oito blocos por nível, com objetivos, dependências de estruturas e fechamento de cada bloco.
 - Acrescenta 35 aulas e 280 frases no mesmo método: 32 consolidações e perguntas wh, adjetivos -ed/-ing e question tags.

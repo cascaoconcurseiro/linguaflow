@@ -74,6 +74,9 @@ echo "── sequência e conclusão (#535)"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-sequence-535.sql"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-sequence-rollback-535.sql"
 
+echo "── histórico de conclusão por nível e rollback (#537)"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-level-history-537.sql"
+
 echo "── smoke test do Learning Engine"
 run_pg "${PSQL[@]}" <<'SQL'
 -- Usuário de teste: o trigger handle_new_user deve criar o user_stats

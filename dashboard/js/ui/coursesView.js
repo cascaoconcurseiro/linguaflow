@@ -59,7 +59,7 @@ export async function renderCourses(container, app, params = {}) {
     if (summaryResult.status === 'fulfilled' && summaryResult.value) summary = summaryResult.value;
     else console.warn('[Courses] hub_summary_failed', summaryResult.reason?.kind || summaryResult.reason?.message);
     if (pathResult.status === 'fulfilled') path = pathResult.value;
-    else console.warn('[Courses] path_failed', pathResult.reason?.kind || pathResult.reason?.message);
+    else { path = null; console.warn('[Courses] path_failed', pathResult.reason?.kind || pathResult.reason?.message); }
   }
 
   try {
@@ -81,13 +81,18 @@ export async function renderCourses(container, app, params = {}) {
     navigate: (target, extra = {}) => {
       section = target;
       courseId = extra.courseId || null;
+      if (extra.level) { sessionState.pathLevel = extra.level; sessionState.pathCurrentLevel = path?.current_level || path?.placement_level || 'A1'; }
       app.syncCourseHash?.({ tab: target, courseId });
       renderShell(extra);
       container.querySelector('#course-area-panel')?.focus({ preventScroll: true });
     },
     refresh: async () => {
-      await loadData();
-      if (!disposed) renderShell();
+      try { await loadData(); if (!disposed) renderShell(); }
+      catch (err) {
+        if (disposed) return;
+        console.warn('[Courses] refresh_failed', err?.kind || 'unknown');
+        renderLoadError(container.querySelector('#course-area-panel'), ctx.refresh);
+      }
     },
   };
 

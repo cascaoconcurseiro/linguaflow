@@ -28,8 +28,9 @@ export function renderCurriculum(container,{catalog,app,level='A1'}){
     }
     region.innerHTML=groups.size?[...groups].map(([title,list])=>`<details class="course-curriculum-module">
       <summary><strong>${escapeHTML(title)}</strong><span class="course-card-stats">${list.length} aulas</span></summary>
+      ${list[0]?.lesson.learning_objective?`<p class="course-hub-subtitle">Objetivo: ${escapeHTML(list[0].lesson.learning_objective)}</p>`:''}
       <ol class="course-curriculum-lessons">${list.map(({course,lesson})=>`<li>
-        <div><strong>${escapeHTML(lesson.title)}</strong><span class="course-card-stats">${escapeHTML(lessonRoleLabel(lesson))} · ${escapeHTML(course.title)}</span>
+        <div><strong>${escapeHTML(lesson.title)}</strong><span class="course-card-stats">${escapeHTML(lessonRoleLabel(lesson))}${lesson.lesson_stage?` · ${escapeHTML({introduction:'Introdução',practice:'Prática',application:'Aplicação',consolidation:'Consolidação'}[lesson.lesson_stage]||'')}`:''} · ${escapeHTML(course.title)}</span>
           ${lesson.prerequisite_titles?.length?`<span class="course-card-stats">Antes: ${escapeHTML(lesson.prerequisite_titles.join(' · '))}</span>`:''}</div>
         <button class="course-btn-continue" type="button" data-curriculum-lesson="${escapeHTML(lesson.id)}">Praticar aula</button></li>`).join('')}</ol></details>`).join(''):
       '<p class="course-hub-subtitle" role="status">Nenhuma aula desta categoria neste nível.</p>';

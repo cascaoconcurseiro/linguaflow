@@ -4,6 +4,7 @@
 // gravado por rpc_course_commit_practice (idempotente por client_session_id);
 // sair no meio grava a sessão como incompleta.
 
+import { createCourseCompletion } from '../core/courseCompletion.js';
 import { db } from '../../../utils/db.js';
 import { escapeHTML } from '../../../utils/html.js';
 import { soundEngine } from '../core/soundFx.js';
@@ -943,7 +944,7 @@ export async function renderCoursePractice(container, app, params = {}) {
     const summary = session.summary();
     const payload = buildPayload(true);
     writePendingCommit(payload);
-    const nextLessonId = params.nextLessonId || null;
+    let recommendation = null;
 
     container.innerHTML = `
       <div class="course-player-shell" style="align-items:center;justify-content:center;padding:24px;">
@@ -957,39 +958,71 @@ export async function renderCoursePractice(container, app, params = {}) {
             <div class="course-hud-pill"><dt>Tempo ativo</dt><dd>${formatTime(activeSeconds)}</dd></div>
           </dl>
           <p id="course-commit-status" class="course-pause-text" role="status" aria-live="polite">Salvando seu progresso…</p>
+          <p id="course-next-status" class="course-pause-text" role="status" aria-live="polite"></p>
           <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
+            <button class="course-player-btn-back" type="button" id="btn-retry-next" hidden>Tentar buscar próxima aula</button>
             <button class="course-player-btn-back" type="button" id="btn-retry-commit" hidden>Tentar salvar de novo</button>
-            <button class="course-player-btn-back" type="button" id="btn-practice-again">Praticar de novo</button>
-            ${nextLessonId ? '<button class="course-btn-primary-lg" type="button" id="btn-next-lesson">Próximo capítulo</button>' : ''}
-            <button class="${nextLessonId ? 'course-player-btn-back' : 'course-btn-primary-lg'}" type="button" id="btn-finish-lesson">${kind === 'lesson' ? 'Voltar ao curso' : 'Voltar'}</button>
+            <button class="course-player-btn-back" type="button" id="btn-practice-again" disabled>Praticar de novo</button>
+            <button class="course-btn-primary-lg" type="button" id="btn-next-lesson" hidden>Continuar para esta aula</button>
+            <button class="course-player-btn-back" type="button" id="btn-finish-lesson">${kind === 'lesson' ? 'Finalizar por hoje' : 'Voltar'}</button>
           </div>
         </div>
       </div>`;
 
     const status = container.querySelector('#course-commit-status');
     const retry = container.querySelector('#btn-retry-commit');
-    const commit = async () => {
-      retry.hidden = true;
-      status.textContent = 'Salvando seu progresso…';
-      try {
-        const res = await db.courses.commitPractice(payload);
-        writePendingCommit(null);
-        const mistakesNote = summary.mistakes > 0 || summary.hints > 0 ? ' Frases com erro ou dica voltam amanhã na revisão.' : '';
-        status.textContent = kind === 'lesson'
-          ? `Progresso salvo: ${Number(res?.percent_completed ?? 0).toFixed(0)}% do curso.${mistakesNote}`
-          : `Revisão salva.${mistakesNote}`;
-      } catch (err) {
-        console.warn('[CoursePractice] commit_failed', err?.kind || err?.message);
-        status.textContent = 'Não foi possível salvar agora. O resultado ficou guardado neste navegador e será reenviado.';
-        retry.hidden = false;
-      }
-    };
-    retry.addEventListener('click', commit);
-    container.querySelector('#btn-practice-again').addEventListener('click', () => app.navigate('course-practice', { ...params }));
-    container.querySelector('#btn-next-lesson')?.addEventListener('click', () => app.navigate('courses', { tab: 'course', courseId: params.courseId, openLessonId: nextLessonId }));
+    const nextStatus = container.querySelector('#course-next-status');
+    const retryNext = container.querySelector('#btn-retry-next');
+    const nextButton = container.querySelector('#btn-next-lesson');
+    const again = container.querySelector('#btn-practice-again');
+    const flow = createCourseCompletion({
+      isActive: () => !disposed,
+      commit: async () => {
+        const result = await db.courses.commitPractice(payload);
+        if (readPendingCommit()?.clientSessionId === payload.clientSessionId) writePendingCommit(null);
+        return result;
+      },
+      loadNext: kind === 'lesson' ? async () => {
+        const path = await db.courses.getPath();
+        if (!path || typeof path !== 'object' || !Object.hasOwn(path, 'next') || (path.next && (!path.next.lesson_id || !path.next.course_id))) throw new Error('invalid_course_path');
+        if (path?.next?.lesson_id === params.lessonId) throw new Error('stale_course_path');
+        return path;
+      } : undefined,
+      onState: state => {
+        retry.hidden = state.status !== 'save-error';
+        retryNext.hidden = state.status !== 'next-error';
+        nextButton.hidden = state.status !== 'next';
+        again.disabled = ['saving', 'save-error'].includes(state.status);
+        recommendation = state.next || null;
+        if (state.status === 'save-error' || state.status === 'next-error') console.warn('[CoursePractice] completion_failed', { stage: state.status, correlation_id: payload.clientSessionId, kind: state.error?.kind || 'unknown' });
+        if (state.status === 'saving') {
+          status.textContent = 'Salvando seu progresso…';
+          nextStatus.textContent = '';
+        } else if (state.status === 'save-error') {
+          status.textContent = 'Não foi possível salvar agora. O resultado ficou guardado neste navegador e será reenviado.';
+          nextStatus.textContent = '';
+        } else {
+          const mistakesNote = summary.mistakes > 0 || summary.hints > 0 ? ' Frases com erro ou dica voltam amanhã na revisão.' : '';
+          status.textContent = kind === 'lesson'
+            ? `Progresso salvo: ${Number(state.result?.percent_completed ?? 0).toFixed(0)}% do curso.${mistakesNote}`
+            : `Revisão salva.${mistakesNote}`;
+          nextStatus.textContent = state.status === 'loading-next' ? 'Buscando a próxima aula da sua trilha…'
+            : state.status === 'next-error' ? 'Seu progresso está salvo. Não foi possível buscar a próxima aula agora.'
+            : state.status === 'blocked' ? 'Há aulas anteriores pendentes na trilha. Você pode consultá-las nos cursos.'
+            : state.status === 'done' ? 'Você concluiu a base disponível para sua trilha. Pode revisar ou explorar os extras nos cursos.'
+            : state.status === 'next' ? `Próxima aula: ${state.next.title || 'continuar na trilha'}${state.next.level ? ` · ${state.next.level}` : ''}${state.next.module_title ? ` · ${state.next.module_title}` : ''}` : '';
+        }
+      },
+    });
+    retry.addEventListener('click', () => flow.save());
+    retryNext.addEventListener('click', () => flow.retryNext());
+    again.addEventListener('click', () => app.navigate('course-practice', { ...params }));
+    nextButton.addEventListener('click', () => {
+      if (recommendation) app.navigate('courses', { tab: 'course', courseId: recommendation.course_id, openLessonId: recommendation.lesson_id });
+    });
     const back = container.querySelector('#btn-finish-lesson');
     back.addEventListener('click', () => app.navigate(backTarget.route, backTarget.params));
     back.focus();
-    commit();
+    flow.save();
   }
 }

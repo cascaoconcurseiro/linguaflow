@@ -19,7 +19,7 @@ test('42 aulas reais preenchem lacunas de A1 a C1 usando unidades do player atua
 });
 
 test('toda aula efetiva tem módulo, papel editorial e dependências anteriores que não exigem extras', async () => {
-  const cs=await loadCourseContentSnapshot();
+  const cs=await loadCourseContentSnapshot({through:'20261007120333'});
   const lessons=cs.flatMap(c=>c.lessons);
   assert.equal(lessons.length,414);
   assert.equal(lessons.reduce((n,l)=>n+l.units.length,0),4424);

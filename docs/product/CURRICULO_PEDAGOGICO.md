@@ -1,5 +1,7 @@
 # Organização pedagógica e fundamentos — #533
 
+> Snapshot histórico #533. A sequência vigente está em [SEQUENCIA_PEDAGOGICA.md](SEQUENCIA_PEDAGOGICA.md).
+
 Implementação de 2026-10-07. Preserva o método atual de ouvir, compreender, digitar e revisar.
 As 372 aulas e 4.088 unidades históricas conservam seus IDs e textos; acrescenta **42 aulas com 336 frases** no mesmo player.
 O catálogo resultante contém **35 cursos, 414 aulas e 4.424 unidades**. A revisão #531 não muda.

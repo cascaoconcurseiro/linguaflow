@@ -979,11 +979,12 @@ export async function renderCoursePractice(container, app, params = {}) {
       isActive: () => !disposed,
       commit: async () => {
         const result = await db.courses.commitPractice(payload);
-        writePendingCommit(null);
+        if (readPendingCommit()?.clientSessionId === payload.clientSessionId) writePendingCommit(null);
         return result;
       },
       loadNext: kind === 'lesson' ? async () => {
         const path = await db.courses.getPath();
+        if (!path || typeof path !== 'object' || !Object.hasOwn(path, 'next') || (path.next && (!path.next.lesson_id || !path.next.course_id))) throw new Error('invalid_course_path');
         if (path?.next?.lesson_id === params.lessonId) throw new Error('stale_course_path');
         return path;
       } : undefined,

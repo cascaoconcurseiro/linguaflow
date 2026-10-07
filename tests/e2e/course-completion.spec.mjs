@@ -37,3 +37,11 @@ test('sem próxima aula oferece finalizar; saída durante save ignora resposta t
  await page.evaluate(()=>window.__completion.release());
  expect(await page.evaluate(()=>window.__completion.reads)).toBe(0);
 });
+
+test('commit tardio preserva outra sessão que já esteja aguardando reenvio',async({page})=>{
+ await finish(page);
+ await page.getByRole('button',{name:'Finalizar por hoje'}).click();
+ await page.evaluate(()=>{sessionStorage.setItem('lf_course_pending_commit',JSON.stringify({clientSessionId:'another-session'}));window.__completion.release();});
+ await expect.poll(()=>page.evaluate(()=>JSON.parse(sessionStorage.getItem('lf_course_pending_commit'))?.clientSessionId)).toBe('another-session');
+ expect(await page.evaluate(()=>window.__completion.reads)).toBe(0);
+});

@@ -102,7 +102,6 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate 
 
   panel.innerHTML = `
     ${pathHtml(path, lessonIndex)}
-    <section class="course-panel" data-course-curriculum aria-label="Organização pedagógica"></section>
     <div class="course-home-grid">
       <section class="course-panel course-continue" aria-labelledby="continue-title">
         <h2 id="continue-title" class="course-section-title">Continue seu curso</h2>
@@ -130,6 +129,8 @@ export function renderCourseHome(panel, { app, catalog, summary, path, navigate 
         ${summary.mistakes_count > 0 ? `<p class="course-hub-subtitle">${summary.mistakes_count} ${summary.mistakes_count === 1 ? 'erro pendente' : 'erros pendentes'} no caderno. <button class="course-link" type="button" data-go="mistakes">Treinar</button></p>` : ''}
       </section>
     </div>
+
+    <section class="course-panel" data-course-curriculum aria-label="Organização pedagógica"></section>
 
     <section class="course-metrics" aria-label="Tempo de estudo">
       <div class="course-metric"><span>Hoje</span><strong>${formatDuration(summary.today_seconds)}</strong></div>

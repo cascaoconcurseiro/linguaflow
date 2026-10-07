@@ -51,7 +51,7 @@ function bindCards(panel, { app, catalog, navigate, refresh }) {
 
 export function renderCourseStore(panel, ctx) {
   const { catalog, state } = ctx;
-  const f = state.store || (state.store = { category: 'all', query: '', level: '', sort: 'recommended' });
+  const f = state.store || (state.store = { category: 'all', query: '', level: '', role: '', sort: 'recommended' });
   const tracks = TRACKS.filter(([t]) => catalog.some((c) => c.track === t));
 
   function filtered() {

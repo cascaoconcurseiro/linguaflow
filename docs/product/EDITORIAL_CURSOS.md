@@ -30,6 +30,9 @@ Novas aulas não entram automaticamente na trilha: exigem nível, ordem e pré-r
 em uma fonte curricular versionada e migration append-only. Não edite `curriculum.mjs` nem o SQL
 da auditoria #528 depois de publicados; uma revisão gera nova versão. O gerador dessa auditoria
 tem corte histórico para não incorporar lotes futuros à migration antiga.
+O estado efetivo está em `curriculum-current.mjs`: o aceite do áudio em 2026-10-07 (#503/#505)
+promove somente as nove aulas revisadas, preservando a fonte histórica #528. O relatório CSV
+reflete esse estado efetivo; o SQL e o rollback históricos continuam imutáveis.
 
 ## Limites da validação
 

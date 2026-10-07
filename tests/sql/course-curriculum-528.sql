@@ -16,7 +16,8 @@ DO $$ DECLARE p jsonb; cat jsonb; actual text; expected text; lev text; BEGIN
   IF (SELECT count(*) FROM public.course_units) <> 4088 THEN RAISE EXCEPTION 'conteúdo alterado'; END IF;
   IF EXISTS(SELECT 1 FROM public.course_lessons WHERE level='A1' AND (course_id='course-street-a1' OR course_id='course-essential-verbs-a1')) THEN RAISE EXCEPTION 'gírias/perfect no A1'; END IF;
   IF (SELECT level FROM public.course_lessons WHERE id='lesson-grammar-b2-07') <> 'C1' THEN RAISE EXCEPTION 'inversão não reclassificada'; END IF;
-  IF EXISTS(SELECT 1 FROM public.course_lessons l JOIN public.course_catalog c ON c.id=l.course_id WHERE c.id IN('course-spoken-reductions-a2','course-connected-speech-b2') AND (c.is_core OR l.is_core)) THEN RAISE EXCEPTION 'áudio sem aceite na trilha'; END IF;
+  IF EXISTS(SELECT 1 FROM public.course_lessons l JOIN public.course_catalog c ON c.id=l.course_id WHERE c.id IN('course-spoken-reductions-a2','course-connected-speech-b2') AND (NOT c.is_core OR NOT l.is_core)) THEN RAISE EXCEPTION 'áudio aprovado ficou fora da trilha'; END IF;
+  IF (SELECT count(*) FROM public.course_lessons WHERE is_core) <> 372 THEN RAISE EXCEPTION 'aulas centrais após aceite'; END IF;
   IF EXISTS(SELECT 1 FROM public.course_lessons l CROSS JOIN LATERAL unnest(l.prerequisite_lesson_ids) r(id) LEFT JOIN public.course_lessons previous ON previous.id=r.id WHERE previous.id IS NULL OR previous.curriculum_order >= l.curriculum_order) THEN RAISE EXCEPTION 'dependência inválida'; END IF;
 
   -- Seleção pelo nível usa a aula, inclusive num curso cujo nível conservador é superior.

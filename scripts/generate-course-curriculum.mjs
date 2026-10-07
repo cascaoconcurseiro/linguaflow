@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { CURRICULUM } from '../supabase/content/curriculum.mjs';
+import { CURRENT_CURRICULUM } from '../supabase/content/curriculum-current.mjs';
 import { loadCourseContentSnapshot } from './course-content-snapshot.mjs';
 
 const LEVELS = ['A1','A2','B1','B2','C1'];
@@ -109,7 +110,7 @@ ${catalog.trim()}
 ${path.trim()}
 `;
   const cell = v => `"${String(v ?? '').replaceAll('"','""')}"`;
-  const report = '\uFEFF'+[['curso','id_aula','aula','nivel_anterior_curso','nivel_aula','ordem_global','trilha','pre_requisitos','itens','evidencia_inicial','evidencia_final','criterio_editorial'],...CURRICULUM.map(r => {
+  const report = '\uFEFF'+[['curso','id_aula','aula','nivel_anterior_curso','nivel_aula','ordem_global','trilha','pre_requisitos','itens','evidencia_inicial','evidencia_final','criterio_editorial'],...CURRENT_CURRICULUM.map(r => {
     const c=courses.find(c=>c.id===r.courseId), l=c.lessons.find(l=>l.id===r.id);
     return [c.title,r.id,l.title,c.level,r.level,r.order,r.core?'central':'complementar',r.requires.join(' | '),l.units.length,l.units[0].text,l.units.at(-1).text,r.reason];
   })].map(row=>row.map(cell).join(',')).join('\r\n')+'\r\n';

@@ -26,11 +26,13 @@ export function comboMultiplier(streak) {
   return Math.min(MAX_COMBO_MULTIPLIER, 1 + Math.max(0, streak) * 0.25);
 }
 
-export function createPracticeSession(units) {
+export function createPracticeSession(items, { reinforceErrors = false } = {}) {
+  const units = Array.isArray(items) ? [...items] : items;
   if (!Array.isArray(units) || units.length === 0) throw new Error('Lição sem frases');
 
   const perUnit = units.map((unit) => ({
     unitId: unit.id,
+    reinforcement: false,
     tokens: tokenizeSentence(unit.text),
     exampleTokens: unit.kind === 'word' && unit.example_en ? tokenizeSentence(unit.example_en) : null,
     stage: 'word',
@@ -53,11 +55,31 @@ export function createPracticeSession(units) {
   const state = () => perUnit[index];
   const inExample = () => state()?.stage === 'example';
 
+  // Reforço único após duas outras etapas (ou no fim, se faltarem itens).
+  // O resultado original continua sendo a evidência enviada ao servidor.
+  function resolve() {
+    const s = state();
+    s.done = true;
+    if (reinforceErrors && !s.reinforcement && s.firstWrongText !== null) {
+      const at = Math.min(index + 3, units.length);
+      units.splice(at, 0, units[index]);
+      perUnit.splice(at, 0, {
+        ...s, reinforcement: true, exampleTokens: null, stage: 'word',
+        attempts: 0, hintCount: 0, hintedSlots: new Set(), revealed: false,
+        skipped: false, firstWrongText: null, done: false,
+      });
+    }
+    frontier = Math.max(frontier, index + 1);
+  }
+
   return {
     get index() { return index; },
     get total() { return units.length; },
+    get completedSteps() { return perUnit.filter((s) => s.done).length; },
+    get nextUnit() { return units[index + 1] || null; },
     get unit() { return units[index] || null; },
     get tokens() { return (inExample() ? state().exampleTokens : state()?.tokens) || []; },
+    get isReinforcement() { return Boolean(state()?.reinforcement); },
     get stage() { return state()?.stage || 'word'; },
     get currentText() { return inExample() ? units[index].example_en : units[index]?.text; },
     get currentTranslation() { return inExample() ? units[index].example_pt || '' : units[index]?.translation_pt; },
@@ -65,7 +87,7 @@ export function createPracticeSession(units) {
     get highestCombo() { return highestCombo; },
     get score() { return score; },
     get finished() { return frontier >= units.length; },
-    get resolvedCount() { return perUnit.filter((s) => s.done).length; },
+    get resolvedCount() { return perUnit.filter((s) => s.done && !s.reinforcement).length; },
     get isReviewingPrevious() { return index < frontier; },
     get currentDone() { return Boolean(state()?.done); },
     get currentRevealed() { return Boolean(state()?.revealed); },
@@ -106,8 +128,7 @@ export function createPracticeSession(units) {
         s.exampleAttempts += 1;
         const evaluation = evaluateSentenceAttempt(s.exampleTokens, words);
         if (!evaluation.isCorrect) { streak = 0; return { ...evaluation, gained: 0 }; }
-        s.done = true;
-        frontier = Math.max(frontier, index + 1);
+        resolve();
         const gained = s.exampleAttempts === 1 ? 50 : 10;
         score += gained;
         return { ...evaluation, gained, clean: s.exampleAttempts === 1 };
@@ -125,7 +146,8 @@ export function createPracticeSession(units) {
 
       const clean = s.attempts === 1 && s.hintCount === 0 && !s.revealed;
       let gained = 25;
-      if (clean) {
+      if (s.reinforcement) gained = 0;
+      else if (clean) {
         streak += 1;
         highestCombo = Math.max(highestCombo, streak);
         gained = Math.round(100 * comboMultiplier(streak));
@@ -135,8 +157,7 @@ export function createPracticeSession(units) {
         s.stage = 'example';
         return { ...evaluation, gained, clean, nextStage: 'example' };
       }
-      s.done = true;
-      frontier = Math.max(frontier, index + 1);
+      resolve();
       return { ...evaluation, gained, clean };
     },
 
@@ -146,8 +167,7 @@ export function createPracticeSession(units) {
       if (!s || s.done) return false;
       if (inExample()) {
         // A palavra já foi acertada: pular só a frase não a manda para revisão.
-        s.done = true;
-        frontier = Math.max(frontier, index + 1);
+        resolve();
         streak = 0;
         return true;
       }
@@ -156,8 +176,7 @@ export function createPracticeSession(units) {
       s.attempts = Math.max(s.attempts, 1) + 1;
       const typed = words.map((w) => String(w || '').trim()).join(' ').trim();
       if (s.firstWrongText === null && typed) s.firstWrongText = typed;
-      s.done = true;
-      frontier = Math.max(frontier, index + 1);
+      resolve();
       streak = 0;
       return true;
     },
@@ -181,7 +200,7 @@ export function createPracticeSession(units) {
 
     buildResults({ onlyAnswered = false } = {}) {
       return perUnit
-        .filter((s) => !onlyAnswered || s.done)
+        .filter((s) => !s.reinforcement && (!onlyAnswered || s.done))
         .map((s) => ({
           unit_id: s.unitId,
           attempts: Math.max(1, s.attempts),
@@ -192,7 +211,7 @@ export function createPracticeSession(units) {
     },
 
     summary() {
-      const answered = perUnit.filter((s) => s.done);
+      const answered = perUnit.filter((s) => s.done && !s.reinforcement);
       const firstTry = answered.filter((s) => s.attempts === 1).length;
       return {
         answered: answered.length,

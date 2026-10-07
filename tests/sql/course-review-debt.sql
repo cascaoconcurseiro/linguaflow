@@ -62,7 +62,7 @@ BEGIN
   END IF;
 
   -- Acerto limpo mantém a escada: degrau 3 (7 dias) -> 4 (15 dias) -> 5 (33 dias).
-  UPDATE public.course_user_reviews SET repetition_number = 3, due_date = now() - interval '1 hour' WHERE user_id = uid AND unit_id = u_ids[1];
+  UPDATE public.course_user_reviews SET repetition_number = 3, last_schedule_change_at = now() - interval '2 days', last_reviewed_at = now() - interval '2 days', due_date = now() - interval '1 hour' WHERE user_id = uid AND unit_id = u_ids[1];
   s := public.rpc_course_commit_practice(
     gen_random_uuid(), 'review', NULL, 'medium', now() - interval '5 minutes', 30, 100, 1,
     jsonb_build_array(jsonb_build_object('unit_id', u_ids[1], 'attempts', 1, 'hint_count', 0, 'revealed', false)), true);

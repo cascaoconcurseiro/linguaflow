@@ -29,6 +29,8 @@ Migrations `20260927150000_course_system.sql`, `…150100_course_rpcs.sql`, `…
 - Do aluno: `user_course_enrollment`, `course_practice_sessions`, `course_user_mistakes`, `course_user_reviews` — **só leitura** pelo cliente; escrita apenas pela RPC. `course_user_vocabulary` e `course_user_notes` — o próprio aluno grava (`user_id` = `auth.uid()` por padrão).
 - A RPC valida que os resultados cobrem exatamente as frases da lição, calcula precisão/erros no servidor, limita tempo ativo à duração real e pontuação/combo a tetos, e não reaplica nada num retry.
 - Revisão: acerto de primeira sem dica avança 1 → 3 → 7 → 15 dias → ×2,2 (máx. 180). Erro, dica ou resposta revelada traz a frase de volta em 1 dia, mas só leva **metade do caminho de volta** (`repetition_number = floor(degrau / 2)`; antes zerava). Um acerto limpo resolve o erro pendente da frase (#501).
+- Revisão guiada (#531): Fácil continua contando e avançando, com teto de **30 dias**. Médio/Difícil mantêm teto de 180 dias. Só frase vencida avança; no máximo uma alteração de estágio por dia no fuso do aluno. Práticas antecipadas e acertos adicionais no mesmo dia não empurram a data. Erros encurtam a agenda, sem rebaixamentos repetidos no mesmo dia; erro seguido de acerto não apaga a revisão próxima. Autoridade no servidor, com serialização por conta para duas abas.
+- Na sessão de **revisão**, frases com resposta errada reaparecem uma vez após duas outras etapas ou no fim, se faltarem itens. O reforço pode ser pulado, não soma pontos/combos, não duplica respostas na meta e preserva o erro original enviado ao servidor. A frase de exemplo das palavras mantém o contrato anterior. Voltar/avançar, saída parcial e retry continuam funcionando. Reforços não são persistidos separadamente; ao sair, salvam-se só as evidências originais.
 - Meta diária (#501): o servidor devolve no resumo `reviews_due_total` (todas as vencidas; `reviews_due_count` continua igual), `reviews_daily_cap` (20), `reviews_done_today` (respostas de sessões `review` no dia do fuso do aluno), `reviews_due_today = max(0, min(total, 20 − feitas hoje))` e `reviews_overdue_7d`. O Início, o plano de hoje, o selo e a aba Revisão mostram a meta de hoje e o resto como "na fila". A meta **nunca bloqueia**: depois dela há "Revisar mais 10 (opcional)". A meta não reduz a dívida, só a torna administrável; para reduzir é preciso olhar a entrada (cada frase de lição entra na revisão).
 
 ## Testes
@@ -65,3 +67,9 @@ Linha de base de 2026-10-05 (1 conta, ~5 dias de uso): 287 frases, 204 vencidas,
 - Treino só das frases com erro/revisão (hoje reabre a lição inteira).
 - Interface gráfica de edição de conteúdo (hoje o fluxo editorial é por lotes e `npm run content:check`; ver `EDITORIAL_CURSOS.md`).
 
+
+## Validação e acompanhamento da revisão guiada (#531)
+
+O teto de 30 dias é hipótese de produto. Avaliar retenção após dias sem texto antes de mudar intervalos. Agregados de `course_session_results` + `course_practice_sessions` permitem contar práticas por modalidade e práticas repetidas por unidade/dia; `course_user_reviews` permite acompanhar intervalos no teto. O banco não registra a conclusão dos reforços locais, portanto essa métrica permanece pendente e não é inferida de um acerto original.
+
+Reversão: `supabase/rollback/course_review_method_531.sql` restaura a RPC anterior, preservando histórico e agenda já calculada; reverter o frontend remove os reforços. Testes de comportamento em `tests/sql/course-review-method-531.sql`, sessão em `tests/course-review-method-531.test.mjs` e fluxo em Playwright.

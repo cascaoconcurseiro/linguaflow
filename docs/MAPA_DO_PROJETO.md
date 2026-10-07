@@ -260,6 +260,10 @@ O dono aprovou o áudio de Fala Conectada e do piloto de reduções
 [#503](https://github.com/cascaoconcurseiro/linguaflow/issues/503) em 2026-10-07.
 A inclusão das nove aulas na trilha usa a migration separada `20261007090000_course_audio_acceptance.sql`;
 não reclassifica os níveis nem equivale a revisão humana de tradução/IPA.
+A fonte efetiva prevê 372 aulas centrais após essa migration (A1 28, A2 88, B1 142, B2 102, C1 12).
+Implementação e evidência da publicação separada no PR
+[#530](https://github.com/cascaoconcurseiro/linguaflow/pull/530); rollback de flags em
+`supabase/rollback/course_audio_acceptance_503.sql`, antes do rollback curricular se ambos forem necessários.
 Consulte [CURSOS.md](product/CURSOS.md) para o estado do produto e
 [EDITORIAL_CURSOS.md](product/EDITORIAL_CURSOS.md) para o fluxo de conteúdo. Não reaplique essas migrations
 para retomar a revisão; primeiro confira o histórico do banco.

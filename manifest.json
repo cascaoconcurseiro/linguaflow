@@ -142,6 +142,7 @@
         "utils/db/reader-stories-repo.js",
         "utils/db/gamification-repo.js",
         "utils/db/courses-repo.js",
+        "utils/db/course-trail-order.js",
         "utils/db/stats-repo.js",
         "utils/db/shared.js",
         "utils/db/srs-constants.js",

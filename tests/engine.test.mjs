@@ -25,6 +25,7 @@ copyFileSync(join(root, 'utils/install-methods.js'), join(tmp, 'install-methods.
 copyFileSync(join(root, 'utils/db/reader-stories-repo.js'), join(tmp, 'db/reader-stories-repo.js'));
 copyFileSync(join(root, 'utils/db/gamification-repo.js'), join(tmp, 'db/gamification-repo.js'));
 copyFileSync(join(root, 'utils/db/courses-repo.js'), join(tmp, 'db/courses-repo.js'));
+copyFileSync(join(root, 'utils/db/course-trail-order.js'), join(tmp, 'db/course-trail-order.js'));
 copyFileSync(join(root, 'utils/db/stats-repo.js'), join(tmp, 'db/stats-repo.js'));
 copyFileSync(join(root, 'utils/local-day.js'), join(tmp, 'local-day.js'));
 copyFileSync(join(root, 'utils/intake-guard.js'), join(tmp, 'intake-guard.js'));

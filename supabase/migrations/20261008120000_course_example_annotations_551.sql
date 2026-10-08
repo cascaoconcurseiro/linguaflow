@@ -1,10 +1,10 @@
 -- #551: palavra por palavra também na frase de exemplo (etapa 2 das palavras e formas verbais).
 -- Coluna derivada: example_annotations tem o mesmo formato de annotations (surface, pos, ipa, gloss), na ordem da frase.
 -- Dicionário = anotações já publicadas (sentido mais frequente de cada palavra) + 150 palavras que só aparecem em exemplos.
--- Não altera textos, traduções, IPA, notas, anotações nem progresso. Rollback: supabase/rollback/course_example_annotations_551.sql.
+-- Não altera textos, traduções, IPA, notas, anotações nem progresso. Rollback: supabase/rollback/course_example_annotations_551.sql. Tabelas temporárias com DROP explícito (o replay do CI roda cada arquivo em autocommit).
 ALTER TABLE public.course_units ADD COLUMN IF NOT EXISTS example_annotations jsonb;
 
-CREATE TEMP TABLE _extra_551(w text PRIMARY KEY, pos text, ipa text, gloss text) ON COMMIT DROP;
+CREATE TEMP TABLE _extra_551(w text PRIMARY KEY, pos text, ipa text, gloss text);
 INSERT INTO _extra_551(w, pos, ipa, gloss) VALUES
     ('absent','adjective','/ˈæbsənt/','ausente'),('absorb','verb','/əbˈzɔːrb/','absorver'),('age','noun','/eɪdʒ/','idade'),
     ('animals','noun','/ˈænɪməlz/','animais'),('anxiety','noun','/æŋˈzaɪəti/','ansiedade'),('areas','noun','/ˈɛriəz/','áreas'),
@@ -58,14 +58,14 @@ INSERT INTO _extra_551(w, pos, ipa, gloss) VALUES
     ('witnesses','noun','/ˈwɪtnəsɪz/','testemunhas'),('wool','noun','/wʊl/','lã'),('wore','verb','/wɔːr/','vestia, usava'),
     ('writes','verb','/raɪts/','escreve'),('york','proper noun','/jɔːrk/','York');
 
-CREATE TEMP TABLE _dict_551 ON COMMIT DROP AS
+CREATE TEMP TABLE _dict_551 AS
 SELECT DISTINCT ON (w) w, pos, ipa, gloss FROM (
   SELECT lower(a->>'surface') AS w, a->>'pos' AS pos, a->>'ipa' AS ipa, a->>'gloss' AS gloss, 1 AS pri, count(*) AS c
   FROM public.course_units u, jsonb_array_elements(u.annotations) a GROUP BY 1, 2, 3, 4
   UNION ALL SELECT w, pos, ipa, gloss, 2, 0 FROM _extra_551
 ) x ORDER BY w, pri, c DESC, gloss;
 
-CREATE TEMP TABLE _tok_551 ON COMMIT DROP AS
+CREATE TEMP TABLE _tok_551 AS
 SELECT u.id, t.ord, regexp_replace(t.tok, '^[^A-Za-z]+|[^A-Za-z'']+$', '', 'g') AS surface
 FROM public.course_units u, regexp_split_to_table(trim(u.example_en), '\s+') WITH ORDINALITY AS t(tok, ord)
 WHERE u.example_en IS NOT NULL AND trim(u.example_en) <> '';
@@ -84,3 +84,5 @@ FROM (
   SELECT t.id, jsonb_agg(jsonb_build_object('surface', t.surface, 'pos', d.pos, 'ipa', d.ipa, 'gloss', d.gloss) ORDER BY t.ord) AS annotations
   FROM _tok_551 t JOIN _dict_551 d ON d.w = lower(t.surface) WHERE t.surface <> '' GROUP BY t.id
 ) built WHERE built.id = u.id;
+
+DROP TABLE _tok_551, _dict_551, _extra_551;

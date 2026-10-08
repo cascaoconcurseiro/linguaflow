@@ -29,7 +29,9 @@ function extraWords() {
 test('migration é aditiva, idempotente e protegida: só coluna derivada, guarda contra palavra sem dicionário', () => {
   assert.match(sql, /ADD COLUMN IF NOT EXISTS example_annotations jsonb/);
   assert.match(sql, /RAISE EXCEPTION 'palavras do exemplo sem dicionário/);
-  assert.doesNotMatch(sql, /\b(DELETE FROM|DROP TABLE|TRUNCATE)\b/i);
+  assert.doesNotMatch(sql, /\b(DELETE FROM|TRUNCATE)\b|DROP TABLE (?!_tok_551|_dict_551|_extra_551)/i);
+  assert.match(sql, /DROP TABLE _tok_551, _dict_551, _extra_551;/, 'tabelas temporárias removidas ao final');
+  assert.doesNotMatch(sql, /ON COMMIT DROP/, 'o replay do CI roda cada arquivo em autocommit');
   assert.doesNotMatch(sql, /UPDATE public\.(?!course_units)/);
   assert.doesNotMatch(sql, /SET (text|translation_pt|ipa|explanation_note|annotations|syntax_groups)\b/);
   const rollback = readFileSync(new URL('../supabase/rollback/course_example_annotations_551.sql', import.meta.url), 'utf8');

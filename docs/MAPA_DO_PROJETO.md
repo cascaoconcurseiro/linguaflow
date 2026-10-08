@@ -634,6 +634,7 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 | `utils/db/account.js` | P | Conta e engajamento: estatísticas do usuário, ranking, push, e-mail, cache de tradução e conquistas. |
 | `utils/db/admin.js` | M | Painel de administração: papéis, PIN, usuários, backups, auditoria, avisos do sistema e denúncias. |
 | `utils/db/cards.js` | M | Cards: fila de estudo, devidos de hoje, enterrar, suspender, restaurar e resetar. |
+| `utils/db/course-trail-order.js` | P | Ordem única de estudo das aulas de um curso: a da trilha (nível, depois curriculum_order), nunca o número de capítulo antigo. Cursos mistos (ex.: 1000 palavras, A1 a B… |
 | `utils/db/courses-repo.js` | M | Repositório do domínio de Cursos (escuta + digitação) Conteúdo vem das tabelas course_*; progresso, erros, revisões e sessões só mudam por RPC. Leituras lançam erro pa… |
 | `utils/db/gamification-repo.js` | P | Repositório especializado em Gamificação, Ligas, Telemetria e Web Push Submódulo modular extraído de utils/db.js (Cloud-Only / Supabase) |
 | `utils/db/learning.js` | M | Tarefas de aprendizagem e checagem de fluência: perfis adaptativos, envio, avaliação e rascunho. |
@@ -689,8 +690,9 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 | `.github/workflows/production-rls.yml` | P | Production RLS Monitor |
 | `.github/workflows/release.yml` | M | Build and Release |
 | `.github/workflows/supabase-keep-alive.yml` | P | Supabase Keep Alive |
+| `scripts/audit-course-coverage.mjs` | P | #548: matriz de cobertura de tópicos por nível. Para cada tópico esperado em um nível do CEFR (lista editorial abaixo), diz se há aula dedicada e quantas frases o usam… |
 | `scripts/audit-course-notes.mjs` | P | #544: auditoria de qualidade das notas de explicação. Mede o que é mensurável sem julgamento humano: notas ausentes, curtas, repetidas em muitas frases e sem nenhuma p… |
-| `scripts/audit-course-sequence.mjs` | P | #544: auditoria de sequência. Para cada frase da base A1–B2, detecta estruturas gramaticais que a trilha só ensina numa aula posterior. É uma heurística por expressões… |
+| `scripts/audit-course-sequence.mjs` | M | #544: auditoria de sequência. Para cada frase da base A1–B2, detecta estruturas gramaticais que a trilha só ensina numa aula posterior. É uma heurística por expressões… |
 | `scripts/content-check.mjs` | P | Verificador editorial dos cursos (Issue #428): valida TODOS os lotes de conteúdo sem escrever nada e confere se o SQL gerado ainda é igual ao que foi publicado em supa… |
 | `scripts/content-review-sample.mjs` | P | Amostra para revisão humana do conteúdo dos cursos (Issue #435). |
 | `scripts/course-content-snapshot.mjs` | P | Conteúdo efetivo para auditoria curricular: replay editorial cronológico, com offsets e retiradas. |
@@ -712,7 +714,7 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 |---|---|---|
 | `supabase/migrations/` | 154 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261007154111_course_level_history_537.sql`. Nunca edite uma migration já aplicada. |
 | `supabase/content/batches/` | 63 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
-| `tests/*.test.mjs` | 201 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
+| `tests/*.test.mjs` | 203 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
 | `tests/e2e/` | 15 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
 | `tests/db/` | 16 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |
 | `tests/production/` | 1 | Verificação de isolamento entre contas no Supabase de produção (workflow agendado). |

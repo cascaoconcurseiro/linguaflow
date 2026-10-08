@@ -1,6 +1,7 @@
 // Páginas do curso (loja, meus cursos, detalhe, cadernos, análise, ranking) com serviços simulados.
 // Query: empty (tudo vazio), fail (primeira leitura de cada caderno/ranking/análise falha).
 import { db } from '../../utils/db.js';
+import { sortLessonsByTrail } from '../../utils/db/course-trail-order.js';
 import { renderCourses } from '../../dashboard/js/ui/coursesView.js';
 import { courseHashFor, parseRouteHash } from '../../dashboard/js/core/routeHash.js';
 
@@ -19,6 +20,15 @@ const catalog = [
   { id: 'c-food', title: 'Comida A2', short_description: 'Pedir comida', long_description: '', level: 'A2', track: 'dia-a-dia', category: 'vocabulary', learners_count: 90, created_at: '2026-02-01', my: { in_my_courses: false, percent_completed: 0, completed_lessons: [] }, lessons: lessons('food', 'A2', 2) },
   { id: 'c-done', title: 'Verbos B1 concluído', short_description: 'Verbos', long_description: '', level: 'B1', track: 'gramatica', category: 'grammar', learners_count: 10, created_at: '2026-03-01', my: { in_my_courses: true, percent_completed: 100, completed_lessons: ['done-1'] }, lessons: lessons('done', 'B1', 1, 1) },
 ];
+if (query.has('mixed')) {
+  // Curso misto com capítulos fora da ordem da trilha: B1 (cap. 1), A1 (cap. 2), A2 (cap. 3), A1 (cap. 4).
+  catalog.push({ id: 'c-mixed', title: 'Curso misto', short_description: 'Vários níveis', long_description: '', level: 'A1', level_min: 'A1', level_max: 'B1', track: 'fundamentos', category: 'foundations', learners_count: 5, created_at: '2026-04-01', my: { in_my_courses: true, percent_completed: 0, completed_lessons: ['mix-a1-a', 'mix-a1-b'] }, lessons: [
+    { id: 'mix-b1', chapter_number: 1, title: 'Aula B1', level: 'B1', curriculum_order: 3000, unit_count: 8, my_best_answered: 0 },
+    { id: 'mix-a1-b', chapter_number: 2, title: 'Aula A1 segunda', level: 'A1', curriculum_order: 20, unit_count: 8, my_best_answered: 8 },
+    { id: 'mix-a2', chapter_number: 3, title: 'Aula A2', level: 'A2', curriculum_order: 1000, unit_count: 8, my_best_answered: 0 },
+    { id: 'mix-a1-a', chapter_number: 4, title: 'Aula A1 primeira', level: 'A1', curriculum_order: 10, unit_count: 8, my_best_answered: 8 },
+  ] });
+}
 const path = { current_level: 'A1', next: { level: 'A1', course_id: 'c-greet', lesson_id: 'greet-2' }, levels: [
   { level: 'A1', total: 2, completed: 1, percent: 50 }, { level: 'A2', total: 2, completed: 0, percent: 0 }, { level: 'B1', total: 1, completed: 1, percent: 100, is_completed: true },
 ] };
@@ -26,7 +36,7 @@ const unit = (id, text, pt) => ({ text, translation_pt: pt, ipa: '', explanation
 const gate = key => { if (failOnce.delete(key)) throw Object.assign(new Error('offline'), { kind: 'network' }); };
 
 db.courses = {
-  async listCatalog() { return empty ? [] : catalog; },
+  async listCatalog() { return empty ? [] : catalog.map(c => ({ ...c, lessons: sortLessonsByTrail(c.lessons, c.level) })); },
   async getHubSummary() { return empty ? {} : { reviews_due_count: 3, mistakes_count: 2, today_seconds: 600, week_days: 2, week: [] }; },
   async getPath() { return empty ? { levels: [], next: null } : path; },
   async setInMyCourses(id, value) { state.calls.push(['setInMyCourses', id, value]); const c = catalog.find(x => x.id === id); c.my = { ...c.my, in_my_courses: value }; },

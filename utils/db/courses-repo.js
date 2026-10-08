@@ -3,6 +3,8 @@
 // mudam por RPC. Leituras lançam erro para a view mostrar o estado de falha em
 // vez de "vazio" enganoso.
 
+import { sortLessonsByTrail } from './course-trail-order.js';
+
 const UNIT_FIELDS = 'id,lesson_id,order_index,kind,text,translation_pt,ipa,explanation_note,syntax_groups,annotations,example_en,example_pt,image_url,image_credit,image_license';
 const ID_PATTERN = /^[a-z0-9-]{1,80}$/;
 const PERIODS = new Set(['daily', 'weekly', 'monthly', 'all']);
@@ -32,7 +34,7 @@ export class CoursesRepository {
     const rows = await this._rpc('rpc_course_catalog');
     return (Array.isArray(rows) ? rows : []).map((course) => ({
       ...course,
-      lessons: (course.lessons || []).filter((l) => l.unit_count > 0),
+      lessons: sortLessonsByTrail((course.lessons || []).filter((l) => l.unit_count > 0), course.level),
     })).filter((course) => course.lessons.length > 0);
   }
 
@@ -44,7 +46,7 @@ export class CoursesRepository {
   async getLesson(lessonId) {
     assertId(lessonId, 'lessonId');
     const rows = await this._read(
-      `course_lessons?id=eq.${lessonId}&select=id,title,chapter_number,course_id,level,learning_objective,`
+      `course_lessons?id=eq.${lessonId}&select=id,title,chapter_number,course_id,level,curriculum_order,learning_objective,`
       + `course_catalog(id,title,level),course_units(${UNIT_FIELDS})`,
     );
     const lesson = rows?.[0];

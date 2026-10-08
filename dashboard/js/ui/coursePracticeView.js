@@ -125,7 +125,8 @@ export async function renderCoursePractice(container, app, params = {}) {
       const lesson = await db.courses.getLesson(String(params.lessonId || ''));
       if (lesson) {
         lessonId = lesson.id;
-        title = `${lesson.chapter_number}. ${lesson.title}`;
+        // Aulas da trilha não têm número fixo de capítulo (a ordem depende do nível).
+        title = lesson.curriculum_order != null ? lesson.title : `${lesson.chapter_number}. ${lesson.title}`;
         courseTitle = lesson.course_catalog?.title || '';
         units = lesson.units;
         lessonObjective = lesson.learning_objective || '';

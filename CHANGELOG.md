@@ -1,5 +1,10 @@
 # Changelog
 
+## Palavra por palavra em toda frase do Mostrar resposta (#551)
+- Toda frase mostra a lista "Palavra por palavra" (IPA, classe e tradução de cada palavra, na ordem da frase), com ou sem estrutura sintática, inclusive parágrafos e histórias. Palavra sem anotação aparece mesmo assim, sem tradução.
+- Na etapa do exemplo (1100 frases de palavras e formas verbais) a lista vem da nova coluna `course_units.example_annotations`, derivada do dicionário já publicado mais 150 palavras que só existiam em exemplos. Migration `20261008120000_course_example_annotations_551.sql` (aplicada em produção; rollback só remove a coluna).
+- Corrige bug do #545: o agrupamento por estrutura dividia a frase pela letra "s" por perda da barra invertida na regex.
+
 ## Aulas da Loja na ordem da trilha e auditoria de nível, ordem e cobertura (#548)
 - Na página do curso (Loja e Meus cursos) as aulas seguem a ordem da trilha (nível, depois `curriculum_order`) e aparecem agrupadas por nível quando o curso mistura níveis (ex.: 1000 palavras, A1 a B1). "Continuar" e a numeração acompanham essa ordem; o número antigo do capítulo fica em `source_chapter_number`. Aplicado ao carregar o catálogo (`utils/db/course-trail-order.js`).
 - Auditoria de sequência ampliada para 23 estruturas (passiva, discurso indireto, relativas, would, terceira condicional, wish, causativo, might/may, past perfect, perfect contínuo), com carga de vocabulário novo e comprimento das frases por nível. Resultado: nenhuma frase fora do nível; 19 exceções documentadas (fórmulas e molduras).

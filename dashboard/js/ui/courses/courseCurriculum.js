@@ -4,6 +4,7 @@ import { escapeHTML } from '../../../../utils/html.js';
 import { startLesson, lessonProgress } from './courseUi.js';
 
 const ROLE_LABEL = { base: 'Base do nível', extra: 'Prática extra', optional: 'Opcional por objetivo' };
+const ROLE_TABS = [['base', 'Base do nível'], ['extra', 'Prática extra'], ['optional', 'Opcional'], ['', 'Todos']];
 const STAGE_LABEL = { introduction: 'Introdução', practice: 'Prática', application: 'Aplicação', consolidation: 'Consolidação' };
 
 // Tipo da aula para o aluno (chip), derivado do prefixo do ID da aula: gramática e
@@ -36,6 +37,8 @@ export function pickCurrentModule(groups, nextLessonId) {
   return pending ? pending[0] : null;
 }
 
+const STATE_ICON = { done: '✓', next: '▶', progress: '◐', todo: '' };
+
 function statusOf(lesson, course, path) {
   const progress = lessonProgress(lesson, course);
   if (progress.done) return { key: 'done', label: 'Concluída', progress };
@@ -52,6 +55,7 @@ function lessonRow({ course, lesson }, { path, fixedLevel }) {
   const buttonText = status.key === 'done' ? 'Revisar aula' : status.key === 'next' ? 'Fazer próxima aula' : 'Praticar aula';
   const buttonClass = status.key === 'next' ? 'course-btn-primary-lg' : 'course-btn-continue';
   return `<li class="course-lesson-row is-${status.key}">
+    <span class="course-lesson-icon is-${status.key}" aria-hidden="true">${STATE_ICON[status.key]}</span>
     <div class="course-lesson-main">
       <strong>${escapeHTML(lesson.title)}</strong>
       <span class="course-lesson-chips">
@@ -73,10 +77,10 @@ export function renderCurriculum(container, { catalog, app, level = 'A1', path, 
   let chosen = level;
   let role = 'base';
   container.innerHTML = `<div class="course-section-head"><h2 class="course-section-title">${fixedLevel ? 'Aulas e módulos' : 'Conteúdos por nível'}</h2></div>
-    <p class="course-hub-subtitle">Siga a base na trilha. Prática extra e opcionais ficam disponíveis sem bloquear seu avanço.</p>
+    ${fixedLevel ? '' : '<p class="course-hub-subtitle">Siga a base na trilha. Prática extra e opcionais ficam disponíveis sem bloquear seu avanço.</p>'}
     <div class="course-filter-row">
       ${fixedLevel ? '' : `<label>Nível <select data-curriculum-level aria-label="Nível dos conteúdos">${['A1', 'A2', 'B1', 'B2', 'C1'].map(l => `<option ${l === chosen ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`}
-      <label>Conteúdo <select data-curriculum-role aria-label="Tipo de conteúdo"><option value="base">Base do nível</option><option value="extra">Prática extra</option><option value="optional">Opcional por objetivo</option><option value="">Todos os conteúdos</option></select></label>
+      ${fixedLevel ? `<div class="course-subnav course-subnav--pills" role="tablist" aria-label="Tipo de conteúdo">${ROLE_TABS.map(([value, label]) => `<button type="button" role="tab" class="course-tab-btn ${value === role ? 'active' : ''}" aria-selected="${value === role}" data-role-tab="${value}">${label}</button>`).join('')}</div>` : `<label>Conteúdo <select data-curriculum-role aria-label="Tipo de conteúdo"><option value="base">Base do nível</option><option value="extra">Prática extra</option><option value="optional">Opcional por objetivo</option><option value="">Todos os conteúdos</option></select></label>`}
     </div><p class="course-card-stats" data-curriculum-status role="status" aria-live="polite"></p><div id="course-curriculum-modules" data-curriculum-modules role="region" aria-label="Módulos de conteúdo"></div>`;
   const region = container.querySelector('[data-curriculum-modules]');
   function paint() {
@@ -91,12 +95,12 @@ export function renderCurriculum(container, { catalog, app, level = 'A1', path, 
       groups.get(title).push(item);
     }
     const current = fixedLevel ? pickCurrentModule(groups, path?.next?.lesson_id) : null;
-    region.innerHTML = groups.size ? [...groups].map(([title, list]) => {
+    region.innerHTML = groups.size ? [...groups].map(([title, list], index) => {
       const doneCount = list.filter(({ course, lesson }) => lessonProgress(lesson, course).done).length;
       const complete = doneCount === list.length;
       const badge = title === current ? '<span class="course-chip is-current">Módulo atual</span>' : complete ? '<span class="course-chip is-done">Módulo concluído</span>' : '';
       return `<details class="course-curriculum-module${complete ? ' is-complete' : ''}"${title === current ? ' open' : ''}>
-      <summary><strong>${escapeHTML(title)}</strong>${badge}<span class="course-card-stats">${doneCount} de ${list.length} ${list.length === 1 ? "aula concluída" : "aulas concluídas"}</span></summary>
+      <summary>${fixedLevel ? `<span class="course-module-num" aria-hidden="true">${complete ? '✓' : index + 1}</span>` : ''}<span class="course-module-title"><strong>${escapeHTML(title)}</strong>${badge}</span><span class="course-module-meta"><span class="course-card-stats">${doneCount} de ${list.length} ${list.length === 1 ? "aula concluída" : "aulas concluídas"}</span>${fixedLevel ? `<span class="course-module-bar" aria-hidden="true"><span style="width:${Math.round((doneCount / Math.max(1, list.length)) * 100)}%"></span></span>` : ''}</span></summary>
       ${list[0]?.lesson.learning_objective ? `<p class="course-hub-subtitle">Objetivo: ${escapeHTML(list[0].lesson.learning_objective)}</p>` : ''}
       <ol class="course-curriculum-lessons">${list.map(entry => lessonRow(entry, { path, fixedLevel })).join('')}</ol></details>`;
     }).join('') : '<p class="course-hub-subtitle">Nenhuma aula desta categoria neste nível.</p>';
@@ -111,7 +115,14 @@ export function renderCurriculum(container, { catalog, app, level = 'A1', path, 
     chosen = value; if (select) select.value = value; paint(); onLevelChange?.(value);
   }
   select?.addEventListener('change', e => setLevel(e.target.value));
-  container.querySelector('[data-curriculum-role]').addEventListener('change', e => { role = e.target.value; paint(); });
+  container.querySelector('[data-curriculum-role]')?.addEventListener('change', e => { role = e.target.value; paint(); });
+  container.querySelectorAll('[data-role-tab]').forEach(tab => tab.addEventListener('click', () => {
+    role = tab.dataset.roleTab; paint();
+    container.querySelectorAll('[data-role-tab]').forEach(other => {
+      const on = other === tab;
+      other.classList.toggle('active', on); other.setAttribute('aria-selected', String(on));
+    });
+  }));
   paint();
   return { setLevel };
 }

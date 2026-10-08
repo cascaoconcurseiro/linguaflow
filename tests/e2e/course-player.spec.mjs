@@ -206,6 +206,54 @@ test.describe('pausa, saída e configurações', () => {
   });
 });
 
+test.describe('explicar depois de acertar (opcional)', () => {
+  test('desligado por padrão: acerto avança sozinho', async ({ page }) => {
+    await open(page, 'difficulty=easy');
+    await answer(page, 'I am here');
+    await expect(counter(page)).toHaveText('2 / 2');
+    await expect(page.locator('#course-breakdown')).toBeHidden();
+  });
+  test('ligado: para na explicação, foca Continuar e só avança ao pedir, uma vez só', async ({ page }) => {
+    await open(page, 'difficulty=easy&explain');
+    await answer(page, 'I am here');
+    const panel = page.locator('#course-breakdown');
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('.course-breakdown-translation')).toHaveText('I am here.');
+    await expect(panel).toContainText('Nota de s1.');
+    await expect(page.locator('#course-feedback')).toContainText('Leia a explicação');
+    await page.waitForTimeout(900);
+    await expect(counter(page)).toHaveText('1 / 2');
+    const next = panel.getByRole('button', { name: 'Continuar', exact: true });
+    await expect(next).toBeFocused();
+    await next.dblclick();
+    await expect(counter(page)).toHaveText('2 / 2');
+    await expect(panel).toBeHidden();
+  });
+  test('ligado: Enter no botão continua e a segunda frase também explica; fim mostra o resumo', async ({ page }) => {
+    await open(page, 'difficulty=easy&explain');
+    await answer(page, 'I am here');
+    await page.keyboard.press('Enter');
+    await answer(page, 'You are late');
+    await page.locator('#course-breakdown').getByRole('button', { name: 'Continuar', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Capítulo concluído' })).toBeVisible();
+  });
+  test('erro não abre a explicação; ligado em palavra pula a explicação da etapa da palavra', async ({ page }) => {
+    await open(page, 'difficulty=easy&explain');
+    await answer(page, 'x y z');
+    await expect(page.locator('#course-breakdown')).toBeHidden();
+    await open(page, 'units=word&difficulty=medium&explain');
+    await answer(page, 'keys');
+    await expect(page.locator('#course-cue')).toHaveText('Frase: Perdi minhas chaves.', { timeout: 5000 });
+    await expect(page.locator('#course-breakdown')).toBeHidden();
+  });
+  test('a opção aparece nas configurações do player e persiste', async ({ page }) => {
+    await open(page, 'difficulty=easy');
+    await page.getByRole('button', { name: 'Configurações da prática' }).click();
+    await page.getByRole('switch', { name: 'Explicar cada frase depois de acertar' }).check();
+    expect((await page.evaluate(() => JSON.parse(localStorage.getItem('lf_course_prefs')))).explain).toBe(true);
+  });
+});
+
 test.describe('palavra com frase de exemplo', () => {
   test('após acertar a palavra pede a frase do exemplo e só então conclui', async ({ page }) => {
     await open(page, 'units=word&difficulty=medium');

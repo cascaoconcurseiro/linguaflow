@@ -103,7 +103,8 @@ Perguntas operacionais (#540): quantos alunos veem o aviso de ofensiva depois de
 - **Sequência:** a base A1–B2 já respeita a ordem de estruturas; as únicas ocorrências antecipadas (21 frases) são fórmulas de sobrevivência ("Can you repeat that?") ou molduras de exemplo, declaradas em `ALLOWED` de `scripts/audit-course-sequence.mjs` com motivo. Antes de reordenar qualquer aula, rode `npm run content:audit`. Reordenar exige migration append-only de `curriculum_order`; nunca reescrever a #535 publicada. O documento `AUDITORIA_SEQUENCIA.md` é gerado.
 - **Notas:** `AUDITORIA_NOTAS.md` (gerado) mostra o que os números de preenchimento escondem: 720 palavras sem nota própria, 9,8% de notas curtas, notas genéricas repetidas e só 11,1% das frases com estrutura (grupos sintáticos). Escrever essas notas e estruturas é trabalho editorial por lote com revisão humana (#510, #507), não automatizável com segurança; o painel agora mostra o melhor disponível por frase.
 - **Painel de explicação:** `buildBreakdown(unit, { stage, objective })` decide o que mostrar: grupos sintáticos > palavra por palavra > nada, mais o foco da aula. Na etapa do exemplo a frase praticada é `example_en`.
-- **Ainda não feito:** abrir a explicação automaticamente após acerto (avanço automático em 500 ms torna a leitura inviável; exigiria pausa opcional) e escrever estruturas/notas das ~2876 frases sem grupos.
+- **Explicação após acerto (#546, feito):** preferência `explain` (padrão desligada) em `coursePrefs.js`; o player para no painel e foca "Continuar"; o avanço automático de 500 ms continua o padrão.
+- **Ainda não feito:** escrever estruturas/notas das ~2876 frases sem grupos. Existe `scripts/structure-chunker.mjs` (rascunho por regras que exige revisão humana antes de virar migration); nada foi publicado sem revisão.
 
 ## Mapa de testes do curso (#544)
 
@@ -121,3 +122,7 @@ Ao mexer em qualquer tela de curso, rode `npm run test:courses` e `npx playwrigh
 | Revisão e ritmo | `course-review-method.spec.mjs`, `course-review-pacing.spec.mjs` | reforço, meta diária |
 
 Limite: tudo isso é navegador simulado. RLS, Supabase real, áudio real e QA autenticado seguem como evidência separada.
+
+## Padrão visual da página do nível (#546)
+
+Blocos reutilizados do sistema, na ordem da tela: `course-link` (voltar), `course-panel course-level-hero` (pílula `levelPill`, título `course-hero-title`, `course-hero-progress-track` com %, `course-btn-primary-lg` único), `course-metrics`/`course-metric`, lista de avisos `course-level-notices`, abas `course-subnav--pills` + `course-tab-btn`, módulos `details.course-curriculum-module` como cartões (`course-module-num`, `course-module-bar`) e linhas `course-lesson-row` com `course-lesson-icon`. Só tokens `--course-*` (claro/escuro). Ao criar outra página de nível/curso, reuse esses blocos e rode `course-level-path.spec.mjs` (cobre abas por teclado, ícones, 320/390 px, contraste no escuro).

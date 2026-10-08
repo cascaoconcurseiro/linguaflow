@@ -31,3 +31,12 @@ test('botões de mais/menos andam no passo e param nos limites', () => {
   for (let i = 0; i < 20; i++) p = stepPref(p, 'readings', +1);
   assert.equal(p.readings, 8);
 });
+
+test('explain: padrão desligado, aceita só booleano e persiste', () => {
+  assert.equal(DEFAULT_PREFS.explain, false);
+  assert.equal(normalizePrefs({ explain: 'sim' }).explain, false);
+  assert.equal(normalizePrefs({ explain: true }).explain, true);
+  const st = memoryStorage();
+  savePrefs({ ...DEFAULT_PREFS, explain: true }, st);
+  assert.equal(loadPrefs(st).explain, true);
+});

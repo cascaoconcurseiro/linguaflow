@@ -691,31 +691,38 @@ export async function renderCoursePractice(container, app, params = {}) {
     }
     const unit = session.unit;
     const model = buildBreakdown(unit, { stage: session.stage, objective: lessonObjective });
-    const wordsFor = (group) => model.words.filter((w) => group.surface.toLowerCase().split(/s+/)
-      .map((s) => s.replace(/^[^a-z]+|[^a-z']+$/g, '')).includes(w.surface.toLowerCase()));
-    const rendered = new Set();
+    // Estrutura: palavras de cada grupo, cada palavra uma vez (por identidade, pois a frase pode repetir palavras).
+    const used = new Set();
+    const wordsFor = (group) => {
+      const forms = group.surface.toLowerCase().split(/\s+/).map((s) => s.replace(/^[^a-z0-9]+|[^a-z0-9']+$/g, ''));
+      const found = [];
+      for (const form of forms) {
+        const word = model.words.find((w) => !used.has(w) && w.surface.toLowerCase() === form);
+        if (word) { used.add(word); found.push(word); }
+      }
+      return found;
+    };
     const wordHtml = (w) => `
       <span class="course-structure-word">
         ${w.ipa ? `<span class="course-breakdown-ipa">${escapeHTML(w.ipa)}</span>` : ''}
         <strong lang="en">${escapeHTML(w.surface)}</strong>
-        <small>${escapeHTML(POS_LABEL[w.pos] || w.pos || '')}${w.gloss ? ` · ${escapeHTML(w.gloss)}` : ''}</small>
+        <small>${escapeHTML(POS_LABEL[w.pos] || w.pos || '')}${w.gloss ? `${w.pos ? ' · ' : ''}${escapeHTML(w.gloss)}` : ''}</small>
       </span>`;
-    const detail = model.mode === 'structure' ? `
+    const structure = model.mode === 'structure' ? `
       <div class="course-structure" aria-label="Estrutura da frase">
-        ${model.groups.map((g) => {
-          const ws = wordsFor(g).filter((w) => !rendered.has(w) && rendered.add(w));
-          return `<div class="course-structure-group ${ROLE_CLASS[g.role] || 'slang'}">
+        ${model.groups.map((g) => `<div class="course-structure-group ${ROLE_CLASS[g.role] || 'slang'}">
             <span class="course-structure-role">${escapeHTML(ROLE_LABEL[g.role] || g.role || '')}</span>
-            <div class="course-structure-words">${ws.map(wordHtml).join('') || `<strong lang="en">${escapeHTML(g.surface)}</strong>`}</div>
-          </div>`;
-        }).join('')}
-      </div>` : model.mode === 'words' ? `
-      <div class="course-structure" aria-label="Palavra por palavra">
-        <div class="course-structure-group slang">
-          <span class="course-structure-role">Palavra por palavra</span>
-          <div class="course-structure-words">${model.words.map(wordHtml).join('')}</div>
-        </div>
+            <div class="course-structure-words">${wordsFor(g).map(wordHtml).join('') || `<strong lang="en">${escapeHTML(g.surface)}</strong>`}</div>
+          </div>`).join('')}
       </div>` : '';
+    // Palavra por palavra: sempre, para toda frase, na ordem em que as palavras aparecem.
+    const wordList = model.words.length ? `
+      <div class="course-word-list" role="group" aria-label="Palavra por palavra">
+        <span class="course-structure-role">Palavra por palavra</span>
+        <ol class="course-word-by-word">${model.words.map((w) => `<li data-word="${escapeHTML(w.surface.toLowerCase())}">${wordHtml(w)}</li>`).join('')}</ol>
+      </div>` : '';
+    const detail = structure + wordList;
+
     panel.innerHTML = `
       <p class="course-breakdown-translation" lang="en">${escapeHTML(model.sentence)}</p>
       <p style="margin:0;">${escapeHTML(model.translation)}</p>

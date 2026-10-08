@@ -489,7 +489,7 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 | `dashboard/js/core/adaptiveLearning.js` | P | Regras de aprendizagem adaptativa: plano por card, honestidade da autoavaliação, perfil do aluno e detecção de cansaço. |
 | `dashboard/js/core/ai.js` | G | cliente de IA do dashboard. |
 | `dashboard/js/core/app.js` | G | Núcleo do dashboard: roteador com renderização protegida contra tela antiga, sessão, tema, atualização da PWA e avisos. |
-| `dashboard/js/core/courseBreakdown.js` | P | #544: o que o painel "estrutura, pronúncia e significado" mostra para a frase EFETIVAMENTE praticada. |
+| `dashboard/js/core/courseBreakdown.js` | P | #544/#551: o que o painel "Mostrar resposta" exibe para a frase EFETIVAMENTE praticada. |
 | `dashboard/js/core/courseCompletion.js` | P | Consulta a recomendação somente depois de confirmar o progresso no servidor. |
 | `dashboard/js/core/coursePracticeSession.js` | M | Estado de uma sessão de prática, sem DOM. Regras de combo: só acerto sem envio errado e sem dica soma combo; dica, resposta revelada, envio errado ou pular quebram o c… |
 | `dashboard/js/core/coursePrefs.js` | P | Preferências do player de cursos, guardadas neste navegador. |
@@ -677,6 +677,7 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 |---|---|---|
 | `supabase/rollback/course_audio_acceptance_503.sql` | P | Reverte somente a inclusão aprovada do áudio #503/#505; mantém aulas, níveis e progresso. |
 | `supabase/rollback/course_curriculum_528.sql` | P | Reversão operacional #528: executar numa transação; preserva colunas, conteúdo e histórico. |
+| `supabase/rollback/course_example_annotations_551.sql` | P | Rollback #551: remove só a coluna derivada; textos, anotações e progresso não são tocados. |
 | `supabase/rollback/course_level_history_537.sql` | P | #537: desativa captura e restaura leitura #535; preserva conquistas e progresso. |
 | `supabase/rollback/course_pedagogy_533.sql` | M | #533: executar numa transação. Preserva unidades e todo histórico; novas aulas ficam despublicadas. |
 | `supabase/rollback/course_review_method_531.sql` | M | Reversão #531: preserva sessões, resultados e vencimentos existentes. |
@@ -712,9 +713,9 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 
 | Grupo | Quantidade | Observação |
 |---|---|---|
-| `supabase/migrations/` | 154 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261007154111_course_level_history_537.sql`. Nunca edite uma migration já aplicada. |
+| `supabase/migrations/` | 155 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261008120000_course_example_annotations_551.sql`. Nunca edite uma migration já aplicada. |
 | `supabase/content/batches/` | 63 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
-| `tests/*.test.mjs` | 203 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
+| `tests/*.test.mjs` | 204 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
 | `tests/e2e/` | 15 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
 | `tests/db/` | 16 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |
 | `tests/production/` | 1 | Verificação de isolamento entre contas no Supabase de produção (workflow agendado). |

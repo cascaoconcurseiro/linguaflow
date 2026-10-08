@@ -6,8 +6,9 @@ const open = async (page, query) => {
   await page.waitForSelector('html[data-ready="true"]');
 };
 const reveal = async page => { await page.getByRole('button', { name: /Mostrar resposta/ }).click(); return page.locator('#course-breakdown'); };
+const wordList = panel => panel.getByRole('group', { name: 'Palavra por palavra' });
 
-test('etapa do exemplo: o painel explica a frase de exemplo praticada, não a palavra', async ({ page }) => {
+test('etapa do exemplo: explica a frase de exemplo e lista suas palavras, não as da palavra', async ({ page }) => {
   await open(page, 'u=0');
   const input = page.locator('#sentence-slots input').first();
   await input.fill('keys'); await input.press('Enter');
@@ -19,23 +20,25 @@ test('etapa do exemplo: o painel explica a frase de exemplo praticada, não a pa
   await expect(panel).toContainText('Palavra desta etapa: keys');
   await expect(panel).toContainText('Plural de key.');
   await expect(panel.locator('.course-structure')).toHaveCount(0);
+  await expect(wordList(panel).locator('li')).toHaveText([/I[\s\S]*eu/, /lost[\s\S]*perdi/, /my[\s\S]*meu/, /keys[\s\S]*chaves/]);
 });
 
-test('sem grupos sintáticos: palavra por palavra, sem seção de estrutura vazia', async ({ page }) => {
+test('sem estrutura: palavra por palavra completo, sem seção de estrutura', async ({ page }) => {
   await open(page, 'u=1');
   const panel = await reveal(page);
   await expect(panel.locator('.course-breakdown-translation')).toHaveText('I am here.');
-  await expect(panel.getByLabel('Palavra por palavra')).toContainText('estou');
+  await expect(wordList(panel).locator('li')).toHaveCount(3);
+  await expect(wordList(panel)).toContainText('estou');
   await expect(panel.getByLabel('Estrutura da frase')).toHaveCount(0);
   await expect(panel).toContainText('Verbo to be.');
   await expect(panel.locator('[data-breakdown-focus]')).toHaveText('Foco da aula: Instruções curtas com imperativo');
 });
 
-test('sem grupos nem palavras: mostra tradução e foco da aula, nunca um painel vazio', async ({ page }) => {
+test('sem anotações: toda palavra aparece mesmo assim, e o foco da aula acompanha', async ({ page }) => {
   await open(page, 'u=2');
   const panel = await reveal(page);
   await expect(panel).toContainText('Vá agora.');
-  await expect(panel.locator('.course-structure')).toHaveCount(0);
+  await expect(wordList(panel).locator('li')).toHaveText([/Go/, /now/]);
   await expect(panel.locator('[data-breakdown-focus]')).toBeVisible();
 });
 
@@ -45,15 +48,26 @@ test('sem objetivo da aula não inventa foco', async ({ page }) => {
   await expect(panel.locator('[data-breakdown-focus]')).toHaveCount(0);
 });
 
-test('com grupos sintáticos mostra a estrutura e não repete o foco', async ({ page }) => {
+test('com estrutura mostra os grupos E a lista palavra por palavra, sem repetir o foco', async ({ page }) => {
   await open(page, 'u=3');
   const panel = await reveal(page);
-  await expect(panel.getByLabel('Estrutura da frase')).toContainText('works');
+  const structure = panel.getByLabel('Estrutura da frase');
+  await expect(structure).toContainText('works');
+  await expect(structure.locator('.course-structure-group')).toHaveCount(2);
+  await expect(structure.locator('.course-structure-group').nth(0)).toContainText('ela');
+  await expect(structure.locator('.course-structure-group').nth(1)).toContainText('trabalha');
+  await expect(wordList(panel).locator('li')).toHaveCount(2);
   await expect(panel.locator('[data-breakdown-focus]')).toHaveCount(0);
 });
 
-test('conteúdo HTML da frase e da nota é escapado e mostrar de novo fecha o painel', async ({ page }) => {
+test('hífen, apóstrofo e pontuação: cada palavra uma vez, sem a pontuação colada', async ({ page }) => {
   await open(page, 'u=4');
+  const panel = await reveal(page);
+  await expect(wordList(panel).locator('li')).toHaveText([/It's[\s\S]*é/, /a[\s\S]*um/, /rip-off[\s\S]*roubo/, /Ana/]);
+});
+
+test('conteúdo HTML da frase e da nota é escapado e mostrar de novo fecha o painel', async ({ page }) => {
+  await open(page, 'u=5');
   const panel = await reveal(page);
   await expect(panel.locator('img, script, b')).toHaveCount(0);
   await expect(panel).toContainText('<b>nota</b>');

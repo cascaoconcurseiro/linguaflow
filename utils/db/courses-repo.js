@@ -5,7 +5,7 @@
 
 import { sortLessonsByTrail } from './course-trail-order.js';
 
-const UNIT_FIELDS = 'id,lesson_id,order_index,kind,text,translation_pt,ipa,explanation_note,syntax_groups,annotations,example_en,example_pt,image_url,image_credit,image_license';
+const UNIT_FIELDS = 'id,lesson_id,order_index,kind,text,translation_pt,ipa,explanation_note,syntax_groups,annotations,example_en,example_pt,example_annotations,image_url,image_credit,image_license';
 const ID_PATTERN = /^[a-z0-9-]{1,80}$/;
 const PERIODS = new Set(['daily', 'weekly', 'monthly', 'all']);
 

@@ -574,3 +574,7 @@ button.course-hud-pill { font: inherit; cursor: pointer; }
   .course-hud-pill.combo.bump,
   .course-summary-grid .course-hud-pill { animation: none; }
 }
+/* #551: palavra por palavra em toda frase, uma coluna por palavra na ordem da frase. */
+.course-word-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.course-word-by-word { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px 14px; }
+.course-word-by-word .course-structure-word { min-width: 56px; }

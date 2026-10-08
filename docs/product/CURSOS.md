@@ -126,3 +126,13 @@ Limite: tudo isso é navegador simulado. RLS, Supabase real, áudio real e QA au
 ## Padrão visual da página do nível (#546)
 
 Blocos reutilizados do sistema, na ordem da tela: `course-link` (voltar), `course-panel course-level-hero` (pílula `levelPill`, título `course-hero-title`, `course-hero-progress-track` com %, `course-btn-primary-lg` único), `course-metrics`/`course-metric`, lista de avisos `course-level-notices`, abas `course-subnav--pills` + `course-tab-btn`, módulos `details.course-curriculum-module` como cartões (`course-module-num`, `course-module-bar`) e linhas `course-lesson-row` com `course-lesson-icon`. Só tokens `--course-*` (claro/escuro). Ao criar outra página de nível/curso, reuse esses blocos e rode `course-level-path.spec.mjs` (cobre abas por teclado, ícones, 320/390 px, contraste no escuro).
+
+## Ordem da trilha na Loja e resposta sobre nível, ordem e lacunas (#548)
+
+**Ordem das aulas:** `CoursesRepository.listCatalog` aplica `sortLessonsByTrail` (nível, depois `curriculum_order`) e renumera `chapter_number` pela posição; o número antigo vai para `source_chapter_number`. Toda tela que lista aulas de um curso (detalhe na Loja, Continuar, Início) usa essa ordem; o detalhe agrupa por nível. O título do player omite o número quando a aula tem `curriculum_order`.
+
+**As frases estão no nível certo?** Evidências geradas (`AUDITORIA_SEQUENCIA.md`): nenhuma estrutura das 23 verificadas aparece antes da aula que a ensina sem exceção documentada; o comprimento médio das frases cresce A1 4,5 → A2 5,4 → B1 6,3 → B2 7,3 palavras (máximo 10/11/13/13) e a carga de palavras novas por aula é de 9,1 em A1 e cai para 4,5 a 6,7 nos níveis seguintes. Limites: é heurística sobre regex e contagem de palavras; o projeto não tem lista oficial de vocabulário por nível (CEFR), então "palavra do nível certo" não é verificável por máquina. Cursos como "Essential verbs A1" têm todas as aulas em B1 por decisão da #528 (formas do passado e particípio); a faixa do curso é exibida pelos níveis das aulas.
+
+**Falta aula ou tópico?** `AUDITORIA_COBERTURA.md` (gerado) cruza 66 tópicos esperados com as aulas e frases: toda aula dedicada está exatamente no nível esperado; faltam 5 tópicos (reflexivos A2, had better/supposed to B1, so/such that B1, verbos de relato B2, the more the more B2), registrados na Issue #549. Criá-los muda o currículo publicado e pede revisão humana, então não foi feito sem aprovação.
+
+**Precisa reorganizar?** Não: com 23 estruturas verificadas, nenhum tópico precisa mudar de lugar. Ajustes feitos: marcadores de might/may e wish passaram a apontar para as aulas que de fato os introduzem (probabilidade B1 e segunda condicional B1).

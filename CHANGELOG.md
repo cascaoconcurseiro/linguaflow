@@ -1,5 +1,10 @@
 # Changelog
 
+## Aulas da Loja na ordem da trilha e auditoria de nível, ordem e cobertura (#548)
+- Na página do curso (Loja e Meus cursos) as aulas seguem a ordem da trilha (nível, depois `curriculum_order`) e aparecem agrupadas por nível quando o curso mistura níveis (ex.: 1000 palavras, A1 a B1). "Continuar" e a numeração acompanham essa ordem; o número antigo do capítulo fica em `source_chapter_number`. Aplicado ao carregar o catálogo (`utils/db/course-trail-order.js`).
+- Auditoria de sequência ampliada para 23 estruturas (passiva, discurso indireto, relativas, would, terceira condicional, wish, causativo, might/may, past perfect, perfect contínuo), com carga de vocabulário novo e comprimento das frases por nível. Resultado: nenhuma frase fora do nível; 19 exceções documentadas (fórmulas e molduras).
+- `npm run content:coverage`: matriz de 66 tópicos esperados por nível; revela 5 lacunas reais (backlog na Issue #549). Nenhuma aula foi reordenada nem frase removida; sem migration.
+
 ## Página do nível no padrão do sistema e explicação opcional após acertar (#546)
 - Página do nível redesenhada com os mesmos blocos da Loja e do Início: cartão de progresso (pílula do nível, barra com %, CTA único), métricas (aulas, módulos, extras), avisos de conquista em bloco discreto, abas de conteúdo (Base, Prática extra, Opcional, Todos) no lugar do select, módulos em cartões numerados com barra de progresso e aulas com ícone de estado. Claro e escuro pelos tokens do sistema; 320 e 390 px sem rolagem lateral; alvos de toque de 44 px nas ações do cabeçalho.
 - Nova opção do player e do preparo: "Explicar cada frase depois de acertar" (desligada por padrão). Ligada, o acerto não avança sozinho: abre a explicação, foca "Continuar" e só avança ao pedir (a etapa da palavra segue direto para o exemplo).

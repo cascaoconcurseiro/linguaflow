@@ -10,6 +10,21 @@ import { renderLevelHistory } from './courseLevelProgress.js';
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1'];
 const SORTS = { recommended: 'Recomendados', popular: 'Mais alunos', newest: 'Mais novos' };
 
+// Aulas já chegam na ordem da trilha; aqui só agrupa por nível para mostrar a progressão.
+export function groupLessonsByLevel(course) {
+  const groups = [];
+  for (const lesson of course.lessons) {
+    const level = lesson.level || course.level;
+    const last = groups.at(-1);
+    if (last?.level === level) last.lessons.push(lesson);
+    else groups.push({ level, lessons: [lesson] });
+  }
+  return groups;
+}
+
+const LEVEL_HEADING = { A1: 'Nível A1 · Iniciante', A2: 'Nível A2 · Básico', B1: 'Nível B1 · Intermediário', B2: 'Nível B2 · Intermediário avançado', C1: 'Nível C1 · Avançado' };
+const levelHeading = (level) => LEVEL_HEADING[level] || `Nível ${level}`;
+
 function courseCard(course, { showToggle = true, inMineLabel = '✓ Em Meus cursos' } = {}) {
   const inMine = Boolean(course.my?.in_my_courses);
   const percent = Number(course.my?.percent_completed || 0);
@@ -159,6 +174,7 @@ export function renderCourseDetail(panel, ctx, courseId, openLessonId = null) {
   const cont = continueLessonOf(course);
   const finished = !cont;
   const inMine = Boolean(course.my?.in_my_courses);
+  const groupedLessons = groupLessonsByLevel(course);
 
   panel.innerHTML = `
     <button class="course-link" type="button" data-back>← Loja de cursos</button>
@@ -176,10 +192,12 @@ export function renderCourseDetail(panel, ctx, courseId, openLessonId = null) {
         <button class="course-player-btn-back" type="button" data-toggle-mine="${escapeHTML(course.id)}" aria-pressed="${inMine}">${inMine ? '✓ Em Meus cursos' : '+ Meus cursos'}</button>
       </div>
     </header>
-    <h3 class="course-section-title">Capítulos por ordem de estudo</h3>
+    <h3 class="course-section-title">Aulas na ordem da trilha</h3>
     <p class="course-hub-subtitle">Siga a trilha do Início para estudar na sequência do seu nível. Cada capítulo indica o nível, o módulo, o que estudar antes e se é base, prática extra ou opcional.${course.is_core === false ? ' Os capítulos deste curso são extras ou opcionais e não bloqueiam a trilha principal.' : ''}</p>
-    <ol class="course-chapter-list">
-      ${course.lessons.map((lesson) => {
+    ${groupedLessons.map(({ level, lessons: group }) => `<section class="course-chapter-group" aria-label="${escapeHTML(levelHeading(level))}">
+      ${groupedLessons.length > 1 ? `<h4 class="course-chapter-group-title">${levelPill(level)} <span>${escapeHTML(levelHeading(level))}</span></h4>` : ''}
+      <ol class="course-chapter-list" start="${group[0].chapter_number}">
+      ${group.map((lesson) => {
         const { done, percent: lp } = lessonProgress(lesson, course);
         return `<li class="course-chapter ${done ? 'is-done' : ''}">
           <span class="course-chapter-num" aria-hidden="true">${String(lesson.chapter_number).padStart(2, '0')}</span>
@@ -195,9 +213,7 @@ export function renderCourseDetail(panel, ctx, courseId, openLessonId = null) {
           <button class="course-btn-continue" type="button" data-lesson="${escapeHTML(lesson.id)}">Praticar capítulo</button>
         </li>`;
       }).join('')}
-    </ol>`;
-
-  panel.querySelector('[data-back]').addEventListener('click', () => navigate('store'));
+      </ol></section>`).join('')}`;  panel.querySelector('[data-back]').addEventListener('click', () => navigate('store'));
   panel.querySelector('[data-continue]').addEventListener('click', () => startLesson(app, course, cont || course.lessons[0]));
   panel.querySelectorAll('[data-lesson]').forEach((b) => b.addEventListener('click', () => {
     startLesson(app, course, course.lessons.find((l) => l.id === b.dataset.lesson));

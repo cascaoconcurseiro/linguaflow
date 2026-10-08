@@ -766,3 +766,7 @@
 .course-level-detail .course-lesson-row.is-next { border-radius: 8px; }
 @media (max-width: 600px) { .course-level-detail .course-subnav--pills { flex-wrap: nowrap; overflow-x: auto; } }
 .course-level-detail > .course-link { min-height: 44px; display: inline-flex; align-items: center; }
+
+/* #548: lições do curso agrupadas por nível, na ordem da trilha. */
+.course-chapter-group { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.course-chapter-group-title { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 14px; font-weight: 700; color: var(--course-text); }

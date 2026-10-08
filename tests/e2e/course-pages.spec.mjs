@@ -254,3 +254,27 @@ test.describe('diálogo de preparo da aula', () => {
     expect(stored.audio).toBe(true);
   });
 });
+
+test.describe('aulas do curso na ordem da trilha (#548)', () => {
+  test('curso misto: aulas ordenadas por nível, agrupadas e numeradas pela posição de estudo', async ({ page }) => {
+    await open(page, '#courses/course/c-mixed', 'mixed');
+    const titles = await page.locator('.course-chapter strong').allTextContents();
+    expect(titles.map(t => t.replace('Próximo', '').trim())).toEqual(['Aula A1 primeira', 'Aula A1 segunda', 'Aula A2', 'Aula B1']);
+    await expect(page.locator('.course-chapter-group')).toHaveCount(3);
+    await expect(page.getByRole('region', { name: 'Nível A1 · Iniciante' })).toContainText('Aula A1 segunda');
+    await expect(page.getByRole('region', { name: 'Nível B1 · Intermediário' })).toContainText('Aula B1');
+    await expect(page.locator('.course-chapter-num')).toHaveText(['01', '02', '03', '04']);
+    await expect(page.getByRole('heading', { name: 'Aulas na ordem da trilha' })).toBeVisible();
+  });
+  test('continuar aponta a primeira aula pendente da trilha, não do número antigo', async ({ page }) => {
+    await open(page, '#courses/course/c-mixed', 'mixed');
+    await expect(page.locator('.course-chapter', { hasText: 'Aula A2' }).locator('.course-tab-badge')).toHaveText('Próximo');
+    await page.getByRole('button', { name: 'Continuar' }).first().click();
+    await expect(page.getByRole('dialog')).toContainText('Aula A2');
+  });
+  test('curso de um nível só não mostra cabeçalhos de nível', async ({ page }) => {
+    await open(page, '#courses/course/c-greet');
+    await expect(page.locator('.course-chapter-group-title')).toHaveCount(0);
+    await expect(page.locator('.course-chapter')).toHaveCount(2);
+  });
+});

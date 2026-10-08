@@ -336,6 +336,7 @@ export async function renderCoursePractice(container, app, params = {}) {
         replay: () => playAudio({ readings: 1 }),
         submit: submitPhrase,
         reveal: toggleBreakdown,
+        'continue-after-explain': continueAfterExplanation,
         hint: () => hintWord(focusedSlot),
         skip: skipPhrase,
         previous: goPrevious,
@@ -601,8 +602,30 @@ export async function renderCoursePractice(container, app, params = {}) {
     updateHud();
     updateActionStates();
     stopReading();
+    // Opcional (#546): depois de acertar a frase, para e explica; só avança quando o aluno pedir.
+    if (prefs.explain && result.nextStage !== 'example') {
+      holdForExplanation();
+      return;
+    }
     // Palavra certa com frase de exemplo: mesma unidade, segunda etapa (#442).
     setTimeout(result.nextStage === 'example' ? () => { if (!disposed) showUnit(); } : advance, result.nextStage === 'example' ? 700 : 500);
+  }
+
+  let explanationHeld = false;
+  function continueAfterExplanation() {
+    if (!explanationHeld) return;
+    explanationHeld = false;
+    advance();
+  }
+
+  function holdForExplanation() {
+    explanationHeld = true;
+    setFeedback('Certo! Leia a explicação e continue quando quiser.');
+    toggleBreakdown(true);
+    const panel = container.querySelector('#course-breakdown');
+    if (panel.querySelector('[data-action="continue-after-explain"]')) return;
+    panel.insertAdjacentHTML('beforeend', '<button type="button" class="course-btn-primary-lg" data-action="continue-after-explain">Continuar</button>');
+    panel.querySelector('[data-action="continue-after-explain"]').focus();
   }
 
   function advance() {
@@ -834,6 +857,7 @@ export async function renderCoursePractice(container, app, params = {}) {
       </label>
       <label class="course-setting-row"><span>Áudio da frase</span><input type="checkbox" role="switch" data-pref="audio" ${prefs.audio ? 'checked' : ''} /></label>
       <label class="course-setting-row"><span>Sons de digitação e feedback</span><input type="checkbox" role="switch" data-pref="sfx" ${prefs.sfx ? 'checked' : ''} /></label>
+      <label class="course-setting-row"><span>Explicar cada frase depois de acertar</span><input type="checkbox" role="switch" data-pref="explain" ${prefs.explain ? 'checked' : ''} /></label>
       <label class="course-setting-row"><span>Reduzir movimento</span><input type="checkbox" role="switch" data-pref="reduceMotion" ${prefs.reduceMotion ? 'checked' : ''} /></label>
       <div class="course-setting-row"><span>Leituras</span>${stepper('readings', 'Leituras', prefs.readings, 'Menos leituras', 'Mais leituras')}</div>
       <div class="course-setting-row"><span>Velocidade</span>${stepper('speed', 'Velocidade', formatSpeed(prefs.speed), 'Mais devagar', 'Mais rápido')}</div>

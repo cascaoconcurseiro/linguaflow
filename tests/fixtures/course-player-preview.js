@@ -7,7 +7,7 @@ const query = new URLSearchParams(location.search);
 const difficulty = query.get('difficulty') || 'medium';
 const kind = query.get('kind') || 'lesson';
 const fail = query.get('fail') || '';
-if (!query.has('noprefs')) localStorage.setItem('lf_course_prefs', JSON.stringify({ audio: false, sfx: false, reduceMotion: true }));
+if (!query.has('noprefs')) localStorage.setItem('lf_course_prefs', JSON.stringify({ audio: false, sfx: false, reduceMotion: true, explain: query.has('explain') }));
 
 const sentence = (id, text, pt, extra = {}) => ({ id, order_index: 1, kind: 'sentence', text, translation_pt: pt, explanation_note: `Nota de ${id}.`, ...extra });
 const SETS = {

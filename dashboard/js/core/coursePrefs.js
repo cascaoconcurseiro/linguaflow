@@ -12,6 +12,7 @@ export const DEFAULT_PREFS = Object.freeze({
   audio: true,         // tocar o áudio da frase
   sfx: true,           // sons de digitação e feedback
   reduceMotion: false, // tira animações não essenciais
+  explain: false,      // depois de acertar, para e mostra a explicação da frase
   readings: 2,         // quantas vezes a frase é lida ao aparecer
   speed: 1,            // velocidade da voz
 });
@@ -28,6 +29,7 @@ export function normalizePrefs(raw = {}) {
     audio: typeof raw.audio === 'boolean' ? raw.audio : DEFAULT_PREFS.audio,
     sfx: typeof raw.sfx === 'boolean' ? raw.sfx : DEFAULT_PREFS.sfx,
     reduceMotion: typeof raw.reduceMotion === 'boolean' ? raw.reduceMotion : DEFAULT_PREFS.reduceMotion,
+    explain: typeof raw.explain === 'boolean' ? raw.explain : DEFAULT_PREFS.explain,
     readings: clampStep(raw.readings, PREF_LIMITS.readings, DEFAULT_PREFS.readings),
     speed: clampStep(raw.speed, PREF_LIMITS.speed, DEFAULT_PREFS.speed),
   };

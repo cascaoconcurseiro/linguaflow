@@ -48,6 +48,7 @@ export function openCoursePrepareModal({ lesson, course, onStart }) {
     return `
       <label class="course-setting-row"><span>Áudio da frase</span><input type="checkbox" role="switch" data-pref="audio" ${prefs.audio ? 'checked' : ''} /></label>
       <label class="course-setting-row"><span>Sons de digitação e feedback</span><input type="checkbox" role="switch" data-pref="sfx" ${prefs.sfx ? 'checked' : ''} /></label>
+      <label class="course-setting-row"><span>Explicar cada frase depois de acertar</span><input type="checkbox" role="switch" data-pref="explain" ${prefs.explain ? 'checked' : ''} /></label>
       <label class="course-setting-row"><span>Reduzir movimento</span><input type="checkbox" role="switch" data-pref="reduceMotion" ${prefs.reduceMotion ? 'checked' : ''} /></label>
       ${step('readings', 'Leituras', `${prefs.readings}x`)}
       ${step('speed', 'Velocidade', `${String(prefs.speed).replace('.', ',')}x`)}

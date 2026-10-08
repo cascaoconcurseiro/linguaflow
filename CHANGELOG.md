@@ -1,5 +1,10 @@
 # Changelog
 
+## Página do nível no padrão do sistema e explicação opcional após acertar (#546)
+- Página do nível redesenhada com os mesmos blocos da Loja e do Início: cartão de progresso (pílula do nível, barra com %, CTA único), métricas (aulas, módulos, extras), avisos de conquista em bloco discreto, abas de conteúdo (Base, Prática extra, Opcional, Todos) no lugar do select, módulos em cartões numerados com barra de progresso e aulas com ícone de estado. Claro e escuro pelos tokens do sistema; 320 e 390 px sem rolagem lateral; alvos de toque de 44 px nas ações do cabeçalho.
+- Nova opção do player e do preparo: "Explicar cada frase depois de acertar" (desligada por padrão). Ligada, o acerto não avança sozinho: abre a explicação, foca "Continuar" e só avança ao pedir (a etapa da palavra segue direto para o exemplo).
+- Sem migration; nenhuma frase removida.
+
 ## Auditoria de sequência e painel de explicação da frase praticada (#544)
 - Painel "Mostrar resposta": na etapa do exemplo explica a frase de exemplo e sua tradução (antes mostrava a palavra); sem grupos sintáticos mostra palavra por palavra e, sem anotações, o foco da aula (`learning_objective`). Nunca exibe "Estrutura" vazia. Modelo em `dashboard/js/core/courseBreakdown.js`.
 - `npm run content:audit`: acusa estruturas usadas antes da aula que as ensina (A1–B2 base); exceções documentadas, teste de CI falha em violação nova. Relatório em `docs/product/AUDITORIA_SEQUENCIA.md`.

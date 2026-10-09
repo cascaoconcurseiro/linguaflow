@@ -43,6 +43,7 @@ import { SidebarPanelMethods } from './subtitles/engine/sidebar-panel.js';
 import { TranscriptTabMethods } from './subtitles/engine/transcript-tab.js';
 import { WordsTabMethods } from './subtitles/engine/words-tab.js';
 import { ExportMethods } from './subtitles/engine/export.js';
+import { MaxSyncMethods } from './subtitles/engine/max-sync.js';
 import { installMethods } from '../utils/install-methods.js';
 
 // ─── Engine Principal ─────────────────────────────────────────────────────────
@@ -442,6 +443,7 @@ export class SubtitleEngine {
         }
 
         const newCues = this._parseVTT(resp);
+        if (this.platform === 'max') this._maxTagSegment(newCues, url);
         if (newCues.length > 0) {
           let hasNewCues = false;
           if (this.xhrCues.length > 0) {
@@ -505,6 +507,7 @@ export class SubtitleEngine {
       console.debug('[LinguaFlow] HBO Max: aguardando VTT via XHR intercept');
       this._hideHBONativeSubtitles();
       this._autoEnableHBOSubtitles();
+      this._maxStartCalibration();
     }
 
     await this._injectSubtitleUI();
@@ -536,6 +539,7 @@ export class SubtitleEngine {
 
     this.cues = [];
     this.xhrCues = [];
+    if (this.platform === 'max') this._maxResetCalibration();
     this._ytFullCueVideoId = null;
     this._syncYouTubeNativeCaptions();
     this._currentCue = null;
@@ -955,4 +959,4 @@ export class SubtitleEngine {
   }
 }
 
-installMethods(SubtitleEngine, [CaptureMethods, CaptionDisplayMethods, PlaybackMethods, YouTubeDockMethods, SidebarPanelMethods, TranscriptTabMethods, WordsTabMethods, ExportMethods]);
+installMethods(SubtitleEngine, [CaptureMethods, CaptionDisplayMethods, PlaybackMethods, YouTubeDockMethods, SidebarPanelMethods, TranscriptTabMethods, WordsTabMethods, ExportMethods, MaxSyncMethods]);

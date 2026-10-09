@@ -94,6 +94,17 @@ O **LinguaFlow** une o consumo de conteúdo autêntico na web (filmes, séries, 
 
 > Mais detalhes na especificação técnica completa em [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
 
+### 🤖 Provedores de IA (DeepSeek e Claude)
+
+As explicações contextuais, traduções e histórias passam por uma única Edge Function (`supabase/functions/deepseek-chat`), que valida o login, aplica limite por usuário e encaminha ao provedor configurado. A chave nunca vai para o cliente.
+
+| Provedor | Como ativar (Supabase Secrets) | Estado |
+|---|---|---|
+| **DeepSeek** (padrão) | `DEEPSEEK_API_KEY` | Em produção hoje |
+| **Claude, da Anthropic** | `AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY` e, opcionalmente, `ANTHROPIC_MODEL` (padrão `claude-haiku-5-5`) | Integração implementada e coberta por testes de contrato (`tests/anthropic-adapter.test.mjs`); **ainda não ativada em produção** |
+
+O adaptador (`anthropic.ts`) converte o pedido para a API de Mensagens da Anthropic e devolve a resposta, inclusive em streaming, no formato que a extensão e o PWA já usam, então os clientes não mudam. Falta validar a qualidade das explicações com o Claude antes de trocar o padrão.
+
 ---
 
 ## 🚀 Como Executar Localmente

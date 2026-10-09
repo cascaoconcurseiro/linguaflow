@@ -1,7 +1,17 @@
 // deepseek-chat — proxy seguro de IA do LinguaFlow (Fase 2)
 // Chave DeepSeek vive APENAS em Supabase Secrets (DEEPSEEK_API_KEY).
+// Provedor Claude (Anthropic): opt-in com AI_PROVIDER=anthropic + ANTHROPIC_API_KEY
+// (modelo em ANTHROPIC_MODEL). Sem isso, o comportamento continua DeepSeek.
 // Fluxo: valida usuário real via JWT -> rate-limit por user_id -> encaminha.
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import {
+  ANTHROPIC_URL,
+  ANTHROPIC_VERSION,
+  DEFAULT_ANTHROPIC_MODEL,
+  anthropicSseToOpenAi,
+  fromAnthropicResponse,
+  toAnthropicRequest,
+} from "./anthropic.ts";
 
 const RATE_LIMIT_PER_MIN = 20;
 const MAX_TOKENS_CAP = 2048;
@@ -158,6 +168,53 @@ Deno.serve(async (req) => {
       max_tokens: Math.min(Number(body.max_tokens) || 800, MAX_TOKENS_CAP),
       stream: wantStream,
     };
+    // 3b. Provedor Claude (opt-in). Mesma validação, quota e formato de resposta.
+    if (Deno.env.get("AI_PROVIDER") === "anthropic") {
+      const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+      if (!anthropicKey) {
+        return new Response(JSON.stringify({ error: "Claude não está configurado no servidor." }), {
+          status: 500, headers: cors,
+        });
+      }
+      const claudeModel = Deno.env.get("ANTHROPIC_MODEL") || DEFAULT_ANTHROPIC_MODEL;
+      let claudeResponse: Response;
+      try {
+        claudeResponse = await fetch(ANTHROPIC_URL, {
+          signal: AbortSignal.any([req.signal, AbortSignal.timeout(UPSTREAM_BUDGET_MS)]),
+          method: "POST",
+          headers: {
+            "x-api-key": anthropicKey,
+            "anthropic-version": ANTHROPIC_VERSION,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(toAnthropicRequest(body.messages, {
+            model: claudeModel,
+            maxTokens: payload.max_tokens,
+            temperature: payload.temperature,
+            stream: wantStream,
+          })),
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: `IA indisponível no momento (${(e as Error).message || "falha de rede"}). Tente de novo em instantes.` }), {
+          status: 502, headers: cors,
+        });
+      }
+      if (!claudeResponse.ok) {
+        console.error("[deepseek-chat] provider_unavailable", { provider: "anthropic", status: claudeResponse.status });
+        return new Response(JSON.stringify({ error: "IA temporariamente indisponível. Tente novamente em instantes." }), {
+          status: 502, headers: cors,
+        });
+      }
+      if (wantStream && claudeResponse.body) {
+        return new Response(anthropicSseToOpenAi(claudeResponse.body), {
+          status: 200,
+          headers: { ...cors, "Content-Type": "text/event-stream", "Cache-Control": "private, no-store" },
+        });
+      }
+      return new Response(JSON.stringify(fromAnthropicResponse(await claudeResponse.json(), claudeModel)), {
+        status: 200, headers: cors,
+      });
+    }
     // 4. Encaminha exclusivamente ao DeepSeek com a chave do servidor.
     //    Ordem da chave: env (Edge Function Secrets) -> Vault via RPC restrita à service role.
     let DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");

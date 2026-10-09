@@ -107,7 +107,7 @@ Para manter o banco limpo, escalável e com custo controlado, os seguintes estad
 
 1. **Row Level Security (RLS)**: Cada consulta ou mutação é delimitada por `auth.uid() = user_id`.
 2. **Offline-First Gratuito**: O cliente suporta quedas temporárias de rede enfileirando revisões em fila local (`sessionQueue.js`), drenando atomicamente assim que a conexão é restaurada.
-3. **Isolamento de Credenciais**: Chaves de API de terceiros (OpenAI, Gemini, DeepSeek) residem exclusivamente nas variáveis de ambiente seguras do Supabase Edge Functions, nunca expostas nos bundles dos clientes.
+3. **Isolamento de Credenciais**: Chaves de API de terceiros (OpenAI, Gemini, DeepSeek, Anthropic) residem exclusivamente nas variáveis de ambiente seguras do Supabase Edge Functions, nunca expostas nos bundles dos clientes.
 
 ---
 

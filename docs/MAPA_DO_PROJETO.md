@@ -651,6 +651,7 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 | Arquivo | Porte | Para que serve |
 |---|---|---|
 | `supabase/config.toml` | P | Configuração do Supabase: autenticação, pool de conexões e `verify_jwt` das Edge Functions. |
+| `supabase/functions/deepseek-chat/anthropic.ts` | P | Adaptador Anthropic (Claude) para a Edge Function de IA do LinguaFlow. |
 | `supabase/functions/deepseek-chat/index.ts` | M | deepseek-chat — proxy seguro de IA do LinguaFlow (Fase 2) Chave DeepSeek vive APENAS em Supabase Secrets (DEEPSEEK_API_KEY). |
 | `supabase/functions/email-reengagement/index.ts` | P | email-reengagement — chamado exclusivamente pelo pg_cron (Onda 3.4). |
 | `supabase/functions/fluency-assessment/index.ts` | M | Edge Function da Checagem de Fluência: avalia a resposta com IA segundo a rubrica e grava o resultado por RPC do servidor. |
@@ -715,7 +716,7 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 |---|---|---|
 | `supabase/migrations/` | 155 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261008120000_course_example_annotations_551.sql`. Nunca edite uma migration já aplicada. |
 | `supabase/content/batches/` | 63 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
-| `tests/*.test.mjs` | 204 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
+| `tests/*.test.mjs` | 205 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
 | `tests/e2e/` | 15 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
 | `tests/db/` | 16 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |
 | `tests/production/` | 1 | Verificação de isolamento entre contas no Supabase de produção (workflow agendado). |

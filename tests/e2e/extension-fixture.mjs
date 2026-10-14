@@ -4,9 +4,10 @@ import { chromium, test as base } from '@playwright/test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const VIDEO = readFileSync(new URL('./fixtures/lf-test.webm', import.meta.url));
-const EXTENSION_PATH = path.resolve(new URL('../..', import.meta.url).pathname);
+const EXTENSION_PATH = fileURLToPath(new URL('../..', import.meta.url));
 
 // Legenda no formato json3 do YouTube. Entra pelo MESMO caminho do player real: um fetch para
 // /api/timedtext que a extensão intercepta (youtube-hook.js).

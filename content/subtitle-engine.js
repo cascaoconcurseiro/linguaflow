@@ -299,7 +299,7 @@ export class SubtitleEngine {
   }
 
   _findPlayerContainer() {
-    const selectors = [
+    const selectors = this.platform === 'youtube' ? ['#movie_player'] : [
       '#movie_player',
       '.html5-video-player',
       '.watch-video',
@@ -322,6 +322,9 @@ export class SubtitleEngine {
       }
     }
 
+    // Home/recommendation previews are also .html5-video-player. They remain
+    // in the DOM after navigation, hidden, and must never own watch captions.
+    if (this.platform === 'youtube') return document.body;
     const video = document.querySelector('video');
     if (video) {
       let parent = video.parentElement;
@@ -388,6 +391,7 @@ export class SubtitleEngine {
         if (ytRafId) return;
         ytRafId = requestAnimationFrame(() => {
           ytRafId = null;
+          this._moveHostIntoPlayer();
           this._syncYouTubeNativeCaptions();
         });
       });

@@ -1,6 +1,7 @@
 # Changelog
 
 ## Correção de inicialização das legendas (#553)
+- YouTube: corrige o caso observado ao vivo em que a faixa foi capturada, mas a legenda ficou dentro do preview oculto (`0 × 0`) após navegação. O host passa a acompanhar o player principal, mesmo vindo de outro container, sem precisar recarregar o vídeo.
 - YouTube: a recuperação pelo player também cobre falha de rede, HTTP e resposta inválida; uma faixa traduzida ou de outro idioma não impede a obtenção da original. Sem repetir a requisição direta que falhou.
 - Max/HBO: faixas capturadas antes de o motor estar pronto podem ser reenviadas, com cache limitado em memória e isolamento por página. Validação real da versão corrigida ainda pendente.
 

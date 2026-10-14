@@ -105,6 +105,8 @@ Na inicialização das legendas (#553), YouTube e Max permitem reenviar resposta
 requisição; uma navegação diferente não reutiliza esse conteúdo. No YouTube, falha de rede/HTTP ou corpo inválido
 na pré-carga permite uma recuperação pelo próprio player, limitada por vídeo/idioma. Capturas traduzidas ou de outro
 idioma não contam como faixa original pronta. Esse tratamento não substitui QA da extensão instalada em cada serviço.
+O host visual do YouTube usa apenas `#movie_player` como destino: previews de recomendações não são players de estudo.
+O observador existente recupera o host após mudanças no DOM, inclusive se ele estiver preso a um container antigo/oculto.
 
 ### 4.2 Como as peças conversam
 

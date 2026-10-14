@@ -37,6 +37,10 @@ fs.mkdirSync(stagingDir, { recursive: true });
 // 3. Coletar arquivos estritamente necessários para a extensão
 const filesToCopy = new Set([
   'manifest.json',
+  'assets/fonts/DMSans-OFL.txt',
+  'assets/fonts/LibreCaslonText-OFL.txt',
+  'assets/fonts/OpenDyslexic-OFL.txt',
+  'assets/fonts/SOURCES.md',
 ]);
 
 // Ícones do manifest

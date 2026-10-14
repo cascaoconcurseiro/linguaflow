@@ -3,6 +3,8 @@
 export function subtitleShadowHtml({ shadowCss, expressionCss }) {
   return `
             <style>
+                @font-face { font-family: 'OpenDyslexic'; src: url('${new URL('../../assets/fonts/OpenDyslexic-Regular.woff2', import.meta.url).href}') format('woff2'); font-weight: 400; font-display: swap; }
+                @font-face { font-family: 'OpenDyslexic'; src: url('${new URL('../../assets/fonts/OpenDyslexic-Bold.woff2', import.meta.url).href}') format('woff2'); font-weight: 700; font-display: swap; }
                 :host { all: initial; pointer-events: auto; }
                 .lf-notice {
                     margin: 0;

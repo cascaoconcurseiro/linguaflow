@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.0.66] - 2026-10-14
+- Ponte YouTube/Max: uma falha de carregamento do script libera o estado da tentativa e permite até três tentativas por navegação, separadas por pelo menos um segundo. Falhas tardias de outra navegação não sobrescrevem o nonce atual; após o limite há um erro estruturado único, sem dados pessoais.
+- Configurações: DM Sans, Libre Caslon Text e OpenDyslexic passam a vir do pacote local, com licenças incluídas, eliminando as folhas de estilo de CDNs no painel. A opção OpenDyslexic também carrega a fonte no Shadow DOM das legendas.
+- Issue #555. Sem mudança de banco, progresso ou permissões de origem. Testes locais e QA instalado são registrados separadamente na entrega.
+
 ## Correção de inicialização das legendas (#553)
 - YouTube: corrige o caso observado ao vivo em que a faixa foi capturada, mas a legenda ficou dentro do preview oculto (`0 × 0`) após navegação. O host passa a acompanhar o player principal, mesmo vindo de outro container, sem precisar recarregar o vídeo.
 - YouTube: a recuperação pelo player também cobre falha de rede, HTTP e resposta inválida; uma faixa traduzida ou de outro idioma não impede a obtenção da original. Sem repetir a requisição direta que falhou.

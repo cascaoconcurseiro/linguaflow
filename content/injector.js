@@ -18,6 +18,9 @@
       const bridgeStateKey = '__linguaFlowSubtitleBridge';
       let intervalId = null;
       let stopped = false;
+      let attemptUrl = '';
+      let attempts = 0;
+      let retryAfter = 0;
       const stopBridge = () => {
         stopped = true;
         if (intervalId !== null) clearInterval(intervalId);
@@ -38,8 +41,14 @@
           return;
         }
         const navigationUrl = window.location.href;
+        if (attemptUrl !== navigationUrl) {
+          attemptUrl = navigationUrl;
+          attempts = 0;
+          retryAfter = 0;
+        }
         const current = window[bridgeStateKey];
         if (current?.url === navigationUrl) return;
+        if (attempts >= 3 || Date.now() < retryAfter) return;
 
         const previousNonce = current?.nonce || '';
         const nonce = createNonce();
@@ -56,8 +65,21 @@
         script.dataset.lfNonce = nonce;
         script.dataset.lfPreviousNonce = previousNonce;
         script.dataset.lfNavigationUrl = navigationUrl;
+        const attempt = Object.freeze({ nonce, url: navigationUrl });
         script.onload = () => script.remove();
-        window[bridgeStateKey] = Object.freeze({ nonce, url: navigationUrl });
+        script.onerror = () => {
+          script.remove?.();
+          if (stopped || window[bridgeStateKey] !== attempt) return;
+          window[bridgeStateKey] = current;
+          retryAfter = Date.now() + 1000;
+          if (attempts >= 3) {
+            console.error('LinguaFlow: subtitle_bridge_load_failed', {
+              event: 'subtitle_bridge_load_failed', platform: isYouTube ? 'youtube' : 'max', attempts,
+            });
+          }
+        };
+        attempts += 1;
+        window[bridgeStateKey] = attempt;
         (document.head || document.documentElement).appendChild(script);
       };
 

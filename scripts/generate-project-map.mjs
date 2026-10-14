@@ -35,6 +35,14 @@ const STATIC_DESCRIPTIONS = {
   'utils/frequency-en.json': 'Posição de frequência de cada palavra em inglês (1 = mais comum).',
   'dashboard/manifest.webmanifest': 'Manifest da PWA do dashboard (nome, ícones, cores, escopo).',
   'supabase/config.toml': 'Configuração do Supabase: autenticação, pool de conexões e `verify_jwt` das Edge Functions.',
+  'assets/fonts/DMSans.ttf': 'DM Sans variável original, empacotada para o painel de configurações.',
+  'assets/fonts/LibreCaslonText.ttf': 'Libre Caslon Text variável original, empacotada para o painel de configurações.',
+  'assets/fonts/OpenDyslexic-Regular.woff2': 'OpenDyslexic regular local para configurações e legendas acessíveis.',
+  'assets/fonts/OpenDyslexic-Bold.woff2': 'OpenDyslexic bold local para configurações e legendas acessíveis.',
+  'assets/fonts/DMSans-OFL.txt': 'Licença SIL OFL 1.1 de DM Sans, incluída no pacote.',
+  'assets/fonts/LibreCaslonText-OFL.txt': 'Licença SIL OFL 1.1 de Libre Caslon Text, incluída no pacote.',
+  'assets/fonts/OpenDyslexic-OFL.txt': 'Licença SIL OFL 1.1 de OpenDyslexic, incluída no pacote.',
+  'assets/fonts/SOURCES.md': 'Proveniência e revisões fixas das fontes locais originais.',
 };
 
 const SIZE_LABELS = [
@@ -166,6 +174,10 @@ const SECTIONS = [
   {
     title: 'Extensão Chrome — popup (`popup/`)',
     pick: (f) => f.startsWith('popup/'),
+  },
+  {
+    title: 'Extensão Chrome — fontes locais e licenças (`assets/fonts/`)',
+    pick: (f) => f.startsWith('assets/fonts/'),
   },
   {
     title: 'Extensão Chrome — scripts injetados nas páginas (`content/`)',

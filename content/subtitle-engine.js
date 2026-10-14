@@ -502,6 +502,10 @@ export class SubtitleEngine {
     }, { signal: this._lifecycleController.signal });
 
     if (this.platform === 'max') {
+      window.postMessage({ type: 'LF_PRELOAD_SUBTITLES' }, window.location.origin);
+      this._scheduleForNavigation(() => {
+        window.postMessage({ type: 'LF_PRELOAD_SUBTITLES' }, window.location.origin);
+      }, 1200, initialNavigation);
       console.debug('[LinguaFlow] HBO Max: aguardando VTT via XHR intercept');
       this._hideHBONativeSubtitles();
       this._autoEnableHBOSubtitles();
@@ -577,6 +581,11 @@ export class SubtitleEngine {
         window.postMessage({ type: 'LF_PRELOAD_SUBTITLES' }, window.location.origin);
       }, 1200, navigation);
       this._scheduleForNavigation((nav) => this._fetchYoutubeSubtitles(nav), 1000, navigation);
+    } else if (this.platform === 'max') {
+      window.postMessage({ type: 'LF_PRELOAD_SUBTITLES' }, window.location.origin);
+      this._scheduleForNavigation(() => {
+        window.postMessage({ type: 'LF_PRELOAD_SUBTITLES' }, window.location.origin);
+      }, 1200, navigation);
     }
   }
 

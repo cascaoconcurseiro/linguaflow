@@ -30,6 +30,7 @@ Instruções para inicialização rápida no ecossistema LinguaFlow (Extensão C
 
 ## 3. Regras de Engenharia
 
+- **Documentação de cada entrega**: Registrar sempre o escopo, a causa e a correção, Issue/PR, verificações executadas, limitações de QA e estado publicado. Atualizar `CHANGELOG.md` e o mapa quando pertinentes; manter `HANDOFF.md` e `CHECKLIST.md` locais em dia. Diferenciar código na `main` de extensão atualizada no navegador e de validação em serviços reais.
 - **Preservação de Integridade**: Toda alteração funcional passa por teste automatizado (`npm run test:release`).
 - **Schema Append-Only**: O banco de produção opera com migrations versionadas cronologicamente; nunca altere migrações passadas.
 - **Autoridade Server-Side**: O Supabase PostgreSQL com Row Level Security (RLS) é a única autoridade; o cliente web ou extensão nunca calcula transições FSRS nem grava dados diretamente sem passar pelas RPCs seguras.

@@ -21,6 +21,7 @@
       let attemptUrl = '';
       let attempts = 0;
       let retryAfter = 0;
+      let pendingScript = null;
       const stopBridge = () => {
         stopped = true;
         if (intervalId !== null) clearInterval(intervalId);
@@ -41,6 +42,7 @@
           return;
         }
         const navigationUrl = window.location.href;
+        if (pendingScript) return;
         if (attemptUrl !== navigationUrl) {
           attemptUrl = navigationUrl;
           attempts = 0;
@@ -66,9 +68,16 @@
         script.dataset.lfPreviousNonce = previousNonce;
         script.dataset.lfNavigationUrl = navigationUrl;
         const attempt = Object.freeze({ nonce, url: navigationUrl });
-        script.onload = () => script.remove();
+        script.onload = () => {
+          script.remove();
+          if (pendingScript !== script) return;
+          pendingScript = null;
+          installBridge();
+        };
         script.onerror = () => {
           script.remove?.();
+          if (pendingScript !== script) return;
+          pendingScript = null;
           if (stopped || window[bridgeStateKey] !== attempt) return;
           window[bridgeStateKey] = current;
           retryAfter = Date.now() + 1000;
@@ -80,6 +89,7 @@
         };
         attempts += 1;
         window[bridgeStateKey] = attempt;
+        pendingScript = script;
         (document.head || document.documentElement).appendChild(script);
       };
 

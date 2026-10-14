@@ -7,7 +7,7 @@ import { SubtitleEngine } from '../content/subtitle-engine.js';
 
 const injector = readFileSync(new URL('../content/injector.js', import.meta.url), 'utf8');
 
-function mountInjector(chrome) {
+function mountInjector(chrome, autoLoad = true) {
   const timers = new Map();
   const listeners = new Map();
   const scripts = [];
@@ -20,8 +20,8 @@ function mountInjector(chrome) {
     setInterval: (fn) => { timers.set(1, fn); return 1; },
     clearInterval: (id) => timers.delete(id),
     document: {
-      createElement: () => ({ dataset: {} }),
-      head: { appendChild: (script) => scripts.push(script) },
+      createElement: () => ({ dataset: {}, remove() {} }),
+      head: { appendChild: (script) => { scripts.push(script); if (autoLoad) script.onload(); } },
       addEventListener: (name, fn) => listeners.set(name, fn),
       removeEventListener: (name) => listeners.delete(name),
     },
@@ -71,8 +71,9 @@ test('injector handles synchronous getURL invalidation without publishing nonce'
 });
 
 test('injector recovers a failed resource load with bounded retries and retains nonce continuity', () => {
-  const mounted = mountInjector({ runtime: { id: 'extension', getURL: (path) => path } });
+  const mounted = mountInjector({ runtime: { id: 'extension', getURL: (path) => path } }, false);
   const first = mounted.context.window.__linguaFlowSubtitleBridge;
+  mounted.scripts[0].onload();
   mounted.context.window.location.href = 'https://www.youtube.com/watch?v=b';
   mounted.listeners.get('yt-navigate-finish')();
   mounted.scripts[1].onerror();
@@ -99,6 +100,17 @@ test('stale bridge load failures do not clear the current navigation credential'
   const current = mounted.context.window.__linguaFlowSubtitleBridge;
   mounted.scripts[0].onerror();
   assert.equal(mounted.context.window.__linguaFlowSubtitleBridge, current);
+});
+
+test('navigation waits for a pending script so its nonce chain reflects actual load order', () => {
+  const mounted = mountInjector({ runtime: { id: 'extension', getURL: (path) => path } }, false);
+  const first = mounted.context.window.__linguaFlowSubtitleBridge;
+  mounted.context.window.location.href = 'https://www.youtube.com/watch?v=b';
+  mounted.listeners.get('yt-navigate-finish')();
+  assert.equal(mounted.scripts.length, 1);
+  mounted.scripts[0].onload();
+  assert.equal(mounted.scripts.length, 2);
+  assert.equal(mounted.scripts[1].dataset.lfPreviousNonce, first.nonce);
 });
 
 test('subtitle cache skips missing extension APIs without logging TypeError', async () => {

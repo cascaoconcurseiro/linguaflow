@@ -299,7 +299,7 @@ export class SubtitleEngine {
   }
 
   _findPlayerContainer() {
-    const selectors = [
+    const selectors = this.platform === 'youtube' ? ['#movie_player'] : [
       '#movie_player',
       '.html5-video-player',
       '.watch-video',
@@ -322,6 +322,9 @@ export class SubtitleEngine {
       }
     }
 
+    // Home/recommendation previews are also .html5-video-player. They remain
+    // in the DOM after navigation, hidden, and must never own watch captions.
+    if (this.platform === 'youtube') return document.body;
     const video = document.querySelector('video');
     if (video) {
       let parent = video.parentElement;
@@ -388,6 +391,7 @@ export class SubtitleEngine {
         if (ytRafId) return;
         ytRafId = requestAnimationFrame(() => {
           ytRafId = null;
+          this._moveHostIntoPlayer();
           this._syncYouTubeNativeCaptions();
         });
       });
@@ -502,6 +506,10 @@ export class SubtitleEngine {
     }, { signal: this._lifecycleController.signal });
 
     if (this.platform === 'max') {
+      window.postMessage({ type: 'LF_PRELOAD_SUBTITLES' }, window.location.origin);
+      this._scheduleForNavigation(() => {
+        window.postMessage({ type: 'LF_PRELOAD_SUBTITLES' }, window.location.origin);
+      }, 1200, initialNavigation);
       console.debug('[LinguaFlow] HBO Max: aguardando VTT via XHR intercept');
       this._hideHBONativeSubtitles();
       this._autoEnableHBOSubtitles();
@@ -577,6 +585,11 @@ export class SubtitleEngine {
         window.postMessage({ type: 'LF_PRELOAD_SUBTITLES' }, window.location.origin);
       }, 1200, navigation);
       this._scheduleForNavigation((nav) => this._fetchYoutubeSubtitles(nav), 1000, navigation);
+    } else if (this.platform === 'max') {
+      window.postMessage({ type: 'LF_PRELOAD_SUBTITLES' }, window.location.origin);
+      this._scheduleForNavigation(() => {
+        window.postMessage({ type: 'LF_PRELOAD_SUBTITLES' }, window.location.origin);
+      }, 1200, navigation);
     }
   }
 

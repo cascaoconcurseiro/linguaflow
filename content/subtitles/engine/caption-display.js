@@ -108,7 +108,7 @@ export class CaptionDisplayMethods {
       const targetRoot = document.fullscreenElement || document.body;
       if (host.parentElement !== targetRoot) targetRoot.appendChild(host);
       console.debug(`[LinguaFlow] HBO: legenda fixed bottom=${effectiveBottom}px`);
-    } else if (playerContainer) {
+    } else if (playerContainer && playerContainer !== document.body) {
       // YouTube e outros: absoluto dentro do player
       host.style.cssText = `
                 position: absolute !important;
@@ -316,9 +316,9 @@ export class CaptionDisplayMethods {
   // entrar nele; senão fica fora do lugar até o usuário recarregar a página.
   // Só troca propriedades de posição: visibility/opacity do liga/desliga ficam.
   _moveHostIntoPlayer(host = document.getElementById('linguaflow-subtitle-host')) {
-    if (this.platform === 'max' || !host || host.parentElement !== document.body) return false;
+    if (this.platform === 'max' || !host) return false;
     const player = this._findPlayerContainer();
-    if (!player) return false;
+    if (!player || player === document.body || host.parentElement === player) return false;
     const bottom = this._currentBottom ?? 100;
     const horizontal = this._currentHorizontal ?? 50;
     const set = (name, value) => host.style.setProperty(name, value, 'important');

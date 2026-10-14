@@ -93,6 +93,16 @@
         postBridgeMessage({ type: 'LF_CAPTION_AVAILABILITY', videoId, available });
     };
 
+    const hasCaptionText = (body) => {
+        try {
+            const data = JSON.parse(body);
+            return Array.isArray(data.events) && data.events.some((event) =>
+                event.segs?.some((segment) => typeof segment.utf8 === 'string' && segment.utf8.trim()));
+        } catch {
+            return typeof body === 'string' && /\d{2}:\d{2}[.,]\d{3}\s+-->/.test(body);
+        }
+    };
+
     const preloadFullSubtitleTrack = async (attempt = 0) => {
         const videoId = new URLSearchParams(window.location.search).get('v');
         if (!videoId) return;
@@ -118,6 +128,7 @@
         if (preloadedVideoKey === preloadKey) return;
         preloadedVideoKey = preloadKey;
 
+        let usable = false;
         try {
             const response = await originalFetch(url.toString());
             if (!response.ok) {
@@ -125,16 +136,20 @@
                 return;
             }
             const body = await response.text();
-            if (body.length > 10) notifyExt(url.toString(), body);
+            usable = hasCaptionText(body);
+            if (usable) notifyExt(url.toString(), body);
             else {
                 // Direct requests lack the player's `pot` token and come back empty.
                 // Expected path (the player is asked to reload next): debug, not a
                 // warning in the extension's error list (#379).
                 console.debug('[LinguaFlow] caption_track_empty', { status: Number(response.status) || 0 });
-                setTimeout(() => requestPlayerCaptionReload(videoId), PLAYER_CAPTION_GRACE_MS);
             }
         } catch (error) {
             console.warn('[LinguaFlow] caption_track_error', { code: error?.name || 'network' });
+        } finally {
+            // HTTP/network failures and non-caption bodies also need the player's
+            // authenticated request. Never repeat the failed direct fetch.
+            if (!usable) setTimeout(() => requestPlayerCaptionReload(videoId), PLAYER_CAPTION_GRACE_MS);
         }
     };
 
@@ -243,7 +258,13 @@
     // player itself, once per video and language, so the request carries `pot`.
     const requestPlayerCaptionReload = (videoId) => {
         if (!videoId || videoId !== new URLSearchParams(window.location.search).get('v')) return;
-        if (capturedCaptions.some((entry) => videoIdOf(entry.url) === videoId)) return;
+        if (capturedCaptions.some((entry) => {
+            if (videoIdOf(entry.url) !== videoId) return false;
+            const url = new URL(entry.url, window.location.href);
+            return !url.searchParams.has('tlang')
+                && (url.searchParams.get('lang') || '').toLowerCase().split('-')[0] === currentSourceLang.toLowerCase().split('-')[0]
+                && hasCaptionText(entry.body);
+        })) return;
         const reloadKey = `${videoId}:${currentSourceLang}`;
         if (reloadedCaptionKey === reloadKey) return;
         const moviePlayer = document.getElementById('movie_player') || document.querySelector('.html5-video-player');

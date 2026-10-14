@@ -1,5 +1,10 @@
 # Changelog
 
+## Correção de inicialização das legendas (#553)
+- YouTube: corrige o caso observado ao vivo em que a faixa foi capturada, mas a legenda ficou dentro do preview oculto (`0 × 0`) após navegação. O host passa a acompanhar o player principal, mesmo vindo de outro container, sem precisar recarregar o vídeo.
+- YouTube: a recuperação pelo player também cobre falha de rede, HTTP e resposta inválida; uma faixa traduzida ou de outro idioma não impede a obtenção da original. Sem repetir a requisição direta que falhou.
+- Max/HBO: faixas capturadas antes de o motor estar pronto podem ser reenviadas, com cache limitado em memória e isolamento por página. Validação real da versão corrigida ainda pendente.
+
 ## Palavra por palavra em toda frase do Mostrar resposta (#551)
 - Toda frase mostra a lista "Palavra por palavra" (IPA, classe e tradução de cada palavra, na ordem da frase), com ou sem estrutura sintática, inclusive parágrafos e histórias. Palavra sem anotação aparece mesmo assim, sem tradução.
 - Na etapa do exemplo (1100 frases de palavras e formas verbais) a lista vem da nova coluna `course_units.example_annotations`, derivada do dicionário já publicado mais 150 palavras que só existiam em exemplos. Migration `20261008120000_course_example_annotations_551.sql` (aplicada em produção; rollback só remove a coluna).

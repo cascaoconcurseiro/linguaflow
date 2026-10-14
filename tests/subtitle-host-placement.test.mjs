@@ -67,6 +67,33 @@ test('usa a posição salva pelo usuário', () => {
   }
 });
 
+test('#553 recupera legenda presa no preview oculto para o player atual', () => {
+  const previous = globalThis.document;
+  const body = {}, preview = {};
+  globalThis.document = { body };
+  try {
+    const player = { appendChild(host) { host.parentElement = this; } };
+    const host = fakeHost(preview);
+    const engine = engineWith({ platform: 'youtube', player });
+    assert.equal(engine._moveHostIntoPlayer(host), true);
+    assert.equal(host.parentElement, player);
+    assert.equal(host.style.visibility, 'hidden');
+    assert.equal(host.style.opacity, '0');
+  } finally { globalThis.document = previous; }
+});
+
+test('#553 YouTube nunca usa preview como destino antes de o player principal existir', () => {
+  const previous = { document: globalThis.document, window: globalThis.window };
+  const body = {}, preview = { offsetHeight: 240 };
+  globalThis.document = { body, querySelector: selector => selector === '.html5-video-player' ? preview : null };
+  globalThis.window = { getComputedStyle: () => ({ position: 'relative' }) };
+  try {
+    const engine = Object.create(SubtitleEngine.prototype);
+    engine.platform = 'youtube';
+    assert.equal(engine._findPlayerContainer(), body);
+  } finally { Object.assign(globalThis, previous); }
+});
+
 test('sem player ainda, ou na Max, a legenda continua no body', () => {
   const previous = globalThis.document;
   const body = {};

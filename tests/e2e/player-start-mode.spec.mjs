@@ -4,6 +4,22 @@ import { expect, launchExtension, test } from './extension-fixture.mjs';
 
 const WATCH = 'https://www.youtube.com/watch?v=lf-test';
 
+test('#553 recupera host em preview oculto sem recarregar o vídeo', async ({ extension }) => {
+  const page = await openPlayer(extension.context);
+  await page.locator('#lf-yt-toggle-wrapper').click();
+  const host = page.locator('#linguaflow-subtitle-host');
+  await expect(host.locator('#lf-orig')).not.toBeEmpty({ timeout: 15_000 });
+  await page.evaluate(() => {
+    const preview = document.createElement('ytd-video-preview');
+    preview.style.display = 'none';
+    document.body.appendChild(preview);
+    preview.appendChild(document.getElementById('linguaflow-subtitle-host'));
+  });
+  await expect(page.locator('#movie_player > #linguaflow-subtitle-host')).toHaveCount(1);
+  await expect(host.locator('#lf-orig')).toBeVisible();
+  await expect(page.locator('#lf-yt-toggle-wrapper')).toHaveAttribute('aria-pressed', 'true');
+});
+
 async function openPlayer(context, url = WATCH) {
   const page = await context.newPage();
   await page.goto(url);

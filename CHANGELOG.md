@@ -4,7 +4,7 @@
 - Ponte YouTube/Max: uma falha de carregamento do script libera o estado da tentativa e permite até três tentativas por navegação, separadas por pelo menos um segundo. Falhas tardias de outra navegação não sobrescrevem o nonce atual; após o limite há um erro estruturado único, sem dados pessoais.
 - Configurações: DM Sans, Libre Caslon Text e OpenDyslexic passam a vir do pacote local, com licenças incluídas, eliminando as folhas de estilo de CDNs no painel. A opção OpenDyslexic também carrega a fonte no Shadow DOM das legendas.
 - Issue #555. Sem mudança de banco, progresso ou permissões de origem. Testes locais e QA instalado são registrados separadamente na entrega.
-- Ferramentas de desenvolvimento: `smol-toml` atualizado para 1.9.0, corrigindo a vulnerabilidade de complexidade quadrática do parser; auditor de fiação ignora checkouts de outras sessões em `.claude` sem ocultar módulos órfãos do produto.
+- Ferramentas de desenvolvimento: `smol-toml` atualizado para 1.9.1, corrigindo a vulnerabilidade de complexidade quadrática do parser; auditor de fiação ignora checkouts de outras sessões em `.claude` sem ocultar módulos órfãos do produto.
 
 ## Correção de inicialização das legendas (#553)
 - YouTube: corrige o caso observado ao vivo em que a faixa foi capturada, mas a legenda ficou dentro do preview oculto (`0 × 0`) após navegação. O host passa a acompanhar o player principal, mesmo vindo de outro container, sem precisar recarregar o vídeo.

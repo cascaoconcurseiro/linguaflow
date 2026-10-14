@@ -4,7 +4,8 @@ test('#555 local fonts decode and accessible captions work in consecutive page l
   const { context } = extension;
   const remoteFonts = [];
   context.on('request', request => {
-    if (/fonts\.(googleapis|gstatic|cdnfonts)\.com/.test(request.url())) remoteFonts.push(request.url());
+    const hostname = new URL(request.url()).hostname;
+    if (['fonts.googleapis.com', 'fonts.gstatic.com', 'fonts.cdnfonts.com'].includes(hostname)) remoteFonts.push(request.url());
   });
   const page = await context.newPage();
   const errors = [];

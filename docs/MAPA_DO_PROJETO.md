@@ -92,6 +92,9 @@ O `manifest.json` declara três content scripts (nenhum é módulo nativo, entã
    o `content/youtube-hook.js` ou o `content/hbo-inject.js`. Esses scripts interceptam `fetch`/`XHR` para captar a legenda
    que o próprio player baixa. Cada injeção leva um **nonce**; só mensagens com o nonce certo são aceitas
    (`content/subtitles/bridge-security.js`).
+   Se o recurso falhar ao carregar (#555), o estado da tentativa é liberado, preservando o nonce anterior;
+   há no máximo três tentativas por navegação, com intervalo mínimo de um segundo e erro estruturado ao esgotar.
+   Respostas tardias de uma navegação anterior não limpam a credencial atual.
 2. **`content/boot.js`** (em `document_idle`, nos sites de vídeo): importa `content/index.js` como módulo.
 3. **`content/web-reader.js`** (todos os sites, exceto o site oficial e sites de vídeo): o Modo Leitura para qualquer página
    (duplo clique ou seleção traduz e salva).
@@ -99,6 +102,10 @@ O `manifest.json` declara três content scripts (nenhum é módulo nativo, entã
 `content/index.js` só segue em sites suportados e monta: `SubtitleEngine` (legendas), `MaxPlayerUI` (dock lateral, em Max,
 Netflix, Disney+ e Prime), `SettingsPanel` (configurações no player) e `ReviewOverlay` (revisão rápida, tecla `R`).
 No YouTube o dock é horizontal e vive na barra de controles do próprio player (montado pelo motor).
+
+As fontes do painel (DM Sans, Libre Caslon Text e OpenDyslexic) vêm de `assets/fonts/`, com origem e licenças
+incluídas no pacote. Não há import de folhas de estilo de fontes externas no painel. OpenDyslexic também é
+declarada no Shadow DOM das legendas; os arquivos binários são expostos apenas às origens dos players (#555).
 
 Na inicialização das legendas (#553), YouTube e Max permitem reenviar respostas já capturadas quando o motor sinaliza
 `LF_PRELOAD_SUBTITLES`. A Max guarda no máximo quatro respostas de até 1 MiB em memória, vinculadas à página da
@@ -423,6 +430,19 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 | `popup/popup.html` | P | Popup da extensão: entrar na conta, ver resumo do dia e abrir as configurações do player. |
 | `popup/popup.js` | M | login próprio da extensão (sessão independente do site). |
 
+### Extensão Chrome — fontes locais e licenças (`assets/fonts/`)
+
+| Arquivo | Porte | Para que serve |
+|---|---|---|
+| `assets/fonts/DMSans-OFL.txt` | P | Licença SIL OFL 1.1 de DM Sans, incluída no pacote. |
+| `assets/fonts/DMSans.ttf` | GG ⚠ | DM Sans variável original, empacotada para o painel de configurações. |
+| `assets/fonts/LibreCaslonText-OFL.txt` | P | Licença SIL OFL 1.1 de Libre Caslon Text, incluída no pacote. |
+| `assets/fonts/LibreCaslonText.ttf` | G | Libre Caslon Text variável original, empacotada para o painel de configurações. |
+| `assets/fonts/OpenDyslexic-Bold.woff2` | M | OpenDyslexic bold local para configurações e legendas acessíveis. |
+| `assets/fonts/OpenDyslexic-OFL.txt` | P | Licença SIL OFL 1.1 de OpenDyslexic, incluída no pacote. |
+| `assets/fonts/OpenDyslexic-Regular.woff2` | M | OpenDyslexic regular local para configurações e legendas acessíveis. |
+| `assets/fonts/SOURCES.md` | P | Proveniência e revisões fixas das fontes locais originais. |
+
 ### Extensão Chrome — scripts injetados nas páginas (`content/`)
 
 | Arquivo | Porte | Para que serve |
@@ -712,7 +732,7 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 | `scripts/generate-course-seed.mjs` | M | Gera migrations de conteúdo dos cursos a partir de supabase/content/. |
 | `scripts/generate-course-sequence.mjs` | P | #535: novas migrations, jamais reescrever o conteúdo publicado em #533. |
 | `scripts/generate-project-map.mjs` | M | Gera o inventário de docs/MAPA_DO_PROJETO.md a partir dos arquivos rastreados pelo git. |
-| `scripts/package-extension.mjs` | P | LinguaFlow - Script de Empacotamento de Produção da Extensão Chrome Gera dist/linguaflow-extension-v<version>.zip pronto para a Chrome Web Store. |
+| `scripts/package-extension.mjs` | M | LinguaFlow - Script de Empacotamento de Produção da Extensão Chrome Gera dist/linguaflow-extension-v<version>.zip pronto para a Chrome Web Store. |
 | `scripts/replay-migrations-local.ps1` | P | Reproduz as migrations em uma pilha Supabase LOCAL e descartável. |
 | `scripts/structure-chunker.mjs` | M | Propõe os grupos sintáticos (Sujeito, Verbo, Predicado, Objeto, Adjunto, Expressão) de frases de curso a partir da classe gramatical de cada palavra (LEXICON). |
 | `scripts/verificar.ps1` | P | Verificação local oficial do LinguaFlow para Windows. |
@@ -724,8 +744,8 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 |---|---|---|
 | `supabase/migrations/` | 155 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261008120000_course_example_annotations_551.sql`. Nunca edite uma migration já aplicada. |
 | `supabase/content/batches/` | 63 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
-| `tests/*.test.mjs` | 206 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
-| `tests/e2e/` | 15 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
+| `tests/*.test.mjs` | 207 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
+| `tests/e2e/` | 17 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
 | `tests/db/` | 16 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |
 | `tests/production/` | 1 | Verificação de isolamento entre contas no Supabase de produção (workflow agendado). |
 | `docs/*.md` | 6 | Documentação viva; histórico em `docs/history/`, produto em `docs/product/`. |

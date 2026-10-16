@@ -242,8 +242,10 @@ export class MarkupMethods {
   _html() {
     return `
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Libre+Caslon+Text:wght@400;500&display=swap');
-            @import url('https://fonts.cdnfonts.com/css/opendyslexic');
+            @font-face { font-family: 'DM Sans'; src: url('${new URL('../../assets/fonts/DMSans.ttf', import.meta.url).href}') format('truetype'); font-weight: 100 1000; font-display: swap; }
+            @font-face { font-family: 'Libre Caslon Text'; src: url('${new URL('../../assets/fonts/LibreCaslonText.ttf', import.meta.url).href}') format('truetype'); font-weight: 400 700; font-display: swap; }
+            @font-face { font-family: 'OpenDyslexic'; src: url('${new URL('../../assets/fonts/OpenDyslexic-Regular.woff2', import.meta.url).href}') format('woff2'); font-weight: 400; font-display: swap; }
+            @font-face { font-family: 'OpenDyslexic'; src: url('${new URL('../../assets/fonts/OpenDyslexic-Bold.woff2', import.meta.url).href}') format('woff2'); font-weight: 700; font-display: swap; }
             * { box-sizing: border-box; }
             @media (prefers-reduced-motion: reduce) {
                 *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }

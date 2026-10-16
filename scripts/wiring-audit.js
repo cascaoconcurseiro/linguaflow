@@ -9,7 +9,7 @@ import path from 'node:path';
 // A auditoria faz parte do fluxo oficial e precisa rodar também no Windows.
 // O antigo shell `find` era resolvido como FIND.EXE e abortava antes de ler
 // qualquer arquivo. A travessia em Node é determinística e multiplataforma.
-const ignoredDirs = new Set(['node_modules', 'scripts', '.git', 'backups', '.stryker-tmp', 'reports', 'coverage']);
+const ignoredDirs = new Set(['node_modules', 'scripts', '.git', '.claude', 'backups', '.stryker-tmp', 'reports', 'coverage']);
 const files = [];
 function walk(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

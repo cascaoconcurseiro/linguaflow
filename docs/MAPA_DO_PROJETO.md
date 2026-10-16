@@ -745,7 +745,7 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 | `supabase/migrations/` | 155 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261008120000_course_example_annotations_551.sql`. Nunca edite uma migration já aplicada. |
 | `supabase/content/batches/` | 63 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
 | `tests/*.test.mjs` | 207 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
-| `tests/e2e/` | 16 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
+| `tests/e2e/` | 17 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
 | `tests/db/` | 16 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |
 | `tests/production/` | 1 | Verificação de isolamento entre contas no Supabase de produção (workflow agendado). |
 | `docs/*.md` | 6 | Documentação viva; histórico em `docs/history/`, produto em `docs/product/`. |

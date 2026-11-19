@@ -1002,6 +1002,16 @@ body.lf-auth-pending #app-root { visibility: hidden; }
   touch-action: pan-y;
 }
 
+/* Telas com `margin: 0 auto` deixam de esticar na coluna flex e passam a medir
+   o conteúdo mínimo (abas, chips, grades de 3 colunas), ficando mais largas que
+   o celular e cortadas à direita. Largura total por padrão; o max-width de cada
+   tela continua centralizando. Especificidade zero: regras da tela vencem. */
+:where(#app-root) > * {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 /* Base Buttons */
 .btn {
   font-family: var(--font-main);
@@ -1148,7 +1158,7 @@ body.lf-auth-pending #app-root { visibility: hidden; }
   .fluency-review-list li span { text-align:left; }
   .source-callout { align-items:flex-start; flex-direction:column; }
   .lib-header { align-items:flex-start; gap:12px; }
-  .lib-title-block h2 { font-size:25px; }
+  .lib-title-block h1 { font-size:25px; }
   .cat-tabs { flex-wrap:nowrap; overflow-x:auto; padding-bottom:6px; }
   .cat-tab { flex:0 0 auto; min-height:42px; }
   .word-card { align-items:flex-start; }

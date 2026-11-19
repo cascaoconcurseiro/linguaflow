@@ -1,5 +1,10 @@
 # Changelog
 
+## Auditoria 2026-11-19: layout no celular, acessibilidade e menor privilégio do anon (#559)
+- Celular: Cofre e Configurações deixam de ficar mais largos que a tela (eram cortados à direita; o botão "Ações" de cada frase do Cofre ficava inalcançável). Os campos de "Limites Diários" quebram linha em telas estreitas.
+- Acessibilidade: campos URL, Título e Texto do Leitor ganham nome acessível; "Seu Cofre" passa a ser o `h1` da página.
+- Supabase: migration `20261119120000_anon_least_privilege_courses.sql` remove do papel `anon` os grants de escrita herdados nas tabelas do curso, `canonical_lexicon` e `keep_alive`, e corrige os privilégios padrão que abriam tabelas e funções novas ao `anon`. O RLS já bloqueava a escrita; esta é a segunda camada. **Ainda não aplicada em produção.**
+
 ## [3.0.66] - 2026-10-14
 - Ponte YouTube/Max: uma falha de carregamento do script libera o estado da tentativa e permite até três tentativas por navegação, separadas por pelo menos um segundo. Falhas tardias de outra navegação não sobrescrevem o nonce atual; após o limite há um erro estruturado único, sem dados pessoais.
 - Configurações: DM Sans, Libre Caslon Text e OpenDyslexic passam a vir do pacote local, com licenças incluídas, eliminando as folhas de estilo de CDNs no painel. A opção OpenDyslexic também carrega a fonte no Shadow DOM das legendas.

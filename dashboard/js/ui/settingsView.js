@@ -88,16 +88,16 @@ export async function renderSettings(container, app) {
       <!-- Daily Limits (agora REAIS: controlam a fila de estudo) -->
       <div style="background: var(--color-surface); border-radius: var(--radius-md); padding: 24px; border: 2px solid var(--color-border); margin-bottom: 24px;">
         <h2 style="font-size: 20px; color: var(--color-text); margin-bottom: 16px; border-bottom: 1px solid var(--color-border); padding-bottom:8px;">Limites Diários</h2>
-        <div style="display:flex; gap: 24px; margin-bottom: 8px;">
-          <div style="flex:1;">
+        <div style="display:flex; flex-wrap:wrap; gap: 16px 24px; margin-bottom: 8px;">
+          <div style="flex:1 1 160px; min-width:0;">
           <label for="srs-new-per-day" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Novas expressões por dia</label>
             <input type="number" id="srs-new-per-day" value="${newPerDay}" min="0" max="20" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; background:var(--color-bg-alt); color:var(--color-text);">
           </div>
-          <div style="flex:1;">
+          <div style="flex:1 1 160px; min-width:0;">
             <label for="srs-max-rev" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Revisões máximas/dia</label>
             <input type="number" id="srs-max-rev" value="${maxRevPerDay}" min="10" max="1000" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; background:var(--color-bg-alt); color:var(--color-text);">
           </div>
-          <div style="flex:1;">
+          <div style="flex:1 1 160px; min-width:0;">
             <label for="srs-vault-cap" style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;" title="Teto do acervo: cofre cheio, palavra nova espera vaga. 0 desliga.">Teto do cofre (expressões ativas)</label>
             <input type="number" id="srs-vault-cap" value="${vaultCap}" min="0" max="2000" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:6px; background:var(--color-bg-alt); color:var(--color-text);">
           </div>

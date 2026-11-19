@@ -13,7 +13,7 @@ export const LIBRARY_VIEW_CSS = `
             align-items: center;
             margin-bottom: 32px;
         }
-        .lib-title-block h2 {
+        .lib-title-block h1 {
             font-size: 32px;
             color: var(--color-text);
             margin: 0 0 8px 0;
@@ -215,7 +215,7 @@ export const LIBRARY_VIEW_CSS = `
         @media (max-width: 768px) {
             .library-container { padding: 16px; padding-bottom: 100px; }
             .lib-header { flex-wrap: wrap; gap: 16px; }
-            .lib-title-block h2 { font-size: 24px; }
+            .lib-title-block h1 { font-size: 24px; }
             .word-card { flex-wrap: wrap; gap: 10px; }
             .word-actions { gap: 10px; }
             .empty-state { padding: 32px 16px; }

@@ -101,7 +101,7 @@ html body .product-destination-card h2 { font-size:28px; }
 html body .product-destination-card .btn { align-self:flex-start; margin-top:auto; }
 /* Collection entries are rows, not nested boxes. */
 html body .lib-container, html body .story-page { max-width:1160px; margin:auto; padding:36px 40px; }
-html body .lib-title-block h2, html body .reading-hub-header h1 { font-size:38px; }
+html body .lib-title-block h1, html body .reading-hub-header h1 { font-size:38px; }
 html body .lib-stats { background:transparent; border:0; box-shadow:none; }
 html body .word-card { padding:20px 0; border:0; border-bottom:1px solid var(--color-border); border-radius:0; background:transparent; gap:20px; }
 html body .word-card:hover { background:var(--color-bg-alt); transform:none; box-shadow:none; }

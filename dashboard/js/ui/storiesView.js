@@ -498,8 +498,6 @@ export function renderStories(container, app) {
   const modal = document.getElementById('lf-story-word-modal');
   const btnCloseModal = document.getElementById('lf-close-modal');
   const modalWord = document.getElementById('lf-modal-word');
-  const modalCefr = document.getElementById('lf-modal-cefr');
-  const modalPronounce = document.getElementById('lf-modal-pronounce');
   const modalLoading = document.getElementById('lf-modal-loading');
   const modalTransMain = document.getElementById('lf-modal-trans-main');
   const modalFalseFriend = document.getElementById('lf-modal-false-friend');
@@ -507,7 +505,6 @@ export function renderStories(container, app) {
   const modalContextBox = document.getElementById('lf-modal-context-box');
   const modalContextText = document.getElementById('lf-modal-context-text');
   const modalSentenceBox = document.getElementById('lf-modal-sentence-box');
-  const modalExplanation = document.getElementById('lf-modal-explanation');
   const btnSaveWord = document.getElementById('lf-btn-save-word');
   const btnKnownWord = document.getElementById('lf-btn-known-word');
   const btnTtsWord = document.getElementById('lf-btn-tts-word');
@@ -688,15 +685,6 @@ export function renderStories(container, app) {
   // Áudio blindado (bug relatado: "o áudio de lá não funciona"): para o que
   // estiver tocando, e se o TTS principal falhar cai pro sintetizador nativo
   // do navegador — NUNCA falha em silêncio.
-  function speakFallback(text) {
-    try {
-      window.speechSynthesis?.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'en-US';
-      window.speechSynthesis?.speak(u);
-    } catch { app.showToast?.('Áudio indisponível neste navegador.', 'error'); }
-  }
-
   function playTTS(text) {
     if (!text) return;
     // O módulo de TTS tenta áudio natural e cai para Web Speech quando a rede falha.
@@ -841,7 +829,7 @@ export function renderStories(container, app) {
     if (!confirm(`Excluir "${story.title}" para sempre? Isso nao pode ser desfeito.`)) return;
     try {
       if (story.id) await db.deleteStory(story.id);
-    } catch (e) {
+    } catch {
       app.showToast('Nao foi possivel excluir agora. Tente de novo.', 'error');
       return;
     }

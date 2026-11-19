@@ -104,7 +104,7 @@
             try {
                 const sample = new TextDecoder('utf-8').decode(content.slice(0, 2048));
                 hasVttHeader = sample.includes('WEBVTT') || sample.includes('-->');
-            } catch (e) {}
+            } catch {}
         }
 
         if (isVtt || hasVttHeader) {

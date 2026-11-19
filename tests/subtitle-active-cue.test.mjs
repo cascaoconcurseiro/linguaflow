@@ -2,7 +2,6 @@
 // fala ativa (tela e barra lateral) e a pausa automática usa o mesmo fim.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFile } from 'node:fs/promises';
 import {
   effectiveCueEnd,
   findActiveCueIndex,

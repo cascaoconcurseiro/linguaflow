@@ -1,6 +1,6 @@
 // dashboard/js/ui/studyView.js — Tela Estudar (revisão FSRS): fila de cards, 4 formas de revisar, avaliação idempotente, desfazer, áudio e sessão.
 import { db as lfDb, createOperationId } from '../../../utils/db.js';
-import { playNaturalAudio, stopAudio, downloadAudio, preloadNaturalAudio } from '../core/tts.js';
+import { playNaturalAudio, stopAudio, preloadNaturalAudio } from '../core/tts.js';
 import { enrichCard, getCefrLevel, generateChunksWeb } from '../core/ai.js';
 import { attachVideoContext, renderVideoContext, getVideoContext } from '../core/videoContext.js';
 import { buildSessionQueue, isWeakCard, prioritizeDueLearning } from '../core/sessionQueue.js';
@@ -473,7 +473,7 @@ export async function renderStudy(container, app, params = {}) {
 
   document.querySelectorAll('.grade-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
-      const grade = parseInt(e.currentTarget.dataset.grade);
+      const grade = parseInt(e.currentTarget.dataset.grade, 10);
       handleGrade(grade, app);
     });
   });
@@ -1148,8 +1148,6 @@ function renderFront(card, word, context) {
   // 1) palavra isolada; 2) palavra dentro da frase; 3) resposta/tradução.
   let clozeHtml;
   try {
-    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`(${escaped})`, 'gi');
     if (context.toLowerCase().includes(word.toLowerCase()) && context.toLowerCase() !== word.toLowerCase()) {
       // Escapar o context ANTES de aplicar o regex, para que < > do banco
       // não quebrem o HTML. O regex opera sobre o texto já escapado.
@@ -2091,7 +2089,7 @@ function playFeedbackSound(type) {
       feedbackAudioContexts.delete(ctx);
       ctx.close().catch(() => {});
     };
-  } catch (e) {}
+  } catch {}
 }
 
 function showXPAnimation(text, isPositive = true) {

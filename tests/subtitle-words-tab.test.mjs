@@ -2,7 +2,6 @@
 // palavras-chave do vídeo, score honesto, tema claro e teclado.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFile } from 'node:fs/promises';
 import {
   comprehensionSummary,
   extractVideoVocabulary,

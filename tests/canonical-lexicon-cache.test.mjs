@@ -4,7 +4,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
-import path from 'node:path';
 import { readDbSourceSync } from './helpers/db-source.mjs';
 
 const MIGRATION_PATH = 'supabase/migrations/20260926120000_canonical_lexicon_cache.sql';

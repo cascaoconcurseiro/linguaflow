@@ -1,6 +1,5 @@
 // LinguaFlow Pro — Word Popup v5 (unified storage, bilingual examples, full grammar)
 
-import { db } from '../utils/db.js';
 import { getFalseFriendsMap, getCommonIdiomsSet, getCommonChunksSet } from './popup/popup-linguistics.js';
 import { isValidIpa, cleanIpa } from '../utils/ipa-validator.js';
 import { LookupMethods } from './word-popup/lookup.js';
@@ -45,7 +44,7 @@ export class WordPopup {
     try {
       const res = await fetch(chrome.runtime.getURL('utils/cefr-wordlist.json'));
       this.cefrList = await res.json();
-    } catch (e) {
+    } catch {
       /* sem CEFR wordlist — ok */
     }
   }

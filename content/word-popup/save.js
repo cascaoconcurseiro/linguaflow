@@ -29,7 +29,6 @@ export class SaveMethods {
     try {
       const { db } = await import(BASE + 'db.js');
       const { videoUtils } = await import(BASE + 'video-utils.js');
-      const lang = this.engine?.sourceLang || 'en';
 
       // Leitura local: não faz refresh/rede no clique. Se o token precisar ser
       // renovado, o service worker fará isso ao sincronizar a fila.

@@ -298,7 +298,7 @@
         btn.disabled = false;
       }, 1500);
 
-    } catch (e) {
+    } catch {
       if (!isActive() || epochAtStart !== lifecycle.interactionEpoch || !btn?.isConnected) return;
       btn.textContent = '❌ Erro';
       btn.disabled = false;

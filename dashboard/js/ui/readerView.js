@@ -298,7 +298,7 @@ export async function renderReader(container, app) {
         <label style="font-weight:bold; color:var(--color-text); display:block; margin-bottom:8px;">Importar novo texto</label>
 
         <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
-          <input id="rd-url" type="url" placeholder="Colar uma URL (artigo, notícia…)" style="flex:1; min-width:220px; padding:10px 12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
+          <input id="rd-url" type="url" aria-label="Endereço (URL) do texto a importar" placeholder="Colar uma URL (artigo, notícia…)" style="flex:1; min-width:220px; padding:10px 12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text);">
           <button id="rd-url-fetch" class="btn btn-secondary" style="padding:10px 16px; white-space:nowrap;">Buscar da URL</button>
           <label class="btn btn-secondary" style="padding:10px 16px; white-space:nowrap; cursor:pointer; margin:0; display:inline-flex; align-items:center;">
             Importar EPUB
@@ -307,8 +307,8 @@ export async function renderReader(container, app) {
         </div>
         <div id="rd-import-status" style="font-size:13px; color:var(--color-text-light); margin-bottom:10px; min-height:0;"></div>
 
-        <input id="rd-title" type="text" placeholder="Título (ex: Artigo sobre viagem)" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); margin-bottom:12px; background:var(--color-bg-alt); color:var(--color-text);">
-        <textarea id="rd-content" rows="5" placeholder="Cole aqui o texto em inglês (letra de música, artigo, roteiro, legenda…) — ou use os botões acima pra importar de uma URL/EPUB" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text); resize:vertical;"></textarea>
+        <input id="rd-title" type="text" aria-label="Título do texto" placeholder="Título (ex: Artigo sobre viagem)" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); margin-bottom:12px; background:var(--color-bg-alt); color:var(--color-text);">
+        <textarea id="rd-content" rows="5" aria-label="Texto em inglês" placeholder="Cole aqui o texto em inglês (letra de música, artigo, roteiro, legenda…) — ou use os botões acima pra importar de uma URL/EPUB" style="width:100%; padding:12px; border:2px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-main); background:var(--color-bg-alt); color:var(--color-text); resize:vertical;"></textarea>
         <button id="rd-add" class="btn btn-primary" style="margin-top:12px;">Salvar texto</button>
       </div>
 

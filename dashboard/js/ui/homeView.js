@@ -64,12 +64,6 @@ function organizeHomeSections(container) {
 // ainda for a mais recente — senão, uma chamada mais nova já assumiu.
 let _homeRenderGen = 0;
 
-// Fiação REAL do onboarding (nada decorativo): a escolha rápida vira um CEFR
-// de partida, o teste de 3 fases refina, e a meta grava a cota de cartas
-// novas/dia na MESMA chave que a fila de estudo lê.
-const LEVEL_TO_CEFR = { beginner: 'A1', intermediate: 'B1', advanced: 'B2' };
-const GOAL_TO_NEW_PER_DAY = { 10: 5, 20: 10, 40: 20 };
-
 import { FIRST_STEPS_KEY, buildFirstSteps, parseFirstSteps, renderFirstSteps } from './firstSteps.js';
 import { HOME_VIEW_CSS } from './homeViewStyles.js';
 import { TODAY_PLAN_CSS, renderTodayPlan } from './todayPlanView.js';
@@ -189,89 +183,6 @@ function renderHomeLoadError(container, app) {
     bindViewStateAction(container, 'btn-retry-home', () => renderHome(container, app));
 }
 
-function renderOnboarding(container, app, initial = {}) {
-    let step = 1;
-    let level = initial.level || null;
-    let dailyGoal = initial.dailyGoal || null;
-
-    const levels = [
-        ['beginner', 'Começando', 'Ainda formo frases curtas.'],
-        ['intermediate', 'Intermediário', 'Entendo a ideia geral de textos e vídeos.'],
-        ['advanced', 'Avançado', 'Quero ganhar precisão e vocabulário.'],
-    ];
-    const goals = [10, 20, 40];
-
-    const draw = () => {
-        const content = step === 1 ? `
-            <p class="onboarding-kicker">PASSO 1 DE 3</p>
-            <h2 id="onboarding-title">Qual ponto de partida parece mais próximo?</h2>
-            <p>É apenas uma estimativa inicial para ajustar textos e explicações. Você pode mudar depois.</p>
-            <div class="onboarding-options" role="radiogroup" aria-label="Nível atual de inglês">
-                ${levels.map(([value, title, description]) => `<button type="button" class="onboarding-option ${level === value ? 'selected' : ''}" role="radio" aria-checked="${level === value}" data-level="${value}"><strong>${title}</strong><span>${description}</span></button>`).join('')}
-            </div>` : step === 2 ? `
-            <p class="onboarding-kicker">PASSO 2 DE 3</p>
-            <h2 id="onboarding-title">Com que carga você quer começar?</h2>
-            <p>Comece leve. Expressões novas geram revisões futuras, e você pode ajustar isso depois.</p>
-            <div class="onboarding-options" role="radiogroup" aria-label="Meta diária de revisões">
-                ${goals.map(goal => `<button type="button" class="onboarding-option ${dailyGoal === goal ? 'selected' : ''}" role="radio" aria-checked="${dailyGoal === goal}" data-goal="${goal}"><strong>${goal === 10 ? 'Leve' : goal === 20 ? 'Regular' : 'Intensa'}</strong><span>${goal} revisões/dia · até ${GOAL_TO_NEW_PER_DAY[goal]} expressões novas</span></button>`).join('')}
-            </div>` : `
-            <p class="onboarding-kicker">PASSO 3 DE 3</p>
-            <h2 id="onboarding-title">Seu plano está pronto</h2>
-            <p><strong>${dailyGoal} revisões por dia</strong> e até <strong>${GOAL_TO_NEW_PER_DAY[dailyGoal]} expressões novas</strong>, no ponto de partida ${levels.find(item => item[0] === level)?.[1].toLowerCase() || 'escolhido'}.</p>
-            <p>Comece por uma história curta e adicione a primeira expressão que quiser praticar. Ela aparecerá no Cofre e no seu plano de revisão.</p>`;
-        container.innerHTML = `
-            <section class="onboarding-shell" aria-labelledby="onboarding-title">
-                <div class="onboarding-card">
-                    ${content}
-                    <p class="onboarding-status" id="onboarding-status" role="status" aria-live="polite"></p>
-                    <div class="onboarding-actions">
-                        ${step > 1 ? '<button type="button" class="onboarding-back" id="btn-onboarding-back">Voltar</button>' : ''}
-                        ${step < 3 ? `<button type="button" class="btn-action btn-study" id="btn-onboarding-next" ${step === 1 && !level || step === 2 && !dailyGoal ? 'disabled' : ''}>Continuar</button>` : '<button type="button" class="btn-action btn-study" id="btn-onboarding-finish">Começar pela história</button>'}
-                    </div>
-                </div>
-            </section>`;
-
-        container.querySelectorAll('[data-level]').forEach(button => button.addEventListener('click', () => {
-            level = button.dataset.level;
-            draw();
-        }));
-        container.querySelectorAll('[data-goal]').forEach(button => button.addEventListener('click', () => {
-            dailyGoal = Number(button.dataset.goal);
-            draw();
-        }));
-        container.querySelector('#btn-onboarding-back')?.addEventListener('click', () => { step -= 1; draw(); });
-        container.querySelector('#btn-onboarding-next')?.addEventListener('click', () => { step += 1; draw(); });
-        container.querySelector('#btn-onboarding-finish')?.addEventListener('click', async (event) => {
-            const button = event.currentTarget;
-            const status = container.querySelector('#onboarding-status');
-            button.disabled = true;
-            status.textContent = 'Salvando seu plano…';
-            const record = JSON.stringify({ version: 1, completed: true, level, dailyGoal, updatedAt: new Date().toISOString() });
-            try {
-                // Salva preferências reais primeiro. O onboarding só é marcado
-                // como concluído depois que todas forem confirmadas.
-                const writes = [];
-                if (LEVEL_TO_CEFR[level]) {
-                    writes.push(app.db.setSetting('lf_cefr_level', LEVEL_TO_CEFR[level]));
-                    writes.push(app.db.setSetting('cefrTargetLevel', LEVEL_TO_CEFR[level]));
-                }
-                const newPerDay = GOAL_TO_NEW_PER_DAY[dailyGoal];
-                if (newPerDay) writes.push(app.db.setSetting('new_per_day', String(newPerDay)));
-                const confirmed = await Promise.all(writes);
-                if (confirmed.some(saved => !saved)) throw new Error('Preferência não confirmada');
-                const saved = await app.db.setSetting(ONBOARDING_KEY, record);
-                if (!saved) throw new Error('Configuração não confirmada');
-                app.navigate?.('stories');
-            } catch (error) {
-                console.warn('[Onboarding] Não foi possível salvar:', error);
-                status.textContent = 'Não foi possível salvar seu plano. Tente novamente.';
-                button.disabled = false;
-            }
-        });
-    };
-    draw();
-}
-
 export async function renderHome(container, app) {
     const myGen = ++_homeRenderGen; // Onda 9 (auditoria de bugs): ver comentário acima
     injectStyles();
@@ -330,14 +241,11 @@ export async function renderHome(container, app) {
     const todayISO = localDateKey();
     let reviewsToday = 0;
     let coursePracticedToday = false;
-    let wordsToday = 0;
     let retention30 = null;   // % de acertos (não-"Errei") nos últimos 30 dias
     let dueTomorrow = 0;      // carga de amanhã
     let dueWeek = 0;          // carga dos próximos 7 dias
     let knownFamilies = 0;    // famílias de palavras conhecidas (métrica LingQ)
     let forecast = [];        // cards vencendo por dia, próximos 7 dias
-    let avgReviews7 = 0;      // média de revisões/dia (7 dias) — calibra as missões
-    let avgWords7 = 0;
     let weakCategory = null;   // categoria mais fraca da semana (missão de foco)
     let weakCatReviewsToday = 0;
     let storiesCount = 0;
@@ -379,7 +287,6 @@ export async function renderHome(container, app) {
         // aparecia para quem acabara de concluir aulas (#540).
         const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
         try { coursePracticedToday = Boolean(await db?.courses?.hasPracticeSince?.(dayStart.toISOString())); } catch { /* sem o sinal do curso, vale só o Cofre */ }
-        wordsToday = (allWords || []).filter(w => w.added_at && localDateKey(w.added_at) === todayISO).length;
         storiesCount = (stories || []).length;
 
         // A7: estado do teto do cofre para o banner
@@ -412,12 +319,6 @@ export async function renderHome(container, app) {
             const hits = log30.filter(r => r.quality >= 2).length;
             retention30 = Math.round((hits / log30.length) * 100);
         }
-
-        // Ritmo dos últimos 7 dias: é o que torna as missões ADAPTATIVAS
-        const sevenAgo = localDateKey(addLocalDays(-6));
-        const last7 = (log30 || []).filter(r => activityDate(r) >= sevenAgo);
-        avgReviews7 = last7.length / 7;
-        avgWords7 = (allWords || []).filter(w => w.added_at && localDateKey(w.added_at) >= sevenAgo).length / 7;
 
         // Forecast: quantos cards vencem em cada um dos próximos 7 dias
         const tomorrow = localDateKey(addLocalDays(1));
@@ -477,10 +378,9 @@ export async function renderHome(container, app) {
 
     const dueLearningNow = safeStats.dueLearning || 0;
 
-    // ── Missões ADAPTATIVAS ──────────────────────────────────────────────────
-    // Alvo = ritmo real do aluno (média 7d) + ~20% de desafio, com piso e teto.
-    // Quem sumiu ganha uma missão de RETORNO leve em vez de meta alta.
-    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v)));
+    // ── Missões do dia ───────────────────────────────────────────────────────
+    // Alvo = meta diária do aluno. Quem sumiu ganha uma missão de RETORNO leve
+    // em vez de meta alta.
     const lastStudy = userStats?.last_study_date || null;
     const daysAway = lastStudy ? Math.max(0, daysBetweenLocalKeys(lastStudy, todayISO)) : 0;
     const isReturning = daysAway >= 2; // sumiu 2+ dias
@@ -837,7 +737,7 @@ export async function renderHome(container, app) {
                 app.showToast(`"${label}" aposentada. Uma vaga aberta no cofre.`, 'success');
             }
             app.navigate('home');
-        } catch (e) {
+        } catch {
             app.showToast('Não foi possível abrir a vaga agora.', 'error');
         }
     });
@@ -881,7 +781,7 @@ export async function renderHome(container, app) {
             db?.logUsageEvent?.('weak_pause')?.catch?.(() => {});
             app.showToast(`"${word}" pausada. Reative quando quiser no Cofre.`, 'success');
             renderHome(container, app);
-        } catch (e) {
+        } catch {
             observe('home.weak_words.pause', { outcome: 'error' });
             pauseBtn.disabled = false;
             pauseBtn.textContent = 'Pausar';
@@ -1103,7 +1003,7 @@ function showLogStudyModal(db, app, sourceLang = 'en', onSaved) {
             app?.showToast?.(`+${selectedMinutes}m de ${selectedSkill} registrados!`, 'success');
             close();
             if (onSaved) onSaved();
-        } catch (e) {
+        } catch {
             btn.disabled = false;
             btn.textContent = 'Salvar estudo';
             modalOverlay.querySelector('#manual-study-error').textContent = 'Erro ao salvar estudo. Tente novamente.';

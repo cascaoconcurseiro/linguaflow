@@ -264,16 +264,6 @@ test('subtitles and sidebar clean speaker change arrowheads (>>) and chevrons le
   const grouped = groupCaptionEvents(events);
   assert.equal(grouped.length, 2);
   assert.ok(!grouped.some((c) => c.text === '>>'));
-
-  // 3. Audio language selection container is hidden by default in sidebar
-  const div = { id: '', style: { cssText: '' }, innerHTML: '', querySelector: () => ({ value: '', addEventListener: () => {} }) };
-  const mockDoc = {
-    createElement: (tag) => {
-      if (tag === 'div') return { id: '', style: { cssText: '', display: '' }, innerHTML: '', appendChild: () => {}, querySelector: () => ({ value: '', addEventListener: () => {} }) };
-      return { style: {}, appendChild: () => {}, querySelector: () => ({}) };
-    },
-    getElementById: () => null,
-  };
 });
 
 test('subtitles do not persist indefinitely during music or silence', async () => {

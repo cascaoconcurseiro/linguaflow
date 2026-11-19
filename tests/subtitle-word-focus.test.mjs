@@ -1,7 +1,6 @@
 // Issue #448 — redesenhar a legenda (ex.: tradução chegando) não pode tirar o
 // foco da palavra escolhida pelo atalho F.
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import { readEngineSource } from './helpers/engine-source.mjs';
 
 const source = (await readEngineSource()).replace(/\r\n/g, '\n');

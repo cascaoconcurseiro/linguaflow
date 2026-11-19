@@ -8,7 +8,6 @@ const app = read('dashboard/js/core/app.js');
 const home = read('dashboard/js/ui/homeView.js');
 const stats = read('dashboard/js/ui/statsView.js');
 const progress = read('dashboard/js/ui/progressView.js');
-const css = read('dashboard/css/globals.css');
 const ai = read('dashboard/js/core/ai.js');
 const dbSource = readDbSourceSync();
 

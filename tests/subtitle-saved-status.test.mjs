@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import { readEngineSource } from './helpers/engine-source.mjs';
 
 const source = await readEngineSource();

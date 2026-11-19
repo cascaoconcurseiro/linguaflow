@@ -1,7 +1,6 @@
 // tests/word-popup-layout.test.mjs — Issue #381: card sem definição em
 // inglês e abas nomeadas pelo conteúdo (não por um site).
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { readPopupSourceSync } from './helpers/popup-source.mjs';
 

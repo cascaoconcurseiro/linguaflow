@@ -155,7 +155,7 @@ function renderUI(container, app) {
     <div class="library-container">
       <div class="lib-header">
         <div class="lib-title-block">
-          <h2>Seu Cofre</h2>
+          <h1>Seu Cofre</h1>
           <p>Frases salvas, expressões-alvo e seus contextos originais.</p>
         </div>
         <div class="lib-header-right">

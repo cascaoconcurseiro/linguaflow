@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { WordPopup } from '../content/word-popup.js';
 import { readPopupSourceSync } from './helpers/popup-source.mjs';
 

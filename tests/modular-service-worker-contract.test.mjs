@@ -14,7 +14,6 @@ import {
   getReencounterWordsSW,
   generateSentenceWithAI,
   generateStoryWithAI,
-  generateAIVariation,
 } from '../background/ai-generator.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

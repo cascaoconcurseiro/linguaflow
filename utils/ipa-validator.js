@@ -12,10 +12,14 @@ const ABRASILEIRADO_DIGRAPHS = /\brr|rr\b|rr|nh|lh/i;
 
 // Conjunto estrito de caracteres permitidos no IPA em inglês:
 // Inclui vogais, consoantes IPA, marcadores suprassegmentais (ˈ, ˌ, ː) e separadores fonéticos.
-const IPA_ALLOWED_CHARS = /^[a-zɡθðʃʒŋɹɾʔɫʍæɛɪɔʊʌəɜɝɚɑɒiuoˈˌːˑ̩̃˞̚͜͡ \t,.\-?!'/[\]()]+$/i;
+// Diacríticos combinantes (\u0329, \u0303, \u031A, \u0361, \u035C) entram na classe de propósito:
+// cada caractere é validado isoladamente, inclusive a marca que segue a vogal.
+// biome-ignore lint/suspicious/noMisleadingCharacterClass: ver comentário acima.
+const IPA_ALLOWED_CHARS = /^[a-zɡθðʃʒŋɹɾʔɫʍæɛɪɔʊʌəɜɝɚɑɒiuoˈˌːˑ\u0329\u0303˞\u031A\u0361\u035C \t,.\-?!'/[\]()]+$/i;
 
 // Símbolos fonéticos distintivos do IPA (vogais fonéticas, consoantes não-latinas, acento primário/secundário):
-const DISTINCTIVE_IPA_SYMBOLS = /[ˈˌθðʃʒŋɹɾʔɫʍæɛɪɔʊʌəɜɝɚɑɒː̩˞]/;
+// biome-ignore lint/suspicious/noMisleadingCharacterClass: \u0329 isolado também é distintivo.
+const DISTINCTIVE_IPA_SYMBOLS = /[ˈˌθðʃʒŋɹɾʔɫʍæɛɪɔʊʌəɜɝɚɑɒː\u0329˞]/;
 
 /**
  * Extrai o miolo fonético removendo delimitadores /.../ ou [...] e rótulos opcionais.

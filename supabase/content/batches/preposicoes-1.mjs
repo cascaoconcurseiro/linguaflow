@@ -9,6 +9,7 @@ export const LEXICON = {
   even: ['adverb', '/ˈiːvən/', 'até, mesmo'],
   however: ['adverb', '/haʊˈɛvər/', 'no entanto, mesmo assim'],
   oak: ['proper noun', '/oʊk/', 'Oak (carvalho)'],
+  // biome-ignore lint/suspicious/noThenProperty: verbete do dicionário ("then"); o objeto nunca é aguardado.
   then: ['adverb', '/ðɛn/', 'então, depois'],
   therefore: ['adverb', '/ˈðɛrfɔːr/', 'portanto'],
   whereas: ['conjunction', '/wɛrˈæz/', 'enquanto (contraste)'],

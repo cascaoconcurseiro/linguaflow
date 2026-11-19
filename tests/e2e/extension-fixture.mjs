@@ -58,6 +58,7 @@ export async function launchExtension() {
 
 export const test = base.extend({
   // Cada teste usa um "navegador" novo: fechar = estado de sessão limpo.
+  // biome-ignore lint/correctness/noEmptyPattern: o Playwright exige desestruturação no 1º argumento da fixture.
   extension: async ({}, use) => {
     const ext = await launchExtension();
     await use(ext);

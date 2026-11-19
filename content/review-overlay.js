@@ -111,7 +111,7 @@ export class ReviewOverlay {
     // Handlers
     document.getElementById('lf-ro-close').addEventListener('click', () => this.hide());
     this.host.querySelectorAll('.lf-ro-btn').forEach((btn) => {
-      btn.addEventListener('click', () => this._answer(parseInt(btn.dataset.q)));
+      btn.addEventListener('click', () => this._answer(parseInt(btn.dataset.q, 10)));
     });
 
     // Keyboard

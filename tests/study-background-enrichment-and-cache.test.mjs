@@ -52,7 +52,7 @@ test('FinOps & Performance: generateChunksWeb consulta cache canônico antes da 
   const aiCode = readFileSync('dashboard/js/core/ai.js', 'utf8');
   assert.match(
     aiCode,
-    /getCanonicalLexicon\(normWord\)/,
+    /getCanonicalLexicon\(normWord, 'en', normContext\)/,
     'generateChunksWeb deve consultar o cache canônico antes de gastar tokens com IA'
   );
   assert.match(

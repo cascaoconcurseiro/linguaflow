@@ -523,6 +523,7 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 | `dashboard/js/core/coursePrefs.js` | P | Preferências do player de cursos, guardadas neste navegador. |
 | `dashboard/js/core/courseReviewPacing.js` | P | meta diária das revisões do curso (#501). |
 | `dashboard/js/core/courseVault.js` | P | Cursos → Cofre (#434): leva uma frase/palavra estudada num curso para a fila única de revisão espaçada (FSRS, calculada no servidor). É sempre uma ação explícita do al… |
+| `dashboard/js/core/env.js` | P | Detecção única do contexto de execução: página da extensão Chrome ou PWA na web. |
 | `dashboard/js/core/epub.js` | P | Leitor de EPUB no navegador (Onda 3.1). Um .epub é um .zip com XHTML dentro; usamos fflate (CDN, ~8KB, só descompacta) e o DOMParser nativo do browser pra ler a estrut… |
 | `dashboard/js/core/fluencyCheck.js` | M | Modelo de domínio da Checagem de Fluência: níveis A1–B2, habilidades, decisão de tentativa e força da evidência. |
 | `dashboard/js/core/fluencyTaskCatalog.js` | M | Catálogo versionado de tarefas de fluência por nível e habilidade, com validação e sobreposição de texto estudado. |
@@ -568,6 +569,10 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 | `dashboard/js/ui/storiesView.js` | GG ⚠ | Tela Histórias: gera e lê histórias por nível, formato de livro, tradução no hover, quiz e relatório. |
 | `dashboard/js/ui/storiesViewStyles.js` | P | Estilos da tela Histórias, injetados uma vez no <head> pela storiesView. |
 | `dashboard/js/ui/storyReport.js` | P | "Reportar problema nesta história" (#435): histórias são geradas por IA e ninguém as revisa antes de chegarem ao aluno; este atalho leva o aluno a apontar o problema n… |
+| `dashboard/js/ui/study/cardModals.js` | M | Janelas da revisão: edição rápida do cartão (tecla E) e informações completas do cartão (tecla I). |
+| `dashboard/js/ui/study/feedback.js` | P | Feedback da avaliação: som curto de acerto/erro (Web Audio) e o "+XP" flutuante. |
+| `dashboard/js/ui/study/studyText.js` | P | Funções puras de texto da revisão: comparar respostas digitadas (normalização e distância de edição) e formatar intervalos. |
+| `dashboard/js/ui/study/youglish.js` | P | Widget do YouGlish na revisão: carrega o script remoto, busca a palavra, pausa o vídeo e limpa o estado ao sair. |
 | `dashboard/js/ui/studyView.js` | GG ⚠ | Tela Estudar (revisão FSRS): fila de cards, 4 formas de revisar, avaliação idempotente, desfazer, áudio e sessão. |
 | `dashboard/js/ui/studyViewStyles.js` | M | Estilos da tela Estudar (revisão FSRS), injetados uma vez no <head> pela studyView. |
 | `dashboard/js/ui/systemNotice.js` | P | Faixa de aviso global definida em Admin > Sistema (#408). Falha em silêncio: aviso nunca bloqueia o estudo. |

@@ -4,6 +4,7 @@ import { generateChunksWeb } from '../core/ai.js';
 import { attachVideoContext, renderVideoContext } from '../core/videoContext.js';
 import { bindViewStateAction, escapeHtml, renderViewState } from './viewState.js';
 import { LIBRARY_VIEW_CSS } from './libraryViewStyles.js';
+import { isExtensionContext as isExtension } from '../core/env.js';
 
 let allWords = [];
 let filteredWords = [];
@@ -17,7 +18,6 @@ let selectedWordIds = new Set();
 let visibleCount = 50;
 let searchDebounceTimer = null;
 
-const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
 
 export async function renderLibrary(container, app, params = {}) {
   clearTimeout(searchDebounceTimer);

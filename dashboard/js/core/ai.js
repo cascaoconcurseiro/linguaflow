@@ -5,9 +5,9 @@
 import { db as lfDb } from '../../../utils/db.js';
 import { buildStoryPrompt, levelSpecFor, recentStorySnippets, resolveStoryLevel, storyFormatFor, STORY_PROMPT_VERSION } from '../../../utils/story-variety.js';
 import { isValidIpa, cleanIpa } from '../../../utils/ipa-validator.js';
+import { isExtensionContext as isExtension } from './env.js';
 
 const EDGE_URL = 'https://qnutoswrufznztoznlql.supabase.co/functions/v1/deepseek-chat';
-const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
 
 let _cefrCache;
 let _cefrCacheTs = 0;

@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { readStudySource } from './helpers/study-source.mjs';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
 const [study, editorial] = await Promise.all([
-  read('dashboard/js/ui/studyView.js'),
+  readStudySource(),
   read('dashboard/css/editorial.css'),
 ]);
 

@@ -14,8 +14,8 @@ import { bindReadingHeader, renderReadingHeader } from './readingHub.js';
 import { generateStoryQuiz, renderStoryQuiz } from './storiesQuiz.js';
 import { mountStoryReport } from './storyReport.js';
 import { STORIES_VIEW_CSS } from './storiesViewStyles.js';
+import { isExtensionContext as isExtension } from '../core/env.js';
 
-const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location !== 'undefined' && location.protocol === 'chrome-extension:');
 let storiesDocumentController = null;
 let vaultTranslations = new Map();
 

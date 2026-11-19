@@ -12,8 +12,8 @@ import { parseEpub } from '../core/epub.js';
 import { renderViewState } from './viewState.js';
 import { bindReadingHeader, renderReadingHeader } from './readingHub.js';
 import { enrichCard } from '../core/ai.js';
+import { isExtensionContext as isExtension } from '../core/env.js';
 
-const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
 const TEXTS_KEY = 'lf_reader_texts';
 const READER_MIGRATION_KEY = 'lf_reader_texts_migrated';
 const URL_IMPORT_EDGE_URL = 'https://qnutoswrufznztoznlql.supabase.co/functions/v1/url-import';

@@ -25,9 +25,15 @@ assert.equal(
 );
 
 // 2. Contrato de Detecção de Ambiente na StoriesView
+// A checagem estrita do protocolo vive em core/env.js (única definição); a StoriesView só a importa.
 assert.match(
   stories,
-  /const isExtension = typeof chrome !== 'undefined' && !!chrome\.runtime && !!chrome\.runtime\.id && \(typeof location !== 'undefined' && location\.protocol === 'chrome-extension:'\);/,
+  /import \{ isExtensionContext as isExtension \} from '\.\.\/core\/env\.js';/,
+  'isExtension deve vir da definição única de core/env.js'
+);
+assert.match(
+  read('dashboard/js/core/env.js'),
+  /location\.protocol === 'chrome-extension:'/,
   'isExtension deve verificar estritamente o protocolo chrome-extension: para não quebrar no site web'
 );
 

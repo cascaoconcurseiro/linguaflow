@@ -1,12 +1,24 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-// 1. Verificar desacoplamento de ambiente nos arquivos críticos do Dashboard
+// 1. Verificar desacoplamento de ambiente: uma única definição, estrita, em core/env.js
+const envJs = await readFile(new URL('../dashboard/js/core/env.js', import.meta.url), 'utf8');
+assert.ok(
+  envJs.includes("location.protocol === 'chrome-extension:'"),
+  'dashboard/js/core/env.js deve restringir isExtensionContext checando se location.protocol === \'chrome-extension:\''
+);
+assert.ok(
+  !envJs.includes("!!chrome.runtime.id;"),
+  'dashboard/js/core/env.js não deve usar a checagem antiga e frágil'
+);
+
+// Cada arquivo do Dashboard que decide por ambiente importa a definição única e não declara a sua.
 const filesToCheck = [
   { path: '../dashboard/js/core/tts.js', identifier: 'isExtension' },
   { path: '../dashboard/js/core/ai.js', identifier: 'isExtension' },
   { path: '../dashboard/js/ui/settingsView.js', identifier: 'isExtensionCtx' },
   { path: '../dashboard/js/ui/studyView.js', identifier: 'isExtension' },
+  { path: '../dashboard/js/ui/study/youglish.js', identifier: 'isExtension' },
   { path: '../dashboard/js/ui/libraryView.js', identifier: 'isExtension' },
   { path: '../dashboard/js/ui/readerView.js', identifier: 'isExtension' },
   { path: '../dashboard/js/ui/storiesView.js', identifier: 'isExtension' },
@@ -14,13 +26,14 @@ const filesToCheck = [
 
 for (const { path, identifier } of filesToCheck) {
   const content = await readFile(new URL(path, import.meta.url), 'utf8');
-  assert.ok(
-    content.includes("location.protocol === 'chrome-extension:'"),
-    `${path} deve restringir ${identifier} checando se location.protocol === 'chrome-extension:'`
+  assert.match(
+    content,
+    new RegExp(`import \\{ isExtensionContext as ${identifier} \\} from '[./]+(core/)?env\\.js';`),
+    `${path} deve importar isExtensionContext de core/env.js como ${identifier}`
   );
   assert.ok(
-    !content.includes(`const ${identifier} = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;`),
-    `${path} não deve usar a checagem antiga e frágil de ${identifier}`
+    !new RegExp(`const ${identifier} = typeof chrome`).test(content),
+    `${path} não deve redeclarar ${identifier} com checagem própria`
   );
 }
 

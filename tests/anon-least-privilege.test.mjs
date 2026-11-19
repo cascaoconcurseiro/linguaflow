@@ -26,6 +26,23 @@ test('catálogo, léxico e keep-alive: anon fica só com SELECT', () => {
   assert.doesNotMatch(sql, /grant (all|insert|update|delete|truncate)[^;]* to anon/i);
 });
 
+test('sequências: anon perde o grant herdado e os privilégios padrão', () => {
+  const seq = readFileSync(new URL('../supabase/migrations/20261119140000_anon_least_privilege_sequences.sql', import.meta.url), 'utf8')
+    .replace(/--.*$/gm, '');
+  assert.match(seq, /revoke all on sequence public\.admin_audit_log_id_seq from public, anon/);
+  assert.match(seq, /alter default privileges for role postgres in schema public revoke all on sequences from anon/);
+  assert.match(seq, /if exists \(select 1 from pg_roles where rolname = 'postgres'\)/);
+  assert.doesNotMatch(seq, /grant [^;]* to anon/i);
+});
+
+test('léxico canônico: sem leitura anônima (frases de contexto dos usuários)', () => {
+  const lex = readFileSync(new URL('../supabase/migrations/20261119150000_canonical_lexicon_authenticated_only.sql', import.meta.url), 'utf8')
+    .replace(/--.*$/gm, '');
+  assert.match(lex, /revoke all on table public\.canonical_lexicon from public, anon;/);
+  assert.match(lex, /create policy canonical_lexicon_read on public\.canonical_lexicon\s+for select to authenticated using \(true\);/);
+  assert.doesNotMatch(lex, /to [^;]*\banon\b/i, 'nenhuma policy ou grant volta a incluir o anon');
+});
+
 test('privilégios padrão deixam de abrir tabelas e funções novas ao anon', () => {
   assert.match(sql, /alter default privileges for role postgres in schema public revoke all on tables from anon/);
   assert.match(sql, /alter default privileges for role postgres in schema public revoke execute on functions from anon/);

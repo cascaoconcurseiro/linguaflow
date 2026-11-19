@@ -1,5 +1,10 @@
 # Changelog
 
+## Segurança do banco e das dependências — 2026-11-19 (#559, parte 2)
+- **Privacidade:** o léxico canônico compartilhado (`canonical_lexicon`) podia ser lido sem login com a chave pública do app, inclusive as frases de contexto enviadas pelos usuários (42 entradas). A leitura passa a exigir usuário logado (migration `20261119150000_canonical_lexicon_authenticated_only.sql`, **aplicada em produção**; o acesso anônimo agora recebe 401). O app sempre leu o léxico com sessão, então nada muda para quem usa.
+- Banco: a sequência `admin_audit_log_id_seq` e os privilégios padrão de sequências deixam de incluir o `anon` (migration `20261119140000_anon_least_privilege_sequences.sql`, **aplicada em produção**). Com isso o `anon` não aparece mais em nenhum privilégio padrão do schema `public`.
+- Dependências de desenvolvimento: `npm audit` sai de 10 vulnerabilidades (2 altas) para 0. `qs`, `zod`, `follow-redirects` e `fast-uri` foram atualizados; `minimatch` 11.0.9 e `glob` 14.0.6 entram via `overrides`, porque o Stryker e o c8 ainda fixam versões vulneráveis (motivo da falha do Dependabot). c8, Stryker (dry run), knip e o servidor dos testes de navegador validados com as novas versões. Nada disso é enviado aos usuários.
+
 ## [3.0.67] - 2026-11-19 — Auditoria de qualidade (#559)
 - Celular: Cofre e Configurações deixam de ficar mais largos que a tela (eram cortados à direita; o botão "Ações" de cada frase do Cofre ficava inalcançável). Os campos de "Limites Diários" quebram linha em telas estreitas.
 - Player: a tecla C passa a funcionar assim que o botão LF aparece. Antes, os atalhos esperavam o carregamento do popup de palavras, e nessa janela a tecla não fazia nada (o teste de navegador falhava 3 em 10 na `main`; agora passa 20 em 20).

@@ -159,7 +159,6 @@ export async function renderCoursePractice(container, app, params = {}) {
   let lastActivity = Date.now();
   let paused = false;
   let audioToken = 0;
-  let audioPlaying = false;
   let heartbeatWarned = false;
   let advancing = false;
   let focusedSlot = 0;
@@ -533,7 +532,6 @@ export async function renderCoursePractice(container, app, params = {}) {
     stopAudio();
     const token = ++audioToken;
     const btn = container.querySelector('[data-action="replay"]');
-    audioPlaying = true;
     btn?.classList.add('playing');
     container.querySelector('#course-audio-cue')?.classList.add('is-playing');
     try {
@@ -548,7 +546,6 @@ export async function renderCoursePractice(container, app, params = {}) {
       console.warn('[CoursePractice] audio_failed', err?.message);
     } finally {
       if (token === audioToken) {
-        audioPlaying = false;
         btn?.classList.remove('playing');
         container.querySelector('#course-audio-cue')?.classList.remove('is-playing');
       }
@@ -557,7 +554,6 @@ export async function renderCoursePractice(container, app, params = {}) {
 
   function stopReading() {
     audioToken += 1;
-    audioPlaying = false;
     stopAudio();
   }
 

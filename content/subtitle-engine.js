@@ -521,6 +521,10 @@ export class SubtitleEngine {
     this._waitForVideo();
     this.startCapture();
 
+    // Atalhos de teclado assim que o botão LF aparece: não dependem do WordPopup,
+    // e esperá-lo deixava a tecla C sem efeito durante o carregamento (#559).
+    this._setupKeyboardShortcuts();
+
     // Inicializa WordPopup (Pro V5 style)
     try {
       const { WordPopup } = await import('./word-popup.js');
@@ -529,9 +533,6 @@ export class SubtitleEngine {
     } catch (e) {
       console.error('[LinguaFlow] Erro ao inicializar WordPopup:', e);
     }
-
-    // ── NOVO: Atalhos de Teclado Profissionais (Padrão LR) ───────────────
-    this._setupKeyboardShortcuts();
   }
 
   // ── Limpeza de estado para troca de vídeo ────────────────────────────────

@@ -186,7 +186,7 @@ export async function renderStats(container, app) {
   let cards = [], reviewLog = [], sessions = [];
   try {
     ({ cards, reviewLog, sessions } = await lfDb.getStatsSnapshot(60));
-  } catch (err) {
+  } catch {
     if (app?.renderSignal?.aborted) return;
     container.setAttribute('aria-busy', 'false');
     container.innerHTML = renderViewState({ kind: 'error', title: 'Não foi possível calcular seu progresso', message: 'Seus registros continuam seguros. Verifique a conexão e tente novamente.', actionLabel: 'Tentar novamente', actionId: 'btn-stats-retry' });

@@ -135,8 +135,6 @@ const mockContainer = {
 };
 
 const wordsEngine = Object.create(SubtitleEngine.prototype);
-let subtitleTabClicked = false;
-let videoPlayCalled = false;
 
 Object.assign(wordsEngine, {
   xhrCues: [
@@ -149,7 +147,6 @@ Object.assign(wordsEngine, {
   videoElement: {
     currentTime: 0,
     play() {
-      videoPlayCalled = true;
       return Promise.resolve();
     },
   },
@@ -159,7 +156,7 @@ Object.assign(wordsEngine, {
 globalThis.document = {
   getElementById(id) {
     if (id === 'lf-words-scroll') return mockContainer;
-    if (id === 'lf-tab-subtitles') return { click() { subtitleTabClicked = true; } };
+    if (id === 'lf-tab-subtitles') return { click() {} };
     return null;
   },
   createElement(tag) {

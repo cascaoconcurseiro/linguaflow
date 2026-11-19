@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import { slangsDB } from '../utils/slangs-db.js';
-import { expressionsDB, matchExpressionCandidate } from '../utils/expressions-db.js';
+import { matchExpressionCandidate } from '../utils/expressions-db.js';
 import { SubtitleEngine } from '../content/subtitle-engine.js';
 import { readEngineSource } from './helpers/engine-source.mjs';
 
@@ -246,6 +245,7 @@ assert.equal(exportedCsvCues, occurrences, 'CSV export must receive matching cue
 
 if (ankiBtn && ankiBtn.onclick) ankiBtn.onclick();
 assert.equal(exportedAnkiCues, occurrences, 'Anki export must receive matching cues');
+assert.equal(explorerTitle, 'give up_phrasal', 'Export do explorador usa termo e categoria no título');
 
 // Verify Loop button synchronization
 // When looping is activated on cue 1

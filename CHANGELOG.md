@@ -1,9 +1,12 @@
 # Changelog
 
-## Auditoria 2026-11-19: layout no celular, acessibilidade e menor privilégio do anon (#559)
+## [3.0.67] - 2026-11-19 — Auditoria de qualidade (#559)
 - Celular: Cofre e Configurações deixam de ficar mais largos que a tela (eram cortados à direita; o botão "Ações" de cada frase do Cofre ficava inalcançável). Os campos de "Limites Diários" quebram linha em telas estreitas.
+- Player: a tecla C passa a funcionar assim que o botão LF aparece. Antes, os atalhos esperavam o carregamento do popup de palavras, e nessa janela a tecla não fazia nada (o teste de navegador falhava 3 em 10 na `main`; agora passa 20 em 20).
 - Acessibilidade: campos URL, Título e Texto do Leitor ganham nome acessível; "Seu Cofre" passa a ser o `h1` da página.
-- Supabase: migration `20261119120000_anon_least_privilege_courses.sql` remove do papel `anon` os grants de escrita herdados nas tabelas do curso, `canonical_lexicon` e `keep_alive`, e corrige os privilégios padrão que abriam tabelas e funções novas ao `anon`. O RLS já bloqueava a escrita; esta é a segunda camada. **Ainda não aplicada em produção.**
+- Supabase: migration `20261119120000_anon_least_privilege_courses.sql` remove do papel `anon` os grants de escrita herdados nas tabelas do curso, `canonical_lexicon` e `keep_alive`, e corrige os privilégios padrão que abriam tabelas e funções novas ao `anon`. O RLS já bloqueava a escrita; esta é a segunda camada. **Aplicada em produção em 2026-11-19** e conferida (anon só com SELECT em catálogo, lições, unidades, léxico e keep-alive).
+- Código: removidos o onboarding em 3 passos (inalcançável desde a #498), métricas de missão calculadas e nunca usadas, um wrapper morto no service worker e cerca de 60 imports e variáveis sem uso. O teste `onboarding-p1-c` passou a verificar o contrato atual. O validador de IPA escreve os diacríticos combinantes como `\uXXXX`.
+- Qualidade: o gate `npm run lint:biome` passa a cobrir todo o app (extensão, dashboard, popup, Edge Functions, conteúdo e testes: 506 arquivos, antes 104), com regras de imports sem uso, `parseInt` sem base, chaves duplicadas e regex suspeitas.
 
 ## [3.0.66] - 2026-10-14
 - Ponte YouTube/Max: uma falha de carregamento do script libera o estado da tentativa e permite até três tentativas por navegação, separadas por pelo menos um segundo. Falhas tardias de outra navegação não sobrescrevem o nonce atual; após o limite há um erro estruturado único, sem dados pessoais.

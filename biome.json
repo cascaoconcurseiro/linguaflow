@@ -1,16 +1,44 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.2.0/schema.json",
-  "files": { "includes": ["scripts/**/*.js", "scripts/**/*.mjs", "utils/**/*.js", "dashboard/js/core/**/*.js", "tests/wiring-audit.test.mjs", "tests/e2e/**/*.mjs"] },
+  "files": {
+    "includes": [
+      "scripts/**/*.js",
+      "scripts/**/*.mjs",
+      "utils/**/*.js",
+      "dashboard/js/**/*.js",
+      "dashboard/sw.js",
+      "content/**/*.js",
+      "background/**/*.js",
+      "popup/**/*.js",
+      "supabase/functions/**/*.ts",
+      "supabase/content/**/*.mjs",
+      "tests/**/*.mjs",
+      "tests/**/*.js",
+      "!tests/fixtures/**"
+    ]
+  },
   "assist": { "enabled": false },
   "formatter": { "enabled": false },
   "linter": {
     "enabled": true,
     "rules": {
       "recommended": false,
-      "correctness": { "noUnusedVariables": "error" },
+      "correctness": {
+        "noUnusedVariables": "error",
+        "noUnusedImports": "error",
+        "useParseIntRadix": "error",
+        "noEmptyPattern": "error",
+        "noEmptyCharacterClassInRegex": "error"
+      },
       "suspicious": {
         "noAssignInExpressions": "off",
-        "useIterableCallbackReturn": "off"
+        "useIterableCallbackReturn": "off",
+        "noDuplicateObjectKeys": "error",
+        "noPrototypeBuiltins": "error",
+        "noMisleadingCharacterClass": "error",
+        "noThenProperty": "error",
+        "noTemplateCurlyInString": "error",
+        "noUselessEscapeInString": "error"
       },
       "style": { "useTemplate": "off" }
     }

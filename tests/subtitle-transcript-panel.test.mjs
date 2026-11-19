@@ -2,7 +2,6 @@
 // palavras clicáveis, busca com destaque, estados e desempenho do destaque.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFile } from 'node:fs/promises';
 import {
   CAPTION_WAIT_MS,
   highlightMatches,

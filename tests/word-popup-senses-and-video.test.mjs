@@ -2,7 +2,6 @@
 // traduções" e "Neste vídeo" do card da palavra (estado, conteúdo escapado,
 // nomes acessíveis e "Ouvir no vídeo").
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { readPopupSourceSync } from './helpers/popup-source.mjs';
 

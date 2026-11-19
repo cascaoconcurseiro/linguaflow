@@ -23,7 +23,7 @@ assert.match(css, /@media \(max-width: 340px\)/);
 
 // Home: próximo passo primeiro; metas e números ficam sob demanda.
 const today = home.indexOf("section('home-today'");
-const more = home.indexOf("more\.id = 'home-more'");
+const more = home.indexOf("more.id = 'home-more'");
 assert.ok(today >= 0 && today < more);
 assert.doesNotMatch(home, /section\('home-next'/);
 assert.match(home, /chooseTodayAction/);

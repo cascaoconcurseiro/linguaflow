@@ -2,7 +2,6 @@
 // objeto, fala reduzida, "'d", "soa como", marcadores e marcas por tipo.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFile } from 'node:fs/promises';
 import { detectExpressions } from '../utils/expression-detector.js';
 import { REDUCTIONS } from '../utils/speech-cadence.js';
 import { slangMatchesContext, slangsDB } from '../utils/slangs-db.js';

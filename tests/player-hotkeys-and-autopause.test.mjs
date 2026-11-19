@@ -259,7 +259,6 @@ test('SubtitleEngine: repeatSubtitle resiliente a tempo logo após fim de frase'
   let seekTime = -1;
 
   engine.videoElement = {
-    currentTime: 10.5,
     play: () => { played = true; return Promise.resolve(); },
     set currentTime(val) { seekTime = val; },
     get currentTime() { return seekTime >= 0 ? seekTime : 10.5; },

@@ -118,7 +118,7 @@ export function decideFluencyAttempt({
     }
   }
   const missingCritical = criticalDimensions.filter(
-    (name) => !Object.prototype.hasOwnProperty.call(dimensions, name),
+    (name) => !Object.hasOwn(dimensions, name),
   );
   if (missingCritical.length > 0) {
     throw new TypeError(`Dimensão crítica ausente: ${missingCritical.join(', ')}.`);

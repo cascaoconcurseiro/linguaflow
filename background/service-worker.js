@@ -3,7 +3,6 @@ import { db } from '../utils/db.js';
 import { translator } from '../utils/translator.js';
 import { fetchWordSenses } from '../utils/word-senses.js';
 import { OFFICIAL_SITE_URL, isLinguaFlowUrl } from '../utils/site-boundary.js';
-import { buildStoryVarietyNote, buildLevelNote, levelSpecFor, recentStorySnippets, resolveStoryLevel } from '../utils/story-variety.js';
 import { slangsDB } from '../utils/slangs-db.js';
 import { phrasalVerbsDB } from '../utils/phrasal-verbs.js';
 import {
@@ -13,7 +12,6 @@ import {
 } from './cache-cleaner.js';
 import {
   generateSentenceWithAI as generateSentenceWithAIModule,
-  getReencounterWordsSW as getReencounterWordsSWModule,
   generateStoryWithAI as generateStoryWithAIModule,
   generateAIVariation as generateAIVariationModule,
   backfillMissingSentences as backfillMissingSentencesModule,
@@ -1029,7 +1027,7 @@ async function fetchDictionary(word) {
         }
       }
     }
-  } catch (err) {
+  } catch {
     // Timeout ou erro de conexão na api primária
   }
 
@@ -1089,7 +1087,7 @@ async function fetchDictionary(word) {
         }
       }
     }
-  } catch (err) {
+  } catch {
     // Timeout ou erro de conexão no Datamuse
   }
 
@@ -1121,7 +1119,7 @@ async function fetchDictionary(word) {
         }
       }
     }
-  } catch (err) {
+  } catch {
     // Timeout ou erro no Wiktionary
   }
 
@@ -1438,7 +1436,7 @@ Não há frase de origem disponível. Gere uma ocorrência curta e deixe claro o
         const validPhon = isValidIpa(chunk.phon) ? cleanIpa(chunk.phon) : '';
         return { ...chunk, phon: validPhon };
       });
-    } catch (e) {
+    } catch {
       console.error('Falha ao parsear JSON dos chunks:', content);
       return [];
     }
@@ -1599,12 +1597,6 @@ Se for phrasal verb, chunk, gíria ou expressão, traduza o bloco inteiro pelo s
 // ============================================================================
 async function generateSentenceWithAI(word) {
   return generateSentenceWithAIModule(word, { getApiConfig, fetchWithRetry });
-}
-
-// Palavras do aluno pro REENCONTRO na história (Onda 1.4 — paridade com a web):
-// fracas primeiro (3+ lapsos/leech), depois em aprendizado recente. Máx 8.
-async function getReencounterWordsSW() {
-  return getReencounterWordsSWModule(db);
 }
 
 async function generateStoryWithAI(genre, options = {}) {

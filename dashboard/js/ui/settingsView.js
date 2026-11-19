@@ -10,7 +10,7 @@ export async function renderSettings(container, app) {
   // B1 do backlog (W6.4): BYOK removido — a IA passa SEMPRE pela Edge
   // Function com rate-limit por usuario; a chave do projeto vive so em
   // Supabase Secrets. Limpa a chave pessoal orfa de instalacoes antigas.
-  try { await chrome.storage.local.remove('aiApiKey'); } catch (e) { /* web */ }
+  try { await chrome.storage.local.remove('aiApiKey'); } catch { /* web */ }
   // TODAS as chaves aqui são as MESMAS que o motor lê em getSRSSettings().
   // (Bug da auditoria: a tela salvava lf_srs_* e o motor lia outras chaves —
   // o usuário mexia, via "Salvo ✅" e nada mudava.)
@@ -978,7 +978,7 @@ export async function renderSettings(container, app) {
         if (!res?.ok) throw new Error('Falha ao salvar a preferência.');
         emailStatus.textContent = desired ? 'Resumo semanal ativo.' : 'Resumo por e-mail desativado.';
         app.showToast(desired ? 'Resumo semanal ativado.' : 'Resumo por e-mail desativado.', desired ? 'success' : 'info');
-      } catch (e) {
+      } catch {
         emailToggle.checked = !desired;
         emailStatus.textContent = 'Não consegui salvar a preferência.';
         app.showToast('Não consegui salvar a preferência de e-mail.', 'error');

@@ -57,7 +57,7 @@ test('contrato: opções desligadas por padrão, salvas, aplicadas ao motor e li
   for (const key of ['smartAutoPause', 'smartHideKnownTranslation']) {
     assert.match(panel, new RegExp(`${key}: false`), `${key} deve nascer desligada`);
     assert.match(storage, new RegExp(`'${key}'`));
-    assert.match(engine, new RegExp(`this\.${key} = false`));
+    assert.match(engine, new RegExp(`this.${key} = false`));
     assert.ok(engine.includes(`getSetting('${key}')`));
   }
   assert.match(markup, /sel-smart-autopause/);

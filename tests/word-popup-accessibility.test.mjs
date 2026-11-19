@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { readPopupSourceSync } from './helpers/popup-source.mjs';
 
 const source = readPopupSourceSync();

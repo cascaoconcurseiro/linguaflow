@@ -8,7 +8,6 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const source = ['dashboard/js/ui/studyView.js', 'dashboard/js/ui/studyViewStyles.js']
   .map((file) => readFileSync(join(root, file), 'utf8'))
   .join('\n');
-const aiSource = readFileSync(join(root, 'dashboard/js/core/ai.js'), 'utf8');
 
 assert.doesNotMatch(source, /class="study-sidebar"/,
   'recursos não ocupam uma sidebar permanente');
@@ -26,7 +25,7 @@ assert.doesNotMatch(source, /186px/,
   'compensação móvel antiga de 186px foi removida');
 
 const exerciseFinish = source.slice(source.indexOf('function exerciseFinish'), source.indexOf('// Montar frase'));
-assert.doesNotMatch(exerciseFinish, /setTimeout|scheduleStudyTask\([^]*handleGrade/,
+assert.doesNotMatch(exerciseFinish, /setTimeout|scheduleStudyTask\([\s\S]*handleGrade/,
   'exercício não avança por timer');
 // 17/07 (A2 do backlog): o binário virou tri-estado — acerto oferece 2-4,
 // "quase" (typo no ditado) oferece 2-3, erro real oferece somente 1.

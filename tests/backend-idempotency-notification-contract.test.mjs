@@ -30,7 +30,7 @@ assert.match(push, /finish_push_subscription_claim[\s\S]*p_delivered: true/i);
 assert.match(push, /finish_push_subscription_claim[\s\S]*p_delivered: false/i);
 
 assert.ok(
-  email.indexOf('admin.rpc("claim_email_candidate"') < email.indexOf('fetch("https:\/\/api.resend.com\/emails"'),
+  email.indexOf('admin.rpc("claim_email_candidate"') < email.indexOf('fetch("https://api.resend.com/emails"'),
   'E-mail deve reservar atomicamente antes do efeito externo',
 );
 assert.match(email, /"Idempotency-Key": `linguaflow-reengagement-\$\{claim\.delivery_key\}`/);

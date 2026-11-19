@@ -122,6 +122,7 @@ test('Edge TTS: Contrato do cliente de áudio (dashboard/js/core/tts.js)', () =>
   assert.ok(!clientTts.includes("? 'kk' : 'ms'"), 'Prefixo ms| contaminado não é mais lido');
   assert.ok(clientTts.includes("headers.get('x-tts-engine')"), 'Cliente lê o motor que respondeu');
   assert.ok(/engine === 'edge-tts'/.test(clientTts), 'Só persiste como neural quando o motor é edge-tts');
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: procura o texto literal do código-fonte.
   assert.ok(clientTts.includes('await idbGet(`g|${lang}|${text}`)'), 'Preserva compatibilidade com cache legado offline');
   assert.ok(clientTts.includes('TTS_PROXY_URL'), 'Chama o proxy autenticado com fallback');
 });

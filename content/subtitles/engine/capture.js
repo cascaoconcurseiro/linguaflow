@@ -364,7 +364,7 @@ export class CaptureMethods {
     if (raw.startsWith('{')) {
       try {
         cues = this._processYtSub(JSON.parse(raw));
-      } catch (e) {}
+      } catch {}
     } else if (raw.includes('WEBVTT')) {
       cues = this._parseVTT(raw);
     } else if (raw.includes('-->')) {
@@ -689,7 +689,7 @@ export class CaptureMethods {
       if (v && v.cancelVideoFrameCallback) {
         try {
           v.cancelVideoFrameCallback(this.syncInterval);
-        } catch (e) {}
+        } catch {}
       } else {
         cancelAnimationFrame(this.syncInterval);
       }
@@ -699,7 +699,7 @@ export class CaptureMethods {
       if (v && v.cancelVideoFrameCallback) {
         try {
           v.cancelVideoFrameCallback(this._syncTimer);
-        } catch (e) {}
+        } catch {}
       } else {
         cancelAnimationFrame(this._syncTimer);
       }

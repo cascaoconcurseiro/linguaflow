@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { SubtitleEngine } from '../content/subtitle-engine.js';
 import { readEngineSource } from './helpers/engine-source.mjs';

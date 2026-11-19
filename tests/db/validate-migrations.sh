@@ -162,6 +162,9 @@ run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/usage-events.sql"
 echo "── correções de conteúdo publicado (#435)"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-corrections.sql"
 
+echo "── léxico compartilhado sem vazar frases entre alunos (#559)"
+run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/canonical-lexicon-privacy.sql"
+
 echo "── revisão guiada, estágio diário e teto Fácil (#531)"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-review-method-531.sql"
 run_pg "${PSQL[@]}" -f "$ROOT/tests/sql/course-review-method-rollback-531.sql"

@@ -174,7 +174,7 @@ export async function enrichCard(word, sentence) {
   const promise = (async () => {
     // 1. Consulta o cache canônico no Supabase / armazenamento local
     try {
-      const cached = await lfDb.getCanonicalLexicon(normWord);
+      const cached = await lfDb.getCanonicalLexicon(normWord, 'en', normSentence);
       if (cached) {
         const normSentLower = normSentence.toLowerCase();
         // Se não há frase ou a frase é a própria palavra, retorna os dados canônicos da palavra
@@ -375,7 +375,7 @@ export async function generateChunksWeb(word, context = '') {
 
   // 1. Tenta reaproveitar do cache léxico canônico antes de gastar tokens com IA
   try {
-    const cached = await lfDb.getCanonicalLexicon(normWord);
+    const cached = await lfDb.getCanonicalLexicon(normWord, 'en', normContext);
     if (cached) {
       const normCtxLower = normContext.toLowerCase();
       const match = Array.isArray(cached.contexts)

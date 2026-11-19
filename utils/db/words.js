@@ -479,55 +479,70 @@ export class WordsMethods {
   }
 
   // ── CACHE LÉXICO CANÔNICO (FinOps & Latência) ─────────────────────────────
-  async getCanonicalLexicon(word, lang = 'en') {
+  // O servidor devolve os dados da palavra e, no máximo, a frase pedida (#559):
+  // um aluno nunca recebe frases de contexto enviadas por outro. O cache local
+  // acumula só as frases que este aluno consultou.
+  async getCanonicalLexicon(word, lang = 'en', sentence = '') {
     const normWord = String(word || '').trim().toLowerCase();
     const normLang = String(lang || 'en').trim().toLowerCase();
     if (!normWord) return null;
+    const sentLower = String(sentence || '').trim().toLowerCase();
 
     const cacheKey = `${normLang}:${normWord}`;
     const storageKey = `lf_lex:${cacheKey}`;
+    const hasSentence = (entry) => !sentLower
+      || (Array.isArray(entry?.contexts) && entry.contexts.some((c) => String(c?.sentence || '').trim().toLowerCase() === sentLower));
 
     // Nível 1: Memória RAM
-    if (this._canonicalLexiconMemory?.has(cacheKey)) {
-      return this._canonicalLexiconMemory.get(cacheKey);
-    }
+    let local = this._canonicalLexiconMemory?.get(cacheKey) || null;
 
     // Nível 2: Armazenamento Local Persistente (chrome.storage.local / localStorage)
-    try {
-      const localVal = await this._draftStorage('get', storageKey);
-      if (localVal && (localVal.word || localVal.word_phon || (Array.isArray(localVal.contexts) && localVal.contexts.length > 0))) {
-        if (!this._canonicalLexiconMemory) this._canonicalLexiconMemory = new Map();
-        this._canonicalLexiconMemory.set(cacheKey, localVal);
-        return localVal;
-      }
-    } catch {}
-
-    if (this._canonicalLexiconDisabled) return null;
-    if (this.isProxyMode) return this._proxy('getCanonicalLexicon', [word, lang]);
-
-    // Nível 3: Supabase Remoto
-    try {
-      const res = await this._fetch(
-        `canonical_lexicon?word=eq.${encodeURIComponent(normWord)}&lang=eq.${encodeURIComponent(normLang)}&select=*`,
-        { silent: true }
-      );
-      if (Array.isArray(res) && res.length > 0) {
-        const entry = res[0];
-        if (!this._canonicalLexiconMemory) this._canonicalLexiconMemory = new Map();
-        if (this._canonicalLexiconMemory.size > 500) {
-          const firstKey = this._canonicalLexiconMemory.keys().next().value;
-          this._canonicalLexiconMemory.delete(firstKey);
+    if (!local) {
+      try {
+        const localVal = await this._draftStorage('get', storageKey);
+        if (localVal && (localVal.word || localVal.word_phon || (Array.isArray(localVal.contexts) && localVal.contexts.length > 0))) {
+          if (!this._canonicalLexiconMemory) this._canonicalLexiconMemory = new Map();
+          this._canonicalLexiconMemory.set(cacheKey, localVal);
+          local = localVal;
         }
-        this._canonicalLexiconMemory.set(cacheKey, entry);
-        this._draftStorage('set', storageKey, entry).catch(() => {});
-        return entry;
+      } catch {}
+    }
+    // A palavra já está no cache e a frase pedida também (ou não há frase): sem rede.
+    if (local && hasSentence(local)) return local;
+
+    if (this._canonicalLexiconDisabled) return local;
+    if (this.isProxyMode) return this._proxy('getCanonicalLexicon', [word, lang, sentence]);
+
+    // Nível 3: Supabase Remoto via RPC autenticada
+    try {
+      const remote = await this._fetch('rpc/get_canonical_lexicon', {
+        method: 'POST',
+        silent: true,
+        body: { p_word: normWord, p_lang: normLang, p_sentence: sentence ? String(sentence).trim() : null },
+      });
+      if (!remote || typeof remote !== 'object') return local;
+
+      // Junta as frases deste aluno já guardadas com a que veio do servidor.
+      const contexts = Array.isArray(local?.contexts) ? [...local.contexts] : [];
+      for (const ctx of Array.isArray(remote.contexts) ? remote.contexts : []) {
+        const key = String(ctx?.sentence || '').trim().toLowerCase();
+        if (key && !contexts.some((c) => String(c?.sentence || '').trim().toLowerCase() === key)) contexts.push(ctx);
       }
-      return null;
+      const entry = { ...remote, contexts: contexts.slice(-20) };
+
+      if (!this._canonicalLexiconMemory) this._canonicalLexiconMemory = new Map();
+      if (this._canonicalLexiconMemory.size > 500) {
+        const firstKey = this._canonicalLexiconMemory.keys().next().value;
+        this._canonicalLexiconMemory.delete(firstKey);
+      }
+      this._canonicalLexiconMemory.set(cacheKey, entry);
+      this._draftStorage('set', storageKey, entry).catch(() => {});
+      return entry;
     } catch (e) {
-      if (e?.status === 404 || e?.code === 'PGRST205') {
+      if (e?.status === 404 || e?.code === 'PGRST202') {
         this._canonicalLexiconDisabled = true;
       }
-      return null;
+      return local;
     }
   }
 
@@ -596,10 +611,12 @@ export class WordsMethods {
       });
 
       if (saved) {
+        // O servidor devolve só a frase enviada; as frases locais deste aluno são preservadas.
+        const merged = { ...saved, contexts: localEntry.contexts };
         if (!this._canonicalLexiconMemory) this._canonicalLexiconMemory = new Map();
-        this._canonicalLexiconMemory.set(cacheKey, saved);
-        this._draftStorage('set', storageKey, saved).catch(() => {});
-        return saved;
+        this._canonicalLexiconMemory.set(cacheKey, merged);
+        this._draftStorage('set', storageKey, merged).catch(() => {});
+        return merged;
       }
       return localEntry;
     } catch (e) {

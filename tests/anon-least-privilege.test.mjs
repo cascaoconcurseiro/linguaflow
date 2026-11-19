@@ -27,6 +27,8 @@ test('catálogo, léxico e keep-alive: anon fica só com SELECT', () => {
 });
 
 test('privilégios padrão deixam de abrir tabelas e funções novas ao anon', () => {
-  assert.match(sql, /alter default privileges for role postgres in schema public revoke all on tables from anon;/);
-  assert.match(sql, /alter default privileges for role postgres in schema public revoke execute on functions from anon;/);
+  assert.match(sql, /alter default privileges for role postgres in schema public revoke all on tables from anon/);
+  assert.match(sql, /alter default privileges for role postgres in schema public revoke execute on functions from anon/);
+  // O replay da CI não tem o papel postgres: o bloco precisa ser condicional.
+  assert.match(sql, /if exists \(select 1 from pg_roles where rolname = 'postgres'\)/);
 });

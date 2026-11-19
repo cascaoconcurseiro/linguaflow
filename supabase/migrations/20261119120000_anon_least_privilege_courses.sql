@@ -37,5 +37,12 @@ revoke all on table public.keep_alive from public, anon;
 grant select on table public.keep_alive to anon;
 
 -- Causa raiz: tabelas e funções novas criadas pelo postgres deixam de nascer abertas ao anon.
-alter default privileges for role postgres in schema public revoke all on tables from anon;
-alter default privileges for role postgres in schema public revoke execute on functions from anon;
+-- Condicional ao papel: no Supabase ele sempre existe; no replay efêmero da CI, não.
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'postgres') then
+    execute 'alter default privileges for role postgres in schema public revoke all on tables from anon';
+    execute 'alter default privileges for role postgres in schema public revoke execute on functions from anon';
+  end if;
+end
+$$;

@@ -5,12 +5,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readEngineSourceSync } from './helpers/engine-source.mjs';
 import { readPopupSourceSync } from './helpers/popup-source.mjs';
+import { readServiceWorkerSourceSync } from './helpers/service-worker-source.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 
 test('Auditoria Fix #1: classifyWordStatic e refineSavedWord no service-worker.js', () => {
-  const swCode = readFileSync(path.join(root, 'background/service-worker.js'), 'utf-8');
+  const swCode = readServiceWorkerSourceSync();
   assert.match(swCode, /import\s*{\s*slangsDB\s*}\s*from\s*'\.\.\/utils\/slangs-db\.js'/);
   assert.match(swCode, /import\s*{\s*phrasalVerbsDB\s*}\s*from\s*'\.\.\/utils\/phrasal-verbs\.js'/);
   assert.match(swCode, /slangsDB\.has\(w\)/);

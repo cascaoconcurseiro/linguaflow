@@ -3,12 +3,12 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { isValidIpa, cleanIpa } from '../utils/ipa-validator.js';
 import { readPopupSourceSync } from './helpers/popup-source.mjs';
+import { readServiceWorkerSourceSync } from './helpers/service-worker-source.mjs';
 
-const source = readFileSync(new URL('../background/service-worker.js', import.meta.url), 'utf8');
-const method = source.slice(
-  source.indexOf('async function fetchDictionary(word) {'),
-  source.indexOf('// ── Funções de IA'),
-);
+const source = readServiceWorkerSourceSync();
+// fetchDictionary vive em background/dictionary.js (única função do módulo); é executada isolada.
+const dictionarySource = readFileSync(new URL('../background/dictionary.js', import.meta.url), 'utf8');
+const method = dictionarySource.slice(dictionarySource.indexOf('export async function fetchDictionary(word) {')).replace(/^export /, '');
 const popupSource = readPopupSourceSync();
 const dictMethod = popupSource.slice(popupSource.indexOf('  _dict(w) {'), popupSource.indexOf('  _clearLoginWait', popupSource.indexOf('  _dict(w) {')));
 assert.match(method, /fetchWithTimeout = async \(url, ms = 2000\)/,

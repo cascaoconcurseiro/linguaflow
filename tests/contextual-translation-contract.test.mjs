@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { readPopupSourceSync } from './helpers/popup-source.mjs';
+import { readServiceWorkerSourceSync } from './helpers/service-worker-source.mjs';
 
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const popup = readPopupSourceSync();
-const worker = read('background/service-worker.js');
+const worker = readServiceWorkerSourceSync();
 const webReader = read('content/web-reader.js');
 const reader = read('dashboard/js/ui/readerView.js');
 const stories = read('dashboard/js/ui/storiesView.js');
@@ -38,7 +39,7 @@ assert.match(reader, /import \{ enrichCard \} from '\.\.\/core\/ai\.js'/,
 assert.match(reader, /enrichCard\(wordAtRequest, contextAtRequest\)/,
   'o popup do Leitor resolve a palavra dentro da frase antes de salvar');
 
-assert.match(stories, /import \{ generateStoryWeb, aiChat, enrichCard \}/,
+assert.match(stories, /import \{ aiChat, enrichCard \} from '\.\.\/core\/ai\.js'/,
   'Histórias compartilha o resolvedor contextual do dashboard');
 assert.match(stories, /enrichCard\(cleanWord, currentSelectedSentence\)/,
   'a palavra selecionada na história é traduzida dentro da frase atual');

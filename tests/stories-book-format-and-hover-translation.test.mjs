@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { shouldProxyTranslationThroughExtension } from '../utils/translator.js';
+import { readStoriesSourceSync } from './helpers/stories-source.mjs';
 
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 // O CSS da tela vive em storiesViewStyles.js; as exigências valem para os dois arquivos juntos.
-const stories = `${read('dashboard/js/ui/storiesView.js')}\n${read('dashboard/js/ui/storiesViewStyles.js')}`;
+const stories = `${readStoriesSourceSync()}\n${read('dashboard/js/ui/storiesViewStyles.js')}`;
 
 // 1. Contrato do Proxy de Tradução: Web App nunca tenta proxy via extensão
 const fakeRuntime = { id: 'test-ext-id', sendMessage() {} };
@@ -136,7 +137,7 @@ assert.match(
 );
 
 // 7. Teste funcional da função formatStoryAsBook com texto contínuo sem quebras duplas
-import { formatStoryAsBook, FALSE_FRIENDS } from '../dashboard/js/ui/storiesView.js';
+import { formatStoryAsBook, FALSE_FRIENDS } from '../dashboard/js/ui/stories/storyFormat.js';
 
 const sampleOneBlock = `Amara stands in front of the neighborhood gym. The air stinks like old socks and sweat. She holds her gym bag tight. Today is her first day at this new place. "Hi," a woman says. "I'm Rosa. Are you here for the class?" "Yes," Amara says. "But I'm a little shy." "Don't worry," Rosa says. "Everyone is friendly here. We're all learning." Rosa shows her the room. There are ten people. A man drops his water bottle. It makes a big mess. "Sorry," he says. "I'm always messing up." "No problem," Rosa says. "We can clean it later."`;
 const paragraphs = formatStoryAsBook(sampleOneBlock);

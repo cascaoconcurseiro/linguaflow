@@ -18,6 +18,7 @@ import { isPermanentSaveError, retryableEntries, summarizeWordSaveQueue } from '
 import { createDueNotifier, ensureAlarms } from './reminders.js';
 import { isAllowedTtsUrl } from './tts-url.js';
 import { AI_STREAM_PORT, } from '../utils/ai-stream.js';
+import { stripHtmlTags } from '../utils/html.js';
 import { fetchDictionary } from './dictionary.js';
 import { classifyWordStatic, classifyWordAI } from './word-classifier.js';
 import {
@@ -639,8 +640,8 @@ Sentido: [Uma única frase super curta explicando o sentido neste contexto]
         const data = await res.json();
         const list = (data.list || [])
           .map((item) => ({
-            en: item.s_text?.replace(/<[^>]+>/g, '') || '',
-            pt: item.t_text?.replace(/<[^>]+>/g, '') || '',
+            en: stripHtmlTags(item.s_text),
+            pt: stripHtmlTags(item.t_text),
           }))
           .filter((x) => x.en && x.pt);
 

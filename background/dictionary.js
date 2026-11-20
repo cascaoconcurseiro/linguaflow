@@ -1,6 +1,7 @@
 // background/dictionary.js — Dicionário do service worker: busca a definição, a pronúncia e os exemplos de uma palavra em fontes abertas.
 
 import { isValidIpa, cleanIpa } from '../utils/ipa-validator.js';
+import { stripHtmlTags } from '../utils/html.js';
 
 export async function fetchDictionary(word) {
   const cleanWord = String(word || '')
@@ -140,7 +141,7 @@ export async function fetchDictionary(word) {
         const entry = en[0];
         const partOfSpeech = entry.partOfSpeech?.toLowerCase() || '';
         const rawDef = entry.definitions?.[0]?.definition || '';
-        const definition = rawDef.replace(/<[^>]+>/g, '').trim();
+        const definition = stripHtmlTags(rawDef).trim();
         if (definition) {
           return {
             word: cleanWord,

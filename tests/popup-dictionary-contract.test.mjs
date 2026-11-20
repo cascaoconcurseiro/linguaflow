@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { isValidIpa, cleanIpa } from '../utils/ipa-validator.js';
+import { stripHtmlTags } from '../utils/html.js';
 import { readPopupSourceSync } from './helpers/popup-source.mjs';
 
 // fetchDictionary vive em background/dictionary.js (única função do módulo); é executada isolada.
@@ -21,6 +22,7 @@ const context = vm.createContext({
   console,
   isValidIpa,
   cleanIpa,
+  stripHtmlTags,
   fetch: async () => ({
     ok: true,
     json: async () => [{
@@ -46,6 +48,7 @@ const datamuseContext = vm.createContext({
   console,
   isValidIpa,
   cleanIpa,
+  stripHtmlTags,
   fetch: async (url) => {
     if (url.includes('dictionaryapi.dev')) throw new Error('Timeout simulado');
     if (url.includes('datamuse.com')) {
@@ -74,6 +77,7 @@ console.log('Fallback para Datamuse verificado com sucesso.');
 const wiktionaryContext = vm.createContext({
   encodeURIComponent,
   console,
+  stripHtmlTags,
   fetch: async (url) => {
     if (url.includes('dictionaryapi.dev') || url.includes('datamuse.com')) {
       throw new Error('Offline simulado');

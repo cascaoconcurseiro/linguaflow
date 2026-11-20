@@ -2,9 +2,9 @@
 import { db as lfDb } from '../../../utils/db.js';
 import { preloadKokoro } from '../core/tts.js';
 import { bindViewStateAction, escapeHtml, renderViewState } from './viewState.js';
+import { isExtensionContext as isExtensionCtx } from '../core/env.js';
 
 
-const isExtensionCtx = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
 
 export async function renderSettings(container, app) {
   // B1 do backlog (W6.4): BYOK removido — a IA passa SEMPRE pela Edge

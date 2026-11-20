@@ -2,13 +2,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { isValidIpa, cleanIpa } from '../utils/ipa-validator.js';
+import { stripHtmlTags } from '../utils/html.js';
 import { readPopupSourceSync } from './helpers/popup-source.mjs';
 
-const source = readFileSync(new URL('../background/service-worker.js', import.meta.url), 'utf8');
-const method = source.slice(
-  source.indexOf('async function fetchDictionary(word) {'),
-  source.indexOf('// ── Funções de IA'),
-);
+// fetchDictionary vive em background/dictionary.js (única função do módulo); é executada isolada.
+const dictionarySource = readFileSync(new URL('../background/dictionary.js', import.meta.url), 'utf8');
+const method = dictionarySource.slice(dictionarySource.indexOf('export async function fetchDictionary(word) {')).replace(/^export /, '');
 const popupSource = readPopupSourceSync();
 const dictMethod = popupSource.slice(popupSource.indexOf('  _dict(w) {'), popupSource.indexOf('  _clearLoginWait', popupSource.indexOf('  _dict(w) {')));
 assert.match(method, /fetchWithTimeout = async \(url, ms = 2000\)/,
@@ -23,6 +22,7 @@ const context = vm.createContext({
   console,
   isValidIpa,
   cleanIpa,
+  stripHtmlTags,
   fetch: async () => ({
     ok: true,
     json: async () => [{
@@ -48,6 +48,7 @@ const datamuseContext = vm.createContext({
   console,
   isValidIpa,
   cleanIpa,
+  stripHtmlTags,
   fetch: async (url) => {
     if (url.includes('dictionaryapi.dev')) throw new Error('Timeout simulado');
     if (url.includes('datamuse.com')) {
@@ -76,6 +77,7 @@ console.log('Fallback para Datamuse verificado com sucesso.');
 const wiktionaryContext = vm.createContext({
   encodeURIComponent,
   console,
+  stripHtmlTags,
   fetch: async (url) => {
     if (url.includes('dictionaryapi.dev') || url.includes('datamuse.com')) {
       throw new Error('Offline simulado');

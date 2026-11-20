@@ -13,8 +13,12 @@ import { escapeHtml } from './viewState.js';
 import { translator } from '../../../utils/translator.js';
 import { countBucket, observe } from '../../../utils/observability.js';
 import { STUDY_VIEW_CSS } from './studyViewStyles.js';
+import { isExtensionContext as isExtension } from '../core/env.js';
+import { updateYouglish, pauseYouglish, resetYouglish, resetYouglishWidget } from './study/youglish.js';
+import { playFeedbackSound, showXPAnimation, closeFeedbackAudio } from './study/feedback.js';
+import { normalizeAnswer, levenshtein, formatInterval } from './study/studyText.js';
+import { openQuickEditModal, openCardInfoModal } from './study/cardModals.js';
 
-const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
 let dueQueue = [];
 let pendingLearning = []; // cards em learning steps que voltam DENTRO da sessão
 let currentCard = null;
@@ -34,9 +38,6 @@ let variedEnabled = true;   // exercícios variados: montar frase/ditado (lf_var
 let audioAutoFront = true;  // lf_audio_auto_front — agora respeitado de verdade
 let audioAutoBack = true;   // lf_audio_auto_back
 let cardFlipMode = 'anki_flip'; // lf_card_flip_mode: 'anki_flip' | 'classic_3step'
-let ygWidget = null;
-let ygQueuedWord = null;
-let youglishLoadTimer = null;
 let waitTimer = null;       // countdown da tela "aguardando learning steps"
 let gradeBusy = false;      // impede duas avaliações concorrentes do mesmo card
 const pendingReviewOperations = new Map(); // retry conserva id, nota e estado calculado
@@ -44,7 +45,6 @@ let cardMutationPromise = null; // sobrevive à troca de rota; evita refetch dur
 let studyViewGeneration = 0;
 let studyViewActive = false;
 const studyTimers = new Set();
-const feedbackAudioContexts = new Set();
 const cardPresentationIds = new WeakMap();
 let nextCardPresentationId = 0;
 let audioUiToken = 0;
@@ -112,17 +112,14 @@ export async function renderStudy(container, app, params = {}) {
     if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
     studyTimers.forEach(clearTimeout);
     studyTimers.clear();
-    feedbackAudioContexts.forEach(ctx => { try { ctx.close(); } catch { /* já fechado */ } });
-    feedbackAudioContexts.clear();
+    closeFeedbackAudio();
     document.getElementById('anki-quick-edit-dialog')?.remove();
     document.getElementById('anki-card-info-dialog')?.remove();
     if (window.currentKeydownHandler) {
       document.removeEventListener('keydown', window.currentKeydownHandler);
       window.currentKeydownHandler = null;
     }
-    delete window.onYouglishAPIReady;
-    ygQueuedWord = null;
-    ygWidget = null;
+    resetYouglish();
     currentCard = null;
     exerciseApp = null;
     studyContainer = null;
@@ -139,7 +136,7 @@ export async function renderStudy(container, app, params = {}) {
   gradeBusy = !!cardMutationPromise;
   exerciseApp = app;
   studyContainer = container;
-  ygWidget = null; // container será recriado
+  resetYouglishWidget(); // container será recriado
   hidePlayer(); // qualquer vídeo de uma sessão anterior não deve tocar ao fundo
   const topicFilter = params?.category || null; // Onda 2.2: "Revisar por tópico" vindo do Cofre
   const weakOnly = !!params?.weakOnly; // Onda 9: "Modo de estudo customizado" — revisar só palavras fracas/leech
@@ -480,8 +477,8 @@ export async function renderStudy(container, app, params = {}) {
 
   document.getElementById('btn-undo')?.addEventListener('click', () => handleUndo(app));
   document.getElementById('bury-btn')?.addEventListener('click', () => buryCard(app));
-  document.getElementById('menu-quick-edit-btn')?.addEventListener('click', () => openQuickEditModal(app));
-  document.getElementById('menu-card-info-btn')?.addEventListener('click', () => openCardInfoModal(app));
+  document.getElementById('menu-quick-edit-btn')?.addEventListener('click', () => openQuickEditModal(app, currentCard));
+  document.getElementById('menu-card-info-btn')?.addEventListener('click', () => openCardInfoModal(app, currentCard));
   document.getElementById('menu-suspend-btn')?.addEventListener('click', () => suspendCurrentCard(app));
 
   if (window.currentKeydownHandler) {
@@ -539,12 +536,12 @@ function handleKeydown(e) {
   // Atalhos rápidos do Anki
   if (e.code === 'KeyE' && !e.ctrlKey && !e.metaKey && !e.altKey && currentCard) {
     e.preventDefault();
-    openQuickEditModal(exerciseApp);
+    openQuickEditModal(exerciseApp, currentCard);
     return;
   }
   if (e.code === 'KeyI' && !e.ctrlKey && !e.metaKey && !e.altKey && currentCard) {
     e.preventDefault();
-    openCardInfoModal(exerciseApp);
+    openCardInfoModal(exerciseApp, currentCard);
     return;
   }
   if ((e.key === '@' || (e.code === 'KeyS' && !e.ctrlKey && !e.metaKey && !e.altKey)) && currentCard) {
@@ -1101,14 +1098,6 @@ async function loadNextCard(app) {
   scheduleBackgroundPipeline();
 }
 
-function formatInterval(ivl) {
-  if (ivl == null || isNaN(ivl)) return '—';
-  if (ivl < 1) return `${Math.max(1, Math.round(ivl * 1440))} min`;
-  if (ivl < 30) return `${Math.round(ivl)} ${Math.round(ivl) === 1 ? 'dia' : 'dias'}`;
-  if (ivl < 365) return `${(ivl / 30.4).toFixed(1).replace('.0', '')} mes.`;
-  return `${(ivl / 365).toFixed(1).replace('.0', '')} ano${ivl >= 730 ? 's' : ''}`;
-}
-
 async function updateGradeLabels(card) {
   const { wordData, _chunks, ...clean } = card;
   const category = wordData?.category || null; // Onda 9: perfil de SRS por categoria
@@ -1210,26 +1199,6 @@ function showContextHint(card, context) {
 
 let exerciseApp = null; // referência do app pro auto-grade
 let studyContainer = null; // container real da view (tela final escrevia no body)
-
-function normalizeAnswer(s) {
-  return String(s || '').toLowerCase().replace(/[^a-z0-9' ]/g, '').replace(/\s+/g, ' ').trim();
-}
-
-// Distancia de edicao para o "quase" do ditado (A2): typo de 1-2 letras
-// mede TECLADO, nao audicao — nao pode virar lapso no FSRS.
-function levenshtein(a, b) {
-  if (!a.length) return b.length;
-  if (!b.length) return a.length;
-  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
-  for (let i = 1; i <= a.length; i++) {
-    const curr = [i];
-    for (let j = 1; j <= b.length; j++) {
-      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-    }
-    prev = curr;
-  }
-  return prev[b.length];
-}
 
 // result: true (acertou) | 'almost' (typo — libera Dificil/Bom) | false (errou)
 function exerciseFinish(result, context, userTyped = '') {
@@ -1957,154 +1926,6 @@ function renderHighlightedText(text, escapedWordPattern) {
   ).join('');
 }
 
-function isMobileVoiceDevice() {
-  if (typeof navigator === 'undefined') return false;
-  return /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '');
-}
-
-function updateYouglish(word) {
-  const box = document.getElementById('youglish-box');
-  const fallback = document.getElementById('youglish-fallback');
-  const loadBtn = document.getElementById('yg-load-btn');
-  if (!box) return;
-  box.classList.remove('hidden');
-  fallback.href = `https://youglish.com/pronounce/${encodeURIComponent(word)}/english`;
-  fallback.textContent = `Abrir no YouGlish: “${word}”`;
-  // Em iOS/Android o widget de terceiros pode ser bloqueado sem disparar erro.
-  // O link oficial permanece sempre disponível; o embed continua sendo tentado.
-  if (isMobileVoiceDevice()) fallback.classList.remove('hidden');
-
-  // Extensão (MV3): scripts remotos são proibidos pelo CSP → só o link.
-  if (isExtension) {
-    if (loadBtn) loadBtn.classList.add('hidden');
-    fallback.classList.remove('hidden');
-    return;
-  }
-
-  // Widget escondido até o clique; botão volta a aparecer a cada card novo
-  document.getElementById('yg-widget-embed')?.classList.add('hidden');
-  if (loadBtn) {
-    loadBtn.classList.remove('hidden');
-    loadBtn.textContent = `▶ Ver nativos falando "${word}"`;
-    loadBtn.onclick = () => {
-      loadBtn.classList.add('hidden');
-      document.getElementById('yg-widget-embed')?.classList.remove('hidden');
-      loadYouglishAnd(word);
-    };
-  }
-}
-
-function loadYouglishAnd(word) {
-  if (window.YG && window.YG.Widget) {
-    ygFetch(word);
-    return;
-  }
-  ygQueuedWord = word;
-  if (document.getElementById('yg-script')) return;
-
-  window.onYouglishAPIReady = () => {
-    if (ygQueuedWord) ygFetch(ygQueuedWord);
-  };
-  const s = document.createElement('script');
-  s.id = 'yg-script';
-  s.async = true;
-  s.src = 'https://youglish.com/public/emb/widget.js';
-  s.charset = 'utf-8';
-  s.onerror = () => document.getElementById('youglish-fallback')?.classList.remove('hidden');
-  document.head.appendChild(s);
-}
-
-// Pausa o vídeo do YouGlish (chamado ao trocar de card, fechar painel ou sair da sessão)
-function pauseYouglish() {
-  if (youglishLoadTimer) { clearTimeout(youglishLoadTimer); youglishLoadTimer = null; }
-  try { ygWidget?.pause?.(); } catch { /* widget pode não estar pronto */ }
-  try {
-    const iframes = document.querySelectorAll('#yg-widget-embed iframe, #study-yt-mount iframe');
-    iframes.forEach(iframe => {
-      iframe.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: '' }), '*');
-    });
-  } catch { /* postMessage protegido */ }
-  try {
-    document.querySelectorAll('#yg-widget-embed video, #study-yt-mount video, #saved-video-context video').forEach(v => v.pause());
-  } catch { /* video nativo protegido */ }
-}
-
-function ygFetch(word) {
-  try {
-    if (!ygWidget || !document.getElementById('yg-widget-embed')?.hasChildNodes()) {
-      const box = document.getElementById('yg-widget-embed');
-      ygWidget = new window.YG.Widget('yg-widget-embed', {
-        width: Math.min(box?.clientWidth || 316, 360),
-        components: 88, // legenda + controle de velocidade + navegação
-        events: {
-          onFetchDone: () => {
-            if (youglishLoadTimer) clearTimeout(youglishLoadTimer);
-            youglishLoadTimer = null;
-          },
-          onError: () => {
-            if (youglishLoadTimer) clearTimeout(youglishLoadTimer);
-            youglishLoadTimer = null;
-            document.getElementById('youglish-fallback')?.classList.remove('hidden');
-          },
-        },
-      });
-    }
-    ygWidget.fetch(word, 'english');
-    if (youglishLoadTimer) clearTimeout(youglishLoadTimer);
-    youglishLoadTimer = setTimeout(() => {
-      document.getElementById('youglish-fallback')?.classList.remove('hidden');
-      youglishLoadTimer = null;
-    }, 7000);
-  } catch (e) {
-    console.warn('[Study] YouGlish widget falhou:', e);
-    document.getElementById('youglish-fallback')?.classList.remove('hidden');
-  }
-}
-
-// ── Grading / feedback ───────────────────────────────────────────────────────
-function playFeedbackSound(type) {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    feedbackAudioContexts.add(ctx);
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    if (type === 'correct') {
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.3);
-    } else {
-      osc.frequency.setValueAtTime(300, ctx.currentTime);
-      osc.frequency.setValueAtTime(200, ctx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.3);
-    }
-    osc.onended = () => {
-      feedbackAudioContexts.delete(ctx);
-      ctx.close().catch(() => {});
-    };
-  } catch {}
-}
-
-function showXPAnimation(text, isPositive = true) {
-  const el = document.createElement('div');
-  el.textContent = text;
-  el.style.cssText = `
-    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
-    font-size:28px; font-weight:900; color:${isPositive ? 'var(--color-primary)' : 'var(--color-danger)'};
-    pointer-events:none; z-index:9999; text-shadow:0 2px 8px rgba(0,0,0,0.2);
-    animation: xpFloat 1.2s ease forwards;
-  `;
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 1200);
-}
-
 async function handleGrade(grade, app) {
   if (gradeBusy || !currentCard) return;
   const operationGeneration = studyViewGeneration;
@@ -2418,285 +2239,6 @@ function updateSessionCounters() {
   if (elNew) elNew.textContent = String(newCount);
   if (elLearn) elLearn.textContent = String(learnCount);
   if (elReview) elReview.textContent = String(reviewCount);
-}
-
-// Edição rápida de card durante o estudo (Tecla E - Anki Quick Edit)
-function openQuickEditModal(app) {
-  if (!currentCard) return;
-  const existing = document.getElementById('anki-quick-edit-dialog');
-  if (existing) existing.remove();
-
-  const card = currentCard;
-  const wordData = card.wordData || {};
-  const currentWord = wordData.word || card.word || '';
-  const currentContext = card._ctx || wordData.context_sentence || card.context || '';
-  const currentTrans = wordData.translation || card.translation || '';
-
-  const dialog = document.createElement('div');
-  dialog.id = 'anki-quick-edit-dialog';
-  dialog.className = 'anki-modal-overlay';
-  dialog.setAttribute('role', 'dialog');
-  dialog.setAttribute('aria-modal', 'true');
-  dialog.setAttribute('aria-labelledby', 'quick-edit-title');
-
-  dialog.innerHTML = `
-    <div class="anki-modal-box">
-      <div class="anki-modal-header">
-        <h3 id="quick-edit-title">Editar card (atalho E)</h3>
-        <button type="button" class="anki-modal-close" id="quick-edit-close" aria-label="Fechar">✕</button>
-      </div>
-      <form id="quick-edit-form" class="anki-modal-form">
-        <div class="anki-form-group">
-          <label for="quick-edit-term">Termo / Palavra:</label>
-          <input type="text" id="quick-edit-term" value="${escapeHtml(currentWord)}" required autocomplete="off" />
-        </div>
-        <div class="anki-form-group">
-          <label for="quick-edit-ctx">Frase de Contexto:</label>
-          <textarea id="quick-edit-ctx" rows="3" required>${escapeHtml(currentContext)}</textarea>
-        </div>
-        <div class="anki-form-group">
-          <label for="quick-edit-tr">Tradução:</label>
-          <input type="text" id="quick-edit-tr" value="${escapeHtml(currentTrans)}" required autocomplete="off" />
-        </div>
-        <div class="anki-modal-actions">
-          <button type="button" class="btn btn-secondary" id="quick-edit-cancel">Cancelar</button>
-          <button type="submit" class="btn btn-primary" id="quick-edit-submit">Salvar Alterações</button>
-        </div>
-      </form>
-    </div>
-  `;
-
-  document.body.appendChild(dialog);
-  const termInput = dialog.querySelector('#quick-edit-term');
-  termInput?.focus();
-
-  const closeDialog = () => {
-    document.removeEventListener('keydown', keyHandler);
-    dialog.remove();
-  };
-  const keyHandler = (e) => {
-    if (e.key === 'Escape') closeDialog();
-  };
-  document.addEventListener('keydown', keyHandler);
-  dialog.querySelector('#quick-edit-close')?.addEventListener('click', closeDialog);
-  dialog.querySelector('#quick-edit-cancel')?.addEventListener('click', closeDialog);
-  dialog.addEventListener('click', (e) => { if (e.target === dialog) closeDialog(); });
-
-  dialog.querySelector('#quick-edit-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const newWord = dialog.querySelector('#quick-edit-term').value.trim();
-    const newContext = dialog.querySelector('#quick-edit-ctx').value.trim();
-    const newTrans = dialog.querySelector('#quick-edit-tr').value.trim();
-    if (!newWord || !newContext || !newTrans) return;
-
-    const submitBtn = dialog.querySelector('#quick-edit-submit');
-    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Salvando…'; }
-
-    try {
-      const targetWordId = card.word_id || card.wordData?.id || card.id;
-      await lfDb.updateWord(targetWordId, {
-        word: newWord,
-        context_sentence: newContext,
-        translation: newTrans,
-      });
-
-      card.word = newWord;
-      card._ctx = newContext;
-      if (card.wordData) {
-        card.wordData.word = newWord;
-        card.wordData.context_sentence = newContext;
-        card.wordData.translation = newTrans;
-      }
-      (card._chunks || []).forEach(c => {
-        if (c.is_context) { c.eng = newContext; c.pt = newTrans; }
-        if (c.is_word) { c.eng = newWord; c.pt = newTrans; }
-      });
-
-      const sentenceEl = document.getElementById('pump-sentence');
-      if (sentenceEl && !card._reverse) {
-        sentenceEl.textContent = newContext;
-      }
-      const transEl = document.getElementById('pump-translation');
-      if (transEl) transEl.textContent = newTrans;
-      app.showToast('Card atualizado com sucesso.', 'info');
-      closeDialog();
-    } catch (err) {
-      console.error('[QuickEdit] Erro ao salvar:', err);
-      app.showToast('Erro ao salvar alterações.', 'error');
-      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Salvar Alterações'; }
-    }
-  });
-}
-
-// Informações completas do Card (Tecla I - Anki Card Info com métricas FSRS)
-async function openCardInfoModal(app) {
-  if (!currentCard) return;
-  const existing = document.getElementById('anki-card-info-dialog');
-  if (existing) existing.remove();
-
-  const card = currentCard;
-  const wordData = card.wordData || {};
-  const word = wordData.word || card.word || '';
-  const stability = card.stability ? `${Number(card.stability).toFixed(1)} dias` : '—';
-  const difficulty = card.difficulty ? `${Number(card.difficulty).toFixed(1)} / 10` : '—';
-
-  let retrievabilityStr = '—';
-  if (card.stability && card.last_review) {
-    const elapsedDays = Math.max(0, (Date.now() - new Date(card.last_review).getTime()) / 86400000);
-    const r = lfDb._fsrsRetrievability(elapsedDays, card.stability);
-    if (r && !isNaN(r)) retrievabilityStr = `${Math.round(r * 100)}%`;
-  }
-
-  const nextDue = card.due_date ? new Date(card.due_date).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
-  const lastRev = card.last_review ? new Date(card.last_review).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : 'Nunca';
-
-  const statusMap = {
-    'new': 'Novo',
-    'learning': 'Em Aprendizado',
-    'review': 'Consolidando',
-    'mature': 'Memória Estável',
-  };
-  const statusLabel = statusMap[card.status] || card.status;
-
-  const dialog = document.createElement('div');
-  dialog.id = 'anki-card-info-dialog';
-  dialog.className = 'anki-modal-overlay';
-  dialog.setAttribute('role', 'dialog');
-  dialog.setAttribute('aria-modal', 'true');
-  dialog.setAttribute('aria-labelledby', 'card-info-title');
-
-  dialog.innerHTML = `
-    <div class="anki-modal-box card-info-modal-box">
-      <div class="anki-modal-header">
-        <h3 id="card-info-title">Informações de intervalo (atalho I)</h3>
-        <button type="button" class="anki-modal-close" id="card-info-close" aria-label="Fechar">✕</button>
-      </div>
-      <div class="card-info-content">
-        <div class="card-info-header-row">
-          <strong class="card-info-word">${escapeHtml(word)}</strong>
-          <span class="badge ${card.status === 'mature' ? 'badge-mature' : card.status === 'new' ? 'badge-new' : 'badge-review'}">${statusLabel}</span>
-        </div>
-        
-        <div class="card-info-grid">
-          <div class="card-info-cell">
-            <span class="cell-label">Estabilidade (S)</span>
-            <span class="cell-value">${stability}</span>
-          </div>
-          <div class="card-info-cell">
-            <span class="cell-label">Dificuldade (D)</span>
-            <span class="cell-value">${difficulty}</span>
-          </div>
-          <div class="card-info-cell">
-            <span class="cell-label">Retenção Estimada (R)</span>
-            <span class="cell-value">${retrievabilityStr}</span>
-          </div>
-          <div class="card-info-cell">
-            <span class="cell-label">Intervalo Atual</span>
-            <span class="cell-value">${formatInterval(card.interval)}</span>
-          </div>
-          <div class="card-info-cell">
-            <span class="cell-label">Repetições</span>
-            <span class="cell-value">${card.reps || 0}</span>
-          </div>
-          <div class="card-info-cell">
-            <span class="cell-label">Lapsos / Erros</span>
-            <span class="cell-value">${card.lapses || 0}</span>
-          </div>
-          <div class="card-info-cell">
-            <span class="cell-label">Hesitação / Tempo</span>
-            <span class="cell-value" id="card-info-avg-time">Carregando…</span>
-          </div>
-          <div class="card-info-cell full-width">
-            <span class="cell-label">Próximo Vencimento</span>
-            <span class="cell-value">${nextDue}</span>
-          </div>
-          <div class="card-info-cell full-width">
-            <span class="cell-label">Última Revisão</span>
-            <span class="cell-value">${lastRev}</span>
-          </div>
-        </div>
-
-        <div class="card-info-history">
-          <h4>Histórico de Revisões</h4>
-          <div id="card-info-history-list" class="card-info-history-list">Carregando histórico…</div>
-        </div>
-
-        <div class="anki-modal-actions">
-          <button type="button" class="btn btn-primary" id="card-info-done">Fechar</button>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(dialog);
-  const closeDialog = () => {
-    document.removeEventListener('keydown', keyHandler);
-    dialog.remove();
-  };
-  const keyHandler = (e) => {
-    if (e.key === 'Escape') closeDialog();
-  };
-  document.addEventListener('keydown', keyHandler);
-  dialog.querySelector('#card-info-close')?.addEventListener('click', closeDialog);
-  dialog.querySelector('#card-info-done')?.addEventListener('click', closeDialog);
-  dialog.addEventListener('click', (e) => { if (e.target === dialog) closeDialog(); });
-
-  lfDb.getCardStats(card.id).then((history) => {
-    const avgTimeEl = dialog.querySelector('#card-info-avg-time');
-    if (avgTimeEl) {
-      const times = (history || [])
-        .map(h => Number(h.response_time_ms || h.responseMs || 0))
-        .filter(t => t > 100);
-      if (times.length > 0) {
-        const avgMs = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
-        avgTimeEl.textContent = avgMs < 1000 ? `${avgMs}ms` : `${(avgMs / 1000).toFixed(1)}s`;
-      } else {
-        avgTimeEl.textContent = '—';
-      }
-    }
-
-    const listEl = dialog.querySelector('#card-info-history-list');
-    if (!listEl) return;
-    if (!history || history.length === 0) {
-      listEl.innerHTML = '<p class="empty-history">Nenhuma revisão gravada ainda.</p>';
-      return;
-    }
-    const gradeLabels = { 1: 'Errei (1)', 2: 'Difícil (2)', 3: 'Bom (3)', 4: 'Fácil (4)' };
-    const gradeColors = { 1: '#ef4444', 2: '#f59e0b', 3: '#3b82f6', 4: '#10b981' };
-    listEl.innerHTML = `
-      <table class="card-history-table">
-        <thead>
-          <tr>
-            <th>Data</th>
-            <th>Avaliação</th>
-            <th>Tempo</th>
-            <th>Intervalo</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${history.slice(0, 8).map(h => {
-            const d = new Date(h.ts || h.date).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
-            const gradeName = gradeLabels[h.quality] || h.quality;
-            const color = gradeColors[h.quality] || 'var(--color-text)';
-            const ivl = h.interval ? formatInterval(h.interval) : '—';
-            const tMs = Number(h.response_time_ms || h.responseMs || 0);
-            const timeStr = tMs > 100 ? (tMs < 1000 ? `${tMs}ms` : `${(tMs / 1000).toFixed(1)}s`) : '—';
-            return `<tr>
-              <td>${d}</td>
-              <td style="color:${color};font-weight:700;">${gradeName}</td>
-              <td style="color:var(--color-text-light);font-size:12px;">${timeStr}</td>
-              <td>${ivl}</td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    `;
-  }).catch(() => {
-    const avgTimeEl = dialog.querySelector('#card-info-avg-time');
-    if (avgTimeEl) avgTimeEl.textContent = '—';
-    const listEl = dialog.querySelector('#card-info-history-list');
-    if (listEl) listEl.innerHTML = '<p class="empty-history">Histórico indisponível.</p>';
-  });
 }
 
 function injectStyles() {

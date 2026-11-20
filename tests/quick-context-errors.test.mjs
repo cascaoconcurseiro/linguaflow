@@ -3,10 +3,13 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { createQuickContextCache, parseQuickContext, readSseText } from '../utils/ai-stream.js';
 
-const source = readFileSync(new URL('../background/service-worker.js', import.meta.url), 'utf8');
-const start = source.indexOf('async function explainQuickContext(');
-const end = source.indexOf('\n// ============================================================================', start);
-const functionSource = source.slice(start, end);
+// A função vive em background/ai-requests.js; é executada isolada, com as dependências injetadas abaixo.
+const source = readFileSync(new URL('../background/ai-requests.js', import.meta.url), 'utf8');
+const start = source.indexOf('export async function explainQuickContext(');
+assert.ok(start >= 0, 'explainQuickContext deve estar em background/ai-requests.js');
+const nextTopLevel = source.slice(start + 1).search(/\n(export |async function |function )/);
+const end = nextTopLevel === -1 ? source.length : start + 1 + nextTopLevel;
+const functionSource = source.slice(start, end).replace(/^export /, '');
 
 async function run(apiKey, response, onPartial) {
   let calls = 0;

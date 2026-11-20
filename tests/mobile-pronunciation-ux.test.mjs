@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
+import { readStudySourceSync } from './helpers/study-source.mjs';
 
-const study = fs.readFileSync(new URL('../dashboard/js/ui/studyView.js', import.meta.url), 'utf8');
+const study = readStudySourceSync();
 
 assert.doesNotMatch(study, /MediaRecorder|getUserMedia|finishEchoRecording|shadowing-mic/, 'mobile não captura áudio do aluno');
 assert.match(study, /youglishLoadTimer/, 'widget precisa de watchdog quando o iframe não responde');

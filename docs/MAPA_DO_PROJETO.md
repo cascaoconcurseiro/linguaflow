@@ -417,10 +417,13 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 | Arquivo | Porte | Para que serve |
 |---|---|---|
 | `background/ai-generator.js` | M | Geração com IA no service worker: frases, histórias, variações e preenchimento de frases que faltam nos cards. |
+| `background/ai-requests.js` | M | Pedidos de IA do service worker: configuração da chave, repetição de requisições, explicações (palavra, frase, contexto rápido), chat e chunks. |
 | `background/cache-cleaner.js` | P | Limpeza dos caches descartáveis (dicionários, Linguee, Reverso, traduções) para liberar espaço quando o armazenamento enche. |
+| `background/dictionary.js` | M | Dicionário do service worker: busca a definição, a pronúncia e os exemplos de uma palavra em fontes abertas. |
 | `background/reminders.js` | P | Alarmes e lembrete de revisão do service worker (#465) |
-| `background/service-worker.js` | GG ⚠ | Service worker MV3: central de mensagens (tradução, dicionário, IA, fila de salvar palavras), alarmes, selo de cards e notificação de revisão. |
+| `background/service-worker.js` | G | Service worker MV3: central de mensagens (tradução, dicionário, IA, fila de salvar palavras), alarmes, selo de cards e notificação de revisão. |
 | `background/tts-url.js` | P | URLs que o service worker aceita buscar para TTS (#470) |
+| `background/word-classifier.js` | P | Classificador de categoria de palavras (palavra, phrasal verb, expressão, gíria): regra estática primeiro, IA como reforço. |
 | `background/word-save-queue.js` | P | regras puras da fila local-first de palavras (lf_pending_word_saves_v1). O service worker guarda e sincroniza; aqui fica só a decisão do que repetir e o que mostrar ao… |
 
 ### Extensão Chrome — popup (`popup/`)
@@ -523,6 +526,7 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 | `dashboard/js/core/coursePrefs.js` | P | Preferências do player de cursos, guardadas neste navegador. |
 | `dashboard/js/core/courseReviewPacing.js` | P | meta diária das revisões do curso (#501). |
 | `dashboard/js/core/courseVault.js` | P | Cursos → Cofre (#434): leva uma frase/palavra estudada num curso para a fila única de revisão espaçada (FSRS, calculada no servidor). É sempre uma ação explícita do al… |
+| `dashboard/js/core/env.js` | P | Detecção única do contexto de execução: página da extensão Chrome ou PWA na web. |
 | `dashboard/js/core/epub.js` | P | Leitor de EPUB no navegador (Onda 3.1). Um .epub é um .zip com XHTML dentro; usamos fflate (CDN, ~8KB, só descompacta) e o DOMParser nativo do browser pra ler a estrut… |
 | `dashboard/js/core/fluencyCheck.js` | M | Modelo de domínio da Checagem de Fluência: níveis A1–B2, habilidades, decisão de tentativa e força da evidência. |
 | `dashboard/js/core/fluencyTaskCatalog.js` | M | Catálogo versionado de tarefas de fluência por nível e habilidade, com validação e sobreposição de texto estudado. |
@@ -564,10 +568,17 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 | `dashboard/js/ui/reportProblem.js` | P | "Ajuda e relatos" nas Configurações (#412): o usuário descreve um bug, sugestão, abuso ou falha de segurança. O servidor valida, limita a 5 por dia e deduplica; aqui h… |
 | `dashboard/js/ui/settingsView.js` | GG ⚠ | Tela Configurações: nível aproximado, limites diários, motor de memória (FSRS) e perfis de SRS, áudio, lembretes e e-mail, dados e portabilidade, ajuda e relatos, cont… |
 | `dashboard/js/ui/statsView.js` | M | Onda 2.1 (Gerente+Eng. SRS): tela de Estatísticas, paridade com o "Stats" do Anki. Consome dados REAIS do Supabase (cards, review_log, sessions) através de statsEngine… |
+| `dashboard/js/ui/stories/storyFormat.js` | P | Texto das histórias: lista de falsos cognatos e conversão do texto em parágrafos no formato de livro. Funções puras. |
+| `dashboard/js/ui/stories/storyGeneration.js` | P | Geração de histórias: roteia para a extensão ou para a Edge Function e escolhe as palavras do aluno para o reencontro. |
+| `dashboard/js/ui/stories/storyTranslation.js` | P | Tradução de palavras e frases nas histórias: cofre local, extensão, tradutor, MyMemory e IA como último recurso. |
 | `dashboard/js/ui/storiesQuiz.js` | M | Quiz das histórias: valida as perguntas devolvidas pela IA (3 a 5, com 4 opções), gera o quiz e o desenha na tela. |
 | `dashboard/js/ui/storiesView.js` | GG ⚠ | Tela Histórias: gera e lê histórias por nível, formato de livro, tradução no hover, quiz e relatório. |
 | `dashboard/js/ui/storiesViewStyles.js` | P | Estilos da tela Histórias, injetados uma vez no <head> pela storiesView. |
 | `dashboard/js/ui/storyReport.js` | P | "Reportar problema nesta história" (#435): histórias são geradas por IA e ninguém as revisa antes de chegarem ao aluno; este atalho leva o aluno a apontar o problema n… |
+| `dashboard/js/ui/study/cardModals.js` | M | Janelas da revisão: edição rápida do cartão (tecla E) e informações completas do cartão (tecla I). |
+| `dashboard/js/ui/study/feedback.js` | P | Feedback da avaliação: som curto de acerto/erro (Web Audio) e o "+XP" flutuante. |
+| `dashboard/js/ui/study/studyText.js` | P | Funções puras de texto da revisão: comparar respostas digitadas (normalização e distância de edição) e formatar intervalos. |
+| `dashboard/js/ui/study/youglish.js` | P | Widget do YouGlish na revisão: carrega o script remoto, busca a palavra, pausa o vídeo e limpa o estado ao sair. |
 | `dashboard/js/ui/studyView.js` | GG ⚠ | Tela Estudar (revisão FSRS): fila de cards, 4 formas de revisar, avaliação idempotente, desfazer, áudio e sessão. |
 | `dashboard/js/ui/studyViewStyles.js` | M | Estilos da tela Estudar (revisão FSRS), injetados uma vez no <head> pela studyView. |
 | `dashboard/js/ui/systemNotice.js` | P | Faixa de aviso global definida em Admin > Sistema (#408). Falha em silêncio: aviso nunca bloqueia o estudo. |
@@ -744,7 +755,7 @@ Revisão do curso (#531): agenda no servidor com teto de 30 dias no Fácil e ava
 |---|---|---|
 | `supabase/migrations/` | 160 | Migrations SQL append-only, ordenadas por data no nome (`AAAAMMDDHHMMSS_assunto.sql`). Primeira: `00000000000000_baseline_schema.sql`. Última: `20261119170000_canonical_lexicon_private_contexts.sql`. Nunca edite uma migration já aplicada. |
 | `supabase/content/batches/` | 63 | Lotes editoriais dos cursos (palavras, frases, parágrafos, histórias). Validados por `npm run content:check`. |
-| `tests/*.test.mjs` | 210 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
+| `tests/*.test.mjs` | 212 | Testes unitários e de contrato (Node). Nome do arquivo = assunto testado. |
 | `tests/e2e/` | 17 | Playwright: carrega a extensão num Chromium real com páginas-fixture. |
 | `tests/db/` | 16 | SQL e scripts que reproduzem as migrations num Postgres efêmero e testam RPCs/RLS. |
 | `tests/production/` | 1 | Verificação de isolamento entre contas no Supabase de produção (workflow agendado). |

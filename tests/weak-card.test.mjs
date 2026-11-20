@@ -18,9 +18,12 @@ assert.equal(deriveAdaptivePlan({ lapses: 1 }).recovering, false);
 const files = [
   'dashboard/js/core/sessionQueue.js',
   'dashboard/js/core/adaptiveLearning.js',
-  'dashboard/js/ui/storiesView.js',
+  'dashboard/js/ui/stories/storyGeneration.js',
   'background/ai-generator.js',
 ];
+// A tela de Histórias não pode voltar a definir o próprio limite de palavra fraca.
+const storiesScreen = await readFile(new URL('../dashboard/js/ui/storiesView.js', import.meta.url), 'utf8');
+assert.ok(!/lapses \|\| 0\) >= \d/.test(storiesScreen), 'dashboard/js/ui/storiesView.js não pode redefinir o limite de palavra fraca');
 for (const file of files) {
   const src = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
   assert.ok(!/lapses \|\| 0\) >= \d/.test(src), `${file} não pode redefinir o limite de palavra fraca`);

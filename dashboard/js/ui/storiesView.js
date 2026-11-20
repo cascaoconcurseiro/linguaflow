@@ -1,212 +1,24 @@
 // dashboard/js/ui/storiesView.js — Tela Histórias: gera e lê histórias por nível, formato de livro, tradução no hover, quiz e relatório.
 import { db } from '../../../utils/db.js';
 import { playNaturalAudio, stopAudio } from '../core/tts.js';
-import { generateStoryWeb, aiChat, enrichCard } from '../core/ai.js';
+import { aiChat, enrichCard } from '../core/ai.js';
 import { safeParseJson } from '../core/ai.js';
 import { measureStoryLevel } from '../core/readability.js';
 import { analyzeLexicalProfile, formatLexicalBadge } from '../../../utils/lexical-profile.js';
 import { translator } from '../../../utils/translator.js';
 import { lemma } from '../../../utils/lemma.js';
-import { isWeakCard } from '../../../utils/weak-card.js';
 import { escapeHTML } from '../../../utils/html.js';
 import { bindViewStateAction, renderViewState } from './viewState.js';
 import { bindReadingHeader, renderReadingHeader } from './readingHub.js';
 import { generateStoryQuiz, renderStoryQuiz } from './storiesQuiz.js';
 import { mountStoryReport } from './storyReport.js';
 import { STORIES_VIEW_CSS } from './storiesViewStyles.js';
+import { isExtensionContext as isExtension } from '../core/env.js';
+import { FALSE_FRIENDS, formatStoryAsBook } from './stories/storyFormat.js';
+import { translateText, translateSentenceWithAI, vaultTranslations } from './stories/storyTranslation.js';
+import { generateStory, getReencounterWords } from './stories/storyGeneration.js';
 
-const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location !== 'undefined' && location.protocol === 'chrome-extension:');
 let storiesDocumentController = null;
-let vaultTranslations = new Map();
-
-export const FALSE_FRIENDS = {
-  actually: '"actually" = na verdade / de fato (NÃO "atualmente" → use "currently" ou "nowadays")',
-  pretend: '"pretend" = fingir / simular (NÃO "pretender" → use "intend" ou "plan to")',
-  eventually: '"eventually" = no fim das contas / com o tempo (NÃO "eventualmente" = às vezes → use "occasionally")',
-  library: '"library" = biblioteca (NÃO "livraria" → use "bookstore")',
-  college: '"college" = faculdade / universidade (NÃO "colégio" = high school)',
-  fabric: '"fabric" = tecido / pano (NÃO "fábrica" → use "factory")',
-  parents: '"parents" = pais (pai e mãe) (NÃO "parentes" = relatives)',
-  push: '"push" = empurrar (NÃO "puxar" = pull)',
-  exit: '"exit" = saída (NÃO "êxito" = success)',
-  novel: '"novel" = romance (livro) (NÃO "novela" = soap opera)',
-  sensible: '"sensible" = sensato / prudente (NÃO "sensível" = sensitive)',
-  polite: '"polite" = educado / cortês (NÃO "político" = politician)',
-  large: '"large" = grande (NÃO "largo" = wide)',
-  assist: '"assist" = ajudar / auxiliar (NÃO "assistir" a um filme → "watch")',
-  contest: '"contest" = competição / concurso (NÃO "contestar" = dispute/challenge)',
-  editor: '"editor" = revisor / redator (NÃO "editor" de livros = publisher)',
-  exquisite: '"exquisite" = refinado / primoroso (NÃO "esquisito" = weird/strange)',
-  genial: '"genial" = simpático / cordial (NÃO "genial" = brilliant → "genius")',
-  legend: '"legend" = lenda (NÃO "legenda" de vídeo = subtitle/caption)',
-  realize: '"realize" = perceber / tomar consciência (NÃO "realizar" uma tarefa = carry out)',
-  resume: '"resume" = retomar (NÃO "resumo" = summary)',
-  sympathetic: '"sympathetic" = solidário / compreensivo (NÃO "simpático" = nice/friendly)',
-};
-
-export function formatStoryAsBook(text) {
-  if (!text) return [];
-  let normalized = String(text)
-    .replace(/\r\n/g, '\n')
-    .replace(/\\r\\n/g, '\n')
-    .replace(/\\n/g, '\n')
-    .trim();
-
-  // Se o texto veio com quebras simples (\n) sem quebra dupla (\n\n), expande para parágrafos
-  if (!/\n\s*\n/.test(normalized) && /\n/.test(normalized)) {
-    normalized = normalized.replace(/\n+/g, '\n\n');
-  }
-
-  const initialBlocks = normalized.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
-  const formattedBlocks = [];
-
-  for (const block of initialBlocks) {
-    // Se o bloco for curto e não contiver turnos múltiplos de aspas, preserva
-    if (block.length < 180 && !/(["”]).*?(["“])/.test(block)) {
-      formattedBlocks.push(block);
-      continue;
-    }
-
-    // Segmentação literária em turnos de diálogo e narrativa de livro:
-    // 1. Narrativa anterior terminando em pontuação, seguida do início de fala direta
-    let s = block.replace(/([.!?])\s+(["“])/g, '$1\n\n$2');
-
-    // 2. Fim de fala/speech tag seguido do início de outra fala direta
-    s = s.replace(/([.!?]["”])\s+(["“])/g, '$1\n\n$2');
-
-    // 3. Fala com speech tag seguida de ação de outro personagem / mudança de cena
-    s = s.replace(/([.!?]["”]\s*(?:[A-Z][a-z]+|he|she|they)\s+(?:says|said|asks|asked|replies|replied|smiles|whispers|tells|answers|murmurs|calls|shouts|yells|cries)\.?)\s+(?=[A-Z][a-z]+(?:\s+[a-z]+)*\s+[a-z]+|[A-Z][a-z]+\s+(?:looks|walks|thinks|sits|runs|takes|stops|holds|feels|cheers))/g, '$1\n\n');
-
-    // 4. Quebra após fala completa fechada se a próxima frase for narrativa de ação
-    s = s.replace(/([.!?]["”])\s+([A-Z][a-z]+\s+(?:looks|walks|thinks|sits|runs|takes|stops|holds|feels|cheers|smiles|shows|likes|is|was|has|had|goes))/g, '$1\n\n$2');
-
-    // 5. Quebra narrativa antes de novo personagem agir
-    s = s.replace(/([.!?])\s+(A\s+[a-z]+\s+man|The\s+people|The\s+next\s+day|At\s+home|After\s+class)\b/g, '$1\n\n$2');
-
-    const parts = s.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
-    formattedBlocks.push(...parts);
-  }
-
-  return formattedBlocks.length > 0 ? formattedBlocks : [normalized];
-}
-
-// Roteadores extensão/web: na extensão o service worker faz o trabalho;
-// no site (Vercel) chamamos a Edge Function (história) e o translator
-// client-side (Google GTX/MyMemory têm CORS liberado — verificado).
-function generateStory(genre, onChunk, userWords = [], options = {}) {
-  if (isExtension) {
-    return new Promise((resolve) => {
-      chrome.runtime.sendMessage({ action: 'ai_generate_story', genre, options }, resolve);
-    });
-  }
-  return generateStoryWeb(genre, onChunk, userWords, options).catch((e) => ({ error: e.message }));
-}
-
-// Palavras pro REENCONTRO na história (Marco 3): fracas primeiro (isWeakCard:
-// 2+ lapsos/leech), depois as em aprendizado mais recentes — até 8.
-async function getReencounterWords() {
-  try {
-    const [cards, words] = await Promise.all([db.getAllCards(), db.getAllWords()]);
-    const wordById = {};
-    words.forEach(w => { wordById[w.id] = w; });
-    const nameOf = (c) => wordById[c.word_id]?.word;
-    const weak = cards
-      .filter(c => !c.suspended && isWeakCard(c))
-      .sort((a, b) => (b.lapses || 0) - (a.lapses || 0))
-      .map(nameOf).filter(Boolean);
-    const inProgress = cards
-      .filter(c => !c.suspended && (c.status === 'learning' || c.status === 'review'))
-      .sort((a, b) => new Date(b.last_review || 0) - new Date(a.last_review || 0))
-      .map(nameOf).filter(Boolean);
-    return [...new Set([...weak, ...inProgress])].slice(0, 8);
-  } catch { return []; }
-}
-
-async function translateText(text) {
-  if (!text || typeof text !== 'string') return null;
-  const clean = text.trim();
-  if (!clean) return null;
-
-  const cleanLower = clean.toLowerCase().replace(/[^a-zA-Z0-9'-]/g, '');
-  const tokenLemma = lemma(cleanLower) || cleanLower;
-
-  // 1. Cache do cofre ou memória imediato (0ms)
-  if (vaultTranslations.has(cleanLower)) return vaultTranslations.get(cleanLower);
-  if (vaultTranslations.has(tokenLemma)) return vaultTranslations.get(tokenLemma);
-  const memoryKey = `en:pt:${cleanLower}`;
-  if (translator.memoryCache?.has(memoryKey)) return translator.memoryCache.get(memoryKey);
-
-  // 2. Extensão: se estiver dentro de página da extensão (chrome-extension:)
-  if (isExtension) {
-    const extTrans = await new Promise((resolve) => {
-      try {
-        chrome.runtime.sendMessage({ action: 'translate', text: clean, from: 'en', to: 'pt' }, (res) => {
-          if (chrome.runtime.lastError || !res?.translation) {
-            resolve(null);
-          } else {
-            resolve(res.translation);
-          }
-        });
-      } catch {
-        resolve(null);
-      }
-    });
-    if (extTrans) {
-      vaultTranslations.set(cleanLower, extTrans);
-      return extTrans;
-    }
-  }
-
-  // 3. Tradutor universal (Cache multinível, Dicionário offline, Google, MyMemory)
-  try {
-    const res = await translator.translate(clean, 'en', 'pt');
-    if (res?.translation) {
-      vaultTranslations.set(cleanLower, res.translation);
-      return res.translation;
-    }
-  } catch (e) {
-    console.warn('[Stories] translator.translate falhou:', e);
-  }
-
-  // 4. Fallback direto MyMemory (CORS liberado no ambiente web)
-  try {
-    const fallback = await translator._fetchMyMemory(clean, 'en', 'pt');
-    if (fallback) {
-      vaultTranslations.set(cleanLower, fallback);
-      return fallback;
-    }
-  } catch {}
-
-  // 5. Fallback via IA para frases ou quando APIs externas forem bloqueadas
-  if (clean.includes(' ') || clean.length > 20) {
-    try {
-      const aiFallback = await translateSentenceWithAI(clean);
-      if (aiFallback) {
-        vaultTranslations.set(cleanLower, aiFallback);
-        return aiFallback;
-      }
-    } catch {}
-  }
-
-  return null;
-}
-
-async function translateSentenceWithAI(sentence) {
-  if (!sentence || typeof sentence !== 'string') return '';
-  const clean = sentence.trim();
-  if (!clean) return '';
-  try {
-    const system = 'Você é um tradutor especialista de inglês para português brasileiro natural. Traduza a frase a seguir de forma direta e concisa, sem aspas, sem explicações e sem introduções.';
-    const res = await aiChat(
-      [{ role: 'system', content: system }, { role: 'user', content: clean }],
-      { temperature: 0.1, max_tokens: 300 }
-    );
-    return res ? res.trim().replace(/^["“']|["”']$/g, '') : '';
-  } catch (err) {
-    console.warn('[Stories] translateSentenceWithAI falhou:', err);
-    return '';
-  }
-}
 
 export function renderStories(container, app) {
   storiesDocumentController?.abort();

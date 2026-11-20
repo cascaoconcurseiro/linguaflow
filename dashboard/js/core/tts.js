@@ -5,9 +5,9 @@
 
 import { db as lfDb } from '../../../utils/db.js';
 import { ExclusivePlayback } from '../../../utils/exclusive-playback.js';
+import { isExtensionContext as isExtension } from './env.js';
 
 const TTS_PROXY_URL = 'https://qnutoswrufznztoznlql.supabase.co/functions/v1/tts';
-const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id && (typeof location === 'undefined' || location.protocol === 'chrome-extension:');
 
 let currentAudioObj = null;
 const playback = new ExclusivePlayback(() => window.speechSynthesis);

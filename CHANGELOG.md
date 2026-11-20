@@ -1,5 +1,11 @@
 # Changelog
 
+## Refatoração dos arquivos grandes, sem mudança de comportamento (#565)
+- `studyView.js` (2.709 → ~2.250 linhas), `storiesView.js` (1.557 → ~1.370) e `service-worker.js` (1.657 → ~950) perderam os blocos autocontidos, que viraram módulos de uma responsabilidade: `ui/study/` (Youglish, feedback, texto/intervalos, janelas do cartão), `ui/stories/` (formato, tradução, geração) e `background/` (`dictionary.js`, `ai-requests.js`, `word-classifier.js`). O fluxo central de cada arquivo ficou onde estava; o que dependia de dezenas de variáveis da tela (clique na palavra, histórico) foi deixado de fora de propósito.
+- A checagem "estou na extensão?" estava copiada em 7 arquivos (a de Histórias divergia das demais); agora existe uma só, em `dashboard/js/core/env.js`.
+- Novo teste `import-exports-resolve`: todo nome importado de um módulo local precisa ser exportado por ele. Ele nasceu de um erro real da própria refatoração (uma função importada e não exportada, que derrubaria a tela de Histórias e que lint, knip e testes de texto não perceberam), provado reintroduzindo o erro.
+- Testes que liam o texto desses arquivos passam a usar ajudantes que reúnem os módulos (`tests/helpers/*-source.mjs`); nenhuma asserção foi removida ou enfraquecida.
+
 ## [3.0.68] - 2026-11-19 — Privacidade das frases e retenção de cópias (#559, parte 3)
 - **Privacidade (decisão de produto):** o cache compartilhado de palavras continua economizando IA, mas cada aluno agora só recebe a frase de contexto que ele mesmo está estudando, por correspondência exata. Antes, qualquer aluno logado via até 20 frases enviadas por outros alunos (vídeo, Leitor, histórias), inclusive trechos de textos pessoais. Tradução e pronúncia da palavra seguem compartilhadas. Migration `20261119170000_canonical_lexicon_private_contexts.sql` (**aplicada em produção**): a tabela deixa de ser lida diretamente e o acesso passa por `get_canonical_lexicon` e `get_or_cache_canonical_lexicon`, que exigem login e filtram pela frase. Teste de comportamento com dois alunos em `tests/sql/canonical-lexicon-privacy.sql`.
 - **Compatibilidade:** versões antigas da extensão (3.0.67 ou anterior) leem o léxico direto da tabela; a leitura passa a falhar e elas seguem pela IA, perdendo só a economia de cache até atualizar para a 3.0.68.

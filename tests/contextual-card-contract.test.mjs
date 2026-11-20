@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { readPopupSource } from './helpers/popup-source.mjs';
+import { readServiceWorkerSource } from './helpers/service-worker-source.mjs';
+import { readStudySource } from './helpers/study-source.mjs';
 
 const read = (file) => readFile(new URL('../' + file, import.meta.url), 'utf8');
 const [popup, worker, webAi, study] = await Promise.all([
   readPopupSource(),
-  read('background/service-worker.js'),
+  readServiceWorkerSource(),
   read('dashboard/js/core/ai.js'),
-  read('dashboard/js/ui/studyView.js'),
+  readStudySource(),
 ]);
 
 assert.match(popup, /mergeContextualChunks\(this\.generatedChunks/);
